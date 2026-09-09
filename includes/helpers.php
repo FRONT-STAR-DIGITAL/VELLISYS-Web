@@ -757,11 +757,13 @@ function product_po_box(): string
 function old_way_photos(): array
 {
     return [
-        'assets/img/landing/old-whatsapp.png',
-        'assets/img/landing/old-telegram.png',
-        'assets/img/landing/old-notebook.png',
-        'assets/img/landing/old-spreadsheet.png',
-        'assets/img/landing/old-paper.png',
+        'assets/img/landing/old-receipt-1.jpg',
+        'assets/img/landing/old-receipt-2.jpg',
+        'assets/img/landing/old-receipt-3.jpg',
+        'assets/img/landing/old-receipt-4.jpg',
+        'assets/img/landing/old-receipt-5.jpg',
+        'assets/img/landing/old-receipt-6.jpg',
+        'assets/img/landing/old-receipt-7.jpg',
     ];
 }
 
