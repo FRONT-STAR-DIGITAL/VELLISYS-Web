@@ -1,20 +1,22 @@
 # Folio
 
-Annual branded books for Ugandan SMEs — quotations, invoices, receipts, expenses and headed letters in the company’s own logo and colour.
+Annual branded books for Ugandan SMEs — quotations, invoices, receipts, expenses and headed correspondence in the company’s own logo and colour. Montserrat throughout.
 
 This is a **PHP + MySQL** desk meant to run on **XAMPP**. There is no Node or Next.js. Copy the folder, start Apache and MySQL, open the installer.
 
 ## What you get
 
-- Sign-in page with estate and desk photography. Demo: `accounts@ofagros.org` / `folio2026`
-- **Settings** for logo, colour (picker + hex), letterhead, bank and document copy — colour fills the navigation bar
-- Icons on navigation, actions, quick add and reports
-- Documents with actions: view, print/PDF, email, convert quotation → invoice, take a receipt, void
-- Click a client to see invoices, quotations, receipts, letters and expenses, plus buttons to add each
-- **Quick add** (top right) for invoice, quotation, receipt, expense, letter or client
+- Sign-in with a **show password** control. Company desk: `accounts@ofagros.org` / `folio2026`
+- **Platform admin** at `admin@folio.ug` / `folio-admin-2026` — create companies, issue desk logins, set stationery, onboard, mark live
+- Static (fixed) navigation; portal background is a plain diagonal-line pattern, not a photo
+- **Correspondence** (never labelled “Letter”) with five headed templates: demand for payment, covering note, appointment, credit, overdue notice
+- **Expenses** as cards when you open them; lists of expenses, debtors and creditors are tables with row actions and totals
+- Separate **Debtors** (receipt / remind) and **Creditors** (pay supplier) menus
+- Date filters on list pages: today, this week, last week, this month, last month, plus start and end date
+- Reports with a time series, expense pie chart and debtors aging bar chart (Chart.js)
+- Settings for logo, colour, stationery, bank and document copy
 - Email sends **From** the signed-in account
 - SME VAT 18% and a demo EFRIS fiscal mark (not live URA accreditation)
-- Tight reports: P&amp;L, VAT, debtors aging, expenses by category, cash book
 - No stock module
 
 Plans (this demo does not take payment): Starter UGX 150,000 / year · SME UGX 250,000 · Office UGX 350,000.
@@ -30,7 +32,7 @@ Plans (this demo does not take payment): Starter UGX 150,000 / year · SME UGX 2
 
    `http://localhost/folio/install.php`
 
-   That creates the `folio` database, tables, Ofagros demo data and the login account.
+   That creates the `folio` database, tables, Ofagros demo data, the company login and the platform admin.
 
 4. Sign in at `http://localhost/folio/login.php`.
 
@@ -51,7 +53,7 @@ Print / PDF uses the browser print dialog (Save as PDF).
 ```bash
 # MySQL/MariaDB must be running. Then:
 php install.php
-php -S 127.0.0.1:43219 router.php
+php -S 127.0.0.1:43219 -t . router.php
 ```
 
 Open http://127.0.0.1:43219/login.php

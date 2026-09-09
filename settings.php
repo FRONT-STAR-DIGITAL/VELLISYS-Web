@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
-$user = require_login();
+$user = require_member();
 
 $brand = branding();
 $error = '';
@@ -35,8 +35,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if ($error === '') {
         db_exec(
-            'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, plan=? WHERE id=1',
-            'ssssssssssssssssss',
+            'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, plan=? WHERE company_id=?',
+            'ssssssssssssssssssi',
             [
                 post('name'),
                 post('tagline'),
@@ -56,6 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 post('payment_note'),
                 post('invoice_comments'),
                 post('plan') ?: 'sme',
+                current_company_id(),
             ]
         );
         branding(true);

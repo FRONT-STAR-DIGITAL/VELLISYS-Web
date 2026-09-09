@@ -23,23 +23,37 @@ foreach (array_filter(array_map('trim', explode(';', $sql))) as $stmt) {
     }
 }
 
-$exists = $db->query('SELECT COUNT(*) c FROM users')->fetch_assoc();
+require_once ROOT_PATH . '/includes/migrate.php';
+folio_migrate($db);
+
+$exists = $db->query('SELECT COUNT(*) c FROM users WHERE role = \'member\'')->fetch_assoc();
 if ((int) $exists['c'] === 0) {
+    $cidRow = $db->query('SELECT id FROM companies ORDER BY id LIMIT 1')->fetch_assoc();
+    $companyId = (int) ($cidRow['id'] ?? 0);
+    if ($companyId <= 0) {
+        $db->query("INSERT INTO companies (name, status, plan) VALUES ('Ofagros Limited', 'live', 'sme')");
+        $companyId = (int) $db->insert_id;
+    }
+
     $hash = password_hash('folio2026', PASSWORD_DEFAULT);
-    $ins = $db->prepare('INSERT INTO users (name, email, password_hash) VALUES (?,?,?)');
+    $ins = $db->prepare('INSERT INTO users (name, email, password_hash, role, company_id) VALUES (?,?,?,?,?)');
     $n = 'Accounts';
     $e = 'accounts@ofagros.org';
-    $ins->bind_param('sss', $n, $e, $hash);
+    $role = 'member';
+    $ins->bind_param('ssssi', $n, $e, $hash, $role, $companyId);
     $ins->execute();
     $userId = $ins->insert_id;
 
-    $db->query("INSERT INTO branding (id, name, tagline, tin, vat_no, address, city, phone, email, website, bank_name, account_name, account_number, brand_color, logo_path, prefix, payment_note, invoice_comments, plan)
-    VALUES (1, 'Ofagros Limited', 'Solutions for agriculture', '1000890123', '1000890123',
-    'Kampala, Central Region, Uganda', 'Kampala, Uganda', '+256 788 141 342', 'ofagrosltd@gmail.com', 'www.ofagros.org',
-    'Stanbic Bank Uganda', 'Ofagros Limited', '9030008844211', '#82B440', 'assets/img/ofagros-logo.png', 'OFG',
-    'Make payment to Ofagros Limited, Kampala.',
-    '1. Payment is due by the date shown above.\n2. Pay through the Ofagros client portal.\n3. Farm work starts after this invoice is marked paid.',
-    'sme')");
+    $brandRow = $db->query("SELECT id FROM branding WHERE company_id = {$companyId}")->fetch_assoc();
+    if (!$brandRow) {
+        $db->query("INSERT INTO branding (company_id, name, tagline, tin, vat_no, address, city, phone, email, website, bank_name, account_name, account_number, brand_color, logo_path, prefix, payment_note, invoice_comments, plan)
+        VALUES ({$companyId}, 'Ofagros Limited', 'Solutions for agriculture', '1000890123', '1000890123',
+        'Kampala, Central Region, Uganda', 'Kampala, Uganda', '+256 788 141 342', 'ofagrosltd@gmail.com', 'www.ofagros.org',
+        'Stanbic Bank Uganda', 'Ofagros Limited', '9030008844211', '#82B440', 'assets/img/ofagros-logo.png', 'OFG',
+        'Make payment to Ofagros Limited, Kampala.',
+        '1. Payment is due by the date shown above.\n2. Pay through the Ofagros client portal.\n3. Farm work starts after this invoice is marked paid.',
+        'sme')");
+    }
 
     $parties = [
         ['Demo Visitor', 'customer', null, '+256700000001', 'demo@ofagros.com', 'Kampala, Uganda'],
@@ -49,9 +63,9 @@ if ((int) $exists['c'] === 0) {
         ['SeedCo Uganda Ltd', 'supplier', '1000038891', '+256 414 566 200', null, 'Namanve Industrial Park'],
         ['Vivo Energy Uganda', 'supplier', '1000023301', null, null, 'Kampala'],
     ];
-    $pstmt = $db->prepare('INSERT INTO parties (name, kind, tin, phone, email, address) VALUES (?,?,?,?,?,?)');
+    $pstmt = $db->prepare('INSERT INTO parties (company_id, name, kind, tin, phone, email, address) VALUES (?,?,?,?,?,?,?)');
     foreach ($parties as $p) {
-        $pstmt->bind_param('ssssss', $p[0], $p[1], $p[2], $p[3], $p[4], $p[5]);
+        $pstmt->bind_param('issssss', $companyId, $p[0], $p[1], $p[2], $p[3], $p[4], $p[5]);
         $pstmt->execute();
     }
 

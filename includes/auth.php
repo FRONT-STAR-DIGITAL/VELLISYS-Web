@@ -6,7 +6,7 @@ function current_user(): ?array
     if (empty($_SESSION['user_id'])) {
         return null;
     }
-    return db_one('SELECT id, name, email FROM users WHERE id = ?', 'i', [(int) $_SESSION['user_id']]);
+    return db_one('SELECT id, name, email, role, company_id FROM users WHERE id = ?', 'i', [(int) $_SESSION['user_id']]);
 }
 
 function require_login(): array
@@ -18,6 +18,24 @@ function require_login(): array
     return $user;
 }
 
+function require_member(): array
+{
+    $user = require_login();
+    if (($user['role'] ?? '') === 'platform') {
+        redirect('admin_companies.php');
+    }
+    return $user;
+}
+
+function require_platform(): array
+{
+    $user = require_login();
+    if (($user['role'] ?? '') !== 'platform') {
+        redirect('dashboard.php');
+    }
+    return $user;
+}
+
 function attempt_login(string $email, string $password): bool
 {
     $user = db_one('SELECT * FROM users WHERE email = ?', 's', [strtolower($email)]);
@@ -25,5 +43,7 @@ function attempt_login(string $email, string $password): bool
         return false;
     }
     $_SESSION['user_id'] = (int) $user['id'];
+    $_SESSION['company_id'] = (int) ($user['company_id'] ?? 0);
+    $_SESSION['role'] = $user['role'] ?? 'member';
     return true;
 }

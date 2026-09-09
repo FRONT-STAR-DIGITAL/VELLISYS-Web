@@ -33,3 +33,32 @@ document.addEventListener('click', function (e) {
   hex.addEventListener('input', function () { apply(hex.value); });
   hex.addEventListener('change', function () { apply(hex.value); });
 })();
+
+document.querySelectorAll('[data-toggle-password]').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    var wrap = btn.closest('.field-control');
+    var input = wrap ? wrap.querySelector('input') : null;
+    if (!input) return;
+    var show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    var on = btn.querySelector('[data-eye]');
+    var off = btn.querySelector('[data-eye-off]');
+    if (on) on.hidden = show;
+    if (off) off.hidden = !show;
+    btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    btn.setAttribute('title', show ? 'Hide password' : 'Show password');
+  });
+});
+
+document.querySelectorAll('[data-letter-templates]').forEach(function (form) {
+  var subject = form.querySelector('#subject');
+  var body = form.querySelector('#body');
+  form.querySelectorAll('input[name="letter_template"]').forEach(function (radio) {
+    radio.addEventListener('change', function () {
+      var card = radio.closest('.template-card');
+      if (!card) return;
+      if (subject) subject.value = card.getAttribute('data-subject') || '';
+      if (body) body.value = card.getAttribute('data-body') || '';
+    });
+  });
+});

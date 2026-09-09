@@ -1,0 +1,194 @@
+<?php
+declare(strict_types=1);
+require __DIR__ . '/includes/bootstrap.php';
+$user = require_platform();
+
+$error = '';
+$showNew = isset($_GET['new']) || ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'create');
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'create') {
+    csrf_check();
+    $name = post('name');
+    $plan = post('plan') ?: 'sme';
+    if (!in_array($plan, ['starter', 'sme', 'office'], true)) {
+        $plan = 'sme';
+    }
+    $userName = post('user_name');
+    $userEmail = strtolower(post('user_email'));
+    $password = post('user_password') ?: 'folio2026';
+    $color = strtoupper(post('brand_color') ?: '#82B440');
+    if (!preg_match('/^#[0-9A-F]{6}$/', $color)) {
+        $color = '#82B440';
+    }
+    if ($name === '' || $userName === '' || !filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
+        $error = 'Company name, desk user and a valid email are required.';
+        $showNew = true;
+    } elseif (db_one('SELECT id FROM users WHERE email = ?', 's', [$userEmail])) {
+        $error = 'That email already has a Folio login.';
+        $showNew = true;
+    } else {
+        $cid = db_exec(
+            'INSERT INTO companies (name, status, plan, notes) VALUES (?,?,?,?)',
+            'ssss',
+            [$name, 'onboarding', $plan, post('notes') ?: null]
+        );
+        $prefix = strtoupper(post('prefix') ?: prefix_from_name($name));
+        db_exec(
+            'INSERT INTO branding (company_id, name, tagline, tin, vat_no, address, city, phone, email, website, bank_name, account_name, account_number, brand_color, logo_path, prefix, payment_note, invoice_comments, plan)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            'issssssssssssssssss',
+            [
+                $cid,
+                $name,
+                post('tagline'),
+                post('tin'),
+                post('vat_no'),
+                post('address'),
+                post('city') ?: 'Kampala, Uganda',
+                post('phone'),
+                $userEmail,
+                post('website'),
+                post('bank_name'),
+                $name,
+                post('account_number'),
+                $color,
+                'assets/img/ofagros-logo.png',
+                $prefix,
+                'Make payment to ' . $name . '.',
+                "1. Payment is due by the date shown above.\n2. Quote the invoice number on the transfer.",
+                $plan,
+            ]
+        );
+        $hash = password_hash($password, PASSWORD_DEFAULT);
+        db_exec(
+            'INSERT INTO users (name, email, password_hash, role, company_id) VALUES (?,?,?,?,?)',
+            'ssssi',
+            [$userName, $userEmail, $hash, 'member', $cid]
+        );
+        flash($name . ' is ready for onboarding. Share the desk login with ' . $userEmail . '.');
+        redirect('admin_company.php?id=' . $cid);
+    }
+}
+
+$companies = db_all(
+    'SELECT c.*,
+            (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id) AS users,
+            (SELECT COUNT(*) FROM documents d WHERE d.company_id = c.id) AS docs
+     FROM companies c ORDER BY c.id DESC'
+);
+
+layout_admin_start('Companies', $user);
+?>
+<div class="page-head">
+  <div>
+    <h1><?= icon('building') ?>Companies</h1>
+    <p class="lede">Create a desk, issue the first login, set stationery, then mark the company live.</p>
+  </div>
+  <a class="btn" href="<?= h(url('admin_companies.php?new=1')) ?>"><?= icon('plus') ?>New company</a>
+</div>
+
+<?php if ($error): ?><p class="flash flash-err" style="margin:0 0 16px"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
+
+<?php if ($showNew): ?>
+<form class="card form-wide" method="post" style="margin-bottom:24px">
+  <?= csrf_field() ?>
+  <input type="hidden" name="action" value="create">
+  <h2 style="margin:18px 0 4px">Onboard a company</h2>
+  <p class="lede">This creates the company, stationery defaults, and the first desk login.</p>
+  <div class="form-grid">
+    <div>
+      <label for="name">Company name</label>
+      <input id="name" name="name" required value="<?= h(post('name')) ?>">
+    </div>
+    <div>
+      <label for="plan">Plan</label>
+      <select id="plan" name="plan">
+        <?php foreach (['starter' => 'Starter — UGX 150,000 / year', 'sme' => 'SME — UGX 250,000 / year', 'office' => 'Office — UGX 350,000 / year'] as $k => $label): ?>
+          <option value="<?= h($k) ?>" <?= (post('plan') ?: 'sme') === $k ? 'selected' : '' ?>><?= h($label) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div>
+      <label for="user_name">First user</label>
+      <input id="user_name" name="user_name" required value="<?= h(post('user_name')) ?>" placeholder="Accounts">
+    </div>
+    <div>
+      <label for="user_email">Desk email</label>
+      <input id="user_email" name="user_email" type="email" required value="<?= h(post('user_email')) ?>">
+    </div>
+    <div>
+      <label for="user_password">Temporary password</label>
+      <input id="user_password" name="user_password" value="<?= h(post('user_password') ?: 'folio2026') ?>">
+    </div>
+    <div>
+      <label for="prefix">Document prefix</label>
+      <input id="prefix" name="prefix" maxlength="8" value="<?= h(post('prefix')) ?>" placeholder="OFG">
+    </div>
+    <div>
+      <label for="brand_color">Brand colour</label>
+      <div class="color-row">
+        <input type="color" name="brand_color" value="<?= h(post('brand_color') ?: '#82B440') ?>">
+        <input type="text" name="brand_color_hex" value="<?= h(post('brand_color') ?: '#82B440') ?>" data-color-hex>
+      </div>
+    </div>
+    <div>
+      <label for="tin">TIN</label>
+      <input id="tin" name="tin" value="<?= h(post('tin')) ?>">
+    </div>
+    <div>
+      <label for="phone">Phone</label>
+      <input id="phone" name="phone" value="<?= h(post('phone')) ?>">
+    </div>
+    <div>
+      <label for="city">City</label>
+      <input id="city" name="city" value="<?= h(post('city') ?: 'Kampala, Uganda') ?>">
+    </div>
+  </div>
+  <label for="address">Address</label>
+  <input id="address" name="address" value="<?= h(post('address')) ?>">
+  <label for="tagline">Tagline</label>
+  <input id="tagline" name="tagline" value="<?= h(post('tagline')) ?>">
+  <label for="notes">Internal notes</label>
+  <textarea id="notes" name="notes" rows="3"><?= h(post('notes')) ?></textarea>
+  <div class="actions" style="margin-top:16px">
+    <button class="btn" type="submit"><?= icon('check') ?>Create company</button>
+    <a class="btn ghost" href="<?= h(url('admin_companies.php')) ?>">Cancel</a>
+  </div>
+</form>
+<?php endif; ?>
+
+<div class="card">
+  <?php if (!$companies): ?>
+    <p class="empty">No companies yet. <a href="<?= h(url('admin_companies.php?new=1')) ?>">Onboard the first one</a>.</p>
+  <?php else: ?>
+    <table class="grid">
+      <thead>
+        <tr>
+          <th>Company</th>
+          <th>Status</th>
+          <th>Plan</th>
+          <th>Users</th>
+          <th>Documents</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($companies as $c): ?>
+          <tr>
+            <td><a href="<?= h(url('admin_company.php?id=' . $c['id'])) ?>"><strong><?= h($c['name']) ?></strong></a></td>
+            <td><span class="pill<?= $c['status'] === 'live' ? '' : ($c['status'] === 'suspended' ? ' bad' : ' warn') ?>"><?= h($c['status']) ?></span></td>
+            <td><?= h(strtoupper((string) $c['plan'])) ?></td>
+            <td class="mono"><?= (int) $c['users'] ?></td>
+            <td class="mono"><?= (int) $c['docs'] ?></td>
+            <td class="row-actions">
+              <div class="actions">
+                <a class="btn sm" href="<?= h(url('admin_company.php?id=' . $c['id'])) ?>"><?= icon('eye', 14) ?>Open</a>
+              </div>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  <?php endif; ?>
+</div>
+<?php layout_end(); ?>

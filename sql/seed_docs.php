@@ -15,7 +15,10 @@ function seed_esc(mysqli $db, $value): string
 
 function seed_doc(mysqli $db, array $d, array $items): void
 {
-    $sql = 'INSERT INTO documents (kind, sequence, number, date, due_date, party_id, vat_rate, notes, subject, body, status, related_id, payment_method, payment_ref, allocated_amount, expense_category, created_by) VALUES ('
+    global $companyId;
+    $cid = (int) ($d['company_id'] ?? $companyId ?? 1);
+    $sql = 'INSERT INTO documents (company_id, kind, sequence, number, date, due_date, party_id, vat_rate, notes, subject, body, status, related_id, payment_method, payment_ref, allocated_amount, expense_category, letter_template, created_by) VALUES ('
+        . $cid . ','
         . seed_esc($db, $d['kind']) . ','
         . (int) $d['sequence'] . ','
         . seed_esc($db, $d['number']) . ','
@@ -32,6 +35,7 @@ function seed_doc(mysqli $db, array $d, array $items): void
         . seed_esc($db, $d['ref']) . ','
         . seed_esc($db, $d['alloc']) . ','
         . seed_esc($db, $d['cat']) . ','
+        . seed_esc($db, $d['template'] ?? null) . ','
         . (int) $d['user']
         . ')';
     if (!$db->query($sql)) {
@@ -156,7 +160,8 @@ seed_doc($db, array_merge($base, [
 
 seed_doc($db, array_merge($base, [
     'kind' => 'letter', 'sequence' => 1, 'number' => 'OFG-LTR-2026-0001', 'date' => '2026-09-01',
-    'party' => $nile, 'subject' => 'Demand for the balance on OFG-INV-2026-0002',
+    'party' => $nile, 'subject' => 'Demand for payment',
+    'template' => 'demand',
     'body' => "Dear Accounts,\n\nWe write in respect of our invoice for washed arabica delivered in June. We acknowledge your transfer of UGX 20,000,000 and kindly request settlement of the remaining balance within seven days.\n\nYours faithfully,\nAccounts\nOfagros Limited",
 ]), [
     ['—', 1, 'lot', 0, 0],

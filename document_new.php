@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
-$user = require_login();
+$user = require_member();
 
 $kind = $_GET['kind'] ?? post('kind') ?: 'invoice';
 if (!in_array($kind, ['invoice', 'quotation', 'receipt', 'expense', 'letter'], true)) {
@@ -57,23 +57,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'payment_ref' => post('payment_ref') ?: null,
         'allocated_amount' => $kind === 'receipt' ? (int) preg_replace('/\D/', '', post('allocated_amount') ?: '0') : null,
         'expense_category' => post('expense_category') ?: null,
+        'letter_template' => post('letter_template') ?: null,
         'items' => $items,
     ]);
     flash($meta['singular'] . ' ' . load_document($id)['number'] . ' saved.');
     redirect('document_view.php?id=' . $id);
 }
 
+$tplKey = $_GET['template'] ?? post('letter_template') ?: 'demand';
+$templates = letter_templates();
+if (!isset($templates[$tplKey])) {
+    $tplKey = 'demand';
+}
+$prefillTpl = $templates[$tplKey];
+if ($related) {
+    $rel = load_document($related);
+    if ($rel) {
+        $prefillTpl['subject'] = $prefillTpl['subject'] . ' — ' . $rel['number'];
+    }
+}
 $blankLines = $kind === 'letter' ? [] : array_fill(0, 4, ['description' => '', 'qty' => 1, 'unit' => 'lot', 'rate' => '', 'taxed' => $planVat > 0]);
 layout_start($meta['verb'], $user, ['kind' => $kind]);
 ?>
 <div class="page-head">
   <div>
     <h1><?= icon($kind) ?><?= h($meta['verb']) ?></h1>
-    <p class="lede">Client, description, amount<?= $kind === 'invoice' ? ', due date' : '' ?>. Numbering and branding are applied for you.</p>
+    <p class="lede"><?= $kind === 'letter' ? 'Pick a headed template, then edit the body. Stationery is applied from Settings.' : 'Client, description, amount' . ($kind === 'invoice' ? ', due date' : '') . '. Numbering and branding are applied for you.' ?></p>
   </div>
 </div>
 
-<form class="card form-wide" method="post">
+<form class="card form-wide" method="post" <?= $kind === 'letter' ? 'data-letter-templates' : '' ?>>
   <?= csrf_field() ?>
   <input type="hidden" name="kind" value="<?= h($kind) ?>">
   <input type="hidden" name="related_id" value="<?= $related ?>">
@@ -126,10 +139,20 @@ layout_start($meta['verb'], $user, ['kind' => $kind]);
   </div>
 
   <?php if ($kind === 'letter'): ?>
+    <label>Template</label>
+    <div class="template-grid">
+      <?php foreach ($templates as $key => $tpl): ?>
+        <label class="template-card" data-subject="<?= h($tpl['subject']) ?>" data-body="<?= h($tpl['body']) ?>">
+          <input type="radio" name="letter_template" value="<?= h($key) ?>" <?= $tplKey === $key ? 'checked' : '' ?>>
+          <strong><?= h($tpl['title']) ?></strong>
+          <em><?= h($tpl['heading']) ?></em>
+        </label>
+      <?php endforeach; ?>
+    </div>
     <label for="subject">Subject</label>
-    <input id="subject" name="subject" required placeholder="Demand for the balance on…">
-    <label for="body">Letter</label>
-    <textarea id="body" name="body" rows="12" required></textarea>
+    <input id="subject" name="subject" required value="<?= h($prefillTpl['subject']) ?>">
+    <label for="body">Body</label>
+    <textarea id="body" name="body" rows="12" required><?= h($prefillTpl['body']) ?></textarea>
   <?php else: ?>
     <?php if ($planVat > 0 && $kind !== 'receipt'): ?>
       <label class="check">

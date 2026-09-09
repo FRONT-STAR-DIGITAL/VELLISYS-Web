@@ -1,13 +1,14 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
-$user = require_login();
+$user = require_member();
 
-$parties = db_all('SELECT * FROM parties ORDER BY name');
+$cid = current_company_id();
+$parties = db_all('SELECT * FROM parties WHERE company_id = ? ORDER BY name', 'i', [$cid]);
 foreach ($parties as &$p) {
-    $p['invoices'] = (int) (db_one("SELECT COUNT(*) c FROM documents WHERE party_id = ? AND kind = 'invoice' AND status = 'issued'", 'i', [$p['id']])['c'] ?? 0);
-    $p['quotes'] = (int) (db_one("SELECT COUNT(*) c FROM documents WHERE party_id = ? AND kind = 'quotation' AND status = 'issued'", 'i', [$p['id']])['c'] ?? 0);
-    $p['receipts'] = (int) (db_one("SELECT COUNT(*) c FROM documents WHERE party_id = ? AND kind = 'receipt' AND status = 'issued'", 'i', [$p['id']])['c'] ?? 0);
+    $p['invoices'] = (int) (db_one("SELECT COUNT(*) c FROM documents WHERE company_id = ? AND party_id = ? AND kind = 'invoice' AND status = 'issued'", 'ii', [$cid, $p['id']])['c'] ?? 0);
+    $p['quotes'] = (int) (db_one("SELECT COUNT(*) c FROM documents WHERE company_id = ? AND party_id = ? AND kind = 'quotation' AND status = 'issued'", 'ii', [$cid, $p['id']])['c'] ?? 0);
+    $p['receipts'] = (int) (db_one("SELECT COUNT(*) c FROM documents WHERE company_id = ? AND party_id = ? AND kind = 'receipt' AND status = 'issued'", 'ii', [$cid, $p['id']])['c'] ?? 0);
 }
 unset($p);
 
@@ -16,7 +17,7 @@ layout_start('Clients', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('clients') ?>Clients</h1>
-    <p class="lede">Open a name to invoice, quote, receipt, write a letter, or see their documents.</p>
+    <p class="lede">Open a name to invoice, quote, receipt, write correspondence, or see their documents.</p>
   </div>
   <a class="btn" href="<?= h(url('client_edit.php')) ?>"><?= icon('plus') ?>New client</a>
 </div>

@@ -1,11 +1,77 @@
 <?php
 declare(strict_types=1);
 
+function render_expense_card(array $brand, array $doc): void
+{
+    $color = $brand['brand_color'] ?: '#82B440';
+    $items = $doc['items'] ?? [];
+    $net = doc_subtotal($items);
+    $vat = doc_vat($items, (float) $doc['vat_rate']);
+    $total = $net + $vat;
+    $paid = $doc['paid'] ?? expense_paid((int) $doc['id']);
+    $balance = $doc['balance'] ?? max(0, $total - $paid);
+    $logo = logo_url();
+    ?>
+<article class="expense-card" style="--brand: <?= h($color) ?>">
+  <div class="expense-card-top">
+    <div>
+      <span>Expense</span>
+      <strong><?= h($doc['number']) ?></strong>
+    </div>
+    <div style="text-align:right">
+      <span><?= h(format_date($doc['date'])) ?></span>
+      <strong><?= h(ugx($total)) ?></strong>
+    </div>
+  </div>
+  <div class="expense-card-body">
+    <?php if ($doc['status'] === 'void'): ?>
+      <p style="color:#b42318;font-weight:700;margin-top:0">VOID — <?= h($doc['void_reason']) ?></p>
+    <?php endif; ?>
+    <div style="display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:16px">
+      <img src="<?= h($logo) ?>" alt="" style="height:36px;width:auto;max-width:180px;object-fit:contain">
+      <span class="pill"><?= h(invoice_status_label($doc)) ?></span>
+    </div>
+    <div class="expense-meta">
+      <div><span>Payee</span><b><?= h($doc['party_name'] ?? '') ?></b></div>
+      <div><span>Category</span><b><?= h($doc['expense_category'] ?: 'Other') ?></b></div>
+      <div><span>Paid how</span><b><?= h(payment_methods()[$doc['payment_method'] ?? ''] ?? ($doc['payment_method'] ?: '—')) ?></b></div>
+      <div><span>Reference</span><b><?= h($doc['payment_ref'] ?: '—') ?></b></div>
+    </div>
+    <table class="grid">
+      <thead><tr><th>Description</th><th class="right">Amount</th></tr></thead>
+      <tbody>
+        <?php foreach ($items as $item): ?>
+          <tr>
+            <td><?= h($item['description']) ?></td>
+            <td class="right mono"><?= h(ugx(line_amount($item))) ?></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+    <div class="expense-total"><span>Net</span><span><?= h(ugx($net)) ?></span></div>
+    <?php if ($vat): ?><div class="expense-total"><span>VAT</span><span><?= h(ugx($vat)) ?></span></div><?php endif; ?>
+    <div class="expense-total"><span>Total</span><span><?= h(ugx($total)) ?></span></div>
+    <div class="expense-total"><span>Paid</span><span><?= h(ugx($paid)) ?></span></div>
+    <div class="expense-total"><span>Balance</span><span><?= h(ugx($balance)) ?></span></div>
+    <?php if (!empty($doc['notes'])): ?>
+      <p class="hint" style="margin-top:14px;white-space:pre-wrap"><?= h($doc['notes']) ?></p>
+    <?php endif; ?>
+  </div>
+</article>
+<?php
+}
+
 function render_sheet(array $brand, array $doc): void
 {
+    if ($doc['kind'] === 'expense') {
+        render_expense_card($brand, $doc);
+        return;
+    }
+
     $color = $brand['brand_color'] ?: '#82B440';
     $tint = hex_tint($color, 0.92);
     $meta = kind_meta($doc['kind']);
+    $heading = $doc['kind'] === 'letter' ? letter_heading($doc) : $meta['heading'];
     $items = $doc['items'] ?? [];
     $net = doc_subtotal($items);
     $vat = doc_vat($items, (float) $doc['vat_rate']);
@@ -30,10 +96,10 @@ function render_sheet(array $brand, array $doc): void
       </div>
     </div>
     <div style="min-width:220px">
-      <p style="margin:0;text-align:right;font-size:36px;font-weight:700;color:<?= h($color) ?>"><?= h($meta['heading']) ?></p>
+      <p style="margin:0;text-align:right;font-size:28px;font-weight:700;color:<?= h($color) ?>"><?= h($heading) ?></p>
       <table class="meta" style="width:100%;margin-top:12px;border-collapse:collapse;font-size:11px">
         <tr><td class="k">DATE</td><td><?= h(format_date($doc['date'])) ?></td></tr>
-        <tr><td class="k"><?= $doc['kind'] === 'invoice' ? 'INVOICE #' : 'No.' ?></td><td><?= h($doc['number']) ?></td></tr>
+        <tr><td class="k">No.</td><td><?= h($doc['number']) ?></td></tr>
         <?php if (!empty($doc['due_date'])): ?>
           <tr><td class="k">DUE DATE</td><td><strong><?= h(format_date($doc['due_date'])) ?></strong></td></tr>
         <?php endif; ?>
@@ -43,7 +109,7 @@ function render_sheet(array $brand, array $doc): void
   <?php if ($doc['status'] === 'void'): ?>
     <p style="color:#b42318;font-weight:700">VOID — <?= h($doc['void_reason']) ?></p>
   <?php endif; ?>
-  <div class="bar" style="background:<?= h($color) ?>;margin-top:16px"><?= $doc['kind'] === 'letter' ? 'TO' : ($doc['kind'] === 'expense' ? 'PAYEE' : 'BILL TO') ?></div>
+  <div class="bar" style="background:<?= h($color) ?>;margin-top:16px"><?= $doc['kind'] === 'letter' ? 'TO' : 'BILL TO' ?></div>
   <div style="padding:8px 4px 14px;line-height:1.45">
     <strong><?= h($doc['party_name'] ?? '') ?></strong><br>
     <?= h($doc['party_address'] ?? '') ?><br>

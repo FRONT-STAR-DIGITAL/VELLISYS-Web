@@ -1,13 +1,26 @@
+CREATE TABLE IF NOT EXISTS companies (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(160) NOT NULL,
+  status ENUM('onboarding','live','suspended') NOT NULL DEFAULT 'onboarding',
+  plan ENUM('starter','sme','office') NOT NULL DEFAULT 'sme',
+  notes TEXT,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS users (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(120) NOT NULL,
   email VARCHAR(190) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  role ENUM('platform','member') NOT NULL DEFAULT 'member',
+  company_id INT UNSIGNED NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY company_id (company_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS branding (
-  id TINYINT UNSIGNED PRIMARY KEY,
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  company_id INT UNSIGNED NOT NULL,
   name VARCHAR(160) NOT NULL,
   tagline VARCHAR(180) DEFAULT '',
   tin VARCHAR(40) DEFAULT '',
@@ -25,22 +38,26 @@ CREATE TABLE IF NOT EXISTS branding (
   prefix VARCHAR(12) NOT NULL DEFAULT 'OFG',
   payment_note TEXT,
   invoice_comments TEXT,
-  plan ENUM('starter','sme','office') NOT NULL DEFAULT 'sme'
+  plan ENUM('starter','sme','office') NOT NULL DEFAULT 'sme',
+  UNIQUE KEY company_id (company_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS parties (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  company_id INT UNSIGNED NOT NULL,
   name VARCHAR(190) NOT NULL,
   kind ENUM('customer','supplier','both') NOT NULL DEFAULT 'customer',
   tin VARCHAR(40) DEFAULT NULL,
   phone VARCHAR(40) DEFAULT NULL,
   email VARCHAR(190) DEFAULT NULL,
   address VARCHAR(255) DEFAULT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY company_id (company_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS documents (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  company_id INT UNSIGNED NOT NULL,
   kind ENUM('quotation','invoice','receipt','expense','letter') NOT NULL,
   sequence INT UNSIGNED NOT NULL,
   number VARCHAR(64) NOT NULL,
@@ -58,13 +75,14 @@ CREATE TABLE IF NOT EXISTS documents (
   payment_ref VARCHAR(80) DEFAULT NULL,
   allocated_amount BIGINT DEFAULT NULL,
   expense_category VARCHAR(80) DEFAULT NULL,
+  letter_template VARCHAR(40) DEFAULT NULL,
   efris_fdn VARCHAR(40) DEFAULT NULL,
   efris_verification VARCHAR(16) DEFAULT NULL,
   efris_payload TEXT,
   created_by INT UNSIGNED DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY number (number),
-  KEY kind_seq (kind, sequence),
+  UNIQUE KEY company_number (company_id, number),
+  KEY kind_seq (company_id, kind, sequence),
   KEY party_id (party_id),
   CONSTRAINT fk_doc_party FOREIGN KEY (party_id) REFERENCES parties(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

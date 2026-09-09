@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
-$user = require_login();
+$user = require_member();
 
 $id = (int) ($_GET['id'] ?? 0);
 $doc = load_document($id);
@@ -21,6 +21,7 @@ if ($print) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= h($doc['number']) ?></title>
+  <?php folio_font_links(); ?>
   <link rel="stylesheet" href="<?= h(asset('css/app.css')) ?>">
   <style>:root { --brand: <?= h(brand_color()) ?>; }</style>
 </head>
@@ -35,6 +36,12 @@ if ($print) {
 
 layout_start(kind_meta($doc['kind'])['singular'] . ' ' . $doc['number'], $user, ['kind' => $doc['kind']]);
 require ROOT_PATH . '/includes/sheet.php';
+$ledeExtra = '';
+if ($doc['kind'] === 'invoice') {
+    $ledeExtra = ' · Balance ' . ugx(invoice_balance($doc));
+} elseif ($doc['kind'] === 'expense') {
+    $ledeExtra = ' · Balance ' . ugx(expense_balance($doc));
+}
 ?>
 <div class="page-head">
   <div>
@@ -42,21 +49,19 @@ require ROOT_PATH . '/includes/sheet.php';
     <p class="lede">
       <a href="<?= h(url('client_view.php?id=' . $doc['party_id'])) ?>"><?= h($doc['party_name']) ?></a>
       · <?= h(invoice_status_label($doc)) ?>
-      <?php if ($doc['kind'] === 'invoice'): ?>
-        · Balance <?= h(ugx(invoice_balance($doc))) ?>
-      <?php endif; ?>
+      <?= h($ledeExtra) ?>
     </p>
   </div>
   <?php render_doc_actions($doc, true); ?>
 </div>
 
-<div class="sheet-wrap">
+<div class="<?= $doc['kind'] === 'expense' ? '' : 'sheet-wrap' ?>">
   <?php render_sheet(branding(), $doc); ?>
 </div>
 
 <?php if ($emails): ?>
   <div class="card" style="margin-top:20px">
-    <div class="card-head"><h2><?= icon('letter', 16) ?>Emails sent</h2></div>
+    <div class="card-head"><h2><?= icon('send', 16) ?>Emails sent</h2></div>
     <table class="grid">
       <thead><tr><th>When</th><th>To</th><th>Subject</th><th>Status</th></tr></thead>
       <tbody>

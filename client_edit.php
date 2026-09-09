@@ -1,10 +1,11 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
-$user = require_login();
+$user = require_member();
 
 $id = (int) ($_GET['id'] ?? post('id'));
-$party = $id ? db_one('SELECT * FROM parties WHERE id = ?', 'i', [$id]) : null;
+$cid = current_company_id();
+$party = $id ? db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$id, $cid]) : null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
@@ -23,17 +24,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $address = post('address') ?: null;
     if ($id && $party) {
         db_exec(
-            'UPDATE parties SET name=?, kind=?, tin=?, phone=?, email=?, address=? WHERE id=?',
-            'ssssssi',
-            [$name, $kind, $tin, $phone, $email, $address, $id]
+            'UPDATE parties SET name=?, kind=?, tin=?, phone=?, email=?, address=? WHERE id=? AND company_id=?',
+            'ssssssii',
+            [$name, $kind, $tin, $phone, $email, $address, $id, $cid]
         );
         flash('Client updated.');
         redirect('client_view.php?id=' . $id);
     }
     $newId = db_exec(
-        'INSERT INTO parties (name, kind, tin, phone, email, address) VALUES (?,?,?,?,?,?)',
-        'ssssss',
-        [$name, $kind, $tin, $phone, $email, $address]
+        'INSERT INTO parties (company_id, name, kind, tin, phone, email, address) VALUES (?,?,?,?,?,?,?)',
+        'issssss',
+        [$cid, $name, $kind, $tin, $phone, $email, $address]
     );
     flash('Client added.');
     redirect('client_view.php?id=' . $newId);

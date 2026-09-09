@@ -1,19 +1,21 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
-$user = require_login();
+$user = require_member();
 
 $id = (int) ($_GET['id'] ?? 0);
-$party = db_one('SELECT * FROM parties WHERE id = ?', 'i', [$id]);
+$cid = current_company_id();
+$party = db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$id, $cid]);
 if (!$party) {
     flash('Client not found.', 'err');
     redirect('clients.php');
 }
 
+[$extra, $types, $params] = period_sql('d.date');
 $docs = attach_document_totals(db_all(
-    'SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id WHERE d.party_id = ? ORDER BY d.date DESC, d.id DESC',
-    'i',
-    [$id]
+    'SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id WHERE d.company_id = ? AND d.party_id = ?' . $extra . ' ORDER BY d.date DESC, d.id DESC',
+    'ii' . $types,
+    array_merge([$cid, $id], $params)
 ));
 $byKind = ['invoice' => [], 'quotation' => [], 'receipt' => [], 'expense' => [], 'letter' => []];
 foreach ($docs as $d) {
@@ -38,6 +40,8 @@ layout_start($party['name'], $user);
   </div>
 </div>
 
+<?php render_filters('client_view.php', ['id' => (string) $id]); ?>
+
 <div class="action-grid">
   <a class="card action-tile" href="<?= h(url('document_new.php?kind=invoice&party=' . $id)) ?>">
     <?= icon('invoice', 20) ?>
@@ -56,7 +60,7 @@ layout_start($party['name'], $user);
   </a>
   <a class="card action-tile" href="<?= h(url('document_new.php?kind=letter&party=' . $id)) ?>">
     <?= icon('letter', 20) ?>
-    <span>New letter</span>
+    <span>New correspondence</span>
     <strong><?= count($byKind['letter']) ?> issued</strong>
   </a>
   <a class="card action-tile" href="<?= h(url('document_new.php?kind=expense&party=' . $id)) ?>">
@@ -66,7 +70,7 @@ layout_start($party['name'], $user);
   </a>
 </div>
 
-<?php foreach (['invoice' => 'Invoices', 'quotation' => 'Quotations', 'receipt' => 'Receipts', 'letter' => 'Letters', 'expense' => 'Expenses'] as $kind => $title): ?>
+<?php foreach (['invoice' => 'Invoices', 'quotation' => 'Quotations', 'receipt' => 'Receipts', 'letter' => 'Correspondence', 'expense' => 'Expenses'] as $kind => $title): ?>
   <div class="card" style="margin-top:16px">
     <div class="card-head">
       <h2><?= icon($kind, 16) ?><?= h($title) ?></h2>
@@ -98,6 +102,15 @@ layout_start($party['name'], $user);
             </tr>
           <?php endforeach; ?>
         </tbody>
+        <?php if ($kind !== 'letter'): ?>
+          <tfoot>
+            <tr>
+              <td colspan="2">Totals</td>
+              <td class="right mono"><?= h(ugx(documents_sum($byKind[$kind]))) ?></td>
+              <td colspan="2"></td>
+            </tr>
+          </tfoot>
+        <?php endif; ?>
       </table>
     <?php endif; ?>
   </div>

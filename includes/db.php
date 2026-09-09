@@ -22,6 +22,14 @@ function db(): mysqli
         }
     }
     $mysqli->set_charset('utf8mb4');
+    if ($mysqli->select_db($cfg['name'] ?? '')) {
+        require_once ROOT_PATH . '/includes/migrate.php';
+        try {
+            folio_migrate($mysqli);
+        } catch (Throwable $e) {
+            // Schema not ready until install.php runs.
+        }
+    }
     return $mysqli;
 }
 

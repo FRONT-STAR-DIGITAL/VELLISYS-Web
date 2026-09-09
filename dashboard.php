@@ -1,10 +1,11 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
-$user = require_login();
+$user = require_member();
 $brand = branding();
+$cid = current_company_id();
 
-$invoices = attach_document_totals(db_all("SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id WHERE d.kind = 'invoice' ORDER BY d.date DESC, d.id DESC"));
+$invoices = attach_document_totals(db_all("SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id WHERE d.company_id = ? AND d.kind = 'invoice' ORDER BY d.date DESC, d.id DESC", 'i', [$cid]));
 $open = array_values(array_filter($invoices, static fn ($d) => $d['status'] !== 'void' && $d['balance'] > 0));
 $overdue = array_values(array_filter($open, static fn ($d) => !empty($d['due_date']) && $d['due_date'] < today()));
 $monthStart = date('Y-m-01');
@@ -14,13 +15,13 @@ foreach ($invoices as $d) {
         $incomeMonth += $d['totals']['total'];
     }
 }
-$expMonth = attach_document_totals(db_all("SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id WHERE d.kind = 'expense' AND d.status = 'issued' AND d.date >= ?", 's', [$monthStart]));
+$expMonth = attach_document_totals(db_all("SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id WHERE d.company_id = ? AND d.kind = 'expense' AND d.status = 'issued' AND d.date >= ?", 'is', [$cid, $monthStart]));
 $expenseMonth = 0;
 foreach ($expMonth as $d) {
     $expenseMonth += $d['totals']['total'];
 }
-$quotes = (int) (db_one("SELECT COUNT(*) c FROM documents WHERE kind='quotation' AND status='issued'")['c'] ?? 0);
-$recent = attach_document_totals(db_all("SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id ORDER BY d.id DESC LIMIT 7"));
+$quotes = (int) (db_one("SELECT COUNT(*) c FROM documents WHERE company_id = ? AND kind='quotation' AND status='issued'", 'i', [$cid])['c'] ?? 0);
+$recent = attach_document_totals(db_all("SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id WHERE d.company_id = ? ORDER BY d.id DESC LIMIT 7", 'i', [$cid]));
 $queue = $overdue ?: $open;
 $hour = (int) date('G');
 $hello = $hour < 12 ? 'Good morning' : ($hour < 17 ? 'Good afternoon' : 'Good evening');
@@ -31,7 +32,7 @@ layout_start('Desk', $user);
   <div>
     <p class="desk-kicker"><?= h($brand['name']) ?> · <?= h(ucfirst((string) $brand['plan'])) ?></p>
     <h1><?= h($hello) ?>, <?= h(explode(' ', $user['name'])[0]) ?>.</h1>
-    <p class="lede">What needs sending or collecting today. Colour and letterhead live in Settings.</p>
+    <p class="lede">What needs sending or collecting today. Colour and stationery live in Settings.</p>
   </div>
   <div class="actions">
     <a class="btn ghost" href="<?= h(url('document_new.php?kind=quotation')) ?>"><?= icon('quotation', 16) ?>Quotation</a>
