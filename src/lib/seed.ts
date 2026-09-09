@@ -1,0 +1,557 @@
+import type { BooksState, DocumentRecord, LineItem, Party } from "./types";
+import { formatBookNumber } from "./books";
+import { grandTotal } from "./money";
+
+const YEAR = 2026;
+
+function items(...rows: LineItem[]): LineItem[] {
+  return rows;
+}
+
+function doc(
+  partial: Omit<DocumentRecord, "number"> & { number?: string },
+): DocumentRecord {
+  return {
+    ...partial,
+    number: formatBookNumber(partial.book, YEAR, partial.sequence),
+  };
+}
+
+export const DEMO_COMPANY: BooksState["company"] = {
+  name: "Pearl Traders Limited",
+  tradingAs: "Pearl Traders",
+  tin: "1000246810",
+  vatNo: "1000246810",
+  address: "Plot 18, 5th Street, Industrial Area",
+  city: "Kampala, Uganda",
+  phone: "+256 414 250 180",
+  email: "accounts@pearltraders.ug",
+  bankName: "Stanbic Bank Uganda",
+  bankBranch: "Industrial Area",
+  accountName: "Pearl Traders Limited",
+  accountNumber: "9030012345678",
+  booksYear: YEAR,
+};
+
+export const DEMO_PARTIES: Party[] = [
+  {
+    id: "pty-speke",
+    name: "Speke Resort Munyonyo",
+    kind: "customer",
+    tin: "1000021001",
+    phone: "+256 414 227 111",
+    address: "Munyonyo, Kampala",
+  },
+  {
+    id: "pty-kcca",
+    name: "Kampala Capital City Authority",
+    kind: "customer",
+    tin: "1000028874",
+    phone: "+256 204 660 000",
+    address: "City Hall, Parliamentary Avenue, Kampala",
+  },
+  {
+    id: "pty-mubs",
+    name: "Makerere University Business School",
+    kind: "customer",
+    tin: "1000024410",
+    address: "Plot 21A, Port Bell Road, Nakawa",
+  },
+  {
+    id: "pty-qci",
+    name: "Quality Chemicals Industries Ltd",
+    kind: "customer",
+    tin: "1000033102",
+    address: "Luzira, Kampala",
+  },
+  {
+    id: "pty-centenary",
+    name: "Centenary Bank",
+    kind: "customer",
+    tin: "1000025608",
+    address: "Mapeera House, Kampala Road",
+  },
+  {
+    id: "pty-unra",
+    name: "Uganda National Roads Authority",
+    kind: "customer",
+    tin: "1000029011",
+    address: "Plot 3-5, New Port Bell Road, UAP Nakawa Business Park",
+  },
+  {
+    id: "pty-africana",
+    name: "Hotel Africana Ltd",
+    kind: "customer",
+    tin: "1000021766",
+    address: "Plot 2-4 Wampewo Avenue, Kololo",
+  },
+  {
+    id: "pty-roofings",
+    name: "Roofings Ltd",
+    kind: "supplier",
+    tin: "1000024300",
+    address: "Lubowa, Kampala",
+  },
+  {
+    id: "pty-steel",
+    name: "Steel & Tube Industries Ltd",
+    kind: "supplier",
+    tin: "1000028122",
+    address: "Namanve Industrial Park",
+  },
+  {
+    id: "pty-hima",
+    name: "Hima Cement Ltd",
+    kind: "supplier",
+    tin: "1000025501",
+    address: "Hima, Kasese / Kampala depot",
+  },
+  {
+    id: "pty-batteries",
+    name: "Uganda Batteries Ltd",
+    kind: "supplier",
+    tin: "1000026677",
+    address: "Port Bell, Kampala",
+  },
+];
+
+export const DEMO_DOCUMENTS: DocumentRecord[] = [
+  doc({
+    id: "qtn-1",
+    book: "quotation",
+    sequence: 1,
+    date: "2026-06-12",
+    partyId: "pty-africana",
+    vatRate: 0.18,
+    status: "issued",
+    notes: "Valid 30 days. Delivery to Kololo.",
+    items: items(
+      {
+        description: "Executive high-back office chairs, black leather",
+        qty: 24,
+        unit: "pcs",
+        rate: 890_000,
+      },
+      {
+        description: "Conference table, 12-seater mahogany veneer",
+        qty: 2,
+        unit: "pcs",
+        rate: 3_400_000,
+      },
+    ),
+  }),
+  doc({
+    id: "qtn-2",
+    book: "quotation",
+    sequence: 2,
+    date: "2026-08-21",
+    partyId: "pty-mubs",
+    vatRate: 0.18,
+    status: "issued",
+    notes: "Prices held until 30 Sep 2026.",
+    items: items(
+      {
+        description: "A4 copy paper, 80gsm, 500 sheets",
+        qty: 200,
+        unit: "reams",
+        rate: 28_000,
+      },
+      {
+        description: "Ballpoint pens, blue, box of 50",
+        qty: 40,
+        unit: "boxes",
+        rate: 22_500,
+      },
+      {
+        description: "Manila folders, foolscap",
+        qty: 100,
+        unit: "pcs",
+        rate: 1_800,
+      },
+    ),
+  }),
+  doc({
+    id: "qtn-3",
+    book: "quotation",
+    sequence: 3,
+    date: "2026-07-03",
+    partyId: "pty-unra",
+    vatRate: 0.18,
+    status: "issued",
+    notes: "As per UNRA request for quotation UNRA/RFQ/26/441.",
+    items: items(
+      {
+        description: "High-visibility reflective jackets, ISO 20471",
+        qty: 400,
+        unit: "pcs",
+        rate: 48_000,
+      },
+      {
+        description: "Safety helmets, yellow",
+        qty: 400,
+        unit: "pcs",
+        rate: 32_000,
+      },
+    ),
+  }),
+  doc({
+    id: "inv-1",
+    book: "invoice",
+    sequence: 1,
+    date: "2026-04-18",
+    partyId: "pty-speke",
+    vatRate: 0.18,
+    status: "issued",
+    notes: "LPO SPEKE/26/118. Delivered to stores, Munyonyo.",
+    items: items(
+      {
+        description: "A4 copy paper, 80gsm",
+        qty: 80,
+        unit: "boxes",
+        rate: 95_000,
+      },
+      {
+        description: "HP 80A toner cartridges",
+        qty: 12,
+        unit: "pcs",
+        rate: 380_000,
+      },
+    ),
+  }),
+  doc({
+    id: "inv-2",
+    book: "invoice",
+    sequence: 2,
+    date: "2026-06-02",
+    partyId: "pty-kcca",
+    vatRate: 0.18,
+    status: "issued",
+    notes: "LPO KCCA/PRO/26/887. Directorate of Revenue Collection.",
+    items: items(
+      {
+        description: "Assorted stationery for division offices",
+        qty: 1,
+        unit: "lot",
+        rate: 18_400_000,
+      },
+      {
+        description: "Heavy duty punch and stapler sets",
+        qty: 32,
+        unit: "sets",
+        rate: 85_000,
+      },
+    ),
+  }),
+  doc({
+    id: "inv-3",
+    book: "invoice",
+    sequence: 3,
+    date: "2026-03-14",
+    partyId: "pty-qci",
+    vatRate: 0.18,
+    status: "issued",
+    notes: "Net 30. Followed up 12 May and 8 July.",
+    items: items(
+      {
+        description: "Industrial cleaning chemicals, 20L",
+        qty: 60,
+        unit: "jerrycans",
+        rate: 145_000,
+      },
+      {
+        description: "Nitrile gloves, box of 100",
+        qty: 120,
+        unit: "boxes",
+        rate: 38_000,
+      },
+    ),
+  }),
+  doc({
+    id: "inv-4",
+    book: "invoice",
+    sequence: 4,
+    date: "2026-08-28",
+    partyId: "pty-centenary",
+    vatRate: 0.18,
+    status: "issued",
+    notes: "Branch stationery — Mapeera House and Katwe.",
+    items: items(
+      {
+        description: "Printed deposit slips, books of 100",
+        qty: 500,
+        unit: "books",
+        rate: 6_800,
+      },
+      {
+        description: "Security seals, numbered",
+        qty: 2_000,
+        unit: "pcs",
+        rate: 450,
+      },
+    ),
+  }),
+  doc({
+    id: "inv-5",
+    book: "invoice",
+    sequence: 5,
+    date: "2026-07-09",
+    partyId: "pty-mubs",
+    vatRate: 0.18,
+    status: "issued",
+    notes: "Faculty of Computing exam stationery.",
+    items: items(
+      {
+        description: "Examination answer booklets, 8-page",
+        qty: 8_000,
+        unit: "pcs",
+        rate: 1_250,
+      },
+      {
+        description: "A4 ruled foolscap, reams",
+        qty: 300,
+        unit: "reams",
+        rate: 18_000,
+      },
+    ),
+  }),
+  doc({
+    id: "inv-6",
+    book: "invoice",
+    sequence: 6,
+    date: "2026-08-04",
+    partyId: "pty-africana",
+    vatRate: 0.18,
+    status: "issued",
+    relatedDocumentId: "qtn-1",
+    notes: "Converted from QTN-2026-0001. Delivered 4 Aug 2026.",
+    items: items(
+      {
+        description: "Executive high-back office chairs, black leather",
+        qty: 24,
+        unit: "pcs",
+        rate: 890_000,
+      },
+      {
+        description: "Conference table, 12-seater mahogany veneer",
+        qty: 2,
+        unit: "pcs",
+        rate: 3_400_000,
+      },
+    ),
+  }),
+  doc({
+    id: "inv-7",
+    book: "invoice",
+    sequence: 7,
+    date: "2026-09-01",
+    partyId: "pty-unra",
+    vatRate: 0.18,
+    status: "issued",
+    relatedDocumentId: "qtn-3",
+    notes: "Converted from QTN-2026-0003. LPO UNRA/26/441.",
+    items: items(
+      {
+        description: "High-visibility reflective jackets, ISO 20471",
+        qty: 400,
+        unit: "pcs",
+        rate: 48_000,
+      },
+      {
+        description: "Safety helmets, yellow",
+        qty: 400,
+        unit: "pcs",
+        rate: 32_000,
+      },
+    ),
+  }),
+  doc({
+    id: "rct-1",
+    book: "receipt",
+    sequence: 1,
+    date: "2026-05-06",
+    partyId: "pty-speke",
+    vatRate: 0,
+    status: "issued",
+    paymentMethod: "bank-transfer",
+    paymentRef: "STN-8841209",
+    relatedDocumentId: "inv-1",
+    notes: "Being payment for INV-2026-0001, received with thanks.",
+    items: items({
+      description: "Payment on account — INV-2026-0001",
+      qty: 1,
+      unit: "lot",
+      rate: grandTotal(
+        [
+          { description: "", qty: 80, unit: "", rate: 95_000 },
+          { description: "", qty: 12, unit: "", rate: 380_000 },
+        ],
+        0.18,
+      ),
+    }),
+    allocations: [
+      {
+        documentId: "inv-1",
+        amount: grandTotal(
+          [
+            { description: "", qty: 80, unit: "", rate: 95_000 },
+            { description: "", qty: 12, unit: "", rate: 380_000 },
+          ],
+          0.18,
+        ),
+      },
+    ],
+  }),
+  doc({
+    id: "rct-2",
+    book: "receipt",
+    sequence: 2,
+    date: "2026-07-22",
+    partyId: "pty-kcca",
+    vatRate: 0,
+    status: "issued",
+    paymentMethod: "eft",
+    paymentRef: "BOU-KCCA-77211",
+    relatedDocumentId: "inv-2",
+    notes: "Part payment. Balance to follow on next warrant.",
+    items: items({
+      description: "Part payment on INV-2026-0002",
+      qty: 1,
+      unit: "lot",
+      rate: 12_000_000,
+    }),
+    allocations: [{ documentId: "inv-2", amount: 12_000_000 }],
+  }),
+  doc({
+    id: "bil-1",
+    book: "bill",
+    sequence: 1,
+    date: "2026-07-15",
+    partyId: "pty-roofings",
+    vatRate: 0.18,
+    status: "issued",
+    notes: "Supplier invoice RL/26/44190. Iron sheets for resale.",
+    items: items(
+      {
+        description: "Resincot iron sheets, 28 gauge, 3m",
+        qty: 400,
+        unit: "pcs",
+        rate: 52_000,
+      },
+    ),
+  }),
+  doc({
+    id: "bil-2",
+    book: "bill",
+    sequence: 2,
+    date: "2026-06-20",
+    partyId: "pty-steel",
+    vatRate: 0.18,
+    status: "issued",
+    notes: "Supplier invoice ST/26/19002.",
+    items: items(
+      {
+        description: "Y12 reinforcement bars, 12m",
+        qty: 80,
+        unit: "pcs",
+        rate: 78_000,
+      },
+      {
+        description: "Y10 reinforcement bars, 12m",
+        qty: 60,
+        unit: "pcs",
+        rate: 54_000,
+      },
+    ),
+  }),
+  doc({
+    id: "bil-3",
+    book: "bill",
+    sequence: 3,
+    date: "2026-05-11",
+    partyId: "pty-hima",
+    vatRate: 0.18,
+    status: "issued",
+    notes: "Supplier invoice HC/KLA/26/3301. Paid in full.",
+    items: items({
+      description: "Hima cement, 50kg bags",
+      qty: 400,
+      unit: "bags",
+      rate: 38_500,
+    }),
+  }),
+  doc({
+    id: "bil-4",
+    book: "bill",
+    sequence: 4,
+    date: "2026-04-02",
+    partyId: "pty-batteries",
+    vatRate: 0.18,
+    status: "issued",
+    notes: "Overdue. Supplier has suspended further credit.",
+    items: items({
+      description: "Automotive batteries, N70",
+      qty: 40,
+      unit: "pcs",
+      rate: 285_000,
+    }),
+  }),
+  doc({
+    id: "pv-1",
+    book: "voucher",
+    sequence: 1,
+    date: "2026-05-28",
+    partyId: "pty-hima",
+    vatRate: 0,
+    status: "issued",
+    paymentMethod: "cheque",
+    paymentRef: "STN CHQ 001442",
+    relatedDocumentId: "bil-3",
+    notes: "Being settlement of Hima invoice HC/KLA/26/3301.",
+    items: items({
+      description: "Payment of BIL-2026-0003",
+      qty: 1,
+      unit: "lot",
+      rate: grandTotal(
+        [{ description: "", qty: 400, unit: "", rate: 38_500 }],
+        0.18,
+      ),
+    }),
+    allocations: [
+      {
+        documentId: "bil-3",
+        amount: grandTotal(
+          [{ description: "", qty: 400, unit: "", rate: 38_500 }],
+          0.18,
+        ),
+      },
+    ],
+  }),
+  doc({
+    id: "pv-2",
+    book: "voucher",
+    sequence: 2,
+    date: "2026-08-12",
+    partyId: "pty-steel",
+    vatRate: 0,
+    status: "issued",
+    paymentMethod: "bank-transfer",
+    paymentRef: "STN-9910021",
+    relatedDocumentId: "bil-2",
+    notes: "Part payment. Balance after next consignment.",
+    items: items({
+      description: "Part payment of BIL-2026-0002",
+      qty: 1,
+      unit: "lot",
+      rate: 5_000_000,
+    }),
+    allocations: [{ documentId: "bil-2", amount: 5_000_000 }],
+  }),
+];
+
+export function seedState(): BooksState {
+  return {
+    company: DEMO_COMPANY,
+    parties: DEMO_PARTIES,
+    documents: DEMO_DOCUMENTS,
+  };
+}
