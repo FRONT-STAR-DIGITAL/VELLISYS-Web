@@ -26,7 +26,7 @@ document.addEventListener('click', function (e) {
     picker.value = v;
     hex.value = v;
     document.documentElement.style.setProperty('--brand', v);
-    if (preview) preview.style.background = v;
+    if (preview) preview.style.borderTopColor = v;
   }
 
   picker.addEventListener('input', function () { apply(picker.value); });

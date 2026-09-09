@@ -286,33 +286,36 @@ function attach_document_totals(array $rows): array
     return $rows;
 }
 
-function render_doc_actions(array $doc): void
+function render_doc_actions(array $doc, bool $labeled = false): void
 {
     $id = (int) $doc['id'];
     $void = ($doc['status'] ?? '') === 'void';
+    $cls = $labeled ? 'btn ghost sm' : 'btn ghost sm icon-only';
+    $pri = $labeled ? 'btn sm' : 'btn sm icon-only';
+    $dang = $labeled ? 'btn danger sm' : 'btn danger sm icon-only';
     ?>
     <div class="actions">
-      <a class="btn ghost sm" href="<?= h(url('document_view.php?id=' . $id)) ?>"><?= icon('eye', 14) ?>View</a>
-      <a class="btn ghost sm" href="<?= h(url('document_view.php?id=' . $id . '&print=1')) ?>"><?= icon('printer', 14) ?>Print</a>
+      <a class="<?= $cls ?>" href="<?= h(url('document_view.php?id=' . $id)) ?>" title="View" aria-label="View"><?= icon('eye', 15) ?><?php if ($labeled): ?> View<?php endif; ?></a>
+      <a class="<?= $cls ?>" href="<?= h(url('document_view.php?id=' . $id . '&print=1')) ?>" title="Print" aria-label="Print"><?= icon('printer', 15) ?><?php if ($labeled): ?> Print<?php endif; ?></a>
       <?php if (!$void): ?>
-        <a class="btn ghost sm" href="<?= h(url('document_email.php?id=' . $id)) ?>"><?= icon('send', 14) ?>Email</a>
+        <a class="<?= $cls ?>" href="<?= h(url('document_email.php?id=' . $id)) ?>" title="Email" aria-label="Email"><?= icon('send', 15) ?><?php if ($labeled): ?> Email<?php endif; ?></a>
         <?php if ($doc['kind'] === 'quotation'): ?>
           <form method="post" action="<?= h(url('document_action.php')) ?>">
             <?= csrf_field() ?>
             <input type="hidden" name="id" value="<?= $id ?>">
             <input type="hidden" name="action" value="convert">
-            <button class="btn sm" type="submit"><?= icon('convert', 14) ?>Invoice</button>
+            <button class="<?= $pri ?>" type="submit" title="Make invoice" aria-label="Make invoice"><?= icon('convert', 15) ?><?php if ($labeled): ?> Invoice<?php endif; ?></button>
           </form>
         <?php endif; ?>
         <?php if ($doc['kind'] === 'invoice' && ($doc['balance'] ?? 1) > 0): ?>
-          <a class="btn sm" href="<?= h(url('document_action.php?receive=' . $id)) ?>"><?= icon('receipt', 14) ?>Receipt</a>
+          <a class="<?= $pri ?>" href="<?= h(url('document_action.php?receive=' . $id)) ?>" title="Receipt" aria-label="Receipt"><?= icon('receipt', 15) ?><?php if ($labeled): ?> Receipt<?php endif; ?></a>
         <?php endif; ?>
         <form method="post" action="<?= h(url('document_action.php')) ?>" onsubmit="return confirm('Void this document?');">
           <?= csrf_field() ?>
           <input type="hidden" name="id" value="<?= $id ?>">
           <input type="hidden" name="action" value="void">
           <input type="hidden" name="reason" value="Voided from desk">
-          <button class="btn danger sm" type="submit"><?= icon('ban', 14) ?>Void</button>
+          <button class="<?= $dang ?>" type="submit" title="Void" aria-label="Void"><?= icon('ban', 15) ?><?php if ($labeled): ?> Void<?php endif; ?></button>
         </form>
       <?php endif; ?>
     </div>

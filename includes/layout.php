@@ -63,7 +63,6 @@ function layout_start(string $title, array $user, array $opts = []): void
   <div class="main">
     <header class="top">
       <button class="btn ghost menu-btn" type="button" data-menu><?= icon('menu', 16) ?>Menu</button>
-      <p class="top-title"><?= h($title) ?></p>
       <div class="top-actions">
         <button class="btn ghost" type="button" data-quick><?= icon('plus', 16) ?>Quick add</button>
         <a class="btn" href="<?= h(url('document_new.php?kind=invoice')) ?>"><?= icon('invoice', 16) ?>New invoice</a>

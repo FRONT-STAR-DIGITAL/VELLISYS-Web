@@ -47,7 +47,7 @@ require ROOT_PATH . '/includes/sheet.php';
       <?php endif; ?>
     </p>
   </div>
-  <?php render_doc_actions($doc); ?>
+  <?php render_doc_actions($doc, true); ?>
 </div>
 
 <div class="sheet-wrap">

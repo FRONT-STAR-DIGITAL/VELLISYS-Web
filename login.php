@@ -55,13 +55,17 @@ try {
       <?php if ($error): ?><p class="flash flash-err"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
       <div class="field">
         <label for="email">Email</label>
+      <div class="field-control">
         <?= icon('letter', 16) ?>
         <input id="email" name="email" type="email" required value="accounts@ofagros.org" autocomplete="username">
       </div>
+      </div>
       <div class="field">
         <label for="password">Password</label>
+      <div class="field-control">
         <?= icon('lock', 16) ?>
         <input id="password" name="password" type="password" required value="folio2026" autocomplete="current-password">
+      </div>
       </div>
       <button class="btn" type="submit"><?= icon('desk', 16) ?>Enter the desk</button>
       <p class="hint" style="margin-top:16px">Demo account: accounts@ofagros.org · folio2026. If the desk is empty, open <a href="<?= h(url('install.php')) ?>">install.php</a> once.</p>
