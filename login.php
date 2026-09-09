@@ -42,7 +42,7 @@ try {
     <div>
       <p class="login-kicker">Folio</p>
       <h1>Books that look like your company.</h1>
-      <p class="standfirst">Set the stationery once. Issue quotations, invoices and receipts your clients will keep — in your colour, on your paper.</p>
+      <p class="standfirst">Set the stationery once. Issue quotations, invoices and receipts your clients will keep - in your colour, on your paper.</p>
     </div>
     <p class="login-caption"><?= h($company) ?><?php if ($tag): ?> · <?= h($tag) ?><?php endif; ?></p>
   </section>

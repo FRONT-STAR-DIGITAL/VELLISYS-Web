@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS branding (
   invoice_comments TEXT,
   plan ENUM('starter','sme','office') NOT NULL DEFAULT 'sme',
   currency CHAR(3) NOT NULL DEFAULT 'UGX',
+  letter_templates TEXT NULL,
   UNIQUE KEY company_id (company_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

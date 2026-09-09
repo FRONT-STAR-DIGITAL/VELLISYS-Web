@@ -23,7 +23,7 @@ $receipts = attach_document_totals(db_all(
 $income = 0;
 $outputVat = 0;
 $debtors = [];
-$aging = ['Current' => 0, '1–30' => 0, '31–60' => 0, '61–90' => 0, '90+' => 0];
+$aging = ['Current' => 0, '1-30' => 0, '31-60' => 0, '61-90' => 0, '90+' => 0];
 foreach ($invoices as $d) {
     $income += $d['totals']['net'];
     $outputVat += $d['totals']['vat'];
@@ -33,11 +33,11 @@ foreach ($invoices as $d) {
         if ($age > 90) {
             $bucket = '90+';
         } elseif ($age > 60) {
-            $bucket = '61–90';
+            $bucket = '61-90';
         } elseif ($age > 30) {
-            $bucket = '31–60';
+            $bucket = '31-60';
         } elseif ($age > 0) {
-            $bucket = '1–30';
+            $bucket = '1-30';
         }
         $aging[$bucket] += $d['balance'];
         $debtors[] = $d + ['bucket' => $bucket, 'age' => max(0, $age)];
@@ -119,21 +119,21 @@ layout_start('Reports', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('reports') ?>Reports</h1>
-    <p class="lede">Time series, mix of spend, and aging — for the dates you pick.</p>
+    <p class="lede">Time series, mix of spend, and aging - for the dates you pick.</p>
   </div>
   <a class="btn ghost" href="<?= h(export_query('reports')) ?>"><?= icon('download', 16) ?>Export CSV</a>
 </div>
 
 <?php render_filters('reports.php'); ?>
 <p class="hint" style="margin:-8px 0 16px">
-  Showing <?= $period['from'] ? h(format_date($period['from']) . ' – ' . format_date($period['to'])) : 'all dates' ?>.
+  Showing <?= $period['from'] ? h(format_date($period['from']) . ' - ' . format_date($period['to'])) : 'all dates' ?>.
 </p>
 
 <div class="stats">
   <div class="card stat"><?= icon('invoice', 20) ?><span>Income (invoiced, net)</span><strong><?= h(ugx($income)) ?></strong></div>
   <div class="card stat"><?= icon('expense', 20) ?><span>Expenses (net)</span><strong><?= h(ugx($costs)) ?></strong></div>
   <div class="card stat"><?= icon('reports', 20) ?><span>Profit</span><strong><?= h(ugx($income - $costs)) ?></strong></div>
-  <div class="card stat"><?= icon('hash', 20) ?><span>VAT due (output − input)</span><strong><?= h(ugx($outputVat - $inputVat)) ?></strong></div>
+  <div class="card stat"><?= icon('hash', 20) ?><span>VAT due (output - input)</span><strong><?= h(ugx($outputVat - $inputVat)) ?></strong></div>
 </div>
 
 <div class="chart-grid">

@@ -164,5 +164,5 @@ seed_doc($db, array_merge($base, [
     'template' => 'demand',
     'body' => "Dear Accounts,\n\nWe write in respect of our invoice for washed arabica delivered in June. We acknowledge your transfer of UGX 20,000,000 and kindly request settlement of the remaining balance within seven days.\n\nYours faithfully,\nAccounts\nOfagros Limited",
 ]), [
-    ['—', 1, 'lot', 0, 0],
+    ['-', 1, 'lot', 0, 0],
 ]);

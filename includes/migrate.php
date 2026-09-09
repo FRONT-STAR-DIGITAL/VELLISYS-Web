@@ -29,7 +29,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 5) {
+    if ($ver >= 6) {
         $done = true;
         return;
     }
@@ -128,7 +128,10 @@ function folio_migrate(mysqli $db): void
     if (!$idx3 || $idx3->num_rows === 0) {
         $db->query('ALTER TABLE documents ADD KEY company_kind_date (company_id, kind, date)');
     }
+    if (!db_has_column($db, 'branding', 'letter_templates')) {
+        $db->query('ALTER TABLE branding ADD COLUMN letter_templates TEXT NULL');
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '5')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '6')");
     $done = true;
 }

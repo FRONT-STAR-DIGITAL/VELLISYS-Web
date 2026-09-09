@@ -71,7 +71,6 @@ function layout_start(string $title, array $user, array $opts = []): void
   </aside>
   <div class="main">
     <header class="top">
-      <button class="btn ghost menu-btn" type="button" data-menu><?= icon('menu', 16) ?>Menu</button>
       <div class="top-actions">
         <button class="btn ghost" type="button" data-quick><?= icon('plus', 16) ?>Quick add</button>
         <a class="btn" href="<?= h(url('document_new.php?kind=invoice')) ?>"><?= icon('invoice', 16) ?>New invoice</a>
@@ -125,7 +124,6 @@ function layout_admin_start(string $title, array $user): void
   </aside>
   <div class="main">
     <header class="top">
-      <button class="btn ghost menu-btn" type="button" data-menu><?= icon('menu', 16) ?>Menu</button>
       <div class="top-actions">
         <a class="btn" href="<?= h(url('admin_companies.php?new=1')) ?>"><?= icon('plus', 16) ?>New company</a>
       </div>

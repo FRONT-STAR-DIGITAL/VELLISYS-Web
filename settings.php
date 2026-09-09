@@ -35,8 +35,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if ($error === '') {
         db_exec(
-            'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, currency=? WHERE company_id=?',
-            'ssssssssssssssssssi',
+            'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, currency=?, letter_templates=? WHERE company_id=?',
+            'sssssssssssssssssssi',
             [
                 post('name'),
                 post('tagline'),
@@ -56,6 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 post('payment_note'),
                 post('invoice_comments'),
                 strtoupper(post('currency') ?: 'UGX') === 'USD' ? 'USD' : 'UGX',
+                encode_letter_templates(isset($_POST['tpl']) && is_array($_POST['tpl']) ? $_POST['tpl'] : []),
                 current_company_id(),
             ]
         );
@@ -86,6 +87,7 @@ layout_start('Settings', $user);
     <a href="#tax"><?= icon('hash', 16) ?>Tax</a>
     <a href="#bank"><?= icon('bank', 16) ?>Bank</a>
     <a href="#documents"><?= icon('invoice', 16) ?>Documents</a>
+    <a href="#templates"><?= icon('letter', 16) ?>Templates</a>
   </aside>
 
   <div class="settings-stack">
@@ -213,10 +215,65 @@ layout_start('Settings', $user);
       <textarea id="payment_note" name="payment_note" rows="2"><?= h($b['payment_note'] ?? '') ?></textarea>
       <label for="invoice_comments">Default invoice comments</label>
       <textarea id="invoice_comments" name="invoice_comments" rows="4"><?= h($b['invoice_comments'] ?? '') ?></textarea>
+    </section>
+
+    <section class="card settings-card" id="templates">
+      <h2><?= icon('letter') ?>Templates</h2>
+      <p class="lede">Correspondence templates used when you write a headed note. Put <code>{company}</code> where the company name should appear.</p>
+      <div data-tpl-list>
+        <?php foreach (letter_templates(true) as $key => $tpl): ?>
+          <div class="tpl-edit" data-tpl-card>
+            <div class="form-grid">
+              <div>
+                <label>Title on the desk</label>
+                <input name="tpl[<?= h($key) ?>][title]" value="<?= h($tpl['title']) ?>" required>
+              </div>
+              <div>
+                <label>Heading on the page</label>
+                <input name="tpl[<?= h($key) ?>][heading]" value="<?= h($tpl['heading']) ?>">
+              </div>
+              <div style="grid-column:1 / -1">
+                <label>Subject</label>
+                <input name="tpl[<?= h($key) ?>][subject]" value="<?= h($tpl['subject']) ?>">
+              </div>
+            </div>
+            <label>Body</label>
+            <textarea name="tpl[<?= h($key) ?>][body]" rows="7"><?= h($tpl['body']) ?></textarea>
+          </div>
+        <?php endforeach; ?>
+      </div>
+      <p class="hint" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px">
+        <button class="btn ghost sm" type="button" data-add-template><?= icon('plus', 14) ?>Add template</button>
+        Clear a custom title and save to remove it.
+      </p>
       <div class="actions" style="margin-top:18px">
         <button class="btn" type="submit"><?= icon('check') ?>Save settings</button>
       </div>
     </section>
   </div>
 </form>
+<template id="tpl-proto">
+  <div class="tpl-edit" data-tpl-card>
+    <div class="form-grid">
+      <div>
+        <label>Title on the desk</label>
+        <input name="tpl[__KEY__][title]" placeholder="Thank you">
+      </div>
+      <div>
+        <label>Heading on the page</label>
+        <input name="tpl[__KEY__][heading]" placeholder="THANK YOU">
+      </div>
+      <div style="grid-column:1 / -1">
+        <label>Subject</label>
+        <input name="tpl[__KEY__][subject]">
+      </div>
+    </div>
+    <label>Body</label>
+    <textarea name="tpl[__KEY__][body]" rows="7">Dear Sir / Madam,
+
+Yours faithfully,
+Accounts
+{company}</textarea>
+  </div>
+</template>
 <?php layout_end(); ?>

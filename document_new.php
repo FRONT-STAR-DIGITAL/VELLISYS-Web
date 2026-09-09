@@ -74,7 +74,7 @@ $prefillTpl = $templates[$tplKey];
 if ($related) {
     $rel = load_document($related);
     if ($rel) {
-        $prefillTpl['subject'] = $prefillTpl['subject'] . ' — ' . $rel['number'];
+        $prefillTpl['subject'] = $prefillTpl['subject'] . ' - ' . $rel['number'];
     }
 }
 $blankLines = $kind === 'letter' ? [] : array_fill(0, 4, ['description' => '', 'qty' => 1, 'unit' => 'lot', 'rate' => '', 'taxed' => $vatDefault > 0]);
@@ -187,7 +187,7 @@ layout_start($meta['verb'], $user, ['kind' => $kind]);
             <td><input name="item_desc[<?= $i ?>]" placeholder="Coffee Estate Share"></td>
             <td>
               <div class="qty-wrap">
-                <button type="button" class="qty-btn" data-qty-delta="-1" aria-label="Decrease quantity">−</button>
+                <button type="button" class="qty-btn" data-qty-delta="-1" aria-label="Decrease quantity">-</button>
                 <input name="item_qty[<?= $i ?>]" type="number" min="0" step="any" inputmode="decimal" value="1">
                 <button type="button" class="qty-btn" data-qty-delta="1" aria-label="Increase quantity">+</button>
               </div>

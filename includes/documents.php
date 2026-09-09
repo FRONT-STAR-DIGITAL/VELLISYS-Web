@@ -106,7 +106,7 @@ function create_document(array $data): int
     $cid = current_company_id();
 
     if ($kind === 'letter') {
-        $items = $items ?: [['description' => '—', 'qty' => 1, 'unit' => 'lot', 'rate' => 0, 'taxed' => 0]];
+        $items = $items ?: [['description' => '-', 'qty' => 1, 'unit' => 'lot', 'rate' => 0, 'taxed' => 0]];
         $rate = 0;
     }
     if ($kind === 'receipt' && (!$alloc || $alloc <= 0)) {

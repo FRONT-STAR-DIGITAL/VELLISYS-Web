@@ -1,19 +1,19 @@
 # Folio
 
-Annual branded books for Ugandan SMEs — quotations, invoices, receipts, expenses and headed correspondence in the company’s own logo and colour. One desk, everything included. Montserrat throughout (bundled, so it works offline).
+Annual branded books for Ugandan SMEs - quotations, invoices, receipts, expenses and headed correspondence in the company’s own logo and colour. One desk, everything included. Montserrat throughout (bundled, so it works offline).
 
 This is a **PHP + MySQL** desk meant to run on **XAMPP**. There is no Node or Next.js. Copy the folder, start Apache and MySQL, open the installer.
 
 ## What you get
 
 - Sign-in with a **show password** control. Company desk: `accounts@ofagros.org` / `folio2026`
-- **Platform admin** at `admin@folio.ug` / `folio-admin-2026` — create companies, issue desk logins, set stationery, onboard, mark live
+- **Platform admin** at `admin@folio.ug` / `folio-admin-2026` - create companies, issue desk logins, set stationery, onboard, mark live
 - **UGX or USD** on each document (default in Settings)
 - **CSV export** on invoices, quotations, receipts, expenses, correspondence, debtors, creditors, clients, reports, and on a single document’s lines
 - Add as many line items as you need when creating invoices, quotations, receipts and expenses. Quantity steps in whole numbers and still accepts decimals
 - Printed documents show item/description, quantity, unit, unit price and full price
 - Static navigation; portal background is a plain diagonal-line pattern
-- **Correspondence** with five headed templates
+- **Correspondence** with headed templates you can edit under Settings → Templates
 - Expenses as cards; debtors and creditors as tables with totals
 - Date filters: today, this week, last week, this month, last month, plus from/to
 - Reports with a time series, expense pie and debtors aging bars

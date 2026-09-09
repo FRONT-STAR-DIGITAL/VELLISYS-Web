@@ -1,8 +1,4 @@
 document.addEventListener('click', function (e) {
-  var menu = document.querySelector('[data-menu]');
-  if (menu && menu.contains(e.target)) {
-    document.querySelector('.nav').classList.toggle('is-open');
-  }
   var q = document.querySelector('[data-quick]');
   var panel = document.querySelector('[data-quick-panel]');
   if (q && q.contains(e.target) && panel) {
@@ -100,5 +96,17 @@ document.querySelectorAll('[data-letter-templates]').forEach(function (form) {
       if (subject) subject.value = card.getAttribute('data-subject') || '';
       if (body) body.value = card.getAttribute('data-body') || '';
     });
+  });
+});
+
+document.querySelectorAll('[data-add-template]').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    var list = document.querySelector('[data-tpl-list]');
+    var proto = document.querySelector('#tpl-proto');
+    if (!list || !proto) return;
+    var html = proto.innerHTML.replace(/__KEY__/g, 'c' + Date.now());
+    list.insertAdjacentHTML('beforeend', html);
+    var title = list.lastElementChild && list.lastElementChild.querySelector('input[name$="[title]"]');
+    if (title) title.focus();
   });
 });

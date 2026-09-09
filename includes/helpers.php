@@ -56,7 +56,7 @@ function format_qty($qty): string
 
 function currencies(): array
 {
-    return ['UGX' => 'UGX — Uganda shilling', 'USD' => 'USD — US dollar'];
+    return ['UGX' => 'UGX - Uganda shilling', 'USD' => 'USD - US dollar'];
 }
 
 function flash(?string $message = null, string $type = 'ok'): ?array
@@ -103,6 +103,7 @@ function folio_defaults(): array
         'tin' => '',
         'payment_note' => '',
         'invoice_comments' => '',
+        'letter_templates' => '',
     ];
 }
 
@@ -228,41 +229,114 @@ function is_platform(?array $user = null): bool
     return ($user['role'] ?? '') === 'platform';
 }
 
-function letter_templates(): array
+function letter_template_defaults(): array
 {
-    $company = branding()['name'] ?? 'the company';
     return [
         'demand' => [
             'title' => 'Demand for payment',
             'heading' => 'DEMAND FOR PAYMENT',
             'subject' => 'Demand for payment',
-            'body' => "Dear Sir / Madam,\n\nWe write in respect of amounts that remain unpaid on your account with {$company}. Kindly settle the balance within seven (7) days of this note.\n\nIf payment has already been made, please send the reference so we may update our books.\n\nYours faithfully,\nAccounts\n{$company}",
+            'body' => "Dear Sir / Madam,\n\nWe write in respect of amounts that remain unpaid on your account with {company}. Kindly settle the balance within seven (7) days of this note.\n\nIf payment has already been made, please send the reference so we may update our books.\n\nYours faithfully,\nAccounts\n{company}",
         ],
         'covering' => [
             'title' => 'Covering note',
             'heading' => 'COVERING NOTE',
             'subject' => 'Documents enclosed',
-            'body' => "Dear Sir / Madam,\n\nPlease find enclosed the documents listed below. Kindly acknowledge receipt.\n\nYours faithfully,\nAccounts\n{$company}",
+            'body' => "Dear Sir / Madam,\n\nPlease find enclosed the documents listed below. Kindly acknowledge receipt.\n\nYours faithfully,\nAccounts\n{company}",
         ],
         'appointment' => [
             'title' => 'Appointment',
             'heading' => 'APPOINTMENT',
             'subject' => 'Confirmation of appointment',
-            'body' => "Dear Sir / Madam,\n\nThis confirms our appointment as agreed. Please let us know if the date or time needs to change.\n\nYours faithfully,\nAccounts\n{$company}",
+            'body' => "Dear Sir / Madam,\n\nThis confirms our appointment as agreed. Please let us know if the date or time needs to change.\n\nYours faithfully,\nAccounts\n{company}",
         ],
         'credit' => [
             'title' => 'Credit and goodwill',
             'heading' => 'CREDIT NOTE',
             'subject' => 'Credit on your account',
-            'body' => "Dear Sir / Madam,\n\nWe have credited your account as a gesture of goodwill / in correction of the items discussed. The credit will appear on your next statement.\n\nYours faithfully,\nAccounts\n{$company}",
+            'body' => "Dear Sir / Madam,\n\nWe have credited your account as a gesture of goodwill / in correction of the items discussed. The credit will appear on your next statement.\n\nYours faithfully,\nAccounts\n{company}",
         ],
         'notice' => [
             'title' => 'Overdue notice',
             'heading' => 'OVERDUE NOTICE',
             'subject' => 'Account overdue',
-            'body' => "Dear Sir / Madam,\n\nYour account with {$company} is now overdue. Please arrange payment at once to avoid interruption of supply.\n\nYours faithfully,\nAccounts\n{$company}",
+            'body' => "Dear Sir / Madam,\n\nYour account with {company} is now overdue. Please arrange payment at once to avoid interruption of supply.\n\nYours faithfully,\nAccounts\n{company}",
         ],
     ];
+}
+
+function apply_template_vars(array $tpl): array
+{
+    $company = (string) (branding()['name'] ?? 'the company');
+    foreach (['title', 'heading', 'subject', 'body'] as $field) {
+        $tpl[$field] = str_replace('{company}', $company, (string) ($tpl[$field] ?? ''));
+    }
+    return $tpl;
+}
+
+function letter_templates(bool $raw = false): array
+{
+    $templates = letter_template_defaults();
+    $saved = json_decode((string) (branding()['letter_templates'] ?? ''), true);
+    if (is_array($saved)) {
+        foreach ($saved as $key => $tpl) {
+            if (!is_array($tpl)) {
+                continue;
+            }
+            $key = preg_replace('/[^a-z0-9_]+/', '', strtolower((string) $key)) ?: '';
+            if ($key === '') {
+                continue;
+            }
+            $base = $templates[$key] ?? ['title' => '', 'heading' => '', 'subject' => '', 'body' => ''];
+            foreach (['title', 'heading', 'subject', 'body'] as $field) {
+                if (isset($tpl[$field])) {
+                    $base[$field] = (string) $tpl[$field];
+                }
+            }
+            if (trim($base['title']) === '') {
+                unset($templates[$key]);
+                continue;
+            }
+            if ($base['heading'] === '') {
+                $base['heading'] = strtoupper($base['title']);
+            }
+            if ($base['subject'] === '') {
+                $base['subject'] = $base['title'];
+            }
+            $templates[$key] = $base;
+        }
+    }
+    if ($raw) {
+        return $templates;
+    }
+    return array_map('apply_template_vars', $templates);
+}
+
+function encode_letter_templates(?array $posted): string
+{
+    $out = [];
+    foreach ($posted ?? [] as $key => $tpl) {
+        if (!is_array($tpl)) {
+            continue;
+        }
+        $title = trim((string) ($tpl['title'] ?? ''));
+        if ($title === '') {
+            continue;
+        }
+        $key = preg_replace('/[^a-z0-9_]+/', '', strtolower((string) $key)) ?: 'note';
+        if (isset($out[$key])) {
+            $key .= '_' . substr(bin2hex(random_bytes(2)), 0, 4);
+        }
+        $heading = trim((string) ($tpl['heading'] ?? ''));
+        $subject = trim((string) ($tpl['subject'] ?? ''));
+        $out[$key] = [
+            'title' => $title,
+            'heading' => $heading !== '' ? $heading : strtoupper($title),
+            'subject' => $subject !== '' ? $subject : $title,
+            'body' => (string) ($tpl['body'] ?? ''),
+        ];
+    }
+    return json_encode($out, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
 }
 
 function letter_heading(array $doc): string

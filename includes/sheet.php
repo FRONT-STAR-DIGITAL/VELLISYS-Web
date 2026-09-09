@@ -61,7 +61,7 @@ function render_expense_card(array $brand, array $doc): void
   </div>
   <div class="expense-card-body">
     <?php if ($doc['status'] === 'void'): ?>
-      <p style="color:#b42318;font-weight:700;margin-top:0">VOID — <?= h($doc['void_reason']) ?></p>
+      <p style="color:#b42318;font-weight:700;margin-top:0">VOID - <?= h($doc['void_reason']) ?></p>
     <?php endif; ?>
     <div style="display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:16px">
       <img src="<?= h($logo) ?>" alt="" style="height:36px;width:auto;max-width:180px;object-fit:contain">
@@ -70,8 +70,8 @@ function render_expense_card(array $brand, array $doc): void
     <div class="expense-meta">
       <div><span>Payee</span><b><?= h($doc['party_name'] ?? '') ?></b></div>
       <div><span>Category</span><b><?= h($doc['expense_category'] ?: 'Other') ?></b></div>
-      <div><span>Paid how</span><b><?= h(payment_methods()[$doc['payment_method'] ?? ''] ?? ($doc['payment_method'] ?: '—')) ?></b></div>
-      <div><span>Reference</span><b><?= h($doc['payment_ref'] ?: '—') ?></b></div>
+      <div><span>Paid how</span><b><?= h(payment_methods()[$doc['payment_method'] ?? ''] ?? ($doc['payment_method'] ?: '-')) ?></b></div>
+      <div><span>Reference</span><b><?= h($doc['payment_ref'] ?: '-') ?></b></div>
     </div>
     <?php render_line_table($doc, $color, $tint); ?>
     <div class="expense-total"><span>Net</span><span><?= h(money($net, $cur)) ?></span></div>
@@ -131,7 +131,7 @@ function render_sheet(array $brand, array $doc): void
     </div>
   </header>
   <?php if ($doc['status'] === 'void'): ?>
-    <p style="color:#b42318;font-weight:700">VOID — <?= h($doc['void_reason']) ?></p>
+    <p style="color:#b42318;font-weight:700">VOID - <?= h($doc['void_reason']) ?></p>
   <?php endif; ?>
   <div class="bar" style="background:<?= h($color) ?>;margin-top:16px"><?= $doc['kind'] === 'letter' ? 'TO' : 'BILL TO' ?></div>
   <div style="padding:8px 4px 14px;line-height:1.45">

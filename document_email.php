@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($result['ok']) {
         flash('Sent from ' . $result['from'] . ' to ' . $to . '.');
     } else {
-        flash('Queued from ' . $result['from'] . '. XAMPP mail() needs Mercury or SMTP — the attempt is logged on the document.', 'err');
+        flash('Queued from ' . $result['from'] . '. XAMPP mail() needs Mercury or SMTP - the attempt is logged on the document.', 'err');
     }
     redirect('document_view.php?id=' . $id);
 }
@@ -38,7 +38,7 @@ layout_start('Email ' . $doc['number'], $user, ['kind' => $doc['kind']]);
 <div class="page-head">
   <div>
     <h1><?= icon('send') ?>Email <?= h($meta['singular']) ?></h1>
-    <p class="lede">Sends as <strong><?= h($user['name']) ?></strong> &lt;<?= h($user['email']) ?>&gt; — the account you signed in with.</p>
+    <p class="lede">Sends as <strong><?= h($user['name']) ?></strong> &lt;<?= h($user['email']) ?>&gt; - the account you signed in with.</p>
   </div>
 </div>
 
