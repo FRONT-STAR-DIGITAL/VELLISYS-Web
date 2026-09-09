@@ -38,7 +38,7 @@ $clients = trust_clients();
         <p class="lp-note">Four fields. We call you. Then your books go live.</p>
       </div>
 
-      <div class="lp-stage" data-lp-stage data-reveal>
+      <div class="lp-stage" data-reveal>
         <svg class="lp-arrows" viewBox="0 0 640 400" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
           <path class="lp-flow lp-flow-1" d="M96 200 C 96 86, 544 86, 544 200 C 544 314, 96 314, 96 200" fill="none" stroke="#1E4EFF" stroke-width="2.4"/>
           <path class="lp-flow lp-flow-2" d="M150 200 C 150 118, 490 118, 490 200 C 490 282, 150 282, 150 200" fill="none" stroke="#08143A" stroke-width="1.8"/>
@@ -182,20 +182,24 @@ $clients = trust_clients();
       </div>
     </section>
 
-    <section class="lp-band" id="get-a-desk" data-reveal>
+    <section class="lp-band lp-path" id="get-a-desk" data-reveal>
+      <p class="lp-kicker">Get a desk</p>
       <h2>You are three steps away</h2>
-      <div class="lp-grid3">
+      <p class="lp-path-lead">Leave your details. We call you. Then the books go live.</p>
+      <ol class="lp-path-steps">
         <?php foreach ($steps as $i => $card): ?>
-          <article>
-            <img class="lp-card-pic" src="<?= h(landing_card_image_url($card)) ?>" alt="">
-            <div class="lp-card-copy">
-              <p class="lp-step-n"><?= (int) $i + 1 ?></p>
-              <h3><?= h($card['title']) ?></h3>
-              <p><?= h($card['body']) ?></p>
-            </div>
-          </article>
+          <li>
+            <span class="lp-path-n"><?= (int) $i + 1 ?></span>
+            <article>
+              <img class="lp-card-pic" src="<?= h(landing_card_image_url($card)) ?>" alt="">
+              <div class="lp-card-copy">
+                <h3><?= h($card['title']) ?></h3>
+                <p><?= h($card['body']) ?></p>
+              </div>
+            </article>
+          </li>
         <?php endforeach; ?>
-      </div>
+      </ol>
       <div class="lp-cta lp-cta-band">
         <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('register.php')) ?>">Get my company a desk</a>
         <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('login.php')) ?>">Sign in to my desk</a>

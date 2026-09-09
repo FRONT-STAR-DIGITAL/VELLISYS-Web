@@ -149,10 +149,11 @@ a { color: inherit; }
 }
 .lp-hero h1 {
   margin: 0 0 10px;
-  max-width: 16ch;
+  max-width: none;
   font-size: clamp(28px, 4.2vw, 46px);
   line-height: 1.08;
   letter-spacing: -.03em;
+  text-align: center;
 }
 .lp-lead {
   margin: 0 0 16px;
@@ -180,11 +181,12 @@ a { color: inherit; }
 .lp-send .lp-kicker { color: #fff; }
 .lp-send h2 {
   margin: 0 0 14px;
-  max-width: 14ch;
+  max-width: none;
   font-size: clamp(28px, 3.6vw, 44px);
   line-height: 1.08;
   letter-spacing: -.03em;
   color: #fff;
+  text-align: center;
 }
 .lp-send-copy > p {
   margin: 0 0 22px;
@@ -408,32 +410,6 @@ a { color: inherit; }
 .lp-kpis span { display: block; font-size: 10px; color: var(--muted); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
 .lp-kpis b { font-size: 13px; }
 
-.lp-arrow-dot,
-.lp-fly-tip {
-  position: absolute;
-  left: 0;
-  top: 0;
-  pointer-events: none;
-  z-index: 5;
-  will-change: transform;
-}
-.lp-arrow-dot {
-  width: 10px;
-  height: 10px;
-  margin: -5px 0 0 -5px;
-  background: var(--blue);
-  border-radius: 50%;
-  box-shadow: 0 0 0 4px rgba(30, 78, 255, .18);
-}
-.lp-fly-tip {
-  margin: -13px 0 0 -7px;
-  color: var(--blue);
-  font-size: 22px;
-  font-weight: 800;
-  line-height: 1;
-  text-shadow: 0 0 8px rgba(255,255,255,.9);
-}
-
 .lp-compare {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -442,7 +418,9 @@ a { color: inherit; }
   padding: 72px 5vw 80px;
   overflow: visible;
 }
-.lp-compare h2 { margin: 0; font-size: 28px; letter-spacing: -.02em; }
+.lp-compare .lp-kicker { text-align: center; }
+.lp-compare h2 { margin: 0; font-size: 28px; letter-spacing: -.02em; text-align: center; }
+.lp-send .lp-kicker { text-align: center; }
 .lp-stack {
   position: relative;
   width: min(460px, 100%);
@@ -581,9 +559,71 @@ a { color: inherit; }
 }
 
 .lp-band { padding: 72px 5vw 80px; }
-.lp-band h2 { margin: 0 0 28px; font-size: 28px; letter-spacing: -.02em; }
+.lp-band .lp-kicker { text-align: center; }
+.lp-band h2 { margin: 0 0 28px; font-size: 28px; letter-spacing: -.02em; text-align: center; }
 .lp-band-alt { padding-bottom: 80px; }
 .lp-grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.lp-path-lead {
+  margin: -12px auto 36px;
+  max-width: 32em;
+  text-align: center;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.5;
+}
+.lp-path-steps {
+  list-style: none;
+  margin: 0 0 36px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  position: relative;
+}
+.lp-path-steps::before {
+  content: "";
+  position: absolute;
+  top: 22px;
+  left: 16%;
+  right: 16%;
+  height: 2px;
+  background: repeating-linear-gradient(90deg, var(--blue) 0 10px, transparent 10px 18px);
+  pointer-events: none;
+}
+.lp-path-steps li {
+  position: relative;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+  text-align: center;
+}
+.lp-path-steps li article {
+  background: #fff;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(8, 20, 58, .06);
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+.lp-path-steps li:hover article {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 36px rgba(8, 20, 58, .12);
+}
+.lp-path-n {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  background: var(--blue);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  box-shadow: 0 0 0 6px var(--paper);
+}
+.lp-path-steps .lp-card-copy { padding-top: 16px; }
 .lp-trust {
   position: relative;
   z-index: 1;
@@ -768,7 +808,8 @@ a { color: inherit; }
   .lp-nav { padding: 10px 16px; gap: 10px; }
   .lp-hero, .lp-band, .lp-foot, .lp-compare, .lp-send { padding-left: 16px; padding-right: 16px; }
   .lp-band, .lp-compare { padding-top: 48px; padding-bottom: 52px; }
-  .lp-grid3 { grid-template-columns: 1fr; }
+  .lp-grid3, .lp-path-steps { grid-template-columns: 1fr; }
+  .lp-path-steps::before { display: none; }
   .lp-steps { grid-template-columns: 1fr; }
   .lp-nav nav { flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
   .lp-btn-lg { min-width: 0; width: 100%; }
