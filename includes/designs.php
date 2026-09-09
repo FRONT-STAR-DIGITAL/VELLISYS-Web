@@ -230,8 +230,8 @@ function render_sheet_ledger(array $d): void
       <table class="ledger-acct">
         <tr><th>Acct.</th><td><?= h($brand['account_number'] ?: '-') ?></td></tr>
         <?php if ($doc['kind'] === 'receipt'): ?>
-          <tr><th>RECEIVED</th><td><?= h(money($d['settlement']['received'] ?? $d['total'], $d['cur'])) ?></td></tr>
-          <tr><th>DUE</th><td><?= h(money($d['settlement']['balance'] ?? 0, $d['cur'])) ?></td></tr>
+          <tr><th>RECEIVED:</th><td><?= h(money($d['settlement']['received'] ?? $d['total'], $d['cur'])) ?></td></tr>
+          <tr><th>DUE:</th><td><?= h(money($d['settlement']['balance'] ?? 0, $d['cur'])) ?></td></tr>
         <?php endif; ?>
       </table>
       <div class="ledger-pay">
