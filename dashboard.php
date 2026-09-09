@@ -95,6 +95,7 @@ layout_start('Desk', $user);
   <?php if (!$recent): ?>
     <p class="empty">Nothing issued yet.</p>
   <?php else: ?>
+    <div class="table-scroll">
     <table class="grid">
       <thead>
         <tr>
@@ -119,6 +120,7 @@ layout_start('Desk', $user);
         <?php endforeach; ?>
       </tbody>
     </table>
+    </div>
   <?php endif; ?>
 </div>
 <?php layout_end(); ?>

@@ -33,6 +33,7 @@ layout_start('Debtors', $user);
 <?php if ($byClient): ?>
 <div class="card" style="margin-bottom:16px">
   <div class="card-head"><h2><?= icon('clients', 16) ?>By client</h2></div>
+  <div class="table-scroll">
   <table class="grid">
     <thead>
       <tr>
@@ -51,6 +52,7 @@ layout_start('Debtors', $user);
       <?php endforeach; ?>
     </tbody>
   </table>
+  </div>
 </div>
 <?php endif; ?>
 
@@ -65,6 +67,7 @@ layout_start('Debtors', $user);
   <?php if (!$rows): ?>
     <p class="empty">No outstanding invoices in this period.</p>
   <?php else: ?>
+    <div class="table-scroll">
     <table class="grid">
       <thead>
         <tr>
@@ -101,6 +104,7 @@ layout_start('Debtors', $user);
         </tr>
       </tfoot>
     </table>
+    </div>
   <?php endif; ?>
 </div>
 <?php layout_end(); ?>

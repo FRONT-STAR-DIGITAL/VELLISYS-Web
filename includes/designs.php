@@ -89,7 +89,7 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
     ?>
     <table class="d-lines <?= h($cls) ?>">
       <thead>
-        <tr class="d-lines-head">
+        <tr style="background:<?= h($color) ?>;color:#fff">
           <?php if ($serial): ?><th class="c" style="width:44px">No.</th><?php endif; ?>
           <th style="width:22%">Item</th>
           <th>Description</th>
@@ -101,7 +101,7 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
       </thead>
       <tbody>
         <?php foreach ($rows as $i => $item): ?>
-          <tr style="background:<?= $i % 2 ? '#f7f7f7' : '#fff' ?>">
+          <tr style="background:<?= $i % 2 ? h($tint) : '#fff' ?>">
             <?php if ($serial): ?><td class="c"><?= $item ? (string) ($i + 1) : '' ?></td><?php endif; ?>
             <td class="item"><?= $item && line_item_name($item) !== '' ? h(line_item_name($item)) : ($item ? '&nbsp;' : '&nbsp;') ?></td>
             <td class="desc"><?= $item && line_item_description($item) !== '' ? nl2br(h(line_item_description($item))) : '&nbsp;' ?></td>
@@ -144,7 +144,7 @@ function render_sheet_folio(array $d): void
       </div>
     </div>
     <div class="d-meta-box">
-      <p class="d-title"><?= h($d['heading']) ?></p>
+      <p class="d-title" style="color:<?= h($d['color']) ?>"><?= h($d['heading']) ?></p>
       <table class="meta">
         <tr><td class="k">DATE</td><td><?= h(format_date($doc['date'])) ?></td></tr>
         <tr><td class="k">No.</td><td><?= h($doc['number']) ?></td></tr>
@@ -156,7 +156,7 @@ function render_sheet_folio(array $d): void
     </div>
   </header>
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
-  <div class="bar"><?= $doc['kind'] === 'letter' ? 'TO' : 'BILL TO' ?></div>
+  <div class="bar" style="background:<?= h($d['color']) ?>"><?= $doc['kind'] === 'letter' ? 'TO' : 'BILL TO' ?></div>
   <div class="d-party">
     <strong><?= h($doc['party_name'] ?? '') ?></strong><br>
     <?= h($doc['party_address'] ?? '') ?><br>
@@ -170,7 +170,7 @@ function render_sheet_folio(array $d): void
     <?php render_line_table($doc, $d['color'], $d['tint']); ?>
     <div class="d-split">
       <div class="d-notes">
-        <div class="bar">OTHER COMMENTS</div>
+        <div class="bar" style="background:<?= h($d['color']) ?>">OTHER COMMENTS</div>
         <div class="d-notes-body"><?= h($d['comments']) ?></div>
       </div>
       <div class="d-sums">
@@ -267,7 +267,7 @@ function render_sheet_bill(array $d, string $variant): void
       <p><?= h($brand['address']) ?> · <?= h($brand['phone']) ?> · <?= h($brand['email']) ?></p>
     </div>
   </header>
-  <div class="bill-pill"><?= h($d['heading']) ?></div>
+  <div class="bill-pill" style="background:<?= h($primary) ?>"><?= h($d['heading']) ?></div>
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
   <div class="bill-who">
     <div>

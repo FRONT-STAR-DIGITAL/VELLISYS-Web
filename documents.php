@@ -81,6 +81,7 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
   <?php if (!$rows): ?>
     <p class="empty">No <?= h(strtolower($meta['title'])) ?> in this period. <a href="<?= h(url('document_new.php?kind=' . $kind)) ?>"><?= h($meta['verb']) ?></a>.</p>
   <?php else: ?>
+    <div class="table-scroll">
     <table class="grid">
       <thead>
         <tr>
@@ -153,6 +154,7 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
         </tfoot>
       <?php endif; ?>
     </table>
+    </div>
   <?php endif; ?>
 </div>
 <?php layout_end(); ?>

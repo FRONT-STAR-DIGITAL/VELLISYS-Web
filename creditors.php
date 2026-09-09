@@ -32,6 +32,7 @@ layout_start('Creditors', $user);
   <?php if (!$rows): ?>
     <p class="empty">No unpaid bills in this period.</p>
   <?php else: ?>
+    <div class="table-scroll">
     <table class="grid">
       <thead>
         <tr>
@@ -71,6 +72,7 @@ layout_start('Creditors', $user);
         </tr>
       </tfoot>
     </table>
+    </div>
   <?php endif; ?>
 </div>
 <?php layout_end(); ?>

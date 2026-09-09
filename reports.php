@@ -166,6 +166,7 @@ layout_start('Reports', $user);
   <?php if (!$debtors): ?>
     <p class="empty">No open invoices in this period.</p>
   <?php else: ?>
+    <div class="table-scroll">
     <table class="grid">
       <thead><tr><th>Invoice</th><th>Client</th><th>Due</th><th>Bucket</th><th class="right">Balance</th><th></th></tr></thead>
       <tbody>
@@ -188,6 +189,7 @@ layout_start('Reports', $user);
         </tr>
       </tfoot>
     </table>
+    </div>
   <?php endif; ?>
 </div>
 
@@ -195,6 +197,7 @@ layout_start('Reports', $user);
   <div class="card-head"><h2><?= icon('receipt', 16) ?>Cash movement</h2></div>
   <p class="empty" style="margin-bottom:0">Money in <?= h(ugx($cashIn)) ?> · Supplier payments <?= h(ugx($cashOut)) ?>.</p>
   <?php if ($receipts): ?>
+    <div class="table-scroll">
     <table class="grid">
       <thead><tr><th>Number</th><th>Party</th><th>Date</th><th>Kind</th><th class="right">Amount</th><th></th></tr></thead>
       <tbody>
@@ -217,6 +220,7 @@ layout_start('Reports', $user);
         </tr>
       </tfoot>
     </table>
+    </div>
   <?php endif; ?>
 </div>
 <?php

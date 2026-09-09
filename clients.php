@@ -40,6 +40,7 @@ layout_start('Clients', $user);
   <?php if (!$parties): ?>
     <p class="empty">No clients yet. <a href="<?= h(url('client_edit.php')) ?>">Add one</a>.</p>
   <?php else: ?>
+    <div class="table-scroll">
     <table class="grid">
       <thead>
         <tr>
@@ -71,6 +72,7 @@ layout_start('Clients', $user);
         <?php endforeach; ?>
       </tbody>
     </table>
+    </div>
   <?php endif; ?>
 </div>
 <?php layout_end(); ?>

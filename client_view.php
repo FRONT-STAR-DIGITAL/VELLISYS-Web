@@ -87,6 +87,7 @@ layout_start($party['name'], $user);
     <?php if (!$byKind[$kind]): ?>
       <p class="empty">None yet.</p>
     <?php else: ?>
+      <div class="table-scroll">
       <table class="grid">
         <thead>
           <tr>
@@ -127,6 +128,7 @@ layout_start($party['name'], $user);
           </tfoot>
         <?php endif; ?>
       </table>
+      </div>
     <?php endif; ?>
   </div>
 <?php endforeach; ?>
