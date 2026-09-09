@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="210" height="56" viewBox="0 0 210 56" role="img" aria-label="Masaka Dairy">
+  <path d="M22 8c12 14 16 22 0 40C6 30 10 22 22 8z" fill="#1E4EFF"/>
+  <circle cx="22" cy="30" r="5" fill="#fff"/>
+  <text x="44" y="34" font-family="Montserrat, Arial, sans-serif" font-size="16" font-weight="700" fill="#08143A">Masaka Dairy</text>
+</svg>

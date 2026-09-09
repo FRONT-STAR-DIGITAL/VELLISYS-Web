@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="230" height="56" viewBox="0 0 230 56" role="img" aria-label="Fort Portal Tea">
+  <ellipse cx="22" cy="28" rx="14" ry="18" fill="#08143A"/>
+  <path d="M22 14c8 8 10 16 0 28" fill="#1E4EFF"/>
+  <text x="44" y="34" font-family="Montserrat, Arial, sans-serif" font-size="16" font-weight="700" fill="#08143A">Fort Portal Tea</text>
+</svg>

@@ -767,6 +767,22 @@ function old_way_photos(): array
     ];
 }
 
+function trust_clients(): array
+{
+    return [
+        ['name' => 'Ofagros', 'file' => 'img/landing/clients/ofagros.svg'],
+        ['name' => 'Kira Estates', 'file' => 'img/landing/clients/kira-estates.svg'],
+        ['name' => 'Nile Hardware', 'file' => 'img/landing/clients/nile-hardware.svg'],
+        ['name' => 'Jinja Pack', 'file' => 'img/landing/clients/jinja-pack.svg'],
+        ['name' => 'Rwenzori Mills', 'file' => 'img/landing/clients/rwenzori-mills.svg'],
+        ['name' => 'Gulu Trade', 'file' => 'img/landing/clients/gulu-trade.svg'],
+        ['name' => 'Entebbe Marine', 'file' => 'img/landing/clients/entebbe-marine.svg'],
+        ['name' => 'Mbale Grain', 'file' => 'img/landing/clients/mbale-grain.svg'],
+        ['name' => 'Fort Portal Tea', 'file' => 'img/landing/clients/fort-portal-tea.svg'],
+        ['name' => 'Masaka Dairy', 'file' => 'img/landing/clients/masaka-dairy.svg'],
+    ];
+}
+
 function public_header(string $page = 'home'): void
 {
     $phones = product_phones();
@@ -800,21 +816,24 @@ function public_footer(): void
     $phones = product_phones();
     ?>
   <footer class="lp-foot">
-    <div class="lp-foot-brand">
-      <img class="lp-logo lp-logo-on-dark" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
-      <p>Books you can share in one click. A product of <?= h(product_maker_name()) ?>.</p>
+    <div class="lp-foot-grid">
+      <div class="lp-foot-brand">
+        <img class="lp-logo lp-logo-on-dark" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
+        <p>Books you can share in one click. A product of <?= h(product_maker_name()) ?>.</p>
+      </div>
+      <div>
+        <h3>Talk to us</h3>
+        <a href="mailto:<?= h(product_email()) ?>"><?= h(product_email()) ?></a>
+        <a href="tel:+256779971024"><?= h($phones[0]) ?></a>
+        <a href="tel:+256756524451"><?= h($phones[1]) ?></a>
+      </div>
+      <div>
+        <h3>FS Digital</h3>
+        <p><?= h(product_po_box()) ?></p>
+        <a href="<?= h(product_maker_url()) ?>" rel="noopener">frontstardigital.com</a>
+      </div>
     </div>
-    <div>
-      <h3>Talk to us</h3>
-      <a href="mailto:<?= h(product_email()) ?>"><?= h(product_email()) ?></a>
-      <a href="tel:+256779971024"><?= h($phones[0]) ?></a>
-      <a href="tel:+256756524451"><?= h($phones[1]) ?></a>
-    </div>
-    <div>
-      <h3>FS Digital</h3>
-      <p><?= h(product_po_box()) ?></p>
-      <a href="<?= h(product_maker_url()) ?>" rel="noopener">frontstardigital.com</a>
-    </div>
+    <p class="lp-copy">© <?= h((string) date('Y')) ?> <?= h(product_name()) ?>. All rights reserved.</p>
   </footer>
     <?php
 }

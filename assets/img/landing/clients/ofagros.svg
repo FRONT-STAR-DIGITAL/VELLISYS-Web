@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="56" viewBox="0 0 200 56" role="img" aria-label="Ofagros">
+  <circle cx="22" cy="28" r="16" fill="#82B440"/>
+  <path d="M22 16c5 7 5 17 0 24-5-7-5-17 0-24z" fill="#fff"/>
+  <text x="46" y="34" font-family="Georgia, serif" font-size="20" fill="#1b3d0c">Ofagros</text>
+</svg>

@@ -8,6 +8,7 @@ $familiar = landing_cards('familiar');
 $help = landing_cards('help');
 $steps = landing_cards('steps');
 $oldPhotos = old_way_photos();
+$clients = trust_clients();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -80,6 +81,20 @@ $oldPhotos = old_way_photos();
             <li><span>Open</span><b>UGX 3.3m</b></li>
           </ul>
         </article>
+      </div>
+    </section>
+
+    <section class="lp-trust" aria-label="Clients who trust us">
+      <p class="lp-kicker">On the desk</p>
+      <h2>Clients who trust us</h2>
+      <div class="lp-marquee">
+        <div class="lp-marquee-track">
+          <?php foreach ([$clients, $clients] as $setIndex => $set): ?>
+            <?php foreach ($set as $client): ?>
+              <img src="<?= h(asset($client['file'])) ?>" alt="<?= $setIndex === 0 ? h($client['name']) : '' ?>" <?= $setIndex === 1 ? 'aria-hidden="true"' : '' ?>>
+            <?php endforeach; ?>
+          <?php endforeach; ?>
+        </div>
       </div>
     </section>
 

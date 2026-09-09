@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="56" viewBox="0 0 200 56" role="img" aria-label="Mbale Grain">
+  <path d="M22 8c10 10 10 22 0 40-10-18-10-30 0-40z" fill="#1E4EFF"/>
+  <path d="M22 14c6 8 6 18 0 28" fill="none" stroke="#08143A" stroke-width="2"/>
+  <text x="44" y="34" font-family="Montserrat, Arial, sans-serif" font-size="16" font-weight="700" fill="#08143A">Mbale Grain</text>
+</svg>

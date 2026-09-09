@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="210" height="56" viewBox="0 0 210 56" role="img" aria-label="Kira Estates">
+  <rect x="6" y="18" width="28" height="22" rx="3" fill="#08143A"/>
+  <path d="M6 20 L20 8 L34 20" fill="#1E4EFF"/>
+  <text x="44" y="34" font-family="Montserrat, Arial, sans-serif" font-size="16" font-weight="700" fill="#08143A">Kira Estates</text>
+</svg>
