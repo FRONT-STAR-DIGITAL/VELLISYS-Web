@@ -29,7 +29,7 @@ function layout_start(string $title, array $user, array $opts = []): void
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= h($title) ?> · <?= h($brand['name']) ?></title>
   <?php folio_font_links(); ?>
-  <link rel="stylesheet" href="<?= h(asset('css/app.css')) ?>">
+  <?php folio_css_links(); ?>
   <style>:root { --brand: <?= h($color) ?>; }</style>
 </head>
 <body class="desk-body">
@@ -98,7 +98,7 @@ function layout_admin_start(string $title, array $user): void
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= h($title) ?> · Folio admin</title>
   <?php folio_font_links(); ?>
-  <link rel="stylesheet" href="<?= h(asset('css/app.css')) ?>">
+  <?php folio_css_links(); ?>
   <style>:root { --brand: #82B440; }</style>
 </head>
 <body class="desk-body">

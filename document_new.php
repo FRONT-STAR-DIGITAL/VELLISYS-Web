@@ -59,6 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'allocated_amount' => $kind === 'receipt' ? money_parse(post('allocated_amount')) : null,
         'expense_category' => post('expense_category') ?: null,
         'letter_template' => post('letter_template') ?: null,
+        'doc_template' => post('doc_template') ?: doc_template_key(),
         'items' => $items,
     ]);
     flash($meta['singular'] . ' ' . load_document($id)['number'] . ' saved.');
@@ -119,6 +120,14 @@ layout_start($meta['verb'], $user, ['kind' => $kind]);
         <select id="currency" name="currency">
           <?php foreach (currencies() as $code => $label): ?>
             <option value="<?= h($code) ?>" <?= default_currency() === $code ? 'selected' : '' ?>><?= h($label) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+      <div>
+        <label for="doc_template">Design</label>
+        <select id="doc_template" name="doc_template">
+          <?php foreach (doc_templates() as $key => $info): ?>
+            <option value="<?= h($key) ?>" <?= doc_template_key() === $key ? 'selected' : '' ?>><?= h($info['name']) ?></option>
           <?php endforeach; ?>
         </select>
       </div>

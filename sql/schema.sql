@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS branding (
   plan ENUM('starter','sme','office') NOT NULL DEFAULT 'sme',
   currency CHAR(3) NOT NULL DEFAULT 'UGX',
   letter_templates TEXT NULL,
+  doc_template VARCHAR(40) NOT NULL DEFAULT 'folio',
   UNIQUE KEY company_id (company_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -79,6 +80,7 @@ CREATE TABLE IF NOT EXISTS documents (
   expense_category VARCHAR(80) DEFAULT NULL,
   letter_template VARCHAR(40) DEFAULT NULL,
   currency CHAR(3) NOT NULL DEFAULT 'UGX',
+  doc_template VARCHAR(40) DEFAULT NULL,
   efris_fdn VARCHAR(40) DEFAULT NULL,
   efris_verification VARCHAR(16) DEFAULT NULL,
   efris_payload TEXT,

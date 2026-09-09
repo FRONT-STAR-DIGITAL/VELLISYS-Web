@@ -33,7 +33,7 @@ try {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sign in · Folio</title>
   <?php folio_font_links(); ?>
-  <link rel="stylesheet" href="<?= h(asset('css/app.css')) ?>">
+  <?php folio_css_links(); ?>
   <style>:root { --brand: <?= h($color) ?>; }</style>
 </head>
 <body>

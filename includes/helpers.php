@@ -59,6 +59,99 @@ function currencies(): array
     return ['UGX' => 'UGX - Uganda shilling', 'USD' => 'USD - US dollar'];
 }
 
+function doc_templates(): array
+{
+    return [
+        'folio' => [
+            'name' => 'Folio bar',
+            'blurb' => 'Your brand colour on the original letterhead sheet.',
+        ],
+        'ledger' => [
+            'name' => 'Blue ledger',
+            'blurb' => 'Classic receipt-book layout with amount in words.',
+        ],
+        'crimson' => [
+            'name' => 'Crimson bill',
+            'blurb' => 'Red and black geometric challan for invoices and quotes.',
+        ],
+        'amber' => [
+            'name' => 'Amber bill',
+            'blurb' => 'Navy and orange corner blocks with a bold title pill.',
+        ],
+        'twin' => [
+            'name' => 'Twin copy',
+            'blurb' => 'Office copy and client copy on one yellow-navy sheet.',
+        ],
+        'stripe' => [
+            'name' => 'Gold stripe',
+            'blurb' => 'Purple title bar, gold rail, and a boxed total.',
+        ],
+        'estate' => [
+            'name' => 'Estate cream',
+            'blurb' => 'Coffee-estate paper: forest green, gold rules, harvest feel.',
+        ],
+        'night' => [
+            'name' => 'Lake night',
+            'blurb' => 'Indigo dusk and copper lines - Kampala evening desk.',
+        ],
+    ];
+}
+
+function doc_template_key(?array $doc = null): string
+{
+    $key = strtolower((string) ($doc['doc_template'] ?? branding()['doc_template'] ?? 'folio'));
+    return array_key_exists($key, doc_templates()) ? $key : 'folio';
+}
+
+function number_to_words(int $n): string
+{
+    if ($n === 0) {
+        return 'zero';
+    }
+    $ones = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+    $tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+    $chunk = static function (int $x) use ($ones, $tens): string {
+        $parts = [];
+        if ($x >= 100) {
+            $parts[] = $ones[(int) floor($x / 100)] . ' hundred';
+            $x %= 100;
+        }
+        if ($x >= 20) {
+            $parts[] = $tens[(int) floor($x / 10)] . ($x % 10 ? '-' . $ones[$x % 10] : '');
+        } elseif ($x > 0) {
+            $parts[] = $ones[$x];
+        }
+        return implode(' ', $parts);
+    };
+    $scales = [[1000000000, 'billion'], [1000000, 'million'], [1000, 'thousand']];
+    $parts = [];
+    $rest = abs($n);
+    foreach ($scales as [$size, $name]) {
+        if ($rest >= $size) {
+            $parts[] = $chunk((int) floor($rest / $size)) . ' ' . $name;
+            $rest %= $size;
+        }
+    }
+    if ($rest > 0) {
+        $parts[] = $chunk($rest);
+    }
+    return implode(' ', $parts);
+}
+
+function amount_in_words($amount, ?string $currency = null): string
+{
+    $currency = strtoupper($currency ?: default_currency());
+    $n = round(abs((float) $amount), 2);
+    $whole = (int) floor($n);
+    $frac = (int) round(($n - $whole) * 100);
+    $unit = $currency === 'USD' ? 'dollars' : 'shillings';
+    $out = ucfirst(number_to_words($whole)) . ' ' . $unit;
+    if ($frac > 0) {
+        $out .= ' and ' . number_to_words($frac) . ' cents';
+    }
+    return $out . ' only';
+}
+
 function flash(?string $message = null, string $type = 'ok'): ?array
 {
     if ($message !== null) {
@@ -104,6 +197,7 @@ function folio_defaults(): array
         'payment_note' => '',
         'invoice_comments' => '',
         'letter_templates' => '',
+        'doc_template' => 'folio',
     ];
 }
 
@@ -466,6 +560,12 @@ function prefix_from_name(string $name): string
 {
     $letters = strtoupper(preg_replace('/[^A-Za-z]/', '', $name) ?: 'FOL');
     return substr($letters . 'XXX', 0, 3);
+}
+
+function folio_css_links(): void
+{
+    echo '<link rel="stylesheet" href="' . h(asset('css/app.css')) . '">';
+    echo '<link rel="stylesheet" href="' . h(asset('css/designs.css')) . '">';
 }
 
 function folio_font_links(): void

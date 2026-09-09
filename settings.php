@@ -35,8 +35,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if ($error === '') {
         db_exec(
-            'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, currency=?, letter_templates=? WHERE company_id=?',
-            'sssssssssssssssssssi',
+            'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, currency=?, letter_templates=?, doc_template=? WHERE company_id=?',
+            'ssssssssssssssssssssi',
             [
                 post('name'),
                 post('tagline'),
@@ -57,6 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 post('invoice_comments'),
                 strtoupper(post('currency') ?: 'UGX') === 'USD' ? 'USD' : 'UGX',
                 encode_letter_templates(isset($_POST['tpl']) && is_array($_POST['tpl']) ? $_POST['tpl'] : []),
+                array_key_exists(post('doc_template'), doc_templates()) ? post('doc_template') : 'folio',
                 current_company_id(),
             ]
         );
@@ -87,7 +88,7 @@ layout_start('Settings', $user);
     <a href="#tax"><?= icon('hash', 16) ?>Tax</a>
     <a href="#bank"><?= icon('bank', 16) ?>Bank</a>
     <a href="#documents"><?= icon('invoice', 16) ?>Documents</a>
-    <a href="#templates"><?= icon('letter', 16) ?>Templates</a>
+    <a href="#templates"><?= icon('palette', 16) ?>Templates</a>
   </aside>
 
   <div class="settings-stack">
@@ -218,8 +219,36 @@ layout_start('Settings', $user);
     </section>
 
     <section class="card settings-card" id="templates">
-      <h2><?= icon('letter') ?>Templates</h2>
-      <p class="lede">Correspondence templates used when you write a headed note. Put <code>{company}</code> where the company name should appear.</p>
+      <h2><?= icon('palette') ?>Document designs</h2>
+      <p class="lede">Pick how invoices, quotations, receipts and expenses print. Correspondence stays fully editable - only the headed paper around it changes.</p>
+      <div class="design-grid">
+        <?php
+        $currentDesign = doc_template_key(['doc_template' => $b['doc_template'] ?? 'folio']);
+        $thumbs = [
+            'ledger' => 'assets/img/designs/ledger.png',
+            'crimson' => 'assets/img/designs/challan.png',
+            'amber' => 'assets/img/designs/challan.png',
+            'twin' => 'assets/img/designs/twin.png',
+            'stripe' => 'assets/img/designs/stripe.png',
+        ];
+        foreach (doc_templates() as $key => $info):
+            $img = $thumbs[$key] ?? '';
+            ?>
+          <label class="design-card">
+            <input type="radio" name="doc_template" value="<?= h($key) ?>" <?= $currentDesign === $key ? 'checked' : '' ?>>
+            <?php if ($img): ?>
+              <img src="<?= h(url($img)) ?>" alt="" style="<?= $key === 'crimson' ? 'object-position:left' : ($key === 'amber' ? 'object-position:right' : '') ?>">
+            <?php else: ?>
+              <div class="design-mini mini-<?= h($key) ?>"></div>
+            <?php endif; ?>
+            <strong><?= h($info['name']) ?></strong>
+            <span><?= h($info['blurb']) ?></span>
+          </label>
+        <?php endforeach; ?>
+      </div>
+
+      <h2 style="margin-top:28px"><?= icon('letter') ?>Correspondence copy</h2>
+      <p class="lede">The note itself stays 100% editable when you write it. These are starting texts only. Put <code>{company}</code> where the company name should appear.</p>
       <div data-tpl-list>
         <?php foreach (letter_templates(true) as $key => $tpl): ?>
           <div class="tpl-edit" data-tpl-card>

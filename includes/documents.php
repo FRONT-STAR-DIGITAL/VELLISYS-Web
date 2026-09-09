@@ -101,6 +101,10 @@ function create_document(array $data): int
     if ($currency !== 'USD') {
         $currency = 'UGX';
     }
+    $docTpl = trim((string) ($data['doc_template'] ?? ''));
+    if ($docTpl === '' || !array_key_exists($docTpl, doc_templates())) {
+        $docTpl = doc_template_key();
+    }
     $userId = (int) ($data['created_by'] ?? ($_SESSION['user_id'] ?? 0));
     $items = $data['items'] ?? [];
     $cid = current_company_id();
@@ -114,10 +118,10 @@ function create_document(array $data): int
     }
 
     $id = db_exec(
-        'INSERT INTO documents (company_id, kind, sequence, number, date, due_date, party_id, vat_rate, notes, subject, body, status, related_id, payment_method, payment_ref, allocated_amount, expense_category, letter_template, created_by, currency)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        'isisssidssssissdssis',
-        [$cid, $kind, $seq, $number, $date, $due, $party, $rate, $notes, $subject, $body, $status, $related, $method, $ref, $alloc, $cat, $tpl, $userId, $currency]
+        'INSERT INTO documents (company_id, kind, sequence, number, date, due_date, party_id, vat_rate, notes, subject, body, status, related_id, payment_method, payment_ref, allocated_amount, expense_category, letter_template, created_by, currency, doc_template)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'isisssidssssissdssiss',
+        [$cid, $kind, $seq, $number, $date, $due, $party, $rate, $notes, $subject, $body, $status, $related, $method, $ref, $alloc, $cat, $tpl, $userId, $currency, $docTpl]
     );
 
     foreach ($items as $item) {
@@ -216,6 +220,7 @@ function pay_creditor(int $expenseId, float $amount, string $method, string $ref
         'date' => today(),
         'vat_rate' => 0,
         'currency' => doc_currency($doc),
+        'doc_template' => doc_template_key($doc),
         'notes' => 'Payment to supplier against ' . $doc['number'] . '.',
         'related_id' => $doc['id'],
         'payment_method' => $method,
@@ -263,6 +268,7 @@ function convert_quotation_to_invoice(int $quoteId): int
         'due_date' => date('Y-m-d', strtotime('+14 days')),
         'vat_rate' => (float) $doc['vat_rate'],
         'currency' => doc_currency($doc),
+        'doc_template' => doc_template_key($doc),
         'notes' => $doc['notes'],
         'related_id' => $doc['id'],
         'items' => $items,
@@ -286,6 +292,7 @@ function receive_on_invoice(int $invoiceId, float $amount, string $method, strin
         'date' => today(),
         'vat_rate' => 0,
         'currency' => doc_currency($doc),
+        'doc_template' => doc_template_key($doc),
         'notes' => 'Received with thanks against ' . $doc['number'] . '.',
         'related_id' => $doc['id'],
         'payment_method' => $method,

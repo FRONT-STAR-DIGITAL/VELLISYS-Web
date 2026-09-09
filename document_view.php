@@ -22,7 +22,7 @@ if ($print) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= h($doc['number']) ?></title>
   <?php folio_font_links(); ?>
-  <link rel="stylesheet" href="<?= h(asset('css/app.css')) ?>">
+  <?php folio_css_links(); ?>
   <style>:root { --brand: <?= h(brand_color()) ?>; }</style>
 </head>
 <body class="print-body">
@@ -60,7 +60,7 @@ if ($doc['kind'] === 'invoice') {
   </div>
 </div>
 
-<div class="<?= $doc['kind'] === 'expense' ? '' : 'sheet-wrap' ?>">
+<div class="sheet-wrap">
   <?php render_sheet(branding(), $doc); ?>
 </div>
 

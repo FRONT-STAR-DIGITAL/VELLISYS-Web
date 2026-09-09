@@ -13,7 +13,7 @@ This is a **PHP + MySQL** desk meant to run on **XAMPP**. There is no Node or Ne
 - Add as many line items as you need when creating invoices, quotations, receipts and expenses. Quantity steps in whole numbers and still accepts decimals
 - Printed documents show item/description, quantity, unit, unit price and full price
 - Static navigation; portal background is a plain diagonal-line pattern
-- **Correspondence** with headed templates you can edit under Settings → Templates
+- **Correspondence** stays fully editable. Settings → Templates picks a document design (ledger, bills, twin copy, stripe, plus Estate cream and Lake night)
 - Expenses as cards; debtors and creditors as tables with totals
 - Date filters: today, this week, last week, this month, last month, plus from/to
 - Reports with a time series, expense pie and debtors aging bars
