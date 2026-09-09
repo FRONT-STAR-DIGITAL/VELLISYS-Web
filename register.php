@@ -40,41 +40,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <?php folio_font_links(); ?>
   <link rel="stylesheet" href="<?= h(asset('css/landing.css')) ?>">
 </head>
-<body class="lp">
-  <div class="lp-glow lp-glow-a" aria-hidden="true"></div>
-  <div class="lp-glow lp-glow-b" aria-hidden="true"></div>
-
-  <?php public_header('register'); ?>
-
-  <main class="lp-auth">
+<body class="gate">
+<div class="gate-shell">
+  <?php gate_art(
+      'A desk for the company. Live in a few steps.',
+      'Leave four fields. We call you. Then quotations, invoices and receipts sit on one desk you can open from anywhere.',
+      'Already a member? <a href="' . h(url('login.php')) . '">Log in</a>'
+  ); ?>
+  <main class="gate-panel">
     <?php if ($ok): ?>
-      <div class="lp-card lp-ok">
-        <img src="<?= h(product_logo_url()) ?>" class="lp-logo" alt="<?= h(product_name()) ?>">
-        <h1>We have your request</h1>
-        <p>A Vellisys admin will reach out to onboard your company and open the desk. No password yet - you get one when the company goes live.</p>
-        <a class="lp-btn lp-btn-solid" href="<?= h(url()) ?>">Back to Vellisys</a>
+      <div class="gate-box gate-ok">
+        <img class="gate-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
+        <h2><em>We have</em> your request</h2>
+        <p class="gate-lead">A Vellisys admin will reach out to onboard your company and open the desk. No password yet - you get one when the company goes live.</p>
+        <a class="gate-submit" href="<?= h(url()) ?>">Back to Vellisys</a>
       </div>
     <?php else: ?>
-      <form class="lp-card" method="post" action="<?= h(url('register.php')) ?>" autocomplete="off">
+      <form class="gate-box" method="post" action="<?= h(url('register.php')) ?>" autocomplete="off">
         <?= csrf_field() ?>
-        <p class="lp-kicker">Get a desk</p>
-        <h1>Register your company</h1>
-        <p class="lp-form-lead">Four fields. We call you. Then the books are yours.</p>
+        <img class="gate-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
+        <h2><em>Sign up</em> to get a company desk</h2>
+        <p class="gate-lead">Four fields. We call you. Then the books are yours.</p>
         <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
-        <label for="contact_name">Your name</label>
-        <input id="contact_name" name="contact_name" required autocomplete="name" value="<?= h(post('contact_name')) ?>" placeholder="Jane Okello">
-        <label for="company_name">Company</label>
-        <input id="company_name" name="company_name" required autocomplete="organization" value="<?= h(post('company_name')) ?>" placeholder="Okello Traders Ltd">
-        <label for="contact_email">Email</label>
-        <input id="contact_email" name="contact_email" type="email" required autocomplete="email" value="<?= h(post('contact_email')) ?>" placeholder="accounts@company.ug">
-        <label for="contact_phone">Phone</label>
-        <input id="contact_phone" name="contact_phone" type="tel" required autocomplete="tel" value="<?= h(post('contact_phone')) ?>" placeholder="+256 700 000 000">
-        <button class="lp-btn lp-btn-solid" type="submit">Send my details</button>
-        <p class="lp-form-note">Already onboarded? <a href="<?= h(url('login.php')) ?>">Sign in</a></p>
+        <label class="gate-field" for="contact_name">Your name
+          <input id="contact_name" name="contact_name" required autocomplete="name" value="<?= h(post('contact_name')) ?>" placeholder="Jane Okello">
+        </label>
+        <label class="gate-field" for="company_name">Company
+          <input id="company_name" name="company_name" required autocomplete="organization" value="<?= h(post('company_name')) ?>" placeholder="Okello Traders Ltd">
+        </label>
+        <label class="gate-field" for="contact_email">Email
+          <input id="contact_email" name="contact_email" type="email" required autocomplete="email" value="<?= h(post('contact_email')) ?>" placeholder="accounts@company.ug">
+        </label>
+        <label class="gate-field" for="contact_phone">Phone
+          <input id="contact_phone" name="contact_phone" type="tel" required autocomplete="tel" value="<?= h(post('contact_phone')) ?>" placeholder="+256 700 000 000">
+        </label>
+        <button class="gate-submit" type="submit">Register</button>
+        <p class="gate-switch">Already a member? <a href="<?= h(url('login.php')) ?>">Log in</a></p>
+        <p class="gate-home"><a href="<?= h(url()) ?>">Back to <?= h(product_name()) ?></a></p>
       </form>
     <?php endif; ?>
   </main>
-  <?php public_footer(); ?>
-  <script src="<?= h(asset('js/landing.js')) ?>"></script>
+</div>
 </body>
 </html>

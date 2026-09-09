@@ -37,17 +37,18 @@ body.lp {
   background: var(--paper);
   min-height: 100%;
   overflow-x: hidden;
+  isolation: isolate;
 }
 a { color: inherit; }
 .lp-glow {
   position: fixed;
-  z-index: 0;
+  z-index: -1;
   width: 46vw;
   height: 46vw;
   border-radius: 50%;
   filter: blur(80px);
   pointer-events: none;
-  opacity: .55;
+  opacity: .35;
 }
 .lp-glow-a { top: -10vw; left: 8vw; background: #c9d6ff; }
 .lp-glow-b { top: 4vw; right: -6vw; background: #ffe0d0; }
@@ -501,7 +502,7 @@ a { color: inherit; }
 .lp-new-main {
   display: block;
   width: 100%;
-  height: 294px;
+  height: 392px;
   object-fit: contain;
   background: transparent;
 }
@@ -543,11 +544,11 @@ a { color: inherit; }
 }
 
 [data-reveal] {
-  opacity: 0;
-  transform: translateY(20px);
+  opacity: 1;
+  transform: none;
 }
 [data-reveal].is-in {
-  animation: lp-in .7s ease forwards;
+  animation: none;
 }
 @keyframes lp-in {
   to { opacity: 1; transform: none; }
@@ -802,7 +803,7 @@ a { color: inherit; }
   .lp-cta { justify-content: flex-start; }
   .lp-compare-arrow { transform: rotate(90deg); margin: 8px 0; }
   .lp-stack { height: 228px; }
-  .lp-new-main { height: 214px; }
+  .lp-new-main { height: 285px; }
 }
 @media (max-width: 820px) {
   .lp-nav { padding: 10px 16px; gap: 10px; }
@@ -822,4 +823,196 @@ a { color: inherit; }
   .lp-stack:focus img:nth-child(6) { transform: translate(52px, -22px) rotate(14deg) scale(1.03); }
   .lp-stack:hover img:nth-child(7),
   .lp-stack:focus img:nth-child(7) { transform: translate(76px, 30px) rotate(20deg) scale(1.04); }
+}
+
+body.gate {
+  min-height: 100vh;
+  margin: 0;
+  background: var(--navy);
+  font-family: "Montserrat", "Segoe UI", sans-serif;
+  color: var(--ink);
+}
+.gate-shell {
+  display: grid;
+  grid-template-columns: minmax(260px, 42%) minmax(0, 58%);
+  min-height: 100vh;
+}
+.gate-art {
+  position: relative;
+  color: #fff;
+  padding: 48px 56px 40px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background:
+    radial-gradient(640px 280px at 20% 0%, rgba(30, 78, 255, .35), transparent 60%),
+    linear-gradient(165deg, #08143a 0%, #0c1c52 48%, #06102e 100%);
+}
+.gate-watermark {
+  position: absolute;
+  right: -22%;
+  bottom: -10%;
+  width: min(92vw, 640px);
+  height: auto;
+  opacity: .18;
+  pointer-events: none;
+  z-index: 0;
+  object-fit: contain;
+}
+.gate-art-inner {
+  position: relative;
+  z-index: 1;
+  margin: auto 0;
+  max-width: 28em;
+}
+.gate-art .lp-logo { height: 44px; max-width: 210px; margin-bottom: 28px; }
+.gate-art h1 {
+  margin: 0 0 14px;
+  font-size: clamp(26px, 3vw, 38px);
+  line-height: 1.12;
+  letter-spacing: -.03em;
+  color: #fff;
+}
+.gate-art p { margin: 0; color: #fff; line-height: 1.55; font-size: 15px; }
+.gate-dots { display: flex; gap: 8px; margin-top: 22px; }
+.gate-dots i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: block;
+}
+.gate-dots i:nth-child(1) { background: #5ce1e6; }
+.gate-dots i:nth-child(2) { background: #e11d2e; }
+.gate-dots i:nth-child(3) { background: #ff7a1a; }
+.gate-art-foot {
+  position: relative;
+  z-index: 1;
+  margin: 28px 0 0;
+  color: #fff;
+  font-size: 14px;
+}
+.gate-art-foot a { color: #fff; font-weight: 700; text-decoration: underline; }
+.gate-wave {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+}
+.gate-wave-y {
+  top: 0;
+  right: -1px;
+  width: 88px;
+  height: 100%;
+}
+.gate-wave-x { display: none; }
+.gate-panel {
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 6vw;
+  position: relative;
+  z-index: 3;
+}
+.gate-box { width: min(420px, 100%); }
+.gate-logo {
+  height: 36px;
+  width: auto;
+  max-width: 180px;
+  margin-bottom: 22px;
+  object-fit: contain;
+}
+.gate-box h2 {
+  margin: 0 0 8px;
+  font-size: 26px;
+  letter-spacing: -.03em;
+  color: var(--navy);
+  line-height: 1.2;
+}
+.gate-box h2 em { color: var(--blue); font-style: normal; }
+.gate-lead { margin: 0 0 18px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.gate-field { display: block; margin: 14px 0 0; font-size: 12px; font-weight: 700; color: var(--navy); }
+.gate-field input {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  border: 0;
+  background: #eef1f6;
+  border-radius: 14px;
+  padding: 14px 16px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--ink);
+}
+.gate-field input:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(30, 78, 255, .18);
+  background: #fff;
+}
+.gate-pw { position: relative; display: block; }
+.gate-pw input { padding-right: 46px; }
+.gate-pw .pw-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.gate-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 22px;
+  padding: 14px 18px;
+  border: 0;
+  border-radius: 14px;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  font-size: 15px;
+  text-decoration: none;
+  cursor: pointer;
+  background: linear-gradient(90deg, #08143a, #1e4eff);
+}
+.gate-submit:hover { filter: brightness(1.06); color: #fff; }
+.gate-keys {
+  margin-top: 22px;
+  padding: 12px 14px;
+  background: #f3f6ff;
+  border-radius: 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.gate-keys summary { cursor: pointer; font-weight: 700; color: var(--navy); }
+.gate-keys p { margin: 12px 0 6px; }
+.gate-keys code {
+  display: block;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  color: #08143a;
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+}
+.gate-keys .lp-btn { width: 100%; margin: 8px 0 4px; }
+.gate-switch, .gate-home { margin: 16px 0 0; font-size: 14px; color: var(--muted); }
+.gate-switch a, .gate-home a { color: var(--blue); font-weight: 700; text-decoration: none; }
+.gate-switch { display: none; }
+.gate-ok { text-align: left; }
+@media (max-width: 860px) {
+  .gate-shell { grid-template-columns: 1fr; }
+  .gate-art { min-height: 240px; padding: 28px 20px 56px; }
+  .gate-wave-y { display: none; }
+  .gate-wave-x {
+    display: block;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    width: 100%;
+    height: 56px;
+  }
+  .gate-art-foot { display: none; }
+  .gate-switch { display: block; }
+  .gate-watermark { width: min(120%, 480px); right: -30%; }
 }

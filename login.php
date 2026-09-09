@@ -25,59 +25,47 @@ $adminPass = platform_admin_password();
   <?php folio_css_links(); ?>
   <link rel="stylesheet" href="<?= h(asset('css/landing.css')) ?>">
 </head>
-<body>
-<div class="login">
-  <section class="login-art">
-    <div>
-      <a class="lp-brand" href="<?= h(url()) ?>" style="margin-bottom:18px">
-        <img class="lp-logo lp-logo-on-dark" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
-      </a>
-      <p class="login-kicker"><?= h(product_name()) ?></p>
-      <h1>Your books. One click from the client.</h1>
-      <p class="standfirst">Quotations, invoices, receipts and reports on one desk. Share a record, or open the books from anywhere.</p>
-    </div>
-    <p class="login-caption">Generate · share · collect</p>
-  </section>
-  <section class="login-panel">
-    <form class="login-box" method="post" action="<?= h(url('login.php')) ?>">
-      <img class="login-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
-      <h2>Sign in</h2>
-      <p class="hint">Company desks use the mailbox issued when Vellisys onboarded you. Super admin controls every client company.</p>
-      <?php if ($error): ?><p class="flash flash-err"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
-      <div class="field">
-        <label for="email">Email</label>
-      <div class="field-control">
-        <?= icon('letter', 16) ?>
-        <input id="email" name="email" type="email" required value="<?= h(post('email') ?: $adminEmail) ?>" autocomplete="username">
-      </div>
-      </div>
-      <div class="field">
-        <label for="password">Password</label>
-      <div class="field-control">
-        <?= icon('lock', 16) ?>
-        <input id="password" name="password" type="password" required value="<?= h(post('password') ?: $adminPass) ?>" autocomplete="current-password">
-        <button class="pw-toggle" type="button" data-toggle-password aria-label="Show password" title="Show password">
-          <span data-eye><?= icon('eye', 16) ?></span>
-          <span data-eye-off hidden><?= icon('eye-off', 16) ?></span>
-        </button>
-      </div>
-      </div>
-      <button class="btn" type="submit"><?= icon('desk', 16) ?>Enter the desk</button>
-
-      <div class="login-keys">
+<body class="gate">
+<div class="gate-shell">
+  <?php gate_art(
+      'Your books. One click from the client.',
+      'Quotations, invoices, receipts and reports on one desk. Share a record, or open the books from anywhere.',
+      'Don\'t have an account? <a href="' . h(url('register.php')) . '">Register now</a>'
+  ); ?>
+  <main class="gate-panel">
+    <form class="gate-box" method="post" action="<?= h(url('login.php')) ?>">
+      <img class="gate-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
+      <h2><em>Log in</em> to your desk to continue</h2>
+      <p class="gate-lead">Use the mailbox issued when Vellisys onboarded your company.</p>
+      <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
+      <label class="gate-field" for="email">Email
+        <input id="email" name="email" type="email" required value="<?= h(post('email')) ?>" autocomplete="username" placeholder="accounts@company.ug">
+      </label>
+      <label class="gate-field" for="password">Password
+        <span class="gate-pw">
+          <input id="password" name="password" type="password" required autocomplete="current-password" placeholder="Password">
+          <button class="pw-toggle" type="button" data-toggle-password aria-label="Show password" title="Show password">
+            <span data-eye><?= icon('eye', 16) ?></span>
+            <span data-eye-off hidden><?= icon('eye-off', 16) ?></span>
+          </button>
+        </span>
+      </label>
+      <button class="gate-submit" type="submit">Sign in</button>
+      <details class="gate-keys">
+        <summary>Try a desk</summary>
         <p><strong>Vellisys super admin</strong> - companies and sign-ups</p>
         <code><?= h($adminEmail) ?></code>
         <code><?= h($adminPass) ?></code>
-        <button type="button" class="btn ghost sm" data-fill-login data-fill-email="<?= h($adminEmail) ?>" data-fill-password="<?= h($adminPass) ?>">Use super admin</button>
-        <p style="margin-top:12px"><strong>Demo company desk</strong></p>
+        <button type="button" class="lp-btn lp-btn-ghost" data-fill-login data-fill-email="<?= h($adminEmail) ?>" data-fill-password="<?= h($adminPass) ?>">Use super admin</button>
+        <p><strong>Demo company desk</strong></p>
         <code>accounts@ofagros.org</code>
         <code>folio2026</code>
-        <button type="button" class="btn ghost sm" data-fill-login data-fill-email="accounts@ofagros.org" data-fill-password="folio2026">Use demo desk</button>
-      </div>
-
-      <p class="hint" style="margin-top:16px">New company? <a href="<?= h(url('register.php')) ?>">Register</a> · <a href="<?= h(url()) ?>">Back to <?= h(product_name()) ?></a></p>
+        <button type="button" class="lp-btn lp-btn-ghost" data-fill-login data-fill-email="accounts@ofagros.org" data-fill-password="folio2026">Use demo desk</button>
+      </details>
+      <p class="gate-switch">Don't have an account? <a href="<?= h(url('register.php')) ?>">Register now</a></p>
+      <p class="gate-home"><a href="<?= h(url()) ?>">Back to <?= h(product_name()) ?></a></p>
     </form>
-  </section>
+  </main>
 </div>
 <script src="<?= h(asset('js/app.js')) ?>"></script>
 </body>

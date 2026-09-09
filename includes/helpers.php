@@ -783,6 +783,29 @@ function trust_clients(): array
     ];
 }
 
+function gate_art(string $heading, string $lead, string $switchHtml): void
+{
+    ?>
+    <aside class="gate-art">
+      <img class="gate-watermark" src="<?= h(asset('img/landing/nw.png')) ?>" alt="">
+      <div class="gate-art-inner">
+        <a class="lp-brand" href="<?= h(url()) ?>">
+          <img class="lp-logo lp-logo-on-dark" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
+        </a>
+        <h1><?= h($heading) ?></h1>
+        <p><?= h($lead) ?></p>
+        <span class="gate-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+      </div>
+      <p class="gate-art-foot"><?= $switchHtml ?></p>
+      <svg class="gate-wave gate-wave-y" viewBox="0 0 80 900" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M80 0 C18 180 18 720 80 900 L80 0 Z" fill="#fff"/>
+      </svg>
+      <svg class="gate-wave gate-wave-x" viewBox="0 0 400 72" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0 72 C90 8 310 8 400 72 L400 72 L0 72 Z" fill="#fff"/>
+      </svg>
+    </aside>
+}
+
 function public_header(string $page = 'home'): void
 {
     ?>

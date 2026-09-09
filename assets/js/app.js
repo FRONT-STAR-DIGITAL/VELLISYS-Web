@@ -70,7 +70,7 @@ document.querySelectorAll('[data-fill-login]').forEach(function (btn) {
 
 document.querySelectorAll('[data-toggle-password]').forEach(function (btn) {
   btn.addEventListener('click', function () {
-    var wrap = btn.closest('.field-control');
+    var wrap = btn.closest('.field-control, .gate-pw');
     var input = wrap ? wrap.querySelector('input') : null;
     if (!input) return;
     var show = input.type === 'password';
