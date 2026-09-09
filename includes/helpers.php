@@ -729,6 +729,14 @@ function product_name(): string
     return 'Vellisys';
 }
 
+function product_css_vars(): string
+{
+    return '--brand:#1E4EFF;--brand-2:#8EB0FF;--brand-3:#08143A'
+        . ';--brand-tint:#e8eeff;--brand-2-tint:#eef3ff;--brand-3-tint:#d5dbeb'
+        . ';--on-brand:#ffffff;--on-brand-2:#08143A;--on-brand-3:#ffffff'
+        . ';--nav:#08143A;--brand-ink:#08143A';
+}
+
 function platform_admin_email(): string
 {
     return 'admin@vellisys.ug';

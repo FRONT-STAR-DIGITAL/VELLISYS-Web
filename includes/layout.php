@@ -111,7 +111,7 @@ function layout_admin_start(string $title, array $user): void
   <?php product_icons(); ?>
   <?php folio_font_links(); ?>
   <?php folio_css_links(); ?>
-  <style>:root { <?= brand_css_vars() ?> }</style>
+  <style>:root { <?= product_css_vars() ?> }</style>
 </head>
 <body class="desk-body">
 <div class="app">

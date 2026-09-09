@@ -10,10 +10,10 @@ $ok = isset($_GET['ok']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
-    $name = post('name');
-    $company = post('company');
-    $email = strtolower(post('email'));
-    $phone = post('phone');
+    $name = post('contact_name');
+    $company = post('company_name');
+    $email = strtolower(post('contact_email'));
+    $phone = post('contact_phone');
     if ($name === '' || $company === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = 'Your name, company and a valid email are enough - please fill those in.';
     } elseif (db_one('SELECT id FROM users WHERE email = ?', 's', [$email])) {
@@ -64,20 +64,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <a class="lp-btn lp-btn-solid" href="<?= h(url()) ?>">Back to Vellisys</a>
       </div>
     <?php else: ?>
-      <form class="lp-card" method="post" action="<?= h(url('register.php')) ?>">
+      <form class="lp-card" method="post" action="<?= h(url('register.php')) ?>" autocomplete="off">
         <?= csrf_field() ?>
         <p class="lp-kicker">Get a desk</p>
         <h1>Register your company</h1>
         <p class="lp-form-lead">Four fields. We call you. Then the books are yours.</p>
         <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
-        <label for="name">Your name</label>
-        <input id="name" name="name" required autocomplete="name" value="<?= h(post('name')) ?>" placeholder="Jane Okello">
-        <label for="company">Company</label>
-        <input id="company" name="company" required value="<?= h(post('company')) ?>" placeholder="Okello Traders Ltd">
-        <label for="email">Email</label>
-        <input id="email" name="email" type="email" required autocomplete="email" value="<?= h(post('email')) ?>" placeholder="accounts@company.ug">
-        <label for="phone">Phone</label>
-        <input id="phone" name="phone" required autocomplete="tel" value="<?= h(post('phone')) ?>" placeholder="+256 700 000 000">
+        <label for="contact_name">Your name</label>
+        <input id="contact_name" name="contact_name" required autocomplete="name" value="<?= h(post('contact_name')) ?>" placeholder="Jane Okello">
+        <label for="company_name">Company</label>
+        <input id="company_name" name="company_name" required autocomplete="organization" value="<?= h(post('company_name')) ?>" placeholder="Okello Traders Ltd">
+        <label for="contact_email">Email</label>
+        <input id="contact_email" name="contact_email" type="email" required autocomplete="email" value="<?= h(post('contact_email')) ?>" placeholder="accounts@company.ug">
+        <label for="contact_phone">Phone</label>
+        <input id="contact_phone" name="contact_phone" type="tel" required autocomplete="tel" value="<?= h(post('contact_phone')) ?>" placeholder="+256 700 000 000">
         <button class="lp-btn lp-btn-solid" type="submit">Send my details</button>
         <p class="lp-form-note">Already onboarded? <a href="<?= h(url('login.php')) ?>">Sign in</a></p>
       </form>
