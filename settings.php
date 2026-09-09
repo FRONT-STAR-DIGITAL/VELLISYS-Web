@@ -8,10 +8,9 @@ $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
-    $color = strtoupper(post('brand_color') ?: '#82B440');
-    if (!preg_match('/^#[0-9A-F]{6}$/', $color)) {
-        $color = '#82B440';
-    }
+    $color = parse_hex_color(post('brand_color'), '#82B440');
+    $accent = parse_hex_color(post('brand_accent'), '#C6A15B');
+    $deep = parse_hex_color(post('brand_deep'), '#1F3A12');
     $logoPath = $brand['logo_path'] ?? 'assets/img/ofagros-logo.png';
     if (!empty($_FILES['logo']['tmp_name']) && is_uploaded_file($_FILES['logo']['tmp_name'])) {
         $ext = strtolower(pathinfo($_FILES['logo']['name'], PATHINFO_EXTENSION));
@@ -35,8 +34,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if ($error === '') {
         db_exec(
-            'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, currency=?, letter_templates=?, doc_template=? WHERE company_id=?',
-            'ssssssssssssssssssssi',
+            'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, currency=?, letter_templates=?, doc_template=? WHERE company_id=?',
+            'ssssssssssssssssssssssi',
             [
                 post('name'),
                 post('tagline'),
@@ -51,6 +50,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 post('account_name'),
                 post('account_number'),
                 $color,
+                $accent,
+                $deep,
                 $logoPath,
                 strtoupper(post('prefix') ?: 'OFG'),
                 post('payment_note'),
@@ -62,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]
         );
         branding(true);
-        flash('Settings saved. Navigation, buttons and documents now use ' . $color . '.');
+        flash('Settings saved. Desk and document designs now use your brand colours.');
         redirect('settings.php');
     }
 }
@@ -73,7 +74,7 @@ layout_start('Settings', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('settings') ?>Settings</h1>
-    <p class="lede">Letterhead, colour and the account that sends mail. The colour you set here is used on the navigation bar and every document.</p>
+    <p class="lede">Letterhead, colours and the account that sends mail. Primary, accent and deep colours paint the desk and every document design.</p>
   </div>
 </div>
 
@@ -106,13 +107,27 @@ layout_start('Settings', $user);
 
     <section class="card settings-card" id="appearance">
       <h2><?= icon('palette') ?>Appearance</h2>
-      <p class="lede">Logo and colour once. They fill the bar on the left, the buttons, and the bars on invoices.</p>
+      <p class="lede">Logo and three brand colours. Primary paints the desk. Accent and deep colour the document designs - bars, corners, rails and totals.</p>
       <div class="form-grid">
         <div>
-          <label for="brand_color">Brand colour</label>
-          <div class="color-row">
-            <input id="brand_color" name="brand_color" type="color" value="<?= h($b['brand_color'] ?: '#82B440') ?>" data-color-picker>
-            <input id="brand_color_hex" type="text" maxlength="7" value="<?= h($b['brand_color'] ?: '#82B440') ?>" data-color-hex aria-label="Hex colour">
+          <label for="brand_color">Primary</label>
+          <div class="color-row" data-color-pair data-color-role="primary">
+            <input id="brand_color" name="brand_color" type="color" value="<?= h(parse_hex_color($b['brand_color'] ?? '', '#82B440')) ?>" data-color-picker>
+            <input id="brand_color_hex" name="brand_color_hex" type="text" maxlength="7" value="<?= h(parse_hex_color($b['brand_color'] ?? '', '#82B440')) ?>" data-color-hex aria-label="Primary hex">
+          </div>
+        </div>
+        <div>
+          <label for="brand_accent">Accent</label>
+          <div class="color-row" data-color-pair data-color-role="accent">
+            <input id="brand_accent" name="brand_accent" type="color" value="<?= h(parse_hex_color($b['brand_accent'] ?? '', '#C6A15B')) ?>" data-color-picker>
+            <input id="brand_accent_hex" type="text" maxlength="7" value="<?= h(parse_hex_color($b['brand_accent'] ?? '', '#C6A15B')) ?>" data-color-hex aria-label="Accent hex">
+          </div>
+        </div>
+        <div>
+          <label for="brand_deep">Deep</label>
+          <div class="color-row" data-color-pair data-color-role="deep">
+            <input id="brand_deep" name="brand_deep" type="color" value="<?= h(parse_hex_color($b['brand_deep'] ?? '', '#1F3A12')) ?>" data-color-picker>
+            <input id="brand_deep_hex" type="text" maxlength="7" value="<?= h(parse_hex_color($b['brand_deep'] ?? '', '#1F3A12')) ?>" data-color-hex aria-label="Deep hex">
           </div>
         </div>
         <div>
@@ -122,6 +137,11 @@ layout_start('Settings', $user);
             <div class="logo-preview"><img src="<?= h(logo_url()) ?>" alt=""></div>
           <?php endif; ?>
         </div>
+      </div>
+      <div class="palette-swatches" aria-hidden="true">
+        <span style="background:var(--brand)"></span>
+        <span style="background:var(--brand-2)"></span>
+        <span style="background:var(--brand-3)"></span>
       </div>
       <div class="preview-nav" data-color-preview>
         <span>Navigation preview</span>
@@ -220,27 +240,15 @@ layout_start('Settings', $user);
 
     <section class="card settings-card" id="templates">
       <h2><?= icon('palette') ?>Document designs</h2>
-      <p class="lede">Pick how invoices, quotations, receipts and expenses print. Correspondence stays fully editable - only the headed paper around it changes.</p>
+      <p class="lede">Pick how invoices, quotations, receipts and expenses print. Each layout uses the three brand colours above. Correspondence stays fully editable - only the headed paper around it changes.</p>
       <div class="design-grid">
         <?php
         $currentDesign = doc_template_key(['doc_template' => $b['doc_template'] ?? 'folio']);
-        $thumbs = [
-            'ledger' => 'assets/img/designs/ledger.png',
-            'crimson' => 'assets/img/designs/challan.png',
-            'amber' => 'assets/img/designs/challan.png',
-            'twin' => 'assets/img/designs/twin.png',
-            'stripe' => 'assets/img/designs/stripe.png',
-        ];
         foreach (doc_templates() as $key => $info):
-            $img = $thumbs[$key] ?? '';
             ?>
           <label class="design-card">
             <input type="radio" name="doc_template" value="<?= h($key) ?>" <?= $currentDesign === $key ? 'checked' : '' ?>>
-            <?php if ($img): ?>
-              <img src="<?= h(url($img)) ?>" alt="" style="<?= $key === 'crimson' ? 'object-position:left' : ($key === 'amber' ? 'object-position:right' : '') ?>">
-            <?php else: ?>
-              <div class="design-mini mini-<?= h($key) ?>"></div>
-            <?php endif; ?>
+            <div class="design-mini mini-<?= h($key) ?>" aria-hidden="true"></div>
             <strong><?= h($info['name']) ?></strong>
             <span><?= h($info['blurb']) ?></span>
           </label>

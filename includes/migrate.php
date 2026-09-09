@@ -29,7 +29,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 7) {
+    if ($ver >= 8) {
         $done = true;
         return;
     }
@@ -137,7 +137,13 @@ function folio_migrate(mysqli $db): void
     if (!db_has_column($db, 'documents', 'doc_template')) {
         $db->query('ALTER TABLE documents ADD COLUMN doc_template VARCHAR(40) NULL');
     }
+    if (!db_has_column($db, 'branding', 'brand_accent')) {
+        $db->query("ALTER TABLE branding ADD COLUMN brand_accent VARCHAR(7) NOT NULL DEFAULT '#C6A15B'");
+    }
+    if (!db_has_column($db, 'branding', 'brand_deep')) {
+        $db->query("ALTER TABLE branding ADD COLUMN brand_deep VARCHAR(7) NOT NULL DEFAULT '#1F3A12'");
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '7')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '8')");
     $done = true;
 }

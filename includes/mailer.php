@@ -14,9 +14,8 @@ function send_document_email(array $user, array $doc, string $to, string $subjec
         'X-Mailer: Folio',
     ];
     $html = '<p>' . nl2br(h($message)) . '</p>'
-        . '<p>Open this ' . h(kind_meta($doc['kind'])['singular']) . ': <strong>' . h($doc['number']) . '</strong></p>'
-        . '<p><a href="' . h(absolute_url('document_view.php?id=' . $doc['id'])) . '">View document</a></p>'
-        . '<p>- ' . h($fromName) . '<br>' . h($brand['name']) . '</p>';
+        . '<p>' . h(kind_meta($doc['kind'])['singular']) . ' <strong>' . h($doc['number']) . '</strong></p>'
+        . '<p>' . h($fromName) . '<br>' . h($brand['name']) . '</p>';
 
     $ok = @mail($to, $subject, $html, implode("\r\n", $headers));
     db_exec(

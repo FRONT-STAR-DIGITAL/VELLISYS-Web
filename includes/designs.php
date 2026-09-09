@@ -7,14 +7,21 @@ function sheet_data(array $brand, array $doc): array
     $net = doc_subtotal($items);
     $vat = doc_vat($items, (float) ($doc['vat_rate'] ?? 0));
     $total = $net + $vat;
+    $palette = brand_palette($brand);
     $paid = (float) ($doc['paid'] ?? 0);
     $balance = (float) ($doc['balance'] ?? $total);
     $method = (string) ($doc['payment_method'] ?? '');
+    $settlement = $doc['settlement'] ?? receipt_settlement($doc);
     return [
         'brand' => $brand,
         'doc' => $doc,
-        'color' => $brand['brand_color'] ?: '#82B440',
-        'tint' => hex_tint($brand['brand_color'] ?: '#82B440', 0.92),
+        'palette' => $palette,
+        'color' => $palette['primary'],
+        'accent' => $palette['accent'],
+        'deep' => $palette['deep'],
+        'tint' => $palette['tint'],
+        'accent_tint' => $palette['accent_tint'],
+        'vars' => brand_css_vars($brand),
         'heading' => $doc['kind'] === 'letter' ? letter_heading($doc) : kind_meta($doc['kind'])['heading'],
         'items' => $items,
         'net' => $net,
@@ -22,12 +29,32 @@ function sheet_data(array $brand, array $doc): array
         'total' => $total,
         'paid' => $paid,
         'balance' => $balance,
+        'settlement' => $settlement,
         'comments' => $doc['notes'] ?: ($brand['invoice_comments'] ?? ''),
         'logo' => logo_url(),
         'cur' => doc_currency($doc),
         'method' => $method,
         'methods' => payment_methods(),
     ];
+}
+
+function render_settlement(array $d): void
+{
+    $s = $d['settlement'] ?? null;
+    if (!$s) {
+        return;
+    }
+    $open = ((float) ($s['balance'] ?? 0)) > 0.009;
+    ?>
+    <div class="d-settle">
+      <div class="d-sum"><span>Received</span><span><?= h(money($s['received'], $d['cur'])) ?></span></div>
+      <?php if (!empty($s['invoice_number'])): ?>
+        <div class="d-sum"><span>Against</span><span><?= h((string) $s['invoice_number']) ?></span></div>
+        <div class="d-sum"><span>Invoice total</span><span><?= h(money($s['invoice_total'], $d['cur'])) ?></span></div>
+        <div class="d-sum d-balance<?= $open ? ' is-open' : '' ?>"><span>Balance still due</span><span><?= h(money($s['balance'], $d['cur'])) ?></span></div>
+      <?php endif; ?>
+    </div>
+    <?php
 }
 
 function sheet_tick(string $method, string $want): string
@@ -89,7 +116,7 @@ function render_sheet_folio(array $d): void
     $brand = $d['brand'];
     $doc = $d['doc'];
     ?>
-<article class="invoice-sheet sheet-folio" style="--brand: <?= h($d['color']) ?>">
+<article class="invoice-sheet sheet-folio" style="<?= h($d['vars']) ?>">
   <header class="d-row">
     <div>
       <img src="<?= h($d['logo']) ?>" alt="" class="d-logo">
@@ -134,7 +161,8 @@ function render_sheet_folio(array $d): void
       <div class="d-sums">
         <div class="d-sum"><span>Subtotal</span><span><?= h(money($d['net'], $d['cur'])) ?></span></div>
         <div class="d-sum"><span>Tax<?= $d['vat'] ? ' 18%' : '' ?></span><span><?= $d['vat'] ? h(money($d['vat'], $d['cur'])) : '' ?></span></div>
-        <div class="d-total" style="background:<?= h($d['color']) ?>"><span>Total</span><span><?= h(money($d['total'], $d['cur'])) ?></span></div>
+        <div class="d-total"><span>Total</span><span><?= h(money($d['total'], $d['cur'])) ?></span></div>
+        <?php render_settlement($d); ?>
         <p class="d-payhint"><?= h($brand['payment_note'] ?? '') ?></p>
       </div>
     </div>
@@ -153,7 +181,7 @@ function render_sheet_ledger(array $d): void
     $doc = $d['doc'];
     $unit = $d['cur'] === 'USD' ? 'Dollars' : 'Shillings';
     ?>
-<article class="invoice-sheet sheet-ledger">
+<article class="invoice-sheet sheet-ledger" style="<?= h($d['vars']) ?>">
   <div class="ledger-top">
     <div class="ledger-brand">
       <img src="<?= h($d['logo']) ?>" alt="" class="d-logo sm">
@@ -176,12 +204,12 @@ function render_sheet_ledger(array $d): void
   <?php if ($doc['kind'] === 'letter'): ?>
     <?php render_letter_body($doc); ?>
   <?php else: ?>
-    <?php render_line_table($doc, '#3d7ea6', '#e7f2f8'); ?>
+    <?php render_line_table($doc, $d['color'], $d['tint']); ?>
     <div class="ledger-bottom">
       <table class="ledger-acct">
         <tr><th>Acct.</th><td><?= h($brand['account_number'] ?: '-') ?></td></tr>
-        <tr><th>Paid</th><td><?= h(money($d['paid'] ?: ($doc['kind'] === 'receipt' ? $d['total'] : 0), $d['cur'])) ?></td></tr>
-        <tr><th>Due</th><td><?= h(money($doc['kind'] === 'receipt' ? 0 : $d['balance'], $d['cur'])) ?></td></tr>
+        <tr><th>Paid</th><td><?= h(money($d['settlement']['received'] ?? ($doc['kind'] === 'receipt' ? $d['total'] : $d['paid']), $d['cur'])) ?></td></tr>
+        <tr><th>Due</th><td><?= h(money($d['settlement']['balance'] ?? ($doc['kind'] === 'receipt' ? 0 : $d['balance']), $d['cur'])) ?></td></tr>
       </table>
       <div class="ledger-pay">
         <?php foreach (['cash' => 'Cash', 'cheque' => 'Cheque', 'mobile-money' => 'Mobile money', 'bank-transfer' => 'Bank'] as $k => $label): ?>
@@ -203,12 +231,12 @@ function render_sheet_bill(array $d, string $variant): void
 {
     $brand = $d['brand'];
     $doc = $d['doc'];
-    $primary = $variant === 'amber' ? '#1a237e' : '#111111';
-    $accent = $variant === 'amber' ? '#f57c00' : '#c62828';
+    $primary = $variant === 'amber' ? $d['accent'] : $d['color'];
+    $deep = $d['deep'];
     ?>
-<article class="invoice-sheet sheet-bill sheet-<?= h($variant) ?>">
-  <div class="bill-corner tl" style="--a:<?= h($accent) ?>;--b:<?= h($primary) ?>"></div>
-  <div class="bill-corner br" style="--a:<?= h($primary) ?>;--b:<?= h($accent) ?>"></div>
+<article class="invoice-sheet sheet-bill sheet-<?= h($variant) ?>" style="<?= h($d['vars']) ?>">
+  <div class="bill-corner tl" style="--a:<?= h($primary) ?>;--b:<?= h($deep) ?>"></div>
+  <div class="bill-corner br" style="--a:<?= h($deep) ?>;--b:<?= h($primary) ?>"></div>
   <header class="bill-head">
     <img src="<?= h($d['logo']) ?>" alt="" class="d-logo sm">
     <div>
@@ -235,13 +263,14 @@ function render_sheet_bill(array $d, string $variant): void
   <?php if ($doc['kind'] === 'letter'): ?>
     <?php render_letter_body($doc); ?>
   <?php else: ?>
-    <?php render_line_table($doc, $primary, $variant === 'amber' ? '#fff4e5' : '#fdecea', ['serial' => true, 'class' => 'bill-lines']); ?>
+    <?php render_line_table($doc, $primary, $variant === 'amber' ? $d['accent_tint'] : $d['tint'], ['serial' => true, 'class' => 'bill-lines']); ?>
     <div class="bill-foot">
       <div class="bill-words"><span>In words</span><b><?= h(amount_in_words($d['total'], $d['cur'])) ?></b></div>
       <div class="bill-sums">
         <div><span>Sub total</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
         <?php if ($d['vat']): ?><div><span>VAT 18%</span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
         <div class="due"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
+        <?php render_settlement($d); ?>
       </div>
     </div>
     <div class="bill-signs">
@@ -278,7 +307,8 @@ function render_twin_half(array $d, string $label): void
       <?php if ($doc['kind'] === 'letter'): ?>
         <?php render_letter_body($doc); ?>
       <?php else: ?>
-        <?php render_line_table($doc, '#1a237e', '#fff8e1', ['min' => 3, 'class' => 'tiny']); ?>
+        <?php render_line_table($doc, $d['deep'], $d['accent_tint'], ['min' => 3, 'class' => 'tiny']); ?>
+        <?php render_settlement($d); ?>
       <?php endif; ?>
       <div class="twin-pay">
         <?php foreach (['cash' => 'CASH', 'cheque' => 'CHEQUE', 'bank-transfer' => 'BANK', 'mobile-money' => 'MOMO'] as $k => $lab): ?>
@@ -294,7 +324,7 @@ function render_sheet_twin(array $d): void
 {
     $doc = $d['doc'];
     ?>
-<article class="invoice-sheet sheet-twin">
+<article class="invoice-sheet sheet-twin" style="<?= h($d['vars']) ?>">
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
   <div class="twin-wrap">
     <?php render_twin_half($d, 'OFFICE COPY'); ?>
@@ -310,7 +340,7 @@ function render_sheet_stripe(array $d): void
     $brand = $d['brand'];
     $doc = $d['doc'];
     ?>
-<article class="invoice-sheet sheet-stripe">
+<article class="invoice-sheet sheet-stripe" style="<?= h($d['vars']) ?>">
   <div class="stripe-rail"></div>
   <div class="stripe-inner">
     <div class="stripe-banner"><span><?= h($d['heading']) ?></span></div>
@@ -326,11 +356,12 @@ function render_sheet_stripe(array $d): void
       <?php render_letter_body($doc); ?>
     <?php else: ?>
       <p class="stripe-h">Line details</p>
-      <?php render_line_table($doc, '#6a1b9a', '#f3e5f5'); ?>
+      <?php render_line_table($doc, $d['deep'], $d['accent_tint']); ?>
       <div class="stripe-payrow">
         <div>
           <span>Payment method</span>
           <em><?= h($d['methods'][$d['method']] ?? ($d['method'] ?: 'On account')) ?></em>
+          <?php render_settlement($d); ?>
         </div>
         <div class="stripe-fare">
           <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
@@ -349,7 +380,7 @@ function render_sheet_estate(array $d): void
     $brand = $d['brand'];
     $doc = $d['doc'];
     ?>
-<article class="invoice-sheet sheet-estate">
+<article class="invoice-sheet sheet-estate" style="<?= h($d['vars']) ?>">
   <div class="estate-band">
     <img src="<?= h($d['logo']) ?>" alt="" class="d-logo">
     <div>
@@ -379,9 +410,12 @@ function render_sheet_estate(array $d): void
   <?php if ($doc['kind'] === 'letter'): ?>
     <?php render_letter_body($doc); ?>
   <?php else: ?>
-    <?php render_line_table($doc, '#2e4a28', '#eef3e6'); ?>
+    <?php render_line_table($doc, $d['deep'], $d['tint']); ?>
     <div class="estate-end">
-      <p><?= h($d['comments'] ?: ($brand['payment_note'] ?? '')) ?></p>
+      <div>
+        <p><?= h($d['comments'] ?: ($brand['payment_note'] ?? '')) ?></p>
+        <?php render_settlement($d); ?>
+      </div>
       <div class="estate-total">
         <span>Harvest total</span>
         <b><?= h(money($d['total'], $d['cur'])) ?></b>
@@ -398,7 +432,7 @@ function render_sheet_night(array $d): void
     $brand = $d['brand'];
     $doc = $d['doc'];
     ?>
-<article class="invoice-sheet sheet-night">
+<article class="invoice-sheet sheet-night" style="<?= h($d['vars']) ?>">
   <div class="night-sky">
     <div>
       <img src="<?= h($d['logo']) ?>" alt="" class="d-logo invert">
@@ -426,11 +460,12 @@ function render_sheet_night(array $d): void
     <?php if ($doc['kind'] === 'letter'): ?>
       <?php render_letter_body($doc); ?>
     <?php else: ?>
-      <?php render_line_table($doc, '#1b2838', '#f7f4ee', ['serial' => true]); ?>
+      <?php render_line_table($doc, $d['deep'], '#f7f4ee', ['serial' => true]); ?>
       <div class="night-total">
         <div>
           <span>In words</span>
           <p><?= h(amount_in_words($d['total'], $d['cur'])) ?></p>
+          <?php render_settlement($d); ?>
         </div>
         <b><?= h(money($d['total'], $d['cur'])) ?></b>
       </div>

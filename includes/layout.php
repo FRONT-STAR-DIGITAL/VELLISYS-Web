@@ -4,7 +4,6 @@ declare(strict_types=1);
 function layout_start(string $title, array $user, array $opts = []): void
 {
     $brand = branding();
-    $color = brand_color();
     $flash = flash();
     $kind = $opts['kind'] ?? ($_GET['kind'] ?? '');
     $nav = [
@@ -30,7 +29,7 @@ function layout_start(string $title, array $user, array $opts = []): void
   <title><?= h($title) ?> · <?= h($brand['name']) ?></title>
   <?php folio_font_links(); ?>
   <?php folio_css_links(); ?>
-  <style>:root { --brand: <?= h($color) ?>; }</style>
+  <style>:root { <?= brand_css_vars() ?> }</style>
 </head>
 <body class="desk-body">
 <div class="app">
@@ -66,10 +65,19 @@ function layout_start(string $title, array $user, array $opts = []): void
     <div class="nav-user">
       <span class="nav-user-name"><?= icon('user', 16) ?><?= h($user['name']) ?></span>
       <span class="nav-user-mail"><?= h($user['email']) ?></span>
+      <?php if (is_acting_admin()): ?>
+        <a href="<?= h(url('admin_desk.php?leave=1')) ?>"><?= icon('logout', 15) ?>Leave desk</a>
+      <?php endif; ?>
       <a href="<?= h(url('logout.php')) ?>"><?= icon('logout', 15) ?>Sign out</a>
     </div>
   </aside>
   <div class="main">
+    <?php if (is_acting_admin()): ?>
+      <div class="acting-bar">
+        <span>Working the desk for <strong><?= h($brand['name']) ?></strong></span>
+        <a href="<?= h(url('admin_desk.php?leave=1')) ?>">Leave desk</a>
+      </div>
+    <?php endif; ?>
     <header class="top">
       <div class="top-actions">
         <button class="btn ghost" type="button" data-quick><?= icon('plus', 16) ?>Quick add</button>
@@ -99,7 +107,7 @@ function layout_admin_start(string $title, array $user): void
   <title><?= h($title) ?> · Folio admin</title>
   <?php folio_font_links(); ?>
   <?php folio_css_links(); ?>
-  <style>:root { --brand: #82B440; }</style>
+  <style>:root { <?= brand_css_vars() ?> }</style>
 </head>
 <body class="desk-body">
 <div class="app">

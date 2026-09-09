@@ -21,7 +21,7 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
       <?php elseif ($kind === 'letter'): ?>
         Headed notes using the five templates. The word “letter” is not printed on the page.
       <?php else: ?>
-        Every row has actions - view, print, email<?= $kind === 'quotation' ? ', convert to invoice' : '' ?><?= $kind === 'invoice' ? ', take a receipt' : '' ?>, or void.
+        Every row has actions - view, edit, print, email<?= $kind === 'quotation' ? ', convert to invoice' : '' ?><?= $kind === 'invoice' ? ', take a receipt (full or part)' : '' ?>, or void.
       <?php endif; ?>
     </p>
   </div>

@@ -6,19 +6,53 @@ $user = require_member();
 $rows = array_values(array_filter(list_documents('invoice'), static fn ($d) => $d['status'] !== 'void' && ($d['balance'] ?? 0) > 0));
 $total = documents_sum($rows, 'balance');
 $overdue = array_sum(array_map(static fn ($d) => (!empty($d['due_date']) && $d['due_date'] < today()) ? $d['balance'] : 0, $rows));
+$byClient = [];
+foreach ($rows as $doc) {
+    $pid = (int) $doc['party_id'];
+    if (!isset($byClient[$pid])) {
+        $byClient[$pid] = ['id' => $pid, 'name' => $doc['party_name'], 'invoices' => 0, 'balance' => 0.0];
+    }
+    $byClient[$pid]['invoices']++;
+    $byClient[$pid]['balance'] += (float) $doc['balance'];
+}
+uasort($byClient, static fn ($a, $b) => $b['balance'] <=> $a['balance']);
 
 layout_start('Debtors', $user);
 ?>
 <div class="page-head">
   <div>
     <h1><?= icon('clients') ?>Debtors</h1>
-    <p class="lede">Clients who still owe you. Take a receipt, send a reminder, or print the invoice. Totals sit at the foot of the table.</p>
+    <p class="lede">Clients who still owe you, including balances left after part payments. Take a receipt, send a reminder, or print the invoice.</p>
   </div>
   <a class="btn" href="<?= h(url('document_new.php?kind=invoice')) ?>"><?= icon('invoice') ?>New invoice</a>
   <a class="btn ghost" href="<?= h(export_query('debtors')) ?>"><?= icon('download', 16) ?>Export CSV</a>
 </div>
 
 <?php render_filters('debtors.php'); ?>
+
+<?php if ($byClient): ?>
+<div class="card" style="margin-bottom:16px">
+  <div class="card-head"><h2><?= icon('clients', 16) ?>By client</h2></div>
+  <table class="grid">
+    <thead>
+      <tr>
+        <th>Client</th>
+        <th class="right">Open invoices</th>
+        <th class="right">Balance</th>
+      </tr>
+    </thead>
+    <tbody>
+      <?php foreach ($byClient as $c): ?>
+        <tr>
+          <td><a href="<?= h(url('client_view.php?id=' . $c['id'])) ?>"><?= h($c['name']) ?></a></td>
+          <td class="right mono"><?= (int) $c['invoices'] ?></td>
+          <td class="right mono"><?= h(ugx($c['balance'])) ?></td>
+        </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+</div>
+<?php endif; ?>
 
 <div class="stats">
   <div class="card stat"><?= icon('invoice', 20) ?><span>Open invoices</span><strong><?= count($rows) ?></strong></div>

@@ -20,10 +20,14 @@ if ($print) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
   <title><?= h($doc['number']) ?></title>
   <?php folio_font_links(); ?>
   <?php folio_css_links(); ?>
-  <style>:root { --brand: <?= h(brand_color()) ?>; }</style>
+  <style>
+    :root { <?= brand_css_vars() ?> }
+    @page { size: A4; margin: 0; }
+  </style>
 </head>
 <body class="print-body">
   <?php require ROOT_PATH . '/includes/sheet.php'; render_sheet($brand, $doc); ?>
@@ -41,6 +45,9 @@ if ($doc['kind'] === 'invoice') {
     $ledeExtra = ' · Balance ' . money(invoice_balance($doc), doc_currency($doc));
 } elseif ($doc['kind'] === 'expense') {
     $ledeExtra = ' · Balance ' . money(expense_balance($doc), doc_currency($doc));
+} elseif ($doc['kind'] === 'receipt' && !empty($doc['settlement']['invoice_number'])) {
+    $s = $doc['settlement'];
+    $ledeExtra = ' · Received ' . money($s['received'], doc_currency($doc)) . ' on ' . $s['invoice_number'] . ' · Still due ' . money($s['balance'], doc_currency($doc));
 }
 ?>
 <div class="page-head">

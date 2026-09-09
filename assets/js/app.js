@@ -9,25 +9,53 @@ document.addEventListener('click', function (e) {
 });
 
 (function () {
-  var picker = document.querySelector('[data-color-picker]');
-  var hex = document.querySelector('[data-color-hex]');
-  var preview = document.querySelector('[data-color-preview]');
-  if (!picker || !hex) return;
+  var pairs = document.querySelectorAll('[data-color-pair]');
+  if (!pairs.length) {
+    var picker = document.querySelector('[data-color-picker]');
+    var hex = document.querySelector('[data-color-hex]');
+    if (picker && hex) {
+      picker.addEventListener('input', function () { hex.value = picker.value.toUpperCase(); applyBrandVars(); });
+      hex.addEventListener('input', function () { applyFromHex(hex, picker); });
+    }
+    return;
+  }
 
-  function apply(value) {
-    var v = (value || '').trim();
+  function applyFromHex(hex, picker) {
+    var v = (hex.value || '').trim();
     if (v.charAt(0) !== '#') v = '#' + v;
     v = v.toUpperCase();
     if (!/^#[0-9A-F]{6}$/.test(v)) return;
     picker.value = v;
     hex.value = v;
-    document.documentElement.style.setProperty('--brand', v);
-    if (preview) preview.style.borderTopColor = v;
+    applyBrandVars();
   }
 
-  picker.addEventListener('input', function () { apply(picker.value); });
-  hex.addEventListener('input', function () { apply(hex.value); });
-  hex.addEventListener('change', function () { apply(hex.value); });
+  function applyBrandVars() {
+    var map = { primary: '--brand', accent: '--brand-2', deep: '--brand-3' };
+    pairs.forEach(function (row) {
+      var role = row.getAttribute('data-color-role') || 'primary';
+      var picker = row.querySelector('[data-color-picker]');
+      var hex = row.querySelector('[data-color-hex]');
+      if (!picker) return;
+      var v = (picker.value || '').toUpperCase();
+      if (hex) hex.value = v;
+      var prop = map[role];
+      if (prop) document.documentElement.style.setProperty(prop, v);
+    });
+    var preview = document.querySelector('[data-color-preview]');
+    var primary = document.documentElement.style.getPropertyValue('--brand');
+    if (preview && primary) preview.style.borderTopColor = primary;
+  }
+
+  pairs.forEach(function (row) {
+    var picker = row.querySelector('[data-color-picker]');
+    var hex = row.querySelector('[data-color-hex]');
+    if (picker) picker.addEventListener('input', applyBrandVars);
+    if (hex && picker) {
+      hex.addEventListener('input', function () { applyFromHex(hex, picker); });
+      hex.addEventListener('change', function () { applyFromHex(hex, picker); });
+    }
+  });
 })();
 
 document.querySelectorAll('[data-toggle-password]').forEach(function (btn) {
@@ -96,6 +124,21 @@ document.querySelectorAll('[data-letter-templates]').forEach(function (form) {
       if (subject) subject.value = card.getAttribute('data-subject') || '';
       if (body) body.value = card.getAttribute('data-body') || '';
     });
+  });
+});
+
+document.querySelectorAll('[data-receipt-form]').forEach(function (form) {
+  var sel = form.querySelector('[data-against-invoice]');
+  if (!sel) return;
+  sel.addEventListener('change', function () {
+    var opt = sel.options[sel.selectedIndex];
+    if (!opt || !opt.value) return;
+    var party = form.querySelector('#party_id');
+    var currency = form.querySelector('#currency');
+    var amount = form.querySelector('#allocated_amount');
+    if (party && opt.getAttribute('data-party')) party.value = opt.getAttribute('data-party');
+    if (currency && opt.getAttribute('data-currency')) currency.value = opt.getAttribute('data-currency');
+    if (amount && opt.getAttribute('data-balance')) amount.value = opt.getAttribute('data-balance');
   });
 });
 

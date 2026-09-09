@@ -13,10 +13,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'create') {
     $userName = post('user_name');
     $userEmail = strtolower(post('user_email'));
     $password = post('user_password') ?: 'folio2026';
-    $color = strtoupper(post('brand_color') ?: '#82B440');
-    if (!preg_match('/^#[0-9A-F]{6}$/', $color)) {
-        $color = '#82B440';
-    }
+    $color = parse_hex_color(post('brand_color'), '#82B440');
+    $accent = parse_hex_color(post('brand_accent'), '#C6A15B');
+    $deep = parse_hex_color(post('brand_deep'), '#1F3A12');
     if ($name === '' || $userName === '' || !filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
         $error = 'Company name, desk user and a valid email are required.';
         $showNew = true;
@@ -31,9 +30,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'create') {
         );
         $prefix = strtoupper(post('prefix') ?: prefix_from_name($name));
         db_exec(
-            'INSERT INTO branding (company_id, name, tagline, tin, vat_no, address, city, phone, email, website, bank_name, account_name, account_number, brand_color, logo_path, prefix, payment_note, invoice_comments, plan, currency)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-            'isssssssssssssssssss',
+            'INSERT INTO branding (company_id, name, tagline, tin, vat_no, address, city, phone, email, website, bank_name, account_name, account_number, brand_color, brand_accent, brand_deep, logo_path, prefix, payment_note, invoice_comments, plan, currency)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            'isssssssssssssssssssss',
             [
                 $cid,
                 $name,
@@ -49,6 +48,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'create') {
                 $name,
                 post('account_number'),
                 $color,
+                $accent,
+                $deep,
                 'assets/img/ofagros-logo.png',
                 $prefix,
                 'Make payment to ' . $name . '.',
@@ -123,10 +124,24 @@ layout_admin_start('Companies', $user);
       <input id="prefix" name="prefix" maxlength="8" value="<?= h(post('prefix')) ?>" placeholder="OFG">
     </div>
     <div>
-      <label for="brand_color">Brand colour</label>
-      <div class="color-row">
-        <input type="color" name="brand_color" value="<?= h(post('brand_color') ?: '#82B440') ?>">
-        <input type="text" name="brand_color_hex" value="<?= h(post('brand_color') ?: '#82B440') ?>" data-color-hex>
+      <label for="brand_color">Primary colour</label>
+      <div class="color-row" data-color-pair data-color-role="primary">
+        <input type="color" name="brand_color" value="<?= h(parse_hex_color(post('brand_color'), '#82B440')) ?>" data-color-picker>
+        <input type="text" maxlength="7" value="<?= h(parse_hex_color(post('brand_color'), '#82B440')) ?>" data-color-hex>
+      </div>
+    </div>
+    <div>
+      <label for="brand_accent">Accent colour</label>
+      <div class="color-row" data-color-pair data-color-role="accent">
+        <input type="color" name="brand_accent" value="<?= h(parse_hex_color(post('brand_accent'), '#C6A15B')) ?>" data-color-picker>
+        <input type="text" maxlength="7" value="<?= h(parse_hex_color(post('brand_accent'), '#C6A15B')) ?>" data-color-hex>
+      </div>
+    </div>
+    <div>
+      <label for="brand_deep">Deep colour</label>
+      <div class="color-row" data-color-pair data-color-role="deep">
+        <input type="color" name="brand_deep" value="<?= h(parse_hex_color(post('brand_deep'), '#1F3A12')) ?>" data-color-picker>
+        <input type="text" maxlength="7" value="<?= h(parse_hex_color(post('brand_deep'), '#1F3A12')) ?>" data-color-hex>
       </div>
     </div>
     <div>
@@ -179,6 +194,7 @@ layout_admin_start('Companies', $user);
             <td class="row-actions">
               <div class="actions">
                 <a class="btn sm" href="<?= h(url('admin_company.php?id=' . $c['id'])) ?>"><?= icon('eye', 14) ?>Open</a>
+                <a class="btn ghost sm" href="<?= h(url('admin_desk.php?id=' . $c['id'])) ?>"><?= icon('desk', 14) ?>Desk</a>
               </div>
             </td>
           </tr>

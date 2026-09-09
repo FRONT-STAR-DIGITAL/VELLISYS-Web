@@ -22,9 +22,18 @@ function require_member(): array
 {
     $user = require_login();
     if (($user['role'] ?? '') === 'platform') {
-        redirect('admin_companies.php');
+        $acting = (int) ($_SESSION['acting_company_id'] ?? 0);
+        if ($acting <= 0) {
+            redirect('admin_companies.php');
+        }
+        $_SESSION['company_id'] = $acting;
     }
     return $user;
+}
+
+function is_acting_admin(): bool
+{
+    return is_platform() && (int) ($_SESSION['acting_company_id'] ?? 0) > 0;
 }
 
 function require_platform(): array

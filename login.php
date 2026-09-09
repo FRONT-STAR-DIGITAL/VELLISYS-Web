@@ -14,6 +14,7 @@ $color = '#82B440';
 $company = 'Folio';
 $tag = 'Branded books for Ugandan SMEs';
 $logo = 'assets/img/ofagros-logo.png';
+$b = null;
 try {
     $b = db_one('SELECT brand_color, name, tagline, logo_path FROM branding ORDER BY id LIMIT 1');
     if ($b) {
@@ -34,7 +35,7 @@ try {
   <title>Sign in · Folio</title>
   <?php folio_font_links(); ?>
   <?php folio_css_links(); ?>
-  <style>:root { --brand: <?= h($color) ?>; }</style>
+  <style>:root { <?= brand_css_vars($b) ?> }</style>
 </head>
 <body>
 <div class="login">

@@ -113,8 +113,21 @@ function create_document(array $data): int
         $items = $items ?: [['description' => '-', 'qty' => 1, 'unit' => 'lot', 'rate' => 0, 'taxed' => 0]];
         $rate = 0;
     }
-    if ($kind === 'receipt' && (!$alloc || $alloc <= 0)) {
-        $alloc = doc_subtotal($items);
+    if ($kind === 'receipt') {
+        if (!$alloc || $alloc <= 0) {
+            $alloc = doc_subtotal($items);
+        }
+        if ($related) {
+            $alloc = cap_receipt_allocation($alloc, $related);
+        }
+        if (!$items && $alloc > 0) {
+            $label = 'Payment received';
+            $inv = $related ? db_one('SELECT number FROM documents WHERE id = ? AND company_id = ?', 'ii', [$related, $cid]) : null;
+            if ($inv) {
+                $label = 'Payment on ' . $inv['number'];
+            }
+            $items = [['description' => $label, 'qty' => 1, 'unit' => 'lot', 'rate' => $alloc, 'taxed' => 0]];
+        }
     }
 
     $id = db_exec(
@@ -124,6 +137,13 @@ function create_document(array $data): int
         [$cid, $kind, $seq, $number, $date, $due, $party, $rate, $notes, $subject, $body, $status, $related, $method, $ref, $alloc, $cat, $tpl, $userId, $currency, $docTpl]
     );
 
+    insert_document_items($id, $items);
+
+    return $id;
+}
+
+function insert_document_items(int $id, array $items): void
+{
     foreach ($items as $item) {
         $desc = trim((string) ($item['description'] ?? ''));
         if ($desc === '') {
@@ -139,8 +159,78 @@ function create_document(array $data): int
             [$id, $desc, $qty, $unit, $itemRate, $taxed]
         );
     }
+}
 
-    return $id;
+function cap_receipt_allocation(float $alloc, ?int $relatedId, ?int $exceptReceiptId = null): float
+{
+    if ($alloc <= 0 || !$relatedId) {
+        return max(0, $alloc);
+    }
+    $inv = db_one('SELECT * FROM documents WHERE id = ? AND company_id = ? AND kind = \'invoice\' AND status = \'issued\'', 'ii', [$relatedId, current_company_id()]);
+    if (!$inv) {
+        return $alloc;
+    }
+    $inv['items'] = db_all('SELECT * FROM document_items WHERE document_id = ? ORDER BY id', 'i', [(int) $inv['id']]);
+    $total = document_totals($inv)['total'];
+    $remaining = max(0, round($total - invoice_paid((int) $inv['id'], $exceptReceiptId), 2));
+    return min($alloc, $remaining);
+}
+
+function update_document(int $id, array $data): void
+{
+    $doc = load_document($id);
+    if (!$doc) {
+        throw new RuntimeException('Document not found.');
+    }
+    if ($doc['status'] === 'void') {
+        throw new RuntimeException('Voided documents cannot be edited.');
+    }
+    $party = (int) ($data['party_id'] ?? $doc['party_id']);
+    $date = (string) ($data['date'] ?? $doc['date']);
+    $due = $data['due_date'] ?? $doc['due_date'];
+    $due = $due === '' ? null : $due;
+    $rate = (float) ($data['vat_rate'] ?? $doc['vat_rate']);
+    $notes = $data['notes'] ?? $doc['notes'];
+    $subject = $data['subject'] ?? $doc['subject'];
+    $body = $data['body'] ?? $doc['body'];
+    $related = isset($data['related_id']) && $data['related_id'] ? (int) $data['related_id'] : null;
+    $method = $data['payment_method'] ?? $doc['payment_method'];
+    $ref = $data['payment_ref'] ?? $doc['payment_ref'];
+    $alloc = isset($data['allocated_amount']) ? (float) $data['allocated_amount'] : (float) ($doc['allocated_amount'] ?? 0);
+    $cat = $data['expense_category'] ?? $doc['expense_category'];
+    $tpl = $data['letter_template'] ?? $doc['letter_template'];
+    $currency = strtoupper((string) ($data['currency'] ?? doc_currency($doc)));
+    if ($currency !== 'USD') {
+        $currency = 'UGX';
+    }
+    $docTpl = trim((string) ($data['doc_template'] ?? doc_template_key($doc)));
+    if ($docTpl === '' || !array_key_exists($docTpl, doc_templates())) {
+        $docTpl = doc_template_key($doc);
+    }
+    $items = $data['items'] ?? $doc['items'];
+    if ($doc['kind'] === 'letter') {
+        $items = $items ?: [['description' => '-', 'qty' => 1, 'unit' => 'lot', 'rate' => 0, 'taxed' => 0]];
+        $rate = 0;
+    }
+    if ($doc['kind'] === 'receipt') {
+        if (!$alloc || $alloc <= 0) {
+            $alloc = doc_subtotal($items);
+        }
+        $alloc = cap_receipt_allocation($alloc, $related, $id);
+    } else {
+        $alloc = $doc['kind'] === 'expense' ? $alloc : null;
+        if ($doc['kind'] !== 'expense') {
+            $alloc = null;
+        }
+    }
+
+    db_exec(
+        'UPDATE documents SET party_id=?, date=?, due_date=?, vat_rate=?, notes=?, subject=?, body=?, related_id=?, payment_method=?, payment_ref=?, allocated_amount=?, expense_category=?, letter_template=?, currency=?, doc_template=? WHERE id=? AND company_id=?',
+        'issdsssissdssssii',
+        [$party, $date, $due, $rate, $notes, $subject, $body, $related, $method, $ref, $alloc, $cat, $tpl, $currency, $docTpl, $id, current_company_id()]
+    );
+    db_exec('DELETE FROM document_items WHERE document_id = ?', 'i', [$id]);
+    insert_document_items($id, $items);
 }
 
 function load_document(int $id): ?array
@@ -162,6 +252,10 @@ function load_document(int $id): ?array
     } elseif ($doc['kind'] === 'expense') {
         $doc['paid'] = expense_paid((int) $doc['id']);
         $doc['balance'] = max(0, $doc['totals']['total'] - $doc['paid']);
+    } elseif ($doc['kind'] === 'receipt') {
+        $doc['settlement'] = receipt_settlement($doc);
+        $doc['paid'] = (float) ($doc['settlement']['received'] ?? $doc['totals']['total']);
+        $doc['balance'] = (float) ($doc['settlement']['balance'] ?? 0);
     } else {
         $doc['paid'] = 0;
         $doc['balance'] = $doc['totals']['total'];
@@ -169,14 +263,75 @@ function load_document(int $id): ?array
     return $doc;
 }
 
-function invoice_paid(int $invoiceId): float
+function receipt_settlement(array $doc): ?array
 {
-    $row = db_one(
-        'SELECT COALESCE(SUM(COALESCE(allocated_amount, 0)), 0) AS paid
-         FROM documents WHERE kind = \'receipt\' AND related_id = ? AND status = \'issued\' AND company_id = ?',
-        'ii',
-        [$invoiceId, current_company_id()]
-    );
+    if (($doc['kind'] ?? '') !== 'receipt') {
+        return null;
+    }
+    $received = (float) ($doc['allocated_amount'] ?? 0);
+    if ($received <= 0) {
+        $received = (float) (($doc['totals']['total'] ?? document_totals($doc)['total']));
+    }
+    $out = [
+        'received' => $received,
+        'invoice_id' => null,
+        'invoice_number' => null,
+        'invoice_total' => 0.0,
+        'invoice_paid' => $received,
+        'balance' => 0.0,
+    ];
+    $relatedId = (int) ($doc['related_id'] ?? 0);
+    if ($relatedId <= 0) {
+        return $out;
+    }
+    $rel = db_one('SELECT * FROM documents WHERE id = ? AND company_id = ?', 'ii', [$relatedId, current_company_id()]);
+    if (!$rel || $rel['kind'] !== 'invoice') {
+        return $out;
+    }
+    $rel['items'] = db_all('SELECT * FROM document_items WHERE document_id = ? ORDER BY id', 'i', [(int) $rel['id']]);
+    $total = document_totals($rel)['total'];
+    $paid = invoice_paid((int) $rel['id']);
+    $out['invoice_id'] = (int) $rel['id'];
+    $out['invoice_number'] = $rel['number'];
+    $out['invoice_total'] = $total;
+    $out['invoice_paid'] = $paid;
+    $out['balance'] = max(0, round($total - $paid, 2));
+    return $out;
+}
+
+function outstanding_invoices(?int $partyId = null, ?int $keepId = null): array
+{
+    $sql = 'SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id
+            WHERE d.company_id = ? AND d.kind = \'invoice\' AND d.status = \'issued\'';
+    $types = 'i';
+    $params = [current_company_id()];
+    if ($partyId) {
+        $sql .= ' AND d.party_id = ?';
+        $types .= 'i';
+        $params[] = $partyId;
+    }
+    $sql .= ' ORDER BY d.date DESC, d.id DESC';
+    $rows = attach_document_totals(db_all($sql, $types, $params));
+    return array_values(array_filter($rows, static function ($d) use ($keepId) {
+        if ($keepId && (int) $d['id'] === $keepId) {
+            return true;
+        }
+        return ((float) ($d['balance'] ?? 0)) > 0.009;
+    }));
+}
+
+function invoice_paid(int $invoiceId, ?int $exceptReceiptId = null): float
+{
+    $sql = 'SELECT COALESCE(SUM(COALESCE(allocated_amount, 0)), 0) AS paid
+         FROM documents WHERE kind = \'receipt\' AND related_id = ? AND status = \'issued\' AND company_id = ?';
+    $types = 'ii';
+    $params = [$invoiceId, current_company_id()];
+    if ($exceptReceiptId) {
+        $sql .= ' AND id <> ?';
+        $types .= 'i';
+        $params[] = $exceptReceiptId;
+    }
+    $row = db_one($sql, $types, $params);
     return (float) ($row['paid'] ?? 0);
 }
 
@@ -286,6 +441,11 @@ function receive_on_invoice(int $invoiceId, float $amount, string $method, strin
     if ($amount <= 0) {
         throw new RuntimeException('Nothing remains on this invoice.');
     }
+    $part = ($balance - $amount) > 0.009;
+    $label = ($part ? 'Part payment on ' : 'Payment on ') . $doc['number'];
+    $notes = $part
+        ? 'Part payment against ' . $doc['number'] . '. Balance remaining on the invoice.'
+        : 'Received with thanks against ' . $doc['number'] . '.';
     return create_document([
         'kind' => 'receipt',
         'party_id' => $doc['party_id'],
@@ -293,13 +453,13 @@ function receive_on_invoice(int $invoiceId, float $amount, string $method, strin
         'vat_rate' => 0,
         'currency' => doc_currency($doc),
         'doc_template' => doc_template_key($doc),
-        'notes' => 'Received with thanks against ' . $doc['number'] . '.',
+        'notes' => $notes,
         'related_id' => $doc['id'],
         'payment_method' => $method,
         'payment_ref' => $ref ?: null,
         'allocated_amount' => $amount,
         'items' => [[
-            'description' => 'Payment on ' . $doc['number'],
+            'description' => $label,
             'qty' => 1,
             'unit' => 'lot',
             'rate' => $amount,
@@ -368,6 +528,9 @@ function render_doc_actions(array $doc, bool $labeled = false): void
     ?>
     <div class="actions">
       <a class="<?= $cls ?>" href="<?= h(url('document_view.php?id=' . $id)) ?>" title="View" aria-label="View"><?= icon('eye', 15) ?><?php if ($labeled): ?> View<?php endif; ?></a>
+      <?php if (!$void): ?>
+        <a class="<?= $cls ?>" href="<?= h(url('document_new.php?id=' . $id)) ?>" title="Edit" aria-label="Edit"><?= icon('pencil', 15) ?><?php if ($labeled): ?> Edit<?php endif; ?></a>
+      <?php endif; ?>
       <a class="<?= $cls ?>" href="<?= h(url('document_view.php?id=' . $id . '&print=1')) ?>" title="Print" aria-label="Print"><?= icon('printer', 15) ?><?php if ($labeled): ?> Print<?php endif; ?></a>
       <?php if (!$void): ?>
         <a class="<?= $cls ?>" href="<?= h(url('document_email.php?id=' . $id)) ?>" title="Email" aria-label="Email"><?= icon('send', 15) ?><?php if ($labeled): ?> Email<?php endif; ?></a>

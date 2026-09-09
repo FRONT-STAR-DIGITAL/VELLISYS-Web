@@ -56,15 +56,16 @@ if ($receiveId && $_SERVER['REQUEST_METHOD'] !== 'POST') {
     <div class="page-head">
       <div>
         <h1><?= icon('receipt') ?>Take a receipt</h1>
-        <p class="lede"><?= h($doc['party_name']) ?> still owes <?= h(money($balance, doc_currency($doc))) ?> on <?= h($doc['number']) ?>.</p>
+        <p class="lede"><?= h($doc['party_name']) ?> still owes <?= h(money($balance, doc_currency($doc))) ?> on <?= h($doc['number']) ?>. You can take less than the balance; the unpaid amount stays on Debtors.</p>
       </div>
     </div>
     <form class="card form" method="post">
       <?= csrf_field() ?>
       <input type="hidden" name="action" value="receive">
       <input type="hidden" name="id" value="<?= $receiveId ?>">
-      <label for="amount">Amount (<?= h(doc_currency($doc)) ?>)</label>
+      <label for="amount">Amount received (<?= h(doc_currency($doc)) ?>)</label>
       <input id="amount" name="amount" inputmode="decimal" required value="<?= h((string) $balance) ?>">
+      <p class="hint">Leave the full balance for a complete receipt, or type a smaller figure for a part payment.</p>
       <label for="payment_method">Paid how</label>
       <select id="payment_method" name="payment_method">
         <?php foreach (payment_methods() as $k => $label): ?>

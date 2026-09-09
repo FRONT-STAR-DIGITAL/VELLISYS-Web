@@ -64,35 +64,35 @@ function doc_templates(): array
     return [
         'folio' => [
             'name' => 'Folio bar',
-            'blurb' => 'Your brand colour on the original letterhead sheet.',
+            'blurb' => 'Primary colour on the original letterhead sheet.',
         ],
         'ledger' => [
-            'name' => 'Blue ledger',
-            'blurb' => 'Classic receipt-book layout with amount in words.',
+            'name' => 'Colour ledger',
+            'blurb' => 'Receipt-book layout washed in your primary and accent.',
         ],
         'crimson' => [
-            'name' => 'Crimson bill',
-            'blurb' => 'Red and black geometric challan for invoices and quotes.',
+            'name' => 'Corner bill',
+            'blurb' => 'Primary and deep geometric corners on a challan sheet.',
         ],
         'amber' => [
-            'name' => 'Amber bill',
-            'blurb' => 'Navy and orange corner blocks with a bold title pill.',
+            'name' => 'Accent bill',
+            'blurb' => 'Accent and deep corner blocks with a bold title pill.',
         ],
         'twin' => [
             'name' => 'Twin copy',
-            'blurb' => 'Office copy and client copy on one yellow-navy sheet.',
+            'blurb' => 'Office copy and client copy, accent banner, deep type.',
         ],
         'stripe' => [
-            'name' => 'Gold stripe',
-            'blurb' => 'Purple title bar, gold rail, and a boxed total.',
+            'name' => 'Accent stripe',
+            'blurb' => 'Deep title bar, accent rail, and a boxed total.',
         ],
         'estate' => [
             'name' => 'Estate cream',
-            'blurb' => 'Coffee-estate paper: forest green, gold rules, harvest feel.',
+            'blurb' => 'Deep header band, accent rule, harvest paper.',
         ],
         'night' => [
             'name' => 'Lake night',
-            'blurb' => 'Indigo dusk and copper lines - Kampala evening desk.',
+            'blurb' => 'Deep dusk header and accent copper lines.',
         ],
     ];
 }
@@ -185,6 +185,8 @@ function folio_defaults(): array
         'name' => 'Folio',
         'tagline' => 'Your invoices, in your colours',
         'brand_color' => '#82B440',
+        'brand_accent' => '#C6A15B',
+        'brand_deep' => '#1F3A12',
         'logo_path' => 'assets/img/ofagros-logo.png',
         'prefix' => 'FOL',
         'plan' => 'sme',
@@ -225,10 +227,102 @@ function branding(bool $refresh = false): array
     return $row;
 }
 
+function parse_hex_color(?string $raw, string $fallback = '#82B440'): string
+{
+    $c = strtoupper(trim((string) $raw));
+    if ($c !== '' && !str_starts_with($c, '#')) {
+        $c = '#' . $c;
+    }
+    return preg_match('/^#[0-9A-F]{6}$/', $c) ? $c : $fallback;
+}
+
+function hex_to_rgb(string $hex): array
+{
+    $hex = ltrim(parse_hex_color($hex), '#');
+    return [hexdec(substr($hex, 0, 2)), hexdec(substr($hex, 2, 2)), hexdec(substr($hex, 4, 2))];
+}
+
+function rgb_to_hex(int $r, int $g, int $b): string
+{
+    return sprintf('#%02X%02X%02X', max(0, min(255, $r)), max(0, min(255, $g)), max(0, min(255, $b)));
+}
+
+function hex_mix(string $a, string $b, float $t): string
+{
+    $t = max(0, min(1, $t));
+    [$ar, $ag, $ab] = hex_to_rgb($a);
+    [$br, $bg, $bb] = hex_to_rgb($b);
+    return rgb_to_hex(
+        (int) round($ar + ($br - $ar) * $t),
+        (int) round($ag + ($bg - $ag) * $t),
+        (int) round($ab + ($bb - $ab) * $t)
+    );
+}
+
+function hex_shade(string $hex, float $amount): string
+{
+    return hex_mix($hex, '#000000', max(0, min(1, $amount)));
+}
+
+function contrast_on(string $hex): string
+{
+    [$r, $g, $b] = hex_to_rgb($hex);
+    $y = (0.2126 * $r + 0.7152 * $g + 0.0722 * $b) / 255;
+    return $y > 0.58 ? '#141712' : '#FFFFFF';
+}
+
+function brand_palette(?array $brand = null): array
+{
+    $brand = $brand ?? branding();
+    $primary = parse_hex_color($brand['brand_color'] ?? '', '#82B440');
+    $accent = parse_hex_color($brand['brand_accent'] ?? '', '');
+    $deep = parse_hex_color($brand['brand_deep'] ?? '', '');
+    if ($accent === '') {
+        $accent = hex_mix($primary, '#C6A15B', 0.62);
+    }
+    if ($deep === '') {
+        $deep = hex_shade($primary, 0.58);
+    }
+    return [
+        'primary' => $primary,
+        'accent' => $accent,
+        'deep' => $deep,
+        'tint' => hex_tint($primary, 0.9),
+        'accent_tint' => hex_tint($accent, 0.88),
+        'deep_tint' => hex_tint($deep, 0.9),
+        'on_primary' => contrast_on($primary),
+        'on_accent' => contrast_on($accent),
+        'on_deep' => contrast_on($deep),
+    ];
+}
+
+function brand_css_vars(?array $brand = null): string
+{
+    $p = brand_palette($brand);
+    return '--brand:' . $p['primary']
+        . ';--brand-2:' . $p['accent']
+        . ';--brand-3:' . $p['deep']
+        . ';--brand-tint:' . $p['tint']
+        . ';--brand-2-tint:' . $p['accent_tint']
+        . ';--brand-3-tint:' . $p['deep_tint']
+        . ';--on-brand:' . $p['on_primary']
+        . ';--on-brand-2:' . $p['on_accent']
+        . ';--on-brand-3:' . $p['on_deep'];
+}
+
 function brand_color(): string
 {
-    $c = branding()['brand_color'] ?? '#82B440';
-    return preg_match('/^#[0-9A-Fa-f]{6}$/', $c) ? $c : '#82B440';
+    return brand_palette()['primary'];
+}
+
+function brand_accent(): string
+{
+    return brand_palette()['accent'];
+}
+
+function brand_deep(): string
+{
+    return brand_palette()['deep'];
 }
 
 function logo_url(): string

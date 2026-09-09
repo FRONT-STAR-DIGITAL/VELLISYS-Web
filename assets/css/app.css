@@ -590,6 +590,28 @@ table.grid tfoot td {
   gap: 8px;
 }
 .settings-card .lede { margin-bottom: 12px; }
+.acting-bar {
+  background: var(--brand-3, #1f3a12);
+  color: #f4f3ef;
+  padding: 8px 28px;
+  font-size: 13px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.acting-bar a { color: #fff; font-weight: 600; }
+.palette-swatches {
+  display: flex;
+  gap: 8px;
+  margin: 14px 0 0;
+}
+.palette-swatches span {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+}
 .preview-nav {
   margin-top: 16px;
   background: var(--nav);
@@ -785,9 +807,13 @@ table.grid tfoot td {
   .template-grid, .chart-grid, .expense-meta { grid-template-columns: 1fr; }
   table.grid th:nth-child(n+6), table.grid td.row-actions { display: none; }
 }
+@page { size: A4; margin: 0; }
 @media print {
-  body, .desk-body { background: #fff; }
-  .nav, .top, .actions, .flash, .quick, .filters { display: none !important; }
+  html, body, .desk-body, .print-body { background: #fff !important; }
+  .nav, .top, .actions, .flash, .quick, .filters, .page-head, .acting-bar { display: none !important; }
+  .content > .card { display: none !important; }
+  a[href]::after, a[href]::before { content: none !important; }
   .desk-body .main { margin-left: 0; }
-  .content, .sheet-wrap { padding: 0; background: #fff; }
+  .content, .sheet-wrap { padding: 0; background: #fff; max-width: none; overflow: visible; }
+  .invoice-sheet { box-shadow: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }

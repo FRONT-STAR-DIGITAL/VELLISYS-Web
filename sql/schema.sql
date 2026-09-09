@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS branding (
   account_name VARCHAR(160) DEFAULT '',
   account_number VARCHAR(80) DEFAULT '',
   brand_color VARCHAR(7) NOT NULL DEFAULT '#82B440',
+  brand_accent VARCHAR(7) NOT NULL DEFAULT '#C6A15B',
+  brand_deep VARCHAR(7) NOT NULL DEFAULT '#1F3A12',
   logo_path VARCHAR(255) DEFAULT 'assets/img/ofagros-logo.png',
   prefix VARCHAR(12) NOT NULL DEFAULT 'OFG',
   payment_note TEXT,

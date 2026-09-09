@@ -28,10 +28,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('admin_company.php?id=' . $id);
     }
     if ($action === 'branding') {
-        $color = strtoupper(post('brand_color') ?: '#82B440');
-        if (!preg_match('/^#[0-9A-F]{6}$/', $color)) {
-            $color = '#82B440';
-        }
+        $color = parse_hex_color(post('brand_color'), '#82B440');
+        $accent = parse_hex_color(post('brand_accent'), '#C6A15B');
+        $deep = parse_hex_color(post('brand_deep'), '#1F3A12');
         $logoPath = $brand['logo_path'] ?? 'assets/img/ofagros-logo.png';
         if (!empty($_FILES['logo']['tmp_name']) && is_uploaded_file($_FILES['logo']['tmp_name'])) {
             $ext = strtolower(pathinfo($_FILES['logo']['name'], PATHINFO_EXTENSION));
@@ -54,8 +53,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if ($error === '') {
             db_exec(
-                'UPDATE branding SET tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, currency=? WHERE company_id=?',
-                'sssssssssssssssssi',
+                'UPDATE branding SET tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, currency=? WHERE company_id=?',
+                'sssssssssssssssssssi',
                 [
                     post('tagline'),
                     post('tin'),
@@ -69,6 +68,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     post('account_name'),
                     post('account_number'),
                     $color,
+                    $accent,
+                    $deep,
                     $logoPath,
                     strtoupper(post('prefix') ?: prefix_from_name($company['name'])),
                     post('payment_note'),
@@ -128,14 +129,17 @@ layout_admin_start($company['name'], $user);
     <h1><?= icon('building') ?><?= h($company['name']) ?></h1>
     <p class="lede"><?= h(ucfirst((string) $company['status'])) ?> · <?= h($brand['currency'] ?? 'UGX') ?> · <?= count($members) ?> user<?= count($members) === 1 ? '' : 's' ?></p>
   </div>
-  <?php if ($company['status'] !== 'live'): ?>
-    <form method="post">
-      <?= csrf_field() ?>
-      <input type="hidden" name="id" value="<?= $id ?>">
-      <input type="hidden" name="action" value="go_live">
-      <button class="btn" type="submit"><?= icon('check') ?>Mark live</button>
-    </form>
-  <?php endif; ?>
+  <div class="actions">
+    <a class="btn" href="<?= h(url('admin_desk.php?id=' . $id)) ?>"><?= icon('desk') ?>Open desk</a>
+    <?php if ($company['status'] !== 'live'): ?>
+      <form method="post">
+        <?= csrf_field() ?>
+        <input type="hidden" name="id" value="<?= $id ?>">
+        <input type="hidden" name="action" value="go_live">
+        <button class="btn ghost" type="submit"><?= icon('check') ?>Mark live</button>
+      </form>
+    <?php endif; ?>
+  </div>
 </div>
 
 <?php if ($error): ?><p class="flash flash-err" style="margin:0 0 16px"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
@@ -275,10 +279,24 @@ layout_admin_start($company['name'], $user);
         <input id="account_number" name="account_number" value="<?= h((string) ($brand['account_number'] ?? '')) ?>">
       </div>
       <div>
-        <label for="brand_color">Colour</label>
-        <div class="color-row">
-          <input type="color" id="brand_color" name="brand_color" value="<?= h($brand['brand_color'] ?? '#82B440') ?>" data-color-picker>
-          <input type="text" value="<?= h($brand['brand_color'] ?? '#82B440') ?>" data-color-hex>
+        <label for="brand_color">Primary</label>
+        <div class="color-row" data-color-pair data-color-role="primary">
+          <input type="color" id="brand_color" name="brand_color" value="<?= h(parse_hex_color($brand['brand_color'] ?? '', '#82B440')) ?>" data-color-picker>
+          <input type="text" maxlength="7" value="<?= h(parse_hex_color($brand['brand_color'] ?? '', '#82B440')) ?>" data-color-hex>
+        </div>
+      </div>
+      <div>
+        <label for="brand_accent">Accent</label>
+        <div class="color-row" data-color-pair data-color-role="accent">
+          <input type="color" id="brand_accent" name="brand_accent" value="<?= h(parse_hex_color($brand['brand_accent'] ?? '', '#C6A15B')) ?>" data-color-picker>
+          <input type="text" maxlength="7" value="<?= h(parse_hex_color($brand['brand_accent'] ?? '', '#C6A15B')) ?>" data-color-hex>
+        </div>
+      </div>
+      <div>
+        <label for="brand_deep">Deep</label>
+        <div class="color-row" data-color-pair data-color-role="deep">
+          <input type="color" id="brand_deep" name="brand_deep" value="<?= h(parse_hex_color($brand['brand_deep'] ?? '', '#1F3A12')) ?>" data-color-picker>
+          <input type="text" maxlength="7" value="<?= h(parse_hex_color($brand['brand_deep'] ?? '', '#1F3A12')) ?>" data-color-hex>
         </div>
       </div>
     </div>

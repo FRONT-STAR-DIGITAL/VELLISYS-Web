@@ -21,6 +21,12 @@ $byKind = ['invoice' => [], 'quotation' => [], 'receipt' => [], 'expense' => [],
 foreach ($docs as $d) {
     $byKind[$d['kind']][] = $d;
 }
+$owed = 0.0;
+foreach ($byKind['invoice'] as $inv) {
+    if ($inv['status'] !== 'void') {
+        $owed += (float) ($inv['balance'] ?? 0);
+    }
+}
 
 layout_start($party['name'], $user);
 ?>
@@ -32,6 +38,7 @@ layout_start($party['name'], $user);
       <?php if ($party['tin']): ?> · TIN <?= h($party['tin']) ?><?php endif; ?>
       <?php if ($party['email']): ?> · <?= h($party['email']) ?><?php endif; ?>
       <?php if ($party['phone']): ?> · <?= h($party['phone']) ?><?php endif; ?>
+      <?php if ($owed > 0): ?> · Outstanding <?= h(money($owed)) ?><?php endif; ?>
     </p>
     <?php if ($party['address']): ?><p class="lede"><?= h($party['address']) ?></p><?php endif; ?>
   </div>
@@ -86,6 +93,7 @@ layout_start($party['name'], $user);
             <th>Number</th>
             <th>Date</th>
             <?php if ($kind !== 'letter'): ?><th class="right">Amount</th><?php endif; ?>
+            <?php if ($kind === 'invoice'): ?><th class="right">Balance</th><?php endif; ?>
             <th>Status</th>
             <th>Actions</th>
           </tr>
@@ -98,6 +106,9 @@ layout_start($party['name'], $user);
               <?php if ($kind !== 'letter'): ?>
                 <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>
               <?php endif; ?>
+              <?php if ($kind === 'invoice'): ?>
+                <td class="right mono"><?= h(money($doc['balance'] ?? 0, doc_currency($doc))) ?></td>
+              <?php endif; ?>
               <td><span class="pill"><?= h(invoice_status_label($doc)) ?></span></td>
               <td class="row-actions"><?php render_doc_actions($doc); ?></td>
             </tr>
@@ -108,6 +119,9 @@ layout_start($party['name'], $user);
             <tr>
               <td colspan="2">Totals</td>
               <td class="right mono"><?= h(money(documents_sum($byKind[$kind]))) ?></td>
+              <?php if ($kind === 'invoice'): ?>
+                <td class="right mono"><?= h(money(documents_sum($byKind[$kind], 'balance'))) ?></td>
+              <?php endif; ?>
               <td colspan="2"></td>
             </tr>
           </tfoot>
