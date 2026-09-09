@@ -1,0 +1,93 @@
+CREATE TABLE IF NOT EXISTS users (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  email VARCHAR(190) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS branding (
+  id TINYINT UNSIGNED PRIMARY KEY,
+  name VARCHAR(160) NOT NULL,
+  tagline VARCHAR(180) DEFAULT '',
+  tin VARCHAR(40) DEFAULT '',
+  vat_no VARCHAR(40) DEFAULT '',
+  address VARCHAR(255) DEFAULT '',
+  city VARCHAR(120) DEFAULT '',
+  phone VARCHAR(40) DEFAULT '',
+  email VARCHAR(190) DEFAULT '',
+  website VARCHAR(190) DEFAULT '',
+  bank_name VARCHAR(120) DEFAULT '',
+  account_name VARCHAR(160) DEFAULT '',
+  account_number VARCHAR(80) DEFAULT '',
+  brand_color VARCHAR(7) NOT NULL DEFAULT '#82B440',
+  logo_path VARCHAR(255) DEFAULT 'assets/img/ofagros-logo.png',
+  prefix VARCHAR(12) NOT NULL DEFAULT 'OFG',
+  payment_note TEXT,
+  invoice_comments TEXT,
+  plan ENUM('starter','sme','office') NOT NULL DEFAULT 'sme'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS parties (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(190) NOT NULL,
+  kind ENUM('customer','supplier','both') NOT NULL DEFAULT 'customer',
+  tin VARCHAR(40) DEFAULT NULL,
+  phone VARCHAR(40) DEFAULT NULL,
+  email VARCHAR(190) DEFAULT NULL,
+  address VARCHAR(255) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS documents (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  kind ENUM('quotation','invoice','receipt','expense','letter') NOT NULL,
+  sequence INT UNSIGNED NOT NULL,
+  number VARCHAR(64) NOT NULL,
+  date DATE NOT NULL,
+  due_date DATE DEFAULT NULL,
+  party_id INT UNSIGNED NOT NULL,
+  vat_rate DECIMAL(6,4) NOT NULL DEFAULT 0,
+  notes TEXT,
+  subject VARCHAR(255) DEFAULT NULL,
+  body TEXT,
+  status ENUM('issued','void') NOT NULL DEFAULT 'issued',
+  void_reason VARCHAR(255) DEFAULT NULL,
+  related_id INT UNSIGNED DEFAULT NULL,
+  payment_method VARCHAR(40) DEFAULT NULL,
+  payment_ref VARCHAR(80) DEFAULT NULL,
+  allocated_amount BIGINT DEFAULT NULL,
+  expense_category VARCHAR(80) DEFAULT NULL,
+  efris_fdn VARCHAR(40) DEFAULT NULL,
+  efris_verification VARCHAR(16) DEFAULT NULL,
+  efris_payload TEXT,
+  created_by INT UNSIGNED DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY number (number),
+  KEY kind_seq (kind, sequence),
+  KEY party_id (party_id),
+  CONSTRAINT fk_doc_party FOREIGN KEY (party_id) REFERENCES parties(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS document_items (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  document_id INT UNSIGNED NOT NULL,
+  description VARCHAR(255) NOT NULL,
+  qty DECIMAL(12,2) NOT NULL DEFAULT 1,
+  unit VARCHAR(30) DEFAULT 'lot',
+  rate BIGINT NOT NULL DEFAULT 0,
+  taxed TINYINT(1) NOT NULL DEFAULT 1,
+  CONSTRAINT fk_item_doc FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS emails (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  document_id INT UNSIGNED DEFAULT NULL,
+  user_id INT UNSIGNED DEFAULT NULL,
+  to_email VARCHAR(190) NOT NULL,
+  subject VARCHAR(255) NOT NULL,
+  body TEXT,
+  status ENUM('sent','queued','failed') NOT NULL DEFAULT 'queued',
+  error VARCHAR(255) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -1,0 +1,63 @@
+<?php
+declare(strict_types=1);
+
+function db(): mysqli
+{
+    static $mysqli = null;
+    if ($mysqli instanceof mysqli) {
+        return $mysqli;
+    }
+    $cfg = require ROOT_PATH . '/config/database.php';
+    $mysqli = @new mysqli($cfg['host'], $cfg['user'], $cfg['pass'], $cfg['name']);
+    if ($mysqli->connect_errno) {
+        $mysqli = @new mysqli($cfg['host'], $cfg['user'], $cfg['pass']);
+        if ($mysqli->connect_errno) {
+            http_response_code(500);
+            echo 'Cannot connect to MySQL. Start MySQL in XAMPP and check config/database.php.';
+            exit;
+        }
+        if (!isset($_GET['installing'])) {
+            header('Location: ' . url('install.php'));
+            exit;
+        }
+    }
+    $mysqli->set_charset('utf8mb4');
+    return $mysqli;
+}
+
+function db_one(string $sql, string $types = '', array $params = []): ?array
+{
+    $row = db_all($sql, $types, $params);
+    return $row[0] ?? null;
+}
+
+function db_all(string $sql, string $types = '', array $params = []): array
+{
+    $stmt = db()->prepare($sql);
+    if (!$stmt) {
+        throw new RuntimeException(db()->error);
+    }
+    if ($types !== '') {
+        $stmt->bind_param($types, ...$params);
+    }
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $rows = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+    $stmt->close();
+    return $rows;
+}
+
+function db_exec(string $sql, string $types = '', array $params = []): int
+{
+    $stmt = db()->prepare($sql);
+    if (!$stmt) {
+        throw new RuntimeException(db()->error);
+    }
+    if ($types !== '') {
+        $stmt->bind_param($types, ...$params);
+    }
+    $stmt->execute();
+    $id = $stmt->insert_id;
+    $stmt->close();
+    return (int) $id;
+}

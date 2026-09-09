@@ -1,0 +1,7 @@
+DirectoryIndex index.php login.php
+
+<IfModule mod_authz_core.c>
+  <FilesMatch "^\.">
+    Require all denied
+  </FilesMatch>
+</IfModule>
