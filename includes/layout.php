@@ -36,8 +36,7 @@ function layout_start(string $title, array $user, array $opts = []): void
 <div class="app">
   <aside class="nav">
     <a class="brand" href="<?= h(url('dashboard.php')) ?>">
-      <img class="brand-mark" src="<?= h(product_mark_url()) ?>" alt="">
-      <span class="brand-kicker"><?= h(product_name()) ?></span>
+      <img class="brand-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
       <strong><?= h($brand['name']) ?></strong>
     </a>
     <nav>
@@ -98,6 +97,7 @@ function layout_admin_start(string $title, array $user): void
     $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
     $signupNew = new_signup_count();
     $nav = [
+        ['admin_landing.php', 'Landing', 'image'],
         ['admin_signups.php', 'Sign-ups' . ($signupNew ? ' (' . $signupNew . ')' : ''), 'letter'],
         ['admin_companies.php', 'Companies', 'building'],
     ];
@@ -117,8 +117,7 @@ function layout_admin_start(string $title, array $user): void
 <div class="app">
   <aside class="nav">
     <a class="brand" href="<?= h(url('admin_signups.php')) ?>">
-      <img class="brand-mark" src="<?= h(product_mark_url()) ?>" alt="">
-      <span class="brand-kicker"><?= h(product_name()) ?></span>
+      <img class="brand-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
       <strong>Platform admin</strong>
     </a>
     <nav>

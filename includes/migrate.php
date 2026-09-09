@@ -29,7 +29,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 11) {
+    if ($ver >= 12) {
         $done = true;
         return;
     }
@@ -160,8 +160,34 @@ function folio_migrate(mysqli $db): void
 
     folio_ensure_platform_admin($db);
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '11')");
+    folio_migrate_landing_cards($db);
+
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '12')");
     $done = true;
+}
+
+function folio_migrate_landing_cards(mysqli $db): void
+{
+    $db->query("CREATE TABLE IF NOT EXISTS landing_cards (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      slot VARCHAR(40) NOT NULL UNIQUE,
+      section VARCHAR(40) NOT NULL,
+      title VARCHAR(180) NOT NULL,
+      body TEXT NOT NULL,
+      image_path VARCHAR(255) NOT NULL DEFAULT '',
+      sort INT NOT NULL DEFAULT 0
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    foreach (landing_card_defaults() as $c) {
+        $slot = $db->real_escape_string($c['slot']);
+        $found = $db->query("SELECT id FROM landing_cards WHERE slot = '$slot' LIMIT 1");
+        if ($found && $found->num_rows > 0) {
+            continue;
+        }
+        $stmt = $db->prepare('INSERT INTO landing_cards (slot, section, title, body, image_path, sort) VALUES (?,?,?,?,?,?)');
+        $stmt->bind_param('sssssi', $c['slot'], $c['section'], $c['title'], $c['body'], $c['image_path'], $c['sort']);
+        $stmt->execute();
+    }
 }
 
 function folio_ensure_platform_admin(mysqli $db): void

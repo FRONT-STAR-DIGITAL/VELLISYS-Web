@@ -764,7 +764,57 @@ function product_mark_url(): string
 
 function product_logo_url(): string
 {
+    $path = ROOT_PATH . '/assets/img/our-logo.png';
+    if (is_file($path)) {
+        return asset('img/our-logo.png');
+    }
     return asset('img/vellisys-logo.png');
+}
+
+function landing_card_defaults(): array
+{
+    return [
+        ['slot' => 'familiar_1', 'section' => 'familiar', 'sort' => 1, 'image_path' => 'assets/img/landing/landing-receipts.png', 'title' => 'Still stuffing receipts in a drawer?', 'body' => 'Slips, phone photos, part payments in UGX and USD. By month-end you are guessing what is still owed.'],
+        ['slot' => 'familiar_2', 'section' => 'familiar', 'sort' => 2, 'image_path' => 'assets/img/landing/landing-whatsapp.png', 'title' => 'Did that invoice vanish into WhatsApp?', 'body' => 'Quotes in email. Invoices in a chat. Nobody has one number for who still owes the company.'],
+        ['slot' => 'familiar_3', 'section' => 'familiar', 'sort' => 3, 'image_path' => 'assets/img/landing/landing-office.png', 'title' => 'Can you only open the books at the office?', 'body' => 'If you are on the road, the PC is off, or the accountant is out, the records are out of reach.'],
+        ['slot' => 'help_1', 'section' => 'help', 'sort' => 4, 'image_path' => 'assets/img/landing/landing-share.png', 'title' => 'Send the real record. One click.', 'body' => 'Issue a quotation, invoice or receipt in your logo and colour, then email or print it. Clients get the sheet, not a chase.'],
+        ['slot' => 'help_2', 'section' => 'help', 'sort' => 5, 'image_path' => 'assets/img/landing/landing-anywhere.png', 'title' => 'Open the books from wherever you are.', 'body' => 'Sign in and this month is there - invoices, receipts, expenses, reports - on the screen in front of you.'],
+        ['slot' => 'help_3', 'section' => 'help', 'sort' => 6, 'image_path' => 'assets/img/landing/landing-desk.png', 'title' => 'Quotes, invoices, receipts. One desk.', 'body' => 'Quotations convert to invoices. Invoices take full or part receipts. Expenses, debtors and VAT sit together.'],
+        ['slot' => 'steps_1', 'section' => 'steps', 'sort' => 7, 'image_path' => 'assets/img/landing/landing-form.png', 'title' => 'Leave your details', 'body' => 'Name, company, email, phone. That is the whole form. No password to invent.'],
+        ['slot' => 'steps_2', 'section' => 'steps', 'sort' => 8, 'image_path' => 'assets/img/landing/landing-call.png', 'title' => 'We call you', 'body' => 'A Vellisys admin sees the sign-up and reaches out to onboard your company.'],
+        ['slot' => 'steps_3', 'section' => 'steps', 'sort' => 9, 'image_path' => 'assets/img/landing/landing-live.png', 'title' => 'Your desk goes live', 'body' => 'You get a login. The books are yours, on any device, any time.'],
+    ];
+}
+
+function landing_cards(string $section = ''): array
+{
+    try {
+        if ($section !== '') {
+            return db_all('SELECT * FROM landing_cards WHERE section = ? ORDER BY sort, id', 's', [$section]);
+        }
+        return db_all('SELECT * FROM landing_cards ORDER BY sort, id');
+    } catch (Throwable $e) {
+        $rows = landing_card_defaults();
+        if ($section === '') {
+            return $rows;
+        }
+        return array_values(array_filter($rows, static fn ($r) => $r['section'] === $section));
+    }
+}
+
+function landing_card_image_url(array $card): string
+{
+    $rel = (string) ($card['image_path'] ?? '');
+    $full = $rel !== '' ? ROOT_PATH . '/' . ltrim($rel, '/') : '';
+    if ($full && is_file($full)) {
+        return url(ltrim($rel, '/')) . '?v=' . filemtime($full);
+    }
+    foreach (landing_card_defaults() as $d) {
+        if ($d['slot'] === ($card['slot'] ?? '')) {
+            return asset(substr($d['image_path'], strlen('assets/')));
+        }
+    }
+    return product_mark_url();
 }
 
 function product_icons(): void

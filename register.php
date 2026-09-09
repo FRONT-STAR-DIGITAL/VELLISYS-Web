@@ -46,19 +46,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   <header class="lp-nav">
     <a class="lp-brand" href="<?= h(url()) ?>">
-      <img src="<?= h(product_mark_url()) ?>" width="36" height="36" alt="">
-      <span class="lp-name">ellisys</span>
+      <img class="lp-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
     </a>
     <nav>
-      <a href="<?= h(url()) ?>#pain">The pain</a>
-      <a class="lp-btn lp-btn-ghost" href="<?= h(url('login.php')) ?>">Sign in</a>
+      <a class="lp-btn lp-btn-ghost" href="<?= h(url('login.php')) ?>">Sign in to my desk</a>
+      <a class="lp-btn lp-btn-solid" href="<?= h(url('register.php')) ?>">Get a desk</a>
     </nav>
   </header>
 
   <main class="lp-auth">
     <?php if ($ok): ?>
       <div class="lp-card lp-ok">
-        <img src="<?= h(product_mark_url()) ?>" width="40" height="40" alt="">
+        <img src="<?= h(product_logo_url()) ?>" class="lp-logo" alt="<?= h(product_name()) ?>">
         <h1>We have your request</h1>
         <p>A Vellisys admin will reach out to onboard your company and open the desk. No password yet - you get one when the company goes live.</p>
         <a class="lp-btn lp-btn-solid" href="<?= h(url()) ?>">Back to Vellisys</a>

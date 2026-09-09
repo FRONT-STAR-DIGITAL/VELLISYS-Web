@@ -30,8 +30,7 @@ $adminPass = platform_admin_password();
   <section class="login-art">
     <div>
       <a class="lp-brand" href="<?= h(url()) ?>" style="margin-bottom:18px">
-        <img src="<?= h(product_mark_url()) ?>" width="36" height="36" alt="">
-        <span class="lp-name" style="color:#8eb0ff">ellisys</span>
+        <img class="lp-logo lp-logo-on-dark" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
       </a>
       <p class="login-kicker"><?= h(product_name()) ?></p>
       <h1>Your books. One click from the client.</h1>
@@ -41,7 +40,7 @@ $adminPass = platform_admin_password();
   </section>
   <section class="login-panel">
     <form class="login-box" method="post" action="<?= h(url('login.php')) ?>">
-      <img class="login-logo" src="<?= h(product_mark_url()) ?>" alt="<?= h(product_name()) ?>">
+      <img class="login-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
       <h2>Sign in</h2>
       <p class="hint">Company desks use the mailbox issued when Vellisys onboarded you. Super admin controls every client company.</p>
       <?php if ($error): ?><p class="flash flash-err"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
