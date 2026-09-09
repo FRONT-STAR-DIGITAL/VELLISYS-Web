@@ -262,29 +262,60 @@ form.actions, td form { display: inline; margin: 0; }
 
 .form-wide, .form, .card.form, .card.form-wide { padding: 8px 22px 28px; }
 .form { max-width: 560px; }
+.form-wide { max-width: none; }
+.content:has(.form-wide) { max-width: 1360px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
 .form-grid > div { min-width: 0; }
 .check { display: flex; gap: 8px; align-items: center; font-weight: 600; margin: 16px 0 8px; }
 .check input { width: auto; }
 .center { text-align: center; }
 .lines input, .lines textarea { margin: 0; }
-.lines { table-layout: fixed; min-width: 760px; }
-.lines th:nth-child(1), .lines td:nth-child(1) { width: 18%; }
-.lines th:nth-child(2), .lines td:nth-child(2) { width: 34%; }
-.lines textarea { min-height: 88px; resize: vertical; line-height: 1.45; }
-.lines-wrap { overflow-x: auto; margin: 8px 0 4px; }
+.lines {
+  table-layout: auto;
+  width: 100%;
+  min-width: 980px;
+}
+.lines th, .lines td { padding: 10px 12px; vertical-align: top; }
+.lines th:nth-child(1), .lines td:nth-child(1) { width: 18%; min-width: 150px; }
+.lines th:nth-child(2), .lines td:nth-child(2) { width: 34%; min-width: 240px; }
+.lines th:nth-child(3), .lines td:nth-child(3) { width: 168px; min-width: 168px; }
+.lines th:nth-child(4), .lines td:nth-child(4) { width: 140px; min-width: 140px; }
+.lines th:nth-child(5), .lines td:nth-child(5) { width: 128px; min-width: 120px; }
+.lines th:nth-child(6), .lines td:nth-child(6) { width: 72px; min-width: 64px; }
+.lines textarea { min-height: 96px; resize: vertical; line-height: 1.45; width: 100%; }
+.lines-wrap { overflow-x: auto; margin: 12px 0 8px; padding-bottom: 6px; }
+.lines input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.lines input[type="number"]::-webkit-outer-spin-button,
+.lines input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
 .vat-yn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin: 0; font-weight: 700; }
 .vat-yn input { width: auto; }
 .vat-yn span { min-width: 1.1em; }
 .fx-row { display: flex; align-items: center; gap: 8px; }
-.fx-row input { flex: 1; }
+.fx-row input { flex: 1; min-width: 0; }
 .fx-row span { font-weight: 700; color: var(--muted); }
-.qty-wrap { display: flex; align-items: center; gap: 4px; }
-.qty-wrap input { flex: 1; min-width: 0; text-align: right; }
+.qty-wrap {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  width: 148px;
+}
+.qty-wrap input {
+  width: 72px;
+  flex: 1 0 64px;
+  min-width: 64px;
+  padding: 9px 8px;
+  text-align: center;
+}
 .qty-btn {
-  width: 32px;
-  height: 36px;
-  flex: 0 0 32px;
+  width: 36px;
+  height: 38px;
+  flex: 0 0 36px;
   padding: 0;
   border: 1px solid var(--line);
   background: #fff;

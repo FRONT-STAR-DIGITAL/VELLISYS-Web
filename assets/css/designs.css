@@ -52,10 +52,11 @@
 .ledger-words { display: flex; gap: 12px; align-items: baseline; margin-bottom: 14px; }
 .ledger-words span { flex: 0 0 auto; }
 .ledger-words b { flex: 1; margin: 0; font-size: 13px; }
-.ledger-bottom { display: grid; grid-template-columns: 180px 1fr 180px; gap: 12px; margin-top: 16px; }
+.ledger-bottom { display: grid; grid-template-columns: minmax(260px, 1.2fr) 1fr minmax(160px, 0.9fr); gap: 20px; margin-top: 16px; }
 .ledger-acct { width: 100%; border-collapse: collapse; font-size: 12px; }
-.ledger-acct th, .ledger-acct td { border: 1px solid color-mix(in srgb, var(--brand) 40%, #fff); padding: 6px 8px; }
-.ledger-acct th { background: color-mix(in srgb, var(--brand) 28%, #fff); text-align: left; }
+.ledger-acct th, .ledger-acct td { border: 1px solid color-mix(in srgb, var(--brand) 40%, #fff); padding: 8px 10px; vertical-align: middle; }
+.ledger-acct th { background: color-mix(in srgb, var(--brand) 28%, #fff); text-align: left; white-space: nowrap; width: 38%; }
+.ledger-acct td { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ledger-pay, .twin-pay { display: flex; flex-direction: column; gap: 6px; }
 .tick { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; }
 .tick::before { content: ""; width: 14px; height: 14px; border: 2px solid var(--brand); border-radius: 3px; }

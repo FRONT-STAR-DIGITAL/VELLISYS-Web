@@ -280,6 +280,7 @@ function load_document(int $id): ?array
         $doc['settlement'] = receipt_settlement($doc);
         $doc['paid'] = (float) ($doc['settlement']['received'] ?? $doc['totals']['total']);
         $doc['balance'] = (float) ($doc['settlement']['balance'] ?? 0);
+        $doc['invoice_balance'] = (float) ($doc['settlement']['invoice_balance'] ?? 0);
     } else {
         $doc['paid'] = 0;
         $doc['balance'] = $doc['totals']['total'];
@@ -292,34 +293,38 @@ function receipt_settlement(array $doc): ?array
     if (($doc['kind'] ?? '') !== 'receipt') {
         return null;
     }
-    $received = (float) ($doc['allocated_amount'] ?? 0);
-    if ($received <= 0) {
-        $received = (float) (($doc['totals']['total'] ?? document_totals($doc)['total']));
+    $received = receipt_received_amount($doc);
+    $charge = (float) (($doc['totals']['total'] ?? document_totals($doc)['total'] ?? 0));
+    if ($received <= 0 || ($charge > 0 && $received > $charge + 0.009)) {
+        $received = $charge;
     }
+    $due = max(0, round($charge - $received, 2));
     $out = [
         'received' => $received,
         'invoice_id' => null,
         'invoice_number' => null,
         'invoice_total' => 0.0,
         'invoice_paid' => $received,
-        'balance' => 0.0,
+        'balance' => $due,
+        'invoice_balance' => 0.0,
     ];
     $relatedId = (int) ($doc['related_id'] ?? 0);
     if ($relatedId <= 0) {
         return $out;
     }
     $rel = db_one('SELECT * FROM documents WHERE id = ? AND company_id = ?', 'ii', [$relatedId, current_company_id()]);
-    if (!$rel || $rel['kind'] !== 'invoice') {
+    if (!$rel || !in_array($rel['kind'], ['invoice', 'expense'], true)) {
         return $out;
     }
     $rel['items'] = db_all('SELECT * FROM document_items WHERE document_id = ? ORDER BY id', 'i', [(int) $rel['id']]);
     $total = document_totals($rel)['total'];
-    $paid = invoice_paid((int) $rel['id']);
+    $paid = payments_on_document((int) $rel['id'], doc_currency($rel));
+    $remain = max(0, round($total - $paid, 2));
     $out['invoice_id'] = (int) $rel['id'];
     $out['invoice_number'] = $rel['number'];
     $out['invoice_total'] = $total;
     $out['invoice_paid'] = $paid;
-    $out['balance'] = max(0, round($total - $paid, 2));
+    $out['invoice_balance'] = convert_money($remain, doc_currency($rel), doc_currency($doc));
     return $out;
 }
 
@@ -344,19 +349,46 @@ function outstanding_invoices(?int $partyId = null, ?int $keepId = null): array
     }));
 }
 
-function invoice_paid(int $invoiceId, ?int $exceptReceiptId = null): float
+function related_receipts(int $relatedId, ?int $exceptReceiptId = null): array
 {
-    $sql = 'SELECT COALESCE(SUM(COALESCE(allocated_amount, 0)), 0) AS paid
-         FROM documents WHERE kind = \'receipt\' AND related_id = ? AND status = \'issued\' AND company_id = ?';
+    $sql = 'SELECT id, allocated_amount, currency FROM documents
+            WHERE kind = \'receipt\' AND related_id = ? AND status = \'issued\' AND company_id = ?';
     $types = 'ii';
-    $params = [$invoiceId, current_company_id()];
+    $params = [$relatedId, current_company_id()];
     if ($exceptReceiptId) {
         $sql .= ' AND id <> ?';
         $types .= 'i';
         $params[] = $exceptReceiptId;
     }
-    $row = db_one($sql, $types, $params);
-    return (float) ($row['paid'] ?? 0);
+    return db_all($sql, $types, $params);
+}
+
+function receipt_received_amount(array $doc): float
+{
+    $received = (float) ($doc['allocated_amount'] ?? 0);
+    if ($received > 0) {
+        return $received;
+    }
+    return (float) (($doc['totals']['total'] ?? document_totals($doc)['total'] ?? 0));
+}
+
+function payments_on_document(int $relatedId, string $toCurrency, ?int $exceptReceiptId = null): float
+{
+    $sum = 0.0;
+    foreach (related_receipts($relatedId, $exceptReceiptId) as $row) {
+        $amt = (float) ($row['allocated_amount'] ?? 0);
+        if ($amt <= 0) {
+            continue;
+        }
+        $sum += convert_money($amt, doc_currency($row), $toCurrency);
+    }
+    return round_money($sum, $toCurrency);
+}
+
+function invoice_paid(int $invoiceId, ?int $exceptReceiptId = null): float
+{
+    $inv = db_one('SELECT currency FROM documents WHERE id = ? AND company_id = ?', 'ii', [$invoiceId, current_company_id()]);
+    return payments_on_document($invoiceId, $inv ? doc_currency($inv) : default_currency(), $exceptReceiptId);
 }
 
 function invoice_balance(array $doc): float
@@ -367,13 +399,8 @@ function invoice_balance(array $doc): float
 
 function expense_paid(int $expenseId): float
 {
-    $row = db_one(
-        'SELECT COALESCE(SUM(COALESCE(allocated_amount, 0)), 0) AS paid
-         FROM documents WHERE kind = \'receipt\' AND related_id = ? AND status = \'issued\' AND company_id = ?',
-        'ii',
-        [$expenseId, current_company_id()]
-    );
-    return (float) ($row['paid'] ?? 0);
+    $exp = db_one('SELECT currency FROM documents WHERE id = ? AND company_id = ?', 'ii', [$expenseId, current_company_id()]);
+    return payments_on_document($expenseId, $exp ? doc_currency($exp) : default_currency());
 }
 
 function expense_balance(array $doc): float
@@ -516,16 +543,24 @@ function attach_document_totals(array $rows): array
     foreach ($sums as $sum) {
         $byDoc[(int) $sum['document_id']] = $sum;
     }
-    $paidRows = db_all(
-        "SELECT related_id, COALESCE(SUM(COALESCE(allocated_amount, 0)), 0) AS paid
-         FROM documents WHERE kind = 'receipt' AND status = 'issued' AND company_id = ? AND related_id IN ($placeholders)
-         GROUP BY related_id",
+    $payDocs = db_all(
+        "SELECT related_id, allocated_amount, currency FROM documents
+         WHERE kind = 'receipt' AND status = 'issued' AND company_id = ? AND related_id IN ($placeholders)",
         'i' . $types,
         array_merge([current_company_id()], $ids)
     );
+    $curById = [];
+    foreach ($rows as $row) {
+        $curById[(int) $row['id']] = doc_currency($row);
+    }
     $paidBy = [];
-    foreach ($paidRows as $p) {
-        $paidBy[(int) $p['related_id']] = (float) $p['paid'];
+    foreach ($payDocs as $p) {
+        $rid = (int) $p['related_id'];
+        $to = $curById[$rid] ?? default_currency();
+        $paidBy[$rid] = ($paidBy[$rid] ?? 0) + convert_money((float) ($p['allocated_amount'] ?? 0), doc_currency($p), $to);
+    }
+    foreach ($paidBy as $rid => $amt) {
+        $paidBy[$rid] = round_money($amt, $curById[$rid] ?? default_currency());
     }
     $relIds = [];
     foreach ($rows as $row) {
@@ -536,11 +571,12 @@ function attach_document_totals(array $rows): array
     $relIds = array_values(array_unique($relIds));
     $relTotals = [];
     $relPaid = [];
+    $relCur = [];
     if ($relIds) {
         $relPh = implode(',', array_fill(0, count($relIds), '?'));
         $relTypes = str_repeat('i', count($relIds));
         $relDocs = db_all(
-            "SELECT id, vat_rate FROM documents WHERE company_id = ? AND kind = 'invoice' AND id IN ($relPh)",
+            "SELECT id, vat_rate, currency, kind FROM documents WHERE company_id = ? AND id IN ($relPh)",
             'i' . $relTypes,
             array_merge([current_company_id()], $relIds)
         );
@@ -562,16 +598,8 @@ function attach_document_totals(array $rows): array
             $net = round((float) $agg['net'], 2);
             $vat = round((float) $agg['taxed_net'] * (float) ($inv['vat_rate'] ?? 0), 2);
             $relTotals[(int) $inv['id']] = round($net + $vat, 2);
-        }
-        $payRows = db_all(
-            "SELECT related_id, COALESCE(SUM(COALESCE(allocated_amount, 0)), 0) AS paid
-             FROM documents WHERE kind = 'receipt' AND status = 'issued' AND company_id = ? AND related_id IN ($relPh)
-             GROUP BY related_id",
-            'i' . $relTypes,
-            array_merge([current_company_id()], $relIds)
-        );
-        foreach ($payRows as $p) {
-            $relPaid[(int) $p['related_id']] = (float) $p['paid'];
+            $relCur[(int) $inv['id']] = doc_currency($inv);
+            $relPaid[(int) $inv['id']] = payments_on_document((int) $inv['id'], doc_currency($inv));
         }
     }
     foreach ($rows as &$row) {
@@ -585,14 +613,18 @@ function attach_document_totals(array $rows): array
             $row['balance'] = max(0, round((float) $row['totals']['total'] - (float) $row['paid'], 2));
         } elseif ($row['kind'] === 'receipt') {
             $received = (float) ($row['allocated_amount'] ?? 0);
-            if ($received <= 0) {
-                $received = (float) $row['totals']['total'];
+            $charge = (float) $row['totals']['total'];
+            if ($received <= 0 || ($charge > 0 && $received > $charge + 0.009)) {
+                $received = $charge;
             }
             $row['paid'] = $received;
+            $row['balance'] = max(0, round($charge - $received, 2));
             $rid = (int) ($row['related_id'] ?? 0);
-            $row['balance'] = ($rid && isset($relTotals[$rid]))
-                ? max(0, round($relTotals[$rid] - ($relPaid[$rid] ?? 0), 2))
-                : 0.0;
+            $row['invoice_balance'] = 0.0;
+            if ($rid && isset($relTotals[$rid])) {
+                $remain = max(0, round($relTotals[$rid] - ($relPaid[$rid] ?? 0), 2));
+                $row['invoice_balance'] = convert_money($remain, $relCur[$rid] ?? doc_currency($row), doc_currency($row));
+            }
         } else {
             $row['paid'] = 0;
             $row['balance'] = $row['totals']['total'];
@@ -651,7 +683,7 @@ function invoice_status_label(array $doc): string
         return 'Void';
     }
     if (($doc['kind'] ?? '') === 'receipt') {
-        return ((float) ($doc['balance'] ?? 0)) > 0.009 ? 'Partially cleared' : 'Cleared';
+        return ((float) ($doc['invoice_balance'] ?? $doc['balance'] ?? 0)) > 0.009 ? 'Partially cleared' : 'Cleared';
     }
     if (!in_array($doc['kind'], ['invoice', 'expense'], true)) {
         return ucfirst($doc['status']);

@@ -17,7 +17,7 @@ if ($kind === 'receipt') {
         if ($doc['status'] === 'void') {
             continue;
         }
-        if (((float) ($doc['balance'] ?? 0)) > 0.009) {
+        if (((float) ($doc['invoice_balance'] ?? $doc['balance'] ?? 0)) > 0.009) {
             $partialRows[] = $doc;
         } else {
             $clearedRows[] = $doc;
