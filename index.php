@@ -98,6 +98,32 @@ $clients = trust_clients();
       </div>
     </section>
 
+    <section class="lp-send" id="send-in-a-minute" data-reveal>
+      <figure class="lp-send-pic">
+        <img src="<?= h(asset('img/landing/rec.png')) ?>" alt="A receipt generated on Vellisys, open on a phone and already sent to the client">
+        <span class="lp-send-badge" aria-hidden="true">Sent · 48s</span>
+        <span class="lp-send-ring" aria-hidden="true"></span>
+      </figure>
+      <div class="lp-send-copy">
+        <p class="lp-kicker">From the desk to their phone</p>
+        <h2>Generate it. Send it. They have it in a minute.</h2>
+        <p>Raise a quotation, an invoice or a receipt on your Vellisys desk, then share it while the client is still with you. One record, one tap, their copy is on the way.</p>
+        <ul class="lp-send-docs">
+          <li>Quotation</li>
+          <li>Invoice</li>
+          <li>Receipt</li>
+        </ul>
+        <ol class="lp-send-flow">
+          <li><b>1</b><span>Raise the document</span></li>
+          <li><b>2</b><span>Share the sheet</span></li>
+          <li><b>3</b><span>Client opens it</span></li>
+        </ol>
+        <div class="lp-cta">
+          <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('register.php')) ?>">Get a desk and send one</a>
+        </div>
+      </div>
+    </section>
+
     <section class="lp-band" id="sound-familiar" data-reveal>
       <h2>Sound familiar?</h2>
       <div class="lp-grid3">
