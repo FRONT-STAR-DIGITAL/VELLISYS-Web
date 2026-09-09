@@ -163,7 +163,6 @@ $clients = trust_clients();
         <h2>One desk. A clear picture.</h2>
         <figure class="lp-new-shot">
           <img class="lp-new-main" src="<?= h(asset('img/landing/new.png')) ?>" alt="A Vellisys receipt on desktop, laptop and phone">
-          <img class="lp-nw" src="<?= h(asset('img/landing/nw.png')) ?>" alt="The Vellisys way on any screen">
         </figure>
       </div>
     </section>

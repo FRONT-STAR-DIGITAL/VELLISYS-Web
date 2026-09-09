@@ -785,20 +785,12 @@ function trust_clients(): array
 
 function public_header(string $page = 'home'): void
 {
-    $phones = product_phones();
     ?>
   <header class="lp-chrome">
   <div class="lp-nav">
     <a class="lp-brand" href="<?= h(url()) ?>">
       <img class="lp-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
     </a>
-    <p class="lp-nav-contact">
-      <a href="mailto:<?= h(product_email()) ?>"><?= h(product_email()) ?></a>
-      <span aria-hidden="true">·</span>
-      <a href="tel:+256779971024"><?= h($phones[0]) ?></a>
-      <span class="lp-nav-hide" aria-hidden="true">/</span>
-      <a class="lp-nav-hide" href="tel:+256756524451"><?= h($phones[1]) ?></a>
-    </p>
     <nav>
       <?php if ($page !== 'home'): ?>
         <a class="lp-nav-home" href="<?= h(url()) ?>">Home</a>
