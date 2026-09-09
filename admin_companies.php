@@ -4,7 +4,27 @@ require __DIR__ . '/includes/bootstrap.php';
 $user = require_platform();
 
 $error = '';
-$showNew = isset($_GET['new']) || ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'create');
+$signupId = (int) ($_GET['signup'] ?? post('signup_id'));
+$signup = $signupId ? db_one('SELECT * FROM signups WHERE id = ?', 'i', [$signupId]) : null;
+$showNew = isset($_GET['new']) || $signup || ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'create');
+
+$pref = static function (string $key, string $fallback = '') use ($signup): string {
+    $posted = post($key);
+    if ($posted !== '') {
+        return $posted;
+    }
+    if (!$signup) {
+        return $fallback;
+    }
+    return match ($key) {
+        'name' => (string) $signup['company'],
+        'user_name' => (string) $signup['name'],
+        'user_email' => (string) $signup['email'],
+        'phone' => (string) $signup['phone'],
+        'notes' => 'Website sign-up. Contact ' . $signup['name'] . ' on ' . $signup['phone'] . ' / ' . $signup['email'] . '.',
+        default => $fallback,
+    };
+};
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'create') {
     csrf_check();
@@ -20,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'create') {
         $error = 'Company name, desk user and a valid email are required.';
         $showNew = true;
     } elseif (db_one('SELECT id FROM users WHERE email = ?', 's', [$userEmail])) {
-        $error = 'That email already has a Folio login.';
+        $error = 'That email already has a Vellisys login.';
         $showNew = true;
     } else {
         $cid = db_exec(
@@ -64,6 +84,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'create') {
             'ssssi',
             [$userName, $userEmail, $hash, 'member', $cid]
         );
+        if ($signupId && $signup) {
+            db_exec("UPDATE signups SET status = 'onboarded', company_id = ? WHERE id = ?", 'ii', [$cid, $signupId]);
+        }
         flash($name . ' is ready for onboarding. Share the desk login with ' . $userEmail . '.');
         redirect('admin_company.php?id=' . $cid);
     }
@@ -81,7 +104,7 @@ layout_admin_start('Companies', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('building') ?>Companies</h1>
-    <p class="lede">Create a desk, issue the first login, set stationery, then mark the company live.</p>
+    <p class="lede">Create a desk, issue the first login, set stationery, then mark the company live. Website registrations wait on Sign-ups.</p>
   </div>
   <a class="btn" href="<?= h(url('admin_companies.php?new=1')) ?>"><?= icon('plus') ?>New company</a>
 </div>
@@ -92,12 +115,13 @@ layout_admin_start('Companies', $user);
 <form class="card form-wide" method="post" style="margin-bottom:24px">
   <?= csrf_field() ?>
   <input type="hidden" name="action" value="create">
-  <h2 style="margin:18px 0 4px">Onboard a company</h2>
-  <p class="lede">This creates the company, stationery defaults, and the first desk login.</p>
+  <?php if ($signupId): ?><input type="hidden" name="signup_id" value="<?= (int) $signupId ?>"><?php endif; ?>
+  <h2 style="margin:18px 0 4px"><?= $signup ? 'Onboard ' . h($signup['company']) : 'Onboard a company' ?></h2>
+  <p class="lede"><?= $signup ? 'From the website sign-up. This creates the company, stationery defaults, and the first desk login.' : 'This creates the company, stationery defaults, and the first desk login.' ?></p>
   <div class="form-grid">
     <div>
       <label for="name">Company name</label>
-      <input id="name" name="name" required value="<?= h(post('name')) ?>">
+      <input id="name" name="name" required value="<?= h($pref('name')) ?>">
     </div>
     <div>
       <label for="currency">Currency</label>
@@ -109,11 +133,11 @@ layout_admin_start('Companies', $user);
     </div>
     <div>
       <label for="user_name">First user</label>
-      <input id="user_name" name="user_name" required value="<?= h(post('user_name')) ?>" placeholder="Accounts">
+      <input id="user_name" name="user_name" required value="<?= h($pref('user_name')) ?>" placeholder="Accounts">
     </div>
     <div>
       <label for="user_email">Desk email</label>
-      <input id="user_email" name="user_email" type="email" required value="<?= h(post('user_email')) ?>">
+      <input id="user_email" name="user_email" type="email" required value="<?= h($pref('user_email')) ?>">
     </div>
     <div>
       <label for="user_password">Temporary password</label>
@@ -150,7 +174,7 @@ layout_admin_start('Companies', $user);
     </div>
     <div>
       <label for="phone">Phone</label>
-      <input id="phone" name="phone" value="<?= h(post('phone')) ?>">
+      <input id="phone" name="phone" value="<?= h($pref('phone')) ?>">
     </div>
     <div>
       <label for="city">City</label>
@@ -162,7 +186,7 @@ layout_admin_start('Companies', $user);
   <label for="tagline">Tagline</label>
   <input id="tagline" name="tagline" value="<?= h(post('tagline')) ?>">
   <label for="notes">Internal notes</label>
-  <textarea id="notes" name="notes" rows="3"><?= h(post('notes')) ?></textarea>
+  <textarea id="notes" name="notes" rows="3"><?= h($pref('notes')) ?></textarea>
   <div class="actions" style="margin-top:16px">
     <button class="btn" type="submit"><?= icon('check') ?>Create company</button>
     <a class="btn ghost" href="<?= h(url('admin_companies.php')) ?>">Cancel</a>

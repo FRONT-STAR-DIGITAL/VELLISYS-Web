@@ -22,6 +22,7 @@ if ($print) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
   <title><?= h($doc['number']) ?></title>
+  <?php product_icons(); ?>
   <?php folio_font_links(); ?>
   <?php folio_css_links(); ?>
   <style>

@@ -11,7 +11,7 @@ function send_document_email(array $user, array $doc, string $to, string $subjec
         'Content-type: text/html; charset=UTF-8',
         'From: ' . sprintf('%s <%s>', $fromName, $fromEmail),
         'Reply-To: ' . $fromEmail,
-        'X-Mailer: Folio',
+        'X-Mailer: Vellisys',
     ];
     $html = '<p>' . nl2br(h($message)) . '</p>'
         . '<p>' . h(kind_meta($doc['kind'])['singular']) . ' <strong>' . h($doc['number']) . '</strong></p>'

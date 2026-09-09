@@ -1,17 +1,32 @@
-# Folio
+# Vellisys
 
-Annual branded books for Ugandan SMEs - quotations, invoices, receipts, expenses and headed correspondence in the company’s own logo and colour. One desk, everything included. Montserrat throughout (bundled, so it works offline).
+Branded books for Ugandan SMEs - quotations, invoices, receipts, expenses and headed correspondence in the company's own logo and colour. One desk, everything included.
 
 This is a **PHP + MySQL** desk meant to run on **XAMPP**. There is no Node or Next.js. Copy the folder, start Apache and MySQL, open the installer.
 
+Open the **landing page** at the site root. Companies **register** in a few fields. A Vellisys super admin sees the sign-up, reaches out, and onboards the company.
+
+## Logins
+
+**Vellisys super admin** (companies and website sign-ups)
+
+- Email: `admin@vellisys.ug`
+- Password: `vellisys-admin-2026`
+
+**Demo company desk** (Ofagros Limited)
+
+- Email: `accounts@ofagros.org`
+- Password: `folio2026`
+
 ## What you get
 
-- Sign-in with a **show password** control. Company desk: `accounts@ofagros.org` / `folio2026`
-- **Platform admin** at `admin@folio.ug` / `folio-admin-2026` - create companies, issue desk logins, set stationery, onboard, mark live
+- Public landing page (pain points and the Vellisys fix) and an easy **register** form - no password to invent
+- Super admin sees every registration, calls the company, then creates the desk and issues a login
+- Sign-in with a **show password** control
 - **UGX or USD** on each document, converted at a rate you enter in Settings (1 USD = n UGX)
 - **One document design** for the whole desk - the layout you pick in Settings prints on every invoice, quotation, receipt, expense and headed note
 - **Three brand colours** (primary, accent, deep) that paint the desk and every document design
-- **CSV export** on invoices, quotations, receipts, expenses, correspondence, debtors, creditors, clients, reports, and on a single document’s lines
+- **CSV export** on invoices, quotations, receipts, expenses, correspondence, debtors, creditors, clients, reports, and on a single document's lines
 - Quotations convert to invoices; invoices take full or **part receipts**; unpaid balances stay on Debtors
 - Every document can be edited after it is saved
 - Print and share a clean sheet - no desk chrome, dates or page URLs around the paper
@@ -37,9 +52,9 @@ This is a **PHP + MySQL** desk meant to run on **XAMPP**. There is no Node or Ne
 
    `http://localhost/folio/install.php`
 
-   That creates the `folio` database, tables, Ofagros demo data, the company login and the platform admin.
+   That creates the `folio` database, tables, Ofagros demo data, the company login and the Vellisys super admin.
 
-4. Sign in at `http://localhost/folio/login.php`.
+4. Open `http://localhost/folio/` for the landing page, or sign in at `login.php`.
 
 Default MySQL in XAMPP is user `root` with an empty password. If you set a password, edit `config/database.php`.
 
@@ -49,7 +64,7 @@ Create a database named `folio`, then import `sql/schema.sql`. If the `users` ta
 
 ### Email on XAMPP
 
-PHP `mail()` needs Mercury (bundled with some XAMPP builds) or an SMTP relay. If send fails, Folio still **logs the email on the document** as queued. On a live host, ordinary PHP mail usually works.
+PHP `mail()` needs Mercury (bundled with some XAMPP builds) or an SMTP relay. If send fails, Vellisys still **logs the email on the document** as queued. On a live host, ordinary PHP mail usually works.
 
 Print / PDF uses the browser print dialog (Save as PDF). CSV downloads from the Export CSV buttons.
 
@@ -61,7 +76,7 @@ php install.php
 php -S 127.0.0.1:43219 -t . router.php
 ```
 
-Open http://127.0.0.1:43219/login.php
+Open http://127.0.0.1:43219/
 
 You can override connection details:
 

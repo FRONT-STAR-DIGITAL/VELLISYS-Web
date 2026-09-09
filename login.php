@@ -6,68 +6,57 @@ $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (attempt_login(post('email'), post('password'))) {
         $user = current_user();
-        redirect(($user['role'] ?? '') === 'platform' ? 'admin_companies.php' : 'dashboard.php');
+        redirect(($user['role'] ?? '') === 'platform' ? 'admin_signups.php' : 'dashboard.php');
     }
     $error = 'Those details did not match an account.';
 }
-$color = '#82B440';
-$company = 'Folio';
-$tag = 'Branded books for Ugandan SMEs';
-$logo = 'assets/img/ofagros-logo.png';
-$b = null;
-try {
-    $b = db_one('SELECT brand_color, name, tagline, logo_path FROM branding ORDER BY id LIMIT 1');
-    if ($b) {
-        $color = $b['brand_color'] ?: $color;
-        $company = $b['name'] ?: $company;
-        $tag = $b['tagline'] ?: $tag;
-        $logo = $b['logo_path'] ?: $logo;
-    }
-} catch (Throwable $e) {
-    // Desk not installed yet.
-}
+
+$adminEmail = platform_admin_email();
+$adminPass = platform_admin_password();
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sign in · Folio</title>
+  <title>Sign in · <?= h(product_name()) ?></title>
+  <?php product_icons(); ?>
   <?php folio_font_links(); ?>
   <?php folio_css_links(); ?>
-  <style>:root { <?= brand_css_vars($b) ?> }</style>
+  <link rel="stylesheet" href="<?= h(asset('css/landing.css')) ?>">
 </head>
 <body>
 <div class="login">
   <section class="login-art">
     <div>
-      <p class="login-kicker">Folio</p>
-      <h1>Books that look like your company.</h1>
-      <p class="standfirst">Set the stationery once. Issue quotations, invoices and receipts your clients will keep - in your colour, on your paper.</p>
+      <a class="lp-brand" href="<?= h(url()) ?>" style="margin-bottom:18px">
+        <img src="<?= h(product_mark_url()) ?>" width="36" height="36" alt="">
+        <span class="lp-name" style="color:#8eb0ff">ellisys</span>
+      </a>
+      <p class="login-kicker"><?= h(product_name()) ?></p>
+      <h1>Your books. One click from the client.</h1>
+      <p class="standfirst">Quotations, invoices, receipts and reports on one desk. Share a record, or open the books from anywhere.</p>
     </div>
-    <p class="login-caption"><?= h($company) ?><?php if ($tag): ?> · <?= h($tag) ?><?php endif; ?></p>
+    <p class="login-caption">Generate · share · collect</p>
   </section>
   <section class="login-panel">
-    <div class="login-still" role="img" aria-label="Stationery on a desk"></div>
     <form class="login-box" method="post" action="<?= h(url('login.php')) ?>">
-      <?php if (!empty($logo)): ?>
-        <img class="login-logo" src="<?= h(url($logo)) ?>" alt="<?= h($company) ?>">
-      <?php endif; ?>
+      <img class="login-logo" src="<?= h(product_mark_url()) ?>" alt="<?= h(product_name()) ?>">
       <h2>Sign in</h2>
-      <p class="hint">Use the mailbox that should appear as the sender on every document you email.</p>
+      <p class="hint">Company desks use the mailbox issued when Vellisys onboarded you. Super admin controls every client company.</p>
       <?php if ($error): ?><p class="flash flash-err"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
       <div class="field">
         <label for="email">Email</label>
       <div class="field-control">
         <?= icon('letter', 16) ?>
-        <input id="email" name="email" type="email" required value="accounts@ofagros.org" autocomplete="username">
+        <input id="email" name="email" type="email" required value="<?= h(post('email') ?: $adminEmail) ?>" autocomplete="username">
       </div>
       </div>
       <div class="field">
         <label for="password">Password</label>
       <div class="field-control">
         <?= icon('lock', 16) ?>
-        <input id="password" name="password" type="password" required value="folio2026" autocomplete="current-password">
+        <input id="password" name="password" type="password" required value="<?= h(post('password') ?: $adminPass) ?>" autocomplete="current-password">
         <button class="pw-toggle" type="button" data-toggle-password aria-label="Show password" title="Show password">
           <span data-eye><?= icon('eye', 16) ?></span>
           <span data-eye-off hidden><?= icon('eye-off', 16) ?></span>
@@ -75,7 +64,19 @@ try {
       </div>
       </div>
       <button class="btn" type="submit"><?= icon('desk', 16) ?>Enter the desk</button>
-      <p class="hint" style="margin-top:16px">Company desk: accounts@ofagros.org · folio2026<br>Platform admin: admin@folio.ug · folio-admin-2026<br>If the desk is empty, open <a href="<?= h(url('install.php')) ?>">install.php</a> once.</p>
+
+      <div class="login-keys">
+        <p><strong>Vellisys super admin</strong> - companies and sign-ups</p>
+        <code><?= h($adminEmail) ?></code>
+        <code><?= h($adminPass) ?></code>
+        <button type="button" class="btn ghost sm" data-fill-login data-fill-email="<?= h($adminEmail) ?>" data-fill-password="<?= h($adminPass) ?>">Use super admin</button>
+        <p style="margin-top:12px"><strong>Demo company desk</strong></p>
+        <code>accounts@ofagros.org</code>
+        <code>folio2026</code>
+        <button type="button" class="btn ghost sm" data-fill-login data-fill-email="accounts@ofagros.org" data-fill-password="folio2026">Use demo desk</button>
+      </div>
+
+      <p class="hint" style="margin-top:16px">New company? <a href="<?= h(url('register.php')) ?>">Register</a> · <a href="<?= h(url()) ?>">Back to <?= h(product_name()) ?></a></p>
     </form>
   </section>
 </div>

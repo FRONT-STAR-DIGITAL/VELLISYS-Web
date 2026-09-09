@@ -98,7 +98,7 @@ layout_start('Settings', $user);
   <div class="settings-stack">
     <section class="card settings-card" id="account">
       <h2><?= icon('lock') ?>Signed-in account</h2>
-      <p class="lede">Emails leave Folio as this person. Change the mailbox by signing in with the address clients should reply to.</p>
+      <p class="lede">Emails leave <?= h(product_name()) ?> as this person. Change the mailbox by signing in with the address clients should reply to.</p>
       <div class="account-chip">
         <?= icon('user', 22) ?>
         <div>

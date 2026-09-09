@@ -26,7 +26,8 @@ function layout_start(string $title, array $user, array $opts = []): void
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title><?= h($title) ?> · <?= h($brand['name']) ?></title>
+  <title><?= h($title) ?> · <?= h(product_name()) ?></title>
+  <?php product_icons(); ?>
   <?php folio_font_links(); ?>
   <?php folio_css_links(); ?>
   <style>:root { <?= brand_css_vars() ?> }</style>
@@ -35,8 +36,8 @@ function layout_start(string $title, array $user, array $opts = []): void
 <div class="app">
   <aside class="nav">
     <a class="brand" href="<?= h(url('dashboard.php')) ?>">
-      <img class="brand-mark" src="<?= h(logo_url()) ?>" alt="">
-      <span class="brand-kicker">Folio</span>
+      <img class="brand-mark" src="<?= h(product_mark_url()) ?>" alt="">
+      <span class="brand-kicker"><?= h(product_name()) ?></span>
       <strong><?= h($brand['name']) ?></strong>
     </a>
     <nav>
@@ -95,7 +96,9 @@ function layout_admin_start(string $title, array $user): void
 {
     $flash = flash();
     $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
+    $signupNew = new_signup_count();
     $nav = [
+        ['admin_signups.php', 'Sign-ups' . ($signupNew ? ' (' . $signupNew . ')' : ''), 'letter'],
         ['admin_companies.php', 'Companies', 'building'],
     ];
     ?>
@@ -104,7 +107,8 @@ function layout_admin_start(string $title, array $user): void
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title><?= h($title) ?> · Folio admin</title>
+  <title><?= h($title) ?> · <?= h(product_name()) ?> admin</title>
+  <?php product_icons(); ?>
   <?php folio_font_links(); ?>
   <?php folio_css_links(); ?>
   <style>:root { <?= brand_css_vars() ?> }</style>
@@ -112,14 +116,16 @@ function layout_admin_start(string $title, array $user): void
 <body class="desk-body">
 <div class="app">
   <aside class="nav">
-    <a class="brand" href="<?= h(url('admin_companies.php')) ?>">
-      <span class="brand-kicker">Folio</span>
+    <a class="brand" href="<?= h(url('admin_signups.php')) ?>">
+      <img class="brand-mark" src="<?= h(product_mark_url()) ?>" alt="">
+      <span class="brand-kicker"><?= h(product_name()) ?></span>
       <strong>Platform admin</strong>
     </a>
     <nav>
       <?php foreach ($nav as [$href, $label, $iconName]):
           $file = strtok($href, '?');
-          $active = $file === $here || ($here === 'admin_company.php' && $file === 'admin_companies.php');
+          $active = $file === $here
+              || ($here === 'admin_company.php' && $file === 'admin_companies.php');
           ?>
         <a class="<?= $active ? 'is-on' : '' ?>" href="<?= h(url($href)) ?>"><?= icon($iconName, 17) ?><span><?= h($label) ?></span></a>
       <?php endforeach; ?>

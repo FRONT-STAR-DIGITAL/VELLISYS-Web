@@ -724,6 +724,47 @@ function prefix_from_name(string $name): string
     return substr($letters . 'XXX', 0, 3);
 }
 
+function product_name(): string
+{
+    return 'Vellisys';
+}
+
+function platform_admin_email(): string
+{
+    return 'admin@vellisys.ug';
+}
+
+function platform_admin_password(): string
+{
+    return 'vellisys-admin-2026';
+}
+
+function new_signup_count(): int
+{
+    try {
+        $row = db_one("SELECT COUNT(*) AS c FROM signups WHERE status = 'new'");
+        return (int) ($row['c'] ?? 0);
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
+function product_mark_url(): string
+{
+    return asset('img/vellisys-mark.png');
+}
+
+function product_logo_url(): string
+{
+    return asset('img/vellisys-logo.png');
+}
+
+function product_icons(): void
+{
+    echo '<link rel="icon" type="image/png" href="' . h(product_mark_url()) . '">';
+    echo '<link rel="apple-touch-icon" href="' . h(product_mark_url()) . '">';
+}
+
 function folio_css_links(): void
 {
     echo '<link rel="stylesheet" href="' . h(asset('css/app.css')) . '">';
@@ -734,4 +775,5 @@ function folio_font_links(): void
 {
     echo '<link rel="preload" href="' . h(asset('fonts/montserrat-400.woff2')) . '" as="font" type="font/woff2" crossorigin>';
     echo '<link rel="preload" href="' . h(asset('fonts/montserrat-600.woff2')) . '" as="font" type="font/woff2" crossorigin>';
+    echo '<link rel="preload" href="' . h(asset('fonts/montserrat-700.woff2')) . '" as="font" type="font/woff2" crossorigin>';
 }

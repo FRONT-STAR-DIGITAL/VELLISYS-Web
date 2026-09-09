@@ -58,6 +58,16 @@ document.addEventListener('click', function (e) {
   });
 })();
 
+document.querySelectorAll('[data-fill-login]').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    var email = document.getElementById('email');
+    var pass = document.getElementById('password');
+    if (email) email.value = btn.getAttribute('data-fill-email') || '';
+    if (pass) pass.value = btn.getAttribute('data-fill-password') || '';
+    if (email) email.focus();
+  });
+});
+
 document.querySelectorAll('[data-toggle-password]').forEach(function (btn) {
   btn.addEventListener('click', function () {
     var wrap = btn.closest('.field-control');

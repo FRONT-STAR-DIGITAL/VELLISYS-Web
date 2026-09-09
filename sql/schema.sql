@@ -108,6 +108,19 @@ CREATE TABLE IF NOT EXISTS document_items (
   CONSTRAINT fk_item_doc FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS signups (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(160) NOT NULL,
+  company VARCHAR(160) NOT NULL,
+  email VARCHAR(190) NOT NULL,
+  phone VARCHAR(40) NOT NULL DEFAULT '',
+  status ENUM('new','contacted','onboarded','declined') NOT NULL DEFAULT 'new',
+  company_id INT UNSIGNED NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY status_created (status, created_at),
+  KEY email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS emails (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   document_id INT UNSIGNED DEFAULT NULL,

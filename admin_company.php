@@ -90,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($n === '' || !filter_var($e, FILTER_VALIDATE_EMAIL)) {
             $error = 'Name and a valid email are required.';
         } elseif (db_one('SELECT id FROM users WHERE email = ?', 's', [$e])) {
-            $error = 'That email already has a Folio login.';
+            $error = 'That email already has a Vellisys login.';
         } else {
             $hash = password_hash($p, PASSWORD_DEFAULT);
             db_exec('INSERT INTO users (name, email, password_hash, role, company_id) VALUES (?,?,?,?,?)', 'ssssi', [$n, $e, $hash, 'member', $id]);

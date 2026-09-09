@@ -29,7 +29,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 10) {
+    if ($ver >= 11) {
         $done = true;
         return;
     }
@@ -105,17 +105,6 @@ function folio_migrate(mysqli $db): void
         $db->query('ALTER TABLE branding ADD UNIQUE KEY company_id (company_id)');
     }
 
-    $admin = $db->query("SELECT id FROM users WHERE role = 'platform' LIMIT 1");
-    if (!$admin || $admin->num_rows === 0) {
-        $hash = password_hash('folio-admin-2026', PASSWORD_DEFAULT);
-        $stmt = $db->prepare('INSERT INTO users (name, email, password_hash, role, company_id) VALUES (?,?,?,?,NULL)');
-        $n = 'Folio Admin';
-        $e = 'admin@folio.ug';
-        $role = 'platform';
-        $stmt->bind_param('ssss', $n, $e, $hash, $role);
-        $stmt->execute();
-    }
-
     $idx = $db->query("SHOW INDEX FROM documents WHERE Key_name = 'number'");
     if ($idx && $idx->num_rows > 0) {
         $db->query('ALTER TABLE documents DROP INDEX number');
@@ -156,6 +145,43 @@ function folio_migrate(mysqli $db): void
         $db->query('ALTER TABLE branding ADD COLUMN fx_ugx_per_usd DECIMAL(12,4) NOT NULL DEFAULT 3700');
     }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '10')");
+    $db->query("CREATE TABLE IF NOT EXISTS signups (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(160) NOT NULL,
+      company VARCHAR(160) NOT NULL,
+      email VARCHAR(190) NOT NULL,
+      phone VARCHAR(40) NOT NULL DEFAULT '',
+      status ENUM('new','contacted','onboarded','declined') NOT NULL DEFAULT 'new',
+      company_id INT UNSIGNED NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY status_created (status, created_at),
+      KEY email (email)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    folio_ensure_platform_admin($db);
+
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '11')");
     $done = true;
+}
+
+function folio_ensure_platform_admin(mysqli $db): void
+{
+    $email = 'admin@vellisys.ug';
+    $hash = password_hash('vellisys-admin-2026', PASSWORD_DEFAULT);
+    $found = $db->query("SELECT id FROM users WHERE email = '" . $db->real_escape_string($email) . "' LIMIT 1");
+    if ($found && $found->num_rows > 0) {
+        $id = (int) $found->fetch_assoc()['id'];
+        $stmt = $db->prepare('UPDATE users SET name = ?, password_hash = ?, role = ?, company_id = NULL WHERE id = ?');
+        $n = 'Vellisys Admin';
+        $role = 'platform';
+        $stmt->bind_param('sssi', $n, $hash, $role, $id);
+        $stmt->execute();
+    } else {
+        $stmt = $db->prepare('INSERT INTO users (name, email, password_hash, role, company_id) VALUES (?,?,?,?,NULL)');
+        $n = 'Vellisys Admin';
+        $role = 'platform';
+        $stmt->bind_param('ssss', $n, $email, $hash, $role);
+        $stmt->execute();
+    }
+    $db->query("UPDATE users SET name = 'Vellisys Admin' WHERE role = 'platform' AND email = 'admin@folio.ug'");
 }

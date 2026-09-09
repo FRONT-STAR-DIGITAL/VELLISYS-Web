@@ -27,17 +27,17 @@
   src: url("../fonts/montserrat-700.woff2") format("woff2");
 }
 :root {
-  --brand: #82B440;
-  --brand-ink: #1f3a12;
-  --nav: #161914;
-  --nav-text: #e8eadf;
-  --ink: #141712;
-  --muted: #66705f;
-  --line: #e6e4dc;
-  --paper: #f3f2ee;
+  --brand: #1E4EFF;
+  --brand-ink: #08143A;
+  --nav: #08143A;
+  --nav-text: #e8eefc;
+  --ink: #10182c;
+  --muted: #5c6780;
+  --line: #e4e7f0;
+  --paper: #f4f6fb;
   --card: #ffffff;
   --danger: #b42318;
-  --radius: 6px;
+  --radius: 8px;
   --sans: "Montserrat", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --serif: "Montserrat", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
@@ -95,14 +95,13 @@ img { max-width: 100%; display: block; }
 }
 .brand:hover { text-decoration: none; }
 .brand-mark {
-  height: 32px;
-  width: auto;
-  max-width: 168px;
-  object-fit: contain;
-  background: #fff;
-  padding: 5px 7px;
-  border-radius: 4px;
-  margin-bottom: 14px;
+  height: 36px;
+  width: 36px;
+  object-fit: cover;
+  background: transparent;
+  padding: 0;
+  border-radius: 9px;
+  margin-bottom: 12px;
 }
 .brand-kicker {
   display: block;
@@ -761,16 +760,13 @@ table.grid tfoot td {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  background: #1b2414 url("../img/login-estate.jpg") center / cover no-repeat;
+  background:
+    radial-gradient(900px 420px at 20% 10%, rgba(30, 78, 255, .35), transparent 55%),
+    linear-gradient(165deg, #08143a 0%, #0c1c52 48%, #06102e 100%);
 }
-.login-art::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: #10180ccc;
-}
+.login-art::before { display: none; }
 .login-art > * { position: relative; z-index: 1; }
-.login-kicker { letter-spacing: .22em; text-transform: uppercase; font-size: 11px; margin: 0 0 14px; color: var(--brand); font-weight: 700; }
+.login-kicker { letter-spacing: .22em; text-transform: uppercase; font-size: 11px; margin: 0 0 14px; color: #8eb0ff; font-weight: 700; }
 .login-art h1 {
   font-family: var(--serif);
   font-size: 42px;
@@ -784,13 +780,8 @@ table.grid tfoot td {
 .login-art .standfirst { max-width: 26em; margin: 0; line-height: 1.55; color: rgba(255,255,255,.9); }
 .login-caption { margin: 0; font-size: 13px; color: rgba(255,255,255,.8); }
 .login-panel { display: flex; flex-direction: column; background: #fff; }
-.login-still {
-  height: 140px;
-  background: #2a2a24 url("../img/login-desk.jpg") center / cover no-repeat;
-  border-bottom: 3px solid var(--brand);
-}
-.login-box { width: min(380px, 86%); margin: auto; padding: 40px 0 56px; }
-.login-logo { height: 40px; width: auto; margin-bottom: 22px; }
+.login-box { width: min(420px, 90%); margin: auto; padding: 40px 0 56px; }
+.login-logo { height: 48px; width: 48px; object-fit: cover; border-radius: 12px; margin-bottom: 22px; }
 .login-box h2 { font-family: var(--serif); font-weight: 500; font-size: 28px; margin: 0 0 8px; display: block; }
 .hint { font-size: 13px; color: var(--muted); line-height: 1.5; }
 .field { margin-top: 14px; }

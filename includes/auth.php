@@ -24,7 +24,7 @@ function require_member(): array
     if (($user['role'] ?? '') === 'platform') {
         $acting = (int) ($_SESSION['acting_company_id'] ?? 0);
         if ($acting <= 0) {
-            redirect('admin_companies.php');
+            redirect('admin_signups.php');
         }
         $_SESSION['company_id'] = $acting;
     }
