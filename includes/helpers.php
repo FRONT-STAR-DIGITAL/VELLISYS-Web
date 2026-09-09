@@ -391,9 +391,10 @@ function brand_deep(): string
     return brand_palette()['deep'];
 }
 
-function logo_url(): string
+function logo_url(?array $brand = null): string
 {
-    $path = branding()['logo_path'] ?? 'assets/img/ofagros-logo.png';
+    $brand = $brand ?? branding();
+    $path = $brand['logo_path'] ?? 'assets/img/ofagros-logo.png';
     if ($path && is_file(ROOT_PATH . '/' . ltrim($path, '/'))) {
         return url($path);
     }
@@ -474,6 +475,9 @@ function format_date(?string $iso): string
 
 function current_company_id(): int
 {
+    if (!empty($GLOBALS['folio_company_override'])) {
+        return (int) $GLOBALS['folio_company_override'];
+    }
     return (int) ($_SESSION['company_id'] ?? 0);
 }
 
@@ -835,18 +839,18 @@ function public_footer(): void
     <div class="lp-foot-grid">
       <div class="lp-foot-brand">
         <img class="lp-logo lp-logo-on-dark" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
-        <p>Books you can share in one click. A product of <?= h(product_maker_name()) ?>.</p>
+        <p>Books you can share in one click - branded to each client, with many templates to choose from. A product of <?= h(product_maker_name()) ?>.</p>
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="mailto:<?= h(product_email()) ?>"><?= h(product_email()) ?></a>
-        <a href="tel:+256779971024"><?= h($phones[0]) ?></a>
-        <a href="tel:+256756524451"><?= h($phones[1]) ?></a>
+        <p class="lp-foot-line"><?= icon('letter', 18) ?><a href="mailto:<?= h(product_email()) ?>"><?= h(product_email()) ?></a></p>
+        <p class="lp-foot-line"><?= icon('phone', 18) ?><a href="tel:+256779971024"><?= h($phones[0]) ?></a></p>
+        <p class="lp-foot-line"><?= icon('phone', 18) ?><a href="tel:+256756524451"><?= h($phones[1]) ?></a></p>
       </div>
       <div>
         <h3>FS Digital</h3>
-        <p><?= h(product_po_box()) ?></p>
-        <a href="<?= h(product_maker_url()) ?>" rel="noopener">frontstardigital.com</a>
+        <p class="lp-foot-line"><?= icon('pin', 18) ?><span><?= h(product_po_box()) ?></span></p>
+        <p class="lp-foot-line"><?= icon('globe', 18) ?><a href="<?= h(product_maker_url()) ?>" rel="noopener">frontstardigital.com</a></p>
       </div>
     </div>
     <p class="lp-copy">© <?= h((string) date('Y')) ?> <?= h(product_name()) ?>. All rights reserved.</p>
@@ -902,9 +906,9 @@ function landing_card_defaults(): array
         ['slot' => 'familiar_1', 'section' => 'familiar', 'sort' => 1, 'image_path' => 'assets/img/landing/landing-receipts.png', 'title' => 'Still stuffing receipts in a drawer?', 'body' => 'Slips, phone photos, part payments in UGX and USD. By month-end you are guessing what is still owed.'],
         ['slot' => 'familiar_2', 'section' => 'familiar', 'sort' => 2, 'image_path' => 'assets/img/landing/landing-whatsapp.png', 'title' => 'Did that invoice vanish into WhatsApp?', 'body' => 'Quotes in email. Invoices in a chat. Nobody has one number for who still owes the company.'],
         ['slot' => 'familiar_3', 'section' => 'familiar', 'sort' => 3, 'image_path' => 'assets/img/landing/landing-office.png', 'title' => 'Can you only open the books at the office?', 'body' => 'If you are on the road, the PC is off, or the accountant is out, the records are out of reach.'],
-        ['slot' => 'help_1', 'section' => 'help', 'sort' => 4, 'image_path' => 'assets/img/landing/landing-share.png', 'title' => 'Send the real record. One click.', 'body' => 'Issue a quotation, invoice or receipt in your logo and colour, then email or print it. Clients get the sheet, not a chase.'],
+        ['slot' => 'help_1', 'section' => 'help', 'sort' => 4, 'image_path' => 'assets/img/landing/landing-share.png', 'title' => 'Your client\'s brand. Many templates.', 'body' => 'Every quotation, invoice and receipt is customised to the client\'s logo and colours. Choose from many templates, then email, WhatsApp or print the sheet.'],
         ['slot' => 'help_2', 'section' => 'help', 'sort' => 5, 'image_path' => 'assets/img/landing/landing-anywhere.png', 'title' => 'Open the books from wherever you are.', 'body' => 'Sign in and this month is there - invoices, receipts, expenses, reports - on the screen in front of you.'],
-        ['slot' => 'help_3', 'section' => 'help', 'sort' => 6, 'image_path' => 'assets/img/landing/landing-desk.png', 'title' => 'Quotes, invoices, receipts. One desk.', 'body' => 'Quotations convert to invoices. Invoices take full or part receipts. Expenses, debtors and VAT sit together.'],
+        ['slot' => 'help_3', 'section' => 'help', 'sort' => 6, 'image_path' => 'assets/img/landing/landing-desk.png', 'title' => 'Quotes, invoices, receipts. One desk.', 'body' => 'Pick a template once. The whole books print in that layout, in the company colours. Quotations convert to invoices. Invoices take full or part receipts.'],
         ['slot' => 'steps_1', 'section' => 'steps', 'sort' => 7, 'image_path' => 'assets/img/landing/landing-form.png', 'title' => 'Leave your details', 'body' => 'Name, company, email, phone. That is the whole form. No password to invent.'],
         ['slot' => 'steps_2', 'section' => 'steps', 'sort' => 8, 'image_path' => 'assets/img/landing/landing-call.png', 'title' => 'We call you', 'body' => 'A Vellisys admin sees the sign-up and reaches out to onboard your company.'],
         ['slot' => 'steps_3', 'section' => 'steps', 'sort' => 9, 'image_path' => 'assets/img/landing/landing-live.png', 'title' => 'Your desk goes live', 'body' => 'You get a login. The books are yours, on any device, any time.'],

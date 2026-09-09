@@ -257,17 +257,9 @@ function update_document(int $id, array $data): void
     insert_document_items($id, $items);
 }
 
-function load_document(int $id): ?array
+function hydrate_document(array $doc): array
 {
-    $doc = db_one(
-        'SELECT d.*, p.name AS party_name, p.email AS party_email, p.phone AS party_phone, p.address AS party_address, p.tin AS party_tin, p.kind AS party_kind
-         FROM documents d JOIN parties p ON p.id = d.party_id WHERE d.id = ? AND d.company_id = ?',
-        'ii',
-        [$id, current_company_id()]
-    );
-    if (!$doc) {
-        return null;
-    }
+    $id = (int) $doc['id'];
     $doc['items'] = db_all('SELECT * FROM document_items WHERE document_id = ? ORDER BY id', 'i', [$id]);
     $doc['totals'] = document_totals($doc);
     if ($doc['kind'] === 'invoice') {
@@ -286,6 +278,66 @@ function load_document(int $id): ?array
         $doc['balance'] = $doc['totals']['total'];
     }
     return $doc;
+}
+
+function load_document(int $id): ?array
+{
+    $doc = db_one(
+        'SELECT d.*, p.name AS party_name, p.email AS party_email, p.phone AS party_phone, p.address AS party_address, p.tin AS party_tin, p.kind AS party_kind
+         FROM documents d JOIN parties p ON p.id = d.party_id WHERE d.id = ? AND d.company_id = ?',
+        'ii',
+        [$id, current_company_id()]
+    );
+    return $doc ? hydrate_document($doc) : null;
+}
+
+function document_share_secret(): string
+{
+    static $secret = null;
+    if ($secret === null) {
+        $cfg = require ROOT_PATH . '/config/database.php';
+        $secret = hash('sha256', ($cfg['name'] ?? 'folio') . '|' . ($cfg['user'] ?? 'root') . '|vellisys-doc-share');
+    }
+    return $secret;
+}
+
+function document_share_token(array $doc): string
+{
+    return hash_hmac('sha256', (int) ($doc['id'] ?? 0) . ':' . (int) ($doc['company_id'] ?? 0) . ':' . (string) ($doc['number'] ?? ''), document_share_secret());
+}
+
+function document_share_url(array $doc): string
+{
+    return absolute_url('share.php?id=' . (int) $doc['id'] . '&t=' . document_share_token($doc));
+}
+
+function document_share_message(array $doc): string
+{
+    $brand = branding();
+    $meta = kind_meta($doc['kind']);
+    $text = $meta['singular'] . ' ' . $doc['number'] . ' from ' . $brand['name'];
+    $total = (float) ($doc['totals']['total'] ?? $doc['paid'] ?? 0);
+    if (($doc['kind'] ?? '') !== 'letter' && $total > 0) {
+        $text .= ' (' . money($total, doc_currency($doc)) . ')';
+    }
+    return $text . '. Open the sheet: ' . document_share_url($doc);
+}
+
+function document_whatsapp_url(array $doc): string
+{
+    return 'https://wa.me/?text=' . rawurlencode(document_share_message($doc));
+}
+
+function document_mailto_url(array $doc): string
+{
+    $to = (string) ($doc['party_email'] ?? '');
+    $brand = branding();
+    $meta = kind_meta($doc['kind']);
+    $subject = $meta['singular'] . ' ' . $doc['number'] . ' from ' . $brand['name'];
+    $body = 'Dear ' . ($doc['party_name'] ?? '') . ",\n\nPlease find " . strtolower($meta['singular']) . ' ' . $doc['number'] . ".\n\n" . document_share_url($doc) . "\n\nKind regards,\n" . $brand['name'];
+    $href = 'mailto:' . rawurlencode($to);
+    $href .= '?subject=' . rawurlencode($subject) . '&body=' . rawurlencode($body);
+    return $href;
 }
 
 function receipt_settlement(array $doc): ?array
@@ -312,7 +364,8 @@ function receipt_settlement(array $doc): ?array
     if ($relatedId <= 0) {
         return $out;
     }
-    $rel = db_one('SELECT * FROM documents WHERE id = ? AND company_id = ?', 'ii', [$relatedId, current_company_id()]);
+    $cid = (int) ($doc['company_id'] ?? current_company_id());
+    $rel = db_one('SELECT * FROM documents WHERE id = ? AND company_id = ?', 'ii', [$relatedId, $cid]);
     if (!$rel || !in_array($rel['kind'], ['invoice', 'expense'], true)) {
         return $out;
     }
@@ -649,7 +702,13 @@ function render_doc_actions(array $doc, bool $labeled = false): void
       <?php endif; ?>
       <a class="<?= $cls ?>" href="<?= h(url('document_view.php?id=' . $id . '&print=1')) ?>" title="Print" aria-label="Print"><?= icon('printer', 15) ?><?php if ($labeled): ?> Print<?php endif; ?></a>
       <?php if (!$void): ?>
-        <a class="<?= $cls ?>" href="<?= h(url('document_email.php?id=' . $id)) ?>" title="Email" aria-label="Email"><?= icon('send', 15) ?><?php if ($labeled): ?> Email<?php endif; ?></a>
+        <details class="share-pop">
+          <summary class="<?= $cls ?>" title="Share" aria-label="Share"><?= icon('share', 15) ?><?php if ($labeled): ?> Share<?php endif; ?></summary>
+          <div class="share-pop-list">
+            <a href="<?= h(document_whatsapp_url($doc)) ?>" target="_blank" rel="noopener"><?= icon('whatsapp', 15) ?>WhatsApp</a>
+            <a href="<?= h(url('document_email.php?id=' . $id)) ?>"><?= icon('letter', 15) ?>Email</a>
+          </div>
+        </details>
         <?php if ($doc['kind'] === 'quotation'): ?>
           <form method="post" action="<?= h(url('document_action.php')) ?>">
             <?= csrf_field() ?>

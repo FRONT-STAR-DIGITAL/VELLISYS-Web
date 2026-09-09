@@ -4,7 +4,7 @@
 .d-logo.xs { height: 28px; max-width: 120px; background: #fff; padding: 2px; border-radius: 3px; }
 .d-logo.invert { background: #fff; padding: 6px 8px; border-radius: 4px; }
 .d-co { margin-top: 10px; font-size: 11px; line-height: 1.45; }
-.d-title { margin: 0; text-align: right; font-size: 28px; font-weight: 700; color: var(--brand); }
+.d-title { margin: 0; text-align: right; font-size: 28px; font-weight: 700; color: #000; }
 .d-meta-box { min-width: 220px; }
 .d-void { color: #b42318; font-weight: 700; }
 .d-party { padding: 8px 4px 14px; line-height: 1.45; }
@@ -13,7 +13,7 @@
 .d-notes-body { padding: 10px 6px; white-space: pre-wrap; }
 .d-sums { width: 260px; padding-top: 8px; min-width: 220px; }
 .d-sum { display: flex; justify-content: space-between; padding: 5px 4px; }
-.d-total { margin-top: 6px; color: var(--on-brand); background: var(--brand); font-weight: 700; display: flex; justify-content: space-between; padding: 8px 10px; }
+.d-total { margin-top: 6px; color: #000; background: #fff; border: 2px solid #000; font-weight: 700; display: flex; justify-content: space-between; padding: 8px 10px; }
 .d-payhint { font-size: 10px; margin-top: 8px; }
 .d-foot { margin-top: 28px; text-align: center; font-size: 11px; }
 .d-foot .thanks { font-weight: 700; font-style: italic; font-size: 14px; }
@@ -33,10 +33,10 @@
 .d-rd-row { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 6px 0; font-weight: 700; letter-spacing: .04em; }
 .d-rd-row span { flex: 0 0 auto; }
 .d-rd-row b { white-space: nowrap; font-variant-numeric: tabular-nums; }
-.d-rd-row.is-open { color: #7a1f1a; }
+.d-rd-row.is-open { color: #000; }
 .bill-sums .d-rd { margin-top: 8px; padding-top: 6px; border-top: 1px solid #ddd; }
-.d-fx { font-size: 11px; color: #555; margin-top: 6px; font-weight: 600; }
-.d-fx em { font-style: normal; font-weight: 500; color: #777; }
+.d-fx { font-size: 11px; color: #000; margin-top: 6px; font-weight: 600; }
+.d-fx em { font-style: normal; font-weight: 500; color: #000; }
 
 /* Colour ledger */
 .sheet-ledger { background: var(--brand-tint); color: var(--brand-3); }
@@ -195,6 +195,79 @@
   .ledger-grid, .ledger-bottom, .twin-wrap, .stripe-meta, .night-pair { grid-template-columns: 1fr; }
   .d-split, .bill-foot, .stripe-payrow, .estate-band, .estate-end, .night-sky { flex-direction: column; }
   .twin-perf { display: none; }
+}
+
+.invoice-sheet,
+.invoice-sheet.sheet-folio,
+.invoice-sheet.sheet-ledger,
+.invoice-sheet.sheet-twin,
+.invoice-sheet.sheet-estate,
+.invoice-sheet.sheet-night,
+.invoice-sheet.sheet-bill,
+.invoice-sheet.sheet-stripe {
+  background: #fff !important;
+  color: #000;
+}
+.invoice-sheet,
+.invoice-sheet h1,
+.invoice-sheet h2,
+.invoice-sheet h3,
+.invoice-sheet p,
+.invoice-sheet span,
+.invoice-sheet b,
+.invoice-sheet strong,
+.invoice-sheet em,
+.invoice-sheet small,
+.invoice-sheet label,
+.invoice-sheet td,
+.invoice-sheet th,
+.invoice-sheet div,
+.invoice-sheet a {
+  color: #000 !important;
+}
+.d-lines-head th {
+  background: #fff;
+  color: #000;
+  border-bottom: 2px solid #000;
+  font-weight: 700;
+}
+.invoice-sheet .bar,
+.invoice-sheet .d-total,
+.invoice-sheet .ledger-amt,
+.invoice-sheet .bill-pill,
+.invoice-sheet .twin-label,
+.invoice-sheet .stripe-banner,
+.invoice-sheet .stripe-total,
+.invoice-sheet .estate-band,
+.invoice-sheet .estate-total,
+.invoice-sheet .night-sky,
+.invoice-sheet .night-total,
+.invoice-sheet .ledger-grid label,
+.invoice-sheet .ledger-words {
+  background: #fff !important;
+  color: #000 !important;
+  border: 1px solid #000;
+}
+.invoice-sheet .bar { letter-spacing: .4px; padding: 6px 10px; font-weight: 700; }
+.invoice-sheet .stripe-banner,
+.invoice-sheet .estate-band,
+.invoice-sheet .night-sky {
+  margin-left: 0;
+  margin-right: 0;
+}
+.invoice-sheet .sheet-twin,
+.invoice-sheet.sheet-twin { background: #fff !important; }
+.twin-copy { background: #fff; }
+.sheet-estate .estate-gold,
+.sheet-night .night-copper { background: #000; }
+.ledger-sign span,
+.stripe-meta span,
+.stripe-h,
+.bill-head p,
+.bill-words span,
+.estate-who span,
+.night-pair span {
+  color: #000 !important;
 }
 
 @page {

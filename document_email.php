@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $meta = kind_meta($doc['kind']);
 $defaultTo = (string) ($doc['party_email'] ?? '');
 $defaultSubject = $meta['singular'] . ' ' . $doc['number'] . ' from ' . branding()['name'];
-$defaultBody = "Dear " . $doc['party_name'] . ",\n\nPlease find " . strtolower($meta['singular']) . " " . $doc['number'] . ".\n\nKind regards,\n" . $user['name'] . "\n" . branding()['name'];
+$defaultBody = "Dear " . $doc['party_name'] . ",\n\nPlease find " . strtolower($meta['singular']) . " " . $doc['number'] . ".\n\n" . document_share_url($doc) . "\n\nKind regards,\n" . $user['name'] . "\n" . branding()['name'];
 
 layout_start('Email ' . $doc['number'], $user, ['kind' => $doc['kind']]);
 ?>

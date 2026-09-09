@@ -36,7 +36,7 @@ function layout_start(string $title, array $user, array $opts = []): void
 <div class="app">
   <aside class="nav">
     <a class="brand" href="<?= h(url('dashboard.php')) ?>">
-      <img class="brand-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
+      <img class="brand-logo" src="<?= h(logo_url($brand)) ?>" alt="<?= h($brand['name']) ?>">
       <strong><?= h($brand['name']) ?></strong>
     </a>
     <nav>

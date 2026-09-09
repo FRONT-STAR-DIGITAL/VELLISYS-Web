@@ -1,4 +1,7 @@
 document.addEventListener('click', function (e) {
+  document.querySelectorAll('details.share-pop[open]').forEach(function (el) {
+    if (!el.contains(e.target)) el.removeAttribute('open');
+  });
   var q = document.querySelector('[data-quick]');
   var panel = document.querySelector('[data-quick-panel]');
   if (q && q.contains(e.target) && panel) {

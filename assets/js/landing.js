@@ -9,6 +9,12 @@
   playCharts();
   window.addEventListener('pageshow', playCharts);
 
+  document.querySelectorAll('.lp-stack').forEach(function (stack) {
+    stack.addEventListener('mouseenter', function () { stack.classList.add('is-open'); });
+    stack.addEventListener('mouseleave', function () { stack.classList.remove('is-open'); });
+    stack.addEventListener('blur', function () { stack.classList.remove('is-open'); }, true);
+  });
+
   var nodes = document.querySelectorAll('[data-reveal]');
   if (nodes.length && 'IntersectionObserver' in window) {
     var io = new IntersectionObserver(function (entries) {

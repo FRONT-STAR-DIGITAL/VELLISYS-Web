@@ -15,6 +15,7 @@ function send_document_email(array $user, array $doc, string $to, string $subjec
     ];
     $html = '<p>' . nl2br(h($message)) . '</p>'
         . '<p>' . h(kind_meta($doc['kind'])['singular']) . ' <strong>' . h($doc['number']) . '</strong></p>'
+        . '<p><a href="' . h(document_share_url($doc)) . '">Open the branded sheet</a></p>'
         . '<p>' . h($fromName) . '<br>' . h($brand['name']) . '</p>';
 
     $ok = @mail($to, $subject, $html, implode("\r\n", $headers));

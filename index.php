@@ -16,7 +16,7 @@ $clients = trust_clients();
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= h(product_name()) ?> · Stop losing the books</title>
-  <meta name="description" content="Tired of hunting receipts and losing invoices? Vellisys keeps quotations, invoices and receipts on one desk. Register in a minute. We call you, then the books go live.">
+  <meta name="description" content="Tired of hunting receipts and losing invoices? Vellisys keeps quotations, invoices and receipts on one desk, customised to each client's branding, with many templates to choose from. Register in a minute. We call you, then the books go live.">
   <?php product_icons(); ?>
   <?php folio_font_links(); ?>
   <link rel="stylesheet" href="<?= h(asset('css/landing.css')) ?>">
@@ -30,7 +30,7 @@ $clients = trust_clients();
     <section class="lp-hero">
       <div class="lp-hero-copy" data-reveal>
         <h1>Lose track of your financial records?</h1>
-        <p class="lp-lead">Tired of receipts in a drawer and invoices living in WhatsApp? Vellisys keeps quotations, invoices, receipts and reports on one desk. Generate a record and share it with a client in a single click. Open the books any time, anywhere you are.</p>
+        <p class="lp-lead">Tired of receipts in a drawer and invoices living in WhatsApp? Vellisys keeps quotations, invoices, receipts and reports on one desk. Every sheet is customised to the client's branding - logo, colours, and many templates to choose from - then shared in a single click. Open the books any time, anywhere you are.</p>
         <div class="lp-cta">
           <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('register.php')) ?>">Get my company a desk</a>
           <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('login.php')) ?>">I already have a desk</a>
@@ -107,7 +107,7 @@ $clients = trust_clients();
       <div class="lp-send-copy">
         <p class="lp-kicker">From the desk to their phone</p>
         <h2>Generate it. Send it. They have it in a minute.</h2>
-        <p>Raise a quotation, an invoice or a receipt on your Vellisys desk, then share it while the client is still with you. One record, one tap, their copy is on the way.</p>
+        <p>Raise a quotation, an invoice or a receipt on your desk. The sheet goes out in the client's own logo and colours, from a library of templates you pick once. Share it while they are still with you. One record, one tap, their copy is on the way.</p>
         <ul class="lp-send-docs">
           <li>Quotation</li>
           <li>Invoice</li>
@@ -143,12 +143,13 @@ $clients = trust_clients();
       <div class="lp-compare-old">
         <p class="lp-kicker">Leave this behind</p>
         <h2>The old way</h2>
-        <div class="lp-stack" tabindex="0">
+        <div class="lp-stack">
           <?php foreach ($oldPhotos as $i => $photo): ?>
             <img src="<?= h(asset(substr($photo, strlen('assets/')))) ?>" alt="The old way of keeping books" style="--i:<?= (int) $i ?>">
           <?php endforeach; ?>
           <span class="lp-x" aria-hidden="true">×</span>
         </div>
+        <p class="lp-stack-hint">Hover to fan the pile. Move away and they stick together again.</p>
       </div>
 
       <div class="lp-compare-arrow" aria-hidden="true">
@@ -160,7 +161,8 @@ $clients = trust_clients();
 
       <div class="lp-compare-new">
         <p class="lp-kicker">The Vellisys way</p>
-        <h2>One desk. A clear picture.</h2>
+        <h2>Your brand. Their copy.</h2>
+        <p class="lp-compare-lead">Documents are printed and sent in the client's branding. Pick from many templates - letterhead, ledger, twin copy and more - so every quotation, invoice and receipt looks like it came from their office, not a generic pad.</p>
         <figure class="lp-new-shot">
           <img class="lp-new-main" src="<?= h(asset('img/landing/nw.png')) ?>" alt="A Vellisys receipt on desktop, laptop and phone">
         </figure>

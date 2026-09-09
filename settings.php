@@ -251,7 +251,7 @@ layout_start('Settings', $user);
 
     <section class="card settings-card" id="templates">
       <h2><?= icon('palette') ?>Document designs</h2>
-      <p class="lede">This design is used on every invoice, quotation, receipt, expense and headed note. Changing it here reprints the whole books in that layout. Correspondence text stays editable - only the paper around it changes.</p>
+      <p class="lede">Eight layouts. Pick the one that matches the company. Every invoice, quotation, receipt, expense and headed note reprints in that design, in the client's logo and colours. Changing it here reprints the whole books. Correspondence text stays editable - only the paper around it changes.</p>
       <div class="design-grid">
         <?php
         $currentDesign = doc_template_key(['doc_template' => $b['doc_template'] ?? 'folio']);

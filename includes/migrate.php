@@ -29,7 +29,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 12) {
+    if ($ver >= 13) {
         $done = true;
         return;
     }
@@ -161,8 +161,9 @@ function folio_migrate(mysqli $db): void
     folio_ensure_platform_admin($db);
 
     folio_migrate_landing_cards($db);
+    folio_refresh_landing_copy($db);
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '12')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '13')");
     $done = true;
 }
 
@@ -186,6 +187,21 @@ function folio_migrate_landing_cards(mysqli $db): void
         }
         $stmt = $db->prepare('INSERT INTO landing_cards (slot, section, title, body, image_path, sort) VALUES (?,?,?,?,?,?)');
         $stmt->bind_param('sssssi', $c['slot'], $c['section'], $c['title'], $c['body'], $c['image_path'], $c['sort']);
+        $stmt->execute();
+    }
+}
+
+function folio_refresh_landing_copy(mysqli $db): void
+{
+    foreach (landing_card_defaults() as $c) {
+        if (!in_array($c['slot'], ['help_1', 'help_3'], true)) {
+            continue;
+        }
+        $stmt = $db->prepare('UPDATE landing_cards SET title = ?, body = ? WHERE slot = ?');
+        if (!$stmt) {
+            continue;
+        }
+        $stmt->bind_param('sss', $c['title'], $c['body'], $c['slot']);
         $stmt->execute();
     }
 }
