@@ -9,6 +9,36 @@ if (!in_array($kind, ['invoice', 'quotation', 'receipt', 'expense', 'letter'], t
 }
 $meta = kind_meta($kind);
 $rows = list_documents($kind);
+$clearFilter = $_GET['clear'] ?? 'all';
+$clearedRows = [];
+$partialRows = [];
+if ($kind === 'receipt') {
+    foreach ($rows as $doc) {
+        if ($doc['status'] === 'void') {
+            continue;
+        }
+        if (((float) ($doc['balance'] ?? 0)) > 0.009) {
+            $partialRows[] = $doc;
+        } else {
+            $clearedRows[] = $doc;
+        }
+    }
+    if ($clearFilter === 'cleared') {
+        $rows = $clearedRows;
+    } elseif ($clearFilter === 'partial') {
+        $rows = $partialRows;
+    }
+}
+$period = period_range();
+$receiptQs = static function (string $clear) use ($kind, $period): string {
+    return http_build_query([
+        'kind' => $kind,
+        'range' => $period['preset'],
+        'from' => $period['from'],
+        'to' => $period['to'],
+        'clear' => $clear,
+    ]);
+};
 
 layout_start($meta['title'], $user, ['kind' => $kind]);
 ?>
@@ -20,6 +50,8 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
         Bills in a table with totals. Open a row to see the expense as a card, not stationery.
       <?php elseif ($kind === 'letter'): ?>
         Headed notes using the five templates. The word “letter” is not printed on the page.
+      <?php elseif ($kind === 'receipt'): ?>
+        Cleared receipts are paid in full. Partially cleared receipts still have an amount due on Debtors.
       <?php else: ?>
         Every row has actions - view, edit, print, email<?= $kind === 'quotation' ? ', convert to invoice' : '' ?><?= $kind === 'invoice' ? ', take a receipt (full or part)' : '' ?>, or void.
       <?php endif; ?>
@@ -32,6 +64,18 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
 </div>
 
 <?php render_filters('documents.php', ['kind' => $kind]); ?>
+
+<?php if ($kind === 'receipt'): ?>
+  <div class="stats">
+    <div class="card stat"><?= icon('receipt', 20) ?><span>Cleared</span><strong><?= count($clearedRows) ?></strong></div>
+    <div class="card stat"><?= icon('alert', 20) ?><span>Partially cleared</span><strong><?= count($partialRows) ?></strong></div>
+  </div>
+  <p class="filter-chips" style="margin:0 0 16px">
+    <a class="chip<?= $clearFilter === 'all' ? ' is-on' : '' ?>" href="<?= h(url('documents.php?' . $receiptQs('all'))) ?>">All</a>
+    <a class="chip<?= $clearFilter === 'cleared' ? ' is-on' : '' ?>" href="<?= h(url('documents.php?' . $receiptQs('cleared'))) ?>">Cleared</a>
+    <a class="chip<?= $clearFilter === 'partial' ? ' is-on' : '' ?>" href="<?= h(url('documents.php?' . $receiptQs('partial'))) ?>">Partially cleared</a>
+  </p>
+<?php endif; ?>
 
 <div class="card">
   <?php if (!$rows): ?>
@@ -51,6 +95,9 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
           <?php elseif ($kind === 'invoice'): ?>
             <th class="right">Amount</th>
             <th class="right">Balance</th>
+          <?php elseif ($kind === 'receipt'): ?>
+            <th class="right">Received</th>
+            <th class="right">Due</th>
           <?php elseif ($kind !== 'letter'): ?>
             <th class="right">Amount</th>
           <?php endif; ?>
@@ -72,10 +119,13 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
             <?php elseif ($kind === 'invoice'): ?>
               <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>
               <td class="right mono"><?= h(money($doc['balance'], doc_currency($doc))) ?></td>
+            <?php elseif ($kind === 'receipt'): ?>
+              <td class="right mono"><?= h(money($doc['paid'], doc_currency($doc))) ?></td>
+              <td class="right mono"><?= h(money($doc['balance'], doc_currency($doc))) ?></td>
             <?php elseif ($kind !== 'letter'): ?>
               <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>
             <?php endif; ?>
-            <td><span class="pill<?= invoice_status_label($doc) === 'Overdue' ? ' warn' : '' ?>"><?= h(invoice_status_label($doc)) ?></span></td>
+            <td><span class="pill<?= in_array(invoice_status_label($doc), ['Overdue', 'Partially cleared'], true) ? ' warn' : '' ?>"><?= h(invoice_status_label($doc)) ?></span></td>
             <td class="row-actions"><?php render_doc_actions($doc); ?></td>
           </tr>
         <?php endforeach; ?>
@@ -91,6 +141,9 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
               <td class="right mono"><?= h(money(documents_sum($rows, 'balance'))) ?></td>
             <?php elseif ($kind === 'invoice'): ?>
               <td class="right mono"><?= h(money(documents_sum($rows))) ?></td>
+              <td class="right mono"><?= h(money(documents_sum($rows, 'balance'))) ?></td>
+            <?php elseif ($kind === 'receipt'): ?>
+              <td class="right mono"><?= h(money(documents_sum($rows, 'paid'))) ?></td>
               <td class="right mono"><?= h(money(documents_sum($rows, 'balance'))) ?></td>
             <?php else: ?>
               <td class="right mono"><?= h(money(documents_sum($rows))) ?></td>

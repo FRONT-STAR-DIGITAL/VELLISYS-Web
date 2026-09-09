@@ -12,13 +12,13 @@ $monthStart = date('Y-m-01');
 $incomeMonth = 0;
 foreach ($invoices as $d) {
     if ($d['date'] >= $monthStart) {
-        $incomeMonth += $d['totals']['total'];
+        $incomeMonth += convert_money($d['totals']['total'], doc_currency($d), default_currency());
     }
 }
 $expMonth = attach_document_totals(db_all("SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id WHERE d.company_id = ? AND d.kind = 'expense' AND d.status = 'issued' AND d.date >= ?", 'is', [$cid, $monthStart]));
 $expenseMonth = 0;
 foreach ($expMonth as $d) {
-    $expenseMonth += $d['totals']['total'];
+    $expenseMonth += convert_money($d['totals']['total'], doc_currency($d), default_currency());
 }
 $quotes = (int) (db_one("SELECT COUNT(*) c FROM documents WHERE company_id = ? AND kind='quotation' AND status='issued'", 'i', [$cid])['c'] ?? 0);
 $recent = attach_document_totals(db_all("SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id WHERE d.company_id = ? ORDER BY d.id DESC LIMIT 7", 'i', [$cid]));
@@ -30,7 +30,7 @@ layout_start('Desk', $user);
 ?>
 <div class="desk-hero">
   <div>
-    <p class="desk-kicker"><?= h($brand['name']) ?> · <?= h(default_currency()) ?></p>
+    <p class="desk-kicker"><?= h($brand['name']) ?> · <?= h(default_currency()) ?> · <?= h(number_format(fx_ugx_per_usd(), fx_ugx_per_usd() == floor(fx_ugx_per_usd()) ? 0 : 2, '.', ',')) ?> UGX / USD</p>
     <h1><?= h($hello) ?>, <?= h(explode(' ', $user['name'])[0]) ?>.</h1>
     <p class="lede">What needs sending or collecting today. Colour and stationery live in Settings.</p>
   </div>
@@ -66,11 +66,11 @@ layout_start('Desk', $user);
   <div class="meter">
     <a href="<?= h(url('documents.php?kind=invoice')) ?>">
       <span>Open</span>
-      <strong><?= h(money(array_sum(array_column($open, 'balance')))) ?></strong>
+      <strong><?= h(money(documents_sum($open, 'balance'))) ?></strong>
     </a>
     <a href="<?= h(url('documents.php?kind=invoice')) ?>">
       <span>Overdue</span>
-      <strong><?= h(money(array_sum(array_map(static fn ($d) => $d['balance'], $overdue)))) ?></strong>
+      <strong><?= h(money(documents_sum($overdue, 'balance'))) ?></strong>
     </a>
     <a href="<?= h(url('reports.php')) ?>">
       <span>Invoiced this month</span>

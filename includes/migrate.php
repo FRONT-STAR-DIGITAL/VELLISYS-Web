@@ -29,7 +29,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 8) {
+    if ($ver >= 10) {
         $done = true;
         return;
     }
@@ -144,6 +144,18 @@ function folio_migrate(mysqli $db): void
         $db->query("ALTER TABLE branding ADD COLUMN brand_deep VARCHAR(7) NOT NULL DEFAULT '#1F3A12'");
     }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '8')");
+    if (!db_has_column($db, 'document_items', 'item_name')) {
+        $db->query("ALTER TABLE document_items ADD COLUMN item_name VARCHAR(160) NOT NULL DEFAULT '' AFTER document_id");
+    }
+    $descCol = $db->query("SHOW COLUMNS FROM document_items LIKE 'description'");
+    $descInfo = $descCol ? $descCol->fetch_assoc() : null;
+    if ($descInfo && stripos((string) $descInfo['Type'], 'text') === false) {
+        $db->query('ALTER TABLE document_items MODIFY description TEXT NOT NULL');
+    }
+    if (!db_has_column($db, 'branding', 'fx_ugx_per_usd')) {
+        $db->query('ALTER TABLE branding ADD COLUMN fx_ugx_per_usd DECIMAL(12,4) NOT NULL DEFAULT 3700');
+    }
+
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '10')");
     $done = true;
 }

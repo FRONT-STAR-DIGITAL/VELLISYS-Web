@@ -267,7 +267,18 @@ form.actions, td form { display: inline; margin: 0; }
 .check { display: flex; gap: 8px; align-items: center; font-weight: 600; margin: 16px 0 8px; }
 .check input { width: auto; }
 .center { text-align: center; }
-.lines input { margin: 0; }
+.lines input, .lines textarea { margin: 0; }
+.lines { table-layout: fixed; min-width: 760px; }
+.lines th:nth-child(1), .lines td:nth-child(1) { width: 18%; }
+.lines th:nth-child(2), .lines td:nth-child(2) { width: 34%; }
+.lines textarea { min-height: 88px; resize: vertical; line-height: 1.45; }
+.lines-wrap { overflow-x: auto; margin: 8px 0 4px; }
+.vat-yn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin: 0; font-weight: 700; }
+.vat-yn input { width: auto; }
+.vat-yn span { min-width: 1.1em; }
+.fx-row { display: flex; align-items: center; gap: 8px; }
+.fx-row input { flex: 1; }
+.fx-row span { font-weight: 700; color: var(--muted); }
 .qty-wrap { display: flex; align-items: center; gap: 4px; }
 .qty-wrap input { flex: 1; min-width: 0; text-align: right; }
 .qty-btn {
@@ -805,7 +816,7 @@ table.grid tfoot td {
   .login-art { min-height: 240px; padding: 28px; }
   .login-still { height: 96px; }
   .template-grid, .chart-grid, .expense-meta { grid-template-columns: 1fr; }
-  table.grid th:nth-child(n+6), table.grid td.row-actions { display: none; }
+  table.grid:not(.lines) th:nth-child(n+6), table.grid td.row-actions { display: none; }
 }
 @page { size: A4; margin: 0; }
 @media print {

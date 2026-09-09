@@ -8,14 +8,15 @@ This is a **PHP + MySQL** desk meant to run on **XAMPP**. There is no Node or Ne
 
 - Sign-in with a **show password** control. Company desk: `accounts@ofagros.org` / `folio2026`
 - **Platform admin** at `admin@folio.ug` / `folio-admin-2026` - create companies, issue desk logins, set stationery, onboard, mark live
-- **UGX or USD** on each document (default in Settings)
+- **UGX or USD** on each document, converted at a rate you enter in Settings (1 USD = n UGX)
+- **One document design** for the whole desk - the layout you pick in Settings prints on every invoice, quotation, receipt, expense and headed note
 - **Three brand colours** (primary, accent, deep) that paint the desk and every document design
 - **CSV export** on invoices, quotations, receipts, expenses, correspondence, debtors, creditors, clients, reports, and on a single document’s lines
 - Quotations convert to invoices; invoices take full or **part receipts**; unpaid balances stay on Debtors
 - Every document can be edited after it is saved
 - Print and share a clean sheet - no desk chrome, dates or page URLs around the paper
-- Add as many line items as you need when creating invoices, quotations, receipts and expenses. Quantity steps in whole numbers and still accepts decimals
-- Printed documents show item/description, quantity, unit, unit price and full price
+- Line items are **Item**, **Description** (paragraph), **Qty**, **Unit price**, **Total Amt**, and **VAT** as Y or N. If every line is N, VAT is left off the printed sheet
+- Receipts show **RECEIVED** and **DUE**. The Receipts tab lists cleared and partially cleared payments
 - Static navigation; portal background is a plain diagonal-line pattern
 - **Correspondence** stays fully editable. Settings → Templates picks a document design (ledger, bills, twin copy, stripe, plus Estate cream and Lake night)
 - Expenses as cards; debtors and creditors as tables with totals

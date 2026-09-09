@@ -16,6 +16,71 @@ function money($amount, ?string $currency = null): string
     return 'UGX ' . number_format($n, $n == floor($n) ? 0 : 2, '.', ',');
 }
 
+function fx_ugx_per_usd(): float
+{
+    $n = (float) (branding()['fx_ugx_per_usd'] ?? 3700);
+    return $n > 0 ? $n : 3700.0;
+}
+
+function parse_fx_rate(string $raw): float
+{
+    $n = money_parse($raw);
+    return $n > 0 ? $n : fx_ugx_per_usd();
+}
+
+function other_currency(string $currency): string
+{
+    return strtoupper($currency) === 'USD' ? 'UGX' : 'USD';
+}
+
+function round_money(float $amount, string $currency): float
+{
+    return strtoupper($currency) === 'USD' ? round($amount, 2) : round($amount, 0);
+}
+
+function convert_money(float $amount, string $from, string $to, ?float $rate = null): float
+{
+    $from = strtoupper($from) === 'USD' ? 'USD' : 'UGX';
+    $to = strtoupper($to) === 'USD' ? 'USD' : 'UGX';
+    if ($from === $to) {
+        return round_money($amount, $to);
+    }
+    $rate = $rate ?? fx_ugx_per_usd();
+    if ($rate <= 0) {
+        $rate = 3700.0;
+    }
+    if ($from === 'USD') {
+        return round_money($amount * $rate, 'UGX');
+    }
+    return round_money($amount / $rate, 'USD');
+}
+
+function money_pair($amount, string $currency, ?float $rate = null): string
+{
+    $currency = strtoupper($currency) === 'USD' ? 'USD' : 'UGX';
+    $alt = other_currency($currency);
+    return money($amount, $currency) . ' · ' . money(convert_money((float) $amount, $currency, $alt, $rate), $alt);
+}
+
+function apply_company_doc_template(string $key): void
+{
+    if (!array_key_exists($key, doc_templates())) {
+        $key = 'folio';
+    }
+    $cid = current_company_id();
+    db_exec('UPDATE branding SET doc_template = ? WHERE company_id = ?', 'si', [$key, $cid]);
+    db_exec('UPDATE documents SET doc_template = ? WHERE company_id = ?', 'si', [$key, $cid]);
+    branding(true);
+}
+
+function apply_fx_rate(string $raw): float
+{
+    $rate = parse_fx_rate($raw);
+    db_exec('UPDATE branding SET fx_ugx_per_usd = ? WHERE company_id = ?', 'di', [$rate, current_company_id()]);
+    branding(true);
+    return $rate;
+}
+
 function ugx($amount, ?string $currency = null): string
 {
     return money($amount, $currency);
@@ -99,7 +164,7 @@ function doc_templates(): array
 
 function doc_template_key(?array $doc = null): string
 {
-    $key = strtolower((string) ($doc['doc_template'] ?? branding()['doc_template'] ?? 'folio'));
+    $key = strtolower((string) (branding()['doc_template'] ?? 'folio'));
     return array_key_exists($key, doc_templates()) ? $key : 'folio';
 }
 
@@ -200,6 +265,7 @@ function folio_defaults(): array
         'invoice_comments' => '',
         'letter_templates' => '',
         'doc_template' => 'folio',
+        'fx_ugx_per_usd' => 3700,
     ];
 }
 
@@ -614,14 +680,16 @@ function list_documents(string $kind): array
 function documents_sum(array $rows, string $field = 'total'): float
 {
     $n = 0.0;
+    $base = default_currency();
     foreach ($rows as $row) {
-        $n += match ($field) {
+        $amt = match ($field) {
             'paid' => (float) ($row['paid'] ?? 0),
             'balance' => (float) ($row['balance'] ?? 0),
             default => (float) ($row['totals']['total'] ?? 0),
         };
+        $n += convert_money($amt, doc_currency($row), $base);
     }
-    return $n;
+    return round_money($n, $base);
 }
 
 function export_query(string $type, array $extra = []): string

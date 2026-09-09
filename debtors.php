@@ -13,7 +13,7 @@ foreach ($rows as $doc) {
         $byClient[$pid] = ['id' => $pid, 'name' => $doc['party_name'], 'invoices' => 0, 'balance' => 0.0];
     }
     $byClient[$pid]['invoices']++;
-    $byClient[$pid]['balance'] += (float) $doc['balance'];
+    $byClient[$pid]['balance'] += convert_money((float) $doc['balance'], doc_currency($doc), default_currency());
 }
 uasort($byClient, static fn ($a, $b) => $b['balance'] <=> $a['balance']);
 
@@ -22,7 +22,7 @@ layout_start('Debtors', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('clients') ?>Debtors</h1>
-    <p class="lede">Clients who still owe you, including balances left after part payments. Take a receipt, send a reminder, or print the invoice.</p>
+    <p class="lede">Clients who still owe you, including balances left after part payments. Mixed currencies convert at your UGX / USD rate. Take a receipt, send a reminder, or print the invoice.</p>
   </div>
   <a class="btn" href="<?= h(url('document_new.php?kind=invoice')) ?>"><?= icon('invoice') ?>New invoice</a>
   <a class="btn ghost" href="<?= h(export_query('debtors')) ?>"><?= icon('download', 16) ?>Export CSV</a>

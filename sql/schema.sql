@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS branding (
   invoice_comments TEXT,
   plan ENUM('starter','sme','office') NOT NULL DEFAULT 'sme',
   currency CHAR(3) NOT NULL DEFAULT 'UGX',
+  fx_ugx_per_usd DECIMAL(12,4) NOT NULL DEFAULT 3700,
   letter_templates TEXT NULL,
   doc_template VARCHAR(40) NOT NULL DEFAULT 'folio',
   UNIQUE KEY company_id (company_id)
@@ -98,11 +99,12 @@ CREATE TABLE IF NOT EXISTS documents (
 CREATE TABLE IF NOT EXISTS document_items (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   document_id INT UNSIGNED NOT NULL,
-  description VARCHAR(255) NOT NULL,
+  item_name VARCHAR(160) NOT NULL DEFAULT '',
+  description TEXT NOT NULL,
   qty DECIMAL(12,2) NOT NULL DEFAULT 1,
   unit VARCHAR(30) DEFAULT 'lot',
   rate DECIMAL(16,2) NOT NULL DEFAULT 0,
-  taxed TINYINT(1) NOT NULL DEFAULT 1,
+  taxed TINYINT(1) NOT NULL DEFAULT 0,
   CONSTRAINT fk_item_doc FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

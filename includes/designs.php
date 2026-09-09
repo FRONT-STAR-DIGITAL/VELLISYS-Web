@@ -29,10 +29,13 @@ function sheet_data(array $brand, array $doc): array
         'total' => $total,
         'paid' => $paid,
         'balance' => $balance,
+        'show_vat' => doc_shows_vat($doc),
         'settlement' => $settlement,
         'comments' => $doc['notes'] ?: ($brand['invoice_comments'] ?? ''),
         'logo' => logo_url(),
         'cur' => doc_currency($doc),
+        'alt_cur' => other_currency(doc_currency($doc)),
+        'fx_rate' => fx_ugx_per_usd(),
         'method' => $method,
         'methods' => payment_methods(),
     ];
@@ -40,20 +43,29 @@ function sheet_data(array $brand, array $doc): array
 
 function render_settlement(array $d): void
 {
-    $s = $d['settlement'] ?? null;
-    if (!$s) {
+    if (($d['doc']['kind'] ?? '') !== 'receipt') {
         return;
     }
-    $open = ((float) ($s['balance'] ?? 0)) > 0.009;
+    $s = $d['settlement'] ?? [];
+    $received = (float) ($s['received'] ?? $d['total']);
+    $due = (float) ($s['balance'] ?? 0);
+    $open = $due > 0.009;
     ?>
-    <div class="d-settle">
-      <div class="d-sum"><span>Received</span><span><?= h(money($s['received'], $d['cur'])) ?></span></div>
-      <?php if (!empty($s['invoice_number'])): ?>
-        <div class="d-sum"><span>Against</span><span><?= h((string) $s['invoice_number']) ?></span></div>
-        <div class="d-sum"><span>Invoice total</span><span><?= h(money($s['invoice_total'], $d['cur'])) ?></span></div>
-        <div class="d-sum d-balance<?= $open ? ' is-open' : '' ?>"><span>Balance still due</span><span><?= h(money($s['balance'], $d['cur'])) ?></span></div>
-      <?php endif; ?>
+    <div class="d-rd">
+      <div class="d-rd-row"><span>RECEIVED:</span><b><?= h(money($received, $d['cur'])) ?></b></div>
+      <div class="d-rd-row<?= $open ? ' is-open' : '' ?>"><span>DUE:</span><b><?= h(money($due, $d['cur'])) ?></b></div>
     </div>
+    <?php
+}
+
+function render_fx_equiv(array $d, $amount = null): void
+{
+    $amt = $amount === null ? (float) $d['total'] : (float) $amount;
+    $alt = $d['alt_cur'] ?? other_currency($d['cur']);
+    $conv = convert_money($amt, $d['cur'], $alt, $d['fx_rate'] ?? null);
+    $rate = (float) ($d['fx_rate'] ?? fx_ugx_per_usd());
+    ?>
+    <div class="d-fx"><?= h(money($conv, $alt)) ?> <em>at <?= h(number_format($rate, $rate == floor($rate) ? 0 : 2, '.', ',')) ?> UGX / USD</em></div>
     <?php
 }
 
@@ -73,27 +85,30 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
     $cur = doc_currency($doc);
     $serial = !empty($opts['serial']);
     $cls = $opts['class'] ?? '';
+    $showVat = doc_shows_vat($doc);
     ?>
     <table class="d-lines <?= h($cls) ?>">
       <thead>
         <tr style="background:<?= h($color) ?>;color:#fff">
           <?php if ($serial): ?><th class="c" style="width:44px">No.</th><?php endif; ?>
-          <th>Item / description</th>
+          <th style="width:22%">Item</th>
+          <th>Description</th>
           <th class="c" style="width:64px">Qty</th>
-          <th style="width:70px">Unit</th>
           <th class="r" style="width:110px">Unit price</th>
-          <th class="r" style="width:120px">Full price</th>
+          <th class="r" style="width:120px">Total Amt</th>
+          <?php if ($showVat): ?><th class="c" style="width:44px">VAT</th><?php endif; ?>
         </tr>
       </thead>
       <tbody>
         <?php foreach ($rows as $i => $item): ?>
           <tr style="background:<?= $i % 2 ? h($tint) : '#fff' ?>">
             <?php if ($serial): ?><td class="c"><?= $item ? (string) ($i + 1) : '' ?></td><?php endif; ?>
-            <td><?= $item ? h($item['description']) : '&nbsp;' ?></td>
+            <td class="item"><?= $item && line_item_name($item) !== '' ? h(line_item_name($item)) : ($item ? '&nbsp;' : '&nbsp;') ?></td>
+            <td class="desc"><?= $item && line_item_description($item) !== '' ? nl2br(h(line_item_description($item))) : '&nbsp;' ?></td>
             <td class="c"><?= $item ? h(format_qty($item['qty'])) : '' ?></td>
-            <td><?= $item ? h((string) $item['unit']) : '' ?></td>
             <td class="r"><?= $item ? h(money($item['rate'], $cur)) : '' ?></td>
             <td class="r"><?= $item ? h(money(line_amount($item), $cur)) : '' ?></td>
+            <?php if ($showVat): ?><td class="c"><?= $item ? (!empty($item['taxed']) ? 'Y' : 'N') : '' ?></td><?php endif; ?>
           </tr>
         <?php endforeach; ?>
       </tbody>
@@ -160,8 +175,11 @@ function render_sheet_folio(array $d): void
       </div>
       <div class="d-sums">
         <div class="d-sum"><span>Subtotal</span><span><?= h(money($d['net'], $d['cur'])) ?></span></div>
-        <div class="d-sum"><span>Tax<?= $d['vat'] ? ' 18%' : '' ?></span><span><?= $d['vat'] ? h(money($d['vat'], $d['cur'])) : '' ?></span></div>
+        <?php if (!empty($d['show_vat'])): ?>
+          <div class="d-sum"><span>VAT 18%</span><span><?= h(money($d['vat'], $d['cur'])) ?></span></div>
+        <?php endif; ?>
         <div class="d-total"><span>Total</span><span><?= h(money($d['total'], $d['cur'])) ?></span></div>
+        <?php render_fx_equiv($d); ?>
         <?php render_settlement($d); ?>
         <p class="d-payhint"><?= h($brand['payment_note'] ?? '') ?></p>
       </div>
@@ -196,6 +214,9 @@ function render_sheet_ledger(array $d): void
     <label class="wide">From <b><?= h($doc['party_name'] ?? '') ?></b></label>
     <div class="ledger-amt"><span><?= h($d['cur']) ?></span><strong><?= h(number_format($d['total'], $d['cur'] === 'USD' ? 2 : 0)) ?></strong></div>
   </div>
+  <?php if ($doc['kind'] !== 'letter'): ?>
+    <div style="text-align:right;margin:-4px 0 10px"><?php render_fx_equiv($d); ?></div>
+  <?php endif; ?>
   <div class="ledger-words">
     <span>Amount in words</span>
     <b><?= h(amount_in_words($d['total'], $d['cur'])) ?></b>
@@ -208,8 +229,10 @@ function render_sheet_ledger(array $d): void
     <div class="ledger-bottom">
       <table class="ledger-acct">
         <tr><th>Acct.</th><td><?= h($brand['account_number'] ?: '-') ?></td></tr>
-        <tr><th>Paid</th><td><?= h(money($d['settlement']['received'] ?? ($doc['kind'] === 'receipt' ? $d['total'] : $d['paid']), $d['cur'])) ?></td></tr>
-        <tr><th>Due</th><td><?= h(money($d['settlement']['balance'] ?? ($doc['kind'] === 'receipt' ? 0 : $d['balance']), $d['cur'])) ?></td></tr>
+        <?php if ($doc['kind'] === 'receipt'): ?>
+          <tr><th>RECEIVED</th><td><?= h(money($d['settlement']['received'] ?? $d['total'], $d['cur'])) ?></td></tr>
+          <tr><th>DUE</th><td><?= h(money($d['settlement']['balance'] ?? 0, $d['cur'])) ?></td></tr>
+        <?php endif; ?>
       </table>
       <div class="ledger-pay">
         <?php foreach (['cash' => 'Cash', 'cheque' => 'Cheque', 'mobile-money' => 'Mobile money', 'bank-transfer' => 'Bank'] as $k => $label): ?>
@@ -268,8 +291,9 @@ function render_sheet_bill(array $d, string $variant): void
       <div class="bill-words"><span>In words</span><b><?= h(amount_in_words($d['total'], $d['cur'])) ?></b></div>
       <div class="bill-sums">
         <div><span>Sub total</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
-        <?php if ($d['vat']): ?><div><span>VAT 18%</span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
+        <?php if (!empty($d['show_vat'])): ?><div><span>VAT 18%</span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
         <div class="due"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
+        <?php render_fx_equiv($d); ?>
         <?php render_settlement($d); ?>
       </div>
     </div>
@@ -301,7 +325,7 @@ function render_twin_half(array $d, string $label): void
       <div class="twin-fields">
         <div><span>Name</span><b><?= h($doc['party_name'] ?? '') ?></b></div>
         <div><span>Amount</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
-        <div><span>Due date</span><b><?= h($doc['due_date'] ? format_date($doc['due_date']) : '-') ?></b></div>
+        <?php render_fx_equiv($d); ?>
         <div><span>Paid how</span><b><?= h($d['methods'][$d['method']] ?? ($d['method'] ?: '-')) ?></b></div>
       </div>
       <?php if ($doc['kind'] === 'letter'): ?>
@@ -365,8 +389,9 @@ function render_sheet_stripe(array $d): void
         </div>
         <div class="stripe-fare">
           <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
-          <?php if ($d['vat']): ?><div><span>VAT</span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
+          <?php if (!empty($d['show_vat'])): ?><div><span>VAT</span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
           <div class="stripe-total"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
+          <?php render_fx_equiv($d); ?>
         </div>
       </div>
     <?php endif; ?>
@@ -419,6 +444,7 @@ function render_sheet_estate(array $d): void
       <div class="estate-total">
         <span>Harvest total</span>
         <b><?= h(money($d['total'], $d['cur'])) ?></b>
+        <?php render_fx_equiv($d); ?>
         <small><?= h(amount_in_words($d['total'], $d['cur'])) ?></small>
       </div>
     </div>
@@ -467,7 +493,10 @@ function render_sheet_night(array $d): void
           <p><?= h(amount_in_words($d['total'], $d['cur'])) ?></p>
           <?php render_settlement($d); ?>
         </div>
-        <b><?= h(money($d['total'], $d['cur'])) ?></b>
+        <div>
+          <b><?= h(money($d['total'], $d['cur'])) ?></b>
+          <?php render_fx_equiv($d); ?>
+        </div>
       </div>
     <?php endif; ?>
     <p class="night-foot"><?= h($brand['phone']) ?> · <?= h($brand['email']) ?> · <?= h($brand['website']) ?></p>

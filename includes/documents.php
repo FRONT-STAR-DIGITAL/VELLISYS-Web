@@ -11,6 +11,16 @@ function line_amount(array $item): float
     return round((float) ($item['qty'] ?? 0) * (float) ($item['rate'] ?? 0), 2);
 }
 
+function line_item_name(array $item): string
+{
+    return trim((string) ($item['item_name'] ?? ''));
+}
+
+function line_item_description(array $item): string
+{
+    return trim((string) ($item['description'] ?? ''));
+}
+
 function doc_subtotal(array $items): float
 {
     $sum = 0.0;
@@ -37,6 +47,19 @@ function doc_vat(array $items, float $rate): float
 function doc_total(array $items, float $rate): float
 {
     return round(doc_subtotal($items) + doc_vat($items, $rate), 2);
+}
+
+function doc_shows_vat(array $doc): bool
+{
+    if ((float) ($doc['vat_rate'] ?? 0) <= 0) {
+        return false;
+    }
+    foreach ($doc['items'] ?? [] as $item) {
+        if (!empty($item['taxed'])) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function document_totals(array $doc): array
@@ -110,7 +133,7 @@ function create_document(array $data): int
     $cid = current_company_id();
 
     if ($kind === 'letter') {
-        $items = $items ?: [['description' => '-', 'qty' => 1, 'unit' => 'lot', 'rate' => 0, 'taxed' => 0]];
+        $items = $items ?: [['item_name' => '', 'description' => '-', 'qty' => 1, 'unit' => 'lot', 'rate' => 0, 'taxed' => 0]];
         $rate = 0;
     }
     if ($kind === 'receipt') {
@@ -126,7 +149,7 @@ function create_document(array $data): int
             if ($inv) {
                 $label = 'Payment on ' . $inv['number'];
             }
-            $items = [['description' => $label, 'qty' => 1, 'unit' => 'lot', 'rate' => $alloc, 'taxed' => 0]];
+            $items = [['item_name' => 'Receipt', 'description' => $label, 'qty' => 1, 'unit' => 'lot', 'rate' => $alloc, 'taxed' => 0]];
         }
     }
 
@@ -145,8 +168,9 @@ function create_document(array $data): int
 function insert_document_items(int $id, array $items): void
 {
     foreach ($items as $item) {
+        $name = trim((string) ($item['item_name'] ?? ''));
         $desc = trim((string) ($item['description'] ?? ''));
-        if ($desc === '') {
+        if ($name === '' && $desc === '') {
             continue;
         }
         $qty = (float) ($item['qty'] ?? 1);
@@ -154,9 +178,9 @@ function insert_document_items(int $id, array $items): void
         $itemRate = (float) ($item['rate'] ?? 0);
         $taxed = empty($item['taxed']) ? 0 : 1;
         db_exec(
-            'INSERT INTO document_items (document_id, description, qty, unit, rate, taxed) VALUES (?,?,?,?,?,?)',
-            'isdsdi',
-            [$id, $desc, $qty, $unit, $itemRate, $taxed]
+            'INSERT INTO document_items (document_id, item_name, description, qty, unit, rate, taxed) VALUES (?,?,?,?,?,?,?)',
+            'issdsdi',
+            [$id, $name, $desc, $qty, $unit, $itemRate, $taxed]
         );
     }
 }
@@ -209,7 +233,7 @@ function update_document(int $id, array $data): void
     }
     $items = $data['items'] ?? $doc['items'];
     if ($doc['kind'] === 'letter') {
-        $items = $items ?: [['description' => '-', 'qty' => 1, 'unit' => 'lot', 'rate' => 0, 'taxed' => 0]];
+        $items = $items ?: [['item_name' => '', 'description' => '-', 'qty' => 1, 'unit' => 'lot', 'rate' => 0, 'taxed' => 0]];
         $rate = 0;
     }
     if ($doc['kind'] === 'receipt') {
@@ -382,6 +406,7 @@ function pay_creditor(int $expenseId, float $amount, string $method, string $ref
         'payment_ref' => $ref ?: null,
         'allocated_amount' => $amount,
         'items' => [[
+            'item_name' => 'Payment',
             'description' => 'Payment on ' . $doc['number'],
             'qty' => 1,
             'unit' => 'lot',
@@ -409,6 +434,7 @@ function convert_quotation_to_invoice(int $quoteId): int
     $items = [];
     foreach ($doc['items'] as $item) {
         $items[] = [
+            'item_name' => $item['item_name'] ?? '',
             'description' => $item['description'],
             'qty' => $item['qty'],
             'unit' => $item['unit'],
@@ -459,6 +485,7 @@ function receive_on_invoice(int $invoiceId, float $amount, string $method, strin
         'payment_ref' => $ref ?: null,
         'allocated_amount' => $amount,
         'items' => [[
+            'item_name' => $part ? 'Part payment' : 'Payment',
             'description' => $label,
             'qty' => 1,
             'unit' => 'lot',
@@ -500,6 +527,53 @@ function attach_document_totals(array $rows): array
     foreach ($paidRows as $p) {
         $paidBy[(int) $p['related_id']] = (float) $p['paid'];
     }
+    $relIds = [];
+    foreach ($rows as $row) {
+        if (($row['kind'] ?? '') === 'receipt' && !empty($row['related_id'])) {
+            $relIds[] = (int) $row['related_id'];
+        }
+    }
+    $relIds = array_values(array_unique($relIds));
+    $relTotals = [];
+    $relPaid = [];
+    if ($relIds) {
+        $relPh = implode(',', array_fill(0, count($relIds), '?'));
+        $relTypes = str_repeat('i', count($relIds));
+        $relDocs = db_all(
+            "SELECT id, vat_rate FROM documents WHERE company_id = ? AND kind = 'invoice' AND id IN ($relPh)",
+            'i' . $relTypes,
+            array_merge([current_company_id()], $relIds)
+        );
+        $relSums = db_all(
+            "SELECT document_id,
+                    COALESCE(SUM(ROUND(qty * rate, 2)), 0) AS net,
+                    COALESCE(SUM(CASE WHEN taxed = 1 THEN ROUND(qty * rate, 2) ELSE 0 END), 0) AS taxed_net
+             FROM document_items WHERE document_id IN ($relPh)
+             GROUP BY document_id",
+            $relTypes,
+            $relIds
+        );
+        $relAgg = [];
+        foreach ($relSums as $sum) {
+            $relAgg[(int) $sum['document_id']] = $sum;
+        }
+        foreach ($relDocs as $inv) {
+            $agg = $relAgg[(int) $inv['id']] ?? ['net' => 0, 'taxed_net' => 0];
+            $net = round((float) $agg['net'], 2);
+            $vat = round((float) $agg['taxed_net'] * (float) ($inv['vat_rate'] ?? 0), 2);
+            $relTotals[(int) $inv['id']] = round($net + $vat, 2);
+        }
+        $payRows = db_all(
+            "SELECT related_id, COALESCE(SUM(COALESCE(allocated_amount, 0)), 0) AS paid
+             FROM documents WHERE kind = 'receipt' AND status = 'issued' AND company_id = ? AND related_id IN ($relPh)
+             GROUP BY related_id",
+            'i' . $relTypes,
+            array_merge([current_company_id()], $relIds)
+        );
+        foreach ($payRows as $p) {
+            $relPaid[(int) $p['related_id']] = (float) $p['paid'];
+        }
+    }
     foreach ($rows as &$row) {
         $agg = $byDoc[(int) $row['id']] ?? ['net' => 0, 'taxed_net' => 0];
         $net = round((float) $agg['net'], 2);
@@ -509,6 +583,16 @@ function attach_document_totals(array $rows): array
         if ($row['kind'] === 'invoice' || $row['kind'] === 'expense') {
             $row['paid'] = $paidBy[(int) $row['id']] ?? 0.0;
             $row['balance'] = max(0, round((float) $row['totals']['total'] - (float) $row['paid'], 2));
+        } elseif ($row['kind'] === 'receipt') {
+            $received = (float) ($row['allocated_amount'] ?? 0);
+            if ($received <= 0) {
+                $received = (float) $row['totals']['total'];
+            }
+            $row['paid'] = $received;
+            $rid = (int) ($row['related_id'] ?? 0);
+            $row['balance'] = ($rid && isset($relTotals[$rid]))
+                ? max(0, round($relTotals[$rid] - ($relPaid[$rid] ?? 0), 2))
+                : 0.0;
         } else {
             $row['paid'] = 0;
             $row['balance'] = $row['totals']['total'];
@@ -565,6 +649,9 @@ function invoice_status_label(array $doc): string
 {
     if ($doc['status'] === 'void') {
         return 'Void';
+    }
+    if (($doc['kind'] ?? '') === 'receipt') {
+        return ((float) ($doc['balance'] ?? 0)) > 0.009 ? 'Partially cleared' : 'Cleared';
     }
     if (!in_array($doc['kind'], ['invoice', 'expense'], true)) {
         return ucfirst($doc['status']);

@@ -33,22 +33,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect($editId ? 'document_new.php?id=' . $editId : 'document_new.php?kind=' . $kind);
     }
     $items = [];
+    $names = $_POST['item_name'] ?? [];
     $descs = $_POST['item_desc'] ?? [];
     $qtys = $_POST['item_qty'] ?? [];
-    $units = $_POST['item_unit'] ?? [];
     $rates = $_POST['item_rate'] ?? [];
     $taxed = $_POST['item_taxed'] ?? [];
-    foreach ($descs as $i => $desc) {
-        $desc = trim((string) $desc);
-        if ($desc === '') {
+    $anyTaxed = false;
+    $keys = array_unique(array_merge(array_keys((array) $names), array_keys((array) $descs)));
+    sort($keys, SORT_NUMERIC);
+    foreach ($keys as $i) {
+        $name = trim((string) ($names[$i] ?? ''));
+        $desc = trim((string) ($descs[$i] ?? ''));
+        if ($name === '' && $desc === '') {
             continue;
         }
+        $isTaxed = !empty($taxed[$i]) ? 1 : 0;
+        if ($isTaxed) {
+            $anyTaxed = true;
+        }
         $items[] = [
+            'item_name' => $name,
             'description' => $desc,
             'qty' => round((float) ($qtys[$i] ?? 1), 2),
-            'unit' => (string) ($units[$i] ?? 'lot'),
+            'unit' => 'lot',
             'rate' => money_parse((string) ($rates[$i] ?? '0')),
-            'taxed' => !empty($taxed[$i]) ? 1 : 0,
+            'taxed' => $isTaxed,
         ];
     }
     $allocPosted = $kind === 'receipt' ? money_parse(post('allocated_amount')) : 0.0;
@@ -62,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'party_id' => $partyId,
         'date' => post('date') ?: today(),
         'due_date' => post('due_date') ?: null,
-        'vat_rate' => post('taxed_doc') === '1' ? $vatDefault : 0.0,
+        'vat_rate' => $anyTaxed ? $vatDefault : 0.0,
         'currency' => post('currency') ?: default_currency(),
         'notes' => post('notes') ?: null,
         'subject' => post('subject') ?: null,
@@ -73,10 +82,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'allocated_amount' => $kind === 'receipt' ? $allocPosted : null,
         'expense_category' => post('expense_category') ?: null,
         'letter_template' => post('letter_template') ?: null,
-        'doc_template' => post('doc_template') ?: doc_template_key(),
+        'doc_template' => doc_template_key(),
         'items' => $items,
     ];
     try {
+        if (post('doc_template') !== '') {
+            apply_company_doc_template(post('doc_template'));
+        }
+        if (post('fx_ugx_per_usd') !== '') {
+            apply_fx_rate(post('fx_ugx_per_usd'));
+        }
+        $payload['doc_template'] = doc_template_key();
         if ($existing) {
             update_document($editId, $payload);
             $id = $editId;
@@ -109,10 +125,9 @@ if ($existing && $kind === 'letter') {
 }
 $lines = $kind === 'letter' ? [] : ($existing['items'] ?? []);
 while ($kind !== 'letter' && count($lines) < 4) {
-    $lines[] = ['description' => '', 'qty' => 1, 'unit' => 'lot', 'rate' => '', 'taxed' => $vatDefault > 0 && $kind !== 'receipt'];
+    $lines[] = ['item_name' => '', 'description' => '', 'qty' => 1, 'unit' => 'lot', 'rate' => '', 'taxed' => 0];
 }
 $heading = $existing ? 'Edit ' . strtolower($meta['singular']) : $meta['verb'];
-$vatOn = $existing ? ((float) $existing['vat_rate'] > 0) : true;
 $docCurrency = $existing ? doc_currency($existing) : default_currency();
 $docTpl = $existing ? doc_template_key($existing) : doc_template_key();
 $allocValue = $existing ? (string) ($existing['allocated_amount'] ?: ($existing['totals']['total'] ?? '')) : '';
@@ -130,13 +145,13 @@ layout_start($heading, $user, ['kind' => $kind]);
       } elseif ($kind === 'receipt') {
           echo 'Link an open invoice to record a part payment. Anything still unpaid stays on Debtors.';
       } else {
-          echo 'Client, description, amount' . ($kind === 'invoice' ? ', due date' : '') . '. Numbering and branding are applied for you.';
+          echo 'Client, item, description, amount' . ($kind === 'invoice' ? ', due date' : '') . '. Numbering and branding are applied for you.';
       }
     ?></p>
   </div>
 </div>
 
-<form class="card form-wide" method="post" <?= $kind === 'letter' ? 'data-letter-templates' : '' ?> <?= $kind === 'receipt' ? 'data-receipt-form' : '' ?>>
+<form class="card form-wide" method="post" <?= $kind === 'letter' ? 'data-letter-templates' : '' ?> <?= $kind === 'receipt' ? 'data-receipt-form' : '' ?> data-fx-form>
   <?= csrf_field() ?>
   <input type="hidden" name="kind" value="<?= h($kind) ?>">
   <?php if ($existing): ?>
@@ -194,21 +209,31 @@ layout_start($heading, $user, ['kind' => $kind]);
     <?php if ($kind !== 'letter'): ?>
       <div>
         <label for="currency">Currency</label>
-        <select id="currency" name="currency">
+        <select id="currency" name="currency" data-fx-currency="<?= h($docCurrency) ?>">
           <?php foreach (currencies() as $code => $label): ?>
             <option value="<?= h($code) ?>" <?= $docCurrency === $code ? 'selected' : '' ?>><?= h($label) ?></option>
           <?php endforeach; ?>
         </select>
+        <p class="hint" data-fx-preview></p>
       </div>
       <div>
-        <label for="doc_template">Design</label>
-        <select id="doc_template" name="doc_template">
-          <?php foreach (doc_templates() as $key => $info): ?>
-            <option value="<?= h($key) ?>" <?= $docTpl === $key ? 'selected' : '' ?>><?= h($info['name']) ?></option>
-          <?php endforeach; ?>
-        </select>
+        <label for="fx_ugx_per_usd">1 USD equals</label>
+        <div class="fx-row">
+          <input id="fx_ugx_per_usd" name="fx_ugx_per_usd" data-fx-rate inputmode="decimal" value="<?= h(rtrim(rtrim(number_format(fx_ugx_per_usd(), 4, '.', ''), '0'), '.')) ?>">
+          <span>UGX</span>
+        </div>
+        <p class="hint">Switching UGX and USD converts unit prices and totals at this rate, on every document.</p>
       </div>
     <?php endif; ?>
+    <div>
+      <label for="doc_template">Design</label>
+      <select id="doc_template" name="doc_template">
+        <?php foreach (doc_templates() as $key => $info): ?>
+          <option value="<?= h($key) ?>" <?= $docTpl === $key ? 'selected' : '' ?>><?= h($info['name']) ?></option>
+        <?php endforeach; ?>
+      </select>
+      <p class="hint">This layout is used on every document, not only this one.</p>
+    </div>
     <?php if ($kind === 'expense'): ?>
       <div>
         <label for="expense_category">Category</label>
@@ -257,46 +282,53 @@ layout_start($heading, $user, ['kind' => $kind]);
     <label for="body">Body</label>
     <textarea id="body" name="body" rows="12" required><?= h($prefillTpl['body']) ?></textarea>
   <?php else: ?>
-    <?php if ($kind !== 'receipt'): ?>
-      <label class="check">
-        <input type="checkbox" name="taxed_doc" value="1" <?= $vatOn ? 'checked' : '' ?>>
-        VAT 18% on taxed lines
-      </label>
-    <?php endif; ?>
-    <table class="grid lines" id="lines">
+    <div class="lines-wrap">
+    <table class="grid lines" id="lines" data-lines>
       <thead>
         <tr>
-          <th>Item / description</th>
+          <th>Item</th>
+          <th>Description</th>
           <th>Qty</th>
-          <th>Unit</th>
-          <th>Unit price</th>
-          <th>VAT</th>
+          <th class="right">Unit price</th>
+          <th class="right">Total Amt</th>
+          <th class="center">VAT</th>
         </tr>
       </thead>
       <tbody>
-        <?php foreach ($lines as $i => $line): ?>
+        <?php foreach ($lines as $i => $line):
+            $qty = (float) ($line['qty'] ?? 1);
+            $rate = (float) ($line['rate'] ?? 0);
+            $lineTotal = $qty * $rate;
+            ?>
           <tr>
-            <td><input name="item_desc[<?= $i ?>]" placeholder="Coffee Estate Share" value="<?= h((string) ($line['description'] ?? '')) ?>"></td>
+            <td><input name="item_name[<?= $i ?>]" placeholder="Item" value="<?= h((string) ($line['item_name'] ?? '')) ?>"></td>
+            <td><textarea name="item_desc[<?= $i ?>]" rows="4" placeholder="Description"><?= h((string) ($line['description'] ?? '')) ?></textarea></td>
             <td>
               <div class="qty-wrap">
                 <button type="button" class="qty-btn" data-qty-delta="-1" aria-label="Decrease quantity">-</button>
-                <input name="item_qty[<?= $i ?>]" type="number" min="0" step="any" inputmode="decimal" value="<?= h((string) ($line['qty'] ?? 1)) ?>">
+                <input name="item_qty[<?= $i ?>]" type="number" min="0" step="any" inputmode="decimal" value="<?= h((string) ($line['qty'] ?? 1)) ?>" data-line-qty>
                 <button type="button" class="qty-btn" data-qty-delta="1" aria-label="Increase quantity">+</button>
               </div>
             </td>
-            <td><input name="item_unit[<?= $i ?>]" value="<?= h((string) ($line['unit'] ?? 'lot')) ?>"></td>
-            <td><input name="item_rate[<?= $i ?>]" type="number" min="0" step="any" inputmode="decimal" placeholder="0" value="<?= h((string) ($line['rate'] ?? '')) ?>"></td>
-            <td class="center"><input type="checkbox" name="item_taxed[<?= $i ?>]" value="1" <?= !empty($line['taxed']) ? 'checked' : '' ?>></td>
+            <td><input name="item_rate[<?= $i ?>]" type="number" min="0" step="any" inputmode="decimal" placeholder="0" value="<?= h((string) ($line['rate'] ?? '')) ?>" data-line-rate></td>
+            <td class="right mono"><span data-line-total><?= $lineTotal ? h(number_format($lineTotal, 2, '.', ',')) : '0' ?></span></td>
+            <td class="center">
+              <label class="vat-yn">
+                <input type="checkbox" name="item_taxed[<?= $i ?>]" value="1" <?= !empty($line['taxed']) ? 'checked' : '' ?> data-vat-box>
+                <span data-vat-yn><?= !empty($line['taxed']) ? 'Y' : 'N' ?></span>
+              </label>
+            </td>
           </tr>
         <?php endforeach; ?>
       </tbody>
     </table>
+    </div>
     <p class="hint" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <button class="btn ghost sm" type="button" data-add-line><?= icon('plus', 14) ?>Add row</button>
       <?php if ($kind === 'receipt'): ?>
         Lines can be left blank if you set the amount received against an invoice.
       <?php else: ?>
-        Quantity steps in whole numbers; decimals such as 1.5 are allowed. Empty description rows are ignored.
+        Item is the short name. Description has room for a paragraph. Tick VAT for Y; leave it clear for N. If every line is N, VAT is left off the printed or shared sheet.
       <?php endif; ?>
     </p>
     <label for="notes">Comments on the document</label>

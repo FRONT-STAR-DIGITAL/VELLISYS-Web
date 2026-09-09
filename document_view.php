@@ -45,9 +45,9 @@ if ($doc['kind'] === 'invoice') {
     $ledeExtra = ' · Balance ' . money(invoice_balance($doc), doc_currency($doc));
 } elseif ($doc['kind'] === 'expense') {
     $ledeExtra = ' · Balance ' . money(expense_balance($doc), doc_currency($doc));
-} elseif ($doc['kind'] === 'receipt' && !empty($doc['settlement']['invoice_number'])) {
-    $s = $doc['settlement'];
-    $ledeExtra = ' · Received ' . money($s['received'], doc_currency($doc)) . ' on ' . $s['invoice_number'] . ' · Still due ' . money($s['balance'], doc_currency($doc));
+} elseif ($doc['kind'] === 'receipt') {
+    $s = $doc['settlement'] ?? [];
+    $ledeExtra = ' · RECEIVED ' . money($s['received'] ?? $doc['paid'], doc_currency($doc)) . ' · DUE ' . money($s['balance'] ?? 0, doc_currency($doc));
 }
 ?>
 <div class="page-head">

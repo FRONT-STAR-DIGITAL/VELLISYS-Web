@@ -24,9 +24,10 @@ $income = 0;
 $outputVat = 0;
 $debtors = [];
 $aging = ['Current' => 0, '1-30' => 0, '31-60' => 0, '61-90' => 0, '90+' => 0];
+$base = default_currency();
 foreach ($invoices as $d) {
-    $income += $d['totals']['net'];
-    $outputVat += $d['totals']['vat'];
+    $income += convert_money($d['totals']['net'], doc_currency($d), $base);
+    $outputVat += convert_money($d['totals']['vat'], doc_currency($d), $base);
     if ($d['balance'] > 0) {
         $age = $d['due_date'] ? (int) floor((time() - strtotime($d['due_date'])) / 86400) : 0;
         $bucket = 'Current';
@@ -39,7 +40,7 @@ foreach ($invoices as $d) {
         } elseif ($age > 0) {
             $bucket = '1-30';
         }
-        $aging[$bucket] += $d['balance'];
+        $aging[$bucket] += convert_money($d['balance'], doc_currency($d), $base);
         $debtors[] = $d + ['bucket' => $bucket, 'age' => max(0, $age)];
     }
 }
@@ -48,17 +49,17 @@ $costs = 0;
 $inputVat = 0;
 $byCat = [];
 foreach ($expenses as $d) {
-    $costs += $d['totals']['net'];
-    $inputVat += $d['totals']['vat'];
+    $costs += convert_money($d['totals']['net'], doc_currency($d), $base);
+    $inputVat += convert_money($d['totals']['vat'], doc_currency($d), $base);
     $cat = $d['expense_category'] ?: 'Other';
-    $byCat[$cat] = ($byCat[$cat] ?? 0) + $d['totals']['total'];
+    $byCat[$cat] = ($byCat[$cat] ?? 0) + convert_money($d['totals']['total'], doc_currency($d), $base);
 }
 arsort($byCat);
 
 $cashIn = 0;
 $cashOut = 0;
 foreach ($receipts as $d) {
-    $amt = (float) ($d['allocated_amount'] ?: $d['totals']['total']);
+    $amt = convert_money((float) ($d['allocated_amount'] ?: $d['totals']['total']), doc_currency($d), $base);
     if (($d['related_kind'] ?? '') === 'expense') {
         $cashOut += $amt;
     } else {
@@ -75,18 +76,18 @@ foreach (array_merge($invoices, $expenses, $receipts) as $d) {
 }
 foreach ($invoices as $d) {
     $key = substr((string) $d['date'], 0, 10);
-    $series[$key]['invoiced'] += $d['totals']['total'];
+    $series[$key]['invoiced'] += convert_money($d['totals']['total'], doc_currency($d), $base);
 }
 foreach ($expenses as $d) {
     $key = substr((string) $d['date'], 0, 10);
-    $series[$key]['expenses'] += $d['totals']['total'];
+    $series[$key]['expenses'] += convert_money($d['totals']['total'], doc_currency($d), $base);
 }
 foreach ($receipts as $d) {
     if (($d['related_kind'] ?? '') === 'expense') {
         continue;
     }
     $key = substr((string) $d['date'], 0, 10);
-    $series[$key]['cash'] += (int) ($d['allocated_amount'] ?: $d['totals']['total']);
+    $series[$key]['cash'] += convert_money((float) ($d['allocated_amount'] ?: $d['totals']['total']), doc_currency($d), $base);
 }
 ksort($series);
 if (count($series) > 45) {
@@ -119,7 +120,7 @@ layout_start('Reports', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('reports') ?>Reports</h1>
-    <p class="lede">Time series, mix of spend, and aging - for the dates you pick.</p>
+    <p class="lede">Time series, mix of spend, and aging - for the dates you pick. Mixed UGX and USD are converted at <?= h(number_format(fx_ugx_per_usd(), fx_ugx_per_usd() == floor(fx_ugx_per_usd()) ? 0 : 2, '.', ',')) ?> UGX / USD.</p>
   </div>
   <a class="btn ghost" href="<?= h(export_query('reports')) ?>"><?= icon('download', 16) ?>Export CSV</a>
 </div>

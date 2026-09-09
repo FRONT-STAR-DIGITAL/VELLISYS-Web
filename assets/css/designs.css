@@ -11,7 +11,7 @@
 .d-split { display: flex; gap: 24px; margin-top: 8px; }
 .d-notes { flex: 1; }
 .d-notes-body { padding: 10px 6px; white-space: pre-wrap; }
-.d-sums { width: 240px; padding-top: 8px; }
+.d-sums { width: 260px; padding-top: 8px; min-width: 220px; }
 .d-sum { display: flex; justify-content: space-between; padding: 5px 4px; }
 .d-total { margin-top: 6px; color: var(--on-brand); background: var(--brand); font-weight: 700; display: flex; justify-content: space-between; padding: 8px 10px; }
 .d-payhint { font-size: 10px; margin-top: 8px; }
@@ -19,18 +19,24 @@
 .d-foot .thanks { font-weight: 700; font-style: italic; font-size: 14px; }
 .d-lines { width: 100%; border-collapse: collapse; font-size: 12px; }
 .d-lines th, .d-lines td { padding: 7px 8px; }
-.d-lines td { height: 28px; }
+.d-lines td { min-height: 28px; height: auto; vertical-align: top; }
 .d-lines .c { text-align: center; }
 .d-lines .r { text-align: right; }
+.d-lines .item { font-weight: 700; }
 .d-lines.tiny { font-size: 10px; }
-.d-lines.tiny td { height: 22px; padding: 4px 6px; }
+.d-lines.tiny td { min-height: 22px; height: auto; padding: 4px 6px; }
 .d-letter { padding: 8px 4px 24px; }
 .d-letter-sub { font-weight: 700; }
 .d-letter-body { white-space: pre-wrap; line-height: 1.65; }
-.d-settle { margin-top: 10px; border-top: 1px solid color-mix(in srgb, var(--brand-3) 22%, #fff); padding-top: 8px; }
-.d-settle .d-sum span:last-child { font-variant-numeric: tabular-nums; }
-.d-balance { font-weight: 700; }
-.d-balance.is-open { color: #7a1f1a; }
+.d-lines td.desc { white-space: pre-wrap; word-break: break-word; line-height: 1.45; }
+.d-rd { margin-top: 10px; }
+.d-rd-row { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 6px 0; font-weight: 700; letter-spacing: .04em; }
+.d-rd-row span { flex: 0 0 auto; }
+.d-rd-row b { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.d-rd-row.is-open { color: #7a1f1a; }
+.bill-sums .d-rd { margin-top: 8px; padding-top: 6px; border-top: 1px solid #ddd; }
+.d-fx { font-size: 11px; color: #555; margin-top: 6px; font-weight: 600; }
+.d-fx em { font-style: normal; font-weight: 500; color: #777; }
 
 /* Colour ledger */
 .sheet-ledger { background: var(--brand-tint); color: var(--brand-3); }
@@ -149,8 +155,9 @@
 .night-total { display: flex; justify-content: space-between; align-items: center; gap: 16px; background: var(--brand-3); color: var(--on-brand-3); padding: 14px 16px; margin-top: 12px; }
 .night-total span { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--brand-2); }
 .night-total b { font-size: 22px; color: var(--brand-2); }
-.night-total .d-settle { color: inherit; border-color: color-mix(in srgb, var(--brand-2) 35%, transparent); }
-.night-total .d-balance.is-open { color: #f3c4be; }
+.night-total .d-rd { color: inherit; }
+.night-total .d-rd-row.is-open { color: #f3c4be; }
+.night-total .d-fx, .night-total .d-fx em { color: inherit; }
 
 .design-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 12px 0 8px; }
 .design-card { margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; cursor: pointer; display: flex; flex-direction: column; font-weight: 500; }

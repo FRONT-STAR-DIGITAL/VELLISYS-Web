@@ -53,8 +53,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if ($error === '') {
             db_exec(
-                'UPDATE branding SET tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, currency=? WHERE company_id=?',
-                'sssssssssssssssssssi',
+                'UPDATE branding SET tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, currency=?, fx_ugx_per_usd=? WHERE company_id=?',
+                'ssssssssssssssssssdi',
                 [
                     post('tagline'),
                     post('tin'),
@@ -75,6 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     post('payment_note'),
                     post('invoice_comments'),
                     strtoupper(post('currency') ?: 'UGX') === 'USD' ? 'USD' : 'UGX',
+                    parse_fx_rate(post('fx_ugx_per_usd')),
                     $id,
                 ]
             );
@@ -236,6 +237,13 @@ layout_admin_start($company['name'], $user);
           <option value="<?= h($code) ?>" <?= ($brand['currency'] ?? 'UGX') === $code ? 'selected' : '' ?>><?= h($label) ?></option>
         <?php endforeach; ?>
       </select>
+    </div>
+    <div>
+      <label for="fx_ugx_per_usd">1 USD equals</label>
+      <div class="fx-row">
+        <input id="fx_ugx_per_usd" name="fx_ugx_per_usd" inputmode="decimal" value="<?= h(rtrim(rtrim(number_format((float) ($brand['fx_ugx_per_usd'] ?? 3700), 4, '.', ''), '0'), '.')) ?>">
+        <span>UGX</span>
+      </div>
     </div>
     <div>
       <label for="tin">TIN</label>

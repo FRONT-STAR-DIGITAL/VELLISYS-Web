@@ -34,8 +34,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if ($error === '') {
         db_exec(
-            'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, currency=?, letter_templates=?, doc_template=? WHERE company_id=?',
-            'ssssssssssssssssssssssi',
+            'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, currency=?, fx_ugx_per_usd=?, letter_templates=?, doc_template=? WHERE company_id=?',
+            'ssssssssssssssssssssdssi',
             [
                 post('name'),
                 post('tagline'),
@@ -57,13 +57,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 post('payment_note'),
                 post('invoice_comments'),
                 strtoupper(post('currency') ?: 'UGX') === 'USD' ? 'USD' : 'UGX',
+                parse_fx_rate(post('fx_ugx_per_usd')),
                 encode_letter_templates(isset($_POST['tpl']) && is_array($_POST['tpl']) ? $_POST['tpl'] : []),
                 array_key_exists(post('doc_template'), doc_templates()) ? post('doc_template') : 'folio',
                 current_company_id(),
             ]
         );
+        $tpl = array_key_exists(post('doc_template'), doc_templates()) ? post('doc_template') : 'folio';
+        db_exec('UPDATE documents SET doc_template = ? WHERE company_id = ?', 'si', [$tpl, current_company_id()]);
         branding(true);
-        flash('Settings saved. Desk and document designs now use your brand colours.');
+        flash('Settings saved. This design now prints on every document. Amounts convert at your UGX / USD rate.');
         redirect('settings.php');
     }
 }
@@ -74,7 +77,7 @@ layout_start('Settings', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('settings') ?>Settings</h1>
-    <p class="lede">Letterhead, colours and the account that sends mail. Primary, accent and deep colours paint the desk and every document design.</p>
+    <p class="lede">Letterhead, colours, the UGX / USD rate, and the account that sends mail. The design you pick prints on every document.</p>
   </div>
 </div>
 
@@ -205,6 +208,14 @@ layout_start('Settings', $user);
           </select>
         </div>
         <div>
+          <label for="fx_ugx_per_usd">1 USD equals</label>
+          <div class="fx-row">
+            <input id="fx_ugx_per_usd" name="fx_ugx_per_usd" inputmode="decimal" value="<?= h(rtrim(rtrim(number_format(fx_ugx_per_usd(), 4, '.', ''), '0'), '.')) ?>">
+            <span>UGX</span>
+          </div>
+          <p class="hint">Used whenever a document switches between UGX and USD, and on printed equivalents.</p>
+        </div>
+        <div>
           <label for="prefix">Document prefix</label>
           <input id="prefix" name="prefix" maxlength="12" value="<?= h($b['prefix']) ?>">
         </div>
@@ -240,7 +251,7 @@ layout_start('Settings', $user);
 
     <section class="card settings-card" id="templates">
       <h2><?= icon('palette') ?>Document designs</h2>
-      <p class="lede">Pick how invoices, quotations, receipts and expenses print. Each layout uses the three brand colours above. Correspondence stays fully editable - only the headed paper around it changes.</p>
+      <p class="lede">This design is used on every invoice, quotation, receipt, expense and headed note. Changing it here reprints the whole books in that layout. Correspondence text stays editable - only the paper around it changes.</p>
       <div class="design-grid">
         <?php
         $currentDesign = doc_template_key(['doc_template' => $b['doc_template'] ?? 'folio']);

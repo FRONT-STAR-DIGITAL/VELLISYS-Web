@@ -76,9 +76,9 @@ if ($type === 'document') {
             $doc['number'],
             $doc['date'],
             $doc['party_name'],
+            trim((string) ($item['item_name'] ?? '')),
             $item['description'],
             format_qty($item['qty']),
-            $item['unit'],
             $item['rate'],
             line_amount($item),
             !empty($item['taxed']) ? 'Y' : 'N',
@@ -87,7 +87,7 @@ if ($type === 'document') {
     }
     csv_download(
         $doc['number'] . '.csv',
-        ['Number', 'Date', 'Party', 'Item / description', 'Qty', 'Unit', 'Unit price', 'Full price', 'VAT line', 'Currency'],
+        ['Number', 'Date', 'Party', 'Item', 'Description', 'Qty', 'Unit price', 'Total Amt', 'VAT', 'Currency'],
         $rows
     );
 }
