@@ -18,10 +18,10 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
 ?>
 <div class="page-head">
   <div>
-    <h1><?= h($meta['title']) ?></h1>
+    <h1><?= icon($kind) ?><?= h($meta['title']) ?></h1>
     <p class="lede">Every row has actions — view, print, email<?= $kind === 'quotation' ? ', convert to invoice' : '' ?><?= $kind === 'invoice' ? ', take a receipt' : '' ?>, or void.</p>
   </div>
-  <a class="btn" href="<?= h(url('document_new.php?kind=' . $kind)) ?>"><?= h($meta['verb']) ?></a>
+  <a class="btn" href="<?= h(url('document_new.php?kind=' . $kind)) ?>"><?= icon($kind) ?><?= h($meta['verb']) ?></a>
 </div>
 
 <div class="card">

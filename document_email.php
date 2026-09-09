@@ -37,7 +37,7 @@ layout_start('Email ' . $doc['number'], $user, ['kind' => $doc['kind']]);
 ?>
 <div class="page-head">
   <div>
-    <h1>Email <?= h($meta['singular']) ?></h1>
+    <h1><?= icon('send') ?>Email <?= h($meta['singular']) ?></h1>
     <p class="lede">Sends as <strong><?= h($user['name']) ?></strong> &lt;<?= h($user['email']) ?>&gt; — the account you signed in with.</p>
   </div>
 </div>
@@ -45,7 +45,7 @@ layout_start('Email ' . $doc['number'], $user, ['kind' => $doc['kind']]);
 <form class="card form" method="post">
   <?= csrf_field() ?>
   <input type="hidden" name="id" value="<?= $id ?>">
-  <p class="from-line">From <?= h($user['email']) ?></p>
+  <p class="from-line"><?= icon('send', 16) ?>From <?= h($user['email']) ?></p>
   <label for="to">To</label>
   <input id="to" name="to" type="email" required value="<?= h($defaultTo) ?>">
   <label for="subject">Subject</label>
@@ -53,7 +53,7 @@ layout_start('Email ' . $doc['number'], $user, ['kind' => $doc['kind']]);
   <label for="message">Message</label>
   <textarea id="message" name="message" rows="10" required><?= h($defaultBody) ?></textarea>
   <div class="actions" style="margin-top:16px">
-    <button class="btn" type="submit">Send email</button>
+    <button class="btn" type="submit"><?= icon('send') ?>Send email</button>
     <a class="btn ghost" href="<?= h(url('document_view.php?id=' . $id)) ?>">Cancel</a>
   </div>
 </form>

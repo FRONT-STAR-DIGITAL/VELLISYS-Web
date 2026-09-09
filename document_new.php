@@ -68,7 +68,7 @@ layout_start($meta['verb'], $user, ['kind' => $kind]);
 ?>
 <div class="page-head">
   <div>
-    <h1><?= h($meta['verb']) ?></h1>
+    <h1><?= icon($kind) ?><?= h($meta['verb']) ?></h1>
     <p class="lede">Client, description, amount<?= $kind === 'invoice' ? ', due date' : '' ?>. Numbering and branding are applied for you.</p>
   </div>
 </div>
@@ -165,7 +165,7 @@ layout_start($meta['verb'], $user, ['kind' => $kind]);
   <?php endif; ?>
 
   <div class="actions" style="margin-top:16px">
-    <button class="btn" type="submit">Save <?= h(strtolower($meta['singular'])) ?></button>
+    <button class="btn" type="submit"><?= icon('check') ?>Save <?= h(strtolower($meta['singular'])) ?></button>
     <a class="btn ghost" href="<?= h(url('documents.php?kind=' . $kind)) ?>">Cancel</a>
   </div>
 </form>

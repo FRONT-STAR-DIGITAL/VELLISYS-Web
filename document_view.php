@@ -38,7 +38,7 @@ require ROOT_PATH . '/includes/sheet.php';
 ?>
 <div class="page-head">
   <div>
-    <h1><?= h($doc['number']) ?></h1>
+    <h1><?= icon($doc['kind']) ?><?= h($doc['number']) ?></h1>
     <p class="lede">
       <a href="<?= h(url('client_view.php?id=' . $doc['party_id'])) ?>"><?= h($doc['party_name']) ?></a>
       · <?= h(invoice_status_label($doc)) ?>
@@ -56,7 +56,7 @@ require ROOT_PATH . '/includes/sheet.php';
 
 <?php if ($emails): ?>
   <div class="card" style="margin-top:20px">
-    <div class="card-head"><h2>Emails sent</h2></div>
+    <div class="card-head"><h2><?= icon('letter', 16) ?>Emails sent</h2></div>
     <table class="grid">
       <thead><tr><th>When</th><th>To</th><th>Subject</th><th>Status</th></tr></thead>
       <tbody>

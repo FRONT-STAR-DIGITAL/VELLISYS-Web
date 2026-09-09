@@ -15,10 +15,10 @@ layout_start('Clients', $user);
 ?>
 <div class="page-head">
   <div>
-    <h1>Clients</h1>
+    <h1><?= icon('clients') ?>Clients</h1>
     <p class="lede">Open a name to invoice, quote, receipt, write a letter, or see their documents.</p>
   </div>
-  <a class="btn" href="<?= h(url('client_edit.php')) ?>">New client</a>
+  <a class="btn" href="<?= h(url('client_edit.php')) ?>"><?= icon('plus') ?>New client</a>
 </div>
 
 <div class="card">
@@ -46,10 +46,10 @@ layout_start('Clients', $user);
             <td class="mono"><?= (int) $p['invoices'] ?> inv · <?= (int) $p['quotes'] ?> qtn · <?= (int) $p['receipts'] ?> rct</td>
             <td class="row-actions">
               <div class="actions">
-                <a class="btn sm" href="<?= h(url('client_view.php?id=' . $p['id'])) ?>">Open</a>
-                <a class="btn ghost sm" href="<?= h(url('document_new.php?kind=invoice&party=' . $p['id'])) ?>">Invoice</a>
-                <a class="btn ghost sm" href="<?= h(url('document_new.php?kind=quotation&party=' . $p['id'])) ?>">Quote</a>
-                <a class="btn ghost sm" href="<?= h(url('client_edit.php?id=' . $p['id'])) ?>">Edit</a>
+                <a class="btn sm" href="<?= h(url('client_view.php?id=' . $p['id'])) ?>"><?= icon('eye', 14) ?>Open</a>
+                <a class="btn ghost sm" href="<?= h(url('document_new.php?kind=invoice&party=' . $p['id'])) ?>"><?= icon('invoice', 14) ?>Invoice</a>
+                <a class="btn ghost sm" href="<?= h(url('document_new.php?kind=quotation&party=' . $p['id'])) ?>"><?= icon('quotation', 14) ?>Quote</a>
+                <a class="btn ghost sm" href="<?= h(url('client_edit.php?id=' . $p['id'])) ?>"><?= icon('pencil', 14) ?>Edit</a>
               </div>
             </td>
           </tr>

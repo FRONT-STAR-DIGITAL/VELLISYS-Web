@@ -24,7 +24,7 @@ layout_start($party['name'], $user);
 ?>
 <div class="page-head">
   <div>
-    <h1><?= h($party['name']) ?></h1>
+    <h1><?= icon('clients') ?><?= h($party['name']) ?></h1>
     <p class="lede">
       <?= h($party['kind']) ?>
       <?php if ($party['tin']): ?> · TIN <?= h($party['tin']) ?><?php endif; ?>
@@ -34,28 +34,33 @@ layout_start($party['name'], $user);
     <?php if ($party['address']): ?><p class="lede"><?= h($party['address']) ?></p><?php endif; ?>
   </div>
   <div class="actions">
-    <a class="btn ghost" href="<?= h(url('client_edit.php?id=' . $id)) ?>">Edit</a>
+    <a class="btn ghost" href="<?= h(url('client_edit.php?id=' . $id)) ?>"><?= icon('pencil') ?>Edit</a>
   </div>
 </div>
 
 <div class="action-grid">
   <a class="card action-tile" href="<?= h(url('document_new.php?kind=invoice&party=' . $id)) ?>">
+    <?= icon('invoice', 20) ?>
     <span>New invoice</span>
     <strong><?= count($byKind['invoice']) ?> issued</strong>
   </a>
   <a class="card action-tile" href="<?= h(url('document_new.php?kind=quotation&party=' . $id)) ?>">
+    <?= icon('quotation', 20) ?>
     <span>New quotation</span>
     <strong><?= count($byKind['quotation']) ?> issued</strong>
   </a>
   <a class="card action-tile" href="<?= h(url('document_new.php?kind=receipt&party=' . $id)) ?>">
+    <?= icon('receipt', 20) ?>
     <span>New receipt</span>
     <strong><?= count($byKind['receipt']) ?> issued</strong>
   </a>
   <a class="card action-tile" href="<?= h(url('document_new.php?kind=letter&party=' . $id)) ?>">
+    <?= icon('letter', 20) ?>
     <span>New letter</span>
     <strong><?= count($byKind['letter']) ?> issued</strong>
   </a>
   <a class="card action-tile" href="<?= h(url('document_new.php?kind=expense&party=' . $id)) ?>">
+    <?= icon('expense', 20) ?>
     <span>Record expense</span>
     <strong><?= count($byKind['expense']) ?> recorded</strong>
   </a>
@@ -64,8 +69,8 @@ layout_start($party['name'], $user);
 <?php foreach (['invoice' => 'Invoices', 'quotation' => 'Quotations', 'receipt' => 'Receipts', 'letter' => 'Letters', 'expense' => 'Expenses'] as $kind => $title): ?>
   <div class="card" style="margin-top:16px">
     <div class="card-head">
-      <h2><?= h($title) ?></h2>
-      <a class="btn sm" href="<?= h(url('document_new.php?kind=' . $kind . '&party=' . $id)) ?>">Add</a>
+      <h2><?= icon($kind, 16) ?><?= h($title) ?></h2>
+      <a class="btn sm" href="<?= h(url('document_new.php?kind=' . $kind . '&party=' . $id)) ?>"><?= icon('plus', 14) ?>Add</a>
     </div>
     <?php if (!$byKind[$kind]): ?>
       <p class="empty">None yet.</p>

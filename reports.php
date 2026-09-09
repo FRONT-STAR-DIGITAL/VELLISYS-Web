@@ -49,20 +49,20 @@ layout_start('Reports', $user);
 ?>
 <div class="page-head">
   <div>
-    <h1>Reports</h1>
+    <h1><?= icon('reports') ?>Reports</h1>
     <p class="lede">A short set: profit and loss, VAT, debtors, expenses, cash. Not forty reports.</p>
   </div>
 </div>
 
 <div class="stats">
-  <div class="card stat"><span>Income (invoiced, net)</span><strong><?= h(ugx($income)) ?></strong></div>
-  <div class="card stat"><span>Expenses (net)</span><strong><?= h(ugx($costs)) ?></strong></div>
-  <div class="card stat"><span>Profit</span><strong><?= h(ugx($income - $costs)) ?></strong></div>
-  <div class="card stat"><span>VAT due (output − input)</span><strong><?= h(ugx($outputVat - $inputVat)) ?></strong></div>
+  <div class="card stat"><?= icon('invoice', 20) ?><span>Income (invoiced, net)</span><strong><?= h(ugx($income)) ?></strong></div>
+  <div class="card stat"><?= icon('expense', 20) ?><span>Expenses (net)</span><strong><?= h(ugx($costs)) ?></strong></div>
+  <div class="card stat"><?= icon('reports', 20) ?><span>Profit</span><strong><?= h(ugx($income - $costs)) ?></strong></div>
+  <div class="card stat"><?= icon('hash', 20) ?><span>VAT due (output − input)</span><strong><?= h(ugx($outputVat - $inputVat)) ?></strong></div>
 </div>
 
 <div class="card" style="margin-bottom:16px">
-  <div class="card-head"><h2>Debtors aging</h2></div>
+  <div class="card-head"><h2><?= icon('clients', 16) ?>Debtors aging</h2></div>
   <?php if (!$debtors): ?>
     <p class="empty">No open invoices.</p>
   <?php else: ?>
@@ -85,7 +85,7 @@ layout_start('Reports', $user);
 </div>
 
 <div class="card" style="margin-bottom:16px">
-  <div class="card-head"><h2>Expenses by category</h2></div>
+  <div class="card-head"><h2><?= icon('expense', 16) ?>Expenses by category</h2></div>
   <?php if (!$byCat): ?>
     <p class="empty">No expenses recorded.</p>
   <?php else: ?>
@@ -101,7 +101,7 @@ layout_start('Reports', $user);
 </div>
 
 <div class="card">
-  <div class="card-head"><h2>Cash book (receipts)</h2></div>
+  <div class="card-head"><h2><?= icon('receipt', 16) ?>Cash book (receipts)</h2></div>
   <p class="empty" style="margin-bottom:0">Money in <?= h(ugx($cashIn)) ?> from <?= count($receipts) ?> receipts. Open a receipt to email or print it.</p>
   <?php if ($receipts): ?>
     <table class="grid">

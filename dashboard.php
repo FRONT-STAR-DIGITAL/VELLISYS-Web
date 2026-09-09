@@ -26,33 +26,37 @@ layout_start('Desk', $user);
 ?>
 <div class="page-head">
   <div>
-    <h1>Desk</h1>
+    <h1><?= icon('desk') ?>Desk</h1>
     <p class="lede"><?= h($brand['name']) ?> · <?= h(ucfirst($brand['plan'])) ?> plan. Brand colour drives the bar on the left — change it under Branding.</p>
   </div>
   <div class="actions">
-    <a class="btn" href="<?= h(url('document_new.php?kind=invoice')) ?>">New invoice</a>
-    <a class="btn ghost" href="<?= h(url('document_new.php?kind=quotation')) ?>">New quotation</a>
-    <a class="btn ghost" href="<?= h(url('client_edit.php')) ?>">New client</a>
+    <a class="btn" href="<?= h(url('document_new.php?kind=invoice')) ?>"><?= icon('invoice') ?>New invoice</a>
+    <a class="btn ghost" href="<?= h(url('document_new.php?kind=quotation')) ?>"><?= icon('quotation') ?>New quotation</a>
+    <a class="btn ghost" href="<?= h(url('client_edit.php')) ?>"><?= icon('clients') ?>New client</a>
   </div>
 </div>
 
 <div class="stats">
   <a class="card stat" href="<?= h(url('documents.php?kind=invoice')) ?>">
+    <?= icon('invoice', 20) ?>
     <span>Open invoices</span>
     <strong><?= h(ugx(array_sum(array_column($open, 'balance')))) ?></strong>
     <em><?= count($open) ?> unpaid</em>
   </a>
   <a class="card stat" href="<?= h(url('documents.php?kind=invoice')) ?>">
+    <?= icon('alert', 20) ?>
     <span>Overdue</span>
     <strong><?= h(ugx(array_sum(array_map(static fn ($d) => $d['balance'], $overdue)))) ?></strong>
     <em><?= count($overdue) ?> past due</em>
   </a>
   <a class="card stat" href="<?= h(url('reports.php')) ?>">
+    <?= icon('reports', 20) ?>
     <span>Invoiced this month</span>
     <strong><?= h(ugx($incomeMonth)) ?></strong>
     <em>Expenses <?= h(ugx($expenseMonth)) ?></em>
   </a>
   <a class="card stat" href="<?= h(url('documents.php?kind=quotation')) ?>">
+    <?= icon('quotation', 20) ?>
     <span>Open quotations</span>
     <strong><?= $quotes ?></strong>
     <em>Waiting to convert</em>
@@ -61,7 +65,7 @@ layout_start('Desk', $user);
 
 <div class="card">
   <div class="card-head">
-    <h2>Recent documents</h2>
+    <h2><?= icon('invoice', 16) ?>Recent documents</h2>
     <a class="btn ghost sm" href="<?= h(url('documents.php?kind=invoice')) ?>">All invoices</a>
   </div>
   <?php if (!$recent): ?>

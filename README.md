@@ -6,8 +6,9 @@ This is a **PHP + MySQL** desk meant to run on **XAMPP**. There is no Node or Ne
 
 ## What you get
 
-- Sign-in page. Demo account: `accounts@ofagros.org` / `folio2026`
-- Branding colour on the **whole chrome**, including the left navigation bar, buttons and invoice bars
+- Sign-in page with estate and desk photography. Demo: `accounts@ofagros.org` / `folio2026`
+- **Settings** for logo, colour (picker + hex), letterhead, bank and document copy — colour fills the navigation bar
+- Icons on navigation, actions, quick add and reports
 - Documents with actions: view, print/PDF, email, convert quotation → invoice, take a receipt, void
 - Click a client to see invoices, quotations, receipts, letters and expenses, plus buttons to add each
 - **Quick add** (top right) for invoice, quotation, receipt, expense, letter or client

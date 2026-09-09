@@ -11,3 +11,25 @@ document.addEventListener('click', function (e) {
     panel.hidden = true;
   }
 });
+
+(function () {
+  var picker = document.querySelector('[data-color-picker]');
+  var hex = document.querySelector('[data-color-hex]');
+  var preview = document.querySelector('[data-color-preview]');
+  if (!picker || !hex) return;
+
+  function apply(value) {
+    var v = (value || '').trim();
+    if (v.charAt(0) !== '#') v = '#' + v;
+    v = v.toUpperCase();
+    if (!/^#[0-9A-F]{6}$/.test(v)) return;
+    picker.value = v;
+    hex.value = v;
+    document.documentElement.style.setProperty('--brand', v);
+    if (preview) preview.style.background = v;
+  }
+
+  picker.addEventListener('input', function () { apply(picker.value); });
+  hex.addEventListener('input', function () { apply(hex.value); });
+  hex.addEventListener('change', function () { apply(hex.value); });
+})();

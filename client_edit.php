@@ -43,7 +43,7 @@ layout_start($party ? 'Edit client' : 'New client', $user);
 ?>
 <div class="page-head">
   <div>
-    <h1><?= $party ? 'Edit client' : 'New client' ?></h1>
+    <h1><?= icon($party ? 'pencil' : 'plus') ?><?= $party ? 'Edit client' : 'New client' ?></h1>
     <p class="lede">People and firms you invoice, quote, or pay.</p>
   </div>
 </div>
@@ -67,7 +67,7 @@ layout_start($party ? 'Edit client' : 'New client', $user);
   <label for="address">Address</label>
   <input id="address" name="address" value="<?= h($party['address'] ?? '') ?>">
   <div class="actions" style="margin-top:16px">
-    <button class="btn" type="submit">Save client</button>
+    <button class="btn" type="submit"><?= icon('check') ?>Save client</button>
     <a class="btn ghost" href="<?= h($id ? url('client_view.php?id=' . $id) : url('clients.php')) ?>">Cancel</a>
   </div>
 </form>

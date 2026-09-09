@@ -15,7 +15,7 @@ if ($receiveId && $_SERVER['REQUEST_METHOD'] !== 'POST') {
     ?>
     <div class="page-head">
       <div>
-        <h1>Take a receipt</h1>
+        <h1><?= icon('receipt') ?>Take a receipt</h1>
         <p class="lede"><?= h($doc['party_name']) ?> still owes <?= h(ugx($balance)) ?> on <?= h($doc['number']) ?>.</p>
       </div>
     </div>
@@ -34,7 +34,7 @@ if ($receiveId && $_SERVER['REQUEST_METHOD'] !== 'POST') {
       <label for="payment_ref">Reference</label>
       <input id="payment_ref" name="payment_ref">
       <div class="actions" style="margin-top:16px">
-        <button class="btn" type="submit">Save receipt</button>
+        <button class="btn" type="submit"><?= icon('check') ?>Save receipt</button>
         <a class="btn ghost" href="<?= h(url('document_view.php?id=' . $receiveId)) ?>">Cancel</a>
       </div>
     </form>

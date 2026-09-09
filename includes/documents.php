@@ -292,27 +292,27 @@ function render_doc_actions(array $doc): void
     $void = ($doc['status'] ?? '') === 'void';
     ?>
     <div class="actions">
-      <a class="btn ghost sm" href="<?= h(url('document_view.php?id=' . $id)) ?>">View</a>
-      <a class="btn ghost sm" href="<?= h(url('document_view.php?id=' . $id . '&print=1')) ?>">Print / PDF</a>
+      <a class="btn ghost sm" href="<?= h(url('document_view.php?id=' . $id)) ?>"><?= icon('eye', 14) ?>View</a>
+      <a class="btn ghost sm" href="<?= h(url('document_view.php?id=' . $id . '&print=1')) ?>"><?= icon('printer', 14) ?>Print</a>
       <?php if (!$void): ?>
-        <a class="btn ghost sm" href="<?= h(url('document_email.php?id=' . $id)) ?>">Email</a>
+        <a class="btn ghost sm" href="<?= h(url('document_email.php?id=' . $id)) ?>"><?= icon('send', 14) ?>Email</a>
         <?php if ($doc['kind'] === 'quotation'): ?>
           <form method="post" action="<?= h(url('document_action.php')) ?>">
             <?= csrf_field() ?>
             <input type="hidden" name="id" value="<?= $id ?>">
             <input type="hidden" name="action" value="convert">
-            <button class="btn sm" type="submit">Make invoice</button>
+            <button class="btn sm" type="submit"><?= icon('convert', 14) ?>Invoice</button>
           </form>
         <?php endif; ?>
         <?php if ($doc['kind'] === 'invoice' && ($doc['balance'] ?? 1) > 0): ?>
-          <a class="btn sm" href="<?= h(url('document_action.php?receive=' . $id)) ?>">Receipt</a>
+          <a class="btn sm" href="<?= h(url('document_action.php?receive=' . $id)) ?>"><?= icon('receipt', 14) ?>Receipt</a>
         <?php endif; ?>
         <form method="post" action="<?= h(url('document_action.php')) ?>" onsubmit="return confirm('Void this document?');">
           <?= csrf_field() ?>
           <input type="hidden" name="id" value="<?= $id ?>">
           <input type="hidden" name="action" value="void">
           <input type="hidden" name="reason" value="Voided from desk">
-          <button class="btn danger sm" type="submit">Void</button>
+          <button class="btn danger sm" type="submit"><?= icon('ban', 14) ?>Void</button>
         </form>
       <?php endif; ?>
     </div>
