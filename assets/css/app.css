@@ -37,13 +37,8 @@ img { max-width: 100%; display: block; }
   display: flex;
   flex-direction: column;
   padding: 0 0 16px;
+  border-top: 4px solid var(--brand);
   box-shadow: inset -1px 0 0 rgba(255,255,255,.06);
-}
-.nav::before {
-  content: "";
-  display: block;
-  height: 3px;
-  background: var(--brand);
 }
 .brand {
   color: inherit;
@@ -160,7 +155,7 @@ h1 .icon { color: var(--brand); }
   display: flex;
   justify-content: space-between;
   gap: 20px;
-  align-items: flex-end;
+  align-items: flex-start;
   flex-wrap: wrap;
   margin-bottom: 28px;
 }
