@@ -804,6 +804,7 @@ function gate_art(string $heading, string $lead, string $switchHtml): void
         <path d="M0 72 C90 8 310 8 400 72 L400 72 L0 72 Z" fill="#fff"/>
       </svg>
     </aside>
+    <?php
 }
 
 function public_header(string $page = 'home'): void
