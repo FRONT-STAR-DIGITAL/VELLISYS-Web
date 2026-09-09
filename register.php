@@ -44,15 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <div class="lp-glow lp-glow-a" aria-hidden="true"></div>
   <div class="lp-glow lp-glow-b" aria-hidden="true"></div>
 
-  <header class="lp-nav">
-    <a class="lp-brand" href="<?= h(url()) ?>">
-      <img class="lp-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
-    </a>
-    <nav>
-      <a class="lp-btn lp-btn-ghost" href="<?= h(url('login.php')) ?>">Sign in to my desk</a>
-      <a class="lp-btn lp-btn-solid" href="<?= h(url('register.php')) ?>">Get a desk</a>
-    </nav>
-  </header>
+  <?php public_header('register'); ?>
 
   <main class="lp-auth">
     <?php if ($ok): ?>
@@ -82,5 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       </form>
     <?php endif; ?>
   </main>
+  <?php public_footer(); ?>
+  <script src="<?= h(asset('js/landing.js')) ?>"></script>
 </body>
 </html>

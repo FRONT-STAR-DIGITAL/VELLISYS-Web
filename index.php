@@ -7,6 +7,7 @@ if ($user = current_user()) {
 $familiar = landing_cards('familiar');
 $help = landing_cards('help');
 $steps = landing_cards('steps');
+$oldPhotos = old_way_photos();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -22,23 +23,11 @@ $steps = landing_cards('steps');
 <body class="lp">
   <div class="lp-glow lp-glow-a" aria-hidden="true"></div>
   <div class="lp-glow lp-glow-b" aria-hidden="true"></div>
-
-  <header class="lp-nav">
-    <a class="lp-brand" href="<?= h(url()) ?>">
-      <img class="lp-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
-    </a>
-    <nav>
-      <a href="#sound-familiar">Sound familiar?</a>
-      <a href="#how-vellisys-helps">What you get</a>
-      <a href="#get-a-desk">How it works</a>
-      <a class="lp-btn lp-btn-ghost" href="<?= h(url('login.php')) ?>">Sign in to my desk</a>
-      <a class="lp-btn lp-btn-solid" href="<?= h(url('register.php')) ?>">Get a desk</a>
-    </nav>
-  </header>
+  <?php public_header('home'); ?>
 
   <main>
     <section class="lp-hero">
-      <div class="lp-hero-copy">
+      <div class="lp-hero-copy" data-reveal>
         <h1>Lose track of your financial records?</h1>
         <p class="lp-lead">Tired of receipts in a drawer and invoices living in WhatsApp? Vellisys keeps quotations, invoices, receipts and reports on one desk. Generate a record and share it with a client in a single click. Open the books any time, anywhere you are.</p>
         <div class="lp-cta">
@@ -48,22 +37,11 @@ $steps = landing_cards('steps');
         <p class="lp-note">Four fields. We call you. Then your books go live.</p>
       </div>
 
-      <div class="lp-stage" data-lp-stage>
-        <svg class="lp-arrows" viewBox="0 0 640 420" aria-hidden="true">
-          <defs>
-            <marker id="lp-head" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-              <path d="M0 0 L8 4 L0 8 Z" fill="#1E4EFF"/>
-            </marker>
-          </defs>
-          <path class="lp-flow lp-flow-1" d="M80 320 C 160 280, 200 120, 310 150" fill="none" stroke="#1E4EFF" stroke-width="2.2" marker-end="url(#lp-head)"/>
-          <path class="lp-flow lp-flow-2" d="M560 80 C 500 140, 470 220, 400 210" fill="none" stroke="#08143A" stroke-width="2.2" marker-end="url(#lp-head)"/>
-          <path class="lp-flow lp-flow-3" d="M90 90 C 180 70, 240 180, 200 250" fill="none" stroke="#3B82F6" stroke-width="2" marker-end="url(#lp-head)"/>
+      <div class="lp-stage" data-lp-stage data-reveal>
+        <svg class="lp-arrows" viewBox="0 0 640 400" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+          <path class="lp-flow lp-flow-1" d="M96 200 C 96 86, 544 86, 544 200 C 544 314, 96 314, 96 200" fill="none" stroke="#1E4EFF" stroke-width="2.4"/>
+          <path class="lp-flow lp-flow-2" d="M150 200 C 150 118, 490 118, 490 200 C 490 282, 150 282, 150 200" fill="none" stroke="#08143A" stroke-width="1.8"/>
         </svg>
-        <span class="lp-fly lp-fly-1" aria-hidden="true"></span>
-        <span class="lp-fly lp-fly-2" aria-hidden="true"></span>
-        <span class="lp-fly lp-fly-3" aria-hidden="true"></span>
-        <span class="lp-chip lp-float-b">Shared just now</span>
-        <span class="lp-chip lp-float-c">Balance due</span>
 
         <article class="lp-board">
           <header>
@@ -86,26 +64,10 @@ $steps = landing_cards('steps');
             <li><span>Open</span><b>UGX 3.3m</b></li>
           </ul>
         </article>
-
-        <article class="lp-mini lp-mini-a">
-          <span>Receipt</span>
-          <strong>RCT-0004</strong>
-          <svg viewBox="0 0 80 36" aria-hidden="true"><path d="M4 28 L18 20 L32 22 L46 12 L62 16 L76 8" fill="none" stroke="#1E4EFF" stroke-width="2.5"/></svg>
-        </article>
-        <article class="lp-mini lp-mini-b">
-          <span>Invoice sent</span>
-          <strong>One click</strong>
-          <div class="lp-pie" aria-hidden="true"></div>
-        </article>
-        <article class="lp-mini lp-mini-c">
-          <span>Debtors</span>
-          <strong>3 open</strong>
-          <div class="lp-dots"><i></i><i></i><i></i></div>
-        </article>
       </div>
     </section>
 
-    <section class="lp-band" id="sound-familiar">
+    <section class="lp-band" id="sound-familiar" data-reveal>
       <h2>Sound familiar?</h2>
       <div class="lp-grid3">
         <?php foreach ($familiar as $card): ?>
@@ -120,7 +82,35 @@ $steps = landing_cards('steps');
       </div>
     </section>
 
-    <section class="lp-band lp-band-alt" id="how-vellisys-helps">
+    <section class="lp-compare" id="old-way" data-reveal>
+      <div class="lp-compare-old">
+        <p class="lp-kicker">Leave this behind</p>
+        <h2>The old way</h2>
+        <div class="lp-stack" tabindex="0">
+          <?php foreach ($oldPhotos as $i => $photo): ?>
+            <img src="<?= h(asset(substr($photo, strlen('assets/')))) ?>" alt="The old way of keeping books" style="--i:<?= (int) $i ?>">
+          <?php endforeach; ?>
+          <span class="lp-x" aria-hidden="true">×</span>
+        </div>
+      </div>
+
+      <div class="lp-compare-arrow" aria-hidden="true">
+        <svg viewBox="0 0 120 80">
+          <path class="lp-bridge" d="M8 40 C 40 8, 80 72, 104 40" fill="none" stroke="#1E4EFF" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+        <span>→</span>
+      </div>
+
+      <div class="lp-compare-new">
+        <p class="lp-kicker">The Vellisys way</p>
+        <h2>One desk. A clear picture.</h2>
+        <figure>
+          <img src="<?= h(asset('img/landing/vellisys-way-man.png')) ?>" alt="A happy man working the books on a computer">
+        </figure>
+      </div>
+    </section>
+
+    <section class="lp-band lp-band-alt" id="how-vellisys-helps" data-reveal>
       <h2>Here is how Vellisys helps</h2>
       <div class="lp-grid3">
         <?php foreach ($help as $card): ?>
@@ -135,7 +125,7 @@ $steps = landing_cards('steps');
       </div>
     </section>
 
-    <section class="lp-band" id="get-a-desk">
+    <section class="lp-band" id="get-a-desk" data-reveal>
       <h2>You are three steps away</h2>
       <div class="lp-grid3">
         <?php foreach ($steps as $i => $card): ?>
@@ -156,10 +146,7 @@ $steps = landing_cards('steps');
     </section>
   </main>
 
-  <footer class="lp-foot">
-    <img class="lp-logo lp-logo-sm" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
-    <a class="lp-btn lp-btn-solid" href="<?= h(url('register.php')) ?>">Get a desk</a>
-  </footer>
+  <?php public_footer(); ?>
   <script src="<?= h(asset('js/landing.js')) ?>"></script>
 </body>
 </html>

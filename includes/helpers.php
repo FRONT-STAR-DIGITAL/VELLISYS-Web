@@ -729,6 +729,101 @@ function product_name(): string
     return 'Vellisys';
 }
 
+function product_email(): string
+{
+    return 'info@vellisys.com';
+}
+
+function product_phones(): array
+{
+    return ['+256 779 971 024', '+256 756 524 451'];
+}
+
+function product_maker_name(): string
+{
+    return 'FS Digital';
+}
+
+function product_maker_url(): string
+{
+    return 'https://frontstardigital.com';
+}
+
+function product_po_box(): string
+{
+    return 'P.O.Box 202317 Kampala GPO';
+}
+
+function old_way_photos(): array
+{
+    return [
+        'assets/img/landing/old-whatsapp.png',
+        'assets/img/landing/old-telegram.png',
+        'assets/img/landing/old-notebook.png',
+        'assets/img/landing/old-spreadsheet.png',
+        'assets/img/landing/old-paper.png',
+    ];
+}
+
+function public_header(string $page = 'home'): void
+{
+    $phones = product_phones();
+    ?>
+  <header class="lp-chrome">
+  <div class="lp-topbar">
+    <a href="mailto:<?= h(product_email()) ?>"><?= h(strtoupper(product_email())) ?></a>
+    <span>·</span>
+    <a href="tel:+256779971024"><?= h($phones[0]) ?></a>
+    <span>/</span>
+    <a href="tel:+256756524451"><?= h($phones[1]) ?></a>
+    <span class="lp-topbar-hide">·</span>
+    <a class="lp-topbar-hide" href="<?= h(product_maker_url()) ?>" rel="noopener">A PRODUCT OF FS DIGITAL</a>
+  </div>
+  <div class="lp-nav">
+    <a class="lp-brand" href="<?= h(url()) ?>">
+      <img class="lp-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
+    </a>
+    <nav>
+      <?php if ($page === 'home'): ?>
+        <a href="#sound-familiar">Sound familiar?</a>
+        <a href="#old-way">The old way</a>
+        <a href="#how-vellisys-helps">What you get</a>
+        <a href="#get-a-desk">How it works</a>
+      <?php else: ?>
+        <a href="<?= h(url()) ?>">Home</a>
+      <?php endif; ?>
+      <a class="lp-btn lp-btn-ghost" href="<?= h(url('login.php')) ?>">Sign in to my desk</a>
+      <a class="lp-btn lp-btn-solid" href="<?= h(url('register.php')) ?>">Get a desk</a>
+    </nav>
+  </div>
+  </header>
+    <?php
+}
+
+function public_footer(): void
+{
+    $phones = product_phones();
+    ?>
+  <footer class="lp-foot">
+    <div class="lp-foot-brand">
+      <img class="lp-logo lp-logo-on-dark" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
+      <p>Books you can share in one click. A product of <?= h(product_maker_name()) ?>.</p>
+    </div>
+    <div>
+      <h3>Talk to us</h3>
+      <a href="mailto:<?= h(product_email()) ?>"><?= h(product_email()) ?></a>
+      <a href="tel:+256779971024"><?= h($phones[0]) ?></a>
+      <a href="tel:+256756524451"><?= h($phones[1]) ?></a>
+    </div>
+    <div>
+      <h3>FS Digital</h3>
+      <p><?= h(product_po_box()) ?></p>
+      <a href="<?= h(product_maker_url()) ?>" rel="noopener">frontstardigital.com</a>
+    </div>
+  </footer>
+    <?php
+}
+
 function product_css_vars(): string
 {
     return '--brand:#1E4EFF;--brand-2:#8EB0FF;--brand-3:#08143A'
