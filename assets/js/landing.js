@@ -61,6 +61,16 @@
     requestAnimationFrame(tick);
   }
 
+  function playCharts() {
+    document.querySelectorAll('[data-lp-bars], [data-lp-pies]').forEach(function (el) {
+      el.classList.remove('is-play');
+      void el.offsetWidth;
+      el.classList.add('is-play');
+    });
+  }
+  playCharts();
+  window.addEventListener('pageshow', playCharts);
+
   var nodes = document.querySelectorAll('[data-reveal]');
   if (nodes.length && 'IntersectionObserver' in window) {
     var io = new IntersectionObserver(function (entries) {

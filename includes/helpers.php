@@ -772,29 +772,22 @@ function public_header(string $page = 'home'): void
     $phones = product_phones();
     ?>
   <header class="lp-chrome">
-  <div class="lp-topbar">
-    <a href="mailto:<?= h(product_email()) ?>"><?= h(strtoupper(product_email())) ?></a>
-    <span>·</span>
-    <a href="tel:+256779971024"><?= h($phones[0]) ?></a>
-    <span>/</span>
-    <a href="tel:+256756524451"><?= h($phones[1]) ?></a>
-    <span class="lp-topbar-hide">·</span>
-    <a class="lp-topbar-hide" href="<?= h(product_maker_url()) ?>" rel="noopener">A PRODUCT OF FS DIGITAL</a>
-  </div>
   <div class="lp-nav">
     <a class="lp-brand" href="<?= h(url()) ?>">
       <img class="lp-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
     </a>
+    <p class="lp-nav-contact">
+      <a href="mailto:<?= h(product_email()) ?>"><?= h(product_email()) ?></a>
+      <span aria-hidden="true">·</span>
+      <a href="tel:+256779971024"><?= h($phones[0]) ?></a>
+      <span class="lp-nav-hide" aria-hidden="true">/</span>
+      <a class="lp-nav-hide" href="tel:+256756524451"><?= h($phones[1]) ?></a>
+    </p>
     <nav>
-      <?php if ($page === 'home'): ?>
-        <a href="#sound-familiar">Sound familiar?</a>
-        <a href="#old-way">The old way</a>
-        <a href="#how-vellisys-helps">What you get</a>
-        <a href="#get-a-desk">How it works</a>
-      <?php else: ?>
-        <a href="<?= h(url()) ?>">Home</a>
+      <?php if ($page !== 'home'): ?>
+        <a class="lp-nav-home" href="<?= h(url()) ?>">Home</a>
       <?php endif; ?>
-      <a class="lp-btn lp-btn-ghost" href="<?= h(url('login.php')) ?>">Sign in to my desk</a>
+      <a class="lp-btn lp-btn-ghost" href="<?= h(url('login.php')) ?>">Sign in</a>
       <a class="lp-btn lp-btn-solid" href="<?= h(url('register.php')) ?>">Get a desk</a>
     </nav>
   </div>

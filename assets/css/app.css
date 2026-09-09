@@ -774,7 +774,7 @@ table.grid tfoot td {
 }
 .login-art::before { display: none; }
 .login-art > * { position: relative; z-index: 1; }
-.login-kicker { letter-spacing: .22em; text-transform: uppercase; font-size: 11px; margin: 0 0 14px; color: #8eb0ff; font-weight: 700; }
+.login-kicker { letter-spacing: .22em; text-transform: uppercase; font-size: 11px; margin: 0 0 14px; color: #fff; font-weight: 700; }
 .login-art h1 {
   font-family: var(--serif);
   font-size: 42px;

@@ -53,10 +53,26 @@ $oldPhotos = old_way_photos();
             <polyline points="8,70 48,62 88,48 128,54 168,32 208,28 248,18 312,22" fill="none" stroke="#1E4EFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
             <circle cx="312" cy="22" r="4" fill="#08143A"/>
           </svg>
-          <div class="lp-bars" aria-hidden="true">
-            <span style="height:42%"></span><span style="height:58%"></span><span style="height:36%"></span>
-            <span style="height:72%"></span><span style="height:64%"></span><span style="height:88%"></span>
-            <span style="height:54%"></span>
+          <div class="lp-bars" data-lp-bars aria-hidden="true">
+            <span style="--h:42%"></span><span style="--h:58%"></span><span style="--h:36%"></span>
+            <span style="--h:72%"></span><span style="--h:64%"></span><span style="--h:88%"></span>
+            <span style="--h:54%"></span>
+          </div>
+          <div class="lp-pies" data-lp-pies>
+            <figure>
+              <svg class="lp-pie" style="--pie:73" viewBox="0 0 36 36" role="img" aria-label="Collected 73 percent">
+                <circle class="lp-pie-track" cx="18" cy="18" r="15.915"></circle>
+                <circle class="lp-pie-fill lp-pie-fill-a" cx="18" cy="18" r="15.915" pathLength="100"></circle>
+              </svg>
+              <figcaption>Collected <b>73%</b></figcaption>
+            </figure>
+            <figure>
+              <svg class="lp-pie" style="--pie:27" viewBox="0 0 36 36" role="img" aria-label="Open 27 percent">
+                <circle class="lp-pie-track" cx="18" cy="18" r="15.915"></circle>
+                <circle class="lp-pie-fill lp-pie-fill-b" cx="18" cy="18" r="15.915" pathLength="100"></circle>
+              </svg>
+              <figcaption>Open <b>27%</b></figcaption>
+            </figure>
           </div>
           <ul class="lp-kpis">
             <li><span>Invoiced</span><b>UGX 12.4m</b></li>
