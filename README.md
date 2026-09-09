@@ -20,8 +20,8 @@ Open the **landing page** at the site root. Companies **register** in a few fiel
 
 ## What you get
 
-- Public landing page (pain points and the Vellisys fix) and an easy **register** form - no password to invent
-- Super admin sees every registration, calls the company, then creates the desk and issues a login
+- Public landing page in three sections, with pictures on every card. Super admin can replace those pictures under **Landing**
+- Easy **register** form - no password to invent. Super admin sees each request, calls the company, then creates the desk
 - Sign-in with a **show password** control
 - **UGX or USD** on each document, converted at a rate you enter in Settings (1 USD = n UGX)
 - **One document design** for the whole desk - the layout you pick in Settings prints on every invoice, quotation, receipt, expense and headed note
