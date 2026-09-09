@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS branding (
   payment_note TEXT,
   invoice_comments TEXT,
   plan ENUM('starter','sme','office') NOT NULL DEFAULT 'sme',
+  currency CHAR(3) NOT NULL DEFAULT 'UGX',
   UNIQUE KEY company_id (company_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -73,9 +74,10 @@ CREATE TABLE IF NOT EXISTS documents (
   related_id INT UNSIGNED DEFAULT NULL,
   payment_method VARCHAR(40) DEFAULT NULL,
   payment_ref VARCHAR(80) DEFAULT NULL,
-  allocated_amount BIGINT DEFAULT NULL,
+  allocated_amount DECIMAL(16,2) DEFAULT NULL,
   expense_category VARCHAR(80) DEFAULT NULL,
   letter_template VARCHAR(40) DEFAULT NULL,
+  currency CHAR(3) NOT NULL DEFAULT 'UGX',
   efris_fdn VARCHAR(40) DEFAULT NULL,
   efris_verification VARCHAR(16) DEFAULT NULL,
   efris_payload TEXT,
@@ -83,6 +85,7 @@ CREATE TABLE IF NOT EXISTS documents (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY company_number (company_id, number),
   KEY kind_seq (company_id, kind, sequence),
+  KEY company_kind_date (company_id, kind, date),
   KEY party_id (party_id),
   CONSTRAINT fk_doc_party FOREIGN KEY (party_id) REFERENCES parties(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -93,7 +96,7 @@ CREATE TABLE IF NOT EXISTS document_items (
   description VARCHAR(255) NOT NULL,
   qty DECIMAL(12,2) NOT NULL DEFAULT 1,
   unit VARCHAR(30) DEFAULT 'lot',
-  rate BIGINT NOT NULL DEFAULT 0,
+  rate DECIMAL(16,2) NOT NULL DEFAULT 0,
   taxed TINYINT(1) NOT NULL DEFAULT 1,
   CONSTRAINT fk_item_doc FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

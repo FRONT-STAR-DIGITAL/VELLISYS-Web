@@ -58,7 +58,7 @@ arsort($byCat);
 $cashIn = 0;
 $cashOut = 0;
 foreach ($receipts as $d) {
-    $amt = (int) ($d['allocated_amount'] ?: $d['totals']['total']);
+    $amt = (float) ($d['allocated_amount'] ?: $d['totals']['total']);
     if (($d['related_kind'] ?? '') === 'expense') {
         $cashOut += $amt;
     } else {
@@ -121,6 +121,7 @@ layout_start('Reports', $user);
     <h1><?= icon('reports') ?>Reports</h1>
     <p class="lede">Time series, mix of spend, and aging — for the dates you pick.</p>
   </div>
+  <a class="btn ghost" href="<?= h(export_query('reports')) ?>"><?= icon('download', 16) ?>Export CSV</a>
 </div>
 
 <?php render_filters('reports.php'); ?>
@@ -228,6 +229,7 @@ $payload = json_encode([
     'barLabels' => $barLabels,
     'barValues' => $barValues,
     'color' => $color,
+    'currency' => default_currency(),
 ], JSON_UNESCAPED_UNICODE);
 $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script>
 (function(){
@@ -235,7 +237,7 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
   var brand = d.color || "#82B440";
   Chart.defaults.font.family = "Montserrat, sans-serif";
   Chart.defaults.color = "#66705f";
-  function money(v){ return "UGX " + Number(v).toLocaleString("en-UG"); }
+  function money(v){ return (d.currency || "UGX") + " " + Number(v).toLocaleString("en-UG"); }
   var line = document.getElementById("chart-series");
   if (line) {
     new Chart(line, {

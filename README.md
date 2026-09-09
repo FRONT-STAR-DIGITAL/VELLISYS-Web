@@ -1,6 +1,6 @@
 # Folio
 
-Annual branded books for Ugandan SMEs — quotations, invoices, receipts, expenses and headed correspondence in the company’s own logo and colour. Montserrat throughout.
+Annual branded books for Ugandan SMEs — quotations, invoices, receipts, expenses and headed correspondence in the company’s own logo and colour. One desk, everything included. Montserrat throughout (bundled, so it works offline).
 
 This is a **PHP + MySQL** desk meant to run on **XAMPP**. There is no Node or Next.js. Copy the folder, start Apache and MySQL, open the installer.
 
@@ -8,18 +8,18 @@ This is a **PHP + MySQL** desk meant to run on **XAMPP**. There is no Node or Ne
 
 - Sign-in with a **show password** control. Company desk: `accounts@ofagros.org` / `folio2026`
 - **Platform admin** at `admin@folio.ug` / `folio-admin-2026` — create companies, issue desk logins, set stationery, onboard, mark live
-- Static (fixed) navigation; portal background is a plain diagonal-line pattern, not a photo
-- **Correspondence** (never labelled “Letter”) with five headed templates: demand for payment, covering note, appointment, credit, overdue notice
-- **Expenses** as cards when you open them; lists of expenses, debtors and creditors are tables with row actions and totals
-- Separate **Debtors** (receipt / remind) and **Creditors** (pay supplier) menus
-- Date filters on list pages: today, this week, last week, this month, last month, plus start and end date
-- Reports with a time series, expense pie chart and debtors aging bar chart (Chart.js)
-- Settings for logo, colour, stationery, bank and document copy
+- **UGX or USD** on each document (default in Settings)
+- **CSV export** on invoices, quotations, receipts, expenses, correspondence, debtors, creditors, clients, reports, and on a single document’s lines
+- Add as many line items as you need when creating invoices, quotations, receipts and expenses. Quantity steps in whole numbers and still accepts decimals
+- Printed documents show item/description, quantity, unit, unit price and full price
+- Static navigation; portal background is a plain diagonal-line pattern
+- **Correspondence** with five headed templates
+- Expenses as cards; debtors and creditors as tables with totals
+- Date filters: today, this week, last week, this month, last month, plus from/to
+- Reports with a time series, expense pie and debtors aging bars
+- VAT 18% on taxed lines for every company
 - Email sends **From** the signed-in account
-- SME VAT 18% and a demo EFRIS fiscal mark (not live URA accreditation)
-- No stock module
-
-Plans (this demo does not take payment): Starter UGX 150,000 / year · SME UGX 250,000 · Office UGX 350,000.
+- No stock module, no plan packages, no EFRIS box on documents
 
 ## Install on XAMPP (Windows)
 
@@ -46,7 +46,7 @@ Create a database named `folio`, then import `sql/schema.sql`. If the `users` ta
 
 PHP `mail()` needs Mercury (bundled with some XAMPP builds) or an SMTP relay. If send fails, Folio still **logs the email on the document** as queued. On a live host, ordinary PHP mail usually works.
 
-Print / PDF uses the browser print dialog (Save as PDF).
+Print / PDF uses the browser print dialog (Save as PDF). CSV downloads from the Export CSV buttons.
 
 ## Local PHP (without XAMPP)
 

@@ -6,37 +6,37 @@ function today(): string
     return date('Y-m-d');
 }
 
-function line_amount(array $item): int
+function line_amount(array $item): float
 {
-    return (int) round((float) ($item['qty'] ?? 0) * (int) ($item['rate'] ?? 0));
+    return round((float) ($item['qty'] ?? 0) * (float) ($item['rate'] ?? 0), 2);
 }
 
-function doc_subtotal(array $items): int
+function doc_subtotal(array $items): float
 {
-    $sum = 0;
+    $sum = 0.0;
     foreach ($items as $item) {
         $sum += line_amount($item);
     }
-    return $sum;
+    return round($sum, 2);
 }
 
-function doc_vat(array $items, float $rate): int
+function doc_vat(array $items, float $rate): float
 {
     if ($rate <= 0) {
-        return 0;
+        return 0.0;
     }
-    $vat = 0;
+    $vat = 0.0;
     foreach ($items as $item) {
         if (!empty($item['taxed'])) {
-            $vat += (int) round(line_amount($item) * $rate);
+            $vat += round(line_amount($item) * $rate, 2);
         }
     }
-    return $vat;
+    return round($vat, 2);
 }
 
-function doc_total(array $items, float $rate): int
+function doc_total(array $items, float $rate): float
 {
-    return doc_subtotal($items) + doc_vat($items, $rate);
+    return round(doc_subtotal($items) + doc_vat($items, $rate), 2);
 }
 
 function document_totals(array $doc): array
@@ -72,26 +72,9 @@ function next_number(string $kind, int $sequence): string
     return sprintf('%s-%s-%s-%04d', $prefix, kind_code($kind), date('Y'), $sequence);
 }
 
-function apply_efris_mark(int $id, string $number, string $date, int $grand): void
+function apply_efris_mark(int $id, string $number, string $date, $grand): void
 {
-    $tin = branding()['tin'] ?: '1000890123';
-    $stamp = $tin . '|' . $number . '|' . $date . '|' . $grand;
-    $ver = strtoupper(substr(md5($stamp), 0, 8));
-    $fdn = '256' . str_replace('-', '', $date) . substr($ver, 0, 6);
-    $payload = json_encode([
-        'fdn' => $fdn,
-        'tin' => $tin,
-        'invoice' => $number,
-        'date' => $date,
-        'amount' => $grand,
-        'verification' => $ver,
-        'demo' => true,
-    ]);
-    db_exec(
-        'UPDATE documents SET efris_fdn = ?, efris_verification = ?, efris_payload = ? WHERE id = ?',
-        'sssi',
-        [$fdn, $ver, $payload, $id]
-    );
+    // EFRIS marks are no longer printed on documents.
 }
 
 function create_document(array $data): int
@@ -103,7 +86,7 @@ function create_document(array $data): int
     $due = $data['due_date'] ?? null;
     $due = $due === '' ? null : $due;
     $party = (int) $data['party_id'];
-    $rate = (float) ($data['vat_rate'] ?? (branding()['plan'] === 'starter' ? 0 : 0.18));
+    $rate = (float) ($data['vat_rate'] ?? 0.18);
     $notes = $data['notes'] ?? null;
     $subject = $data['subject'] ?? null;
     $body = $data['body'] ?? null;
@@ -111,9 +94,13 @@ function create_document(array $data): int
     $related = isset($data['related_id']) && $data['related_id'] ? (int) $data['related_id'] : null;
     $method = $data['payment_method'] ?? null;
     $ref = $data['payment_ref'] ?? null;
-    $alloc = isset($data['allocated_amount']) ? (int) $data['allocated_amount'] : null;
+    $alloc = isset($data['allocated_amount']) ? (float) $data['allocated_amount'] : null;
     $cat = $data['expense_category'] ?? null;
     $tpl = $data['letter_template'] ?? null;
+    $currency = strtoupper((string) ($data['currency'] ?? default_currency()));
+    if ($currency !== 'USD') {
+        $currency = 'UGX';
+    }
     $userId = (int) ($data['created_by'] ?? ($_SESSION['user_id'] ?? 0));
     $items = $data['items'] ?? [];
     $cid = current_company_id();
@@ -127,10 +114,10 @@ function create_document(array $data): int
     }
 
     $id = db_exec(
-        'INSERT INTO documents (company_id, kind, sequence, number, date, due_date, party_id, vat_rate, notes, subject, body, status, related_id, payment_method, payment_ref, allocated_amount, expense_category, letter_template, created_by)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        'isisssidssssississi',
-        [$cid, $kind, $seq, $number, $date, $due, $party, $rate, $notes, $subject, $body, $status, $related, $method, $ref, $alloc, $cat, $tpl, $userId]
+        'INSERT INTO documents (company_id, kind, sequence, number, date, due_date, party_id, vat_rate, notes, subject, body, status, related_id, payment_method, payment_ref, allocated_amount, expense_category, letter_template, created_by, currency)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'isisssidssssissdssis',
+        [$cid, $kind, $seq, $number, $date, $due, $party, $rate, $notes, $subject, $body, $status, $related, $method, $ref, $alloc, $cat, $tpl, $userId, $currency]
     );
 
     foreach ($items as $item) {
@@ -140,21 +127,13 @@ function create_document(array $data): int
         }
         $qty = (float) ($item['qty'] ?? 1);
         $unit = (string) ($item['unit'] ?? 'lot');
-        $itemRate = (int) ($item['rate'] ?? 0);
+        $itemRate = (float) ($item['rate'] ?? 0);
         $taxed = empty($item['taxed']) ? 0 : 1;
         db_exec(
             'INSERT INTO document_items (document_id, description, qty, unit, rate, taxed) VALUES (?,?,?,?,?,?)',
-            'isdsii',
+            'isdsdi',
             [$id, $desc, $qty, $unit, $itemRate, $taxed]
         );
-    }
-
-    if (in_array($kind, ['invoice', 'receipt'], true) && $status === 'issued') {
-        $loaded = load_document($id);
-        if ($loaded) {
-            $totals = document_totals($loaded);
-            apply_efris_mark($id, $number, $date, $totals['total']);
-        }
     }
 
     return $id;
@@ -186,7 +165,7 @@ function load_document(int $id): ?array
     return $doc;
 }
 
-function invoice_paid(int $invoiceId): int
+function invoice_paid(int $invoiceId): float
 {
     $row = db_one(
         'SELECT COALESCE(SUM(COALESCE(allocated_amount, 0)), 0) AS paid
@@ -194,16 +173,16 @@ function invoice_paid(int $invoiceId): int
         'ii',
         [$invoiceId, current_company_id()]
     );
-    return (int) ($row['paid'] ?? 0);
+    return (float) ($row['paid'] ?? 0);
 }
 
-function invoice_balance(array $doc): int
+function invoice_balance(array $doc): float
 {
     $total = $doc['totals']['total'] ?? document_totals($doc)['total'];
-    return max(0, $total - invoice_paid((int) $doc['id']));
+    return max(0, round((float) $total - invoice_paid((int) $doc['id']), 2));
 }
 
-function expense_paid(int $expenseId): int
+function expense_paid(int $expenseId): float
 {
     $row = db_one(
         'SELECT COALESCE(SUM(COALESCE(allocated_amount, 0)), 0) AS paid
@@ -211,16 +190,16 @@ function expense_paid(int $expenseId): int
         'ii',
         [$expenseId, current_company_id()]
     );
-    return (int) ($row['paid'] ?? 0);
+    return (float) ($row['paid'] ?? 0);
 }
 
-function expense_balance(array $doc): int
+function expense_balance(array $doc): float
 {
     $total = $doc['totals']['total'] ?? document_totals($doc)['total'];
-    return max(0, $total - expense_paid((int) $doc['id']));
+    return max(0, round((float) $total - expense_paid((int) $doc['id']), 2));
 }
 
-function pay_creditor(int $expenseId, int $amount, string $method, string $ref): int
+function pay_creditor(int $expenseId, float $amount, string $method, string $ref): int
 {
     $doc = load_document($expenseId);
     if (!$doc || $doc['kind'] !== 'expense' || $doc['status'] === 'void') {
@@ -236,6 +215,7 @@ function pay_creditor(int $expenseId, int $amount, string $method, string $ref):
         'party_id' => $doc['party_id'],
         'date' => today(),
         'vat_rate' => 0,
+        'currency' => doc_currency($doc),
         'notes' => 'Payment to supplier against ' . $doc['number'] . '.',
         'related_id' => $doc['id'],
         'payment_method' => $method,
@@ -282,13 +262,14 @@ function convert_quotation_to_invoice(int $quoteId): int
         'date' => today(),
         'due_date' => date('Y-m-d', strtotime('+14 days')),
         'vat_rate' => (float) $doc['vat_rate'],
+        'currency' => doc_currency($doc),
         'notes' => $doc['notes'],
         'related_id' => $doc['id'],
         'items' => $items,
     ]);
 }
 
-function receive_on_invoice(int $invoiceId, int $amount, string $method, string $ref): int
+function receive_on_invoice(int $invoiceId, float $amount, string $method, string $ref): int
 {
     $doc = load_document($invoiceId);
     if (!$doc || $doc['kind'] !== 'invoice' || $doc['status'] === 'void') {
@@ -304,6 +285,7 @@ function receive_on_invoice(int $invoiceId, int $amount, string $method, string 
         'party_id' => $doc['party_id'],
         'date' => today(),
         'vat_rate' => 0,
+        'currency' => doc_currency($doc),
         'notes' => 'Received with thanks against ' . $doc['number'] . '.',
         'related_id' => $doc['id'],
         'payment_method' => $method,
@@ -327,20 +309,39 @@ function attach_document_totals(array $rows): array
     $ids = array_map(static fn ($r) => (int) $r['id'], $rows);
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
     $types = str_repeat('i', count($ids));
-    $items = db_all("SELECT * FROM document_items WHERE document_id IN ($placeholders)", $types, $ids);
+    $sums = db_all(
+        "SELECT document_id,
+                COALESCE(SUM(ROUND(qty * rate, 2)), 0) AS net,
+                COALESCE(SUM(CASE WHEN taxed = 1 THEN ROUND(qty * rate, 2) ELSE 0 END), 0) AS taxed_net
+         FROM document_items WHERE document_id IN ($placeholders)
+         GROUP BY document_id",
+        $types,
+        $ids
+    );
     $byDoc = [];
-    foreach ($items as $item) {
-        $byDoc[(int) $item['document_id']][] = $item;
+    foreach ($sums as $sum) {
+        $byDoc[(int) $sum['document_id']] = $sum;
+    }
+    $paidRows = db_all(
+        "SELECT related_id, COALESCE(SUM(COALESCE(allocated_amount, 0)), 0) AS paid
+         FROM documents WHERE kind = 'receipt' AND status = 'issued' AND company_id = ? AND related_id IN ($placeholders)
+         GROUP BY related_id",
+        'i' . $types,
+        array_merge([current_company_id()], $ids)
+    );
+    $paidBy = [];
+    foreach ($paidRows as $p) {
+        $paidBy[(int) $p['related_id']] = (float) $p['paid'];
     }
     foreach ($rows as &$row) {
-        $row['items'] = $byDoc[(int) $row['id']] ?? [];
-        $row['totals'] = document_totals($row);
-        if ($row['kind'] === 'invoice') {
-            $row['paid'] = invoice_paid((int) $row['id']);
-            $row['balance'] = max(0, $row['totals']['total'] - $row['paid']);
-        } elseif ($row['kind'] === 'expense') {
-            $row['paid'] = expense_paid((int) $row['id']);
-            $row['balance'] = max(0, $row['totals']['total'] - $row['paid']);
+        $agg = $byDoc[(int) $row['id']] ?? ['net' => 0, 'taxed_net' => 0];
+        $net = round((float) $agg['net'], 2);
+        $vat = round((float) $agg['taxed_net'] * (float) ($row['vat_rate'] ?? 0), 2);
+        $row['items'] = [];
+        $row['totals'] = ['net' => $net, 'vat' => $vat, 'total' => round($net + $vat, 2)];
+        if ($row['kind'] === 'invoice' || $row['kind'] === 'expense') {
+            $row['paid'] = $paidBy[(int) $row['id']] ?? 0.0;
+            $row['balance'] = max(0, round((float) $row['totals']['total'] - (float) $row['paid'], 2));
         } else {
             $row['paid'] = 0;
             $row['balance'] = $row['totals']['total'];

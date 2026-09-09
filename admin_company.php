@@ -17,17 +17,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
     $action = post('action');
     if ($action === 'profile') {
-        $plan = post('plan') ?: 'sme';
-        if (!in_array($plan, ['starter', 'sme', 'office'], true)) {
-            $plan = 'sme';
-        }
         $status = post('status') ?: 'onboarding';
         if (!in_array($status, ['onboarding', 'live', 'suspended'], true)) {
             $status = 'onboarding';
         }
         $name = post('name') ?: $company['name'];
-        db_exec('UPDATE companies SET name=?, status=?, plan=?, notes=? WHERE id=?', 'ssssi', [$name, $status, $plan, post('notes') ?: null, $id]);
-        db_exec('UPDATE branding SET name=?, plan=? WHERE company_id=?', 'ssi', [$name, $plan, $id]);
+        db_exec('UPDATE companies SET name=?, status=?, notes=? WHERE id=?', 'sssi', [$name, $status, post('notes') ?: null, $id]);
+        db_exec('UPDATE branding SET name=? WHERE company_id=?', 'si', [$name, $id]);
         flash('Company profile saved.');
         redirect('admin_company.php?id=' . $id);
     }
@@ -58,8 +54,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if ($error === '') {
             db_exec(
-                'UPDATE branding SET tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=? WHERE company_id=?',
-                'ssssssssssssssssi',
+                'UPDATE branding SET tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, currency=? WHERE company_id=?',
+                'sssssssssssssssssi',
                 [
                     post('tagline'),
                     post('tin'),
@@ -77,6 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     strtoupper(post('prefix') ?: prefix_from_name($company['name'])),
                     post('payment_note'),
                     post('invoice_comments'),
+                    strtoupper(post('currency') ?: 'UGX') === 'USD' ? 'USD' : 'UGX',
                     $id,
                 ]
             );
@@ -85,24 +82,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     if ($action === 'add_user') {
-        $plan = $company['plan'];
-        $limit = $plan === 'office' ? 3 : 1;
-        if (count($members) >= $limit) {
-            $error = 'This plan allows ' . $limit . ' desk user' . ($limit === 1 ? '' : 's') . '. Upgrade to Office for three logins.';
+        $n = post('user_name');
+        $e = strtolower(post('user_email'));
+        $p = post('user_password') ?: 'folio2026';
+        if ($n === '' || !filter_var($e, FILTER_VALIDATE_EMAIL)) {
+            $error = 'Name and a valid email are required.';
+        } elseif (db_one('SELECT id FROM users WHERE email = ?', 's', [$e])) {
+            $error = 'That email already has a Folio login.';
         } else {
-            $n = post('user_name');
-            $e = strtolower(post('user_email'));
-            $p = post('user_password') ?: 'folio2026';
-            if ($n === '' || !filter_var($e, FILTER_VALIDATE_EMAIL)) {
-                $error = 'Name and a valid email are required.';
-            } elseif (db_one('SELECT id FROM users WHERE email = ?', 's', [$e])) {
-                $error = 'That email already has a Folio login.';
-            } else {
-                $hash = password_hash($p, PASSWORD_DEFAULT);
-                db_exec('INSERT INTO users (name, email, password_hash, role, company_id) VALUES (?,?,?,?,?)', 'ssssi', [$n, $e, $hash, 'member', $id]);
-                flash('Desk login created for ' . $e . '.');
-                redirect('admin_company.php?id=' . $id);
-            }
+            $hash = password_hash($p, PASSWORD_DEFAULT);
+            db_exec('INSERT INTO users (name, email, password_hash, role, company_id) VALUES (?,?,?,?,?)', 'ssssi', [$n, $e, $hash, 'member', $id]);
+            flash('Desk login created for ' . $e . '.');
+            redirect('admin_company.php?id=' . $id);
         }
     }
     if ($action === 'go_live') {
@@ -135,7 +126,7 @@ layout_admin_start($company['name'], $user);
 <div class="page-head">
   <div>
     <h1><?= icon('building') ?><?= h($company['name']) ?></h1>
-    <p class="lede"><?= h(ucfirst((string) $company['status'])) ?> · <?= h(strtoupper((string) $company['plan'])) ?> · <?= count($members) ?> user<?= count($members) === 1 ? '' : 's' ?></p>
+    <p class="lede"><?= h(ucfirst((string) $company['status'])) ?> · <?= h($brand['currency'] ?? 'UGX') ?> · <?= count($members) ?> user<?= count($members) === 1 ? '' : 's' ?></p>
   </div>
   <?php if ($company['status'] !== 'live'): ?>
     <form method="post">
@@ -210,14 +201,6 @@ layout_admin_start($company['name'], $user);
         <?php endforeach; ?>
       </select>
     </div>
-    <div>
-      <label for="plan">Plan</label>
-      <select id="plan" name="plan">
-        <?php foreach (['starter' => 'Starter', 'sme' => 'SME', 'office' => 'Office'] as $k => $label): ?>
-          <option value="<?= h($k) ?>" <?= $company['plan'] === $k ? 'selected' : '' ?>><?= h($label) ?></option>
-        <?php endforeach; ?>
-      </select>
-    </div>
   </div>
   <div style="padding:0 22px 22px">
     <label for="notes">Internal notes</label>
@@ -241,6 +224,14 @@ layout_admin_start($company['name'], $user);
     <div>
       <label for="prefix">Prefix</label>
       <input id="prefix" name="prefix" value="<?= h((string) ($brand['prefix'] ?? '')) ?>">
+    </div>
+    <div>
+      <label for="currency">Currency</label>
+      <select id="currency" name="currency">
+        <?php foreach (currencies() as $code => $label): ?>
+          <option value="<?= h($code) ?>" <?= ($brand['currency'] ?? 'UGX') === $code ? 'selected' : '' ?>><?= h($label) ?></option>
+        <?php endforeach; ?>
+      </select>
     </div>
     <div>
       <label for="tin">TIN</label>

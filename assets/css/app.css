@@ -1,3 +1,31 @@
+@font-face {
+  font-family: "Montserrat";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/montserrat-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Montserrat";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../fonts/montserrat-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Montserrat";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../fonts/montserrat-600.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Montserrat";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../fonts/montserrat-700.woff2") format("woff2");
+}
 :root {
   --brand: #82B440;
   --brand-ink: #1f3a12;
@@ -37,7 +65,6 @@ img { max-width: 100%; display: block; }
     transparent 1px,
     transparent 12px
   );
-  background-attachment: fixed;
 }
 .app { display: flex; min-height: 100vh; }
 .nav {
@@ -241,6 +268,22 @@ form.actions, td form { display: inline; margin: 0; }
 .check input { width: auto; }
 .center { text-align: center; }
 .lines input { margin: 0; }
+.qty-wrap { display: flex; align-items: center; gap: 4px; }
+.qty-wrap input { flex: 1; min-width: 0; text-align: right; }
+.qty-btn {
+  width: 32px;
+  height: 36px;
+  flex: 0 0 32px;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 8px;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.qty-btn:hover { background: #f4f3ef; }
 
 .action-grid {
   display: grid;

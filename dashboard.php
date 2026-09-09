@@ -5,13 +5,13 @@ $user = require_member();
 $brand = branding();
 $cid = current_company_id();
 
-$invoices = attach_document_totals(db_all("SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id WHERE d.company_id = ? AND d.kind = 'invoice' ORDER BY d.date DESC, d.id DESC", 'i', [$cid]));
-$open = array_values(array_filter($invoices, static fn ($d) => $d['status'] !== 'void' && $d['balance'] > 0));
+$invoices = attach_document_totals(db_all("SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id WHERE d.company_id = ? AND d.kind = 'invoice' AND d.status = 'issued' ORDER BY d.due_date IS NULL, d.due_date, d.id DESC", 'i', [$cid]));
+$open = array_values(array_filter($invoices, static fn ($d) => $d['balance'] > 0));
 $overdue = array_values(array_filter($open, static fn ($d) => !empty($d['due_date']) && $d['due_date'] < today()));
 $monthStart = date('Y-m-01');
 $incomeMonth = 0;
 foreach ($invoices as $d) {
-    if ($d['status'] !== 'void' && $d['date'] >= $monthStart) {
+    if ($d['date'] >= $monthStart) {
         $incomeMonth += $d['totals']['total'];
     }
 }
@@ -30,7 +30,7 @@ layout_start('Desk', $user);
 ?>
 <div class="desk-hero">
   <div>
-    <p class="desk-kicker"><?= h($brand['name']) ?> · <?= h(ucfirst((string) $brand['plan'])) ?></p>
+    <p class="desk-kicker"><?= h($brand['name']) ?> · <?= h(default_currency()) ?></p>
     <h1><?= h($hello) ?>, <?= h(explode(' ', $user['name'])[0]) ?>.</h1>
     <p class="lede">What needs sending or collecting today. Colour and stationery live in Settings.</p>
   </div>
@@ -56,7 +56,7 @@ layout_start('Desk', $user);
               <strong><?= h($doc['party_name']) ?></strong>
               <span><?= h($doc['number']) ?> · due <?= h(format_date($doc['due_date'])) ?></span>
             </div>
-            <b><?= h(ugx($doc['balance'])) ?></b>
+            <b><?= h(money($doc['balance'], doc_currency($doc))) ?></b>
           </a>
         <?php endforeach; ?>
       </div>
@@ -66,19 +66,19 @@ layout_start('Desk', $user);
   <div class="meter">
     <a href="<?= h(url('documents.php?kind=invoice')) ?>">
       <span>Open</span>
-      <strong><?= h(ugx(array_sum(array_column($open, 'balance')))) ?></strong>
+      <strong><?= h(money(array_sum(array_column($open, 'balance')))) ?></strong>
     </a>
     <a href="<?= h(url('documents.php?kind=invoice')) ?>">
       <span>Overdue</span>
-      <strong><?= h(ugx(array_sum(array_map(static fn ($d) => $d['balance'], $overdue)))) ?></strong>
+      <strong><?= h(money(array_sum(array_map(static fn ($d) => $d['balance'], $overdue)))) ?></strong>
     </a>
     <a href="<?= h(url('reports.php')) ?>">
       <span>Invoiced this month</span>
-      <strong><?= h(ugx($incomeMonth)) ?></strong>
+      <strong><?= h(money($incomeMonth)) ?></strong>
     </a>
     <div class="meter-row">
       <span>Spent this month</span>
-      <strong><?= h(ugx($expenseMonth)) ?></strong>
+      <strong><?= h(money($expenseMonth)) ?></strong>
     </div>
     <a href="<?= h(url('documents.php?kind=quotation')) ?>">
       <span>Open quotations</span>
@@ -112,7 +112,7 @@ layout_start('Desk', $user);
             <td class="mono"><a href="<?= h(url('document_view.php?id=' . $doc['id'])) ?>"><?= h($doc['number']) ?></a></td>
             <td><a href="<?= h(url('client_view.php?id=' . $doc['party_id'])) ?>"><?= h($doc['party_name']) ?></a></td>
             <td><?= h(format_date($doc['date'])) ?></td>
-            <td class="right mono"><?= h(ugx($doc['totals']['total'])) ?></td>
+            <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>
             <td><span class="pill<?= invoice_status_label($doc) === 'Overdue' ? ' warn' : '' ?>"><?= h(invoice_status_label($doc)) ?></span></td>
             <td class="row-actions"><?php render_doc_actions($doc); ?></td>
           </tr>

@@ -13,7 +13,10 @@ layout_start('Creditors', $user);
     <h1><?= icon('bank') ?>Creditors</h1>
     <p class="lede">Suppliers you still need to pay. Record a payment against the bill. Totals sit at the foot of the table.</p>
   </div>
-  <a class="btn" href="<?= h(url('document_new.php?kind=expense')) ?>"><?= icon('expense') ?>Record expense</a>
+  <div class="actions">
+    <a class="btn ghost" href="<?= h(export_query('creditors')) ?>"><?= icon('download', 16) ?>Export CSV</a>
+    <a class="btn" href="<?= h(url('document_new.php?kind=expense')) ?>"><?= icon('expense') ?>Record expense</a>
+  </div>
 </div>
 
 <?php render_filters('creditors.php'); ?>
@@ -50,9 +53,9 @@ layout_start('Creditors', $user);
             <td><a href="<?= h(url('client_view.php?id=' . $doc['party_id'])) ?>"><?= h($doc['party_name']) ?></a></td>
             <td><?= h(format_date($doc['date'])) ?></td>
             <td><?= h($doc['expense_category'] ?: 'Other') ?></td>
-            <td class="right mono"><?= h(ugx($doc['totals']['total'])) ?></td>
-            <td class="right mono"><?= h(ugx($doc['paid'])) ?></td>
-            <td class="right mono"><?= h(ugx($doc['balance'])) ?></td>
+            <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>
+            <td class="right mono"><?= h(money($doc['paid'], doc_currency($doc))) ?></td>
+            <td class="right mono"><?= h(money($doc['balance'], doc_currency($doc))) ?></td>
             <td><span class="pill"><?= h(invoice_status_label($doc)) ?></span></td>
             <td class="row-actions"><?php render_doc_actions($doc); ?></td>
           </tr>

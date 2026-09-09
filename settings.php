@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if ($error === '') {
         db_exec(
-            'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, plan=? WHERE company_id=?',
+            'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, currency=? WHERE company_id=?',
             'ssssssssssssssssssi',
             [
                 post('name'),
@@ -55,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 strtoupper(post('prefix') ?: 'OFG'),
                 post('payment_note'),
                 post('invoice_comments'),
-                post('plan') ?: 'sme',
+                strtoupper(post('currency') ?: 'UGX') === 'USD' ? 'USD' : 'UGX',
                 current_company_id(),
             ]
         );
@@ -163,7 +163,7 @@ layout_start('Settings', $user);
 
     <section class="card settings-card" id="tax">
       <h2><?= icon('hash') ?>Tax</h2>
-      <p class="lede">TIN and VAT number appear on the letterhead. SME and Office plans add 18% VAT on taxed lines.</p>
+      <p class="lede">TIN and VAT number appear on the stationery. Every desk can charge 18% VAT on taxed lines.</p>
       <div class="form-grid">
         <div>
           <label for="tin">TIN</label>
@@ -174,10 +174,10 @@ layout_start('Settings', $user);
           <input id="vat_no" name="vat_no" value="<?= h($b['vat_no'] ?? '') ?>">
         </div>
         <div>
-          <label for="plan">Plan</label>
-          <select id="plan" name="plan">
-            <?php foreach (['starter' => 'Starter — no VAT', 'sme' => 'SME — VAT + EFRIS marks', 'office' => 'Office — three users'] as $k => $label): ?>
-              <option value="<?= h($k) ?>" <?= ($b['plan'] ?? 'sme') === $k ? 'selected' : '' ?>><?= h($label) ?></option>
+          <label for="currency">Default currency</label>
+          <select id="currency" name="currency">
+            <?php foreach (currencies() as $code => $label): ?>
+              <option value="<?= h($code) ?>" <?= doc_currency($b) === $code ? 'selected' : '' ?>><?= h($label) ?></option>
             <?php endforeach; ?>
           </select>
         </div>

@@ -20,6 +20,20 @@ function folio_migrate(mysqli $db): void
         return;
     }
 
+    $db->query("CREATE TABLE IF NOT EXISTS schema_meta (
+      k VARCHAR(40) PRIMARY KEY,
+      v VARCHAR(40) NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $verRow = $db->query("SELECT v FROM schema_meta WHERE k='version'");
+    $ver = 0;
+    if ($verRow && ($r = $verRow->fetch_assoc())) {
+        $ver = (int) $r['v'];
+    }
+    if ($ver >= 5) {
+        $done = true;
+        return;
+    }
+
     $db->query("CREATE TABLE IF NOT EXISTS companies (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(160) NOT NULL,
@@ -46,6 +60,28 @@ function folio_migrate(mysqli $db): void
     }
     if (!db_has_column($db, 'documents', 'letter_template')) {
         $db->query("ALTER TABLE documents ADD COLUMN letter_template VARCHAR(40) NULL");
+    }
+    if (!db_has_column($db, 'branding', 'currency')) {
+        $db->query("ALTER TABLE branding ADD COLUMN currency CHAR(3) NOT NULL DEFAULT 'UGX'");
+    }
+    if (!db_has_column($db, 'documents', 'currency')) {
+        $db->query("ALTER TABLE documents ADD COLUMN currency CHAR(3) NOT NULL DEFAULT 'UGX'");
+    }
+
+    $itemRate = $db->query("SHOW COLUMNS FROM document_items LIKE 'rate'");
+    $itemCol = $itemRate ? $itemRate->fetch_assoc() : null;
+    if ($itemCol && (stripos((string) $itemCol['Type'], 'bigint') !== false || stripos((string) $itemCol['Type'], 'int') !== false)) {
+        $db->query('ALTER TABLE document_items MODIFY rate DECIMAL(16,2) NOT NULL DEFAULT 0');
+    }
+    $itemQty = $db->query("SHOW COLUMNS FROM document_items LIKE 'qty'");
+    $qtyCol = $itemQty ? $itemQty->fetch_assoc() : null;
+    if ($qtyCol && (stripos((string) $qtyCol['Type'], 'int') !== false || stripos((string) $qtyCol['Type'], 'decimal(10') !== false)) {
+        $db->query('ALTER TABLE document_items MODIFY qty DECIMAL(12,2) NOT NULL DEFAULT 1');
+    }
+    $alloc = $db->query("SHOW COLUMNS FROM documents LIKE 'allocated_amount'");
+    $allocCol = $alloc ? $alloc->fetch_assoc() : null;
+    if ($allocCol && (stripos((string) $allocCol['Type'], 'bigint') !== false || stripos((string) $allocCol['Type'], 'int') !== false)) {
+        $db->query('ALTER TABLE documents MODIFY allocated_amount DECIMAL(16,2) NULL');
     }
 
     $brandId = $db->query("SHOW COLUMNS FROM branding LIKE 'id'");
@@ -88,5 +124,11 @@ function folio_migrate(mysqli $db): void
     if (!$idx2 || $idx2->num_rows === 0) {
         $db->query('ALTER TABLE documents ADD UNIQUE KEY company_number (company_id, number)');
     }
+    $idx3 = $db->query("SHOW INDEX FROM documents WHERE Key_name = 'company_kind_date'");
+    if (!$idx3 || $idx3->num_rows === 0) {
+        $db->query('ALTER TABLE documents ADD KEY company_kind_date (company_id, kind, date)');
+    }
+
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '5')");
     $done = true;
 }

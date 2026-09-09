@@ -19,7 +19,10 @@ function url(string $path = ''): string
 
 function asset(string $path): string
 {
-    return url('assets/' . ltrim($path, '/'));
+    $rel = 'assets/' . ltrim($path, '/');
+    $full = ROOT_PATH . '/' . $rel;
+    $v = is_file($full) ? (string) filemtime($full) : '1';
+    return url($rel) . '?v=' . $v;
 }
 
 require_once ROOT_PATH . '/includes/db.php';

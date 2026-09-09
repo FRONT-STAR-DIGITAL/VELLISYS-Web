@@ -16,15 +16,15 @@ if ($payId && $_SERVER['REQUEST_METHOD'] !== 'POST') {
     <div class="page-head">
       <div>
         <h1><?= icon('bank') ?>Pay a creditor</h1>
-        <p class="lede"><?= h($doc['party_name']) ?> is owed <?= h(ugx($balance)) ?> on <?= h($doc['number']) ?>.</p>
+        <p class="lede"><?= h($doc['party_name']) ?> is owed <?= h(money($balance, doc_currency($doc))) ?> on <?= h($doc['number']) ?>.</p>
       </div>
     </div>
     <form class="card form" method="post">
       <?= csrf_field() ?>
       <input type="hidden" name="action" value="pay">
       <input type="hidden" name="id" value="<?= $payId ?>">
-      <label for="amount">Amount (UGX)</label>
-      <input id="amount" name="amount" inputmode="numeric" required value="<?= (int) $balance ?>">
+      <label for="amount">Amount (<?= h(doc_currency($doc)) ?>)</label>
+      <input id="amount" name="amount" inputmode="decimal" required value="<?= h((string) $balance) ?>">
       <label for="payment_method">Paid how</label>
       <select id="payment_method" name="payment_method">
         <?php foreach (payment_methods() as $k => $label): ?>
@@ -56,15 +56,15 @@ if ($receiveId && $_SERVER['REQUEST_METHOD'] !== 'POST') {
     <div class="page-head">
       <div>
         <h1><?= icon('receipt') ?>Take a receipt</h1>
-        <p class="lede"><?= h($doc['party_name']) ?> still owes <?= h(ugx($balance)) ?> on <?= h($doc['number']) ?>.</p>
+        <p class="lede"><?= h($doc['party_name']) ?> still owes <?= h(money($balance, doc_currency($doc))) ?> on <?= h($doc['number']) ?>.</p>
       </div>
     </div>
     <form class="card form" method="post">
       <?= csrf_field() ?>
       <input type="hidden" name="action" value="receive">
       <input type="hidden" name="id" value="<?= $receiveId ?>">
-      <label for="amount">Amount (UGX)</label>
-      <input id="amount" name="amount" inputmode="numeric" required value="<?= (int) $balance ?>">
+      <label for="amount">Amount (<?= h(doc_currency($doc)) ?>)</label>
+      <input id="amount" name="amount" inputmode="decimal" required value="<?= h((string) $balance) ?>">
       <label for="payment_method">Paid how</label>
       <select id="payment_method" name="payment_method">
         <?php foreach (payment_methods() as $k => $label): ?>
@@ -107,13 +107,13 @@ try {
         redirect('document_view.php?id=' . $newId);
     }
     if ($action === 'receive') {
-        $amount = (int) preg_replace('/\D/', '', post('amount'));
+        $amount = money_parse(post('amount'));
         $newId = receive_on_invoice($id, $amount, post('payment_method') ?: 'bank-transfer', post('payment_ref'));
         flash('Receipt saved.');
         redirect('document_view.php?id=' . $newId);
     }
     if ($action === 'pay') {
-        $amount = (int) preg_replace('/\D/', '', post('amount'));
+        $amount = money_parse(post('amount'));
         $newId = pay_creditor($id, $amount, post('payment_method') ?: 'bank-transfer', post('payment_ref'));
         flash('Supplier payment recorded.');
         redirect('document_view.php?id=' . $newId);

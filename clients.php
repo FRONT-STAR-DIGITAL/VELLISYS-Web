@@ -4,13 +4,24 @@ require __DIR__ . '/includes/bootstrap.php';
 $user = require_member();
 
 $cid = current_company_id();
-$parties = db_all('SELECT * FROM parties WHERE company_id = ? ORDER BY name', 'i', [$cid]);
-foreach ($parties as &$p) {
-    $p['invoices'] = (int) (db_one("SELECT COUNT(*) c FROM documents WHERE company_id = ? AND party_id = ? AND kind = 'invoice' AND status = 'issued'", 'ii', [$cid, $p['id']])['c'] ?? 0);
-    $p['quotes'] = (int) (db_one("SELECT COUNT(*) c FROM documents WHERE company_id = ? AND party_id = ? AND kind = 'quotation' AND status = 'issued'", 'ii', [$cid, $p['id']])['c'] ?? 0);
-    $p['receipts'] = (int) (db_one("SELECT COUNT(*) c FROM documents WHERE company_id = ? AND party_id = ? AND kind = 'receipt' AND status = 'issued'", 'ii', [$cid, $p['id']])['c'] ?? 0);
-}
-unset($p);
+$parties = db_all(
+    "SELECT p.*,
+        COALESCE(c.invoices,0) AS invoices,
+        COALESCE(c.quotes,0) AS quotes,
+        COALESCE(c.receipts,0) AS receipts
+     FROM parties p
+     LEFT JOIN (
+       SELECT party_id,
+         SUM(kind='invoice' AND status='issued') AS invoices,
+         SUM(kind='quotation' AND status='issued') AS quotes,
+         SUM(kind='receipt' AND status='issued') AS receipts
+       FROM documents WHERE company_id = ? GROUP BY party_id
+     ) c ON c.party_id = p.id
+     WHERE p.company_id = ?
+     ORDER BY p.name",
+    'ii',
+    [$cid, $cid]
+);
 
 layout_start('Clients', $user);
 ?>
@@ -19,7 +30,10 @@ layout_start('Clients', $user);
     <h1><?= icon('clients') ?>Clients</h1>
     <p class="lede">Open a name to invoice, quote, receipt, write correspondence, or see their documents.</p>
   </div>
-  <a class="btn" href="<?= h(url('client_edit.php')) ?>"><?= icon('plus') ?>New client</a>
+  <div class="actions">
+    <a class="btn ghost" href="<?= h(export_query('clients')) ?>"><?= icon('download', 16) ?>Export CSV</a>
+    <a class="btn" href="<?= h(url('client_edit.php')) ?>"><?= icon('plus') ?>New client</a>
+  </div>
 </div>
 
 <div class="card">

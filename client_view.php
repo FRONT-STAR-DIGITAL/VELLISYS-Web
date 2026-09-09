@@ -36,6 +36,7 @@ layout_start($party['name'], $user);
     <?php if ($party['address']): ?><p class="lede"><?= h($party['address']) ?></p><?php endif; ?>
   </div>
   <div class="actions">
+    <a class="btn ghost" href="<?= h(export_query('party', ['id' => (string) $id])) ?>"><?= icon('download', 16) ?>Export CSV</a>
     <a class="btn ghost" href="<?= h(url('client_edit.php?id=' . $id)) ?>"><?= icon('pencil') ?>Edit</a>
   </div>
 </div>
@@ -95,7 +96,7 @@ layout_start($party['name'], $user);
               <td class="mono"><a href="<?= h(url('document_view.php?id=' . $doc['id'])) ?>"><?= h($doc['number']) ?></a></td>
               <td><?= h(format_date($doc['date'])) ?></td>
               <?php if ($kind !== 'letter'): ?>
-                <td class="right mono"><?= h(ugx($doc['totals']['total'])) ?></td>
+                <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>
               <?php endif; ?>
               <td><span class="pill"><?= h(invoice_status_label($doc)) ?></span></td>
               <td class="row-actions"><?php render_doc_actions($doc); ?></td>
@@ -106,7 +107,7 @@ layout_start($party['name'], $user);
           <tfoot>
             <tr>
               <td colspan="2">Totals</td>
-              <td class="right mono"><?= h(ugx(documents_sum($byKind[$kind]))) ?></td>
+              <td class="right mono"><?= h(money(documents_sum($byKind[$kind]))) ?></td>
               <td colspan="2"></td>
             </tr>
           </tfoot>

@@ -9,10 +9,7 @@ $showNew = isset($_GET['new']) || ($_SERVER['REQUEST_METHOD'] === 'POST' && post
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'create') {
     csrf_check();
     $name = post('name');
-    $plan = post('plan') ?: 'sme';
-    if (!in_array($plan, ['starter', 'sme', 'office'], true)) {
-        $plan = 'sme';
-    }
+    $currency = strtoupper(post('currency') ?: 'UGX') === 'USD' ? 'USD' : 'UGX';
     $userName = post('user_name');
     $userEmail = strtolower(post('user_email'));
     $password = post('user_password') ?: 'folio2026';
@@ -30,13 +27,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'create') {
         $cid = db_exec(
             'INSERT INTO companies (name, status, plan, notes) VALUES (?,?,?,?)',
             'ssss',
-            [$name, 'onboarding', $plan, post('notes') ?: null]
+            [$name, 'onboarding', 'sme', post('notes') ?: null]
         );
         $prefix = strtoupper(post('prefix') ?: prefix_from_name($name));
         db_exec(
-            'INSERT INTO branding (company_id, name, tagline, tin, vat_no, address, city, phone, email, website, bank_name, account_name, account_number, brand_color, logo_path, prefix, payment_note, invoice_comments, plan)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-            'issssssssssssssssss',
+            'INSERT INTO branding (company_id, name, tagline, tin, vat_no, address, city, phone, email, website, bank_name, account_name, account_number, brand_color, logo_path, prefix, payment_note, invoice_comments, plan, currency)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            'isssssssssssssssssss',
             [
                 $cid,
                 $name,
@@ -56,7 +53,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'create') {
                 $prefix,
                 'Make payment to ' . $name . '.',
                 "1. Payment is due by the date shown above.\n2. Quote the invoice number on the transfer.",
-                $plan,
+                'sme',
+                $currency,
             ]
         );
         $hash = password_hash($password, PASSWORD_DEFAULT);
@@ -101,10 +99,10 @@ layout_admin_start('Companies', $user);
       <input id="name" name="name" required value="<?= h(post('name')) ?>">
     </div>
     <div>
-      <label for="plan">Plan</label>
-      <select id="plan" name="plan">
-        <?php foreach (['starter' => 'Starter — UGX 150,000 / year', 'sme' => 'SME — UGX 250,000 / year', 'office' => 'Office — UGX 350,000 / year'] as $k => $label): ?>
-          <option value="<?= h($k) ?>" <?= (post('plan') ?: 'sme') === $k ? 'selected' : '' ?>><?= h($label) ?></option>
+      <label for="currency">Currency</label>
+      <select id="currency" name="currency">
+        <?php foreach (currencies() as $code => $label): ?>
+          <option value="<?= h($code) ?>" <?= (post('currency') ?: 'UGX') === $code ? 'selected' : '' ?>><?= h($label) ?></option>
         <?php endforeach; ?>
       </select>
     </div>
@@ -166,7 +164,6 @@ layout_admin_start('Companies', $user);
         <tr>
           <th>Company</th>
           <th>Status</th>
-          <th>Plan</th>
           <th>Users</th>
           <th>Documents</th>
           <th>Actions</th>
@@ -177,7 +174,6 @@ layout_admin_start('Companies', $user);
           <tr>
             <td><a href="<?= h(url('admin_company.php?id=' . $c['id'])) ?>"><strong><?= h($c['name']) ?></strong></a></td>
             <td><span class="pill<?= $c['status'] === 'live' ? '' : ($c['status'] === 'suspended' ? ' bad' : ' warn') ?>"><?= h($c['status']) ?></span></td>
-            <td><?= h(strtoupper((string) $c['plan'])) ?></td>
             <td class="mono"><?= (int) $c['users'] ?></td>
             <td class="mono"><?= (int) $c['docs'] ?></td>
             <td class="row-actions">

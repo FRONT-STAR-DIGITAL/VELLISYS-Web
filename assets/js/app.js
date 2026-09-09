@@ -50,6 +50,46 @@ document.querySelectorAll('[data-toggle-password]').forEach(function (btn) {
   });
 });
 
+document.addEventListener('click', function (e) {
+  var add = e.target.closest('[data-add-line]');
+  if (add) {
+    e.preventDefault();
+    var tbody = document.querySelector('#lines tbody');
+    if (!tbody) return;
+    var proto = tbody.querySelector('tr');
+    if (!proto) return;
+    var i = tbody.querySelectorAll('tr').length;
+    var row = proto.cloneNode(true);
+    row.querySelectorAll('input').forEach(function (inp) {
+      if (inp.name) inp.name = inp.name.replace(/\[\d+\]/, '[' + i + ']');
+      if (inp.type === 'checkbox') {
+        return;
+      } else if (inp.name && inp.name.indexOf('item_qty') !== -1) {
+        inp.value = '1';
+      } else if (inp.name && inp.name.indexOf('item_unit') !== -1) {
+        inp.value = inp.value || 'lot';
+      } else {
+        inp.value = '';
+      }
+    });
+    tbody.appendChild(row);
+    var focus = row.querySelector('input[name^="item_desc"]');
+    if (focus) focus.focus();
+    return;
+  }
+  var qtyBtn = e.target.closest('[data-qty-delta]');
+  if (!qtyBtn) return;
+  e.preventDefault();
+  var wrap = qtyBtn.closest('.qty-wrap');
+  var input = wrap && wrap.querySelector('input[name*="item_qty"]');
+  if (!input) return;
+  var n = parseFloat(String(input.value).replace(/,/g, ''));
+  if (isNaN(n)) n = 0;
+  n += parseFloat(qtyBtn.getAttribute('data-qty-delta')) || 0;
+  if (n < 0) n = 0;
+  input.value = Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);
+});
+
 document.querySelectorAll('[data-letter-templates]').forEach(function (form) {
   var subject = form.querySelector('#subject');
   var body = form.querySelector('#body');

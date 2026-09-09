@@ -15,6 +15,7 @@ layout_start('Debtors', $user);
     <p class="lede">Clients who still owe you. Take a receipt, send a reminder, or print the invoice. Totals sit at the foot of the table.</p>
   </div>
   <a class="btn" href="<?= h(url('document_new.php?kind=invoice')) ?>"><?= icon('invoice') ?>New invoice</a>
+  <a class="btn ghost" href="<?= h(export_query('debtors')) ?>"><?= icon('download', 16) ?>Export CSV</a>
 </div>
 
 <?php render_filters('debtors.php'); ?>
@@ -50,8 +51,8 @@ layout_start('Debtors', $user);
             <td><a href="<?= h(url('client_view.php?id=' . $doc['party_id'])) ?>"><?= h($doc['party_name']) ?></a></td>
             <td><?= h(format_date($doc['date'])) ?></td>
             <td><?= h(format_date($doc['due_date'])) ?></td>
-            <td class="right mono"><?= h(ugx($doc['totals']['total'])) ?></td>
-            <td class="right mono"><?= h(ugx($doc['balance'])) ?></td>
+            <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>
+            <td class="right mono"><?= h(money($doc['balance'], doc_currency($doc))) ?></td>
             <td><span class="pill<?= invoice_status_label($doc) === 'Overdue' ? ' warn' : '' ?>"><?= h(invoice_status_label($doc)) ?></span></td>
             <td class="row-actions"><?php render_doc_actions($doc); ?></td>
           </tr>

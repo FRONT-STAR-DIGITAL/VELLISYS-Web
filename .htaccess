@@ -5,3 +5,20 @@ DirectoryIndex index.php login.php
     Require all denied
   </FilesMatch>
 </IfModule>
+
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 30 days"
+  ExpiresByType application/javascript "access plus 30 days"
+  ExpiresByType font/woff2 "access plus 1 year"
+  ExpiresByType image/png "access plus 30 days"
+  ExpiresByType image/jpeg "access plus 30 days"
+  ExpiresByType image/svg+xml "access plus 30 days"
+  ExpiresByType image/webp "access plus 30 days"
+</IfModule>
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.(css|js|woff2|png|jpg|jpeg|gif|svg|webp|ico)$">
+    Header set Cache-Control "public, max-age=2592000"
+  </FilesMatch>
+</IfModule>

@@ -11,7 +11,7 @@ $meta = kind_meta($kind);
 $prefillParty = (int) ($_GET['party'] ?? 0);
 $related = (int) ($_GET['related'] ?? 0);
 $parties = parties_for($kind);
-$planVat = branding()['plan'] === 'starter' ? 0.0 : 0.18;
+$vatDefault = 0.18;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
@@ -33,9 +33,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $items[] = [
             'description' => $desc,
-            'qty' => (float) ($qtys[$i] ?? 1),
+            'qty' => round((float) ($qtys[$i] ?? 1), 2),
             'unit' => (string) ($units[$i] ?? 'lot'),
-            'rate' => (int) preg_replace('/\D/', '', (string) ($rates[$i] ?? '0')),
+            'rate' => money_parse((string) ($rates[$i] ?? '0')),
             'taxed' => !empty($taxed[$i]) ? 1 : 0,
         ];
     }
@@ -48,14 +48,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'party_id' => $partyId,
         'date' => post('date') ?: today(),
         'due_date' => post('due_date') ?: null,
-        'vat_rate' => post('taxed_doc') === '1' ? $planVat : 0.0,
+        'vat_rate' => post('taxed_doc') === '1' ? $vatDefault : 0.0,
+        'currency' => post('currency') ?: default_currency(),
         'notes' => post('notes') ?: null,
         'subject' => post('subject') ?: null,
         'body' => post('body') ?: null,
         'related_id' => (int) post('related_id') ?: null,
         'payment_method' => post('payment_method') ?: null,
         'payment_ref' => post('payment_ref') ?: null,
-        'allocated_amount' => $kind === 'receipt' ? (int) preg_replace('/\D/', '', post('allocated_amount') ?: '0') : null,
+        'allocated_amount' => $kind === 'receipt' ? money_parse(post('allocated_amount')) : null,
         'expense_category' => post('expense_category') ?: null,
         'letter_template' => post('letter_template') ?: null,
         'items' => $items,
@@ -76,7 +77,7 @@ if ($related) {
         $prefillTpl['subject'] = $prefillTpl['subject'] . ' — ' . $rel['number'];
     }
 }
-$blankLines = $kind === 'letter' ? [] : array_fill(0, 4, ['description' => '', 'qty' => 1, 'unit' => 'lot', 'rate' => '', 'taxed' => $planVat > 0]);
+$blankLines = $kind === 'letter' ? [] : array_fill(0, 4, ['description' => '', 'qty' => 1, 'unit' => 'lot', 'rate' => '', 'taxed' => $vatDefault > 0]);
 layout_start($meta['verb'], $user, ['kind' => $kind]);
 ?>
 <div class="page-head">
@@ -110,6 +111,16 @@ layout_start($meta['verb'], $user, ['kind' => $kind]);
       <div>
         <label for="due_date">Due date</label>
         <input id="due_date" name="due_date" type="date" value="<?= h(date('Y-m-d', strtotime('+14 days'))) ?>">
+      </div>
+    <?php endif; ?>
+    <?php if ($kind !== 'letter'): ?>
+      <div>
+        <label for="currency">Currency</label>
+        <select id="currency" name="currency">
+          <?php foreach (currencies() as $code => $label): ?>
+            <option value="<?= h($code) ?>" <?= default_currency() === $code ? 'selected' : '' ?>><?= h($label) ?></option>
+          <?php endforeach; ?>
+        </select>
       </div>
     <?php endif; ?>
     <?php if ($kind === 'expense'): ?>
@@ -154,19 +165,19 @@ layout_start($meta['verb'], $user, ['kind' => $kind]);
     <label for="body">Body</label>
     <textarea id="body" name="body" rows="12" required><?= h($prefillTpl['body']) ?></textarea>
   <?php else: ?>
-    <?php if ($planVat > 0 && $kind !== 'receipt'): ?>
+    <?php if ($kind !== 'receipt'): ?>
       <label class="check">
         <input type="checkbox" name="taxed_doc" value="1" checked>
-        VAT 18% on taxed lines (SME / Office)
+        VAT 18% on taxed lines
       </label>
     <?php endif; ?>
     <table class="grid lines" id="lines">
       <thead>
         <tr>
-          <th>Description</th>
+          <th>Item / description</th>
           <th>Qty</th>
           <th>Unit</th>
-          <th>Rate (UGX)</th>
+          <th>Unit price</th>
           <th>VAT</th>
         </tr>
       </thead>
@@ -174,15 +185,24 @@ layout_start($meta['verb'], $user, ['kind' => $kind]);
         <?php foreach ($blankLines as $i => $line): ?>
           <tr>
             <td><input name="item_desc[<?= $i ?>]" placeholder="Coffee Estate Share"></td>
-            <td><input name="item_qty[<?= $i ?>]" type="number" min="0" step="0.01" value="1"></td>
+            <td>
+              <div class="qty-wrap">
+                <button type="button" class="qty-btn" data-qty-delta="-1" aria-label="Decrease quantity">−</button>
+                <input name="item_qty[<?= $i ?>]" type="number" min="0" step="any" inputmode="decimal" value="1">
+                <button type="button" class="qty-btn" data-qty-delta="1" aria-label="Increase quantity">+</button>
+              </div>
+            </td>
             <td><input name="item_unit[<?= $i ?>]" value="lot"></td>
-            <td><input name="item_rate[<?= $i ?>]" inputmode="numeric" placeholder="12500000"></td>
-            <td class="center"><input type="checkbox" name="item_taxed[<?= $i ?>]" value="1" <?= $planVat > 0 && $kind !== 'receipt' ? 'checked' : '' ?>></td>
+            <td><input name="item_rate[<?= $i ?>]" type="number" min="0" step="any" inputmode="decimal" placeholder="0"></td>
+            <td class="center"><input type="checkbox" name="item_taxed[<?= $i ?>]" value="1" <?= $kind !== 'receipt' ? 'checked' : '' ?>></td>
           </tr>
         <?php endforeach; ?>
       </tbody>
     </table>
-    <p class="hint">Empty description rows are ignored. Amounts are Uganda shillings, no decimals.</p>
+    <p class="hint" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button class="btn ghost sm" type="button" data-add-line><?= icon('plus', 14) ?>Add row</button>
+      Quantity steps in whole numbers; decimals such as 1.5 are allowed. Empty description rows are ignored.
+    </p>
     <label for="notes">Comments on the document</label>
     <textarea id="notes" name="notes" rows="4" placeholder="Payment is due by the date shown above."><?= $kind === 'invoice' ? h((string) branding()['invoice_comments']) : '' ?></textarea>
   <?php endif; ?>

@@ -46,13 +46,13 @@ if ((int) $exists['c'] === 0) {
 
     $brandRow = $db->query("SELECT id FROM branding WHERE company_id = {$companyId}")->fetch_assoc();
     if (!$brandRow) {
-        $db->query("INSERT INTO branding (company_id, name, tagline, tin, vat_no, address, city, phone, email, website, bank_name, account_name, account_number, brand_color, logo_path, prefix, payment_note, invoice_comments, plan)
+        $db->query("INSERT INTO branding (company_id, name, tagline, tin, vat_no, address, city, phone, email, website, bank_name, account_name, account_number, brand_color, logo_path, prefix, payment_note, invoice_comments, plan, currency)
         VALUES ({$companyId}, 'Ofagros Limited', 'Solutions for agriculture', '1000890123', '1000890123',
         'Kampala, Central Region, Uganda', 'Kampala, Uganda', '+256 788 141 342', 'ofagrosltd@gmail.com', 'www.ofagros.org',
         'Stanbic Bank Uganda', 'Ofagros Limited', '9030008844211', '#82B440', 'assets/img/ofagros-logo.png', 'OFG',
         'Make payment to Ofagros Limited, Kampala.',
         '1. Payment is due by the date shown above.\n2. Pay through the Ofagros client portal.\n3. Farm work starts after this invoice is marked paid.',
-        'sme')");
+        'sme', 'UGX')");
     }
 
     $parties = [

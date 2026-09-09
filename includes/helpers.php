@@ -6,9 +6,57 @@ function h(?string $value): string
     return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 }
 
-function ugx($amount): string
+function money($amount, ?string $currency = null): string
 {
-    return 'UGX ' . number_format((int) $amount, 0, '.', ',');
+    $currency = strtoupper($currency ?: default_currency());
+    $n = (float) $amount;
+    if ($currency === 'USD') {
+        return 'USD ' . number_format($n, 2, '.', ',');
+    }
+    return 'UGX ' . number_format($n, $n == floor($n) ? 0 : 2, '.', ',');
+}
+
+function ugx($amount, ?string $currency = null): string
+{
+    return money($amount, $currency);
+}
+
+function default_currency(): string
+{
+    $c = strtoupper((string) (branding()['currency'] ?? 'UGX'));
+    return $c === 'USD' ? 'USD' : 'UGX';
+}
+
+function doc_currency(?array $doc = null): string
+{
+    if ($doc && !empty($doc['currency'])) {
+        $c = strtoupper((string) $doc['currency']);
+        return $c === 'USD' ? 'USD' : 'UGX';
+    }
+    return default_currency();
+}
+
+function money_parse(string $raw): float
+{
+    $raw = str_replace([',', ' '], '', trim($raw));
+    if ($raw === '' || !is_numeric($raw)) {
+        return 0.0;
+    }
+    return round((float) $raw, 2);
+}
+
+function format_qty($qty): string
+{
+    $n = (float) $qty;
+    if (abs($n - round($n)) < 0.0001) {
+        return (string) (int) round($n);
+    }
+    return rtrim(rtrim(number_format($n, 2, '.', ''), '0'), '.');
+}
+
+function currencies(): array
+{
+    return ['UGX' => 'UGX — Uganda shilling', 'USD' => 'USD — US dollar'];
 }
 
 function flash(?string $message = null, string $type = 'ok'): ?array
@@ -47,6 +95,7 @@ function folio_defaults(): array
         'logo_path' => 'assets/img/ofagros-logo.png',
         'prefix' => 'FOL',
         'plan' => 'sme',
+        'currency' => 'UGX',
         'phone' => '',
         'email' => '',
         'address' => '',
@@ -300,17 +349,43 @@ function list_documents(string $kind): array
     return attach_document_totals(db_all($sql, 'is' . $types, array_merge([current_company_id(), $kind], $params)));
 }
 
-function documents_sum(array $rows, string $field = 'total'): int
+function documents_sum(array $rows, string $field = 'total'): float
 {
-    $n = 0;
+    $n = 0.0;
     foreach ($rows as $row) {
         $n += match ($field) {
-            'paid' => (int) ($row['paid'] ?? 0),
-            'balance' => (int) ($row['balance'] ?? 0),
-            default => (int) ($row['totals']['total'] ?? 0),
+            'paid' => (float) ($row['paid'] ?? 0),
+            'balance' => (float) ($row['balance'] ?? 0),
+            default => (float) ($row['totals']['total'] ?? 0),
         };
     }
     return $n;
+}
+
+function export_query(string $type, array $extra = []): string
+{
+    $p = period_range();
+    return url('export.php?' . http_build_query(array_merge([
+        'type' => $type,
+        'range' => $p['preset'],
+        'from' => $p['from'],
+        'to' => $p['to'],
+    ], $extra)));
+}
+
+function csv_download(string $filename, array $headers, array $rows): never
+{
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Pragma: no-cache');
+    $out = fopen('php://output', 'w');
+    fwrite($out, "\xEF\xBB\xBF");
+    fputcsv($out, $headers);
+    foreach ($rows as $row) {
+        fputcsv($out, $row);
+    }
+    fclose($out);
+    exit;
 }
 
 function prefix_from_name(string $name): string
@@ -321,9 +396,6 @@ function prefix_from_name(string $name): string
 
 function folio_font_links(): void
 {
-    ?>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
-    <?php
+    echo '<link rel="preload" href="' . h(asset('fonts/montserrat-400.woff2')) . '" as="font" type="font/woff2" crossorigin>';
+    echo '<link rel="preload" href="' . h(asset('fonts/montserrat-600.woff2')) . '" as="font" type="font/woff2" crossorigin>';
 }

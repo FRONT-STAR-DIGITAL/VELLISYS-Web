@@ -25,7 +25,10 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
       <?php endif; ?>
     </p>
   </div>
-  <a class="btn" href="<?= h(url('document_new.php?kind=' . $kind)) ?>"><?= icon($kind) ?><?= h($meta['verb']) ?></a>
+  <div class="actions">
+    <a class="btn ghost" href="<?= h(export_query('documents', ['kind' => $kind])) ?>"><?= icon('download', 16) ?>Export CSV</a>
+    <a class="btn" href="<?= h(url('document_new.php?kind=' . $kind)) ?>"><?= icon($kind) ?><?= h($meta['verb']) ?></a>
+  </div>
 </div>
 
 <?php render_filters('documents.php', ['kind' => $kind]); ?>
@@ -63,14 +66,14 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
             <td><?= h(format_date($doc['date'])) ?></td>
             <?php if ($kind === 'expense'): ?>
               <td><?= h($doc['expense_category'] ?: 'Other') ?></td>
-              <td class="right mono"><?= h(ugx($doc['totals']['total'])) ?></td>
-              <td class="right mono"><?= h(ugx($doc['paid'])) ?></td>
-              <td class="right mono"><?= h(ugx($doc['balance'])) ?></td>
+              <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>
+              <td class="right mono"><?= h(money($doc['paid'], doc_currency($doc))) ?></td>
+              <td class="right mono"><?= h(money($doc['balance'], doc_currency($doc))) ?></td>
             <?php elseif ($kind === 'invoice'): ?>
-              <td class="right mono"><?= h(ugx($doc['totals']['total'])) ?></td>
-              <td class="right mono"><?= h(ugx($doc['balance'])) ?></td>
+              <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>
+              <td class="right mono"><?= h(money($doc['balance'], doc_currency($doc))) ?></td>
             <?php elseif ($kind !== 'letter'): ?>
-              <td class="right mono"><?= h(ugx($doc['totals']['total'])) ?></td>
+              <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>
             <?php endif; ?>
             <td><span class="pill<?= invoice_status_label($doc) === 'Overdue' ? ' warn' : '' ?>"><?= h(invoice_status_label($doc)) ?></span></td>
             <td class="row-actions"><?php render_doc_actions($doc); ?></td>
@@ -83,14 +86,14 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
             <td colspan="3">Totals</td>
             <?php if ($kind === 'expense'): ?>
               <td></td>
-              <td class="right mono"><?= h(ugx(documents_sum($rows))) ?></td>
-              <td class="right mono"><?= h(ugx(documents_sum($rows, 'paid'))) ?></td>
-              <td class="right mono"><?= h(ugx(documents_sum($rows, 'balance'))) ?></td>
+              <td class="right mono"><?= h(money(documents_sum($rows))) ?></td>
+              <td class="right mono"><?= h(money(documents_sum($rows, 'paid'))) ?></td>
+              <td class="right mono"><?= h(money(documents_sum($rows, 'balance'))) ?></td>
             <?php elseif ($kind === 'invoice'): ?>
-              <td class="right mono"><?= h(ugx(documents_sum($rows))) ?></td>
-              <td class="right mono"><?= h(ugx(documents_sum($rows, 'balance'))) ?></td>
+              <td class="right mono"><?= h(money(documents_sum($rows))) ?></td>
+              <td class="right mono"><?= h(money(documents_sum($rows, 'balance'))) ?></td>
             <?php else: ?>
-              <td class="right mono"><?= h(ugx(documents_sum($rows))) ?></td>
+              <td class="right mono"><?= h(money(documents_sum($rows))) ?></td>
             <?php endif; ?>
             <td colspan="2"></td>
           </tr>
