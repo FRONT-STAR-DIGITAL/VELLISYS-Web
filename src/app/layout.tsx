@@ -1,13 +1,7 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, IBM_Plex_Sans, Newsreader } from "next/font/google";
+import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
 import "./globals.css";
-
-const newsreader = Newsreader({
-  variable: "--font-newsreader",
-  subsets: ["latin"],
-  style: ["normal", "italic"],
-});
 
 const plexSans = IBM_Plex_Sans({
   variable: "--font-plex-sans",
@@ -23,18 +17,18 @@ const plexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Counterfoil — the receipt book that keeps your books",
-    template: "%s · Counterfoil",
+    default: "Folio — invoices in your colours",
+    template: "%s · Folio",
   },
   description:
-    "Digital quotation, invoice, receipt and voucher books for Ugandan corporates. Sequential numbers, original and duplicate copies, and debtors and creditors that write themselves.",
+    "Annual branded invoices, receipts, quotations and letters for Ugandan SMEs. VAT, EFRIS marks, P&L. UGX 150,000–350,000 a year.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${newsreader.variable} ${plexSans.variable} ${plexMono.variable} h-full antialiased`}
+      className={`${plexSans.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <Providers>{children}</Providers>

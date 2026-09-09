@@ -1,95 +1,91 @@
-export type BookType =
+export type PlanId = "starter" | "sme" | "office";
+
+export type DocKind =
   | "quotation"
   | "invoice"
   | "receipt"
-  | "bill"
-  | "voucher";
-
-export type CopyKind = "original" | "duplicate" | "counterfoil";
+  | "expense"
+  | "letter";
 
 export type PaymentMethod =
   | "cash"
   | "cheque"
   | "mobile-money"
   | "bank-transfer"
-  | "eft";
-
-export type PartyKind = "customer" | "supplier" | "both";
+  | "pesapal"
+  | "other";
 
 export interface LineItem {
   description: string;
   qty: number;
   unit: string;
   rate: number;
-}
-
-export interface Allocation {
-  documentId: string;
-  amount: number;
+  taxed: boolean;
 }
 
 export interface Party {
   id: string;
   name: string;
-  kind: PartyKind;
+  kind: "customer" | "supplier" | "both";
   tin?: string;
   phone?: string;
+  email?: string;
   address?: string;
 }
 
-export interface Company {
+export interface Branding {
   name: string;
-  tradingAs?: string;
+  tagline: string;
   tin: string;
   vatNo: string;
   address: string;
   city: string;
   phone: string;
   email: string;
+  website: string;
   bankName: string;
-  bankBranch: string;
   accountName: string;
   accountNumber: string;
-  booksYear: number;
+  brandColor: string;
+  logoDataUrl: string;
+  prefix: string;
+  paymentNote: string;
+  invoiceComments: string;
+  plan: PlanId;
+}
+
+export interface EfrisMark {
+  fdn: string;
+  verification: string;
+  issuedAt: string;
+  payload: string;
 }
 
 export interface DocumentRecord {
   id: string;
-  book: BookType;
+  kind: DocKind;
   sequence: number;
   number: string;
   date: string;
+  dueDate?: string;
   partyId: string;
   items: LineItem[];
   vatRate: number;
   notes?: string;
+  subject?: string;
+  body?: string;
   status: "issued" | "void";
   voidReason?: string;
   relatedDocumentId?: string;
   paymentMethod?: PaymentMethod;
   paymentRef?: string;
-  allocations?: Allocation[];
+  allocatedAmount?: number;
+  expenseCategory?: string;
+  efris?: EfrisMark;
 }
 
 export interface BooksState {
-  company: Company;
+  branding: Branding;
   parties: Party[];
   documents: DocumentRecord[];
-}
-
-export interface AgingBucket {
-  current: number;
-  days30: number;
-  days60: number;
-  days90: number;
-  total: number;
-}
-
-export interface LedgerRow {
-  party: Party;
-  invoices: number;
-  paid: number;
-  outstanding: number;
-  aging: AgingBucket;
-  lastDate: string | null;
 }
