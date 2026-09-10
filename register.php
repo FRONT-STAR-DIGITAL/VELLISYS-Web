@@ -31,20 +31,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <?php product_icons(); ?>
   <?php folio_landing_head(); ?>
 </head>
-<body class="gate">
+<body class="gate gate-register">
 <div class="gate-shell">
   <?php gate_art(
       'A desk for the company. Live from anywhere.',
       'Register, get onboarded, then quotations, invoices and receipts sit on one desk you can open from anywhere.',
       '',
       [
-          'kicker' => 'Documents simplified',
           'heading_html' => 'A desk for the company.<br><em>Live from anywhere.</em>',
-          'tag' => 'Simple tools. Real progress.',
       ]
   ); ?>
   <main class="gate-panel">
     <img class="gate-panel-mark" src="<?= h(product_v_mark_url()) ?>" alt="" decoding="async">
+    <?php render_gate_home(); ?>
     <div class="gate-stack">
     <?php if ($ok): ?>
       <div class="gate-box gate-ok">

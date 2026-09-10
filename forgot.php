@@ -60,13 +60,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       'Enter the personal email on your desk login. A Vellisys admin will send you a reset password.',
       '',
       [
-          'kicker' => 'Documents simplified',
           'heading_html' => 'We can get you<br>back on the desk.',
-          'tag' => 'Simple tools. Real progress.',
       ]
   ); ?>
   <main class="gate-panel">
     <img class="gate-panel-mark" src="<?= h(product_v_mark_url()) ?>" alt="" decoding="async">
+    <?php render_gate_home(); ?>
     <div class="gate-stack">
       <?php if ($ok): ?>
       <div class="gate-box gate-ok">
@@ -104,5 +103,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 <?php public_float_widgets(); ?>
 <script src="<?= h(asset('js/landing.js')) ?>" defer></script>
+<script src="<?= h(asset('js/pwa.js')) ?>" defer></script>
 </body>
 </html>

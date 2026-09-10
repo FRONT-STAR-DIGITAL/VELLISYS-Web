@@ -1566,6 +1566,27 @@ body.gate {
   overflow: hidden;
   background: #08143a;
 }
+body.gate-register .gate-art {
+  background:
+    radial-gradient(ellipse 95% 72% at 8% 0%, rgba(30, 78, 255, .46) 0%, rgba(30, 78, 255, 0) 56%),
+    radial-gradient(ellipse 80% 60% at 100% 100%, rgba(30, 78, 255, .28) 0%, rgba(8, 20, 58, 0) 58%),
+    linear-gradient(168deg, #10256a 0%, #08143a 46%, #050c28 100%);
+}
+body.gate-register .gate-art::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(118deg, rgba(255, 255, 255, .07) 0%, transparent 38%);
+  pointer-events: none;
+  z-index: 0;
+}
+body.gate-register .gate-watermark {
+  opacity: .32;
+  filter: brightness(.78) saturate(1.2);
+}
+body.gate-register .gate-art h1 em {
+  color: #8eb4ff;
+}
 .gate-watermark {
   position: absolute;
   right: -18%;
@@ -1634,7 +1655,7 @@ body.gate {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px 5vw;
+  padding: 64px 5vw 40px;
   position: relative;
   z-index: 3;
   overflow: hidden;
@@ -1859,8 +1880,25 @@ body.gate .lp-floats { display: none; }
   margin-bottom: 6px;
 }
 .gate-keys .lp-btn { width: 100%; margin: 8px 0 4px; }
-.gate-switch, .gate-home { margin: 16px 0 0; font-size: 14px; color: var(--muted); }
-.gate-switch a, .gate-home a { color: var(--blue); font-weight: 700; text-decoration: none; }
+.gate-home {
+  position: absolute;
+  top: 22px;
+  left: 28px;
+  z-index: 4;
+  margin: 0;
+  font-size: 13px;
+}
+.gate-home a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--navy);
+  font-weight: 700;
+  text-decoration: none;
+  letter-spacing: -.01em;
+}
+.gate-home a .icon { stroke: currentColor; }
+.gate-home a:hover { color: var(--blue); }
 .gate-switch { display: none; }
 .gate-install {
   width: min(440px, 100%);
@@ -1943,7 +1981,7 @@ html.is-pwa .gate-home {
 @media (max-width: 1100px) and (min-width: 861px) {
   .gate-shell { grid-template-columns: minmax(240px, 42%) minmax(0, 58%); }
   .gate-art { padding: 36px 32px 32px; }
-  .gate-panel { padding: 28px 4vw; }
+  .gate-panel { padding: 56px 4vw 28px; }
   .gate-stack { padding: 28px 24px 22px; }
 }
 
@@ -1951,41 +1989,74 @@ html.is-pwa .gate-home {
   .gate-shell { grid-template-columns: 1fr; }
   .gate-art { display: none; }
   .gate-panel {
-    background: #fff;
+    background:
+      radial-gradient(ellipse 90% 55% at 86% 0%, rgba(30, 78, 255, .38) 0%, transparent 58%),
+      radial-gradient(ellipse 70% 45% at 8% 100%, rgba(30, 78, 255, .16) 0%, transparent 52%),
+      #08143a;
     min-height: 100vh;
-    padding: 28px max(20px, env(safe-area-inset-left)) 40px max(20px, env(safe-area-inset-right));
+    min-height: 100dvh;
+    padding: max(18px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(28px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
     align-items: stretch;
+    justify-content: flex-start;
   }
   .gate-panel-mark {
-    right: -28%;
-    bottom: 4%;
-    width: min(110%, 420px);
-    opacity: .1;
+    right: -22%;
+    top: -6%;
+    bottom: auto;
+    width: min(145%, 580px);
+    opacity: .42;
+    filter: brightness(1.12) saturate(1.05);
+    z-index: 0;
   }
+  .gate-home {
+    position: relative;
+    top: auto;
+    left: auto;
+    width: 100%;
+    max-width: 420px;
+    margin: 0 auto 18px;
+  }
+  .gate-home a { color: #fff; }
+  .gate-home a:hover { color: #dce5ff; }
   .gate-stack {
     width: 100%;
     max-width: 420px;
     margin: 0 auto;
-    background: transparent;
-    box-shadow: none;
-    border-radius: 0;
-    padding: 12px 4px 24px;
+    background: #fff;
+    box-shadow: 0 22px 50px rgba(0, 0, 0, .22);
+    border-radius: 22px;
+    padding: 28px 22px 22px;
   }
-  .gate-box { width: 100%; max-width: 420px; margin: 0 auto; }
+  .gate-box { width: 100%; max-width: none; margin: 0; }
   .gate-logo {
-    height: 48px;
-    max-width: min(240px, 72vw);
-    margin: 0 auto 18px;
+    height: 36px;
+    max-width: min(180px, 58vw);
+    margin: 0 auto 16px;
   }
-  .gate-box h2 { font-size: 26px; }
+  .gate-box h2 { font-size: 24px; font-weight: 750; }
+  .gate-lead { font-size: 13.5px; margin-bottom: 16px; }
   .gate-submit, .gate-alt { width: 100%; }
-  .gate-switch { display: block; text-align: center; }
+  .gate-install {
+    width: min(420px, 100%);
+    margin: 18px auto 0;
+    padding: 4px 4px 0;
+  }
+  .gate-install-kicker { color: #9db4ff; }
+  .gate-install h3 { color: #fff; font-size: 16px; }
+  .gate-install > p,
+  .gate-install-ios,
+  .gate-install-fallback,
+  .gate-install li { color: rgba(255, 255, 255, .72); }
+  .gate-install-ios,
+  .gate-install-fallback { border-top-color: rgba(255, 255, 255, .12); }
+  .gate-install-note { color: #fff; }
 }
 
 @media (max-width: 480px) {
-  .gate-panel { padding: 22px 18px 36px; }
-  .gate-logo { height: 52px; max-width: min(260px, 78vw); }
-  .gate-box h2 { font-size: 24px; }
+  .gate-panel { padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); }
+  .gate-stack { padding: 24px 18px 18px; border-radius: 20px; }
+  .gate-logo { height: 34px; max-width: min(168px, 56vw); }
+  .gate-box h2 { font-size: 22px; }
 }
 
 .lp-floats {

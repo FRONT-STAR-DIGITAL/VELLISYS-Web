@@ -31,20 +31,19 @@ $showDemoKeys = !folio_is_live_host();
   <?php product_icons(); ?>
   <?php folio_landing_head(); ?>
 </head>
-<body class="gate">
+<body class="gate gate-login">
 <div class="gate-shell">
   <?php gate_art(
       'Manage your business documents in one place.',
       'Store, organize, and access your important documents securely - so you can focus on what moves your business forward.',
       '',
       [
-          'kicker' => 'Documents simplified',
           'heading_html' => 'Manage your<br>business documents<br><em>in one place.</em>',
-          'tag' => 'Simple tools. Real progress.',
       ]
   ); ?>
   <main class="gate-panel">
     <img class="gate-panel-mark" src="<?= h(product_v_mark_url()) ?>" alt="" decoding="async">
+    <?php render_gate_home(); ?>
     <div class="gate-stack">
     <form class="gate-box" method="post" action="<?= h(url('login.php')) ?>">
       <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">

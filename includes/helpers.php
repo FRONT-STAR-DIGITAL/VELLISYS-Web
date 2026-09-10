@@ -1773,10 +1773,19 @@ function render_gate_legal(): void
     <?php
 }
 
+function render_gate_home(): void
+{
+    ?>
+    <p class="gate-home">
+      <a href="<?= h(url()) ?>"><?= icon('arrow-left', 16) ?> Back to home</a>
+    </p>
+    <?php
+}
+
 function gate_art(string $heading, string $lead, string $switchHtml = '', array $opts = []): void
 {
-    $kicker = array_key_exists('kicker', $opts) ? (string) $opts['kicker'] : 'Documents simplified';
-    $tag = array_key_exists('tag', $opts) ? (string) $opts['tag'] : 'Simple tools. Real progress.';
+    $kicker = array_key_exists('kicker', $opts) ? (string) $opts['kicker'] : '';
+    $tag = array_key_exists('tag', $opts) ? (string) $opts['tag'] : '';
     $headingHtml = $opts['heading_html'] ?? null;
     ?>
     <aside class="gate-art">
@@ -1855,7 +1864,6 @@ function public_footer(): void
           <p class="lp-foot-line"><?= icon('whatsapp', 18) ?><a href="tel:+<?= h(phone_digits($agent['phone'])) ?>"><strong><?= h($agent['name']) ?></strong> <?= h($agent['phone']) ?></a></p>
         <?php endforeach; ?>
         <p class="lp-foot-line"><?= icon('help', 18) ?><a href="<?= h(url()) ?>#ask">Have a question</a></p>
-        <p class="lp-foot-line"><?= icon('quotation', 18) ?><a href="<?= h(url('quote.php')) ?>">Request a quote</a></p>
       </div>
       <div>
         <h3>FS Digital</h3>
@@ -2468,7 +2476,7 @@ function landing_card_defaults(): array
         ['slot' => 'help_2', 'section' => 'help', 'sort' => 5, 'image_path' => 'assets/img/landing/landing-anywhere.png', 'title' => 'Open the books from wherever you are.', 'body' => 'Anywhere in the world. Sign in and this month is there - invoices, receipts, expenses, reports - on the screen in front of you.'],
         ['slot' => 'help_3', 'section' => 'help', 'sort' => 6, 'image_path' => 'assets/img/landing/landing-desk.png', 'title' => 'Quotes, invoices, receipts. One desk.', 'body' => 'Pick a template once. The whole books print in that layout, in the company colours. Quotations convert to invoices. Invoices take full or part receipts.'],
         ['slot' => 'steps_1', 'section' => 'steps', 'sort' => 7, 'image_path' => 'assets/img/landing/landing-form.png', 'title' => 'Register', 'body' => 'Name, company, email, phone. That is the whole form. No password to invent. From any country.'],
-        ['slot' => 'steps_2', 'section' => 'steps', 'sort' => 8, 'image_path' => 'assets/img/landing/landing-call.png', 'title' => 'Request a quote', 'body' => 'A Vellisys admin sees the sign-up, sends a quote, and reaches out to onboard your company.'],
+        ['slot' => 'steps_2', 'section' => 'steps', 'sort' => 8, 'image_path' => 'assets/img/landing/landing-call.png', 'title' => 'We call you', 'body' => 'A Vellisys admin sees the sign-up and reaches out to onboard the company.'],
         ['slot' => 'steps_3', 'section' => 'steps', 'sort' => 9, 'image_path' => 'assets/img/landing/landing-live.png', 'title' => 'Get onboarded', 'body' => 'You get a login. The books are yours, in your currency, on any device, any time.'],
     ];
 }
@@ -2557,7 +2565,7 @@ function folio_landing_head(): void
 
 function product_seo_description(): string
 {
-    return 'Vellisys keeps quotations, invoices and receipts on one desk, in your branding and your currency. The branded books software for East Africa, Africa and worldwide - an alternative to QuickBooks and other financial management software. Anywhere in the world: register, request a quote, get onboarded.';
+    return 'Vellisys keeps quotations, invoices and receipts on one desk, in your branding and your currency. The branded books software for East Africa, Africa and worldwide - an alternative to QuickBooks and other financial management software. Anywhere in the world: register, get onboarded.';
 }
 
 function product_public_meta(): void

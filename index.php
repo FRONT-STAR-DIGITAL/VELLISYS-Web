@@ -37,7 +37,6 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
   <main>
     <section class="lp-hero">
       <div class="lp-hero-copy" data-reveal>
-        <p class="lp-kicker">One desk. Your branding. Sent in a tap.</p>
         <h1>Lose track of your financial records?</h1>
         <p class="lp-lead">Receipts in a drawer and invoices in WhatsApp never add up. Vellisys keeps quotations, invoices, receipts and reports on one desk, printed in the client's logo and colours, then shared in a click.</p>
         <ul class="lp-hero-points">
@@ -50,7 +49,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
           <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('register.php')) ?>">Get my company a desk</a>
           <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('login.php')) ?>">I already have a desk</a>
         </div>
-        <p class="lp-note">Anywhere in the world. <a href="<?= h(url('register.php')) ?>">Register</a>. <a href="<?= h(url('quote.php')) ?>">Request a quote</a>. Get onboarded. Built for East Africa, used across Africa and worldwide.</p>
+        <p class="lp-note">Anywhere in the world. <a href="<?= h(url('register.php')) ?>">Register</a>. Get onboarded. Built for East Africa, used across Africa and worldwide.</p>
       </div>
 
       <div class="lp-stage" data-reveal>
@@ -225,7 +224,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
     <section class="lp-band lp-path" id="get-a-desk" data-reveal>
       <p class="lp-kicker">Get a desk</p>
       <h2>You are three steps away</h2>
-      <p class="lp-path-lead">Anywhere you are in the world: register, request a quote, get onboarded. Then the books go live.</p>
+      <p class="lp-path-lead">Anywhere you are in the world: register, get onboarded. Then the books go live.</p>
       <ol class="lp-path-steps">
         <?php foreach ($steps as $i => $card): ?>
           <li>
@@ -321,7 +320,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
           <?php foreach ($faqs as $i => $faq): ?>
             <details class="lp-faq"<?= $i === 0 ? ' open' : '' ?>>
               <summary><?= h($faq['q']) ?></summary>
-              <p><?= h($faq['a']) ?><?php if (!empty($faq['link']['href'])): ?> <a href="<?= h(url((string) $faq['link']['href'])) ?>"><?= h((string) ($faq['link']['label'] ?? 'Request a quote')) ?></a><?php endif; ?></p>
+              <p><?= h($faq['a']) ?><?php if (!empty($faq['link']['href'])): ?> <a href="<?= h(url((string) $faq['link']['href'])) ?>"><?= h((string) ($faq['link']['label'] ?? 'Learn more')) ?></a><?php endif; ?></p>
             </details>
           <?php endforeach; ?>
         </div>

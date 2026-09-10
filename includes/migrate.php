@@ -349,6 +349,11 @@ function folio_ensure_public_tables(mysqli $db): void
     } catch (Throwable $e) {
         error_log('Vellisys landing pricing: ' . $e->getMessage());
     }
+    try {
+        $db->query("UPDATE landing_cards SET title = 'We call you', body = 'A Vellisys admin sees the sign-up and reaches out to onboard the company.' WHERE slot = 'steps_2' AND title = 'Request a quote'");
+    } catch (Throwable $e) {
+        error_log('Vellisys landing steps: ' . $e->getMessage());
+    }
 }
 
 function folio_migrate_signup_source(mysqli $db): void

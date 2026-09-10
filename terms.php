@@ -18,13 +18,12 @@ require __DIR__ . '/includes/bootstrap.php';
       'Vellisys is branded stationery and books: quotations, invoices, receipts, expenses and headed notes.',
       '',
       [
-          'kicker' => 'Documents simplified',
           'heading_html' => 'A desk for the<br>company books.',
-          'tag' => 'Simple tools. Real progress.',
       ]
   ); ?>
   <main class="gate-panel">
     <img class="gate-panel-mark" src="<?= h(product_v_mark_url()) ?>" alt="" decoding="async">
+    <?php render_gate_home(); ?>
     <div class="gate-stack">
       <div class="gate-box">
         <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
@@ -40,5 +39,6 @@ require __DIR__ . '/includes/bootstrap.php';
 </div>
 <?php public_float_widgets(); ?>
 <script src="<?= h(asset('js/landing.js')) ?>" defer></script>
+<script src="<?= h(asset('js/pwa.js')) ?>" defer></script>
 </body>
 </html>
