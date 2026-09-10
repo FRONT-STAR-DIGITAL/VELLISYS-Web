@@ -34,7 +34,8 @@ function layout_start(string $title, array $user, array $opts = []): void
 </head>
 <body class="desk-body">
 <div class="app">
-  <aside class="nav">
+  <div class="nav-scrim" data-nav-scrim hidden></div>
+  <aside class="nav" data-nav>
     <a class="brand" href="<?= h(url('dashboard.php')) ?>">
       <img class="brand-logo" src="<?= h(logo_url($brand)) ?>" alt="<?= h($brand['name']) ?>">
       <strong><?= h($brand['name']) ?></strong>
@@ -59,16 +60,16 @@ function layout_start(string $title, array $user, array $opts = []): void
               $active = $file === 'settings.php';
           }
           ?>
-        <a class="<?= $active ? 'is-on' : '' ?>" href="<?= h(url($href)) ?>"><?= icon($iconName, 17) ?><span><?= h($label) ?></span></a>
+        <a class="<?= $active ? 'is-on' : '' ?>" href="<?= h(url($href)) ?>" title="<?= h($label) ?>"><?= icon($iconName, 18) ?><span><?= h($label) ?></span></a>
       <?php endforeach; ?>
     </nav>
     <div class="nav-user">
-      <span class="nav-user-name"><?= icon('user', 16) ?><?= h($user['name']) ?></span>
+      <span class="nav-user-name"><?= icon('user', 16) ?><span><?= h($user['name']) ?></span></span>
       <span class="nav-user-mail"><?= h($user['email']) ?></span>
       <?php if (is_acting_admin()): ?>
-        <a href="<?= h(url('admin_desk.php?leave=1')) ?>"><?= icon('logout', 15) ?>Leave desk</a>
+        <a href="<?= h(url('admin_desk.php?leave=1')) ?>" title="Leave desk"><?= icon('logout', 15) ?><span>Leave desk</span></a>
       <?php endif; ?>
-      <a href="<?= h(url('logout.php')) ?>"><?= icon('logout', 15) ?>Sign out</a>
+      <a href="<?= h(url('logout.php')) ?>" title="Sign out"><?= icon('logout', 15) ?><span>Sign out</span></a>
     </div>
   </aside>
   <div class="main">
@@ -79,6 +80,7 @@ function layout_start(string $title, array $user, array $opts = []): void
       </div>
     <?php endif; ?>
     <header class="top">
+      <button class="nav-toggle" type="button" data-nav-toggle aria-label="Menu" aria-expanded="false"><?= icon('menu', 20) ?></button>
       <div class="top-actions">
         <button class="btn ghost" type="button" data-quick><?= icon('plus', 16) ?>Quick add</button>
         <a class="btn" href="<?= h(url('document_new.php?kind=invoice')) ?>"><?= icon('invoice', 16) ?>New invoice</a>
@@ -99,8 +101,8 @@ function layout_admin_start(string $title, array $user): void
     $questionNew = new_question_count();
     $nav = [
         ['admin_landing.php', 'Landing', 'image'],
-        ['admin_signups.php', 'Sign-ups' . ($signupNew ? ' (' . $signupNew . ')' : ''), 'letter'],
-        ['admin_questions.php', 'Questions' . ($questionNew ? ' (' . $questionNew . ')' : ''), 'help'],
+        ['admin_signups.php', 'Sign-ups', 'letter'],
+        ['admin_questions.php', 'Questions', 'help'],
         ['admin_companies.php', 'Companies', 'building'],
     ];
     ?>
@@ -115,9 +117,10 @@ function layout_admin_start(string $title, array $user): void
   <?php folio_css_links(); ?>
   <style>:root { <?= product_css_vars() ?> }</style>
 </head>
-<body class="desk-body">
+<body class="desk-body admin-body">
 <div class="app">
-  <aside class="nav">
+  <div class="nav-scrim" data-nav-scrim hidden></div>
+  <aside class="nav" data-nav>
     <a class="brand" href="<?= h(url('admin_signups.php')) ?>">
       <img class="brand-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
       <strong>Platform admin</strong>
@@ -127,18 +130,25 @@ function layout_admin_start(string $title, array $user): void
           $file = strtok($href, '?');
           $active = $file === $here
               || ($here === 'admin_company.php' && $file === 'admin_companies.php');
+          $count = 0;
+          if ($file === 'admin_signups.php') {
+              $count = $signupNew;
+          } elseif ($file === 'admin_questions.php') {
+              $count = $questionNew;
+          }
           ?>
-        <a class="<?= $active ? 'is-on' : '' ?>" href="<?= h(url($href)) ?>"><?= icon($iconName, 17) ?><span><?= h($label) ?></span></a>
+        <a class="<?= $active ? 'is-on' : '' ?>" href="<?= h(url($href)) ?>" title="<?= h($label) ?>"<?= $count ? ' data-badge="' . (int) $count . '"' : '' ?>><?= icon($iconName, 18) ?><span><?= h($label) ?><?= $count ? ' (' . $count . ')' : '' ?></span></a>
       <?php endforeach; ?>
     </nav>
     <div class="nav-user">
-      <span class="nav-user-name"><?= icon('user', 16) ?><?= h($user['name']) ?></span>
+      <span class="nav-user-name"><?= icon('user', 16) ?><span><?= h($user['name']) ?></span></span>
       <span class="nav-user-mail"><?= h($user['email']) ?></span>
-      <a href="<?= h(url('logout.php')) ?>"><?= icon('logout', 15) ?>Sign out</a>
+      <a href="<?= h(url('logout.php')) ?>" title="Sign out"><?= icon('logout', 15) ?><span>Sign out</span></a>
     </div>
   </aside>
   <div class="main">
     <header class="top">
+      <button class="nav-toggle" type="button" data-nav-toggle aria-label="Menu" aria-expanded="false"><?= icon('menu', 20) ?></button>
       <div class="top-actions">
         <a class="btn" href="<?= h(url('admin_companies.php?new=1')) ?>"><?= icon('plus', 16) ?>New company</a>
       </div>
