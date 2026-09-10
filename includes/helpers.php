@@ -2735,12 +2735,18 @@ function folio_css_links(bool $critical = true, ?bool $sheet = null): void
     }
 }
 
+function folio_pwa_detect_script(): void
+{
+    echo '<script>(function(){var d=document.documentElement;if(navigator.standalone===true){d.classList.add("is-pwa");return}var m=["standalone","fullscreen","minimal-ui","window-controls-overlay"];for(var i=0;i<m.length;i++){try{if(window.matchMedia("(display-mode: "+m[i]+")").matches){d.classList.add("is-pwa");return}}catch(e){}}})();</script>';
+}
+
 function folio_landing_head(): void
 {
     folio_critical_css('landing');
     folio_stylesheet('css/landing.css');
     folio_font_links();
     product_public_meta();
+    folio_pwa_detect_script();
 }
 
 function product_seo_description(): string

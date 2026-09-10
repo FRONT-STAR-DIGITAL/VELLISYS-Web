@@ -321,4 +321,20 @@
     });
     window.addEventListener('pagehide', saveDraft);
   }
+
+  document.querySelectorAll('[data-toggle-password]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var wrap = btn.closest('.gate-pw, .field-control');
+      var input = wrap ? wrap.querySelector('input') : null;
+      if (!input) return;
+      var show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      var on = btn.querySelector('[data-eye]');
+      var off = btn.querySelector('[data-eye-off]');
+      if (on) on.hidden = show;
+      if (off) off.hidden = !show;
+      btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      btn.setAttribute('title', show ? 'Hide password' : 'Show password');
+    });
+  });
 })();

@@ -1810,7 +1810,7 @@ body.gate-register .gate-art h1 em {
 .gate-field textarea:focus {
   outline: none;
   border-color: #1e4eff;
-  box-shadow: 0 0 0 3px rgba(30, 78, 255, .16);
+  box-shadow: inset 0 0 0 1px #1e4eff;
   background: #fff;
 }
 .gate-control input:focus { box-shadow: none; }
@@ -2036,9 +2036,57 @@ html.is-pwa .gate-install,
 html.is-pwa .gate-home {
   display: none !important;
 }
-@media (display-mode: standalone), (display-mode: fullscreen) {
+html.is-pwa,
+html.is-pwa body.gate {
+  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+html.is-pwa body.gate .gate-shell {
+  min-height: 100%;
+  min-height: 100dvh;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+html.is-pwa body.gate .gate-panel {
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  padding-top: 28px;
+  padding-bottom: 28px;
+}
+html.is-pwa body.gate .lp-floats { display: none !important; }
+@media (display-mode: standalone),
+       (display-mode: fullscreen),
+       (display-mode: minimal-ui),
+       (display-mode: window-controls-overlay) {
   .gate-install,
   .gate-home { display: none !important; }
+  html, body.gate {
+    height: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  body.gate .gate-shell {
+    min-height: 100%;
+    min-height: 100dvh;
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+  body.gate .gate-panel {
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    padding-top: 28px;
+    padding-bottom: 28px;
+  }
+  body.gate .lp-floats { display: none !important; }
 }
 .gate-ok { text-align: left; }
 .gate-ok h2, .gate-ok .gate-lead { text-align: left; }
@@ -2127,6 +2175,12 @@ html.is-pwa .gate-home {
   .gate-install-ios,
   .gate-install-fallback { border-top-color: rgba(255, 255, 255, .12); }
   .gate-install-note { color: #fff; }
+  html.is-pwa .gate-panel,
+  html.is-pwa body.gate .gate-panel {
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+  }
 }
 
 @media (max-width: 480px) {
@@ -2134,6 +2188,7 @@ html.is-pwa .gate-home {
   .gate-stack { padding: 24px 18px 18px; border-radius: 20px; }
   .gate-logo { height: 34px; max-width: min(168px, 56vw); }
   .gate-box h2 { font-size: 22px; }
+  html.is-pwa .gate-panel { overflow: hidden; }
 }
 
 .lp-floats {

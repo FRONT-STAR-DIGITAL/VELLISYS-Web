@@ -1,11 +1,25 @@
 (function () {
-  var html = document.documentElement;
-  var standalone =
-    window.matchMedia('(display-mode: standalone)').matches ||
-    window.matchMedia('(display-mode: fullscreen)').matches ||
-    window.navigator.standalone === true;
+  function displayMode(mode) {
+    try {
+      return window.matchMedia('(display-mode: ' + mode + ')').matches;
+    } catch (e) {
+      return false;
+    }
+  }
 
-  if (standalone) {
+  function isInstalledApp() {
+    if (window.navigator.standalone === true) {
+      return true;
+    }
+    return displayMode('standalone')
+      || displayMode('fullscreen')
+      || displayMode('minimal-ui')
+      || displayMode('window-controls-overlay');
+  }
+
+  var html = document.documentElement;
+  var installed = isInstalledApp();
+  if (installed) {
     html.classList.add('is-pwa');
     var home = html.getAttribute('data-pwa-login') || 'login.php';
     document.querySelectorAll('[data-pwa-home]').forEach(function (el) {
@@ -27,8 +41,9 @@
   if (!wrap) {
     return;
   }
-  if (standalone) {
+  if (installed) {
     wrap.hidden = true;
+    wrap.removeAttribute('open');
     return;
   }
 
