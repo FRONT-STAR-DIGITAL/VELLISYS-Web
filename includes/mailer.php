@@ -115,6 +115,49 @@ function mail_inlines_for_html(string $html, array $extra = []): array
     return $found;
 }
 
+function emails_same(string $a, string $b): bool
+{
+    return strtolower(trim($a)) === strtolower(trim($b));
+}
+
+function platform_copy_banner_html(string $fromEmail, string $clientEmail): string
+{
+    $navy = '#08143A';
+    $white = '#FFFFFF';
+    return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px">'
+        . '<tr><td style="background:' . $navy . ';padding:14px 16px;">'
+        . '<p style="margin:0 0 6px;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:' . $white . ';font-weight:700;">Copy for Vellisys</p>'
+        . '<p style="margin:0;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:13px;line-height:1.55;color:' . $white . ';">The client received this from ' . h($fromEmail)
+        . '. Reply to write to <a href="mailto:' . h($clientEmail) . '" style="color:' . $white . ';font-weight:700;text-decoration:underline;">' . h($clientEmail) . '</a>.</p>'
+        . '</td></tr></table>';
+}
+
+function html_with_platform_copy_banner(string $html, string $fromEmail, string $clientEmail): string
+{
+    $banner = platform_copy_banner_html($fromEmail, $clientEmail);
+    if (preg_match('/<body\b[^>]*>/i', $html, $m, PREG_OFFSET_CAPTURE)) {
+        $at = (int) $m[0][1] + strlen($m[0][0]);
+        return substr($html, 0, $at) . $banner . substr($html, $at);
+    }
+    return $banner . $html;
+}
+
+function copy_outbound_to_platform(string $to, string $subject, string $html, string $text, string $fromEmail): void
+{
+    $watch = product_email();
+    if (!filter_var($watch, FILTER_VALIDATE_EMAIL) || !filter_var($to, FILTER_VALIDATE_EMAIL)) {
+        return;
+    }
+    if (emails_same($to, $watch)) {
+        return;
+    }
+    $from = $fromEmail !== '' ? $fromEmail : $watch;
+    $copySubject = preg_match('/^copy\s*-/i', $subject) ? $subject : ('Copy - ' . $subject);
+    $copyHtml = html_with_platform_copy_banner($html, $from, $to);
+    $copyText = "Copy for Vellisys. The client received this from {$from}. Reply to write to {$to}.\n\n" . $text;
+    send_platform_email($watch, $copySubject, $copyHtml, $copyText, 0, $to);
+}
+
 function deliver_mail(array $account, string $to, string $subject, string $html, string $text, string $replyTo = '', array $inlines = []): array
 {
     $merged = [];
@@ -128,6 +171,13 @@ function deliver_mail(array $account, string $to, string $subject, string $html,
     $result['from'] = (string) ($account['from_email'] ?? ($result['from'] ?? ''));
     if (empty($result['error'])) {
         $result['error'] = $result['ok'] ? '' : 'The mailbox did not accept this message.';
+    }
+    if (!empty($result['ok'])) {
+        try {
+            copy_outbound_to_platform($to, $subject, $html, $text, (string) $result['from']);
+        } catch (Throwable $e) {
+            // The client letter already left. A missed copy must not undo that.
+        }
     }
     return $result;
 }

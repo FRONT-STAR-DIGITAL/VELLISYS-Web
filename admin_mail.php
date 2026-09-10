@@ -106,7 +106,7 @@ layout_admin_start('Email', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('send') ?>Email</h1>
-    <p class="lede">Send a custom Vellisys letter from <strong><?= h(product_email()) ?></strong>. Clients receive from this mailbox when they submit a question, register, pay (receipt), go live, or get a renewal reminder. Pick a company to send the payment receipt template: term started, expiry, currency, amount received, thanks, and a wait for onboarding credentials when the desk is not live yet.</p>
+    <p class="lede">Send a custom Vellisys letter from <strong><?= h(product_email()) ?></strong>. A copy of every letter that leaves Vellisys or a company desk also arrives here, with Reply-To set to the client so you can answer from the copy. Clients receive from this mailbox when they submit a question, register, pay (receipt), go live, or get a renewal reminder. Pick a company to send the payment receipt template: term started, expiry, currency, amount received, thanks, and a wait for onboarding credentials when the desk is not live yet.</p>
   </div>
   <form method="post">
     <?= csrf_field() ?>

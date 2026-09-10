@@ -188,7 +188,7 @@ layout_start($pageTitle, $user);
   </div>
   <label for="message">Message</label>
   <textarea id="message" name="message" rows="12" required><?= h($messagePrefill) ?></textarea>
-  <p class="hint">The letter uses your logo on a white background. Vellisys stationery (questions, registration, onboarding) still leaves from <?= h(product_email()) ?>.</p>
+  <p class="hint">The letter uses your logo on a white background. A copy also goes to <?= h(product_email()) ?> so Vellisys can follow up with the client. Vellisys stationery (questions, registration, onboarding) still leaves from <?= h(product_email()) ?>.</p>
   <div class="actions" style="margin-top:12px">
     <button class="btn" type="submit" <?= $sendAcct ? '' : 'disabled' ?>><?= icon('send') ?>Send from company mailbox</button>
     <?php if ($doc): ?>

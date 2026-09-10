@@ -103,6 +103,8 @@ Username is the full address. Credentials live in `config/mail.php` (override wi
 
 If SMTP is refused (firewall, wrong password), Vellisys still **logs the email as queued**. Retry queued on the admin Email tab only retries Vellisys letters, not company mail.
 
+**A copy of every outbound letter** also arrives at **`info@vellisys.com`**, including company-desk mail (quotations, invoices, receipts, letters, reminders). The copy is marked for Vellisys and Reply-To is the client, so the team can answer from that inbox. Letters that were already addressed to `info@vellisys.com` are not copied again.
+
 Print / PDF uses the browser print dialog (Save as PDF). CSV downloads from the Export CSV buttons.
 
 ## Local PHP (without XAMPP)
