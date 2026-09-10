@@ -144,4 +144,135 @@
       });
     }
   }
+
+  var CCY_COOKIE = 'vellisys_ccy';
+
+  function cookieCcy() {
+    var match = document.cookie.match(/(?:^|; )vellisys_ccy=([A-Z]{3})/);
+    return match ? match[1] : '';
+  }
+
+  function setCcyCookie(code) {
+    document.cookie = CCY_COOKIE + '=' + encodeURIComponent(code) + ';path=/;max-age=34560000;SameSite=Lax';
+  }
+
+  function parseJson(value, fallback) {
+    try {
+      return JSON.parse(value || '');
+    } catch (e) {
+      return fallback;
+    }
+  }
+
+  function formatFromUgx(ugx, ccy, rates, currencies) {
+    var rate = Number((rates && rates[ccy]) || 1);
+    if (!rate) rate = 1;
+    var decimals = currencies && currencies[ccy] && typeof currencies[ccy].decimals === 'number'
+      ? currencies[ccy].decimals
+      : 0;
+    var amount = ugx / rate;
+    amount = decimals === 0 ? Math.round(amount) : Math.round(amount * 100) / 100;
+    var parts = amount.toFixed(decimals).split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return ccy + ' ' + parts.join('.');
+  }
+
+  function applyCurrency(code) {
+    document.querySelectorAll('[data-pricing]').forEach(function (root) {
+      var rates = parseJson(root.getAttribute('data-rates'), {});
+      var currencies = parseJson(root.getAttribute('data-currencies'), {});
+      root.setAttribute('data-ccy', code);
+      root.querySelectorAll('[data-ugx]').forEach(function (el) {
+        var ugx = Number(el.getAttribute('data-ugx') || 0);
+        var text = formatFromUgx(ugx, code, rates, currencies);
+        if (el.getAttribute('data-pay-btn') !== null || el.hasAttribute('data-pay-btn')) {
+          el.textContent = 'Pay ' + text;
+        } else {
+          el.textContent = text;
+        }
+      });
+      root.querySelectorAll('[data-pricing-ccy-label]').forEach(function (el) {
+        el.textContent = code;
+      });
+    });
+    document.querySelectorAll('[data-lp-ccy]').forEach(function (sel) {
+      if (sel.value !== code) sel.value = code;
+    });
+  }
+
+  document.querySelectorAll('[data-lp-ccy]').forEach(function (sel) {
+    sel.addEventListener('change', function () {
+      var code = (sel.value || 'UGX').toUpperCase();
+      setCcyCookie(code);
+      applyCurrency(code);
+    });
+  });
+
+  var fromCookie = cookieCcy();
+  if (fromCookie) {
+    applyCurrency(fromCookie);
+  }
+
+  function kampalaDeadline() {
+    var parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Africa/Kampala',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).formatToParts(new Date());
+    var get = function (type) {
+      var found = parts.find(function (p) { return p.type === type; });
+      return found ? found.value : '01';
+    };
+    var start = Date.parse(get('year') + '-' + get('month') + '-' + get('day') + 'T00:00:00+03:00');
+    return start + (3 * 24 * 60 * 60 * 1000);
+  }
+
+  function tickDiscount() {
+    var clocks = document.querySelectorAll('[data-discount-clock]');
+    if (!clocks.length) return;
+    var remain = Math.max(0, kampalaDeadline() - Date.now());
+    var total = Math.floor(remain / 1000);
+    var h = Math.floor(total / 3600);
+    var m = Math.floor((total % 3600) / 60);
+    var s = total % 60;
+    var pad = function (n) { return String(n).padStart(2, '0'); };
+    clocks.forEach(function (clock) {
+      var hb = clock.querySelector('[data-discount-h]');
+      var mb = clock.querySelector('[data-discount-m]');
+      var sb = clock.querySelector('[data-discount-s]');
+      if (hb) hb.textContent = pad(h);
+      if (mb) mb.textContent = pad(m);
+      if (sb) sb.textContent = pad(s);
+    });
+  }
+  tickDiscount();
+  setInterval(tickDiscount, 1000);
+
+  var checkout = document.querySelector('[data-checkout-form]');
+  if (checkout) {
+    var timer = 0;
+    var publicInput = checkout.querySelector('[data-order-public]');
+    function saveDraft() {
+      var name = (checkout.querySelector('[name="contact_name"]') || {}).value || '';
+      var company = (checkout.querySelector('[name="company_name"]') || {}).value || '';
+      var email = (checkout.querySelector('[name="contact_email"]') || {}).value || '';
+      if (!name.trim() && !company.trim() && !email.trim()) return;
+      var data = new FormData(checkout);
+      data.set('action', 'draft');
+      fetch(checkout.getAttribute('action') || window.location.href, {
+        method: 'POST',
+        body: data,
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      }).then(function (res) { return res.json(); }).then(function (json) {
+        if (json && json.public_id && publicInput) publicInput.value = json.public_id;
+      }).catch(function () {});
+    }
+    checkout.addEventListener('input', function () {
+      clearTimeout(timer);
+      timer = setTimeout(saveDraft, 1200);
+    });
+    window.addEventListener('pagehide', saveDraft);
+  }
 })();

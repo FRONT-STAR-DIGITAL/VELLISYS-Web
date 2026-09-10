@@ -381,6 +381,58 @@ function notify_visitor_question(array $q): void
     send_platform_email($to, $subject, $html, $text, 0, product_email());
 }
 
+function notify_admin_order(array $order, string $event): void
+{
+    $plan = function_exists('pricing_package') ? pricing_package((string) ($order['plan'] ?? '')) : null;
+    $planName = $plan['name'] ?? (string) ($order['plan'] ?? 'desk');
+    $title = match ($event) {
+        'draft' => 'Incomplete checkout',
+        'pending' => 'Checkout started (Pesapal)',
+        'paid' => 'Desk payment received',
+        'failed' => 'Desk payment failed',
+        'cancelled' => 'Desk payment cancelled',
+        default => 'Website checkout',
+    };
+    $amount = h((string) ($order['currency'] ?? '')) . ' ' . h((string) ($order['amount'] ?? ''));
+    $html = vellisys_email_wrap(
+        '<p style="margin:0 0 14px">' . h($title) . ' for <strong>' . h((string) ($order['company'] ?? 'a company')) . '</strong>.</p>'
+        . '<p style="margin:0 0 8px"><strong>Package:</strong> ' . h($planName) . '</p>'
+        . '<p style="margin:0 0 8px"><strong>Amount:</strong> ' . $amount . ' (UGX ' . h((string) ($order['amount_ugx'] ?? '')) . ')</p>'
+        . '<p style="margin:0 0 8px"><strong>Contact:</strong> ' . h((string) ($order['name'] ?? '')) . '</p>'
+        . '<p style="margin:0 0 8px"><strong>Email:</strong> ' . h((string) ($order['email'] ?? '')) . '</p>'
+        . '<p style="margin:0 0 8px"><strong>Phone:</strong> ' . h((string) ($order['phone'] ?? '')) . '</p>'
+        . '<p style="margin:0 0 8px"><strong>Status:</strong> ' . h((string) ($order['status'] ?? $event)) . '</p>'
+        . ((string) ($order['last_error'] ?? '') !== ''
+            ? '<p style="margin:0 0 14px"><strong>Error:</strong> ' . h((string) $order['last_error']) . '</p>'
+            : '')
+        . '<p style="margin:0"><a href="' . h(absolute_url('admin_signups.php')) . '" style="color:#1E4EFF">Open sign-ups</a></p>'
+    );
+    $text = $title . ': ' . ($order['company'] ?? '') . ' / ' . $planName . ' / ' . ($order['email'] ?? '') . ' / ' . $amount;
+    notify_platform('Vellisys ' . $title . ': ' . ($order['company'] ?? 'a company'), $html, $text, (string) ($order['email'] ?? ''));
+    if ($event === 'paid') {
+        notify_visitor_order_paid($order, $planName, $amount);
+    }
+}
+
+function notify_visitor_order_paid(array $order, string $planName, string $amountHtml): void
+{
+    $to = strtolower(trim((string) ($order['email'] ?? '')));
+    if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+        return;
+    }
+    $who = trim((string) ($order['name'] ?? '')) ?: 'there';
+    $company = trim((string) ($order['company'] ?? 'your company'));
+    $subject = 'We have your Vellisys payment for ' . $company;
+    $html = vellisys_email_wrap(
+        '<p style="margin:0 0 14px">Dear ' . h($who) . ',</p>'
+        . '<p style="margin:0 0 14px">Thank you. We received payment for the <strong>' . h($planName) . '</strong> desk for <strong>' . h($company) . '</strong> (' . $amountHtml . ').</p>'
+        . '<p style="margin:0 0 14px">A Vellisys admin will contact you to onboard the company and issue the login. There is no password yet - you receive one when the desk is opened.</p>'
+        . '<p style="margin:0">Kind regards,<br><strong>Vellisys</strong></p>'
+    );
+    $text = "Dear {$who},\n\nThank you. We received payment for the {$planName} desk for {$company}. A Vellisys admin will contact you to onboard the company.\n\nKind regards,\nVellisys";
+    send_platform_email($to, $subject, $html, $text, 0, product_email());
+}
+
 function notify_admin_signup(array $signup): void
 {
     $isQuote = ($signup['source'] ?? '') === 'quote';

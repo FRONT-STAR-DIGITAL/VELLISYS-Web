@@ -58,15 +58,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <div class="gate-box gate-ok">
         <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
         <h2><em>We have</em> your request</h2>
-        <p class="gate-lead">We sent a confirmation to your email from <?= h(product_email()) ?>. A Vellisys admin will reach out to onboard your company and open the desk. No password yet - you get one when the company goes live.</p>
+        <p class="gate-lead">We sent a confirmation to your email from <?= h(product_email()) ?>. A Vellisys admin will contact you to onboard the company and open the desk. No password yet - you get one when the company goes live.</p>
         <a class="gate-submit" href="<?= h(url()) ?>">Back to Vellisys</a>
       </div>
     <?php else: ?>
       <form class="gate-box" method="post" action="<?= h(url('register.php')) ?>" autocomplete="off">
         <?= csrf_field() ?>
         <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
-        <h2><em>Sign up</em> to get a company desk</h2>
-        <p class="gate-lead">Anywhere in the world. Four fields. Or <a href="<?= h(url('quote.php')) ?>">request a quote</a> first. We onboard you after.</p>
+        <h2><em>Sign up</em> - we contact you to onboard</h2>
+        <p class="gate-lead">Four fields. This form does not take payment. A Vellisys admin will contact you to onboard the company. You get a password when the desk goes live. To pay now, <a href="<?= h(url()) ?>#pricing">pick a package</a>. Or <a href="<?= h(url('quote.php')) ?>">request a quote</a>.</p>
         <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
         <label class="gate-field" for="contact_name">Your name
           <input id="contact_name" name="contact_name" required autocomplete="name" value="<?= h(post('contact_name')) ?>" placeholder="Jane Okello">

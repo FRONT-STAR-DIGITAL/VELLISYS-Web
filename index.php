@@ -13,6 +13,7 @@ $reviews = landing_reviews();
 $manage = desk_manage_items();
 $faqs = landing_faqs();
 $_SESSION['ask_form_at'] = time();
+pricing_display_currency();
 $askFlash = flash();
 $askedOk = isset($_GET['asked']);
 $askDraft = $_SESSION['ask_draft'] ?? [];
@@ -273,6 +274,8 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
         <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('quote.php')) ?>">Request a quote</a>
       </div>
     </section>
+
+    <?php render_landing_pricing(); ?>
 
     <section class="lp-ask" id="ask" data-reveal>
       <div class="lp-ask-copy">

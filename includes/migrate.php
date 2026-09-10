@@ -29,7 +29,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 25) {
+    if ($ver >= 26) {
         $done = true;
         return;
     }
@@ -201,8 +201,11 @@ function folio_migrate(mysqli $db): void
     if ($ver < 25) {
         folio_migrate_desk_users($db);
     }
+    if ($ver < 26) {
+        folio_migrate_website_orders($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '25')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '26')");
     $done = true;
 }
 
@@ -483,4 +486,34 @@ function folio_ensure_platform_admin(mysqli $db): void
         $stmt->execute();
     }
     $db->query("UPDATE users SET name = 'Vellisys Admin' WHERE role = 'platform' AND email = 'admin@folio.ug'");
+}
+
+function folio_migrate_website_orders(mysqli $db): void
+{
+    $db->query("CREATE TABLE IF NOT EXISTS website_orders (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      public_id CHAR(16) NOT NULL,
+      merchant_ref VARCHAR(50) NOT NULL,
+      plan VARCHAR(20) NOT NULL,
+      currency CHAR(3) NOT NULL DEFAULT 'UGX',
+      amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+      amount_ugx DECIMAL(14,2) NOT NULL DEFAULT 0,
+      name VARCHAR(160) NOT NULL DEFAULT '',
+      company VARCHAR(160) NOT NULL DEFAULT '',
+      email VARCHAR(190) NOT NULL DEFAULT '',
+      phone VARCHAR(40) NOT NULL DEFAULT '',
+      city VARCHAR(120) NOT NULL DEFAULT '',
+      status ENUM('draft','pending','paid','failed','cancelled') NOT NULL DEFAULT 'draft',
+      pesapal_tracking VARCHAR(80) NOT NULL DEFAULT '',
+      pesapal_redirect TEXT NULL,
+      signup_id INT UNSIGNED NULL,
+      notified_draft TINYINT UNSIGNED NOT NULL DEFAULT 0,
+      last_error TEXT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY public_id (public_id),
+      UNIQUE KEY merchant_ref (merchant_ref),
+      KEY status_created (status, created_at),
+      KEY email (email)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }

@@ -145,6 +145,8 @@ CREATE TABLE IF NOT EXISTS signups (
   email VARCHAR(190) NOT NULL,
   phone VARCHAR(40) NOT NULL DEFAULT '',
   status ENUM('new','contacted','onboarded','declined') NOT NULL DEFAULT 'new',
+  source VARCHAR(20) NOT NULL DEFAULT 'register',
+  note TEXT NULL,
   company_id INT UNSIGNED NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY status_created (status, created_at),
@@ -215,4 +217,31 @@ CREATE TABLE IF NOT EXISTS renewal_notices (
   status ENUM('sent','queued','failed') NOT NULL DEFAULT 'queued',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY company_id (company_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS website_orders (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  public_id CHAR(16) NOT NULL,
+  merchant_ref VARCHAR(50) NOT NULL,
+  plan VARCHAR(20) NOT NULL,
+  currency CHAR(3) NOT NULL DEFAULT 'UGX',
+  amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+  amount_ugx DECIMAL(14,2) NOT NULL DEFAULT 0,
+  name VARCHAR(160) NOT NULL DEFAULT '',
+  company VARCHAR(160) NOT NULL DEFAULT '',
+  email VARCHAR(190) NOT NULL DEFAULT '',
+  phone VARCHAR(40) NOT NULL DEFAULT '',
+  city VARCHAR(120) NOT NULL DEFAULT '',
+  status ENUM('draft','pending','paid','failed','cancelled') NOT NULL DEFAULT 'draft',
+  pesapal_tracking VARCHAR(80) NOT NULL DEFAULT '',
+  pesapal_redirect TEXT NULL,
+  signup_id INT UNSIGNED NULL,
+  notified_draft TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  last_error TEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY public_id (public_id),
+  UNIQUE KEY merchant_ref (merchant_ref),
+  KEY status_created (status, created_at),
+  KEY email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

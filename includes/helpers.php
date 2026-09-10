@@ -373,6 +373,10 @@ function flash(?string $message = null, string $type = 'ok'): ?array
 
 function redirect(string $path): never
 {
+    if (preg_match('#^https?://#i', $path)) {
+        header('Location: ' . $path);
+        exit;
+    }
     header('Location: ' . url($path));
     exit;
 }
@@ -1670,8 +1674,17 @@ function public_header(string $page = 'home'): void
       <?php if ($page !== 'home'): ?>
         <a class="lp-nav-home" href="<?= h(url()) ?>">Home</a>
       <?php endif; ?>
+      <label class="lp-fx" for="lp-ccy">
+        <span class="visually-hidden">Currency</span>
+        <select id="lp-ccy" name="ccy" data-lp-ccy aria-label="Display currency">
+          <?php $ccy = pricing_display_currency(); ?>
+          <?php foreach (pricing_currencies() as $code => $meta): ?>
+            <option value="<?= h($code) ?>" <?= $ccy === $code ? 'selected' : '' ?>><?= h($meta['label']) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </label>
       <a class="lp-btn lp-btn-ghost" href="<?= h(url('login.php')) ?>">Sign in</a>
-      <a class="lp-btn lp-btn-solid" href="<?= h(url('register.php')) ?>">Get a desk</a>
+      <a class="lp-btn lp-btn-solid" href="<?= h($page === 'home' ? '#pricing' : (rtrim(url(), '/') . '/#pricing')) ?>">Get a desk</a>
     </nav>
   </div>
   </header>
@@ -2139,7 +2152,7 @@ function landing_faqs(): array
     return [
         [
             'q' => 'How do I get a desk?',
-            'a' => 'Leave four fields on Register. A Vellisys admin calls you, onboards the company, and issues a login. There is no password to invent on the website.',
+            'a' => 'Pay for a package on this page, or leave four fields on Register. A Vellisys admin contacts you to onboard the company and issues a login. There is no password to invent on the website.',
         ],
         [
             'q' => 'Are the documents in our branding?',
@@ -2151,8 +2164,8 @@ function landing_faqs(): array
         ],
         [
             'q' => 'How much does a desk cost?',
-            'a' => 'There is no one price on the website. We assess what your company needs, then we send a quote.',
-            'link' => ['href' => 'quote.php', 'label' => 'Request a quote'],
+            'a' => 'Three first-year packages on this page: Solo, Studio and Practice. Pay on the site, then a Vellisys admin contacts you to onboard the company. Register without paying if you want us to call first.',
+            'link' => ['href' => '#pricing', 'label' => 'See packages'],
         ],
         [
             'q' => 'How do we send a sheet to a client?',
@@ -2356,7 +2369,11 @@ function folio_font_links(): void
 
 function signup_source_label(?string $source): string
 {
-    return ($source ?? '') === 'quote' ? 'Quote' : 'Sign-up';
+    return match ($source ?? '') {
+        'quote' => 'Quote',
+        'checkout' => 'Checkout',
+        default => 'Sign-up',
+    };
 }
 
 function new_question_count(): int

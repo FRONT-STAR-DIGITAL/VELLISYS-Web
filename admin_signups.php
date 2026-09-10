@@ -27,6 +27,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $open = db_all("SELECT * FROM signups WHERE status IN ('new','contacted') ORDER BY FIELD(status,'new','contacted'), id DESC");
 $done = db_all("SELECT * FROM signups WHERE status IN ('onboarded','declined') ORDER BY id DESC LIMIT 40");
+$orders = [];
+try {
+    $orders = db_all('SELECT * FROM website_orders ORDER BY updated_at DESC, id DESC LIMIT 80');
+} catch (Throwable $e) {
+    $orders = [];
+}
 
 layout_admin_start('Sign-ups', $user);
 
@@ -73,7 +79,7 @@ $rowActions = static function (array $s): void {
 <div class="page-head">
   <div>
     <h1><?= icon('letter') ?>Website sign-ups</h1>
-    <p class="lede">People register or request a quote from the website. Call them, then onboard the company - or create one from scratch under Companies.</p>
+    <p class="lede">People register, request a quote, or start checkout from the website. Incomplete forms and failed Pesapal payments land here too. Call them, then onboard the company - or create one from scratch under Companies.</p>
   </div>
 </div>
 
@@ -98,7 +104,7 @@ $rowActions = static function (array $s): void {
         <?php foreach ($open as $s): ?>
           <tr>
             <td class="mono"><?= h(substr((string) $s['created_at'], 0, 16)) ?></td>
-            <td><?= ($s['source'] ?? '') === 'quote' ? '<span class="pill warn">Quote</span>' : '<span class="pill">Sign-up</span>' ?></td>
+            <td><span class="pill<?= ($s['source'] ?? '') === 'quote' ? ' warn' : (($s['source'] ?? '') === 'checkout' ? ' warn' : '') ?>"><?= h(signup_source_label($s['source'] ?? null)) ?></span></td>
             <td><strong><?= h($s['name']) ?></strong></td>
             <td>
               <?= h($s['company']) ?>
@@ -140,12 +146,71 @@ $rowActions = static function (array $s): void {
         <?php foreach ($done as $s): ?>
           <tr>
             <td class="mono"><?= h(substr((string) $s['created_at'], 0, 16)) ?></td>
-            <td><?= ($s['source'] ?? '') === 'quote' ? 'Quote' : 'Sign-up' ?></td>
+            <td><?= h(signup_source_label($s['source'] ?? null)) ?></td>
             <td><?= h($s['name']) ?></td>
             <td><?= h($s['company']) ?></td>
             <td><?= h($s['email']) ?></td>
             <td><?= $pill($s['status']) ?></td>
             <td class="row-actions"><?php $rowActions($s); ?></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  <?php endif; ?>
+</div>
+
+<div class="card" style="margin-top:24px">
+  <h2 style="margin:4px 0 12px">Checkout forms</h2>
+  <?php if (!$orders): ?>
+    <p class="empty">Package checkouts, drafts and failed Pesapal payments will list here.</p>
+  <?php else: ?>
+    <table class="grid">
+      <thead>
+        <tr>
+          <th>When</th>
+          <th>Package</th>
+          <th>Person</th>
+          <th>Company</th>
+          <th>Amount</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($orders as $o): ?>
+          <?php
+            $plan = pricing_package((string) $o['plan']);
+            $st = (string) $o['status'];
+            $stClass = match ($st) {
+                'paid' => '',
+                'failed', 'cancelled' => ' bad',
+                'draft', 'pending' => ' warn',
+                default => '',
+            };
+          ?>
+          <tr>
+            <td class="mono"><?= h(substr((string) $o['updated_at'], 0, 16)) ?></td>
+            <td><?= h($plan['name'] ?? (string) $o['plan']) ?></td>
+            <td>
+              <strong><?= h((string) $o['name']) ?></strong>
+              <div class="muted"><a href="mailto:<?= h((string) $o['email']) ?>"><?= h((string) $o['email']) ?></a></div>
+            </td>
+            <td>
+              <?= h((string) $o['company']) ?>
+              <?php if (trim((string) ($o['phone'] ?? '')) !== ''): ?>
+                <div class="mono muted"><?= h((string) $o['phone']) ?></div>
+              <?php endif; ?>
+              <?php if (trim((string) ($o['last_error'] ?? '')) !== ''): ?>
+                <div class="muted"><?= h(mb_substr(trim((string) $o['last_error']), 0, 90)) ?></div>
+              <?php endif; ?>
+            </td>
+            <td class="mono"><?= h((string) $o['currency']) ?> <?= h((string) $o['amount']) ?></td>
+            <td><span class="pill<?= $stClass ?>"><?= h($st) ?></span></td>
+            <td class="row-actions">
+              <?php if (!empty($o['signup_id'])): ?>
+                <a class="btn sm" href="<?= h(url('admin_company_new.php?signup=' . (int) $o['signup_id'])) ?>">Onboard</a>
+              <?php endif; ?>
+            </td>
           </tr>
         <?php endforeach; ?>
       </tbody>
