@@ -2354,7 +2354,7 @@ function landing_faqs(): array
         ],
         [
             'q' => 'How do I pay for a package?',
-            'a' => 'Choose a package, enter the company, then Pesapal opens. Pay with M-Pesa, Airtel Money, MTN Mobile Money, Tigo Pesa, Equitel, Visa, Mastercard, American Express, a bank transfer or a Pesapal e-wallet. The charge is in the currency you picked on this page. The desk itself can still bill your clients in any currency you set in Settings.',
+            'a' => 'Choose a package, enter the company, then pay. Pay with M-Pesa, Airtel Money, MTN Mobile Money, Tigo Pesa, Equitel, Visa, Mastercard, American Express, a bank transfer or a wallet. The charge is in the currency you picked on this page. The desk itself can still bill your clients in any currency you set in Settings.',
             'link' => ['href' => '#pay', 'label' => 'See how payment works'],
         ],
         [
@@ -2362,7 +2362,7 @@ function landing_faqs(): array
             'a' => (static function (): string {
                 $names = array_values(array_filter(array_map(static fn (array $p): string => trim((string) ($p['name'] ?? '')), pricing_packages())));
                 $list = $names ? implode(', ', $names) : 'the packages on this page';
-                return 'Packages on this page: ' . $list . '. Billed per year. Pay on Pesapal, then a Vellisys admin contacts you to onboard the company. Register without paying if you want us to call first.';
+                return 'Packages on this page: ' . $list . '. Billed per year. Pay, then a Vellisys admin contacts you to onboard the company. Register without paying if you want us to call first.';
             })(),
             'link' => ['href' => '#pricing', 'label' => 'See packages'],
         ],

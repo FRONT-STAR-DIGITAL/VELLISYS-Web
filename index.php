@@ -271,19 +271,21 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
     </section>
     <?php endif; ?>
 
+    <?php render_landing_pricing(); ?>
+
     <section class="lp-world lp-pay" id="pay" data-reveal>
-      <p class="lp-kicker">Pay on Pesapal</p>
+      <p class="lp-kicker">Pay</p>
       <h2>Pick a package. Pay the way you already pay.</h2>
-      <p class="lp-world-lead">Choose Quill, Ledger or Crest, enter the company, then Pesapal opens a secure page. Pay with mobile money, a card, a bank or a Pesapal wallet - in the currency you selected. We onboard the desk after the payment lands.</p>
+      <p class="lp-world-lead">Choose Quill, Ledger or Crest, enter the company, then pay. Mobile money, a card, a bank or a wallet - in the currency you selected. We onboard the desk after payment lands.</p>
       <ol class="lp-pay-flow">
         <li><b>1</b><span>Choose a package</span></li>
         <li><b>2</b><span>Enter company details</span></li>
-        <li><b>3</b><span>Pay on Pesapal</span></li>
+        <li><b>3</b><span>Pay</span></li>
         <li><b>4</b><span>We onboard the desk</span></li>
       </ol>
       <div class="lp-pay-board">
         <div class="lp-pay-col">
-          <h3>Pesapal methods</h3>
+          <h3>Ways to pay</h3>
           <?php foreach (pesapal_payment_methods() as $group): ?>
             <p class="lp-pay-group"><?= h($group['group']) ?></p>
             <ul class="lp-pay-chips">
@@ -300,6 +302,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
             <?php foreach (pricing_currencies() as $code => $meta): ?>
               <li><strong><?= h($code) ?></strong> <?= h($meta['name']) ?></li>
             <?php endforeach; ?>
+            <li class="is-more"><strong>... & more</strong> any three-letter code</li>
           </ul>
         </div>
       </div>
@@ -308,8 +311,6 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
         <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('register.php')) ?>">Register without paying</a>
       </div>
     </section>
-
-    <?php render_landing_pricing(); ?>
 
     <section class="lp-ask" id="ask" data-reveal>
       <div class="lp-ask-copy">
