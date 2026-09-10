@@ -2461,9 +2461,9 @@ html.is-pwa .gate-home {
 }
 .lp-price-head {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 12px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
   position: relative;
   padding: 16px 20px 14px;
   background: #fff;
@@ -2524,7 +2524,7 @@ html.is-pwa .gate-home {
 }
 .lp-price-card.is-popular .lp-price-head h3 { color: var(--navy); }
 .lp-price-seats {
-  margin: 0;
+  margin: 0 0 0 48px;
   display: inline-flex;
   align-items: baseline;
   flex: 0 0 auto;
