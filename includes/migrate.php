@@ -29,7 +29,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 26) {
+    if ($ver >= 28) {
         $done = true;
         return;
     }
@@ -204,8 +204,14 @@ function folio_migrate(mysqli $db): void
     if ($ver < 26) {
         folio_migrate_website_orders($db);
     }
+    if ($ver < 27) {
+        folio_migrate_landing_pricing($db);
+    }
+    if ($ver < 28) {
+        folio_migrate_order_country($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '26')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '28')");
     $done = true;
 }
 
@@ -503,6 +509,7 @@ function folio_migrate_website_orders(mysqli $db): void
       email VARCHAR(190) NOT NULL DEFAULT '',
       phone VARCHAR(40) NOT NULL DEFAULT '',
       city VARCHAR(120) NOT NULL DEFAULT '',
+      country VARCHAR(80) NOT NULL DEFAULT '',
       status ENUM('draft','pending','paid','failed','cancelled') NOT NULL DEFAULT 'draft',
       pesapal_tracking VARCHAR(80) NOT NULL DEFAULT '',
       pesapal_redirect TEXT NULL,
@@ -516,4 +523,88 @@ function folio_migrate_website_orders(mysqli $db): void
       KEY status_created (status, created_at),
       KEY email (email)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+function folio_migrate_landing_pricing(mysqli $db): void
+{
+    require_once ROOT_PATH . '/includes/pricing.php';
+    $db->query("CREATE TABLE IF NOT EXISTS landing_packages (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      pkg_key VARCHAR(20) NOT NULL,
+      name VARCHAR(80) NOT NULL,
+      kicker VARCHAR(80) NOT NULL DEFAULT '',
+      ribbon VARCHAR(80) NOT NULL DEFAULT '',
+      seats TINYINT UNSIGNED NOT NULL DEFAULT 1,
+      price_ugx DECIMAL(14,2) NOT NULL DEFAULT 0,
+      was_ugx DECIMAL(14,2) NOT NULL DEFAULT 0,
+      cta VARCHAR(80) NOT NULL DEFAULT '',
+      lead TEXT NOT NULL,
+      points TEXT NOT NULL,
+      popular TINYINT UNSIGNED NOT NULL DEFAULT 0,
+      sort INT NOT NULL DEFAULT 0,
+      UNIQUE KEY pkg_key (pkg_key),
+      KEY sort_id (sort, id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $db->query("CREATE TABLE IF NOT EXISTS landing_pricing (
+      id TINYINT UNSIGNED PRIMARY KEY,
+      kicker VARCHAR(80) NOT NULL DEFAULT '',
+      heading VARCHAR(180) NOT NULL DEFAULT '',
+      lead TEXT NOT NULL,
+      clock_label VARCHAR(80) NOT NULL DEFAULT '',
+      term_label VARCHAR(40) NOT NULL DEFAULT '',
+      register_copy TEXT NOT NULL,
+      register_label VARCHAR(80) NOT NULL DEFAULT '',
+      countdown_days TINYINT UNSIGNED NOT NULL DEFAULT 3,
+      countdown_hours TINYINT UNSIGNED NOT NULL DEFAULT 12,
+      rates_json TEXT NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $count = $db->query('SELECT COUNT(*) AS c FROM landing_packages');
+    $n = $count ? (int) $count->fetch_assoc()['c'] : 0;
+    if ($n === 0) {
+        $stmt = $db->prepare('INSERT INTO landing_packages (pkg_key, name, kicker, ribbon, seats, price_ugx, was_ugx, cta, lead, points, popular, sort) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
+        foreach (pricing_package_defaults() as $pkg) {
+            $key = (string) $pkg['key'];
+            $name = (string) $pkg['name'];
+            $kicker = (string) ($pkg['kicker'] ?? '');
+            $ribbon = (string) ($pkg['ribbon'] ?? '');
+            $seats = (int) $pkg['seats'];
+            $price = (float) $pkg['price_ugx'];
+            $was = (float) $pkg['was_ugx'];
+            $cta = (string) $pkg['cta'];
+            $lead = (string) $pkg['lead'];
+            $points = implode("\n", $pkg['points']);
+            $popular = !empty($pkg['popular']) ? 1 : 0;
+            $sort = (int) $pkg['sort'];
+            $stmt->bind_param('ssssiddsssii', $key, $name, $kicker, $ribbon, $seats, $price, $was, $cta, $lead, $points, $popular, $sort);
+            $stmt->execute();
+        }
+    }
+
+    $exists = $db->query('SELECT id FROM landing_pricing WHERE id = 1');
+    if (!$exists || $exists->num_rows === 0) {
+        $s = pricing_section_defaults();
+        $rates = $s['rates'];
+        unset($rates['UGX']);
+        $json = json_encode($rates);
+        $stmt = $db->prepare('INSERT INTO landing_pricing (id, kicker, heading, lead, clock_label, term_label, register_copy, register_label, countdown_days, countdown_hours, rates_json) VALUES (1,?,?,?,?,?,?,?,?,?,?)');
+        $kicker = $s['kicker'];
+        $heading = $s['heading'];
+        $lead = $s['lead'];
+        $clock = $s['clock_label'];
+        $term = $s['term_label'];
+        $reg = $s['register_copy'];
+        $regLabel = $s['register_label'];
+        $days = (int) $s['countdown_days'];
+        $hours = (int) $s['countdown_hours'];
+        $stmt->bind_param('sssssssiis', $kicker, $heading, $lead, $clock, $term, $reg, $regLabel, $days, $hours, $json);
+        $stmt->execute();
+    }
+}
+
+function folio_migrate_order_country(mysqli $db): void
+{
+    if (!db_has_column($db, 'website_orders', 'country')) {
+        $db->query("ALTER TABLE website_orders ADD COLUMN country VARCHAR(80) NOT NULL DEFAULT '' AFTER city");
+    }
 }

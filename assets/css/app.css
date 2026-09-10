@@ -1125,6 +1125,16 @@ table.grid tfoot td {
 .trust-admin .card,
 .trust-admin-add { margin: 0 0 16px; padding: 14px; }
 .trust-admin-add { max-width: 420px; }
+.pricing-admin-section { margin: 0 0 16px; padding: 16px; }
+.pricing-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+  margin: 0 0 10px;
+}
+@media (max-width: 720px) {
+  .pricing-admin-grid { grid-template-columns: 1fr; }
+}
 .trust-admin-preview {
   display: flex;
   align-items: center;

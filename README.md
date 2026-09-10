@@ -36,7 +36,7 @@ Open the **landing page** at the site root. Companies **register** or **request 
 - Super admin assigns each company a **Hostinger (or Titan) sending mailbox**. SMTP and POP/IMAP are prefilled. The company desk sends quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors, and custom mail from that address, with its logo on a white band, and cannot edit the password
 - Desk **Email** tab for custom letters; **Remind** on Debtors and **Message** on Creditors use the same mailbox
 - Super admin **Create company**: type a desk in by hand (login, stationery, documents, paid term, mailbox) without a website sign-up
-- **Packages** on the landing page, under Anywhere you are in the world: **Quill** (1 login, UGX 150,000), **Ledger** (2 logins and access levels, UGX 200,000), **Crest** (3 logins, UGX 250,000). First-year prices with the earlier figure struck through. Header currency chooser: UGX, KES, USD, EUR, GBP, RWF
+- Super admin **Landing**: edit top-bar lines, **packages** (names, prices, inclusions, countdown, currency rates), card photos, trust logos, and reviews
 - **Pay on Pesapal** after company details. Incomplete checkouts and failed payments are kept and emailed to `info@vellisys.com`. Register without paying if you want a call first
 - Desk **Tutorials** (also from Clients) with a tour of the whole portal and screenshots
 - When a company is onboarded, `info@vellisys.com` sends a welcome letter and a short tutorial. The same mailbox confirms questions and registrations, notifies the admin of those events, marks desks live, and sends renewal reminders

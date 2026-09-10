@@ -50,6 +50,114 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             redirect('admin_landing.php#top-bar');
         }
+    } elseif ($form === 'pricing_section') {
+        $base = pricing_section_defaults();
+        $rates = [];
+        foreach (pricing_ugx_rate_defaults() as $code => $fallback) {
+            if ($code === 'UGX') {
+                continue;
+            }
+            $val = (float) str_replace(',', '', (string) ($_POST['rate_' . $code] ?? $fallback));
+            $rates[$code] = $val > 0 ? $val : $fallback;
+        }
+        db_exec(
+            'REPLACE INTO landing_pricing (id, kicker, heading, lead, clock_label, term_label, register_copy, register_label, countdown_days, countdown_hours, rates_json)
+             VALUES (1,?,?,?,?,?,?,?,?,?,?)',
+            'sssssssiis',
+            [
+                mb_substr(post('kicker'), 0, 80),
+                mb_substr(post('heading'), 0, 180),
+                post('lead'),
+                mb_substr(post('clock_label'), 0, 80),
+                mb_substr(post('term_label'), 0, 40) ?: 'first year',
+                post('register_copy'),
+                mb_substr(post('register_label'), 0, 80),
+                max(0, min(30, (int) post('countdown_days'))),
+                max(0, min(23, (int) post('countdown_hours'))),
+                json_encode($rates),
+            ]
+        );
+        flash('Saved package section copy, countdown and rates.');
+        redirect('admin_landing.php#packages');
+    } elseif ($form === 'package') {
+        $action = post('action');
+        if ($action === 'add') {
+            $name = mb_substr(post('name'), 0, 80);
+            if ($name === '') {
+                $error = 'Give the package a name.';
+            } else {
+                $key = pricing_next_key($name);
+                $max = db_one('SELECT MAX(sort) AS s FROM landing_packages');
+                $sort = (int) post('sort');
+                if ($sort <= 0) {
+                    $sort = (int) ($max['s'] ?? 0) + 10;
+                }
+                db_exec(
+                    'INSERT INTO landing_packages (pkg_key, name, kicker, ribbon, seats, price_ugx, was_ugx, cta, lead, points, popular, sort)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+                    'ssssiddsssii',
+                    [
+                        $key,
+                        $name,
+                        mb_substr(post('kicker'), 0, 80),
+                        mb_substr(post('ribbon'), 0, 80),
+                        max(1, min(3, (int) post('seats') ?: 1)),
+                        (float) str_replace(',', '', post('price_ugx')),
+                        (float) str_replace(',', '', post('was_ugx')),
+                        mb_substr(post('cta') ?: ('Select ' . $name), 0, 80),
+                        post('lead'),
+                        post('points'),
+                        post('popular') === '1' ? 1 : 0,
+                        $sort,
+                    ]
+                );
+                flash('Added the ' . $name . ' package.');
+                redirect('admin_landing.php#packages');
+            }
+        } elseif ($action === 'save') {
+            $id = (int) post('id');
+            $row = $id ? db_one('SELECT * FROM landing_packages WHERE id = ?', 'i', [$id]) : null;
+            if (!$row) {
+                flash('That package was not found.', 'err');
+                redirect('admin_landing.php#packages');
+            }
+            $name = mb_substr(post('name'), 0, 80);
+            if ($name === '') {
+                $error = 'Give the package a name.';
+            } else {
+                db_exec(
+                    'UPDATE landing_packages SET name=?, kicker=?, ribbon=?, seats=?, price_ugx=?, was_ugx=?, cta=?, lead=?, points=?, popular=?, sort=? WHERE id=?',
+                    'sssiddsssiii',
+                    [
+                        $name,
+                        mb_substr(post('kicker'), 0, 80),
+                        mb_substr(post('ribbon'), 0, 80),
+                        max(1, min(3, (int) post('seats') ?: 1)),
+                        (float) str_replace(',', '', post('price_ugx')),
+                        (float) str_replace(',', '', post('was_ugx')),
+                        mb_substr(post('cta') ?: ('Select ' . $name), 0, 80),
+                        post('lead'),
+                        post('points'),
+                        post('popular') === '1' ? 1 : 0,
+                        (int) post('sort'),
+                        $id,
+                    ]
+                );
+                flash('Saved ' . $name . '.');
+                redirect('admin_landing.php#packages');
+            }
+        } elseif ($action === 'delete') {
+            $id = (int) post('id');
+            $row = $id ? db_one('SELECT * FROM landing_packages WHERE id = ?', 'i', [$id]) : null;
+            $count = db_one('SELECT COUNT(*) AS c FROM landing_packages');
+            if ((int) ($count['c'] ?? 0) <= 1) {
+                flash('Keep at least one package on the site.', 'err');
+            } elseif ($row) {
+                db_exec('DELETE FROM landing_packages WHERE id = ?', 'i', [$id]);
+                flash('Removed ' . $row['name'] . '.');
+            }
+            redirect('admin_landing.php#packages');
+        }
     } elseif ($form === 'reviews') {
         $action = post('action');
         if ($action === 'add') {
@@ -202,13 +310,20 @@ try {
 } catch (Throwable $e) {
     $ticker = [];
 }
+$pricingSection = pricing_section();
+$adminPackages = [];
+try {
+    $adminPackages = db_all('SELECT * FROM landing_packages ORDER BY sort, id');
+} catch (Throwable $e) {
+    $adminPackages = [];
+}
 
 layout_admin_start('Landing', $user);
 ?>
 <div class="page-head">
   <div>
     <h1><?= icon('image') ?>Landing page</h1>
-    <p class="lede">Change the top-bar lines, the pictures, the words, the <strong>Clients who trust us</strong> logos, and the scrolling <strong>client reviews</strong> on the public site. The favicon stays the V mark. The header uses the Vellisys logo on its own.</p>
+    <p class="lede">Change the top-bar lines, the packages, the pictures, the words, the <strong>Clients who trust us</strong> logos, and the scrolling <strong>client reviews</strong> on the public site. The favicon stays the V mark. The header uses the Vellisys logo on its own.</p>
   </div>
   <a class="btn ghost" href="<?= h(url()) ?>" target="_blank" rel="noopener">View site</a>
 </div>
@@ -246,6 +361,134 @@ layout_admin_start('Landing', $user);
         <div class="actions" style="margin-top:12px">
           <button class="btn" type="submit" name="action" value="save"><?= icon('check') ?>Save</button>
           <button class="btn ghost" type="submit" name="action" value="delete" onclick="return confirm('Remove this line from the top bar?');"><?= icon('trash') ?>Remove</button>
+        </div>
+      </form>
+    <?php endforeach; ?>
+  </div>
+<?php endif; ?>
+
+<h2 class="landing-admin-h" id="packages"><?= icon('bank', 20) ?>Packages</h2>
+<p class="lede" style="margin-top:-8px">Everything on the public packages block - heading, countdown, currency rates, names, prices, inclusions. Prices are stored in UGX. Header currencies convert from the rates below. Put <code>{currency}</code> in the intro where the live code should appear, and <code>{register}</code> where the register link should go.</p>
+
+<form class="card pricing-admin-section" method="post">
+  <?= csrf_field() ?>
+  <input type="hidden" name="form" value="pricing_section">
+  <h3 style="margin:0 0 8px">Section copy</h3>
+  <div class="pricing-admin-grid">
+    <div>
+      <label for="pricing-kicker">Kicker</label>
+      <input id="pricing-kicker" name="kicker" maxlength="80" value="<?= h($pricingSection['kicker']) ?>">
+    </div>
+    <div>
+      <label for="pricing-heading">Heading</label>
+      <input id="pricing-heading" name="heading" maxlength="180" value="<?= h($pricingSection['heading']) ?>">
+    </div>
+  </div>
+  <label for="pricing-lead">Intro</label>
+  <textarea id="pricing-lead" name="lead" rows="3"><?= h($pricingSection['lead']) ?></textarea>
+  <div class="pricing-admin-grid">
+    <div>
+      <label for="pricing-clock">Countdown label</label>
+      <input id="pricing-clock" name="clock_label" maxlength="80" value="<?= h($pricingSection['clock_label']) ?>">
+    </div>
+    <div>
+      <label for="pricing-term">Price period</label>
+      <input id="pricing-term" name="term_label" maxlength="40" value="<?= h($pricingSection['term_label']) ?>">
+    </div>
+    <div>
+      <label for="pricing-days">Countdown days</label>
+      <input id="pricing-days" name="countdown_days" type="number" min="0" max="30" step="1" value="<?= (int) $pricingSection['countdown_days'] ?>">
+    </div>
+    <div>
+      <label for="pricing-hours">Countdown extra hours</label>
+      <input id="pricing-hours" name="countdown_hours" type="number" min="0" max="23" step="1" value="<?= (int) $pricingSection['countdown_hours'] ?>">
+    </div>
+  </div>
+  <label for="pricing-register-copy">Register line</label>
+  <textarea id="pricing-register-copy" name="register_copy" rows="2"><?= h($pricingSection['register_copy']) ?></textarea>
+  <label for="pricing-register-label">Register link text</label>
+  <input id="pricing-register-label" name="register_label" maxlength="80" value="<?= h($pricingSection['register_label']) ?>">
+  <h3 style="margin:18px 0 8px">UGX per 1 unit</h3>
+  <p class="hint" style="margin-top:0">UGX stays 1. These averages convert the package prices in the header chooser.</p>
+  <div class="pricing-admin-grid">
+    <?php foreach ($pricingSection['rates'] as $code => $rate): ?>
+      <?php if ($code === 'UGX') continue; ?>
+      <div>
+        <label for="rate-<?= h($code) ?>"><?= h($code) ?></label>
+        <input id="rate-<?= h($code) ?>" name="rate_<?= h($code) ?>" type="number" min="0.01" step="0.01" value="<?= h((string) $rate) ?>">
+      </div>
+    <?php endforeach; ?>
+  </div>
+  <div class="actions" style="margin-top:14px">
+    <button class="btn" type="submit"><?= icon('check') ?>Save section</button>
+  </div>
+</form>
+
+<form class="card trust-admin-add" method="post">
+  <?= csrf_field() ?>
+  <input type="hidden" name="form" value="package">
+  <input type="hidden" name="action" value="add">
+  <h3 style="margin:0 0 4px">Add a package</h3>
+  <label for="pkg-new-name">Name</label>
+  <input id="pkg-new-name" name="name" required maxlength="80" placeholder="Quill">
+  <label for="pkg-new-kicker">Kicker</label>
+  <input id="pkg-new-kicker" name="kicker" maxlength="80" placeholder="Starting package">
+  <label for="pkg-new-ribbon">Ribbon <span class="hint">(with Featured)</span></label>
+  <input id="pkg-new-ribbon" name="ribbon" maxlength="80" placeholder="Most companies">
+  <label for="pkg-new-seats">Logins (1-3)</label>
+  <input id="pkg-new-seats" name="seats" type="number" min="1" max="3" step="1" value="1">
+  <label for="pkg-new-price">Price UGX</label>
+  <input id="pkg-new-price" name="price_ugx" type="number" min="0" step="1" required placeholder="150000">
+  <label for="pkg-new-was">Was UGX</label>
+  <input id="pkg-new-was" name="was_ugx" type="number" min="0" step="1" placeholder="200000">
+  <label for="pkg-new-cta">Button</label>
+  <input id="pkg-new-cta" name="cta" maxlength="80" placeholder="Select Quill">
+  <label for="pkg-new-lead">Lead</label>
+  <textarea id="pkg-new-lead" name="lead" rows="2"></textarea>
+  <label for="pkg-new-points">Included <span class="hint">(one line each)</span></label>
+  <textarea id="pkg-new-points" name="points" rows="5"></textarea>
+  <label class="check"><input type="checkbox" name="popular" value="1"> Featured card</label>
+  <label for="pkg-new-sort">Order <span class="hint">(optional)</span></label>
+  <input id="pkg-new-sort" name="sort" type="number" min="0" step="1" placeholder="Auto">
+  <div class="actions" style="margin-top:12px">
+    <button class="btn" type="submit"><?= icon('plus') ?>Add package</button>
+  </div>
+</form>
+
+<?php if (!$adminPackages): ?>
+  <p class="empty">No packages yet. Add one above.</p>
+<?php else: ?>
+  <div class="landing-admin">
+    <?php foreach ($adminPackages as $p): ?>
+      <form class="card" method="post">
+        <?= csrf_field() ?>
+        <input type="hidden" name="form" value="package">
+        <input type="hidden" name="id" value="<?= (int) $p['id'] ?>">
+        <p class="hint" style="margin:0 0 8px">Key <code><?= h((string) $p['pkg_key']) ?></code> - used on checkout and Pesapal.</p>
+        <label for="pkg-name-<?= (int) $p['id'] ?>">Name</label>
+        <input id="pkg-name-<?= (int) $p['id'] ?>" name="name" required maxlength="80" value="<?= h((string) $p['name']) ?>">
+        <label for="pkg-kicker-<?= (int) $p['id'] ?>">Kicker</label>
+        <input id="pkg-kicker-<?= (int) $p['id'] ?>" name="kicker" maxlength="80" value="<?= h((string) $p['kicker']) ?>">
+        <label for="pkg-ribbon-<?= (int) $p['id'] ?>">Ribbon</label>
+        <input id="pkg-ribbon-<?= (int) $p['id'] ?>" name="ribbon" maxlength="80" value="<?= h((string) $p['ribbon']) ?>">
+        <label for="pkg-seats-<?= (int) $p['id'] ?>">Logins (1-3)</label>
+        <input id="pkg-seats-<?= (int) $p['id'] ?>" name="seats" type="number" min="1" max="3" step="1" required value="<?= (int) $p['seats'] ?>">
+        <label for="pkg-price-<?= (int) $p['id'] ?>">Price UGX</label>
+        <input id="pkg-price-<?= (int) $p['id'] ?>" name="price_ugx" type="number" min="0" step="1" required value="<?= h((string) (int) $p['price_ugx']) ?>">
+        <label for="pkg-was-<?= (int) $p['id'] ?>">Was UGX</label>
+        <input id="pkg-was-<?= (int) $p['id'] ?>" name="was_ugx" type="number" min="0" step="1" value="<?= h((string) (int) $p['was_ugx']) ?>">
+        <label for="pkg-cta-<?= (int) $p['id'] ?>">Button</label>
+        <input id="pkg-cta-<?= (int) $p['id'] ?>" name="cta" maxlength="80" value="<?= h((string) $p['cta']) ?>">
+        <label for="pkg-lead-<?= (int) $p['id'] ?>">Lead</label>
+        <textarea id="pkg-lead-<?= (int) $p['id'] ?>" name="lead" rows="3"><?= h((string) $p['lead']) ?></textarea>
+        <label for="pkg-points-<?= (int) $p['id'] ?>">Included <span class="hint">(one line each)</span></label>
+        <textarea id="pkg-points-<?= (int) $p['id'] ?>" name="points" rows="6"><?= h((string) $p['points']) ?></textarea>
+        <label class="check"><input type="checkbox" name="popular" value="1"<?= (int) $p['popular'] === 1 ? ' checked' : '' ?>> Featured card</label>
+        <label for="pkg-sort-<?= (int) $p['id'] ?>">Order</label>
+        <input id="pkg-sort-<?= (int) $p['id'] ?>" name="sort" type="number" min="0" step="1" required value="<?= (int) $p['sort'] ?>">
+        <div class="actions" style="margin-top:12px">
+          <button class="btn" type="submit" name="action" value="save"><?= icon('check') ?>Save</button>
+          <button class="btn ghost" type="submit" name="action" value="delete" onclick="return confirm('Remove this package from the public site?');"><?= icon('trash') ?>Remove</button>
         </div>
       </form>
     <?php endforeach; ?>

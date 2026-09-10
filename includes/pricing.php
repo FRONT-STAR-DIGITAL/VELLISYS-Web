@@ -14,7 +14,7 @@ function pricing_currencies(): array
 }
 
 /** Average UGX per 1 unit of that currency. */
-function pricing_ugx_rates(): array
+function pricing_ugx_rate_defaults(): array
 {
     return [
         'UGX' => 1.0,
@@ -26,13 +26,15 @@ function pricing_ugx_rates(): array
     ];
 }
 
-function pricing_packages(): array
+function pricing_package_defaults(): array
 {
     return [
         'solo' => [
             'key' => 'solo',
             'name' => 'Quill',
             'kicker' => 'Starting package',
+            'ribbon' => '',
+            'popular' => false,
             'seats' => 1,
             'price_ugx' => 150000,
             'was_ugx' => 200000,
@@ -45,11 +47,13 @@ function pricing_packages(): array
                 'Print and PDF from the browser',
                 'Reports for the person who signs in',
             ],
+            'sort' => 10,
         ],
         'studio' => [
             'key' => 'studio',
             'name' => 'Ledger',
-            'kicker' => 'Most companies',
+            'kicker' => '',
+            'ribbon' => 'Most companies',
             'popular' => true,
             'seats' => 2,
             'price_ugx' => 200000,
@@ -63,11 +67,14 @@ function pricing_packages(): array
                 'Expenses, creditors and delivery notes',
                 'Headed correspondence from the company mailbox',
             ],
+            'sort' => 20,
         ],
         'practice' => [
             'key' => 'practice',
             'name' => 'Crest',
             'kicker' => 'Full house',
+            'ribbon' => '',
+            'popular' => false,
             'seats' => 3,
             'price_ugx' => 250000,
             'was_ugx' => 350000,
@@ -80,13 +87,150 @@ function pricing_packages(): array
                 'Custom documents and all letter layouts',
                 'Priority onboarding from Vellisys',
             ],
+            'sort' => 30,
         ],
     ];
+}
+
+function pricing_section_defaults(): array
+{
+    return [
+        'kicker' => 'Packages',
+        'heading' => 'Onboard as the discount lasts',
+        'lead' => 'First year, shown in {currency}. Change currency in the header. Pay, then a Vellisys admin contacts you to open the desk.',
+        'clock_label' => 'Discount ends in',
+        'term_label' => 'first year',
+        'register_copy' => 'Prefer a call first? {register} - a Vellisys admin contacts you to onboard.',
+        'register_label' => 'Register without paying',
+        'countdown_days' => 3,
+        'countdown_hours' => 12,
+        'rates' => pricing_ugx_rate_defaults(),
+    ];
+}
+
+function pricing_points_from_text(string $raw): array
+{
+    $parts = preg_split("/\r\n|\n|\r/", $raw) ?: [];
+    $out = [];
+    foreach ($parts as $part) {
+        $line = trim((string) $part);
+        if ($line !== '') {
+            $out[] = $line;
+        }
+    }
+    return $out;
+}
+
+function pricing_package_from_row(array $row): array
+{
+    return [
+        'id' => (int) ($row['id'] ?? 0),
+        'key' => (string) ($row['pkg_key'] ?? ''),
+        'name' => (string) ($row['name'] ?? ''),
+        'kicker' => (string) ($row['kicker'] ?? ''),
+        'ribbon' => (string) ($row['ribbon'] ?? ''),
+        'popular' => (int) ($row['popular'] ?? 0) === 1,
+        'seats' => max(1, min(3, (int) ($row['seats'] ?? 1))),
+        'price_ugx' => (float) ($row['price_ugx'] ?? 0),
+        'was_ugx' => (float) ($row['was_ugx'] ?? 0),
+        'cta' => (string) ($row['cta'] ?? 'Select plan'),
+        'lead' => (string) ($row['lead'] ?? ''),
+        'points' => pricing_points_from_text((string) ($row['points'] ?? '')),
+        'sort' => (int) ($row['sort'] ?? 0),
+    ];
+}
+
+function pricing_packages(): array
+{
+    static $cached = null;
+    if ($cached !== null) {
+        return $cached;
+    }
+    try {
+        $rows = db_all('SELECT * FROM landing_packages ORDER BY sort, id');
+        $out = [];
+        foreach ($rows as $row) {
+            $pkg = pricing_package_from_row($row);
+            if ($pkg['key'] !== '') {
+                $out[$pkg['key']] = $pkg;
+            }
+        }
+        $cached = $out;
+        return $cached;
+    } catch (Throwable $e) {
+        $cached = pricing_package_defaults();
+        return $cached;
+    }
+}
+
+function pricing_ugx_rates(): array
+{
+    return pricing_section()['rates'];
 }
 
 function pricing_package(string $key): ?array
 {
     return pricing_packages()[$key] ?? null;
+}
+
+function pricing_section(): array
+{
+    static $cached = null;
+    if ($cached !== null) {
+        return $cached;
+    }
+    $base = pricing_section_defaults();
+    try {
+        $row = db_one('SELECT * FROM landing_pricing WHERE id = 1');
+    } catch (Throwable $e) {
+        $row = null;
+    }
+    if (!$row) {
+        $cached = $base;
+        return $cached;
+    }
+    $rates = $base['rates'];
+    $decoded = json_decode((string) ($row['rates_json'] ?? ''), true);
+    if (is_array($decoded)) {
+        foreach ($rates as $code => $fallback) {
+            if ($code === 'UGX') {
+                $rates[$code] = 1.0;
+                continue;
+            }
+            if (isset($decoded[$code]) && (float) $decoded[$code] > 0) {
+                $rates[$code] = (float) $decoded[$code];
+            }
+        }
+    }
+    $cached = [
+        'kicker' => (string) ($row['kicker'] ?? $base['kicker']),
+        'heading' => (string) ($row['heading'] ?? $base['heading']),
+        'lead' => (string) ($row['lead'] ?? $base['lead']),
+        'clock_label' => (string) ($row['clock_label'] ?? $base['clock_label']),
+        'term_label' => (string) ($row['term_label'] ?? $base['term_label']),
+        'register_copy' => (string) ($row['register_copy'] ?? $base['register_copy']),
+        'register_label' => (string) ($row['register_label'] ?? $base['register_label']),
+        'countdown_days' => max(0, min(30, (int) ($row['countdown_days'] ?? $base['countdown_days']))),
+        'countdown_hours' => max(0, min(23, (int) ($row['countdown_hours'] ?? $base['countdown_hours']))),
+        'rates' => $rates,
+    ];
+    return $cached;
+}
+
+function pricing_next_key(string $name): string
+{
+    $base = pricing_make_key($name);
+    $try = $base;
+    $n = 2;
+    while (db_one('SELECT id FROM landing_packages WHERE pkg_key = ?', 's', [$try])) {
+        $try = substr($base, 0, 16) . $n;
+        $n++;
+        if ($n > 80) {
+            $try = substr($base, 0, 12) . bin2hex(random_bytes(2));
+            break;
+        }
+    }
+    return $try;
 }
 
 function pricing_display_currency(): string
@@ -141,8 +285,11 @@ function pricing_format(float $ugx, string $currency): string
 
 function pricing_discount_ends_at(): DateTimeImmutable
 {
+    $section = pricing_section();
+    $days = (int) $section['countdown_days'];
+    $hours = (int) $section['countdown_hours'];
     $now = desk_now();
-    return $now->setTime(0, 0, 0)->modify('+3 days')->modify('+12 hours');
+    return $now->setTime(0, 0, 0)->modify('+' . $days . ' days')->modify('+' . $hours . ' hours');
 }
 
 function pricing_countdown_parts(?DateTimeImmutable $end = null): array
@@ -169,16 +316,39 @@ function pricing_countdown_payload(): array
 function render_landing_pricing(): void
 {
     $ccy = pricing_display_currency();
+    $section = pricing_section();
+    $packages = pricing_packages();
+    if (!$packages) {
+        return;
+    }
     $clock = pricing_countdown_payload();
     $parts = pricing_countdown_parts();
     $pad = static fn (int $n): string => str_pad((string) $n, 2, '0', STR_PAD_LEFT);
+    $lead = str_replace(
+        '{currency}',
+        '<strong data-pricing-ccy-label>' . h($ccy) . '</strong>',
+        h($section['lead'])
+    );
+    $registerLabel = trim((string) $section['register_label']);
+    $registerLink = $registerLabel !== ''
+        ? '<a href="' . h(url('register.php')) . '">' . h($registerLabel) . '</a>'
+        : '';
+    $register = str_replace('{register}', $registerLink, h($section['register_copy']));
+    $showClock = ((int) $section['countdown_days'] + (int) $section['countdown_hours']) > 0;
     ?>
-    <section class="lp-pricing" id="pricing" data-reveal data-pricing data-ccy="<?= h($ccy) ?>" data-rates="<?= h(json_encode(pricing_ugx_rates())) ?>" data-currencies="<?= h(json_encode(pricing_currencies())) ?>" data-discount-end="<?= h($clock['iso']) ?>">
-      <p class="lp-kicker">Packages</p>
-      <h2>Onboard as the discount lasts</h2>
-      <p class="lp-pricing-lead">First year, shown in <strong data-pricing-ccy-label><?= h($ccy) ?></strong>. Change currency in the header. Pay, then a Vellisys admin contacts you to open the desk.</p>
+    <section class="lp-pricing" id="pricing" data-reveal data-pricing data-ccy="<?= h($ccy) ?>" data-rates="<?= h(json_encode(pricing_ugx_rates())) ?>" data-currencies="<?= h(json_encode(pricing_currencies())) ?>" data-discount-end="<?= h($clock['iso']) ?>" data-discount-days="<?= (int) $section['countdown_days'] ?>" data-discount-hours="<?= (int) $section['countdown_hours'] ?>">
+      <?php if (trim((string) $section['kicker']) !== ''): ?>
+        <p class="lp-kicker"><?= h($section['kicker']) ?></p>
+      <?php endif; ?>
+      <?php if (trim((string) $section['heading']) !== ''): ?>
+        <h2><?= h($section['heading']) ?></h2>
+      <?php endif; ?>
+      <?php if (trim((string) $section['lead']) !== ''): ?>
+        <p class="lp-pricing-lead"><?= $lead ?></p>
+      <?php endif; ?>
+      <?php if ($showClock): ?>
       <div class="lp-pricing-clock" data-discount-clock>
-        <p class="lp-clock-label">Discount ends in</p>
+        <p class="lp-clock-label"><?= h($section['clock_label']) ?></p>
         <div class="lp-clock-units">
           <span class="lp-clock-unit"><b data-discount-d><?= h($pad($parts['days'])) ?></b><small>days</small></span>
           <span class="lp-clock-unit"><b data-discount-h><?= h($pad($parts['hours'])) ?></b><small>hrs</small></span>
@@ -186,30 +356,43 @@ function render_landing_pricing(): void
           <span class="lp-clock-unit"><b data-discount-s><?= h($pad($parts['secs'])) ?></b><small>sec</small></span>
         </div>
       </div>
+      <?php endif; ?>
       <div class="lp-price-grid">
-        <?php foreach (pricing_packages() as $pkg): ?>
+        <?php foreach ($packages as $pkg): ?>
           <article class="lp-price-card<?= !empty($pkg['popular']) ? ' is-popular' : '' ?>">
             <header class="lp-price-head">
-              <?php if (!empty($pkg['popular'])): ?><p class="lp-price-ribbon">Most companies</p><?php endif; ?>
-              <?php if (empty($pkg['popular'])): ?><p class="lp-price-kicker"><?= h($pkg['kicker']) ?></p><?php endif; ?>
+              <?php if (!empty($pkg['popular']) && trim((string) $pkg['ribbon']) !== ''): ?>
+                <p class="lp-price-ribbon"><?= h($pkg['ribbon']) ?></p>
+              <?php endif; ?>
+              <?php if (trim((string) $pkg['kicker']) !== ''): ?>
+                <p class="lp-price-kicker"><?= h($pkg['kicker']) ?></p>
+              <?php endif; ?>
               <h3><?= h($pkg['name']) ?></h3>
               <p class="lp-price-seats"><?= (int) $pkg['seats'] ?> login<?= $pkg['seats'] === 1 ? '' : 's' ?></p>
             </header>
             <div class="lp-price-body">
-              <p class="lp-price-was" data-ugx="<?= (int) $pkg['was_ugx'] ?>"><?= h(pricing_format((float) $pkg['was_ugx'], $ccy)) ?></p>
-              <p class="lp-price-now"><strong data-ugx="<?= (int) $pkg['price_ugx'] ?>"><?= h(pricing_format((float) $pkg['price_ugx'], $ccy)) ?></strong><span>first year</span></p>
-              <p class="lp-price-lead"><?= h($pkg['lead']) ?></p>
+              <?php if ((float) $pkg['was_ugx'] > (float) $pkg['price_ugx']): ?>
+                <p class="lp-price-was" data-ugx="<?= (int) $pkg['was_ugx'] ?>"><?= h(pricing_format((float) $pkg['was_ugx'], $ccy)) ?></p>
+              <?php endif; ?>
+              <p class="lp-price-now"><strong data-ugx="<?= (int) $pkg['price_ugx'] ?>"><?= h(pricing_format((float) $pkg['price_ugx'], $ccy)) ?></strong><span><?= h($section['term_label']) ?></span></p>
+              <?php if (trim((string) $pkg['lead']) !== ''): ?>
+                <p class="lp-price-lead"><?= h($pkg['lead']) ?></p>
+              <?php endif; ?>
+              <?php if (!empty($pkg['points'])): ?>
               <ul>
                 <?php foreach ($pkg['points'] as $point): ?>
                   <li><?= h($point) ?></li>
                 <?php endforeach; ?>
               </ul>
-              <a class="lp-btn <?= !empty($pkg['popular']) ? 'lp-btn-solid' : 'lp-btn-ghost' ?>" href="<?= h(url('checkout.php?plan=' . $pkg['key'])) ?>"><?= h($pkg['cta']) ?></a>
+              <?php endif; ?>
+              <a class="lp-btn <?= !empty($pkg['popular']) ? 'lp-btn-solid' : 'lp-btn-ghost' ?>" href="<?= h(url('checkout.php?plan=' . $pkg['key'])) ?>"><?= h($pkg['cta'] !== '' ? $pkg['cta'] : ('Select ' . $pkg['name'])) ?></a>
             </div>
           </article>
         <?php endforeach; ?>
       </div>
-      <p class="lp-pricing-register">Prefer a call first? <a href="<?= h(url('register.php')) ?>">Register without paying</a> - a Vellisys admin contacts you to onboard.</p>
+      <?php if (trim((string) $section['register_copy']) !== ''): ?>
+        <p class="lp-pricing-register"><?= $register ?></p>
+      <?php endif; ?>
     </section>
     <?php
 }

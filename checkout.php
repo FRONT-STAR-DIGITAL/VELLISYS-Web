@@ -49,6 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'email' => strtolower(post('contact_email')),
         'phone' => post('contact_phone'),
         'city' => post('city'),
+        'country' => post('country'),
         'status' => $action === 'pay' ? 'pending' : 'draft',
     ];
     $id = $existing ? (int) $existing['id'] : 0;
@@ -99,6 +100,7 @@ $priceNow = pricing_format((float) $pkg['price_ugx'], $ccy);
 $priceWas = pricing_format((float) $pkg['was_ugx'], $ccy);
 $payCcy = pricing_pay_currency($ccy);
 $payNow = pricing_format((float) $pkg['price_ugx'], $payCcy);
+$termLabel = pricing_section()['term_label'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -115,7 +117,7 @@ $payNow = pricing_format((float) $pkg['price_ugx'], $payCcy);
     <div class="lp-checkout-copy">
       <p class="lp-kicker"><?= h($pkg['kicker']) ?></p>
       <h1><?= h($pkg['name']) ?></h1>
-      <p class="lp-checkout-price"><s data-ugx="<?= (int) $pkg['was_ugx'] ?>"><?= h($priceWas) ?></s> <strong data-ugx="<?= (int) $pkg['price_ugx'] ?>"><?= h($priceNow) ?></strong> <span>first year</span></p>
+      <p class="lp-checkout-price"><?php if ((float) $pkg['was_ugx'] > (float) $pkg['price_ugx']): ?><s data-ugx="<?= (int) $pkg['was_ugx'] ?>"><?= h($priceWas) ?></s> <?php endif; ?><strong data-ugx="<?= (int) $pkg['price_ugx'] ?>"><?= h($priceNow) ?></strong> <span><?= h($termLabel) ?></span></p>
       <p><?= h($pkg['lead']) ?> After you pay, a Vellisys admin contacts you to onboard the company. You do not get a password until the desk is opened.</p>
       <ul>
         <?php foreach ($pkg['points'] as $point): ?>
@@ -146,6 +148,23 @@ $payNow = pricing_format((float) $pkg['price_ugx'], $payCcy);
       <label for="city">City <span>(optional)</span>
         <input id="city" name="city" autocomplete="address-level2" value="<?= h($take('city')) ?>" placeholder="Kampala">
       </label>
+      <label for="country">Country <span>(optional)</span>
+        <input id="country" name="country" autocomplete="country-name" list="checkout-countries" value="<?= h($take('country')) ?>" placeholder="Uganda">
+      </label>
+      <datalist id="checkout-countries">
+        <option value="Uganda">
+        <option value="Kenya">
+        <option value="Tanzania">
+        <option value="Rwanda">
+        <option value="Burundi">
+        <option value="South Sudan">
+        <option value="Democratic Republic of the Congo">
+        <option value="Nigeria">
+        <option value="Ghana">
+        <option value="South Africa">
+        <option value="United Kingdom">
+        <option value="United States">
+      </datalist>
       <button class="lp-btn lp-btn-solid lp-btn-lg" type="submit" data-pay-btn data-ugx="<?= (int) $pkg['price_ugx'] ?>">Pay <?= h($payNow) ?></button>
       <p class="lp-checkout-note">Prefer to be contacted first? <a href="<?= h(url('register.php')) ?>">Register without paying</a>.</p>
     </form>

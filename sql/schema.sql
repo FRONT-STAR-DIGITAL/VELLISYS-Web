@@ -232,6 +232,7 @@ CREATE TABLE IF NOT EXISTS website_orders (
   email VARCHAR(190) NOT NULL DEFAULT '',
   phone VARCHAR(40) NOT NULL DEFAULT '',
   city VARCHAR(120) NOT NULL DEFAULT '',
+  country VARCHAR(80) NOT NULL DEFAULT '',
   status ENUM('draft','pending','paid','failed','cancelled') NOT NULL DEFAULT 'draft',
   pesapal_tracking VARCHAR(80) NOT NULL DEFAULT '',
   pesapal_redirect TEXT NULL,

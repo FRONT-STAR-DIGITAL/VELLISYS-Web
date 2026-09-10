@@ -85,6 +85,36 @@ function pesapal_ipn_id(string $token): array
     return ['ok' => true, 'id' => $id];
 }
 
+function pesapal_country_code(string $country): string
+{
+    $raw = strtoupper(trim($country));
+    $raw = preg_replace('/[^A-Z ]/', '', $raw) ?? '';
+    if (preg_match('/^[A-Z]{2}$/', $raw)) {
+        return $raw;
+    }
+    $map = [
+        'UGANDA' => 'UG',
+        'KENYA' => 'KE',
+        'TANZANIA' => 'TZ',
+        'RWANDA' => 'RW',
+        'BURUNDI' => 'BI',
+        'SOUTH SUDAN' => 'SS',
+        'CONGO' => 'CD',
+        'DEMOCRATIC REPUBLIC OF THE CONGO' => 'CD',
+        'DRC' => 'CD',
+        'NIGERIA' => 'NG',
+        'GHANA' => 'GH',
+        'SOUTH AFRICA' => 'ZA',
+        'UNITED KINGDOM' => 'GB',
+        'UK' => 'GB',
+        'GREAT BRITAIN' => 'GB',
+        'UNITED STATES' => 'US',
+        'USA' => 'US',
+        'AMERICA' => 'US',
+    ];
+    return $map[$raw] ?? 'UG';
+}
+
 function pesapal_submit_order(array $order, string $token, string $ipnId): array
 {
     $names = preg_split('/\s+/', trim((string) $order['name']), 2) ?: [];
@@ -104,7 +134,7 @@ function pesapal_submit_order(array $order, string $token, string $ipnId): array
         'billing_address' => [
             'email_address' => (string) $order['email'],
             'phone_number' => (string) $order['phone'],
-            'country_code' => 'UG',
+            'country_code' => pesapal_country_code((string) ($order['country'] ?? '')),
             'first_name' => $first,
             'middle_name' => '',
             'last_name' => $last,
@@ -176,6 +206,7 @@ function save_website_order(array $data, ?int $id = null): array
     $email = strtolower(trim((string) ($data['email'] ?? '')));
     $phone = trim((string) ($data['phone'] ?? ''));
     $city = trim((string) ($data['city'] ?? ''));
+    $country = trim((string) ($data['country'] ?? ''));
     $status = (string) ($data['status'] ?? 'draft');
     if (!in_array($status, ['draft', 'pending', 'paid', 'failed', 'cancelled'], true)) {
         $status = 'draft';
@@ -189,9 +220,9 @@ function save_website_order(array $data, ?int $id = null): array
             return ['ok' => true, 'order' => $row];
         }
         db_exec(
-            'UPDATE website_orders SET plan=?, currency=?, amount=?, amount_ugx=?, name=?, company=?, email=?, phone=?, city=?, status=?, updated_at=? WHERE id=?',
-            'ssddsssssssi',
-            [$plan['key'], $currency, $amount, $amountUgx, $name, $company, $email, $phone, $city, $status, $now, $id]
+            'UPDATE website_orders SET plan=?, currency=?, amount=?, amount_ugx=?, name=?, company=?, email=?, phone=?, city=?, country=?, status=?, updated_at=? WHERE id=?',
+            'ssddssssssssi',
+            [$plan['key'], $currency, $amount, $amountUgx, $name, $company, $email, $phone, $city, $country, $status, $now, $id]
         );
         $row = db_one('SELECT * FROM website_orders WHERE id = ?', 'i', [$id]);
         return ['ok' => true, 'order' => $row];
@@ -199,10 +230,10 @@ function save_website_order(array $data, ?int $id = null): array
     $publicId = order_public_id();
     $ref = order_merchant_ref();
     $newId = db_exec(
-        'INSERT INTO website_orders (public_id, merchant_ref, plan, currency, amount, amount_ugx, name, company, email, phone, city, status, created_at, updated_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        'ssssddssssssss',
-        [$publicId, $ref, $plan['key'], $currency, $amount, $amountUgx, $name, $company, $email, $phone, $city, $status, $now, $now]
+        'INSERT INTO website_orders (public_id, merchant_ref, plan, currency, amount, amount_ugx, name, company, email, phone, city, country, status, created_at, updated_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'ssssddsssssssss',
+        [$publicId, $ref, $plan['key'], $currency, $amount, $amountUgx, $name, $company, $email, $phone, $city, $country, $status, $now, $now]
     );
     $row = db_one('SELECT * FROM website_orders WHERE id = ?', 'i', [$newId]);
     return ['ok' => true, 'order' => $row];
@@ -255,7 +286,8 @@ function attach_order_signup(array $order, string $payStatus): ?int
         return null;
     }
     $plan = pricing_package((string) $order['plan']);
-    $note = ($plan['name'] ?? $order['plan']) . ' · ' . $order['currency'] . ' ' . $order['amount'] . ' · payment ' . $payStatus;
+    $place = trim((string) ($order['city'] ?? '') . (((string) ($order['city'] ?? '') !== '' && (string) ($order['country'] ?? '') !== '') ? ', ' : '') . (string) ($order['country'] ?? ''));
+    $note = ($plan['name'] ?? $order['plan']) . ' · ' . $order['currency'] . ' ' . $order['amount'] . ' · payment ' . $payStatus . ($place !== '' ? ' · ' . $place : '');
     $existing = (int) ($order['signup_id'] ?? 0);
     if ($existing) {
         db_exec('UPDATE signups SET note=? WHERE id=?', 'si', [$note, $existing]);

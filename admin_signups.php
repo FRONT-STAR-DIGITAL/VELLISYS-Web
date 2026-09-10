@@ -197,6 +197,12 @@ $rowActions = static function (array $s): void {
             </td>
             <td>
               <?= h((string) $o['company']) ?>
+              <?php
+                $place = trim((string) ($o['city'] ?? '') . (((string) ($o['city'] ?? '') !== '' && (string) ($o['country'] ?? '') !== '') ? ', ' : '') . (string) ($o['country'] ?? ''));
+              ?>
+              <?php if ($place !== ''): ?>
+                <div class="muted"><?= h($place) ?></div>
+              <?php endif; ?>
               <?php if (trim((string) ($o['phone'] ?? '')) !== ''): ?>
                 <div class="mono muted"><?= h((string) $o['phone']) ?></div>
               <?php endif; ?>

@@ -401,6 +401,9 @@ function notify_admin_order(array $order, string $event): void
         . '<p style="margin:0 0 8px"><strong>Contact:</strong> ' . h((string) ($order['name'] ?? '')) . '</p>'
         . '<p style="margin:0 0 8px"><strong>Email:</strong> ' . h((string) ($order['email'] ?? '')) . '</p>'
         . '<p style="margin:0 0 8px"><strong>Phone:</strong> ' . h((string) ($order['phone'] ?? '')) . '</p>'
+        . ((string) ($order['city'] ?? '') !== '' || (string) ($order['country'] ?? '') !== ''
+            ? '<p style="margin:0 0 8px"><strong>Place:</strong> ' . h(trim((string) ($order['city'] ?? '') . (((string) ($order['city'] ?? '') !== '' && (string) ($order['country'] ?? '') !== '') ? ', ' : '') . (string) ($order['country'] ?? ''))) . '</p>'
+            : '')
         . '<p style="margin:0 0 8px"><strong>Status:</strong> ' . h((string) ($order['status'] ?? $event)) . '</p>'
         . ((string) ($order['last_error'] ?? '') !== ''
             ? '<p style="margin:0 0 14px"><strong>Error:</strong> ' . h((string) $order['last_error']) . '</p>'

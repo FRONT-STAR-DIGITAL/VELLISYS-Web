@@ -2164,7 +2164,11 @@ function landing_faqs(): array
         ],
         [
             'q' => 'How much does a desk cost?',
-            'a' => 'Three first-year packages on this page: Quill, Ledger and Crest. Pay on the site, then a Vellisys admin contacts you to onboard the company. Register without paying if you want us to call first.',
+            'a' => (static function (): string {
+                $names = array_values(array_filter(array_map(static fn (array $p): string => trim((string) ($p['name'] ?? '')), pricing_packages())));
+                $list = $names ? implode(', ', $names) : 'the packages on this page';
+                return 'First-year packages on this page: ' . $list . '. Pay on the site, then a Vellisys admin contacts you to onboard the company. Register without paying if you want us to call first.';
+            })(),
             'link' => ['href' => '#pricing', 'label' => 'See packages'],
         ],
         [

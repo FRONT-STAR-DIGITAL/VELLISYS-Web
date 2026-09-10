@@ -225,7 +225,12 @@
       return found ? found.value : '01';
     };
     var start = Date.parse(get('year') + '-' + get('month') + '-' + get('day') + 'T00:00:00+03:00');
-    return start + (3 * 24 * 60 * 60 * 1000) + (12 * 60 * 60 * 1000);
+    var root = document.querySelector('[data-pricing]');
+    var days = Number(root && root.getAttribute('data-discount-days') ? root.getAttribute('data-discount-days') : 3);
+    var hours = Number(root && root.getAttribute('data-discount-hours') ? root.getAttribute('data-discount-hours') : 12);
+    if (!isFinite(days) || days < 0) days = 3;
+    if (!isFinite(hours) || hours < 0) hours = 12;
+    return start + (days * 24 * 60 * 60 * 1000) + (hours * 60 * 60 * 1000);
   }
 
   function tickDiscount() {
