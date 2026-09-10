@@ -32,6 +32,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash($copy['ok'] ? 'Test received at ' . product_email() . '.' : ('Test queued: ' . ($copy['error'] ?? 'mail not accepted')), $copy['ok'] ? 'ok' : 'err');
         redirect('admin_mail.php');
     }
+    if ($action === 'retry_queued') {
+        $retry = retry_queued_platform_mail();
+        if ($retry['total'] === 0) {
+            flash('No queued platform letters to retry.');
+        } elseif ($retry['fail'] === 0) {
+            flash('Sent ' . $retry['ok'] . ' queued letter' . ($retry['ok'] === 1 ? '' : 's') . ' from ' . product_email() . '.');
+        } else {
+            flash('Sent ' . $retry['ok'] . ', still queued ' . $retry['fail'] . '. Check the mailbox password.', 'err');
+        }
+        redirect('admin_mail.php');
+    }
     $to = strtolower(post('to'));
     $companyId = (int) post('company_id');
     $name = post('to_name');
@@ -80,6 +91,7 @@ layout_admin_start('Email', $user);
   <form method="post">
     <?= csrf_field() ?>
     <button class="btn ghost" name="action" value="test_platform"><?= icon('check', 16) ?>Test mailbox</button>
+    <button class="btn ghost" name="action" value="retry_queued"><?= icon('send', 16) ?>Retry queued</button>
   </form>
 </div>
 

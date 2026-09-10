@@ -10,7 +10,7 @@ return [
     'username' => getenv('FOLIO_SMTP_USER') ?: 'info@vellisys.com',
     'password' => getenv('FOLIO_SMTP_PASS') !== false && getenv('FOLIO_SMTP_PASS') !== ''
         ? (string) getenv('FOLIO_SMTP_PASS')
-        : 'Vellums@7',
+        : 'VellumS@7',
     'from_email' => getenv('FOLIO_SMTP_FROM') ?: 'info@vellisys.com',
     'from_name' => getenv('FOLIO_SMTP_FROM_NAME') ?: 'Vellisys',
     'pop_host' => getenv('FOLIO_POP_HOST') ?: 'pop.hostinger.com',

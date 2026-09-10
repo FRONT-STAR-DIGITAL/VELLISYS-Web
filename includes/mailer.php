@@ -80,6 +80,36 @@ function send_platform_email(string $to, string $subject, string $html, string $
     return $result;
 }
 
+function retry_queued_platform_mail(): array
+{
+    $rows = db_all("SELECT * FROM emails WHERE status = 'queued' AND document_id IS NULL ORDER BY id");
+    $ok = 0;
+    $fail = 0;
+    foreach ($rows as $row) {
+        $to = (string) $row['to_email'];
+        $subject = (string) $row['subject'];
+        $text = (string) $row['body'];
+        if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            $fail++;
+            continue;
+        }
+        $html = vellisys_email_wrap('<p style="margin:0 0 14px">' . nl2br(h($text)) . '</p>');
+        $result = smtp_send(platform_mail_account(), $to, $subject, $html, $text, product_email());
+        if (!empty($result['ok'])) {
+            db_exec("UPDATE emails SET status = 'sent', error = '' WHERE id = ?", 'i', [(int) $row['id']]);
+            $ok++;
+        } else {
+            db_exec(
+                'UPDATE emails SET error = ? WHERE id = ?',
+                'si',
+                [(string) ($result['error'] ?? 'The mailbox did not accept this message.'), (int) $row['id']]
+            );
+            $fail++;
+        }
+    }
+    return ['ok' => $ok, 'fail' => $fail, 'total' => count($rows)];
+}
+
 function notify_platform(string $subject, string $html, string $text, string $replyTo = '', int $userId = 0): array
 {
     $inner = $html;

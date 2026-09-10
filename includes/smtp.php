@@ -170,7 +170,11 @@ function smtp_send(array $account, string $to, string $subject, string $html, st
         return null;
     };
 
-    $hello = preg_replace('/[^A-Za-z0-9.-]/', '', (string) ($_SERVER['HTTP_HOST'] ?? 'localhost')) ?: 'localhost';
+    $fromDomain = strtolower((string) substr(strrchr($from, '@') ?: '@vellisys.com', 1));
+    $hello = preg_replace('/[^A-Za-z0-9.-]/', '', $fromDomain) ?: 'vellisys.com';
+    if ($hello === 'localhost' || str_starts_with($hello, '127.') || str_contains($hello, ':')) {
+        $hello = 'vellisys.com';
+    }
     $err = $expect($read(), [220]);
     if ($err) {
         return ['ok' => false, 'error' => $err];
