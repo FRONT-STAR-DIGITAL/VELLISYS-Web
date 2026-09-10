@@ -2337,40 +2337,39 @@ html.is-pwa .gate-home {
   overflow: hidden;
   padding: 72px 5vw 88px;
   background:
-    radial-gradient(780px 260px at 8% 0%, rgba(30, 78, 255, .42), transparent 58%),
-    radial-gradient(640px 280px at 100% 88%, rgba(30, 78, 255, .22), transparent 52%),
-    #08143a;
-  color: #fff;
+    radial-gradient(720px 240px at 12% 0%, rgba(30, 78, 255, .14), transparent 55%),
+    radial-gradient(640px 260px at 100% 18%, rgba(8, 20, 58, .07), transparent 50%),
+    var(--paper);
+  color: var(--ink);
   text-align: center;
 }
 .lp-pricing-mark {
   position: absolute;
-  right: -14%;
-  bottom: -32%;
-  width: min(78%, 720px);
+  right: -10%;
+  bottom: -28%;
+  width: min(70%, 560px);
   height: auto;
-  opacity: .28;
-  mix-blend-mode: screen;
+  opacity: .08;
   pointer-events: none;
   z-index: 0;
   object-fit: contain;
 }
 .lp-pricing > *:not(.lp-pricing-mark) { position: relative; z-index: 1; }
-.lp-pricing .lp-kicker { color: #8eb4ff; }
+.lp-pricing .lp-kicker { color: var(--blue); }
 .lp-pricing h2 {
   margin: 6px 0 10px;
   font-size: clamp(28px, 4vw, 42px);
-  color: #fff;
+  color: var(--navy);
   letter-spacing: -.03em;
 }
 .lp-pricing-lead {
   margin: 0 auto 22px;
   max-width: 640px;
-  color: rgba(255, 255, 255, .78);
+  color: var(--muted);
   font-size: 16px;
   line-height: 1.55;
 }
-.lp-pricing-lead strong { color: #fff; }
+.lp-pricing-lead strong { color: var(--navy); }
 .lp-pricing-clock {
   display: inline-flex;
   flex-wrap: wrap;
@@ -2381,9 +2380,9 @@ html.is-pwa .gate-home {
   padding: 8px 10px 8px 18px;
   max-width: 100%;
   background: #fff;
-  border: 0;
+  border: 1px solid rgba(8, 20, 58, .1);
   border-radius: 999px;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, .18);
+  box-shadow: 0 10px 24px rgba(8, 20, 58, .06);
 }
 .lp-clock-label {
   margin: 0;
@@ -2449,80 +2448,97 @@ html.is-pwa .gate-home {
   flex-direction: column;
   min-width: 0;
   background: #fff;
-  border: 0;
+  border: 1px solid rgba(8, 20, 58, .1);
   border-radius: 22px;
   overflow: hidden;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, .22);
+  box-shadow: 0 16px 36px rgba(8, 20, 58, .08);
+}
+.lp-price-card::before {
+  content: "";
+  display: block;
+  height: 5px;
+  background: var(--navy);
 }
 .lp-price-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
   position: relative;
-  padding: 22px 22px 18px;
-  background: var(--navy);
-  color: #fff;
+  padding: 16px 20px 14px;
+  background: #fff;
+  color: var(--navy);
+}
+.lp-price-id {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 .lp-price-v {
   display: block;
   width: 36px;
   height: 36px;
-  margin: 0 0 12px;
+  margin: 0;
   border-radius: 9px;
   object-fit: cover;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, .2);
+  flex: 0 0 36px;
+}
+.lp-price-titles {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  min-width: 0;
 }
 .lp-price-card.is-popular {
-  border: 0;
+  border-color: var(--blue);
   background: #fff;
-  box-shadow: 0 24px 48px rgba(30, 78, 255, .38);
+  box-shadow: 0 20px 44px rgba(30, 78, 255, .16);
   z-index: 1;
 }
+.lp-price-card.is-popular::before {
+  background: var(--blue);
+}
 .lp-price-card.is-popular .lp-price-head {
-  padding-top: 22px;
-  background: linear-gradient(160deg, #1e4eff 0%, #1639c9 55%, #08143a 140%);
+  padding-top: 18px;
+  background: #f7f9ff;
 }
-.lp-price-ribbon {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  margin: 0;
-  padding: 5px 10px;
-  border-radius: 999px;
-  background: #fff;
-  color: var(--blue);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-}
+.lp-price-ribbon { display: none; }
 .lp-price-kicker {
-  margin: 0 0 6px;
-  color: rgba(255, 255, 255, .72);
-  font-size: 11.5px;
+  margin: 0;
+  color: var(--blue);
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: .12em;
+  letter-spacing: .08em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 .lp-price-head h3 {
-  margin: 0 0 10px;
-  font-size: 30px;
+  margin: 0;
+  font-size: 26px;
   letter-spacing: -.04em;
-  color: #fff;
+  color: var(--navy);
+  line-height: 1.1;
 }
-.lp-price-card.is-popular .lp-price-head h3 { color: #fff; }
+.lp-price-card.is-popular .lp-price-head h3 { color: var(--navy); }
 .lp-price-seats {
   margin: 0;
   display: inline-flex;
   align-items: baseline;
+  flex: 0 0 auto;
   gap: 6px;
-  padding: 5px 10px;
+  padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, .14);
-  color: #fff;
+  background: var(--paper);
+  color: var(--navy);
   font-size: 12.5px;
   font-weight: 700;
 }
 .lp-price-card.is-popular .lp-price-seats {
-  background: rgba(255, 255, 255, .18);
-  color: #fff;
+  background: rgba(30, 78, 255, .12);
+  color: var(--blue);
 }
 .lp-price-seats b {
   font-size: 15px;
@@ -2532,11 +2548,11 @@ html.is-pwa .gate-home {
   display: flex;
   flex-direction: column;
   flex: 1;
-  padding: 18px 22px 22px;
+  padding: 8px 22px 22px;
   background: #fff;
 }
 .lp-price-card.is-popular .lp-price-body {
-  background: #f7f9ff;
+  background: #fff;
 }
 .lp-price-now {
   display: flex;
@@ -2611,10 +2627,10 @@ html.is-pwa .gate-home {
 .lp-pricing-register {
   margin: 28px auto 0;
   max-width: 640px;
-  color: rgba(255, 255, 255, .72);
+  color: var(--muted);
   font-size: 14.5px;
 }
-.lp-pricing-register a { color: #8eb4ff; font-weight: 700; }
+.lp-pricing-register a { color: var(--blue); font-weight: 700; }
 
 .lp-checkout {
   display: grid;

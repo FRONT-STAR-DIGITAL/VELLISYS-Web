@@ -153,7 +153,7 @@ $payCcy = pricing_pay_currency($ccy);
 $payNow = pricing_format((float) $pkg['price_ugx'], $payCcy);
 $termLabel = pricing_section()['term_label'];
 $seats = (int) $pkg['seats'];
-$seatLabel = $seats . ' login' . ($seats === 1 ? '' : 's');
+$seatLabel = pricing_staff_label($seats);
 $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'] ?? '')));
 ?>
 <!DOCTYPE html>

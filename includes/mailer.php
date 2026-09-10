@@ -561,7 +561,7 @@ function unpaid_invoice_copy(array $order, string $planName): array
     $issued = format_date(desk_now()->format('Y-m-d')) ?: desk_now()->format('d/m/Y');
     $plan = function_exists('pricing_package') ? pricing_package((string) ($order['plan'] ?? '')) : null;
     $seats = max(1, (int) ($plan['seats'] ?? 1));
-    $seatWord = $seats === 1 ? '1 login' : $seats . ' logins';
+    $seatWord = pricing_staff_label($seats);
     $line = 'Vellisys ' . $planName . ' desk (' . $seatWord . '), ' . $term;
     $billTo = $company;
     if ($who !== '' && strcasecmp($who, 'there') !== 0) {

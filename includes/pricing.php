@@ -277,6 +277,11 @@ function checkout_plan_url(string $plan, string $publicId = '', bool $pay = fals
     return 'checkout.php?' . http_build_query($query);
 }
 
+function pricing_staff_label(int $seats): string
+{
+    return max(1, $seats) . ' staff';
+}
+
 function pricing_convert_ugx(float $ugx, string $currency): float
 {
     $rates = pricing_ugx_rates();
@@ -378,15 +383,22 @@ function render_landing_pricing(): void
         <?php foreach ($packages as $pkg): ?>
           <article class="lp-price-card<?= !empty($pkg['popular']) ? ' is-popular' : '' ?>">
             <header class="lp-price-head">
-              <img class="lp-price-v" src="<?= h(product_mark_url()) ?>" width="36" height="36" alt="">
-              <?php if (!empty($pkg['popular']) && trim((string) $pkg['ribbon']) !== ''): ?>
-                <p class="lp-price-ribbon"><?= h($pkg['ribbon']) ?></p>
-              <?php endif; ?>
-              <?php if (trim((string) $pkg['kicker']) !== ''): ?>
-                <p class="lp-price-kicker"><?= h($pkg['kicker']) ?></p>
-              <?php endif; ?>
-              <h3><?= h($pkg['name']) ?></h3>
-              <p class="lp-price-seats"><b><?= (int) $pkg['seats'] ?></b> login<?= (int) $pkg['seats'] === 1 ? '' : 's' ?></p>
+              <div class="lp-price-id">
+                <img class="lp-price-v" src="<?= h(product_mark_url()) ?>" width="36" height="36" alt="">
+                <div class="lp-price-titles">
+                  <?php
+                    $titleKicker = trim((string) $pkg['kicker']);
+                    if ($titleKicker === '' && !empty($pkg['popular'])) {
+                        $titleKicker = trim((string) $pkg['ribbon']);
+                    }
+                  ?>
+                  <?php if ($titleKicker !== ''): ?>
+                    <p class="lp-price-kicker"><?= h($titleKicker) ?></p>
+                  <?php endif; ?>
+                  <h3><?= h($pkg['name']) ?></h3>
+                </div>
+              </div>
+              <p class="lp-price-seats"><?= h(pricing_staff_label((int) $pkg['seats'])) ?></p>
             </header>
             <div class="lp-price-body">
               <p class="lp-price-now">
