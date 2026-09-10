@@ -1214,7 +1214,8 @@ table.grid tfoot td {
   font-size: 13px;
 }
 .mail-preview iframe, .mail-preview-body {
-  padding: 16px 18px;
+  padding: 0;
+  background: #f4f6fb;
   font-size: 14px;
   line-height: 1.55;
   color: #10182c;

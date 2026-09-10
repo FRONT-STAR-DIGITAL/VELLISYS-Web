@@ -111,7 +111,7 @@ function company_mail_account(array $company): ?array
     ];
 }
 
-function smtp_send(array $account, string $to, string $subject, string $html, string $text, string $replyTo = ''): array
+function smtp_send(array $account, string $to, string $subject, string $html, string $text, string $replyTo = '', array $inlines = []): array
 {
     $host = trim((string) ($account['host'] ?? ''));
     $port = (int) ($account['port'] ?? 465);
@@ -226,7 +226,7 @@ function smtp_send(array $account, string $to, string $subject, string $html, st
         return ['ok' => false, 'error' => $err];
     }
 
-    $payload = smtp_build_message($from, $fromName, $to, $subject, $html, $text, $replyTo);
+    $payload = smtp_build_message($from, $fromName, $to, $subject, $html, $text, $replyTo, $inlines);
     fwrite($fp, $payload . "\r\n.\r\n");
     $err = $expect($read(), [250]);
     if ($err) {
@@ -237,9 +237,10 @@ function smtp_send(array $account, string $to, string $subject, string $html, st
     return ['ok' => true, 'error' => '', 'from' => $from];
 }
 
-function smtp_build_message(string $from, string $fromName, string $to, string $subject, string $html, string $text, string $replyTo = ''): string
+function smtp_build_message(string $from, string $fromName, string $to, string $subject, string $html, string $text, string $replyTo = '', array $inlines = []): string
 {
-    $boundary = 'vellisys' . bin2hex(random_bytes(8));
+    $altBoundary = 'vellisys-alt-' . bin2hex(random_bytes(6));
+    $relBoundary = 'vellisys-rel-' . bin2hex(random_bytes(6));
     $enc = static function (string $s): string {
         $s = str_replace(["\r", "\n"], ['', ''], $s);
         if (preg_match('/[^\x20-\x7E]/', $s)) {
@@ -249,6 +250,27 @@ function smtp_build_message(string $from, string $fromName, string $to, string $
     };
     $fromHeader = sprintf('%s <%s>', $enc($fromName), $from);
     $reply = $replyTo !== '' && filter_var($replyTo, FILTER_VALIDATE_EMAIL) ? $replyTo : $from;
+    $plain = $text !== '' ? $text : trim(html_entity_decode(strip_tags($html), ENT_QUOTES, 'UTF-8'));
+    $alt = '--' . $altBoundary . "\r\n"
+        . "Content-Type: text/plain; charset=UTF-8\r\n"
+        . "Content-Transfer-Encoding: base64\r\n\r\n"
+        . chunk_split(base64_encode($plain))
+        . '--' . $altBoundary . "\r\n"
+        . "Content-Type: text/html; charset=UTF-8\r\n"
+        . "Content-Transfer-Encoding: base64\r\n\r\n"
+        . chunk_split(base64_encode($html))
+        . '--' . $altBoundary . "--\r\n";
+
+    $usable = [];
+    foreach ($inlines as $img) {
+        $path = (string) ($img['path'] ?? '');
+        $cid = (string) ($img['cid'] ?? '');
+        if ($cid === '' || $path === '' || !is_file($path)) {
+            continue;
+        }
+        $usable[] = $img + ['path' => $path, 'cid' => $cid];
+    }
+
     $headers = [
         'Date: ' . date('r'),
         'From: ' . $fromHeader,
@@ -256,20 +278,36 @@ function smtp_build_message(string $from, string $fromName, string $to, string $
         'Reply-To: ' . $reply,
         'Subject: ' . $enc($subject),
         'MIME-Version: 1.0',
-        'Content-Type: multipart/alternative; boundary="' . $boundary . '"',
         'X-Mailer: Vellisys',
     ];
-    $plain = $text !== '' ? $text : trim(html_entity_decode(strip_tags($html), ENT_QUOTES, 'UTF-8'));
-    $body = '--' . $boundary . "\r\n"
-        . "Content-Type: text/plain; charset=UTF-8\r\n"
-        . "Content-Transfer-Encoding: base64\r\n\r\n"
-        . chunk_split(base64_encode($plain))
-        . '--' . $boundary . "\r\n"
-        . "Content-Type: text/html; charset=UTF-8\r\n"
-        . "Content-Transfer-Encoding: base64\r\n\r\n"
-        . chunk_split(base64_encode($html))
-        . '--' . $boundary . "--\r\n";
-    $raw = implode("\r\n", $headers) . "\r\n\r\n" . $body;
+    if (!$usable) {
+        $headers[] = 'Content-Type: multipart/alternative; boundary="' . $altBoundary . '"';
+        $raw = implode("\r\n", $headers) . "\r\n\r\n" . $alt;
+    } else {
+        $headers[] = 'Content-Type: multipart/related; type="multipart/alternative"; boundary="' . $relBoundary . '"';
+        $body = '--' . $relBoundary . "\r\n"
+            . 'Content-Type: multipart/alternative; boundary="' . $altBoundary . '"' . "\r\n\r\n"
+            . $alt;
+        foreach ($usable as $img) {
+            $bin = (string) file_get_contents((string) $img['path']);
+            $name = preg_replace('/[^A-Za-z0-9._-]/', '', (string) ($img['name'] ?? 'logo.png')) ?: 'logo.png';
+            $ext = strtolower(pathinfo((string) $img['path'], PATHINFO_EXTENSION));
+            $mime = match ($ext) {
+                'jpg', 'jpeg' => 'image/jpeg',
+                'gif' => 'image/gif',
+                'webp' => 'image/webp',
+                default => 'image/png',
+            };
+            $body .= '--' . $relBoundary . "\r\n"
+                . 'Content-Type: ' . $mime . '; name="' . $name . '"' . "\r\n"
+                . "Content-Transfer-Encoding: base64\r\n"
+                . 'Content-ID: <' . $img['cid'] . '>' . "\r\n"
+                . 'Content-Disposition: inline; filename="' . $name . '"' . "\r\n\r\n"
+                . chunk_split(base64_encode($bin));
+        }
+        $body .= '--' . $relBoundary . "--\r\n";
+        $raw = implode("\r\n", $headers) . "\r\n\r\n" . $body;
+    }
     $raw = preg_replace('/^\./m', '..', $raw) ?? $raw;
     return str_replace("\n", "\r\n", str_replace("\r\n", "\n", $raw));
 }

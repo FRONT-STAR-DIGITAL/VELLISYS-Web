@@ -1407,11 +1407,26 @@ function product_mark_url(): string
     return asset('img/vellisys-mark.png');
 }
 
+function product_logo_file(): string
+{
+    foreach (['assets/img/logo.png', 'assets/img/our-logo.png', 'assets/img/vellisys-logo.png'] as $rel) {
+        $full = ROOT_PATH . '/' . $rel;
+        if (is_file($full)) {
+            return $full;
+        }
+    }
+    return '';
+}
+
 function product_logo_url(): string
 {
-    $path = ROOT_PATH . '/assets/img/our-logo.png';
-    if (is_file($path)) {
-        return asset('img/our-logo.png');
+    $file = product_logo_file();
+    if ($file !== '') {
+        $rel = ltrim(str_replace(ROOT_PATH . '/', '', $file), '/');
+        if (str_starts_with($rel, 'assets/')) {
+            $rel = substr($rel, strlen('assets/'));
+        }
+        return asset($rel);
     }
     return asset('img/vellisys-logo.png');
 }

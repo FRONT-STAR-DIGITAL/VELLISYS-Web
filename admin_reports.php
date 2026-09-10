@@ -456,7 +456,7 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
     </p>
     <div class="mail-preview">
       <div class="mail-preview-head"><?= h($previewCopy['subject']) ?></div>
-      <div class="mail-preview-body"><?= $previewCopy['html'] ?></div>
+      <div class="mail-preview-body"><?= email_html_preview($previewCopy['html']) ?></div>
     </div>
     <div class="actions" style="margin-top:14px">
       <?php if (in_array(company_expiry_state($preview), ['soon', 'expired'], true) && $previewContact['email'] !== ''): ?>
