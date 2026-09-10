@@ -33,7 +33,7 @@ $adminPass = platform_admin_password();
   ); ?>
   <main class="gate-panel">
     <form class="gate-box" method="post" action="<?= h(url('login.php')) ?>">
-      <img class="gate-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
+      <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
       <h2><em>Log in</em> to your desk to continue</h2>
       <p class="gate-lead">Use the mailbox issued when Vellisys onboarded your company.</p>
       <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>

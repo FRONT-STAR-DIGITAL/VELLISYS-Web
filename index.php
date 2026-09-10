@@ -283,7 +283,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
           <?php foreach ($faqs as $i => $faq): ?>
             <details class="lp-faq"<?= $i === 0 ? ' open' : '' ?>>
               <summary><?= h($faq['q']) ?></summary>
-              <p><?= h($faq['a']) ?></p>
+              <p><?= h($faq['a']) ?><?php if (!empty($faq['link']['href'])): ?> <a href="<?= h(url((string) $faq['link']['href'])) ?>"><?= h((string) ($faq['link']['label'] ?? 'Request a quote')) ?></a><?php endif; ?></p>
             </details>
           <?php endforeach; ?>
         </div>

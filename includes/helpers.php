@@ -1342,7 +1342,7 @@ function gate_art(string $heading, string $lead, string $switchHtml): void
       <img class="gate-watermark" src="<?= h(asset('img/landing/nw.png')) ?>" alt="">
       <div class="gate-art-inner">
         <a class="lp-brand" href="<?= h(url()) ?>">
-          <img class="lp-logo lp-logo-on-dark" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
+          <img class="lp-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
         </a>
         <h1><?= h($heading) ?></h1>
         <p><?= h($lead) ?></p>
@@ -1378,14 +1378,11 @@ function public_header(string $page = 'home'): void
   <?php endif; ?>
   <div class="lp-nav">
     <a class="lp-brand" href="<?= h(url()) ?>">
-      <img class="lp-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
+      <img class="lp-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
     </a>
     <nav>
       <?php if ($page !== 'home'): ?>
         <a class="lp-nav-home" href="<?= h(url()) ?>">Home</a>
-      <?php endif; ?>
-      <?php if ($page !== 'quote'): ?>
-        <a class="lp-nav-home" href="<?= h(url('quote.php')) ?>">Request a quote</a>
       <?php endif; ?>
       <a class="lp-btn lp-btn-ghost" href="<?= h(url('login.php')) ?>">Sign in</a>
       <a class="lp-btn lp-btn-solid" href="<?= h(url('register.php')) ?>">Get a desk</a>
@@ -1401,7 +1398,7 @@ function public_footer(): void
   <footer class="lp-foot">
     <div class="lp-foot-grid">
       <div class="lp-foot-brand">
-        <img class="lp-logo lp-logo-on-dark" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
+        <img class="lp-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
         <p>Books you can share in one click - branded to each client, in their currency, with many templates to choose from. Anywhere in the world. A product of <?= h(product_maker_name()) ?>.</p>
       </div>
       <div>
@@ -1867,8 +1864,9 @@ function landing_faqs(): array
             'a' => 'Yes. In Settings you enter the currency you bill in - UGX, KES, EUR, USD or any other three-letter code. Documents can also be in USD; set how many of your currency equal one dollar so reports can add them up.',
         ],
         [
-            'q' => 'What are Debtors and Creditors?',
-            'a' => 'Debtors lists clients who still owe you after full or part receipts. Creditors lists suppliers you still need to pay. Take a receipt, send a reminder, or record a payment from the row.',
+            'q' => 'How much does a desk cost?',
+            'a' => 'There is no one price on the website. We assess what your company needs, then we send a quote.',
+            'link' => ['href' => 'quote.php', 'label' => 'Request a quote'],
         ],
         [
             'q' => 'How do we send a sheet to a client?',
@@ -1933,6 +1931,15 @@ function landing_way_image_url(): string
         }
     }
     return product_mark_url();
+}
+
+function product_original_logo_url(): string
+{
+    $full = ROOT_PATH . '/assets/img/logo.png';
+    if (is_file($full)) {
+        return asset('img/logo.png');
+    }
+    return product_logo_url();
 }
 
 function product_logo_file(): string
@@ -2032,7 +2039,7 @@ function folio_critical_css(string $surface = 'landing'): void
         echo '<style>html,body{margin:0;background:#f4f6fb}html{background:#f4f6fb}body{font-family:Montserrat,"Segoe UI",sans-serif;color:#10182c}.desk-body{background:#f4f3ef}.app{display:flex;min-height:100vh}.nav{width:72px;flex-shrink:0;background:#fff}</style>';
         return;
     }
-    echo '<style>html{background:#f5f7fc;scroll-behavior:smooth;overflow-x:hidden;overflow-x:clip}body{margin:0;font-family:Montserrat,"Segoe UI",sans-serif;color:#10182c;background:#f5f7fc}body.gate{background:#08143a;color:#fff}.lp-chrome{position:sticky;top:0;z-index:40}.lp-ticker{background:#08143a;color:#fff;height:34px;overflow:hidden}.lp-nav{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 5vw;background:rgba(255,255,255,.92);border-bottom:1px solid rgba(8,20,58,.08)}.lp-logo{display:block;height:38px;width:auto}.lp-btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 18px;border-radius:12px;font-weight:700;text-decoration:none}.lp-btn-solid{background:#1e4eff;color:#fff}.lp-btn-ghost{background:#fff;color:#08143a;border:1px solid rgba(8,20,58,.12)}.lp-floats{position:fixed;right:16px;bottom:16px;z-index:80}.lp-wa-fab{width:56px;height:56px;border:0;border-radius:50%;background:#25d366;color:#fff}</style>';
+    echo '<style>html{background:#f5f7fc;scroll-behavior:smooth;overflow-x:hidden;overflow-x:clip}body{margin:0;font-family:Montserrat,"Segoe UI",sans-serif;color:#10182c;background:#f5f7fc}body.gate{background:#08143a;color:#fff}.lp-chrome{position:sticky;top:0;z-index:40}.lp-ticker{background:#08143a;color:#fff;height:34px;overflow:hidden}.lp-nav{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 5vw;background:rgba(255,255,255,.92);border-bottom:1px solid rgba(8,20,58,.08)}.lp-logo{display:block;height:38px;width:auto;background:transparent}.lp-btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 18px;border-radius:12px;font-weight:700;text-decoration:none}.lp-btn-solid{background:#1e4eff;color:#fff}.lp-btn-ghost{background:#fff;color:#08143a;border:1px solid rgba(8,20,58,.12)}.lp-floats{position:fixed;right:16px;bottom:16px;z-index:80}.lp-wa-fab{width:56px;height:56px;border:0;border-radius:50%;background:#25d366;color:#fff}</style>';
 }
 
 function folio_stylesheet(string $path): void

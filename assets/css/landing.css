@@ -146,7 +146,6 @@ img { max-width: 100%; }
 .lp-logo-on-dark {
   height: 36px;
   max-width: 180px;
-  filter: brightness(0) invert(1);
 }
 .lp-nav nav {
   display: flex;
@@ -1036,6 +1035,12 @@ img { max-width: 100%; }
   font-size: 14px;
   line-height: 1.55;
 }
+.lp-faq a {
+  color: var(--blue);
+  font-weight: 700;
+  text-decoration: none;
+}
+.lp-faq a:hover { text-decoration: underline; }
 .lp-ask-form {
   background: #fff;
   border: 1px solid rgba(8, 20, 58, .08);
@@ -1523,6 +1528,7 @@ body.gate {
   max-width: 180px;
   margin-bottom: 22px;
   object-fit: contain;
+  background: transparent;
 }
 .gate-box h2 {
   margin: 0 0 8px;

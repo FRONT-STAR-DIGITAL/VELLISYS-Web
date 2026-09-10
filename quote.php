@@ -58,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <main class="gate-panel">
     <?php if ($ok): ?>
       <div class="gate-box gate-ok">
-        <img class="gate-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
+        <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
         <h2><em>We have</em> your quote request</h2>
         <p class="gate-lead">We sent a confirmation to your email from <?= h(product_email()) ?>. A Vellisys admin will reach out with a quote and onboard your company. No password yet - you get one when the company goes live.</p>
         <a class="gate-submit" href="<?= h(url()) ?>">Back to Vellisys</a>
@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php else: ?>
       <form class="gate-box" method="post" action="<?= h(url('quote.php')) ?>" autocomplete="off">
         <?= csrf_field() ?>
-        <img class="gate-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
+        <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
         <h2><em>Request</em> a quote</h2>
         <p class="gate-lead">Four fields, optional note. We send a quote, then we onboard you. Have a question instead? <a href="<?= h(url()) ?>#ask">Write to us</a>.</p>
         <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
