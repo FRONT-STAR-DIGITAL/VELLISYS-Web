@@ -125,7 +125,7 @@ if ($type === 'reports') {
     csv_download('reports.csv', ['Kind', 'Number', 'Party', 'Date', 'Net', 'VAT', 'Total', 'Balance', 'Status', 'Currency'], $rows);
 }
 
-if (!in_array($kind, ['invoice', 'quotation', 'receipt', 'expense', 'letter'], true)) {
+if (!in_array($kind, desk_kind_list(), true)) {
     $kind = 'invoice';
 }
 $docs = list_documents($kind);

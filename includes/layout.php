@@ -43,21 +43,20 @@ function layout_start(string $title, array $user, array $opts = []): void
     $deskCompany = current_company();
     $flash = flash();
     $kind = $opts['kind'] ?? ($_GET['kind'] ?? '');
-    $nav = [
-        ['dashboard.php', 'Desk', 'desk'],
-        ['documents.php?kind=invoice', 'Invoices', 'invoice'],
-        ['documents.php?kind=quotation', 'Quotations', 'quotation'],
-        ['documents.php?kind=receipt', 'Receipts', 'receipt'],
-        ['documents.php?kind=expense', 'Expenses', 'expense'],
-        ['documents.php?kind=letter', 'Correspondence', 'letter'],
-        ['desk_mail.php', 'Email', 'send'],
-        ['debtors.php', 'Debtors', 'clients'],
-        ['creditors.php', 'Creditors', 'bank'],
-        ['clients.php', 'Clients', 'building'],
-        ['tutorials.php', 'Tutorials', 'book'],
-        ['reports.php', 'Reports', 'reports'],
-        ['settings.php', 'Settings', 'settings'],
-    ];
+    $primaryKind = desk_primary_kind();
+    $nav = array_merge(
+        [['dashboard.php', 'Desk', 'desk']],
+        desk_kind_nav_items(),
+        [
+            ['desk_mail.php', 'Email', 'send'],
+            ['debtors.php', 'Debtors', 'clients'],
+            ['creditors.php', 'Creditors', 'bank'],
+            ['clients.php', 'Clients', 'building'],
+            ['tutorials.php', 'Tutorials', 'book'],
+            ['reports.php', 'Reports', 'reports'],
+            ['settings.php', 'Settings', 'settings'],
+        ]
+    );
     $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
     ?>
 <!DOCTYPE html>
@@ -126,7 +125,7 @@ function layout_start(string $title, array $user, array $opts = []): void
       </div>
       <div class="top-actions">
         <button class="btn ghost" type="button" data-quick><?= icon('plus', 16) ?>Quick add</button>
-        <a class="btn" href="<?= h(url('document_new.php?kind=invoice')) ?>"><?= icon('invoice', 16) ?>New invoice</a>
+        <a class="btn" href="<?= h(url('document_new.php?kind=' . $primaryKind)) ?>"><?= icon(document_kind_icon($primaryKind), 16) ?><?= h(kind_meta($primaryKind)['verb']) ?></a>
       </div>
     </header>
     <?php if ($flash): ?>
@@ -220,11 +219,9 @@ function layout_end(string $extra = ''): void
 <?php if (!$admin): ?>
 <div class="quick" hidden data-quick-panel>
   <p>Quick add</p>
-  <a href="<?= h(url('document_new.php?kind=invoice')) ?>"><?= icon('invoice') ?>Invoice</a>
-  <a href="<?= h(url('document_new.php?kind=quotation')) ?>"><?= icon('quotation') ?>Quotation</a>
-  <a href="<?= h(url('document_new.php?kind=receipt')) ?>"><?= icon('receipt') ?>Receipt</a>
-  <a href="<?= h(url('document_new.php?kind=expense')) ?>"><?= icon('expense') ?>Expense</a>
-  <a href="<?= h(url('document_new.php?kind=letter')) ?>"><?= icon('letter') ?>Correspondence</a>
+  <?php foreach (desk_kind_nav_items() as [$href, $label, $iconName, $qKind]): ?>
+    <a href="<?= h(url('document_new.php?kind=' . $qKind)) ?>"><?= icon($iconName) ?><?= h($qKind === 'expense' ? 'Expense' : kind_meta($qKind)['singular']) ?></a>
+  <?php endforeach; ?>
   <a href="<?= h(url('desk_mail.php')) ?>"><?= icon('send') ?>Email</a>
   <a href="<?= h(url('client_edit.php')) ?>"><?= icon('clients') ?>Client</a>
 </div>

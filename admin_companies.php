@@ -43,10 +43,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'create') {
         $error = 'That email already has a Vellisys login.';
         $showNew = true;
     } else {
+        $kindsPosted = $_POST['enabled_kinds'] ?? [];
+        if (!is_array($kindsPosted) || $kindsPosted === []) {
+            $error = 'Select at least one document type this company will use.';
+            $showNew = true;
+        } else {
         $cid = db_exec(
-            'INSERT INTO companies (name, status, plan, notes) VALUES (?,?,?,?)',
-            'ssss',
-            [$name, 'onboarding', 'sme', post('notes') ?: null]
+            'INSERT INTO companies (name, status, plan, notes, enabled_kinds, custom_doc) VALUES (?,?,?,?,?,?)',
+            'ssssss',
+            [$name, 'onboarding', 'sme', post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc()]
         );
         $prefix = strtoupper(post('prefix') ?: prefix_from_name($name));
         db_exec(
@@ -99,6 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'create') {
             . ($welcome['ok'] ? '. Welcome mail sent from ' . product_email() . '.' : '. Welcome mail queued from ' . product_email() . '.')
         );
         redirect('admin_company.php?id=' . $cid);
+        }
     }
 }
 
@@ -192,6 +198,7 @@ layout_admin_start('Companies', $user);
   <input id="address" name="address" value="<?= h(post('address')) ?>">
   <label for="tagline">Tagline</label>
   <input id="tagline" name="tagline" value="<?= h(post('tagline')) ?>">
+  <?php render_desk_kinds_fields(); ?>
   <label for="notes">Internal notes</label>
   <textarea id="notes" name="notes" rows="3"><?= h($pref('notes')) ?></textarea>
   <div class="actions" style="margin-top:16px">

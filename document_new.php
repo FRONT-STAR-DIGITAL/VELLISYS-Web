@@ -15,10 +15,14 @@ if ($existing && $existing['status'] === 'void') {
 }
 
 $kind = $existing['kind'] ?? ($_GET['kind'] ?? post('kind') ?: 'invoice');
-if (!in_array($kind, ['invoice', 'quotation', 'receipt', 'expense', 'letter'], true)) {
+if (!in_array($kind, desk_kind_list(), true)) {
     $kind = 'invoice';
 }
+if (!$existing) {
+    require_desk_kind($kind);
+}
 $meta = kind_meta($kind);
+$customDef = company_custom_doc();
 $prefillParty = (int) ($existing['party_id'] ?? ($_GET['party'] ?? 0));
 $related = (int) ($existing['related_id'] ?? ($_GET['related'] ?? 0));
 $parties = parties_for($kind);
@@ -62,9 +66,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $allocPosted = $kind === 'receipt' ? money_parse(post('allocated_amount')) : 0.0;
     $relatedPosted = (int) post('related_id') ?: null;
-    if ($kind !== 'letter' && !$items && !($kind === 'receipt' && ($allocPosted > 0 || $relatedPosted))) {
+    if (kind_uses_lines($kind) && !$items && !($kind === 'receipt' && ($allocPosted > 0 || $relatedPosted))) {
         flash('Add at least one line.', 'err');
         redirect($editId ? 'document_new.php?id=' . $editId : 'document_new.php?kind=' . $kind . ($prefillParty ? '&party=' . $prefillParty : ''));
+    }
+    if ($kind === 'letter' && (post('subject') === '' || post('body') === '')) {
+        flash('A headed letter needs a subject and a body.', 'err');
+        redirect($editId ? 'document_new.php?id=' . $editId : 'document_new.php?kind=letter' . ($prefillParty ? '&party=' . $prefillParty : ''));
+    }
+    $customValues = [];
+    if ($kind === 'custom') {
+        foreach ($customDef['fields'] as $field) {
+            $customValues[$field['key']] = trim((string) ($_POST['custom_field'][$field['key']] ?? ''));
+        }
     }
     $payload = [
         'kind' => $kind,
@@ -84,6 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'letter_template' => post('letter_template') ?: null,
         'doc_template' => doc_template_key(),
         'items' => $items,
+        'custom_values' => $customValues,
     ];
     try {
         if (post('doc_template') !== '') {
@@ -123,8 +138,8 @@ if ($existing && $kind === 'letter') {
         $prefillTpl['subject'] = $prefillTpl['subject'] . ' - ' . $rel['number'];
     }
 }
-$lines = $kind === 'letter' ? [] : ($existing['items'] ?? []);
-while ($kind !== 'letter' && count($lines) < 4) {
+$lines = kind_uses_lines($kind) ? ($existing['items'] ?? []) : [];
+while (kind_uses_lines($kind) && count($lines) < 4) {
     $lines[] = ['item_name' => '', 'description' => '', 'qty' => 1, 'unit' => 'lot', 'rate' => '', 'taxed' => 0];
 }
 $heading = $existing ? 'Edit ' . strtolower($meta['singular']) : $meta['verb'];
@@ -136,12 +151,16 @@ layout_start($heading, $user, ['kind' => $kind]);
 ?>
 <div class="page-head">
   <div>
-    <h1><?= icon($kind) ?><?= h($heading) ?><?php if ($existing): ?> <span class="mono" style="font-size:.55em;font-weight:600"><?= h($existing['number']) ?></span><?php endif; ?></h1>
+    <h1><?= icon(document_kind_icon($kind)) ?><?= h($heading) ?><?php if ($existing): ?> <span class="mono" style="font-size:.55em;font-weight:600"><?= h($existing['number']) ?></span><?php endif; ?></h1>
     <p class="lede"><?php
       if ($existing) {
           echo 'Number stays the same. Change the client, lines, dates or design, then save.';
       } elseif ($kind === 'letter') {
-          echo 'Pick a headed template, then edit the body. Stationery is applied from Settings.';
+          echo 'Pick a headed template, then write a subject and body. This is stationery, not a receipt.';
+      } elseif ($kind === 'custom') {
+          echo h($customDef['title']) . ' - fill the fields this company uses' . (!empty($customDef['has_body']) ? ', then the body if you need it' : '') . '.';
+      } elseif ($kind === 'delivery') {
+          echo 'Item, description and quantity. No prices - this is a delivery note, not a bill.';
       } elseif ($kind === 'receipt') {
           echo 'Link an open invoice to record a part payment. Anything still unpaid stays on Debtors.';
       } else {
@@ -206,7 +225,7 @@ layout_start($heading, $user, ['kind' => $kind]);
         <input id="due_date" name="due_date" type="date" value="<?= h((string) ($existing['due_date'] ?? date('Y-m-d', strtotime('+14 days')))) ?>">
       </div>
     <?php endif; ?>
-    <?php if ($kind !== 'letter'): ?>
+    <?php if (kind_shows_money($kind)): ?>
       <div>
         <label for="currency">Currency</label>
         <?php currency_field('currency', 'currency', $docCurrency, ['data-fx-currency' => $docCurrency]); ?>
@@ -221,6 +240,7 @@ layout_start($heading, $user, ['kind' => $kind]);
         <p class="hint">USD converts into <?= h(default_currency()) ?> at this rate. Other currencies stay as entered.</p>
       </div>
     <?php endif; ?>
+    <?php if (!kind_is_stationery($kind)): ?>
     <div>
       <label for="doc_template">Design</label>
       <select id="doc_template" name="doc_template">
@@ -230,6 +250,7 @@ layout_start($heading, $user, ['kind' => $kind]);
       </select>
       <p class="hint">This layout is used on every document, not only this one.</p>
     </div>
+    <?php endif; ?>
     <?php if ($kind === 'expense'): ?>
       <div>
         <label for="expense_category">Category</label>
@@ -276,7 +297,27 @@ layout_start($heading, $user, ['kind' => $kind]);
     <label for="subject">Subject</label>
     <input id="subject" name="subject" required value="<?= h($prefillTpl['subject']) ?>">
     <label for="body">Body</label>
-    <textarea id="body" name="body" rows="12" required><?= h($prefillTpl['body']) ?></textarea>
+    <textarea id="body" name="body" class="letter-body-field" rows="18" required><?= h($prefillTpl['body']) ?></textarea>
+  <?php elseif ($kind === 'custom'): ?>
+    <?php $savedCustom = is_array($existing['custom_values'] ?? null) ? $existing['custom_values'] : []; ?>
+    <?php if ($customDef['fields']): ?>
+      <div class="form-grid custom-values-grid">
+        <?php foreach ($customDef['fields'] as $field): ?>
+          <div>
+            <label for="cf-<?= h($field['key']) ?>"><?= h($field['label']) ?></label>
+            <input id="cf-<?= h($field['key']) ?>" name="custom_field[<?= h($field['key']) ?>]" value="<?= h((string) ($savedCustom[$field['key']] ?? '')) ?>">
+          </div>
+        <?php endforeach; ?>
+      </div>
+    <?php else: ?>
+      <p class="hint">No extra fields were set for this document. Super admin can add them on the company page.</p>
+    <?php endif; ?>
+    <?php if (!empty($customDef['has_body'])): ?>
+      <label for="body">Body</label>
+      <textarea id="body" name="body" class="letter-body-field" rows="16"><?= h((string) ($existing['body'] ?? '')) ?></textarea>
+    <?php endif; ?>
+    <label for="notes">Internal note (not printed)</label>
+    <textarea id="notes" name="notes" rows="3"><?= h((string) ($existing['notes'] ?? '')) ?></textarea>
   <?php else: ?>
     <div class="lines-wrap">
     <table class="grid lines" id="lines" data-lines>
@@ -285,9 +326,11 @@ layout_start($heading, $user, ['kind' => $kind]);
           <th>Item</th>
           <th>Description</th>
           <th>Qty</th>
-          <th class="right">Unit price</th>
-          <th class="right">Total Amt</th>
-          <th class="center">VAT</th>
+          <?php if ($kind !== 'delivery'): ?>
+            <th class="right">Unit price</th>
+            <th class="right">Total Amt</th>
+            <th class="center">VAT</th>
+          <?php endif; ?>
         </tr>
       </thead>
       <tbody>
@@ -306,14 +349,18 @@ layout_start($heading, $user, ['kind' => $kind]);
                 <button type="button" class="qty-btn" data-qty-delta="1" aria-label="Increase quantity">+</button>
               </div>
             </td>
-            <td><input name="item_rate[<?= $i ?>]" type="number" min="0" step="any" inputmode="decimal" placeholder="0" value="<?= h((string) ($line['rate'] ?? '')) ?>" data-line-rate></td>
-            <td class="right mono"><span data-line-total><?= $lineTotal ? h(number_format($lineTotal, 2, '.', ',')) : '0' ?></span></td>
-            <td class="center">
-              <label class="vat-yn">
-                <input type="checkbox" name="item_taxed[<?= $i ?>]" value="1" <?= !empty($line['taxed']) ? 'checked' : '' ?> data-vat-box>
-                <span data-vat-yn><?= !empty($line['taxed']) ? 'Y' : 'N' ?></span>
-              </label>
-            </td>
+            <?php if ($kind !== 'delivery'): ?>
+              <td><input name="item_rate[<?= $i ?>]" type="number" min="0" step="any" inputmode="decimal" placeholder="0" value="<?= h((string) ($line['rate'] ?? '')) ?>" data-line-rate></td>
+              <td class="right mono"><span data-line-total><?= $lineTotal ? h(number_format($lineTotal, 2, '.', ',')) : '0' ?></span></td>
+              <td class="center">
+                <label class="vat-yn">
+                  <input type="checkbox" name="item_taxed[<?= $i ?>]" value="1" <?= !empty($line['taxed']) ? 'checked' : '' ?> data-vat-box>
+                  <span data-vat-yn><?= !empty($line['taxed']) ? 'Y' : 'N' ?></span>
+                </label>
+              </td>
+            <?php else: ?>
+              <input type="hidden" name="item_rate[<?= $i ?>]" value="0">
+            <?php endif; ?>
           </tr>
         <?php endforeach; ?>
       </tbody>
@@ -323,8 +370,10 @@ layout_start($heading, $user, ['kind' => $kind]);
       <button class="btn ghost sm" type="button" data-add-line><?= icon('plus', 14) ?>Add row</button>
       <?php if ($kind === 'receipt'): ?>
         Lines can be left blank if you set the amount received against an invoice.
+      <?php elseif ($kind === 'delivery'): ?>
+        Add as many rows as you need - long lists print on extra pages.
       <?php else: ?>
-        Item is the short name. Description has room for a paragraph. Tick VAT for Y; leave it clear for N. If every line is N, VAT is left off the printed or shared sheet.
+        Item is the short name. Description has room for a paragraph. Tick VAT for Y; leave it clear for N. If every line is N, VAT is left off the printed or shared sheet. Long lists print on extra pages.
       <?php endif; ?>
     </p>
     <label for="notes">Comments on the document</label>

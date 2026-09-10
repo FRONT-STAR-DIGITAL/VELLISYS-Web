@@ -22,10 +22,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $status = 'onboarding';
         }
         $name = post('name') ?: $company['name'];
-        db_exec('UPDATE companies SET name=?, status=?, notes=? WHERE id=?', 'sssi', [$name, $status, post('notes') ?: null, $id]);
-        db_exec('UPDATE branding SET name=? WHERE company_id=?', 'si', [$name, $id]);
-        flash('Company profile saved.');
-        redirect('admin_company.php?id=' . $id);
+        $kindsPosted = $_POST['enabled_kinds'] ?? [];
+        if (!is_array($kindsPosted) || $kindsPosted === []) {
+            $error = 'Select at least one document type this company will use.';
+        } else {
+            db_exec('UPDATE companies SET name=?, status=?, notes=?, enabled_kinds=?, custom_doc=? WHERE id=?', 'sssssi', [$name, $status, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), $id]);
+            db_exec('UPDATE branding SET name=? WHERE company_id=?', 'si', [$name, $id]);
+            flash('Company profile saved.');
+            redirect('admin_company.php?id=' . $id);
+        }
     }
     if ($action === 'branding') {
         $color = parse_hex_color(post('brand_color'), '#82B440');
@@ -472,6 +477,7 @@ layout_admin_start($company['name'], $user);
   <div style="padding:0 22px 22px">
     <label for="notes">Internal notes</label>
     <textarea id="notes" name="notes" rows="3"><?= h((string) $company['notes']) ?></textarea>
+    <?php render_desk_kinds_fields($company); ?>
     <div class="actions" style="margin-top:12px">
       <button class="btn" type="submit"><?= icon('check') ?>Save company</button>
     </div>

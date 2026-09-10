@@ -17,7 +17,10 @@ $docs = attach_document_totals(db_all(
     'ii' . $types,
     array_merge([$cid, $id], $params)
 ));
-$byKind = ['invoice' => [], 'quotation' => [], 'receipt' => [], 'expense' => [], 'letter' => []];
+$byKind = [];
+foreach (desk_kind_list() as $k) {
+    $byKind[$k] = [];
+}
 foreach ($docs as $d) {
     $byKind[$d['kind']][] = $d;
 }
@@ -35,12 +38,18 @@ layout_start($party['name'], $user);
     <h1><?= icon('clients') ?><?= h($party['name']) ?></h1>
     <p class="lede">
       <?= h($party['kind']) ?>
+      <?php if (!empty($party['contact_person'])): ?> · Attn <?= h($party['contact_person']) ?><?php endif; ?>
       <?php if ($party['tin']): ?> · TIN <?= h($party['tin']) ?><?php endif; ?>
       <?php if ($party['email']): ?> · <?= h($party['email']) ?><?php endif; ?>
       <?php if ($party['phone']): ?> · <?= h($party['phone']) ?><?php endif; ?>
+      <?php if (!empty($party['phone2'])): ?> · <?= h($party['phone2']) ?><?php endif; ?>
       <?php if ($owed > 0): ?> · Outstanding <?= h(money($owed)) ?><?php endif; ?>
     </p>
-    <?php if ($party['address']): ?><p class="lede"><?= h($party['address']) ?></p><?php endif; ?>
+    <?php
+      $place = party_place_line($party);
+      $addrBits = array_filter([trim((string) ($party['address'] ?? '')), $place]);
+    ?>
+    <?php if ($addrBits): ?><p class="lede" style="white-space:pre-wrap"><?= h(implode("\n", $addrBits)) ?></p><?php endif; ?>
   </div>
   <div class="actions">
     <a class="btn ghost" href="<?= h(export_query('party', ['id' => (string) $id])) ?>"><?= icon('download', 16) ?>Export CSV</a>
@@ -52,31 +61,15 @@ layout_start($party['name'], $user);
 <?php render_filters('client_view.php', ['id' => (string) $id]); ?>
 
 <div class="action-grid">
-  <a class="card action-tile" href="<?= h(url('document_new.php?kind=invoice&party=' . $id)) ?>">
-    <?= icon('invoice', 20) ?>
-    <span>New invoice</span>
-    <strong><?= count($byKind['invoice']) ?> issued</strong>
-  </a>
-  <a class="card action-tile" href="<?= h(url('document_new.php?kind=quotation&party=' . $id)) ?>">
-    <?= icon('quotation', 20) ?>
-    <span>New quotation</span>
-    <strong><?= count($byKind['quotation']) ?> issued</strong>
-  </a>
-  <a class="card action-tile" href="<?= h(url('document_new.php?kind=receipt&party=' . $id)) ?>">
-    <?= icon('receipt', 20) ?>
-    <span>New receipt</span>
-    <strong><?= count($byKind['receipt']) ?> issued</strong>
-  </a>
-  <a class="card action-tile" href="<?= h(url('document_new.php?kind=letter&party=' . $id)) ?>">
-    <?= icon('letter', 20) ?>
-    <span>New correspondence</span>
-    <strong><?= count($byKind['letter']) ?> issued</strong>
-  </a>
-  <a class="card action-tile" href="<?= h(url('document_new.php?kind=expense&party=' . $id)) ?>">
-    <?= icon('expense', 20) ?>
-    <span>Record expense</span>
-    <strong><?= count($byKind['expense']) ?> recorded</strong>
-  </a>
+  <?php foreach (desk_kind_nav_items() as [$href, $label, $iconName, $qKind]):
+      $count = count($byKind[$qKind] ?? []);
+      ?>
+    <a class="card action-tile" href="<?= h(url('document_new.php?kind=' . $qKind . '&party=' . $id)) ?>">
+      <?= icon($iconName, 20) ?>
+      <span><?= h(kind_meta($qKind)['verb']) ?></span>
+      <strong><?= $count ?> <?= $qKind === 'expense' ? 'recorded' : 'issued' ?></strong>
+    </a>
+  <?php endforeach; ?>
   <a class="card action-tile" href="<?= h(url('desk_mail.php?party=' . $id)) ?>">
     <?= icon('send', 20) ?>
     <span>Email this client</span>
@@ -84,10 +77,10 @@ layout_start($party['name'], $user);
   </a>
 </div>
 
-<?php foreach (['invoice' => 'Invoices', 'quotation' => 'Quotations', 'receipt' => 'Receipts', 'letter' => 'Correspondence', 'expense' => 'Expenses'] as $kind => $title): ?>
+<?php foreach (desk_kind_nav_items() as [$href, $title, $iconName, $kind]): ?>
   <div class="card" style="margin-top:16px">
     <div class="card-head">
-      <h2><?= icon($kind, 16) ?><?= h($title) ?></h2>
+      <h2><?= icon($iconName, 16) ?><?= h($title) ?></h2>
       <a class="btn sm" href="<?= h(url('document_new.php?kind=' . $kind . '&party=' . $id)) ?>"><?= icon('plus', 14) ?>Add</a>
     </div>
     <?php if (!$byKind[$kind]): ?>
@@ -99,7 +92,7 @@ layout_start($party['name'], $user);
           <tr>
             <th>Number</th>
             <th>Date</th>
-            <?php if ($kind !== 'letter'): ?><th class="right">Amount</th><?php endif; ?>
+            <?php if (kind_shows_money($kind)): ?><th class="right">Amount</th><?php endif; ?>
             <?php if ($kind === 'invoice'): ?><th class="right">Balance</th><?php endif; ?>
             <th>Status</th>
             <th>Actions</th>
@@ -110,7 +103,7 @@ layout_start($party['name'], $user);
             <tr>
               <td class="mono"><a href="<?= h(url('document_view.php?id=' . $doc['id'])) ?>"><?= h($doc['number']) ?></a></td>
               <td><?= h(format_date($doc['date'])) ?></td>
-              <?php if ($kind !== 'letter'): ?>
+              <?php if (kind_shows_money($kind)): ?>
                 <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>
               <?php endif; ?>
               <?php if ($kind === 'invoice'): ?>
@@ -121,7 +114,7 @@ layout_start($party['name'], $user);
             </tr>
           <?php endforeach; ?>
         </tbody>
-        <?php if ($kind !== 'letter'): ?>
+        <?php if (kind_shows_money($kind)): ?>
           <tfoot>
             <tr>
               <td colspan="2">Totals</td>

@@ -91,21 +91,6 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       </div>
     </section>
 
-    <section class="lp-world" id="anywhere" data-reveal>
-      <p class="lp-kicker">Worldwide</p>
-      <h2>Anywhere you are in the world</h2>
-      <p class="lp-world-lead">Register, request a quote, and get onboarded. Bill in UGX, KES, EUR, USD or the currency your company actually uses. The desk is yours on any device.</p>
-      <ol class="lp-world-steps">
-        <li><b>1</b><span>Register</span></li>
-        <li><b>2</b><span>Request a quote</span></li>
-        <li><b>3</b><span>Get onboarded</span></li>
-      </ol>
-      <div class="lp-cta lp-cta-band">
-        <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('register.php')) ?>">Register</a>
-        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url()) ?>#ask">Request a quote</a>
-      </div>
-    </section>
-
     <?php if ($clients): ?>
     <section class="lp-trust" id="clients-who-trust-us" aria-label="Clients who trust us">
       <p class="lp-kicker">On the desk</p>
@@ -121,73 +106,6 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       </div>
     </section>
     <?php endif; ?>
-
-    <?php if ($reviews): ?>
-    <section class="lp-reviews" id="client-reviews" aria-label="Client reviews">
-      <p class="lp-kicker">From the books</p>
-      <h2>What clients say</h2>
-      <div class="lp-marquee lp-reviews-marquee">
-        <div class="lp-marquee-track lp-reviews-track">
-          <?php foreach ([$reviews, $reviews] as $setIndex => $set): ?>
-            <?php foreach ($set as $review): ?>
-              <article class="lp-review" <?= $setIndex === 1 ? 'aria-hidden="true"' : '' ?>>
-                <blockquote><?= h($review['quote']) ?></blockquote>
-                <footer>
-                  <strong><?= h($review['name']) ?></strong>
-                  <?php if (trim((string) ($review['role'] ?? '')) !== ''): ?>
-                    <span><?= h($review['role']) ?></span>
-                  <?php endif; ?>
-                </footer>
-              </article>
-            <?php endforeach; ?>
-          <?php endforeach; ?>
-        </div>
-      </div>
-    </section>
-    <?php endif; ?>
-
-    <section class="lp-manage" id="what-you-manage" data-reveal>
-      <p class="lp-kicker">The desk</p>
-      <h2>What you get to manage</h2>
-      <p class="lp-manage-lead">One professional desk for the books. Quotations through reports, in the company's branding, on a phone in the field or a laptop at the office - anywhere, any time.</p>
-      <div class="lp-manage-grid">
-        <?php foreach ($manage as $item): ?>
-          <article>
-            <div class="lp-manage-head">
-              <span class="lp-manage-icon" aria-hidden="true"><?= icon($item['icon'], 18) ?></span>
-              <h3><?= h($item['title']) ?></h3>
-            </div>
-            <p><?= h($item['body']) ?></p>
-          </article>
-        <?php endforeach; ?>
-      </div>
-    </section>
-
-    <section class="lp-send" id="send-in-a-minute" data-reveal>
-      <figure class="lp-send-pic">
-        <img src="<?= h(asset('img/landing/rec.png')) ?>" alt="A receipt generated on Vellisys, open on a phone and already sent to the client">
-        <span class="lp-send-badge" aria-hidden="true">Sent · 48s</span>
-        <span class="lp-send-ring" aria-hidden="true"></span>
-      </figure>
-      <div class="lp-send-copy">
-        <p class="lp-kicker">From the desk to their phone</p>
-        <h2>Generate it. Send it. They have it in a minute.</h2>
-        <p>Raise a quotation, an invoice or a receipt on your desk. The sheet goes out in the client's own logo and colours, from a library of templates you pick once. Share it while they are still with you. One record, one tap, their copy is on the way.</p>
-        <ul class="lp-send-docs">
-          <li>Quotation</li>
-          <li>Invoice</li>
-          <li>Receipt</li>
-        </ul>
-        <ol class="lp-send-flow">
-          <li><b>1</b><span>Raise the document</span></li>
-          <li><b>2</b><span>Share the sheet</span></li>
-          <li><b>3</b><span>Client opens it</span></li>
-        </ol>
-        <div class="lp-cta">
-          <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('register.php')) ?>">Get a desk and send one</a>
-        </div>
-      </div>
-    </section>
 
     <section class="lp-band" id="sound-familiar" data-reveal>
       <h2>Sound familiar?</h2>
@@ -250,6 +168,50 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       </div>
     </section>
 
+    <section class="lp-send" id="send-in-a-minute" data-reveal>
+      <figure class="lp-send-pic">
+        <img src="<?= h(asset('img/landing/rec.png')) ?>" alt="A receipt generated on Vellisys, open on a phone and already sent to the client">
+        <span class="lp-send-badge" aria-hidden="true">Sent · 48s</span>
+        <span class="lp-send-ring" aria-hidden="true"></span>
+      </figure>
+      <div class="lp-send-copy">
+        <p class="lp-kicker">From the desk to their phone</p>
+        <h2>Generate it. Send it. They have it in a minute.</h2>
+        <p>Raise a quotation, an invoice or a receipt on your desk. The sheet goes out in the client's own logo and colours, from a library of templates you pick once. Share it while they are still with you. One record, one tap, their copy is on the way.</p>
+        <ul class="lp-send-docs">
+          <li>Quotation</li>
+          <li>Invoice</li>
+          <li>Receipt</li>
+          <li>Delivery note</li>
+        </ul>
+        <ol class="lp-send-flow">
+          <li><b>1</b><span>Raise the document</span></li>
+          <li><b>2</b><span>Share the sheet</span></li>
+          <li><b>3</b><span>Client opens it</span></li>
+        </ol>
+        <div class="lp-cta">
+          <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('register.php')) ?>">Get a desk and send one</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="lp-manage" id="what-you-manage" data-reveal>
+      <p class="lp-kicker">The desk</p>
+      <h2>What you get to manage</h2>
+      <p class="lp-manage-lead">One professional desk for the books. Quotations through reports, in the company's branding, on a phone in the field or a laptop at the office - anywhere, any time.</p>
+      <div class="lp-manage-grid">
+        <?php foreach ($manage as $item): ?>
+          <article>
+            <div class="lp-manage-head">
+              <span class="lp-manage-icon" aria-hidden="true"><?= icon($item['icon'], 18) ?></span>
+              <h3><?= h($item['title']) ?></h3>
+            </div>
+            <p><?= h($item['body']) ?></p>
+          </article>
+        <?php endforeach; ?>
+      </div>
+    </section>
+
     <section class="lp-band lp-path" id="get-a-desk" data-reveal>
       <p class="lp-kicker">Get a desk</p>
       <h2>You are three steps away</h2>
@@ -271,6 +233,45 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       <div class="lp-cta lp-cta-band">
         <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('register.php')) ?>">Get my company a desk</a>
         <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('login.php')) ?>">Sign in to my desk</a>
+      </div>
+    </section>
+
+    <?php if ($reviews): ?>
+    <section class="lp-reviews" id="client-reviews" aria-label="Client reviews">
+      <p class="lp-kicker">From the books</p>
+      <h2>What clients say</h2>
+      <div class="lp-marquee lp-reviews-marquee">
+        <div class="lp-marquee-track lp-reviews-track">
+          <?php foreach ([$reviews, $reviews] as $setIndex => $set): ?>
+            <?php foreach ($set as $review): ?>
+              <article class="lp-review" <?= $setIndex === 1 ? 'aria-hidden="true"' : '' ?>>
+                <blockquote><?= h($review['quote']) ?></blockquote>
+                <footer>
+                  <strong><?= h($review['name']) ?></strong>
+                  <?php if (trim((string) ($review['role'] ?? '')) !== ''): ?>
+                    <span><?= h($review['role']) ?></span>
+                  <?php endif; ?>
+                </footer>
+              </article>
+            <?php endforeach; ?>
+          <?php endforeach; ?>
+        </div>
+      </div>
+    </section>
+    <?php endif; ?>
+
+    <section class="lp-world" id="anywhere" data-reveal>
+      <p class="lp-kicker">Worldwide</p>
+      <h2>Anywhere you are in the world</h2>
+      <p class="lp-world-lead">Register, request a quote, and get onboarded. Bill in UGX, KES, EUR, USD or the currency your company actually uses. The desk is yours on any device.</p>
+      <ol class="lp-world-steps">
+        <li><b>1</b><span>Register</span></li>
+        <li><b>2</b><span>Request a quote</span></li>
+        <li><b>3</b><span>Get onboarded</span></li>
+      </ol>
+      <div class="lp-cta lp-cta-band">
+        <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('register.php')) ?>">Register</a>
+        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url()) ?>#ask">Request a quote</a>
       </div>
     </section>
 

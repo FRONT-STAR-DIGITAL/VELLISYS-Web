@@ -592,16 +592,290 @@ function csrf_check(): void
     }
 }
 
+function selectable_document_kinds(): array
+{
+    return [
+        'quotation' => 'Quotations',
+        'invoice' => 'Invoices',
+        'receipt' => 'Receipts',
+        'delivery' => 'Delivery notes',
+        'letter' => 'Headed letters',
+        'custom' => 'Custom documents',
+    ];
+}
+
+function default_enabled_kinds(): array
+{
+    return ['quotation', 'invoice', 'receipt', 'letter'];
+}
+
+function parse_enabled_kinds(mixed $raw): array
+{
+    if (is_array($raw)) {
+        $list = $raw;
+    } else {
+        $list = json_decode((string) $raw, true);
+    }
+    if (!is_array($list) || $list === []) {
+        return default_enabled_kinds();
+    }
+    $allow = array_keys(selectable_document_kinds());
+    $out = [];
+    foreach ($list as $k) {
+        $k = (string) $k;
+        if (in_array($k, $allow, true) && !in_array($k, $out, true)) {
+            $out[] = $k;
+        }
+    }
+    return $out ?: default_enabled_kinds();
+}
+
+function company_enabled_kinds(?array $company = null): array
+{
+    $company = $company ?? current_company();
+    return parse_enabled_kinds($company['enabled_kinds'] ?? '');
+}
+
+function company_allows_kind(string $kind, ?array $company = null): bool
+{
+    if ($kind === 'expense') {
+        return true;
+    }
+    return in_array($kind, company_enabled_kinds($company), true);
+}
+
+function posted_enabled_kinds(): string
+{
+    $posted = $_POST['enabled_kinds'] ?? [];
+    if (!is_array($posted)) {
+        $posted = [];
+    }
+    return json_encode(parse_enabled_kinds($posted), JSON_UNESCAPED_UNICODE);
+}
+
+function default_custom_doc(): array
+{
+    return [
+        'title' => 'Custom document',
+        'has_body' => true,
+        'fields' => [],
+    ];
+}
+
+function parse_custom_doc(mixed $raw): array
+{
+    $data = is_array($raw) ? $raw : json_decode((string) $raw, true);
+    $base = default_custom_doc();
+    if (!is_array($data)) {
+        return $base;
+    }
+    $title = trim((string) ($data['title'] ?? $base['title']));
+    $base['title'] = $title !== '' ? mb_substr($title, 0, 80) : $base['title'];
+    $base['has_body'] = !empty($data['has_body']);
+    $fields = [];
+    foreach ((array) ($data['fields'] ?? []) as $i => $field) {
+        if (is_string($field)) {
+            $label = trim($field);
+            $key = '';
+        } else {
+            $label = trim((string) ($field['label'] ?? ''));
+            $key = trim((string) ($field['key'] ?? ''));
+        }
+        if ($label === '') {
+            continue;
+        }
+        if ($key === '') {
+            $key = strtolower(trim((string) preg_replace('/[^a-z0-9]+/i', '_', $label), '_'));
+        }
+        if ($key === '') {
+            $key = 'field_' . $i;
+        }
+        $fields[] = ['key' => mb_substr($key, 0, 40), 'label' => mb_substr($label, 0, 80)];
+    }
+    $base['fields'] = $fields;
+    return $base;
+}
+
+function company_custom_doc(?array $company = null): array
+{
+    $company = $company ?? current_company();
+    return parse_custom_doc($company['custom_doc'] ?? '');
+}
+
+function posted_custom_doc(): string
+{
+    $fields = [];
+    foreach ((array) ($_POST['custom_field_label'] ?? []) as $i => $label) {
+        $fields[] = [
+            'key' => trim((string) (($_POST['custom_field_key'][$i] ?? ''))),
+            'label' => trim((string) $label),
+        ];
+    }
+    return json_encode(parse_custom_doc([
+        'title' => post('custom_doc_title'),
+        'has_body' => !empty($_POST['custom_doc_has_body']),
+        'fields' => $fields,
+    ]), JSON_UNESCAPED_UNICODE);
+}
+
+function desk_kind_list(): array
+{
+    return ['quotation', 'invoice', 'receipt', 'expense', 'letter', 'delivery', 'custom'];
+}
+
 function kind_meta(string $kind): array
 {
+    if ($kind === 'custom') {
+        $title = company_custom_doc()['title'];
+        return ['title' => $title, 'singular' => $title, 'heading' => strtoupper($title), 'verb' => 'New ' . strtolower($title)];
+    }
     return match ($kind) {
         'quotation' => ['title' => 'Quotations', 'singular' => 'Quotation', 'heading' => 'QUOTATION', 'verb' => 'New quotation'],
         'invoice' => ['title' => 'Invoices', 'singular' => 'Invoice', 'heading' => 'INVOICE', 'verb' => 'New invoice'],
         'receipt' => ['title' => 'Receipts', 'singular' => 'Receipt', 'heading' => 'RECEIPT', 'verb' => 'New receipt'],
+        'delivery' => ['title' => 'Delivery notes', 'singular' => 'Delivery note', 'heading' => 'DELIVERY NOTE', 'verb' => 'New delivery note'],
         'expense' => ['title' => 'Expenses', 'singular' => 'Expense', 'heading' => 'EXPENSE', 'verb' => 'Record expense'],
-        'letter' => ['title' => 'Correspondence', 'singular' => 'Note', 'heading' => '', 'verb' => 'New correspondence'],
+        'letter' => ['title' => 'Correspondence', 'singular' => 'Letter', 'heading' => '', 'verb' => 'New letter'],
         default => ['title' => 'Documents', 'singular' => 'Document', 'heading' => 'DOCUMENT', 'verb' => 'New'],
     };
+}
+
+function document_kind_icon(string $kind): string
+{
+    return match ($kind) {
+        'delivery' => 'truck',
+        'custom' => 'file',
+        default => $kind,
+    };
+}
+
+function kind_shows_money(string $kind): bool
+{
+    return !in_array($kind, ['letter', 'custom', 'delivery'], true);
+}
+
+function kind_is_stationery(string $kind): bool
+{
+    return in_array($kind, ['letter', 'custom'], true);
+}
+
+function kind_uses_lines(string $kind): bool
+{
+    return !kind_is_stationery($kind);
+}
+
+function kind_nav_label(string $kind): string
+{
+    if ($kind === 'custom') {
+        return company_custom_doc()['title'];
+    }
+    if ($kind === 'expense') {
+        return 'Expenses';
+    }
+    if ($kind === 'letter') {
+        return 'Correspondence';
+    }
+    return selectable_document_kinds()[$kind] ?? kind_meta($kind)['title'];
+}
+
+function desk_primary_kind(?array $company = null): string
+{
+    $enabled = company_enabled_kinds($company);
+    foreach (['invoice', 'quotation', 'receipt', 'delivery', 'letter', 'custom'] as $k) {
+        if (in_array($k, $enabled, true)) {
+            return $k;
+        }
+    }
+    return 'expense';
+}
+
+function require_desk_kind(string $kind): void
+{
+    if (company_allows_kind($kind)) {
+        return;
+    }
+    flash('This desk does not use that document.', 'err');
+    redirect('dashboard.php');
+}
+
+function desk_kind_nav_items(): array
+{
+    $enabled = company_enabled_kinds();
+    $order = ['quotation', 'invoice', 'receipt', 'delivery', 'expense', 'letter', 'custom'];
+    $out = [];
+    foreach ($order as $kind) {
+        if ($kind !== 'expense' && !in_array($kind, $enabled, true)) {
+            continue;
+        }
+        $out[] = ['documents.php?kind=' . $kind, kind_nav_label($kind), document_kind_icon($kind), $kind];
+    }
+    return $out;
+}
+
+function party_place_line(array $src): string
+{
+    $city = trim((string) ($src['city'] ?? $src['party_city'] ?? ''));
+    $country = trim((string) ($src['country'] ?? $src['party_country'] ?? ''));
+    return trim($city . ($city !== '' && $country !== '' ? ', ' : '') . $country);
+}
+
+function posted_party_contacts(): array
+{
+    return [
+        'contact_person' => post('contact_person') ?: null,
+        'phone' => post('phone') ?: null,
+        'phone2' => post('phone2') ?: null,
+        'email' => post('email') ?: null,
+        'address' => post('address') ?: null,
+        'city' => post('city') ?: null,
+        'country' => post('country') ?: null,
+        'notes' => post('party_notes') ?: null,
+    ];
+}
+
+function render_desk_kinds_fields(?array $company = null): void
+{
+    $enabled = $company ? company_enabled_kinds($company) : default_enabled_kinds();
+    $custom = $company ? company_custom_doc($company) : default_custom_doc();
+    $fields = $custom['fields'];
+    while (count($fields) < 2) {
+        $fields[] = ['key' => '', 'label' => ''];
+    }
+    $customOn = in_array('custom', $enabled, true);
+    ?>
+    <fieldset class="kinds-pick" data-kinds-form>
+      <legend>Documents this desk uses</legend>
+      <p class="hint">Tick only what this company needs. Expenses stay on for creditors. Custom documents are not letters - they get their own fields.</p>
+      <div class="kinds-grid">
+        <?php foreach (selectable_document_kinds() as $key => $label): ?>
+          <label class="kinds-opt">
+            <input type="checkbox" name="enabled_kinds[]" value="<?= h($key) ?>" <?= in_array($key, $enabled, true) ? 'checked' : '' ?> <?= $key === 'custom' ? 'data-custom-kind' : '' ?>>
+            <span><?= h($label) ?></span>
+          </label>
+        <?php endforeach; ?>
+      </div>
+      <div class="custom-doc-box" data-custom-doc <?= $customOn ? '' : 'hidden' ?>>
+        <h3>Custom document</h3>
+        <p class="hint">A form the company fills on branded paper - job cards, work orders, certificates. Not a headed letter.</p>
+        <label for="custom_doc_title">Title on the desk</label>
+        <input id="custom_doc_title" name="custom_doc_title" value="<?= h($custom['title']) ?>" placeholder="Work order">
+        <label class="kinds-opt" style="margin:10px 0">
+          <input type="checkbox" name="custom_doc_has_body" value="1" <?= !empty($custom['has_body']) ? 'checked' : '' ?>>
+          <span>Include a free-text body</span>
+        </label>
+        <p class="hint">Add labelled fields the company will fill on each document (job number, vehicle, site…).</p>
+        <div class="custom-fields" data-custom-fields>
+          <?php foreach ($fields as $i => $field): ?>
+            <div class="custom-field-row">
+              <input name="custom_field_label[]" value="<?= h($field['label']) ?>" placeholder="Field label">
+              <input name="custom_field_key[]" value="<?= h($field['key']) ?>" placeholder="key (optional)">
+            </div>
+          <?php endforeach; ?>
+        </div>
+        <button class="btn ghost sm" type="button" data-add-custom-field><?= icon('plus', 14) ?>Add field</button>
+      </div>
+    </fieldset>
+    <?php
 }
 
 function format_date(?string $iso): string
@@ -1539,6 +1813,8 @@ function desk_manage_items(): array
         ['icon' => 'quotation', 'title' => 'Quotations', 'body' => 'Raise a quote, share it branded, convert it to an invoice when they say yes.'],
         ['icon' => 'invoice', 'title' => 'Invoices', 'body' => 'Issue full or part-paid invoices. Balances stay visible until they are cleared.'],
         ['icon' => 'receipt', 'title' => 'Receipts', 'body' => 'Record what came in. RECEIVED and DUE print on the sheet, in your currency.'],
+        ['icon' => 'truck', 'title' => 'Delivery notes', 'body' => 'List what left the store, with quantities. No prices - goods out, not a bill.'],
+        ['icon' => 'file', 'title' => 'Custom documents', 'body' => 'A form you define at onboarding - fields, a body, or both - on the same branded paper.'],
         ['icon' => 'clients', 'title' => 'Debtors', 'body' => 'See who still owes you. Send a reminder from the row, from the company mailbox.'],
         ['icon' => 'bank', 'title' => 'Creditors', 'body' => 'Track suppliers you still need to pay. Note a payment or write to them from the desk.'],
         ['icon' => 'letter', 'title' => 'Headed letters', 'body' => 'Correspondence on the same stationery as the books. Print or email in one click.'],
@@ -1564,7 +1840,7 @@ function landing_faqs(): array
         ],
         [
             'q' => 'Are the documents in our branding?',
-            'a' => 'Yes. Every quotation, invoice, receipt, expense and headed note uses the company logo, three brand colours, and one of the templates you pick in Settings.',
+            'a' => 'Yes. Every quotation, invoice, receipt, delivery note, expense, headed letter and custom document uses the company logo, three brand colours, and one of the templates you pick in Settings.',
         ],
         [
             'q' => 'Can we work in our own currency?',

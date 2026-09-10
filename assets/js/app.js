@@ -151,6 +151,19 @@ document.addEventListener('click', function (e) {
     if (focus) focus.focus();
     return;
   }
+  var addField = e.target.closest('[data-add-custom-field]');
+  if (addField) {
+    e.preventDefault();
+    var box = document.querySelector('[data-custom-fields]');
+    if (!box) return;
+    var row = document.createElement('div');
+    row.className = 'custom-field-row';
+    row.innerHTML = '<input name="custom_field_label[]" placeholder="Field label"><input name="custom_field_key[]" placeholder="key (optional)">';
+    box.appendChild(row);
+    var inp = row.querySelector('input');
+    if (inp) inp.focus();
+    return;
+  }
   var qtyBtn = e.target.closest('[data-qty-delta]');
   if (!qtyBtn) return;
   e.preventDefault();
@@ -422,3 +435,14 @@ document.querySelectorAll('[data-add-template]').forEach(function (btn) {
   tick();
   setInterval(tick, 1000);
 })();
+
+document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
+  var box = form.querySelector('[data-custom-doc]');
+  var toggle = form.querySelector('[data-custom-kind]');
+  function sync() {
+    if (!box || !toggle) return;
+    box.hidden = !toggle.checked;
+  }
+  if (toggle) toggle.addEventListener('change', sync);
+  sync();
+});

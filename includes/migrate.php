@@ -29,7 +29,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 21) {
+    if ($ver >= 22) {
         $done = true;
         return;
     }
@@ -189,9 +189,48 @@ function folio_migrate(mysqli $db): void
     }
 
     folio_migrate_landing_reviews($db);
+    if ($ver < 22) {
+        folio_migrate_desk_kinds($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '21')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '22')");
     $done = true;
+}
+
+function folio_migrate_desk_kinds(mysqli $db): void
+{
+    if (!db_has_column($db, 'companies', 'enabled_kinds')) {
+        $db->query("ALTER TABLE companies ADD COLUMN enabled_kinds TEXT NULL");
+    }
+    if (!db_has_column($db, 'companies', 'custom_doc')) {
+        $db->query("ALTER TABLE companies ADD COLUMN custom_doc TEXT NULL");
+    }
+    $db->query("ALTER TABLE documents MODIFY kind ENUM('quotation','invoice','receipt','expense','letter','delivery','custom') NOT NULL");
+    if (!db_has_column($db, 'documents', 'custom_values')) {
+        $db->query("ALTER TABLE documents ADD COLUMN custom_values TEXT NULL");
+    }
+    if (!db_has_column($db, 'parties', 'contact_person')) {
+        $db->query("ALTER TABLE parties ADD COLUMN contact_person VARCHAR(160) NULL");
+    }
+    if (!db_has_column($db, 'parties', 'phone2')) {
+        $db->query("ALTER TABLE parties ADD COLUMN phone2 VARCHAR(40) NULL");
+    }
+    if (!db_has_column($db, 'parties', 'city')) {
+        $db->query("ALTER TABLE parties ADD COLUMN city VARCHAR(120) NULL");
+    }
+    if (!db_has_column($db, 'parties', 'country')) {
+        $db->query("ALTER TABLE parties ADD COLUMN country VARCHAR(80) NULL");
+    }
+    if (!db_has_column($db, 'parties', 'notes')) {
+        $db->query("ALTER TABLE parties ADD COLUMN notes TEXT NULL");
+    }
+    $addr = $db->query("SHOW COLUMNS FROM parties LIKE 'address'");
+    $col = $addr ? $addr->fetch_assoc() : null;
+    if ($col && stripos((string) ($col['Type'] ?? ''), 'varchar') !== false) {
+        $db->query('ALTER TABLE parties MODIFY address TEXT NULL');
+    }
+    $defaults = json_encode(['quotation', 'invoice', 'receipt', 'letter']);
+    $db->query("UPDATE companies SET enabled_kinds = '" . $db->real_escape_string($defaults) . "' WHERE enabled_kinds IS NULL OR enabled_kinds = ''");
 }
 
 function folio_migrate_email_from(mysqli $db): void

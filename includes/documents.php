@@ -79,6 +79,8 @@ function kind_code(string $kind): string
         'receipt' => 'RCT',
         'expense' => 'EXP',
         'letter' => 'LTR',
+        'delivery' => 'DEL',
+        'custom' => 'CUS',
         default => 'DOC',
     };
 }
@@ -127,9 +129,13 @@ function create_document(array $data): int
     }
     $userId = (int) ($data['created_by'] ?? ($_SESSION['user_id'] ?? 0));
     $items = $data['items'] ?? [];
+    $customValues = $data['custom_values'] ?? null;
+    if (is_array($customValues)) {
+        $customValues = json_encode($customValues, JSON_UNESCAPED_UNICODE) ?: '{}';
+    }
     $cid = current_company_id();
 
-    if ($kind === 'letter') {
+    if (in_array($kind, ['letter', 'custom'], true)) {
         $items = $items ?: [['item_name' => '', 'description' => '-', 'qty' => 1, 'unit' => 'lot', 'rate' => 0, 'taxed' => 0]];
         $rate = 0;
     }
@@ -151,10 +157,10 @@ function create_document(array $data): int
     }
 
     $id = db_exec(
-        'INSERT INTO documents (company_id, kind, sequence, number, date, due_date, party_id, vat_rate, notes, subject, body, status, related_id, payment_method, payment_ref, allocated_amount, expense_category, letter_template, created_by, currency, doc_template)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        'isisssidssssissdssiss',
-        [$cid, $kind, $seq, $number, $date, $due, $party, $rate, $notes, $subject, $body, $status, $related, $method, $ref, $alloc, $cat, $tpl, $userId, $currency, $docTpl]
+        'INSERT INTO documents (company_id, kind, sequence, number, date, due_date, party_id, vat_rate, notes, subject, body, custom_values, status, related_id, payment_method, payment_ref, allocated_amount, expense_category, letter_template, created_by, currency, doc_template)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'isisssidsssssissdssiss',
+        [$cid, $kind, $seq, $number, $date, $due, $party, $rate, $notes, $subject, $body, $customValues, $status, $related, $method, $ref, $alloc, $cat, $tpl, $userId, $currency, $docTpl]
     );
 
     insert_document_items($id, $items);
@@ -226,7 +232,13 @@ function update_document(int $id, array $data): void
         $docTpl = doc_template_key($doc);
     }
     $items = $data['items'] ?? $doc['items'];
-    if ($doc['kind'] === 'letter') {
+    $customValues = $data['custom_values'] ?? ($doc['custom_values'] ?? null);
+    if (is_array($customValues)) {
+        $customValues = json_encode($customValues, JSON_UNESCAPED_UNICODE) ?: '{}';
+    } elseif ($customValues === null) {
+        $customValues = is_array($doc['custom_values'] ?? null) ? json_encode($doc['custom_values']) : (string) ($doc['custom_values'] ?? '');
+    }
+    if (in_array($doc['kind'], ['letter', 'custom'], true)) {
         $items = $items ?: [['item_name' => '', 'description' => '-', 'qty' => 1, 'unit' => 'lot', 'rate' => 0, 'taxed' => 0]];
         $rate = 0;
     }
@@ -243,9 +255,9 @@ function update_document(int $id, array $data): void
     }
 
     db_exec(
-        'UPDATE documents SET party_id=?, date=?, due_date=?, vat_rate=?, notes=?, subject=?, body=?, related_id=?, payment_method=?, payment_ref=?, allocated_amount=?, expense_category=?, letter_template=?, currency=?, doc_template=? WHERE id=? AND company_id=?',
-        'issdsssissdssssii',
-        [$party, $date, $due, $rate, $notes, $subject, $body, $related, $method, $ref, $alloc, $cat, $tpl, $currency, $docTpl, $id, current_company_id()]
+        'UPDATE documents SET party_id=?, date=?, due_date=?, vat_rate=?, notes=?, subject=?, body=?, custom_values=?, related_id=?, payment_method=?, payment_ref=?, allocated_amount=?, expense_category=?, letter_template=?, currency=?, doc_template=? WHERE id=? AND company_id=?',
+        'issdssssissdssssii',
+        [$party, $date, $due, $rate, $notes, $subject, $body, $customValues, $related, $method, $ref, $alloc, $cat, $tpl, $currency, $docTpl, $id, current_company_id()]
     );
     db_exec('DELETE FROM document_items WHERE document_id = ?', 'i', [$id]);
     insert_document_items($id, $items);
@@ -255,6 +267,8 @@ function hydrate_document(array $doc): array
 {
     $id = (int) $doc['id'];
     $doc['items'] = db_all('SELECT * FROM document_items WHERE document_id = ? ORDER BY id', 'i', [$id]);
+    $rawCustom = $doc['custom_values'] ?? '';
+    $doc['custom_values'] = is_array($rawCustom) ? $rawCustom : (json_decode((string) $rawCustom, true) ?: []);
     $doc['totals'] = document_totals($doc);
     if ($doc['kind'] === 'invoice') {
         $doc['paid'] = invoice_paid((int) $doc['id']);
@@ -277,7 +291,7 @@ function hydrate_document(array $doc): array
 function load_document(int $id): ?array
 {
     $doc = db_one(
-        'SELECT d.*, p.name AS party_name, p.email AS party_email, p.phone AS party_phone, p.address AS party_address, p.tin AS party_tin, p.kind AS party_kind
+        'SELECT d.*, p.name AS party_name, p.email AS party_email, p.phone AS party_phone, p.phone2 AS party_phone2, p.address AS party_address, p.city AS party_city, p.country AS party_country, p.contact_person AS party_contact, p.tin AS party_tin, p.kind AS party_kind
          FROM documents d JOIN parties p ON p.id = d.party_id WHERE d.id = ? AND d.company_id = ?',
         'ii',
         [$id, current_company_id()]
@@ -311,7 +325,7 @@ function document_share_message(array $doc): string
     $meta = kind_meta($doc['kind']);
     $text = $meta['singular'] . ' ' . $doc['number'] . ' from ' . $brand['name'];
     $total = (float) ($doc['totals']['total'] ?? $doc['paid'] ?? 0);
-    if (($doc['kind'] ?? '') !== 'letter' && $total > 0) {
+    if (!in_array($doc['kind'] ?? '', ['letter', 'custom', 'delivery'], true) && $total > 0) {
         $text .= ' (' . money($total, doc_currency($doc)) . ')';
     }
     return $text . '. Open the sheet: ' . document_share_url($doc);

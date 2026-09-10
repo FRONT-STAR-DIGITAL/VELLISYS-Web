@@ -449,6 +449,30 @@ form.actions, td form { display: inline; margin: 0; }
 .content:has(.form-wide) { max-width: none; }
 .form-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 20px; }
 .form-grid > div { min-width: 0; }
+.kinds-pick {
+  margin: 16px 0 8px;
+  padding: 16px 0 4px;
+  border: 0;
+}
+.kinds-pick legend { font-weight: 700; font-size: 15px; }
+.kinds-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px 16px;
+  margin: 10px 0 14px;
+}
+.kinds-opt { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.kinds-opt input { width: auto; margin: 0; }
+.custom-doc-box {
+  padding: 14px 16px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f7f8fc;
+  margin: 8px 0 12px;
+}
+.custom-doc-box h3 { margin: 0 0 6px; font-size: 15px; }
+.custom-field-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 10px; margin: 0 0 8px; }
+.letter-body-field { min-height: 18em; }
 .check { display: flex; gap: 8px; align-items: center; font-weight: 600; margin: 16px 0 8px; }
 .check input { width: auto; }
 .center { text-align: center; }
@@ -698,13 +722,16 @@ input:focus, select:focus, textarea:focus {
 .sheet-stage .invoice-sheet { flex-shrink: 0; }
 .invoice-sheet {
   width: 210mm;
+  height: auto;
   min-height: 297mm;
+  overflow: visible;
   margin: 0 auto;
   background: #fff;
   color: #000;
   padding: 14mm 16mm;
   font-family: "Montserrat", Arial, Helvetica, sans-serif;
   font-size: 12.5px;
+  page-break-inside: auto;
 }
 .invoice-sheet.sheet-ledger,
 .invoice-sheet.sheet-estate,
@@ -1419,5 +1446,5 @@ table.grid tfoot td {
   .desk-body .main { margin-left: 0; width: 100%; max-width: 100%; }
   .content, .sheet-wrap { padding: 0; background: #fff; max-width: none; overflow: visible; }
   .sheet-stage { height: auto !important; overflow: visible !important; display: block !important; }
-  .invoice-sheet { box-shadow: none; transform: none !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .invoice-sheet { box-shadow: none; transform: none !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; height: auto; overflow: visible; }
 }

@@ -4,9 +4,10 @@ require __DIR__ . '/includes/bootstrap.php';
 $user = require_member();
 
 $kind = $_GET['kind'] ?? 'invoice';
-if (!in_array($kind, ['invoice', 'quotation', 'receipt', 'expense', 'letter'], true)) {
+if (!in_array($kind, desk_kind_list(), true)) {
     $kind = 'invoice';
 }
+require_desk_kind($kind);
 $meta = kind_meta($kind);
 $rows = list_documents($kind);
 $clearFilter = $_GET['clear'] ?? 'all';
@@ -44,12 +45,16 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
 ?>
 <div class="page-head">
   <div>
-    <h1><?= icon($kind) ?><?= h($meta['title']) ?></h1>
+    <h1><?= icon(document_kind_icon($kind)) ?><?= h($meta['title']) ?></h1>
     <p class="lede">
       <?php if ($kind === 'expense'): ?>
         Bills in a table with totals. Open a row to see the expense as a card, not stationery.
       <?php elseif ($kind === 'letter'): ?>
-        Headed notes using the five templates. The word “letter” is not printed on the page.
+        Headed notes with a subject and body. They are stationery, not a receipt.
+      <?php elseif ($kind === 'custom'): ?>
+        <?= h($meta['singular']) ?> using the fields set when this company was onboarded.
+      <?php elseif ($kind === 'delivery'): ?>
+        Goods out: item, description and quantity. No prices.
       <?php elseif ($kind === 'receipt'): ?>
         Cleared receipts are paid in full. Partially cleared receipts still have an amount due on Debtors.
       <?php else: ?>
@@ -59,7 +64,7 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
   </div>
   <div class="actions">
     <a class="btn ghost" href="<?= h(export_query('documents', ['kind' => $kind])) ?>"><?= icon('download', 16) ?>Export CSV</a>
-    <a class="btn" href="<?= h(url('document_new.php?kind=' . $kind)) ?>"><?= icon($kind) ?><?= h($meta['verb']) ?></a>
+    <a class="btn" href="<?= h(url('document_new.php?kind=' . $kind)) ?>"><?= icon(document_kind_icon($kind)) ?><?= h($meta['verb']) ?></a>
   </div>
 </div>
 
@@ -99,6 +104,7 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
           <?php elseif ($kind === 'receipt'): ?>
             <th class="right">Received</th>
             <th class="right">Due</th>
+          <?php elseif (!kind_shows_money($kind)): ?>
           <?php elseif ($kind !== 'letter'): ?>
             <th class="right">Amount</th>
           <?php endif; ?>
@@ -123,6 +129,7 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
             <?php elseif ($kind === 'receipt'): ?>
               <td class="right mono"><?= h(money($doc['paid'], doc_currency($doc))) ?></td>
               <td class="right mono"><?= h(money($doc['balance'], doc_currency($doc))) ?></td>
+            <?php elseif (!kind_shows_money($kind)): ?>
             <?php elseif ($kind !== 'letter'): ?>
               <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>
             <?php endif; ?>
@@ -131,7 +138,7 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
           </tr>
         <?php endforeach; ?>
       </tbody>
-      <?php if ($kind !== 'letter'): ?>
+      <?php if (kind_shows_money($kind)): ?>
         <tfoot>
           <tr>
             <td colspan="3">Totals</td>

@@ -22,7 +22,9 @@ function sheet_data(array $brand, array $doc): array
         'tint' => $palette['tint'],
         'accent_tint' => $palette['accent_tint'],
         'vars' => brand_css_vars($brand),
-        'heading' => $doc['kind'] === 'letter' ? letter_heading($doc) : kind_meta($doc['kind'])['heading'],
+        'heading' => kind_is_stationery($doc['kind'] ?? '')
+            ? (($doc['kind'] ?? '') === 'custom' ? kind_meta('custom')['heading'] : '')
+            : kind_meta($doc['kind'])['heading'],
         'items' => $items,
         'net' => $net,
         'vat' => $vat,
@@ -87,7 +89,8 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
     $cur = doc_currency($doc);
     $serial = !empty($opts['serial']);
     $cls = $opts['class'] ?? '';
-    $showVat = doc_shows_vat($doc);
+    $qtyOnly = ($doc['kind'] ?? '') === 'delivery';
+    $showVat = !$qtyOnly && doc_shows_vat($doc);
     ?>
     <table class="d-lines <?= h($cls) ?>">
       <thead>
@@ -96,9 +99,11 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
           <th style="width:22%">Item</th>
           <th>Description</th>
           <th class="c" style="width:64px">Qty</th>
-          <th class="r" style="width:110px">Unit price</th>
-          <th class="r" style="width:120px">Total Amt</th>
-          <?php if ($showVat): ?><th class="c" style="width:44px">VAT</th><?php endif; ?>
+          <?php if (!$qtyOnly): ?>
+            <th class="r" style="width:110px">Unit price</th>
+            <th class="r" style="width:120px">Total Amt</th>
+            <?php if ($showVat): ?><th class="c" style="width:44px">VAT</th><?php endif; ?>
+          <?php endif; ?>
         </tr>
       </thead>
       <tbody>
@@ -108,13 +113,38 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
             <td class="item"><?= $item && line_item_name($item) !== '' ? h(line_item_name($item)) : ($item ? '&nbsp;' : '&nbsp;') ?></td>
             <td class="desc"><?= $item && line_item_description($item) !== '' ? nl2br(h(line_item_description($item))) : '&nbsp;' ?></td>
             <td class="c"><?= $item ? h(format_qty($item['qty'])) : '' ?></td>
-            <td class="r"><?= $item ? h(money($item['rate'], $cur)) : '' ?></td>
-            <td class="r"><?= $item ? h(money(line_amount($item), $cur)) : '' ?></td>
-            <?php if ($showVat): ?><td class="c"><?= $item ? (!empty($item['taxed']) ? 'Y' : 'N') : '' ?></td><?php endif; ?>
+            <?php if (!$qtyOnly): ?>
+              <td class="r"><?= $item ? h(money($item['rate'], $cur)) : '' ?></td>
+              <td class="r"><?= $item ? h(money(line_amount($item), $cur)) : '' ?></td>
+              <?php if ($showVat): ?><td class="c"><?= $item ? (!empty($item['taxed']) ? 'Y' : 'N') : '' ?></td><?php endif; ?>
+            <?php endif; ?>
           </tr>
         <?php endforeach; ?>
       </tbody>
     </table>
+    <?php
+}
+
+function render_party_contact(array $doc): void
+{
+    $phones = array_values(array_filter([
+        trim((string) ($doc['party_phone'] ?? '')),
+        trim((string) ($doc['party_phone2'] ?? '')),
+    ], static fn ($v) => $v !== ''));
+    $place = party_place_line($doc);
+    $addr = trim((string) ($doc['party_address'] ?? ''));
+    $attn = trim((string) ($doc['party_contact'] ?? ''));
+    $email = trim((string) ($doc['party_email'] ?? ''));
+    ?>
+    <div class="d-party-block">
+      <strong><?= h((string) ($doc['party_name'] ?? '')) ?></strong>
+      <?php if ($attn !== ''): ?><div>Attn: <?= h($attn) ?></div><?php endif; ?>
+      <?php if ($addr !== ''): ?><div class="d-party-addr"><?= nl2br(h($addr)) ?></div><?php endif; ?>
+      <?php if ($place !== ''): ?><div><?= h($place) ?></div><?php endif; ?>
+      <?php if ($phones): ?><div><?= h(implode(' · ', $phones)) ?></div><?php endif; ?>
+      <?php if ($email !== ''): ?><div><?= h($email) ?></div><?php endif; ?>
+      <?php if (!empty($doc['party_tin'])): ?><div>TIN <?= h((string) $doc['party_tin']) ?></div><?php endif; ?>
+    </div>
     <?php
 }
 
@@ -123,9 +153,77 @@ function render_letter_body(array $doc): void
     ?>
     <div class="d-letter">
       <p class="d-letter-sub"><?= h((string) $doc['subject']) ?></p>
-      <div class="d-letter-body"><?= h((string) $doc['body']) ?></div>
+      <div class="d-letter-body"><?= nl2br(h((string) $doc['body'])) ?></div>
     </div>
     <?php
+}
+
+function render_sheet_correspondence(array $d): void
+{
+    $brand = $d['brand'];
+    $doc = $d['doc'];
+    $isCustom = ($doc['kind'] ?? '') === 'custom';
+    $custom = $isCustom ? company_custom_doc() : default_custom_doc();
+    $values = is_array($doc['custom_values'] ?? null) ? $doc['custom_values'] : [];
+    $heading = trim((string) $d['heading']);
+    $subject = trim((string) ($doc['subject'] ?? ''));
+    $body = (string) ($doc['body'] ?? '');
+    $showBody = !$isCustom || !empty($custom['has_body']) || trim($body) !== '';
+    ?>
+<article class="invoice-sheet sheet-corr" style="<?= h($d['vars']) ?>">
+  <header class="corr-head">
+    <div class="corr-brand">
+      <img src="<?= h($d['logo']) ?>" alt="" class="d-logo">
+      <div class="corr-co">
+        <strong><?= h($brand['name']) ?></strong>
+        <?php if (!empty($brand['tagline'])): ?><div><?= h($brand['tagline']) ?></div><?php endif; ?>
+        <div><?= h($brand['address']) ?></div>
+        <?php if (!empty($brand['city'])): ?><div><?= h($brand['city']) ?></div><?php endif; ?>
+        <div><?= h($brand['phone']) ?></div>
+        <div><?= h($brand['email']) ?></div>
+        <?php if (!empty($brand['website'])): ?><div><?= h($brand['website']) ?></div><?php endif; ?>
+        <?php if (!empty($brand['tin'])): ?><div>TIN <?= h($brand['tin']) ?></div><?php endif; ?>
+      </div>
+    </div>
+    <div class="corr-meta">
+      <?php if ($heading !== ''): ?><p class="corr-kind" style="color:<?= h($d['color']) ?>"><?= h($heading) ?></p><?php endif; ?>
+      <div><span>Date</span><b><?= h(format_date($doc['date'])) ?></b></div>
+      <div><span>Ref</span><b><?= h($doc['number']) ?></b></div>
+    </div>
+  </header>
+  <hr class="corr-rule" style="border-color:<?= h($d['color']) ?>">
+  <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
+  <div class="corr-to">
+    <span>To</span>
+    <?php render_party_contact($doc); ?>
+  </div>
+  <?php if ($subject !== ''): ?>
+    <p class="corr-subject"><span>Subject:</span> <?= h($subject) ?></p>
+  <?php endif; ?>
+  <?php if ($isCustom && $custom['fields']): ?>
+    <dl class="corr-fields">
+      <?php foreach ($custom['fields'] as $field):
+          $val = trim((string) ($values[$field['key']] ?? ''));
+          if ($val === '') {
+              continue;
+          }
+          ?>
+        <div>
+          <dt><?= h($field['label']) ?></dt>
+          <dd><?= nl2br(h($val)) ?></dd>
+        </div>
+      <?php endforeach; ?>
+    </dl>
+  <?php endif; ?>
+  <?php if ($showBody): ?>
+    <div class="corr-body"><?= nl2br(h($body)) ?></div>
+  <?php endif; ?>
+  <footer class="corr-sign">
+    <p>Yours faithfully,</p>
+    <p><strong><?= h($brand['name']) ?></strong></p>
+  </footer>
+</article>
+<?php
 }
 
 function render_sheet_folio(array $d): void
@@ -150,7 +248,9 @@ function render_sheet_folio(array $d): void
       <table class="meta">
         <tr><td class="k">DATE</td><td><?= h(format_date($doc['date'])) ?></td></tr>
         <tr><td class="k">No.</td><td><?= h($doc['number']) ?></td></tr>
+        <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
         <tr><td class="k">CURRENCY</td><td><?= h($d['cur']) ?></td></tr>
+        <?php endif; ?>
         <?php if (!empty($doc['due_date'])): ?>
           <tr><td class="k">DUE DATE</td><td><strong><?= h(format_date($doc['due_date'])) ?></strong></td></tr>
         <?php endif; ?>
@@ -158,15 +258,11 @@ function render_sheet_folio(array $d): void
     </div>
   </header>
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
-  <div class="bar" style="background:<?= h($d['color']) ?>"><?= $doc['kind'] === 'letter' ? 'TO' : 'BILL TO' ?></div>
+  <div class="bar" style="background:<?= h($d['color']) ?>"><?= kind_shows_money($doc['kind'] ?? '') ? 'BILL TO' : 'TO' ?></div>
   <div class="d-party">
-    <strong><?= h($doc['party_name'] ?? '') ?></strong><br>
-    <?= h($doc['party_address'] ?? '') ?><br>
-    <?= h($doc['party_phone'] ?? '') ?><br>
-    <?= h($doc['party_email'] ?? '') ?>
-    <?php if (!empty($doc['party_tin'])): ?><br>TIN <?= h($doc['party_tin']) ?><?php endif; ?>
+    <?php render_party_contact($doc); ?>
   </div>
-  <?php if ($doc['kind'] === 'letter'): ?>
+  <?php if (kind_is_stationery($doc['kind'] ?? '')): ?>
     <?php render_letter_body($doc); ?>
   <?php else: ?>
     <?php render_line_table($doc, $d['color'], $d['tint']); ?>
@@ -175,6 +271,7 @@ function render_sheet_folio(array $d): void
         <div class="bar" style="background:<?= h($d['color']) ?>">OTHER COMMENTS</div>
         <div class="d-notes-body"><?= h($d['comments']) ?></div>
       </div>
+      <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
       <div class="d-sums">
         <div class="d-sum"><span>Subtotal</span><span><?= h(money($d['net'], $d['cur'])) ?></span></div>
         <?php if (!empty($d['show_vat'])): ?>
@@ -185,6 +282,7 @@ function render_sheet_folio(array $d): void
         <?php render_settlement($d); ?>
         <p class="d-payhint"><?= h($brand['payment_note'] ?? '') ?></p>
       </div>
+      <?php endif; ?>
     </div>
   <?php endif; ?>
   <footer class="d-foot">
@@ -213,18 +311,22 @@ function render_sheet_ledger(array $d): void
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
   <div class="ledger-grid">
     <label>Date <b><?= h(format_date($doc['date'])) ?></b></label>
-    <label class="wide">From <b><?= h($doc['party_name'] ?? '') ?></b></label>
+    <label class="wide">From <b><?php render_party_contact($doc); ?></b></label>
+    <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
     <div class="ledger-amt"><span><?= h($d['cur']) ?></span><strong><?= h(number_format($d['total'], currency_decimals($d['cur']))) ?></strong></div>
+    <?php endif; ?>
   </div>
-  <?php if ($doc['kind'] !== 'letter'): ?>
+  <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
     <div style="text-align:right;margin:-4px 0 10px"><?php render_fx_equiv($d); ?></div>
   <?php endif; ?>
+  <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
   <div class="ledger-words">
     <span>Amount in words</span>
     <b><?= h(amount_in_words($d['total'], $d['cur'])) ?></b>
     <em><?= h($unit) ?></em>
   </div>
-  <?php if ($doc['kind'] === 'letter'): ?>
+  <?php endif; ?>
+  <?php if (kind_is_stationery($doc['kind'] ?? '')): ?>
     <?php render_letter_body($doc); ?>
   <?php else: ?>
     <?php render_line_table($doc, $d['color'], $d['tint']); ?>
@@ -614,6 +716,10 @@ function render_expense_card(array $brand, array $doc): void
 function render_sheet(array $brand, array $doc): void
 {
     $d = sheet_data($brand, $doc);
+    if (kind_is_stationery($doc['kind'] ?? '')) {
+        render_sheet_correspondence($d);
+        return;
+    }
     match (doc_template_key($doc)) {
         'ledger' => render_sheet_ledger($d),
         'crimson' => render_sheet_bill($d, 'crimson'),
