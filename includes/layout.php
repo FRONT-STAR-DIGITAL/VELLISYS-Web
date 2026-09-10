@@ -235,8 +235,12 @@ function layout_end(string $extra = ''): void
   <a href="<?= h(url('client_edit.php')) ?>"><?= icon('clients') ?>Client</a>
 </div>
 <?php endif; ?>
-<script src="<?= h(asset('js/app.js')) ?>"></script>
-<script src="<?= h(asset('js/sheet-fit.js')) ?>"></script>
+<script src="<?= h(asset('js/app.js')) ?>" defer></script>
+<?php
+$sheetJs = in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['document_view.php', 'document_new.php', 'document_action.php', 'share.php'], true);
+if ($sheetJs): ?>
+<script src="<?= h(asset('js/sheet-fit.js')) ?>" defer></script>
+<?php endif; ?>
 <?= $extra ?>
 </body>
 </html>

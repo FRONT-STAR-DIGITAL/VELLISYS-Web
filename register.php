@@ -8,13 +8,19 @@ if ($user = current_user()) {
 $error = '';
 $ok = isset($_GET['ok']);
 $pendingMail = $ok ? take_pending_signup_mail() : null;
+form_mark_open('register');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_valid()) {
         $error = 'Your session expired. Please submit the form again.';
+    } elseif (form_is_spam('register', 1)) {
+        redirect('register.php?ok=1');
+    } elseif (form_rate_blocked('register', 5)) {
+        $error = 'Please wait a bit before sending another request.';
     } else {
         $made = record_website_signup('register');
         if (!empty($made['ok'])) {
+            form_rate_hit('register');
             $_SESSION['signup_notify'] = $made['signup'];
             redirect('register.php?ok=1');
         }
@@ -56,21 +62,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php else: ?>
       <form class="gate-box" method="post" action="<?= h(url('register.php')) ?>" autocomplete="off">
         <?= csrf_field() ?>
+        <?= form_honeypot_field() ?>
         <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
         <h2>Create your account</h2>
         <p class="gate-lead">Four fields. This form does not take payment. A Vellisys admin will contact you to onboard the company. You get a password when the desk goes live.</p>
         <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
         <label class="gate-field" for="contact_name">Your name
-          <input id="contact_name" name="contact_name" required autocomplete="name" value="<?= h(post('contact_name')) ?>" placeholder="Jane Okello">
+          <input id="contact_name" name="contact_name" required maxlength="80" autocomplete="name" value="<?= h(post('contact_name')) ?>" placeholder="Jane Okello">
         </label>
         <label class="gate-field" for="company_name">Company
-          <input id="company_name" name="company_name" required autocomplete="organization" value="<?= h(post('company_name')) ?>" placeholder="Okello Traders Ltd">
+          <input id="company_name" name="company_name" required maxlength="160" autocomplete="organization" value="<?= h(post('company_name')) ?>" placeholder="Okello Traders Ltd">
         </label>
         <label class="gate-field" for="contact_email">Email
-          <input id="contact_email" name="contact_email" type="email" required autocomplete="email" value="<?= h(post('contact_email')) ?>" placeholder="accounts@company.com">
+          <input id="contact_email" name="contact_email" type="email" required maxlength="190" autocomplete="email" value="<?= h(post('contact_email')) ?>" placeholder="accounts@company.com">
         </label>
         <label class="gate-field" for="contact_phone">Phone
-          <input id="contact_phone" name="contact_phone" type="tel" required autocomplete="tel" value="<?= h(post('contact_phone')) ?>" placeholder="+254 700 000 000">
+          <input id="contact_phone" name="contact_phone" type="tel" required maxlength="40" autocomplete="tel" value="<?= h(post('contact_phone')) ?>" placeholder="+254 700 000 000">
         </label>
         <button class="gate-submit" type="submit">Register <?= icon('arrow-right', 18) ?></button>
         <p class="gate-or"><span>or</span></p>

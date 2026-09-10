@@ -7,6 +7,7 @@ $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
+    folio_cache_bust();
     $form = post('form');
 
     if ($form === 'ticker') {

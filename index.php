@@ -13,7 +13,7 @@ $reviews = landing_reviews();
 $reviewSection = landing_review_section();
 $manage = desk_manage_items();
 $faqs = landing_faqs();
-$_SESSION['ask_form_at'] = time();
+form_mark_open('ask');
 pricing_display_currency();
 $askFlash = flash();
 $askedOk = isset($_GET['asked']);
@@ -27,7 +27,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
   <title><?= h(product_name()) ?> · Stop losing the books</title>
   <?php product_icons(); ?>
   <?php folio_landing_head(); ?>
-  <script src="<?= h(asset('js/pwa-standalone.js')) ?>" data-cfasync="false"></script>
+  <script src="<?= h(asset('js/pwa-standalone.js')) ?>" data-cfasync="false" defer></script>
 </head>
 <body class="lp">
   <div class="lp-glow lp-glow-a" aria-hidden="true"></div>
@@ -107,7 +107,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
           <?php foreach ([$clients, $clients] as $setIndex => $set): ?>
             <div class="lp-marquee-set" data-marquee-set <?= $setIndex === 1 ? 'aria-hidden="true"' : '' ?>>
               <?php foreach ($set as $client): ?>
-                <img src="<?= h(trust_client_logo_url($client)) ?>" alt="<?= $setIndex === 0 ? h($client['name']) : '' ?>" <?= $setIndex === 1 ? 'aria-hidden="true"' : '' ?> decoding="async">
+                <img src="<?= h(trust_client_logo_url($client)) ?>" alt="<?= $setIndex === 0 ? h($client['name']) : '' ?>" <?= $setIndex === 1 ? 'aria-hidden="true"' : '' ?> loading="lazy" decoding="async">
               <?php endforeach; ?>
             </div>
           <?php endforeach; ?>
@@ -121,7 +121,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       <div class="lp-grid3">
         <?php foreach ($familiar as $card): ?>
           <article>
-            <img class="lp-card-pic" src="<?= h(landing_card_image_url($card)) ?>" alt="<?= h($card['title'] ?? '') ?>" decoding="async">
+            <img class="lp-card-pic" src="<?= h(landing_card_image_url($card)) ?>" alt="<?= h($card['title'] ?? '') ?>" loading="lazy" decoding="async">
             <div class="lp-card-copy">
               <h3><?= h($card['title']) ?></h3>
               <p><?= h($card['body']) ?></p>
@@ -157,7 +157,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
         <h2>Your brand. Their copy.</h2>
         <p class="lp-compare-lead">Documents are printed and sent in the client's branding. Pick from many templates - letterhead, ledger, twin copy and more - so every quotation, invoice and receipt looks like it came from their office, not a generic pad.</p>
         <figure class="lp-new-shot">
-          <img class="lp-new-main" src="<?= h(landing_way_image_url()) ?>" alt="A Vellisys receipt on desktop, laptop and phone" width="1254" height="1254" decoding="async">
+          <img class="lp-new-main" src="<?= h(landing_way_image_url()) ?>" alt="A Vellisys receipt on desktop, laptop and phone" width="1254" height="1254" loading="lazy" decoding="async">
         </figure>
       </div>
     </section>
@@ -167,7 +167,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       <div class="lp-grid3">
         <?php foreach ($help as $card): ?>
           <article>
-            <img class="lp-card-pic" src="<?= h(landing_card_image_url($card)) ?>" alt="<?= h($card['title'] ?? '') ?>" decoding="async">
+            <img class="lp-card-pic" src="<?= h(landing_card_image_url($card)) ?>" alt="<?= h($card['title'] ?? '') ?>" loading="lazy" decoding="async">
             <div class="lp-card-copy">
               <h3><?= h($card['title']) ?></h3>
               <p><?= h($card['body']) ?></p>
@@ -179,7 +179,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
 
     <section class="lp-send" id="send-in-a-minute" data-reveal>
       <figure class="lp-send-pic">
-        <img src="<?= h(asset(is_file(ROOT_PATH . '/assets/img/landing/rec-sm.webp') ? 'img/landing/rec-sm.webp' : 'img/landing/rec.png')) ?>" alt="A receipt generated on Vellisys, open on a phone and already sent to the client" decoding="async" width="1200" height="1200">
+        <img src="<?= h(asset(is_file(ROOT_PATH . '/assets/img/landing/rec-sm.webp') ? 'img/landing/rec-sm.webp' : 'img/landing/rec.png')) ?>" alt="A receipt generated on Vellisys, open on a phone and already sent to the client" loading="lazy" decoding="async" width="1200" height="1200">
         <span class="lp-send-badge" aria-hidden="true">Sent · 48s</span>
         <span class="lp-send-ring" aria-hidden="true"></span>
       </figure>
@@ -230,7 +230,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
           <li>
             <span class="lp-path-n"><?= (int) $i + 1 ?></span>
             <article>
-              <img class="lp-card-pic" src="<?= h(landing_card_image_url($card)) ?>" alt="<?= h($card['title'] ?? '') ?>" decoding="async">
+              <img class="lp-card-pic" src="<?= h(landing_card_image_url($card)) ?>" alt="<?= h($card['title'] ?? '') ?>" loading="lazy" decoding="async">
               <div class="lp-card-copy">
                 <h3><?= h($card['title']) ?></h3>
                 <p><?= h($card['body']) ?></p>
@@ -302,7 +302,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
             <?php foreach (pricing_currencies() as $code => $meta): ?>
               <li><strong><?= h($code) ?></strong> <?= h($meta['name']) ?></li>
             <?php endforeach; ?>
-            <li class="is-more"><strong>... & more</strong> any three-letter code</li>
+            <li class="is-more"><strong>... & more</strong> We accept all currencies</li>
           </ul>
         </div>
       </div>
@@ -356,11 +356,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
             <?php if ($askFlash && ($askFlash['type'] ?? '') === 'err'): ?>
               <p class="lp-err"><?= h($askFlash['text']) ?></p>
             <?php endif; ?>
-            <div class="lp-hp" aria-hidden="true">
-              <label>Website
-                <input type="text" name="website" tabindex="-1" autocomplete="off">
-              </label>
-            </div>
+            <?= form_honeypot_field() ?>
             <label for="ask_name">Your name
               <input id="ask_name" name="ask_name" required maxlength="80" autocomplete="name" value="<?= h($askDraft['name'] ?? '') ?>" placeholder="Jane Okello">
             </label>

@@ -146,21 +146,22 @@ function pricing_packages(): array
     if ($cached !== null) {
         return $cached;
     }
-    try {
-        $rows = db_all('SELECT * FROM landing_packages ORDER BY sort, id');
-        $out = [];
-        foreach ($rows as $row) {
-            $pkg = pricing_package_from_row($row);
-            if ($pkg['key'] !== '') {
-                $out[$pkg['key']] = $pkg;
+    $cached = folio_remember('pricing_packages', static function (): array {
+        try {
+            $rows = db_all('SELECT * FROM landing_packages ORDER BY sort, id');
+            $out = [];
+            foreach ($rows as $row) {
+                $pkg = pricing_package_from_row($row);
+                if ($pkg['key'] !== '') {
+                    $out[$pkg['key']] = $pkg;
+                }
             }
+            return $out !== [] ? $out : pricing_package_defaults();
+        } catch (Throwable $e) {
+            return pricing_package_defaults();
         }
-        $cached = $out !== [] ? $out : pricing_package_defaults();
-        return $cached;
-    } catch (Throwable $e) {
-        $cached = pricing_package_defaults();
-        return $cached;
-    }
+    });
+    return $cached;
 }
 
 function pricing_ugx_rates(): array
@@ -179,44 +180,46 @@ function pricing_section(): array
     if ($cached !== null) {
         return $cached;
     }
-    $base = pricing_section_defaults();
-    try {
-        $row = db_one('SELECT * FROM landing_pricing WHERE id = 1');
-    } catch (Throwable $e) {
-        $row = null;
-    }
-    if (!$row) {
-        $cached = $base;
-        return $cached;
-    }
-    $rates = $base['rates'];
-    $decoded = json_decode((string) ($row['rates_json'] ?? ''), true);
-    if (is_array($decoded)) {
-        foreach ($rates as $code => $fallback) {
-            if ($code === 'UGX') {
-                $rates[$code] = 1.0;
-                continue;
-            }
-            if (isset($decoded[$code]) && (float) $decoded[$code] > 0) {
-                $rates[$code] = (float) $decoded[$code];
+    $cached = folio_remember('pricing_section', static function (): array {
+        $base = pricing_section_defaults();
+        try {
+            $row = db_one('SELECT * FROM landing_pricing WHERE id = 1');
+        } catch (Throwable $e) {
+            $row = null;
+        }
+        if (!$row) {
+            return $base;
+        }
+        $rates = $base['rates'];
+        $decoded = json_decode((string) ($row['rates_json'] ?? ''), true);
+        if (is_array($decoded)) {
+            foreach ($rates as $code => $fallback) {
+                if ($code === 'UGX') {
+                    $rates[$code] = 1.0;
+                    continue;
+                }
+                if (isset($decoded[$code]) && (float) $decoded[$code] > 0) {
+                    $rates[$code] = (float) $decoded[$code];
+                }
             }
         }
-    }
-    $cached = [
-        'kicker' => (string) ($row['kicker'] ?? $base['kicker']),
-        'heading' => (string) ($row['heading'] ?? $base['heading']),
-        'lead' => (string) ($row['lead'] ?? $base['lead']),
-        'clock_label' => (string) ($row['clock_label'] ?? $base['clock_label']),
-        'term_label' => (string) ($row['term_label'] ?? $base['term_label']),
-        'register_copy' => (string) ($row['register_copy'] ?? $base['register_copy']),
-        'register_label' => (string) ($row['register_label'] ?? $base['register_label']),
-        'countdown_days' => max(0, min(30, (int) ($row['countdown_days'] ?? $base['countdown_days']))),
-        'countdown_hours' => max(0, min(23, (int) ($row['countdown_hours'] ?? $base['countdown_hours']))),
-        'rates' => $rates,
-    ];
-    if (strcasecmp(trim($cached['term_label']), 'first year') === 0) {
-        $cached['term_label'] = 'per year';
-    }
+        $out = [
+            'kicker' => (string) ($row['kicker'] ?? $base['kicker']),
+            'heading' => (string) ($row['heading'] ?? $base['heading']),
+            'lead' => (string) ($row['lead'] ?? $base['lead']),
+            'clock_label' => (string) ($row['clock_label'] ?? $base['clock_label']),
+            'term_label' => (string) ($row['term_label'] ?? $base['term_label']),
+            'register_copy' => (string) ($row['register_copy'] ?? $base['register_copy']),
+            'register_label' => (string) ($row['register_label'] ?? $base['register_label']),
+            'countdown_days' => max(0, min(30, (int) ($row['countdown_days'] ?? $base['countdown_days']))),
+            'countdown_hours' => max(0, min(23, (int) ($row['countdown_hours'] ?? $base['countdown_hours']))),
+            'rates' => $rates,
+        ];
+        if (strcasecmp(trim($out['term_label']), 'first year') === 0) {
+            $out['term_label'] = 'per year';
+        }
+        return $out;
+    });
     return $cached;
 }
 

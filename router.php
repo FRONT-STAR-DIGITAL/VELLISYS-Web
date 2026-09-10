@@ -48,6 +48,15 @@ if ($uri !== '/' && is_file($file) && !str_contains($uri, '..')) {
         } else {
             header('Cache-Control: public, max-age=31536000, immutable');
         }
+        $enc = (string) ($_SERVER['HTTP_ACCEPT_ENCODING'] ?? '');
+        $compressible = in_array($ext, ['css', 'js', 'svg'], true);
+        if ($compressible && str_contains($enc, 'gzip')) {
+            $raw = (string) file_get_contents($file);
+            header('Content-Encoding: gzip');
+            header('Vary: Accept-Encoding');
+            echo gzencode($raw, 6);
+            return true;
+        }
         readfile($file);
         return true;
     }

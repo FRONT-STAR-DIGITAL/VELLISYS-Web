@@ -8,14 +8,21 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' && ($user = current_user())) {
 
 $error = '';
 $remember = true;
+form_mark_open('login');
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $remember = post('remember') === '1';
-    if (attempt_login(post('email'), post('password'))) {
+    if (!csrf_valid()) {
+        $error = 'Your session expired. Please sign in again.';
+    } elseif (form_rate_blocked('login', 8, 900)) {
+        $error = 'Please wait a few minutes before trying again.';
+    } elseif (attempt_login(post('email', '', 190), post('password', '', 256))) {
         remember_login($remember);
         $user = current_user();
         redirect(($user['role'] ?? '') === 'platform' ? 'admin_signups.php' : 'dashboard.php');
+    } else {
+        form_rate_hit('login', 900);
+        $error = 'Those details did not match an account.';
     }
-    $error = 'Those details did not match an account.';
 }
 
 $adminEmail = platform_admin_email();
@@ -47,6 +54,7 @@ $showDemoKeys = !folio_is_live_host();
     <div class="gate-stack">
     <?php render_gate_card_mark(); ?>
     <form class="gate-box" method="post" action="<?= h(url('login.php')) ?>">
+      <?= csrf_field() ?>
       <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
       <h2>Welcome back</h2>
       <p class="gate-lead">Sign in to your account to continue</p>
@@ -54,7 +62,7 @@ $showDemoKeys = !folio_is_live_host();
       <label class="gate-field" for="email">Email</label>
       <div class="gate-control">
         <?= icon('mail', 18) ?>
-        <input id="email" name="email" type="email" required value="<?= h(post('email')) ?>" autocomplete="username" placeholder="you@company.com">
+        <input id="email" name="email" type="email" required maxlength="190" value="<?= h(post('email')) ?>" autocomplete="username" placeholder="you@company.com">
       </div>
       <label class="gate-field" for="password">Password</label>
       <div class="gate-control gate-pw">

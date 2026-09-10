@@ -12,7 +12,8 @@ if (!$pkg) {
 }
 $ccy = pricing_display_currency();
 $error = '';
-$orderPublic = (string) ($_GET['o'] ?? post('public_id'));
+form_mark_open('checkout');
+$orderPublic = (string) ($_GET['o'] ?? post('public_id', '', 64));
 $existing = $orderPublic !== '' ? order_by_public($orderPublic) : null;
 if ($existing && (string) ($existing['plan'] ?? '') !== $pkg['key']) {
     $existing = null;
@@ -63,7 +64,7 @@ $beginHostedPay = static function (array $order, string $action) use ($pkg): arr
 };
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $action = post('action') ?: 'pay';
+    $action = post('action', 'pay', 20) ?: 'pay';
     if (!csrf_valid()) {
         if ($action === 'draft') {
             header('Content-Type: application/json');
@@ -71,16 +72,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
         $error = 'Your session expired. Please submit the form again.';
+    } elseif (form_is_spam('checkout', $action === 'draft' ? 0 : 2)) {
+        if ($action === 'draft') {
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => true, 'public_id' => '']);
+            exit;
+        }
+        $error = 'Please wait a moment and try again.';
+    } elseif (form_rate_blocked($action === 'draft' ? 'checkout_draft' : 'checkout', $action === 'draft' ? 40 : 8)) {
+        if ($action === 'draft') {
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'error' => 'wait']);
+            exit;
+        }
+        $error = 'Please wait a bit before sending another payment.';
     } else {
+        form_rate_hit($action === 'draft' ? 'checkout_draft' : 'checkout');
         $payload = [
             'plan' => $pkg['key'],
             'currency' => $ccy,
-            'name' => post('contact_name'),
-            'company' => post('company_name'),
-            'email' => strtolower(post('contact_email')),
-            'phone' => post('contact_phone'),
-            'city' => post('city'),
-            'country' => post('country'),
+            'name' => post('contact_name', '', 80),
+            'company' => post('company_name', '', 160),
+            'email' => strtolower(post('contact_email', '', 190)),
+            'phone' => post('contact_phone', '', 40),
+            'city' => post('city', '', 80),
+            'country' => post('country', '', 80),
             'status' => $action === 'draft' ? 'draft' : 'pending',
         ];
         $id = $existing ? (int) $existing['id'] : 0;
@@ -235,6 +251,7 @@ $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'
             <a href="<?= h(url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'] ?? '')))) ?>">Edit company details</a>
             <form class="lp-pay-retry" method="post" action="<?= h($formAction) ?>">
               <?= csrf_field() ?>
+              <?= form_honeypot_field() ?>
               <input type="hidden" name="plan" value="<?= h($pkg['key']) ?>">
               <input type="hidden" name="action" value="repay">
               <input type="hidden" name="public_id" value="<?= h((string) ($existing['public_id'] ?? '')) ?>">
@@ -251,6 +268,7 @@ $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'
       <?php else: ?>
         <form class="lp-checkout-form" method="post" action="<?= h($formAction) ?>" data-checkout-form>
           <?= csrf_field() ?>
+          <?= form_honeypot_field() ?>
           <input type="hidden" name="plan" value="<?= h($pkg['key']) ?>">
           <input type="hidden" name="action" value="pay">
           <input type="hidden" name="public_id" value="<?= h((string) ($existing['public_id'] ?? '')) ?>" data-order-public>
@@ -259,22 +277,22 @@ $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'
           <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
           <div class="lp-check-fields">
             <label for="contact_name">Your name
-              <input id="contact_name" name="contact_name" required autocomplete="name" value="<?= h($take('name', $take('contact_name'))) ?>" placeholder="Jane Okello">
+              <input id="contact_name" name="contact_name" required maxlength="80" autocomplete="name" value="<?= h($take('name', $take('contact_name'))) ?>" placeholder="Jane Okello">
             </label>
             <label for="company_name">Company
-              <input id="company_name" name="company_name" required autocomplete="organization" value="<?= h($take('company', $take('company_name'))) ?>" placeholder="Okello Traders Ltd">
+              <input id="company_name" name="company_name" required maxlength="160" autocomplete="organization" value="<?= h($take('company', $take('company_name'))) ?>" placeholder="Okello Traders Ltd">
             </label>
             <label for="contact_email">Email
-              <input id="contact_email" name="contact_email" type="email" required autocomplete="email" value="<?= h($take('email', $take('contact_email'))) ?>" placeholder="accounts@company.com">
+              <input id="contact_email" name="contact_email" type="email" required maxlength="190" autocomplete="email" value="<?= h($take('email', $take('contact_email'))) ?>" placeholder="accounts@company.com">
             </label>
             <label for="contact_phone">Phone
-              <input id="contact_phone" name="contact_phone" required autocomplete="tel" value="<?= h($take('phone', $take('contact_phone'))) ?>" placeholder="+256 700 000 000">
+              <input id="contact_phone" name="contact_phone" required maxlength="40" autocomplete="tel" value="<?= h($take('phone', $take('contact_phone'))) ?>" placeholder="+256 700 000 000">
             </label>
             <label for="city">City <span>(optional)</span>
-              <input id="city" name="city" autocomplete="address-level2" value="<?= h($take('city')) ?>" placeholder="Kampala">
+              <input id="city" name="city" maxlength="80" autocomplete="address-level2" value="<?= h($take('city')) ?>" placeholder="Kampala">
             </label>
             <label for="country">Country <span>(optional)</span>
-              <input id="country" name="country" autocomplete="country-name" list="checkout-countries" value="<?= h($take('country')) ?>" placeholder="Uganda">
+              <input id="country" name="country" maxlength="80" autocomplete="country-name" list="checkout-countries" value="<?= h($take('country')) ?>" placeholder="Uganda">
             </label>
           </div>
           <datalist id="checkout-countries">
@@ -298,6 +316,6 @@ $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'
     <?php endif; ?>
   </main>
   <?php public_float_widgets(); ?>
-  <script src="<?= h(asset('js/landing.js')) ?>"></script>
+  <script src="<?= h(asset('js/landing.js')) ?>" defer></script>
 </body>
 </html>

@@ -21,14 +21,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 csrf_check();
 
-$honey = trim((string) ($_POST['website'] ?? ''));
-$started = (int) ($_SESSION['ask_form_at'] ?? 0);
-$elapsed = $started > 0 ? time() - $started : 0;
+if (form_is_spam('ask')) {
+    ask_done(true);
+}
 
-$name = mb_substr(post('ask_name'), 0, 80);
-$email = strtolower(mb_substr(post('ask_email'), 0, 190));
-$phone = mb_substr(post('ask_phone'), 0, 40);
-$message = mb_substr(post('ask_message'), 0, 2000);
+$name = mb_substr(post('ask_name', '', 80), 0, 80);
+$email = strtolower(mb_substr(post('ask_email', '', 190), 0, 190));
+$phone = mb_substr(post('ask_phone', '', 40), 0, 40);
+$message = mb_substr(post('ask_message', '', 2000), 0, 2000);
 
 $_SESSION['ask_draft'] = [
     'name' => $name,
@@ -36,10 +36,6 @@ $_SESSION['ask_draft'] = [
     'phone' => $phone,
     'message' => $message,
 ];
-
-if ($honey !== '' || $elapsed < 2) {
-    ask_done(true);
-}
 
 if (mb_strlen($name) < 2 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
     ask_done(false, 'Your name and a valid email are required.');
@@ -54,13 +50,7 @@ $recent = db_one(
     's',
     [$ipHash]
 );
-$sessionHits = (int) ($_SESSION['ask_hour_count'] ?? 0);
-$sessionAt = (int) ($_SESSION['ask_hour_at'] ?? 0);
-if ($sessionAt < time() - 3600) {
-    $sessionHits = 0;
-    $_SESSION['ask_hour_at'] = time();
-}
-if ((int) ($recent['c'] ?? 0) >= 3 || $sessionHits >= 3) {
+if (form_rate_blocked('ask', 3) || (int) ($recent['c'] ?? 0) >= 3) {
     ask_done(false, 'Please wait a bit before sending another question.');
 }
 
@@ -69,9 +59,8 @@ $id = db_exec(
     'ssssss',
     [$name, $email, $phone, $message, $ipHash, 'new']
 );
+form_rate_hit('ask');
 
-$_SESSION['ask_hour_count'] = $sessionHits + 1;
-$_SESSION['ask_hour_at'] = $_SESSION['ask_hour_at'] ?? time();
 unset($_SESSION['ask_form_at'], $_SESSION['ask_draft']);
 
 $question = [

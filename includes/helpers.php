@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 function h(?string $value): string
 {
-    return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+    return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
 function normalize_currency(string $code, ?string $fallback = null): string
@@ -416,14 +416,169 @@ function folio_redirect_then(string $path, callable $after): never
     exit;
 }
 
-function post(string $key, string $default = ''): string
+function post(string $key, string $default = '', int $max = 4000): string
 {
-    return trim((string) ($_POST[$key] ?? $default));
+    $value = str_replace("\0", '', (string) ($_POST[$key] ?? $default));
+    $value = trim($value);
+    if ($max > 0 && mb_strlen($value) > $max) {
+        $value = mb_substr($value, 0, $max);
+    }
+    return $value;
 }
 
 function csrf_field(): string
 {
     return '<input type="hidden" name="csrf" value="' . h(csrf_token()) . '">';
+}
+
+function form_honeypot_field(): string
+{
+    return '<div class="lp-hp" aria-hidden="true"><label>Website<input type="text" name="website" value="" tabindex="-1" autocomplete="off"></label></div>';
+}
+
+function form_mark_open(string $form): void
+{
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+        return;
+    }
+    if (!isset($_SESSION['form_at']) || !is_array($_SESSION['form_at'])) {
+        $_SESSION['form_at'] = [];
+    }
+    $_SESSION['form_at'][$form] = time();
+}
+
+function form_is_spam(string $form, int $minSeconds = 2): bool
+{
+    if (trim((string) ($_POST['website'] ?? '')) !== '') {
+        return true;
+    }
+    if ($minSeconds <= 0) {
+        return false;
+    }
+    $started = (int) (($_SESSION['form_at'][$form] ?? 0));
+    if ($form === 'ask' && $started <= 0) {
+        $started = (int) ($_SESSION['ask_form_at'] ?? 0);
+    }
+    return $started <= 0 || (time() - $started) < $minSeconds;
+}
+
+function form_rate_blocked(string $bucket, int $max, int $seconds = 3600): bool
+{
+    $now = time();
+    if (!isset($_SESSION['rate']) || !is_array($_SESSION['rate'])) {
+        $_SESSION['rate'] = [];
+    }
+    $slot = $_SESSION['rate'][$bucket] ?? ['at' => $now, 'n' => 0];
+    if ((int) ($slot['at'] ?? 0) < $now - $seconds) {
+        $slot = ['at' => $now, 'n' => 0];
+        $_SESSION['rate'][$bucket] = $slot;
+    }
+    if ((int) ($slot['n'] ?? 0) >= $max) {
+        return true;
+    }
+    return folio_ip_rate_count($bucket, $seconds) >= $max;
+}
+
+function form_rate_hit(string $bucket, int $seconds = 3600): void
+{
+    $now = time();
+    if (!isset($_SESSION['rate']) || !is_array($_SESSION['rate'])) {
+        $_SESSION['rate'] = [];
+    }
+    $slot = $_SESSION['rate'][$bucket] ?? ['at' => $now, 'n' => 0];
+    if ((int) ($slot['at'] ?? 0) < $now - $seconds) {
+        $slot = ['at' => $now, 'n' => 0];
+    }
+    $slot['n'] = (int) ($slot['n'] ?? 0) + 1;
+    $slot['at'] = (int) ($slot['at'] ?? $now);
+    $_SESSION['rate'][$bucket] = $slot;
+    folio_ip_rate_hit($bucket, $seconds);
+}
+
+function folio_rate_dir(): string
+{
+    $dir = rtrim(sys_get_temp_dir(), '/\\') . '/vellisys-rate';
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0700, true);
+    }
+    return $dir;
+}
+
+function folio_ip_rate_file(string $bucket): string
+{
+    $safe = preg_replace('/[^a-z0-9_-]/i', '', $bucket) ?: 'form';
+    return folio_rate_dir() . '/' . $safe . '_' . visitor_ip_hash() . '.json';
+}
+
+function folio_ip_rate_times(string $bucket, int $seconds): array
+{
+    $file = folio_ip_rate_file($bucket);
+    $now = time();
+    $hits = [];
+    if (is_file($file)) {
+        $decoded = json_decode((string) @file_get_contents($file), true);
+        if (is_array($decoded)) {
+            foreach ($decoded as $stamp) {
+                $t = (int) $stamp;
+                if ($t > $now - $seconds) {
+                    $hits[] = $t;
+                }
+            }
+        }
+    }
+    return $hits;
+}
+
+function folio_ip_rate_count(string $bucket, int $seconds): int
+{
+    return count(folio_ip_rate_times($bucket, $seconds));
+}
+
+function folio_ip_rate_hit(string $bucket, int $seconds = 3600): void
+{
+    $hits = folio_ip_rate_times($bucket, $seconds);
+    $hits[] = time();
+    @file_put_contents(folio_ip_rate_file($bucket), json_encode($hits), LOCK_EX);
+}
+
+function folio_cache_dir(): string
+{
+    $dir = rtrim(sys_get_temp_dir(), '/\\') . '/vellisys-cache';
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0700, true);
+    }
+    return $dir;
+}
+
+function folio_remember(string $key, callable $fill, int $ttl = 90): mixed
+{
+    static $mem = [];
+    if (array_key_exists($key, $mem)) {
+        return $mem[$key];
+    }
+    $file = folio_cache_dir() . '/' . hash('sha256', $key) . '.ser';
+    if (is_file($file) && filemtime($file) > time() - $ttl) {
+        $raw = @file_get_contents($file);
+        if (is_string($raw) && $raw !== '') {
+            $val = @unserialize($raw, ['allowed_classes' => false]);
+            if ($val !== false || $raw === 'b:0;') {
+                $mem[$key] = $val;
+                return $val;
+            }
+        }
+    }
+    $val = $fill();
+    $mem[$key] = $val;
+    @file_put_contents($file, serialize($val), LOCK_EX);
+    return $val;
+}
+
+function folio_cache_bust(): void
+{
+    $dir = folio_cache_dir();
+    foreach (glob($dir . '/*.ser') ?: [] as $file) {
+        @unlink($file);
+    }
 }
 
 function folio_defaults(): array
@@ -645,10 +800,10 @@ function csrf_check(): void
 
 function record_website_signup(string $source, string $note = ''): array
 {
-    $name = post('contact_name');
-    $company = post('company_name');
-    $email = strtolower(post('contact_email'));
-    $phone = post('contact_phone');
+    $name = post('contact_name', '', 80);
+    $company = post('company_name', '', 160);
+    $email = strtolower(post('contact_email', '', 190));
+    $phone = post('contact_phone', '', 40);
     $note = mb_substr($note, 0, 2000);
     if ($name === '' || $company === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || $phone === '') {
         return ['ok' => false, 'error' => 'Your name, company, email and phone are enough - please fill those in.'];
@@ -1669,15 +1824,17 @@ function trust_client_defaults(): array
 
 function trust_clients(): array
 {
-    try {
-        $rows = db_all('SELECT * FROM trust_clients ORDER BY sort, id');
-        if ($rows) {
-            return $rows;
+    return folio_remember('trust_clients', static function (): array {
+        try {
+            $rows = db_all('SELECT * FROM trust_clients ORDER BY sort, id');
+            if ($rows) {
+                return $rows;
+            }
+        } catch (Throwable $e) {
+            // Table may not exist until migrate runs.
         }
-    } catch (Throwable $e) {
-        // Table may not exist until migrate runs.
-    }
-    return trust_client_defaults();
+        return trust_client_defaults();
+    });
 }
 
 function public_file_url(string $rel): string
@@ -2289,30 +2446,34 @@ function landing_review_section_defaults(): array
 
 function landing_review_section(): array
 {
-    $defaults = landing_review_section_defaults();
-    try {
-        $row = db_one('SELECT kicker, heading FROM landing_review_section WHERE id = 1');
-        if ($row) {
-            $kicker = trim((string) ($row['kicker'] ?? ''));
-            $heading = trim((string) ($row['heading'] ?? ''));
-            return [
-                'kicker' => $kicker !== '' ? $kicker : $defaults['kicker'],
-                'heading' => $heading !== '' ? $heading : $defaults['heading'],
-            ];
+    return folio_remember('landing_review_section', static function (): array {
+        $defaults = landing_review_section_defaults();
+        try {
+            $row = db_one('SELECT kicker, heading FROM landing_review_section WHERE id = 1');
+            if ($row) {
+                $kicker = trim((string) ($row['kicker'] ?? ''));
+                $heading = trim((string) ($row['heading'] ?? ''));
+                return [
+                    'kicker' => $kicker !== '' ? $kicker : $defaults['kicker'],
+                    'heading' => $heading !== '' ? $heading : $defaults['heading'],
+                ];
+            }
+        } catch (Throwable $e) {
+            // Table may not exist until migrate runs.
         }
-    } catch (Throwable $e) {
-        // Table may not exist until migrate runs.
-    }
-    return $defaults;
+        return $defaults;
+    });
 }
 
 function landing_reviews(): array
 {
-    try {
-        return db_all('SELECT * FROM landing_reviews ORDER BY sort, id');
-    } catch (Throwable $e) {
-        return landing_review_defaults();
-    }
+    return folio_remember('landing_reviews', static function (): array {
+        try {
+            return db_all('SELECT * FROM landing_reviews ORDER BY sort, id');
+        } catch (Throwable $e) {
+            return landing_review_defaults();
+        }
+    });
 }
 
 function desk_manage_items(): array
@@ -2404,22 +2565,24 @@ function landing_ticker_defaults(): array
 
 function landing_ticker_lines(): array
 {
-    try {
-        $rows = db_all('SELECT body FROM landing_ticker ORDER BY sort, id');
-        $lines = [];
-        foreach ($rows as $row) {
-            $body = trim((string) ($row['body'] ?? ''));
-            if ($body !== '') {
-                $lines[] = $body;
+    return folio_remember('landing_ticker', static function (): array {
+        try {
+            $rows = db_all('SELECT body FROM landing_ticker ORDER BY sort, id');
+            $lines = [];
+            foreach ($rows as $row) {
+                $body = trim((string) ($row['body'] ?? ''));
+                if ($body !== '') {
+                    $lines[] = $body;
+                }
             }
+            if ($lines) {
+                return $lines;
+            }
+        } catch (Throwable $e) {
+            // Table may not exist until migrate runs.
         }
-        if ($lines) {
-            return $lines;
-        }
-    } catch (Throwable $e) {
-        // Table may not exist until migrate runs.
-    }
-    return array_column(landing_ticker_defaults(), 'body');
+        return array_column(landing_ticker_defaults(), 'body');
+    });
 }
 
 function landing_way_image_url(): string
@@ -2490,18 +2653,20 @@ function landing_card_defaults(): array
 
 function landing_cards(string $section = ''): array
 {
-    try {
-        if ($section !== '') {
-            return db_all('SELECT * FROM landing_cards WHERE section = ? ORDER BY sort, id', 's', [$section]);
+    return folio_remember('landing_cards:' . $section, static function () use ($section): array {
+        try {
+            if ($section !== '') {
+                return db_all('SELECT * FROM landing_cards WHERE section = ? ORDER BY sort, id', 's', [$section]);
+            }
+            return db_all('SELECT * FROM landing_cards ORDER BY sort, id');
+        } catch (Throwable $e) {
+            $rows = landing_card_defaults();
+            if ($section === '') {
+                return $rows;
+            }
+            return array_values(array_filter($rows, static fn ($r) => $r['section'] === $section));
         }
-        return db_all('SELECT * FROM landing_cards ORDER BY sort, id');
-    } catch (Throwable $e) {
-        $rows = landing_card_defaults();
-        if ($section === '') {
-            return $rows;
-        }
-        return array_values(array_filter($rows, static fn ($r) => $r['section'] === $section));
-    }
+    });
 }
 
 function landing_card_image_url(array $card): string
@@ -2546,20 +2711,28 @@ function folio_critical_css(string $surface = 'landing'): void
     echo '<style>html{background:#f5f7fc;scroll-behavior:smooth;overflow-x:hidden;overflow-x:clip}body{margin:0;font-family:Montserrat,"Segoe UI",sans-serif;color:#10182c;background:#f5f7fc}body.gate{background:#08143a;color:#fff}.lp-chrome{position:sticky;top:0;z-index:40}.lp-ticker{background:#08143a;color:#fff;height:34px;overflow:hidden}.lp-nav{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 5vw;background:rgba(255,255,255,.92);border-bottom:1px solid rgba(8,20,58,.08)}.lp-logo{display:block;height:38px;width:auto;background:transparent}.lp-btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 18px;border-radius:12px;font-weight:700;text-decoration:none}.lp-btn-solid{background:#1e4eff;color:#fff}.lp-btn-ghost{background:#fff;color:#08143a;border:1px solid rgba(8,20,58,.12)}.lp-floats{position:fixed;right:16px;bottom:16px;z-index:80}.lp-wa-fab{width:48px;height:48px;border:0;border-radius:50%;background:#25d366;color:#fff}</style>';
 }
 
-function folio_stylesheet(string $path): void
+function folio_stylesheet(string $path, bool $preload = true): void
 {
     $href = h(asset($path));
-    echo '<link rel="preload" href="' . $href . '" as="style">';
+    if ($preload) {
+        echo '<link rel="preload" href="' . $href . '" as="style">';
+    }
     echo '<link rel="stylesheet" href="' . $href . '">';
 }
 
-function folio_css_links(bool $critical = true): void
+function folio_css_links(bool $critical = true, ?bool $sheet = null): void
 {
     if ($critical) {
         folio_critical_css('desk');
     }
     folio_stylesheet('css/app.css');
-    folio_stylesheet('css/designs.css');
+    if ($sheet === null) {
+        $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
+        $sheet = in_array($here, ['document_view.php', 'document_new.php', 'document_action.php', 'share.php'], true);
+    }
+    if ($sheet) {
+        folio_stylesheet('css/designs.css', false);
+    }
 }
 
 function folio_landing_head(): void

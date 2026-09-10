@@ -72,6 +72,6 @@ $retry = $order
     </div>
   </main>
   <?php public_float_widgets(); ?>
-  <script src="<?= h(asset('js/landing.js')) ?>"></script>
+  <script src="<?= h(asset('js/landing.js')) ?>" defer></script>
 </body>
 </html>

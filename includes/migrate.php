@@ -25,7 +25,7 @@ function folio_migrate(mysqli $db): void
         error_log('Vellisys public tables: ' . $e->getMessage());
     }
     $verRow = @$db->query("SELECT v FROM schema_meta WHERE k='version'");
-    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 32) {
+    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 33) {
         $done = true;
         return;
     }
@@ -39,7 +39,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 32) {
+    if ($ver >= 33) {
         $done = true;
         return;
     }
@@ -233,9 +233,29 @@ function folio_migrate(mysqli $db): void
         $db->query("UPDATE landing_pricing SET term_label = 'per year' WHERE LOWER(TRIM(term_label)) = 'first year'");
         $db->query("UPDATE landing_pricing SET lead = REPLACE(lead, 'First year,', 'Billed per year,')");
     }
+    if ($ver < 33) {
+        folio_migrate_form_indexes($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '32')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '33')");
     $done = true;
+}
+
+function folio_migrate_form_indexes(mysqli $db): void
+{
+    $add = static function (mysqli $db, string $table, string $name, string $ddl): void {
+        $exists = @$db->query("SHOW TABLES LIKE '" . $db->real_escape_string($table) . "'");
+        if (!$exists || $exists->num_rows === 0) {
+            return;
+        }
+        $idx = @$db->query("SHOW INDEX FROM `{$table}` WHERE Key_name = '" . $db->real_escape_string($name) . "'");
+        if ($idx && $idx->num_rows === 0) {
+            $db->query($ddl);
+        }
+    };
+    $add($db, 'questions', 'ip_hash_created', 'ALTER TABLE questions ADD KEY ip_hash_created (ip_hash, created_at)');
+    $add($db, 'signups', 'email_status', 'ALTER TABLE signups ADD KEY email_status (email, status)');
+    $add($db, 'website_orders', 'email_created', 'ALTER TABLE website_orders ADD KEY email_created (email, created_at)');
 }
 
 function folio_migrate_desk_users(mysqli $db): void
