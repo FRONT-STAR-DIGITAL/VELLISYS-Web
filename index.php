@@ -235,7 +235,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
           <div class="lp-ask-form lp-ask-ok">
             <p class="lp-kicker">Sent</p>
             <h3>We have your question</h3>
-            <p>A Vellisys admin will reply to the email you left. If it is urgent, call <?= h(product_phones()[0]) ?>.</p>
+            <p>We sent a confirmation to the email you left, from <?= h(product_email()) ?>. A Vellisys admin will reply there. If it is urgent, call <?= h(product_phones()[0]) ?>.</p>
             <a class="lp-btn lp-btn-ghost" href="<?= h(url()) ?>#ask">Ask another</a>
           </div>
         <?php else: ?>

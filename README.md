@@ -21,7 +21,7 @@ Open the **landing page** at the site root. Companies **register** in a few fiel
 ## What you get
 
 - Public landing page in three sections, with pictures on every card. Super admin can replace those pictures under **Landing**, and add **Clients who trust us** names and logos
-- **Have a question** form on the landing page. Super admin sees each note under **Questions**, opens the full message on its own page, and a copy is emailed to `info@vellisys.com` from the Hostinger mailbox
+- **Have a question** form on the landing page. Super admin sees each note under **Questions**, opens the full message on its own page, and a copy is emailed to `info@vellisys.com`. The person who sent the question also gets a confirmation from that mailbox
 - Super admin **Email** tab: send a custom Vellisys letter from `info@vellisys.com`
 - Super admin **Reports**: fees collected and balances per client, unused term value, desk collections vs outstanding, onboarding and expiry charts, sign-up funnel, time series of platform books, plus paid terms, desks due within a month, lapsed desks, and one-click renewal letters
 - On each company, super admin sets how many **months or years** the client has paid for, the **fee** and **amount paid**, and expiry is calculated from the start date. When a desk is one month from expiry, Reports prepares a professional notice to send
@@ -30,7 +30,7 @@ Open the **landing page** at the site root. Companies **register** in a few fiel
 - Super admin assigns each company a **Hostinger (or Titan) sending mailbox**. SMTP and POP/IMAP are prefilled. The company desk can send invoices and quotations from that address, with its logo, and cannot edit the password
 - Desk **Tutorials** (also from Clients) with a tour of the whole portal and screenshots
 - When a company is onboarded, `info@vellisys.com` sends a welcome letter and a short tutorial. The same mailbox is notified for sign-ups, questions, live desks, renewal letters and company mail tests
-- Easy **register** form - no password to invent. Super admin sees each request, calls the company, then creates the desk
+- Easy **register** form - no password to invent. Super admin sees each request, the person who registered gets a confirmation from `info@vellisys.com`, then an admin calls the company and creates the desk
 - Sign-in with a **show password** control
 - **UGX or USD** on each document, converted at a rate you enter in Settings (1 USD = n UGX)
 - **One document design** for the whole desk - the layout you pick in Settings prints on every invoice, quotation, receipt, expense and headed note

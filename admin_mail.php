@@ -75,7 +75,7 @@ layout_admin_start('Email', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('send') ?>Email</h1>
-    <p class="lede">Send a custom Vellisys letter from <strong><?= h(product_email()) ?></strong>. This mailbox also receives questions, sign-ups, onboarding, live desks, and renewal notices.</p>
+    <p class="lede">Send a custom Vellisys letter from <strong><?= h(product_email()) ?></strong>. This mailbox also receives questions, sign-ups, onboarding, live desks, and renewal notices, and it sends a confirmation to the person who asked a question or registered.</p>
   </div>
   <form method="post">
     <?= csrf_field() ?>

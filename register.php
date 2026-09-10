@@ -58,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <div class="gate-box gate-ok">
         <img class="gate-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
         <h2><em>We have</em> your request</h2>
-        <p class="gate-lead">A Vellisys admin will reach out to onboard your company and open the desk. No password yet - you get one when the company goes live.</p>
+        <p class="gate-lead">We sent a confirmation to your email from <?= h(product_email()) ?>. A Vellisys admin will reach out to onboard your company and open the desk. No password yet - you get one when the company goes live.</p>
         <a class="gate-submit" href="<?= h(url()) ?>">Back to Vellisys</a>
       </div>
     <?php else: ?>

@@ -138,6 +138,34 @@ function notify_admin_question(array $q): void
     );
     $text = "A visitor asked a question on the Vellisys site.\n\nName: {$name}\nEmail: {$email}\nPhone: " . ($phone !== '' ? $phone : '(none)') . "\n\n{$message}\n\nOpen: " . absolute_url('admin_questions.php');
     notify_platform('Vellisys question from ' . ($name !== '' ? $name : 'a visitor'), $html, $text, $email);
+    notify_visitor_question($q);
+}
+
+function notify_visitor_question(array $q): void
+{
+    $to = strtolower(trim((string) ($q['email'] ?? '')));
+    if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+        return;
+    }
+    $name = trim((string) ($q['name'] ?? ''));
+    $who = $name !== '' ? $name : 'there';
+    $message = trim((string) ($q['message'] ?? ''));
+    $phones = implode(' or ', product_phones());
+    $subject = 'We have your question - Vellisys';
+    $html = vellisys_email_wrap(
+        '<p style="margin:0 0 16px">Dear ' . h($who) . ',</p>'
+        . '<p style="margin:0 0 14px">Thank you for writing to Vellisys. We have your question and a member of the team will reply to this email.</p>'
+        . ($message !== ''
+            ? '<p style="margin:0 0 8px"><strong>Your note</strong></p><p style="margin:0 0 18px;padding:14px;background:#f5f7fc;border-radius:8px">' . nl2br(h($message)) . '</p>'
+            : '')
+        . '<p style="margin:0 0 14px">If it is urgent, call ' . h($phones) . '.</p>'
+        . '<p style="margin:0">Kind regards,<br><strong>Vellisys</strong></p>',
+        'We have your question'
+    );
+    $text = "Dear {$who},\n\nThank you for writing to Vellisys. We have your question and a member of the team will reply to this email.\n\n"
+        . ($message !== '' ? "Your note:\n{$message}\n\n" : '')
+        . "If it is urgent, call {$phones}.\n\nKind regards,\nVellisys\n" . product_email();
+    send_platform_email($to, $subject, $html, $text, 0, product_email());
 }
 
 function notify_admin_signup(array $signup): void
@@ -152,6 +180,34 @@ function notify_admin_signup(array $signup): void
     );
     $text = 'New sign-up: ' . ($signup['company'] ?? '') . ' / ' . ($signup['name'] ?? '') . ' / ' . ($signup['email'] ?? '') . ' / ' . ($signup['phone'] ?? '');
     notify_platform('Vellisys sign-up: ' . ($signup['company'] ?? 'a company'), $html, $text, (string) ($signup['email'] ?? ''));
+    notify_visitor_signup($signup);
+}
+
+function notify_visitor_signup(array $signup): void
+{
+    $to = strtolower(trim((string) ($signup['email'] ?? '')));
+    if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+        return;
+    }
+    $who = trim((string) ($signup['name'] ?? ''));
+    if ($who === '') {
+        $who = 'there';
+    }
+    $company = trim((string) ($signup['company'] ?? 'your company'));
+    $phones = implode(' or ', product_phones());
+    $subject = 'We have your Vellisys registration';
+    $html = vellisys_email_wrap(
+        '<p style="margin:0 0 16px">Dear ' . h($who) . ',</p>'
+        . '<p style="margin:0 0 14px">Thank you for registering <strong>' . h($company) . '</strong> for a Vellisys desk.</p>'
+        . '<p style="margin:0 0 14px">We have your request. A Vellisys admin will call you to onboard the company. There is no password yet - you receive one when the desk is opened.</p>'
+        . '<p style="margin:0 0 14px">If you need us sooner, write to <a href="mailto:' . h(product_email()) . '" style="color:#1E4EFF">' . h(product_email()) . '</a> or call ' . h($phones) . '.</p>'
+        . '<p style="margin:0">Kind regards,<br><strong>Vellisys</strong></p>',
+        'Registration received'
+    );
+    $text = "Dear {$who},\n\nThank you for registering {$company} for a Vellisys desk.\n\n"
+        . "We have your request. A Vellisys admin will call you to onboard the company. There is no password yet - you receive one when the desk is opened.\n\n"
+        . 'If you need us sooner, write to ' . product_email() . " or call {$phones}.\n\nKind regards,\nVellisys\n" . product_email();
+    send_platform_email($to, $subject, $html, $text, 0, product_email());
 }
 
 function welcome_desk_copy(array $company, array $member, string $password = ''): array
