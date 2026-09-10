@@ -1007,14 +1007,6 @@ function public_float_widgets(): void
       <button type="button" class="lp-wa-fab" data-lp-wa-toggle aria-expanded="false" aria-controls="lp-wa-panel" aria-label="WhatsApp an agent"><?= $waMark ?></button>
     </div>
   </div>
-  <div class="lp-wa-dock" data-lp-wa-dock hidden>
-    <header>
-      <strong data-lp-wa-dock-title>WhatsApp</strong>
-      <button type="button" class="lp-wa-x" data-lp-wa-dock-close aria-label="Close chat"><?= icon('x', 18) ?></button>
-    </header>
-    <iframe data-lp-wa-frame title="WhatsApp chat" referrerpolicy="no-referrer"></iframe>
-    <p class="lp-wa-note">If the chat stays blank, WhatsApp blocked the panel. Use <button type="button" class="lp-wa-win" data-lp-wa-window>Open WhatsApp in a window</button> - this page stays open.</p>
-  </div>
     <?php
 }
 

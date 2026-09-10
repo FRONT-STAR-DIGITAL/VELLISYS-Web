@@ -1314,8 +1314,7 @@ body.gate {
 .lp-top[hidden],
 .lp-wa-panel[hidden],
 .lp-wa-home[hidden],
-.lp-wa-compose[hidden],
-.lp-wa-dock[hidden] { display: none !important; }
+.lp-wa-compose[hidden] { display: none !important; }
 .lp-top {
   width: 44px;
   height: 44px;
@@ -1437,57 +1436,3 @@ body.gate {
 .lp-wa-send { background: #25d366; color: #fff; }
 .lp-wa-send:hover { filter: brightness(1.05); }
 .lp-wa-back { margin-top: 8px; background: #f3f6ff; color: var(--navy); }
-.lp-wa-dock {
-  position: fixed;
-  z-index: 60;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: min(440px, 100%);
-  background: #fff;
-  display: flex;
-  flex-direction: column;
-  box-shadow: -16px 0 40px rgba(8, 20, 58, .18);
-}
-.lp-wa-dock[hidden] { display: none !important; }
-.lp-wa-dock header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 12px 14px;
-  background: #0b5c36;
-  color: #fff;
-  flex: 0 0 auto;
-}
-.lp-wa-dock header strong { font-size: 14px; }
-.lp-wa-dock iframe {
-  flex: 1 1 auto;
-  width: 100%;
-  border: 0;
-  background: #efeae2;
-}
-.lp-wa-note {
-  margin: 0;
-  padding: 8px 12px 12px;
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--muted);
-  background: #fff;
-}
-.lp-wa-win {
-  border: 0;
-  background: none;
-  padding: 0;
-  font: inherit;
-  font-weight: 700;
-  color: #0b5c36;
-  cursor: pointer;
-  text-decoration: underline;
-}
-body.lp-wa-locked { overflow: hidden; }
-body.lp-wa-locked .lp-floats { visibility: hidden; }
-
-@media (max-width: 480px) {
-  .lp-wa-dock { width: 100%; }
-}

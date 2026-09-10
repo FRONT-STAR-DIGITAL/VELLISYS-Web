@@ -43,7 +43,6 @@
   }
 
   var wa = document.querySelector('[data-lp-wa]');
-  var dock = document.querySelector('[data-lp-wa-dock]');
   if (wa) {
     var panel = wa.querySelector('#lp-wa-panel');
     var toggle = wa.querySelector('[data-lp-wa-toggle]');
@@ -51,15 +50,7 @@
     var compose = wa.querySelector('[data-lp-wa-compose]');
     var label = wa.querySelector('[data-lp-agent-label]');
     var text = wa.querySelector('[data-lp-wa-text]');
-    var frame = dock ? dock.querySelector('[data-lp-wa-frame]') : null;
-    var title = dock ? dock.querySelector('[data-lp-wa-dock-title]') : null;
-    var agentName = '';
     var agentPhone = '';
-    var chatUrl = '';
-
-    function waUrl(phone, message) {
-      return 'https://web.whatsapp.com/send?phone=' + encodeURIComponent(phone) + '&text=' + encodeURIComponent(message);
-    }
 
     function setPanel(open) {
       if (!panel || !toggle) return;
@@ -74,22 +65,15 @@
       if (text) text.value = '';
     }
 
-    function closeDock() {
-      if (!dock) return;
-      dock.hidden = true;
-      document.body.classList.remove('lp-wa-locked');
-      if (frame) frame.src = 'about:blank';
-      chatUrl = '';
-    }
-
-    function openDock() {
-      if (!dock || !agentPhone) return;
-      chatUrl = waUrl(agentPhone, (text && text.value) ? text.value.trim() : '');
-      if (title) title.textContent = agentName + ' on WhatsApp';
-      if (frame) frame.src = chatUrl;
-      dock.hidden = false;
-      document.body.classList.add('lp-wa-locked');
-      setPanel(false);
+    function openWhatsApp(message) {
+      var url = 'https://wa.me/' + encodeURIComponent(agentPhone) + '?text=' + encodeURIComponent(message);
+      var link = document.createElement('a');
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     }
 
     if (toggle) {
@@ -103,9 +87,8 @@
     });
     wa.querySelectorAll('[data-lp-agent]').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        agentName = btn.getAttribute('data-name') || 'Agent';
         agentPhone = btn.getAttribute('data-phone') || '';
-        if (label) label.textContent = agentName;
+        if (label) label.textContent = btn.getAttribute('data-name') || 'Agent';
         if (home) home.hidden = true;
         if (compose) compose.hidden = false;
         if (text) {
@@ -119,19 +102,15 @@
     if (compose) {
       compose.addEventListener('submit', function (e) {
         e.preventDefault();
-        openDock();
+        var message = text && text.value ? text.value.trim() : '';
+        if (!message || !agentPhone) {
+          if (text) text.focus();
+          return;
+        }
+        openWhatsApp(message);
+        setPanel(false);
+        showHome();
       });
-    }
-    if (dock) {
-      var dockClose = dock.querySelector('[data-lp-wa-dock-close]');
-      if (dockClose) dockClose.addEventListener('click', closeDock);
-      var winBtn = dock.querySelector('[data-lp-wa-window]');
-      if (winBtn) {
-        winBtn.addEventListener('click', function () {
-          if (!chatUrl) chatUrl = waUrl(agentPhone, (text && text.value) ? text.value.trim() : '');
-          window.open(chatUrl, 'vellisys-wa', 'width=440,height=720,noopener');
-        });
-      }
     }
   }
 })();
