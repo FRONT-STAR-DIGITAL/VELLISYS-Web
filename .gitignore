@@ -7,6 +7,8 @@ Thumbs.db
 !/uploads/logos/.gitkeep
 /uploads/landing/*
 !/uploads/landing/.gitkeep
+/uploads/trust/*
+!/uploads/trust/.gitkeep
 
 # Local env
 .env

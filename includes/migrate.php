@@ -29,7 +29,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 13) {
+    if ($ver >= 15) {
         $done = true;
         return;
     }
@@ -163,7 +163,22 @@ function folio_migrate(mysqli $db): void
     folio_migrate_landing_cards($db);
     folio_refresh_landing_copy($db);
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '13')");
+    $db->query("CREATE TABLE IF NOT EXISTS questions (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(120) NOT NULL,
+      email VARCHAR(190) NOT NULL,
+      phone VARCHAR(40) NOT NULL DEFAULT '',
+      message TEXT NOT NULL,
+      ip_hash CHAR(64) NOT NULL DEFAULT '',
+      status ENUM('new','read','replied') NOT NULL DEFAULT 'new',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY status_created (status, created_at),
+      KEY email (email)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    folio_migrate_trust_clients($db);
+
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '15')");
     $done = true;
 }
 
@@ -203,6 +218,30 @@ function folio_refresh_landing_copy(mysqli $db): void
         }
         $stmt->bind_param('sss', $c['title'], $c['body'], $c['slot']);
         $stmt->execute();
+    }
+}
+
+function folio_migrate_trust_clients(mysqli $db): void
+{
+    $db->query("CREATE TABLE IF NOT EXISTS trust_clients (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(160) NOT NULL,
+      logo_path VARCHAR(255) NOT NULL DEFAULT '',
+      sort INT NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY sort_id (sort, id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $count = $db->query('SELECT COUNT(*) AS c FROM trust_clients');
+    $n = $count ? (int) ($count->fetch_assoc()['c'] ?? 0) : 0;
+    if ($n > 0) {
+        return;
+    }
+    foreach (trust_client_defaults() as $c) {
+        $stmt = $db->prepare('INSERT INTO trust_clients (name, logo_path, sort) VALUES (?,?,?)');
+        $stmt->bind_param('ssi', $c['name'], $c['logo_path'], $c['sort']);
+        $stmt->execute();
+        $stmt->close();
     }
 }
 

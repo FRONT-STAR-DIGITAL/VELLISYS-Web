@@ -771,20 +771,114 @@ function old_way_photos(): array
     ];
 }
 
+function trust_client_defaults(): array
+{
+    $names = [
+        'Ofagros',
+        'Kira Estates',
+        'Nile Hardware',
+        'Jinja Pack',
+        'Rwenzori Mills',
+        'Gulu Trade',
+        'Entebbe Marine',
+        'Mbale Grain',
+        'Fort Portal Tea',
+        'Masaka Dairy',
+    ];
+    $rows = [];
+    foreach ($names as $i => $name) {
+        $slug = strtolower(preg_replace('/[^a-z0-9]+/i', '-', $name) ?? '');
+        $slug = trim((string) $slug, '-');
+        $rows[] = [
+            'name' => $name,
+            'logo_path' => 'assets/img/landing/clients/' . $slug . '.svg',
+            'sort' => ($i + 1) * 10,
+        ];
+    }
+    return $rows;
+}
+
 function trust_clients(): array
 {
-    return [
-        ['name' => 'Ofagros', 'file' => 'img/landing/clients/ofagros.svg'],
-        ['name' => 'Kira Estates', 'file' => 'img/landing/clients/kira-estates.svg'],
-        ['name' => 'Nile Hardware', 'file' => 'img/landing/clients/nile-hardware.svg'],
-        ['name' => 'Jinja Pack', 'file' => 'img/landing/clients/jinja-pack.svg'],
-        ['name' => 'Rwenzori Mills', 'file' => 'img/landing/clients/rwenzori-mills.svg'],
-        ['name' => 'Gulu Trade', 'file' => 'img/landing/clients/gulu-trade.svg'],
-        ['name' => 'Entebbe Marine', 'file' => 'img/landing/clients/entebbe-marine.svg'],
-        ['name' => 'Mbale Grain', 'file' => 'img/landing/clients/mbale-grain.svg'],
-        ['name' => 'Fort Portal Tea', 'file' => 'img/landing/clients/fort-portal-tea.svg'],
-        ['name' => 'Masaka Dairy', 'file' => 'img/landing/clients/masaka-dairy.svg'],
-    ];
+    try {
+        $rows = db_all('SELECT * FROM trust_clients ORDER BY sort, id');
+        if ($rows) {
+            return $rows;
+        }
+    } catch (Throwable $e) {
+        // Table may not exist until migrate runs.
+    }
+    return trust_client_defaults();
+}
+
+function public_file_url(string $rel): string
+{
+    $rel = ltrim($rel, '/');
+    $full = $rel !== '' ? ROOT_PATH . '/' . $rel : '';
+    if ($full && is_file($full)) {
+        return url($rel) . '?v=' . filemtime($full);
+    }
+    return product_mark_url();
+}
+
+function trust_client_logo_url(array $client): string
+{
+    return public_file_url((string) ($client['logo_path'] ?? ''));
+}
+
+function save_uploaded_image(string $field, string $destDir, string $prefix, int $maxBytes = 2_000_000): array
+{
+    if (empty($_FILES[$field]['tmp_name']) || !is_uploaded_file($_FILES[$field]['tmp_name'])) {
+        return ['ok' => true, 'path' => null];
+    }
+    $file = $_FILES[$field];
+    if ((int) ($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
+        return ['ok' => false, 'error' => 'That file did not upload. Try again.'];
+    }
+    if ((int) ($file['size'] ?? 0) > $maxBytes) {
+        return ['ok' => false, 'error' => 'Keep the picture under 2 MB.'];
+    }
+    $ext = strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION));
+    if ($ext === 'jpeg') {
+        $ext = 'jpg';
+    }
+    if (!in_array($ext, ['png', 'jpg', 'gif', 'webp', 'svg'], true)) {
+        return ['ok' => false, 'error' => 'Use PNG, JPG, WebP, GIF or SVG.'];
+    }
+    $tmp = (string) $file['tmp_name'];
+    if ($ext === 'svg') {
+        $raw = (string) file_get_contents($tmp);
+        if ($raw === '' || !preg_match('/<svg[\s>]/i', $raw) || preg_match('/<script|javascript:|on\w+\s*=|<foreignObject/i', $raw)) {
+            return ['ok' => false, 'error' => 'That SVG is not a safe logo file.'];
+        }
+    } else {
+        $info = @getimagesize($tmp);
+        if (!$info) {
+            return ['ok' => false, 'error' => 'That file is not a picture.'];
+        }
+    }
+    $dir = ROOT_PATH . '/' . trim($destDir, '/');
+    if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
+        return ['ok' => false, 'error' => 'Could not create the upload folder.'];
+    }
+    $fname = preg_replace('/[^a-z0-9\-]+/i', '-', $prefix) . '-' . date('YmdHis') . '-' . bin2hex(random_bytes(3)) . '.' . $ext;
+    $fname = strtolower(trim((string) $fname, '-'));
+    if (!move_uploaded_file($tmp, $dir . '/' . $fname)) {
+        return ['ok' => false, 'error' => 'Could not save that picture.'];
+    }
+    return ['ok' => true, 'path' => trim($destDir, '/') . '/' . $fname];
+}
+
+function maybe_unlink_upload(string $rel): void
+{
+    $rel = ltrim($rel, '/');
+    if ($rel === '' || !str_starts_with($rel, 'uploads/')) {
+        return;
+    }
+    $full = ROOT_PATH . '/' . $rel;
+    if (is_file($full)) {
+        @unlink($full);
+    }
 }
 
 function gate_art(string $heading, string $lead, string $switchHtml): void
@@ -846,6 +940,7 @@ function public_footer(): void
         <p class="lp-foot-line"><?= icon('letter', 18) ?><a href="mailto:<?= h(product_email()) ?>"><?= h(product_email()) ?></a></p>
         <p class="lp-foot-line"><?= icon('phone', 18) ?><a href="tel:+256779971024"><?= h($phones[0]) ?></a></p>
         <p class="lp-foot-line"><?= icon('phone', 18) ?><a href="tel:+256756524451"><?= h($phones[1]) ?></a></p>
+        <p class="lp-foot-line"><?= icon('help', 18) ?><a href="<?= h(url()) ?>#ask">Have a question</a></p>
       </div>
       <div>
         <h3>FS Digital</h3>
@@ -884,6 +979,58 @@ function new_signup_count(): int
     } catch (Throwable $e) {
         return 0;
     }
+}
+
+function new_question_count(): int
+{
+    try {
+        $row = db_one("SELECT COUNT(*) AS c FROM questions WHERE status = 'new'");
+        return (int) ($row['c'] ?? 0);
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
+function visitor_ip_hash(): string
+{
+    $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+    $cfg = require ROOT_PATH . '/config/database.php';
+    $secret = hash('sha256', ($cfg['name'] ?? 'folio') . '|' . ($cfg['user'] ?? 'root') . '|vellisys-ask');
+    return hash('sha256', $ip . '|' . $secret);
+}
+
+function landing_faqs(): array
+{
+    return [
+        [
+            'q' => 'How do I get a desk?',
+            'a' => 'Leave four fields on Register. A Vellisys admin calls you, onboards the company, and issues a login. There is no password to invent on the website.',
+        ],
+        [
+            'q' => 'Are the documents in our branding?',
+            'a' => 'Yes. Every quotation, invoice, receipt, expense and headed note uses the company logo, three brand colours, and one of eight templates you pick in Settings.',
+        ],
+        [
+            'q' => 'Can we work in UGX and USD?',
+            'a' => 'Each document is UGX or USD. Settings holds the rate (1 USD = n UGX). Debtors and reports convert mixed currencies at that rate.',
+        ],
+        [
+            'q' => 'What are Debtors and Creditors?',
+            'a' => 'Debtors lists clients who still owe you after full or part receipts. Creditors lists suppliers you still need to pay. Take a receipt, send a reminder, or record a payment from the row.',
+        ],
+        [
+            'q' => 'How do we send a sheet to a client?',
+            'a' => 'Share opens WhatsApp or email with a link to the branded sheet. You can also print or save as PDF from the browser.',
+        ],
+        [
+            'q' => 'Who sees the books?',
+            'a' => 'Only users on that company desk. Platform admin can open a desk to help onboard. Clients who receive a share link see that one sheet, not the rest of the books.',
+        ],
+        [
+            'q' => 'How do I ask something the list does not cover?',
+            'a' => 'Use the form on this page. A Vellisys admin reads it and replies by email. Do not send passwords or payment details here.',
+        ],
+    ];
 }
 
 function product_mark_url(): string

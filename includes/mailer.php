@@ -35,6 +35,31 @@ function send_document_email(array $user, array $doc, string $to, string $subjec
     return ['ok' => $ok, 'from' => $fromEmail];
 }
 
+function notify_admin_question(array $q): void
+{
+    $to = product_email();
+    $subject = 'Vellisys question from ' . ($q['name'] ?? 'a visitor');
+    $lines = [
+        'A visitor asked a question on the Vellisys site.',
+        '',
+        'Name: ' . ($q['name'] ?? ''),
+        'Email: ' . ($q['email'] ?? ''),
+        'Phone: ' . (($q['phone'] ?? '') !== '' ? $q['phone'] : '(none)'),
+        '',
+        $q['message'] ?? '',
+        '',
+        'Open the inbox: ' . absolute_url('admin_questions.php'),
+    ];
+    $headers = [
+        'MIME-Version: 1.0',
+        'Content-type: text/plain; charset=UTF-8',
+        'From: Vellisys <' . $to . '>',
+        'Reply-To: ' . ($q['email'] ?? $to),
+        'X-Mailer: Vellisys',
+    ];
+    @mail($to, $subject, implode("\n", $lines), implode("\r\n", $headers));
+}
+
 function absolute_url(string $path): string
 {
     $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');

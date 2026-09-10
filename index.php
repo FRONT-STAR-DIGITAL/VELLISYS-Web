@@ -9,6 +9,11 @@ $help = landing_cards('help');
 $steps = landing_cards('steps');
 $oldPhotos = old_way_photos();
 $clients = trust_clients();
+$faqs = landing_faqs();
+$_SESSION['ask_form_at'] = time();
+$askFlash = flash();
+$askedOk = isset($_GET['asked']);
+$askDraft = $_SESSION['ask_draft'] ?? [];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -84,19 +89,21 @@ $clients = trust_clients();
       </div>
     </section>
 
-    <section class="lp-trust" aria-label="Clients who trust us">
+    <?php if ($clients): ?>
+    <section class="lp-trust" id="clients-who-trust-us" aria-label="Clients who trust us">
       <p class="lp-kicker">On the desk</p>
       <h2>Clients who trust us</h2>
       <div class="lp-marquee">
         <div class="lp-marquee-track">
           <?php foreach ([$clients, $clients] as $setIndex => $set): ?>
             <?php foreach ($set as $client): ?>
-              <img src="<?= h(asset($client['file'])) ?>" alt="<?= $setIndex === 0 ? h($client['name']) : '' ?>" <?= $setIndex === 1 ? 'aria-hidden="true"' : '' ?>>
+              <img src="<?= h(trust_client_logo_url($client)) ?>" alt="<?= $setIndex === 0 ? h($client['name']) : '' ?>" <?= $setIndex === 1 ? 'aria-hidden="true"' : '' ?>>
             <?php endforeach; ?>
           <?php endforeach; ?>
         </div>
       </div>
     </section>
+    <?php endif; ?>
 
     <section class="lp-send" id="send-in-a-minute" data-reveal>
       <figure class="lp-send-pic">
@@ -156,7 +163,8 @@ $clients = trust_clients();
         <svg viewBox="0 0 120 80">
           <path class="lp-bridge" d="M8 40 C 40 8, 80 72, 104 40" fill="none" stroke="#1E4EFF" stroke-width="4" stroke-linecap="round"/>
         </svg>
-        <span>→</span>
+        <span class="lp-arrow-right">→</span>
+        <span class="lp-arrow-down">↓</span>
       </div>
 
       <div class="lp-compare-new">
@@ -205,6 +213,59 @@ $clients = trust_clients();
       <div class="lp-cta lp-cta-band">
         <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('register.php')) ?>">Get my company a desk</a>
         <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('login.php')) ?>">Sign in to my desk</a>
+      </div>
+    </section>
+
+    <section class="lp-ask" id="ask" data-reveal>
+      <div class="lp-ask-copy">
+        <p class="lp-kicker">Talk to us</p>
+        <h2>Have a question?</h2>
+        <p class="lp-ask-lead">Short answers below. If yours is not there, send a note - a Vellisys admin reads every one and replies by email.</p>
+        <div class="lp-faqs">
+          <?php foreach ($faqs as $i => $faq): ?>
+            <details class="lp-faq"<?= $i === 0 ? ' open' : '' ?>>
+              <summary><?= h($faq['q']) ?></summary>
+              <p><?= h($faq['a']) ?></p>
+            </details>
+          <?php endforeach; ?>
+        </div>
+      </div>
+      <div class="lp-ask-panel">
+        <?php if ($askedOk): ?>
+          <div class="lp-ask-form lp-ask-ok">
+            <p class="lp-kicker">Sent</p>
+            <h3>We have your question</h3>
+            <p>A Vellisys admin will reply to the email you left. If it is urgent, call <?= h(product_phones()[0]) ?>.</p>
+            <a class="lp-btn lp-btn-ghost" href="<?= h(url()) ?>#ask">Ask another</a>
+          </div>
+        <?php else: ?>
+          <form class="lp-ask-form" method="post" action="<?= h(url('ask.php')) ?>" autocomplete="off">
+            <?= csrf_field() ?>
+            <h3>Write to us</h3>
+            <p class="lp-ask-hint">Name, email, and your question. Phone is optional.</p>
+            <?php if ($askFlash && ($askFlash['type'] ?? '') === 'err'): ?>
+              <p class="lp-err"><?= h($askFlash['text']) ?></p>
+            <?php endif; ?>
+            <div class="lp-hp" aria-hidden="true">
+              <label>Website
+                <input type="text" name="website" tabindex="-1" autocomplete="off">
+              </label>
+            </div>
+            <label for="ask_name">Your name
+              <input id="ask_name" name="ask_name" required maxlength="80" autocomplete="name" value="<?= h($askDraft['name'] ?? '') ?>" placeholder="Jane Okello">
+            </label>
+            <label for="ask_email">Email
+              <input id="ask_email" name="ask_email" type="email" required maxlength="190" autocomplete="email" value="<?= h($askDraft['email'] ?? '') ?>" placeholder="you@company.ug">
+            </label>
+            <label for="ask_phone">Phone <span>(optional)</span>
+              <input id="ask_phone" name="ask_phone" type="tel" maxlength="40" autocomplete="tel" value="<?= h($askDraft['phone'] ?? '') ?>" placeholder="+256 700 000 000">
+            </label>
+            <label for="ask_message">Question
+              <textarea id="ask_message" name="ask_message" required minlength="20" maxlength="2000" rows="5" placeholder="How do we add a second user on the desk?"><?= h($askDraft['message'] ?? '') ?></textarea>
+            </label>
+            <button class="lp-btn lp-btn-solid" type="submit">Send question</button>
+          </form>
+        <?php endif; ?>
       </div>
     </section>
   </main>

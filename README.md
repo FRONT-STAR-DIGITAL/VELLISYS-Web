@@ -20,7 +20,8 @@ Open the **landing page** at the site root. Companies **register** in a few fiel
 
 ## What you get
 
-- Public landing page in three sections, with pictures on every card. Super admin can replace those pictures under **Landing**
+- Public landing page in three sections, with pictures on every card. Super admin can replace those pictures under **Landing**, and add **Clients who trust us** names and logos
+- **Have a question** form on the landing page. Super admin sees each note under **Questions**, and a copy is emailed to `info@vellisys.com`
 - Easy **register** form - no password to invent. Super admin sees each request, calls the company, then creates the desk
 - Sign-in with a **show password** control
 - **UGX or USD** on each document, converted at a rate you enter in Settings (1 USD = n UGX)

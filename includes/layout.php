@@ -96,9 +96,11 @@ function layout_admin_start(string $title, array $user): void
     $flash = flash();
     $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
     $signupNew = new_signup_count();
+    $questionNew = new_question_count();
     $nav = [
         ['admin_landing.php', 'Landing', 'image'],
         ['admin_signups.php', 'Sign-ups' . ($signupNew ? ' (' . $signupNew . ')' : ''), 'letter'],
+        ['admin_questions.php', 'Questions' . ($questionNew ? ' (' . $questionNew . ')' : ''), 'help'],
         ['admin_companies.php', 'Companies', 'building'],
     ];
     ?>
