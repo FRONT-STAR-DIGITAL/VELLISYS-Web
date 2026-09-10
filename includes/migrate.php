@@ -29,7 +29,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 29) {
+    if ($ver >= 30) {
         $done = true;
         return;
     }
@@ -213,8 +213,11 @@ function folio_migrate(mysqli $db): void
     if ($ver < 29) {
         folio_migrate_order_pending_mail($db);
     }
+    if ($ver < 30) {
+        folio_migrate_landing_testimonials($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '29')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '30')");
     $done = true;
 }
 
@@ -617,5 +620,24 @@ function folio_migrate_order_pending_mail(mysqli $db): void
 {
     if (!db_has_column($db, 'website_orders', 'notified_pending')) {
         $db->query("ALTER TABLE website_orders ADD COLUMN notified_pending TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER notified_draft");
+    }
+}
+
+function folio_migrate_landing_testimonials(mysqli $db): void
+{
+    require_once ROOT_PATH . '/includes/helpers.php';
+    $db->query("CREATE TABLE IF NOT EXISTS landing_review_section (
+      id TINYINT UNSIGNED PRIMARY KEY,
+      kicker VARCHAR(80) NOT NULL DEFAULT '',
+      heading VARCHAR(180) NOT NULL DEFAULT ''
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $exists = $db->query('SELECT id FROM landing_review_section WHERE id = 1');
+    if (!$exists || $exists->num_rows === 0) {
+        $s = landing_review_section_defaults();
+        $stmt = $db->prepare('INSERT INTO landing_review_section (id, kicker, heading) VALUES (1,?,?)');
+        $kicker = $s['kicker'];
+        $heading = $s['heading'];
+        $stmt->bind_param('ss', $kicker, $heading);
+        $stmt->execute();
     }
 }

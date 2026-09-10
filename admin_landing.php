@@ -158,6 +158,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             redirect('admin_landing.php#packages');
         }
+    } elseif ($form === 'reviews_section') {
+        $defaults = landing_review_section_defaults();
+        $kicker = mb_substr(trim(post('kicker')), 0, 80) ?: $defaults['kicker'];
+        $heading = mb_substr(trim(post('heading')), 0, 180) ?: $defaults['heading'];
+        db_exec(
+            'REPLACE INTO landing_review_section (id, kicker, heading) VALUES (1,?,?)',
+            'ss',
+            [$kicker, $heading]
+        );
+        flash('Saved testimonial section copy.');
+        redirect('admin_landing.php#testimonials');
     } elseif ($form === 'reviews') {
         $action = post('action');
         if ($action === 'add') {
@@ -166,42 +177,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $quote = trim(post('quote'));
             $sort = (int) post('sort');
             if ($name === '' || $quote === '') {
-                $error = 'Give the review a name and a quote.';
+                $error = 'Give the testimonial a name and a quote.';
             } else {
                 if ($sort <= 0) {
                     $max = db_one('SELECT MAX(sort) AS s FROM landing_reviews');
                     $sort = (int) ($max['s'] ?? 0) + 10;
                 }
                 db_exec('INSERT INTO landing_reviews (name, role, quote, sort) VALUES (?,?,?,?)', 'sssi', [$name, $role, $quote, $sort]);
-                flash('Added a review from ' . $name . '.');
-                redirect('admin_landing.php#client-reviews');
+                flash('Added a testimonial from ' . $name . '.');
+                redirect('admin_landing.php#testimonials');
             }
         } elseif ($action === 'save') {
             $id = (int) post('id');
             $row = $id ? db_one('SELECT * FROM landing_reviews WHERE id = ?', 'i', [$id]) : null;
             if (!$row) {
-                flash('That review was not found.', 'err');
-                redirect('admin_landing.php#client-reviews');
+                flash('That testimonial was not found.', 'err');
+                redirect('admin_landing.php#testimonials');
             }
             $name = mb_substr(post('name'), 0, 120);
             $role = mb_substr(post('role'), 0, 160);
             $quote = trim(post('quote'));
             $sort = (int) post('sort');
             if ($name === '' || $quote === '') {
-                $error = 'Give the review a name and a quote.';
+                $error = 'Give the testimonial a name and a quote.';
             } else {
                 db_exec('UPDATE landing_reviews SET name=?, role=?, quote=?, sort=? WHERE id=?', 'sssii', [$name, $role, $quote, $sort, $id]);
-                flash('Saved the review from ' . $name . '.');
-                redirect('admin_landing.php#client-reviews');
+                flash('Saved the testimonial from ' . $name . '.');
+                redirect('admin_landing.php#testimonials');
             }
         } elseif ($action === 'delete') {
             $id = (int) post('id');
             $row = $id ? db_one('SELECT * FROM landing_reviews WHERE id = ?', 'i', [$id]) : null;
             if ($row) {
                 db_exec('DELETE FROM landing_reviews WHERE id = ?', 'i', [$id]);
-                flash('Removed the review from ' . $row['name'] . '.');
+                flash('Removed the testimonial from ' . $row['name'] . '.');
             }
-            redirect('admin_landing.php#client-reviews');
+            redirect('admin_landing.php#testimonials');
         }
     } elseif ($form === 'trust') {
         $action = post('action');
@@ -311,6 +322,7 @@ try {
     $ticker = [];
 }
 $pricingSection = pricing_section();
+$reviewSection = landing_review_section();
 $adminPackages = [];
 try {
     $adminPackages = db_all('SELECT * FROM landing_packages ORDER BY sort, id');
@@ -323,7 +335,7 @@ layout_admin_start('Landing', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('image') ?>Landing page</h1>
-    <p class="lede">Change the top-bar lines, the packages, the pictures, the words, the <strong>Clients who trust us</strong> logos, and the scrolling <strong>client reviews</strong> on the public site. The favicon stays the V mark. The header uses the Vellisys logo on its own.</p>
+    <p class="lede">Change the top-bar lines, the packages, the pictures, the words, the <strong>Clients who trust us</strong> logos, and the scrolling <strong>testimonials</strong> on the public site. The favicon stays the V mark. The header uses the Vellisys logo on its own.</p>
   </div>
   <a class="btn ghost" href="<?= h(url()) ?>" target="_blank" rel="noopener">View site</a>
 </div>
@@ -563,29 +575,48 @@ layout_admin_start('Landing', $user);
   </div>
 <?php endif; ?>
 
-<h2 class="landing-admin-h" id="client-reviews"><?= icon('letter', 20) ?>Client reviews</h2>
-<p class="lede" style="margin-top:-8px">These quotes scroll sideways on the public home page. Add a name, role or company, and the review.</p>
+<h2 class="landing-admin-h" id="testimonials"><?= icon('letter', 20) ?>Testimonials</h2>
+<p class="lede" style="margin-top:-8px">These quotes scroll on the public home page. Edit the heading, then add or remove people. An empty list hides the block.</p>
+
+<form class="card pricing-admin-section" method="post">
+  <?= csrf_field() ?>
+  <input type="hidden" name="form" value="reviews_section">
+  <h3 style="margin:0 0 8px">Section copy</h3>
+  <div class="pricing-admin-grid">
+    <div>
+      <label for="review-kicker">Kicker</label>
+      <input id="review-kicker" name="kicker" maxlength="80" value="<?= h($reviewSection['kicker']) ?>">
+    </div>
+    <div>
+      <label for="review-heading">Heading</label>
+      <input id="review-heading" name="heading" maxlength="180" value="<?= h($reviewSection['heading']) ?>">
+    </div>
+  </div>
+  <div class="actions" style="margin-top:12px">
+    <button class="btn" type="submit"><?= icon('check') ?>Save section</button>
+  </div>
+</form>
 
 <form class="card trust-admin-add" method="post">
   <?= csrf_field() ?>
   <input type="hidden" name="form" value="reviews">
   <input type="hidden" name="action" value="add">
-  <h3 style="margin:0 0 4px">Add a review</h3>
+  <h3 style="margin:0 0 4px">Add a testimonial</h3>
   <label for="review-new-name">Name</label>
   <input id="review-new-name" name="name" required maxlength="120" placeholder="Priya Menon">
   <label for="review-new-role">Role / company</label>
   <input id="review-new-role" name="role" maxlength="160" placeholder="Accounts, Harbour &amp; Co.">
-  <label for="review-new-quote">Review</label>
-  <textarea id="review-new-quote" name="quote" rows="3" required maxlength="400" placeholder="What they said"></textarea>
+  <label for="review-new-quote">Quote</label>
+  <textarea id="review-new-quote" name="quote" rows="3" required maxlength="800" placeholder="What they said"></textarea>
   <label for="review-new-sort">Order <span class="hint">(optional)</span></label>
   <input id="review-new-sort" name="sort" type="number" min="0" step="1" placeholder="Auto">
   <div class="actions" style="margin-top:12px">
-    <button class="btn" type="submit"><?= icon('plus') ?>Add review</button>
+    <button class="btn" type="submit"><?= icon('plus') ?>Add testimonial</button>
   </div>
 </form>
 
 <?php if (!$reviews): ?>
-  <p class="empty">No reviews yet. Add one above.</p>
+  <p class="empty">No testimonials on the public page. Add one above.</p>
 <?php else: ?>
   <div class="trust-admin">
     <?php foreach ($reviews as $r): ?>
@@ -597,13 +628,13 @@ layout_admin_start('Landing', $user);
         <input id="review-name-<?= (int) $r['id'] ?>" name="name" required maxlength="120" value="<?= h($r['name']) ?>">
         <label for="review-role-<?= (int) $r['id'] ?>">Role / company</label>
         <input id="review-role-<?= (int) $r['id'] ?>" name="role" maxlength="160" value="<?= h($r['role']) ?>">
-        <label for="review-quote-<?= (int) $r['id'] ?>">Review</label>
-        <textarea id="review-quote-<?= (int) $r['id'] ?>" name="quote" rows="4" required maxlength="400"><?= h($r['quote']) ?></textarea>
+        <label for="review-quote-<?= (int) $r['id'] ?>">Quote</label>
+        <textarea id="review-quote-<?= (int) $r['id'] ?>" name="quote" rows="4" required maxlength="800"><?= h($r['quote']) ?></textarea>
         <label for="review-sort-<?= (int) $r['id'] ?>">Order</label>
         <input id="review-sort-<?= (int) $r['id'] ?>" name="sort" type="number" required min="0" step="1" value="<?= (int) $r['sort'] ?>">
         <div class="actions" style="margin-top:12px">
           <button class="btn" type="submit" name="action" value="save"><?= icon('check') ?>Save</button>
-          <button class="btn ghost" type="submit" name="action" value="delete" onclick="return confirm('Remove this review?');"><?= icon('trash') ?>Remove</button>
+          <button class="btn ghost" type="submit" name="action" value="delete" onclick="return confirm('Remove this testimonial from the public page?');"><?= icon('trash') ?>Remove</button>
         </div>
       </form>
     <?php endforeach; ?>

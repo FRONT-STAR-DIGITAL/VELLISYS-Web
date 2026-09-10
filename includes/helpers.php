@@ -2116,17 +2116,40 @@ function landing_review_defaults(): array
     ];
 }
 
-function landing_reviews(): array
+function landing_review_section_defaults(): array
 {
+    return [
+        'kicker' => 'Testimonials',
+        'heading' => 'What clients say',
+    ];
+}
+
+function landing_review_section(): array
+{
+    $defaults = landing_review_section_defaults();
     try {
-        $rows = db_all('SELECT * FROM landing_reviews ORDER BY sort, id');
-        if ($rows) {
-            return $rows;
+        $row = db_one('SELECT kicker, heading FROM landing_review_section WHERE id = 1');
+        if ($row) {
+            $kicker = trim((string) ($row['kicker'] ?? ''));
+            $heading = trim((string) ($row['heading'] ?? ''));
+            return [
+                'kicker' => $kicker !== '' ? $kicker : $defaults['kicker'],
+                'heading' => $heading !== '' ? $heading : $defaults['heading'],
+            ];
         }
     } catch (Throwable $e) {
         // Table may not exist until migrate runs.
     }
-    return landing_review_defaults();
+    return $defaults;
+}
+
+function landing_reviews(): array
+{
+    try {
+        return db_all('SELECT * FROM landing_reviews ORDER BY sort, id');
+    } catch (Throwable $e) {
+        return landing_review_defaults();
+    }
 }
 
 function desk_manage_items(): array

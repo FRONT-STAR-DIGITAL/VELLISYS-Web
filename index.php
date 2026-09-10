@@ -10,6 +10,7 @@ $steps = landing_cards('steps');
 $oldPhotos = old_way_photos();
 $clients = trust_clients();
 $reviews = landing_reviews();
+$reviewSection = landing_review_section();
 $manage = desk_manage_items();
 $faqs = landing_faqs();
 $_SESSION['ask_form_at'] = time();
@@ -237,9 +238,9 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
     </section>
 
     <?php if ($reviews): ?>
-    <section class="lp-reviews" id="client-reviews" aria-label="Client reviews">
-      <p class="lp-kicker">From the books</p>
-      <h2>What clients say</h2>
+    <section class="lp-reviews" id="testimonials" aria-label="Testimonials">
+      <p class="lp-kicker"><?= h($reviewSection['kicker']) ?></p>
+      <h2><?= h($reviewSection['heading']) ?></h2>
       <div class="lp-marquee lp-reviews-marquee">
         <div class="lp-marquee-track lp-reviews-track">
           <?php foreach ([$reviews, $reviews] as $setIndex => $set): ?>
