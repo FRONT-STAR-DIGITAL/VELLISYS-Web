@@ -98,7 +98,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
         <div class="lp-marquee-track">
           <?php foreach ([$clients, $clients] as $setIndex => $set): ?>
             <?php foreach ($set as $client): ?>
-              <img src="<?= h(trust_client_logo_url($client)) ?>" alt="<?= $setIndex === 0 ? h($client['name']) : '' ?>" <?= $setIndex === 1 ? 'aria-hidden="true"' : '' ?>>
+              <img src="<?= h(trust_client_logo_url($client)) ?>" alt="<?= $setIndex === 0 ? h($client['name']) : '' ?>" <?= $setIndex === 1 ? 'aria-hidden="true"' : '' ?> loading="lazy" decoding="async">
             <?php endforeach; ?>
           <?php endforeach; ?>
         </div>
@@ -111,7 +111,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       <div class="lp-grid3">
         <?php foreach ($familiar as $card): ?>
           <article>
-            <img class="lp-card-pic" src="<?= h(landing_card_image_url($card)) ?>" alt="">
+            <img class="lp-card-pic" src="<?= h(landing_card_image_url($card)) ?>" alt="<?= h($card['title'] ?? '') ?>" loading="lazy" decoding="async">
             <div class="lp-card-copy">
               <h3><?= h($card['title']) ?></h3>
               <p><?= h($card['body']) ?></p>
@@ -127,7 +127,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
         <h2>The old way</h2>
         <div class="lp-stack">
           <?php foreach ($oldPhotos as $i => $photo): ?>
-            <img src="<?= h(asset(substr($photo, strlen('assets/')))) ?>" alt="The old way of keeping books" style="--i:<?= (int) $i ?>">
+            <img src="<?= h(asset(substr($photo, strlen('assets/')))) ?>" alt="Paper receipts from the old way of keeping books" style="--i:<?= (int) $i ?>" loading="lazy" decoding="async">
           <?php endforeach; ?>
           <span class="lp-x" aria-hidden="true">×</span>
         </div>
@@ -147,7 +147,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
         <h2>Your brand. Their copy.</h2>
         <p class="lp-compare-lead">Documents are printed and sent in the client's branding. Pick from many templates - letterhead, ledger, twin copy and more - so every quotation, invoice and receipt looks like it came from their office, not a generic pad.</p>
         <figure class="lp-new-shot">
-          <img class="lp-new-main" src="<?= h(asset('img/landing/nw.png')) ?>" alt="A Vellisys receipt on desktop, laptop and phone">
+          <img class="lp-new-main" src="<?= h(asset('img/landing/nw.png')) ?>" alt="A Vellisys receipt on desktop, laptop and phone" loading="lazy" decoding="async">
         </figure>
       </div>
     </section>
@@ -157,7 +157,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       <div class="lp-grid3">
         <?php foreach ($help as $card): ?>
           <article>
-            <img class="lp-card-pic" src="<?= h(landing_card_image_url($card)) ?>" alt="">
+            <img class="lp-card-pic" src="<?= h(landing_card_image_url($card)) ?>" alt="<?= h($card['title'] ?? '') ?>" loading="lazy" decoding="async">
             <div class="lp-card-copy">
               <h3><?= h($card['title']) ?></h3>
               <p><?= h($card['body']) ?></p>
@@ -169,7 +169,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
 
     <section class="lp-send" id="send-in-a-minute" data-reveal>
       <figure class="lp-send-pic">
-        <img src="<?= h(asset('img/landing/rec.png')) ?>" alt="A receipt generated on Vellisys, open on a phone and already sent to the client">
+        <img src="<?= h(asset('img/landing/rec.png')) ?>" alt="A receipt generated on Vellisys, open on a phone and already sent to the client" loading="lazy" decoding="async">
         <span class="lp-send-badge" aria-hidden="true">Sent · 48s</span>
         <span class="lp-send-ring" aria-hidden="true"></span>
       </figure>
@@ -197,7 +197,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
     <section class="lp-manage" id="what-you-manage" data-reveal>
       <p class="lp-kicker">The desk</p>
       <h2>What you get to manage</h2>
-      <p class="lp-manage-lead">One professional desk for the books. Quotations through reports, in the company's branding, on a phone in the field or a laptop at the office - anywhere, any time.</p>
+      <p class="lp-manage-lead">Quotations, invoices, receipts and expenses on one desk, in the company's branding. Delivery notes, letters, debtors and creditors sit beside them.</p>
       <div class="lp-manage-grid">
         <?php foreach ($manage as $item): ?>
           <article>
@@ -220,7 +220,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
           <li>
             <span class="lp-path-n"><?= (int) $i + 1 ?></span>
             <article>
-              <img class="lp-card-pic" src="<?= h(landing_card_image_url($card)) ?>" alt="">
+              <img class="lp-card-pic" src="<?= h(landing_card_image_url($card)) ?>" alt="<?= h($card['title'] ?? '') ?>" loading="lazy" decoding="async">
               <div class="lp-card-copy">
                 <h3><?= h($card['title']) ?></h3>
                 <p><?= h($card['body']) ?></p>

@@ -534,11 +534,14 @@ function brand_deep(): string
 function logo_url(?array $brand = null): string
 {
     $brand = $brand ?? branding();
-    $path = $brand['logo_path'] ?? 'assets/img/ofagros-logo.png';
-    if ($path && is_file(ROOT_PATH . '/' . ltrim($path, '/'))) {
-        return url($path);
+    $path = ltrim((string) ($brand['logo_path'] ?? 'assets/img/ofagros-logo.png'), '/');
+    foreach ([$path, 'assets/img/ofagros-logo.png', 'assets/img/ofagros-logo.svg'] as $rel) {
+        $full = ROOT_PATH . '/' . $rel;
+        if ($rel !== '' && is_file($full)) {
+            return url($rel) . '?v=' . filemtime($full);
+        }
     }
-    return url('assets/img/ofagros-logo.png');
+    return product_mark_url();
 }
 
 function parties_for(string $kind = 'customer'): array
@@ -1205,7 +1208,7 @@ function product_po_box(): string
 
 function old_way_photos(): array
 {
-    return [
+    $photos = [
         'assets/img/landing/old-receipt-1.jpg',
         'assets/img/landing/old-receipt-2.jpg',
         'assets/img/landing/old-receipt-3.jpg',
@@ -1214,6 +1217,7 @@ function old_way_photos(): array
         'assets/img/landing/old-receipt-6.jpg',
         'assets/img/landing/old-receipt-7.jpg',
     ];
+    return array_values(array_filter($photos, static fn ($rel) => is_file(ROOT_PATH . '/' . $rel)));
 }
 
 function trust_client_defaults(): array
@@ -1352,8 +1356,19 @@ function gate_art(string $heading, string $lead, string $switchHtml): void
 
 function public_header(string $page = 'home'): void
 {
+    $ticker = landing_ticker_lines();
     ?>
   <header class="lp-chrome" data-lp-chrome>
+  <div class="lp-ticker" data-lp-ticker>
+    <div class="lp-ticker-track">
+      <?php for ($i = 0; $i < 2; $i++): ?>
+        <?php foreach ($ticker as $line): ?>
+          <p><?= h($line) ?></p>
+          <span class="lp-ticker-sep" aria-hidden="true">✦</span>
+        <?php endforeach; ?>
+      <?php endfor; ?>
+    </div>
+  </div>
   <div class="lp-nav">
     <a class="lp-brand" href="<?= h(url()) ?>">
       <img class="lp-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
@@ -1817,21 +1832,16 @@ function desk_manage_items(): array
         ['icon' => 'quotation', 'title' => 'Quotations', 'body' => 'Raise a quote, share it branded, convert it to an invoice when they say yes.'],
         ['icon' => 'invoice', 'title' => 'Invoices', 'body' => 'Issue full or part-paid invoices. Balances stay visible until they are cleared.'],
         ['icon' => 'receipt', 'title' => 'Receipts', 'body' => 'Record what came in. RECEIVED and DUE print on the sheet, in your currency.'],
+        ['icon' => 'expense', 'title' => 'Expenses', 'body' => 'Log what the company spent - fuel, rent, suppliers - with VAT and currency on the same desk as the sales books.'],
         ['icon' => 'truck', 'title' => 'Delivery notes', 'body' => 'List what left the store, with quantities. No prices - goods out, not a bill.'],
         ['icon' => 'file', 'title' => 'Custom documents', 'body' => 'A form you define at onboarding - fields, a body, or both - on the same branded paper.'],
         ['icon' => 'clients', 'title' => 'Debtors', 'body' => 'See who still owes you. Send a reminder from the row, from the company mailbox.'],
         ['icon' => 'bank', 'title' => 'Creditors', 'body' => 'Track suppliers you still need to pay. Note a payment or write to them from the desk.'],
         ['icon' => 'letter', 'title' => 'Headed letters', 'body' => 'Correspondence on the same stationery as the books. Print or email in one click.'],
         ['icon' => 'send', 'title' => 'Send emails', 'body' => 'Quotations, invoices, receipts, letters and reminders leave from your assigned mailbox.'],
-        ['icon' => 'clock', 'title' => 'Automated client communication', 'body' => 'Share links, reminders and follow-ups without hunting through WhatsApp later.'],
-        ['icon' => 'reports', 'title' => 'Business reports', 'body' => 'Collections, outstanding, aging and documents issued - this month on one screen.'],
-        ['icon' => 'reports', 'title' => 'Business performance reports', 'body' => 'Time series, expense mix, quote conversion and top clients. Know how the books are doing.'],
-        ['icon' => 'desk', 'title' => 'A professional desk', 'body' => 'One place for the team. No drawer of slips, no inbox archaeology.'],
         ['icon' => 'palette', 'title' => '10+ templates', 'body' => 'Pick Folio, Ledger, Twin copy, Estate, Night and more. The whole books follow that layout.'],
         ['icon' => 'image', 'title' => 'Your company branding', 'body' => 'Logo, three colours, letterhead. Every document looks like it left your office.'],
-        ['icon' => 'phone', 'title' => 'Phones and laptops', 'body' => 'The desk and every sheet are built for a phone in the field and a laptop at the office.'],
         ['icon' => 'globe', 'title' => 'Anywhere, any time', 'body' => 'Sign in from wherever you are. This month is there, in the currency you actually use.'],
-        ['icon' => 'expense', 'title' => 'And more on the desk', 'body' => 'Expenses, CSV export, VAT on or off per line, share links, tutorials, and part receipts.'],
     ];
 }
 
@@ -1871,7 +1881,21 @@ function landing_faqs(): array
 
 function product_mark_url(): string
 {
+    foreach (['assets/img/vellisys-mark.png', 'assets/img/vellisys-logo.png', 'assets/img/logo.png'] as $rel) {
+        $full = ROOT_PATH . '/' . $rel;
+        if (is_file($full)) {
+            return asset(substr($rel, strlen('assets/')));
+        }
+    }
     return asset('img/vellisys-mark.png');
+}
+
+function landing_ticker_lines(): array
+{
+    return [
+        'Join 100+ businesses and corporate companies using Vellisys',
+        'Stop losing the books. Share them branded, in one click.',
+    ];
 }
 
 function product_logo_file(): string
@@ -1942,14 +1966,18 @@ function landing_cards(string $section = ''): array
 
 function landing_card_image_url(array $card): string
 {
-    $rel = (string) ($card['image_path'] ?? '');
-    $full = $rel !== '' ? ROOT_PATH . '/' . ltrim($rel, '/') : '';
+    $rel = ltrim((string) ($card['image_path'] ?? ''), '/');
+    $full = $rel !== '' ? ROOT_PATH . '/' . $rel : '';
     if ($full && is_file($full)) {
-        return url(ltrim($rel, '/')) . '?v=' . filemtime($full);
+        return url($rel) . '?v=' . filemtime($full);
     }
     foreach (landing_card_defaults() as $d) {
         if ($d['slot'] === ($card['slot'] ?? '')) {
-            return asset(substr($d['image_path'], strlen('assets/')));
+            $fallback = ltrim($d['image_path'], '/');
+            $ff = ROOT_PATH . '/' . $fallback;
+            if (is_file($ff)) {
+                return url($fallback) . '?v=' . filemtime($ff);
+            }
         }
     }
     return product_mark_url();
@@ -1967,7 +1995,7 @@ function folio_critical_css(string $surface = 'landing'): void
         echo '<style>html,body{margin:0;background:#f4f6fb}html{background:#f4f6fb}body{font-family:Montserrat,"Segoe UI",sans-serif;color:#10182c}.desk-body{background:#f4f3ef}.app{display:flex;min-height:100vh}.nav{width:72px;flex-shrink:0;background:#fff}</style>';
         return;
     }
-    echo '<style>html{background:#f5f7fc;scroll-behavior:smooth;overflow-x:hidden;overflow-x:clip}body{margin:0;font-family:Montserrat,"Segoe UI",sans-serif;color:#10182c;background:#f5f7fc}body.gate{background:#08143a;color:#fff}.lp-chrome{position:sticky;top:0;z-index:40}.lp-nav{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 5vw;background:rgba(255,255,255,.92);border-bottom:1px solid rgba(8,20,58,.08)}.lp-logo{display:block;height:38px;width:auto}.lp-btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 18px;border-radius:12px;font-weight:700;text-decoration:none}.lp-btn-solid{background:#1e4eff;color:#fff}.lp-btn-ghost{background:#fff;color:#08143a;border:1px solid rgba(8,20,58,.12)}.lp-floats{position:fixed;right:16px;bottom:16px;z-index:80}.lp-wa-fab{width:56px;height:56px;border:0;border-radius:50%;background:#25d366;color:#fff}</style>';
+    echo '<style>html{background:#f5f7fc;scroll-behavior:smooth;overflow-x:hidden;overflow-x:clip}body{margin:0;font-family:Montserrat,"Segoe UI",sans-serif;color:#10182c;background:#f5f7fc}body.gate{background:#08143a;color:#fff}.lp-chrome{position:sticky;top:0;z-index:40}.lp-ticker{background:#08143a;color:#fff;height:34px;overflow:hidden}.lp-nav{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 5vw;background:rgba(255,255,255,.92);border-bottom:1px solid rgba(8,20,58,.08)}.lp-logo{display:block;height:38px;width:auto}.lp-btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 18px;border-radius:12px;font-weight:700;text-decoration:none}.lp-btn-solid{background:#1e4eff;color:#fff}.lp-btn-ghost{background:#fff;color:#08143a;border:1px solid rgba(8,20,58,.12)}.lp-floats{position:fixed;right:16px;bottom:16px;z-index:80}.lp-wa-fab{width:56px;height:56px;border:0;border-radius:50%;background:#25d366;color:#fff}</style>';
 }
 
 function folio_stylesheet(string $path): void

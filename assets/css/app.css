@@ -119,6 +119,7 @@ img { max-width: 100%; display: block; }
   height: 32px;
   width: 32px;
   object-fit: contain;
+  object-position: center;
   display: block;
   margin: 0 0 0 20px;
   background: transparent;
@@ -1425,9 +1426,12 @@ table.grid tfoot td {
 .tut-shot { margin: 0; }
 .tut-shot img {
   width: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain;
+  background: #fff;
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: #fff;
 }
 .tut-help { padding: 18px 22px; }
 .tut-help h2 { margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }

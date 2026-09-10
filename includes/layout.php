@@ -166,7 +166,7 @@ function layout_admin_start(string $title, array $user): void
   <div class="nav-scrim" data-nav-scrim hidden></div>
   <aside class="nav" data-nav>
     <a class="brand" href="<?= h(url('admin_signups.php')) ?>">
-      <img class="brand-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
+      <img class="brand-logo" src="<?= h(product_mark_url()) ?>" alt="<?= h(product_name()) ?>">
       <strong>Platform admin</strong>
     </a>
     <nav>

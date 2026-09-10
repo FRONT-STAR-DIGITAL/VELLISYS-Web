@@ -58,6 +58,7 @@ main {
   overflow-x: visible;
 }
 a { color: inherit; }
+img { max-width: 100%; }
 .lp-glow {
   position: fixed;
   z-index: -1;
@@ -83,6 +84,36 @@ a { color: inherit; }
   transform: translateY(-110%);
   pointer-events: none;
 }
+.lp-ticker {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  overflow: hidden;
+  background: #08143a;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+.lp-ticker-track {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  width: max-content;
+  padding-left: 28px;
+  animation: lp-marquee 36s linear infinite;
+  will-change: transform;
+}
+.lp-ticker-track p {
+  margin: 0;
+  white-space: nowrap;
+  color: #fff;
+}
+.lp-ticker-sep {
+  color: #1e4eff;
+  font-size: 11px;
+  flex: 0 0 auto;
+}
 .lp-nav {
   display: flex;
   flex-wrap: nowrap;
@@ -105,9 +136,14 @@ a { color: inherit; }
   width: auto;
   max-width: 180px;
   object-fit: contain;
+  background: transparent;
 }
 .lp-logo-sm { height: 28px; max-width: 140px; }
-.lp-logo-on-dark { height: 36px; max-width: 180px; }
+.lp-logo-on-dark {
+  height: 36px;
+  max-width: 180px;
+  filter: brightness(0) invert(1);
+}
 .lp-nav nav {
   display: flex;
   flex-wrap: nowrap;
@@ -227,12 +263,13 @@ a { color: inherit; }
 .lp-send-pic img {
   display: block;
   width: 100%;
-  aspect-ratio: 3 / 2;
-  object-fit: cover;
-  object-position: 55% 32%;
+  height: auto;
+  max-height: 560px;
+  object-fit: contain;
+  object-position: center;
   border-radius: 28px;
   box-shadow: 0 28px 60px rgba(0, 0, 0, .35);
-  background: transparent;
+  background: #06102e;
 }
 .lp-send-ring {
   position: absolute;
@@ -480,17 +517,17 @@ a { color: inherit; }
 .lp-stack {
   position: relative;
   width: min(460px, 100%);
-  height: 280px;
+  height: 300px;
   margin: 28px auto 0;
   overflow: visible;
 }
 .lp-stack img {
   position: absolute;
-  inset: 48px;
-  width: calc(100% - 96px);
-  height: calc(100% - 96px);
+  inset: 28px 56px;
+  width: calc(100% - 112px);
+  height: calc(100% - 56px);
   object-fit: cover;
-  object-position: top center;
+  object-position: center;
   border-radius: 10px;
   box-shadow: 0 10px 22px rgba(8, 20, 58, .18);
   background: #f4efe6;
@@ -557,7 +594,7 @@ a { color: inherit; }
   position: relative;
   margin: 28px 0 0;
   border-radius: 18px;
-  overflow: hidden;
+  overflow: visible;
   max-width: 100%;
   background: transparent;
   box-shadow: none;
@@ -566,8 +603,10 @@ a { color: inherit; }
   display: block;
   width: 100%;
   max-width: 100%;
-  height: 392px;
+  height: auto;
+  max-height: 460px;
   object-fit: contain;
+  object-position: center;
   background: transparent;
 }
 
@@ -800,10 +839,14 @@ a { color: inherit; }
 }
 .lp-marquee-track img {
   display: block;
-  height: 48px;
+  height: 44px;
   width: auto;
-  max-width: 200px;
+  max-width: 180px;
+  padding: 8px 12px;
   object-fit: contain;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(8, 20, 58, .06);
 }
 @keyframes lp-marquee {
   from { transform: translateX(0); }
@@ -1159,6 +1202,7 @@ a { color: inherit; }
   aspect-ratio: 3 / 2;
   height: auto;
   object-fit: cover;
+  object-position: center;
   display: block;
   background: #e8eeff;
 }
@@ -1330,8 +1374,8 @@ a { color: inherit; }
   }
   .lp-arrow-right { display: none; }
   .lp-arrow-down { display: block; font-size: 40px; }
-  .lp-stack { height: 228px; overflow: visible; }
-  .lp-new-main { height: 285px; }
+  .lp-stack { height: 248px; overflow: visible; }
+  .lp-new-main { height: auto; max-height: 320px; }
 }
 
 @media (max-width: 820px) {
@@ -1373,7 +1417,7 @@ a { color: inherit; }
   .lp-manage-grid article { padding: 12px 12px 12px; }
   .lp-manage-grid h3 { font-size: 13.5px; }
   .lp-manage-grid p { font-size: 12.5px; }
-  .lp-new-main { height: 220px; }
+  .lp-new-main { height: auto; max-height: 260px; }
   .lp-x { font-size: 72px; }
 }
 

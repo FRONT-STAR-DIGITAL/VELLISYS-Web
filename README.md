@@ -23,7 +23,8 @@ Open the **landing page** at the site root. Companies **register** or **request 
 - Public landing page in three sections, with pictures on every card. Super admin can replace those pictures under **Landing**, and add **Clients who trust us** names and logos
 - Horizontal auto-scrolling **client reviews** on the landing page (editable under Landing)
 - Landing page on a phone stays in the screen - no sideways scroll
-- **What you get to manage** on the landing page: quotations, invoices, receipts, delivery notes, custom documents, debtors, creditors, headed letters, email, reports, automated communication, 10+ templates, branding, phones and laptops
+- **What you get to manage** on the landing page: quotations, invoices, receipts, expenses, delivery notes, custom documents, debtors, creditors, headed letters, email, 10+ templates, branding, anywhere any time
+- A navy ticker above the header: “Join 100+ businesses and corporate companies using Vellisys” and the slogan “Stop losing the books. Share them branded, in one click.”
 - Super admin **onboarding**: tick only the documents that company needs (quotations, invoices, receipts, delivery notes, headed letters, custom). Custom documents are a form with fields and/or a body, not a letter
 - Super admin **payment receipt**: after recording a paid term, send a receipt from `info@vellisys.com` with start date, expiry, currency, amount received, thanks, and a wait for onboarding credentials when the desk is not live yet
 - **Have a question** form on the landing page. Super admin sees each note under **Questions**, opens the full message on its own page, and a copy is emailed to `info@vellisys.com`. The person who sent the question also gets a confirmation from that mailbox

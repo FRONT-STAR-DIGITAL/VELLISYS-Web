@@ -6,10 +6,11 @@ $brand = branding();
 
 $shot = static function (string $file, string $alt): string {
     $rel = 'assets/img/tutorials/' . $file;
-    if (!is_file(ROOT_PATH . '/' . $rel)) {
+    $full = ROOT_PATH . '/' . $rel;
+    if (!is_file($full)) {
         return '';
     }
-    return '<figure class="tut-shot"><img src="' . h(url($rel)) . '" alt="' . h($alt) . '"></figure>';
+    return '<figure class="tut-shot"><img src="' . h(url($rel) . '?v=' . filemtime($full)) . '" alt="' . h($alt) . '" loading="lazy" decoding="async"></figure>';
 };
 
 $lessons = [
