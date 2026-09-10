@@ -2331,30 +2331,15 @@ html.is-pwa .gate-home {
   outline: none;
 }
 
+
 .lp-pricing {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
   padding: 72px 5vw 88px;
   background:
-    radial-gradient(720px 240px at 12% 0%, rgba(30, 78, 255, .14), transparent 55%),
-    radial-gradient(640px 260px at 100% 18%, rgba(8, 20, 58, .07), transparent 50%),
+    radial-gradient(720px 220px at 12% 0%, rgba(30, 78, 255, .12), transparent 55%),
+    radial-gradient(820px 260px at 100% 18%, rgba(8, 20, 58, .08), transparent 50%),
     var(--paper);
-  color: var(--ink);
   text-align: center;
 }
-.lp-pricing-mark {
-  position: absolute;
-  right: -10%;
-  bottom: -28%;
-  width: min(70%, 560px);
-  height: auto;
-  opacity: .08;
-  pointer-events: none;
-  z-index: 0;
-  object-fit: contain;
-}
-.lp-pricing > *:not(.lp-pricing-mark) { position: relative; z-index: 1; }
 .lp-pricing .lp-kicker { color: var(--blue); }
 .lp-pricing h2 {
   margin: 6px 0 10px;
@@ -2369,77 +2354,61 @@ html.is-pwa .gate-home {
   font-size: 16px;
   line-height: 1.55;
 }
-.lp-pricing-lead strong { color: var(--navy); }
 .lp-pricing-clock {
-  display: inline-flex;
-  flex-wrap: wrap;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 4px 18px;
-  margin: 0 auto 32px;
-  padding: 8px 10px 8px 18px;
-  max-width: 100%;
-  background: #fff;
-  border: 1px solid rgba(8, 20, 58, .1);
-  border-radius: 999px;
-  box-shadow: 0 10px 24px rgba(8, 20, 58, .06);
+  gap: 12px;
+  margin: 0 auto 40px;
+  max-width: 520px;
 }
 .lp-clock-label {
   margin: 0;
   color: var(--navy);
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: .1em;
+  letter-spacing: .08em;
   text-transform: uppercase;
 }
 .lp-clock-units {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   justify-content: center;
-  gap: 0;
+  gap: 10px;
 }
 .lp-clock-unit {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 58px;
-  padding: 4px 14px;
-  border-right: 1px solid #e8ecf4;
-  background: transparent;
-  color: var(--navy);
-  box-shadow: none;
+  min-width: 76px;
+  padding: 12px 14px 10px;
+  border-radius: 16px;
+  background: var(--navy);
+  color: #fff;
+  box-shadow: 0 12px 24px rgba(8, 20, 58, .16);
 }
-.lp-clock-unit:last-child { border-right: 0; }
 .lp-clock-unit b {
   font-variant-numeric: tabular-nums;
-  font-size: 22px;
+  font-size: 28px;
   line-height: 1;
   letter-spacing: -.03em;
-  color: var(--blue);
 }
 .lp-clock-unit small {
-  margin-top: 4px;
-  font-size: 10px;
+  margin-top: 6px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: .08em;
   text-transform: uppercase;
-  color: var(--muted);
-}
-.lp-price-board {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
-  border: 0;
-  box-shadow: none;
+  color: rgba(255, 255, 255, .72);
 }
 .lp-price-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: 22px;
   align-items: stretch;
+  max-width: 1120px;
+  margin: 0 auto;
   text-align: left;
 }
 .lp-price-card {
@@ -2448,137 +2417,92 @@ html.is-pwa .gate-home {
   flex-direction: column;
   min-width: 0;
   background: #fff;
-  border: 1px solid rgba(8, 20, 58, .1);
-  border-radius: 22px;
+  border-radius: 24px;
   overflow: hidden;
-  box-shadow: 0 16px 36px rgba(8, 20, 58, .08);
-}
-.lp-price-card::before {
-  content: "";
-  display: block;
-  height: 5px;
-  background: var(--navy);
+  box-shadow: 0 18px 40px rgba(8, 20, 58, .1);
 }
 .lp-price-head {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
   position: relative;
-  padding: 16px 20px 14px;
-  background: #fff;
-  color: var(--navy);
-}
-.lp-price-id {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  flex: 1 1 auto;
-}
-.lp-price-v {
-  display: block;
-  width: 36px;
-  height: 36px;
-  margin: 0;
-  border-radius: 9px;
-  object-fit: cover;
-  flex: 0 0 36px;
-}
-.lp-price-titles {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 8px 10px;
-  min-width: 0;
+  padding: 28px 26px 22px;
+  background: var(--navy);
+  color: #fff;
 }
 .lp-price-card.is-popular {
-  border-color: var(--blue);
-  background: #fff;
-  box-shadow: 0 20px 44px rgba(30, 78, 255, .16);
-  z-index: 1;
+  transform: translateY(-14px);
+  box-shadow: 0 32px 56px rgba(30, 78, 255, .22);
 }
-.lp-price-card.is-popular::before {
-  background: var(--blue);
+.lp-price-ribbon {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  margin: 0;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
 }
 .lp-price-card.is-popular .lp-price-head {
-  padding-top: 18px;
-  background: #f7f9ff;
+  background: linear-gradient(160deg, #1e4eff 0%, #1639c9 100%);
+  padding-top: 48px;
 }
-.lp-price-ribbon { display: none; }
 .lp-price-kicker {
-  margin: 0;
-  color: var(--blue);
+  margin: 0 0 8px;
+  color: rgba(255, 255, 255, .72);
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: .08em;
+  letter-spacing: .1em;
   text-transform: uppercase;
-  white-space: nowrap;
 }
 .lp-price-head h3 {
-  margin: 0;
-  font-size: 26px;
-  letter-spacing: -.04em;
-  color: var(--navy);
-  line-height: 1.1;
+  margin: 0 0 8px;
+  font-size: 32px;
+  letter-spacing: -.03em;
+  color: #fff;
 }
-.lp-price-card.is-popular .lp-price-head h3 { color: var(--navy); }
 .lp-price-seats {
-  margin: 0 0 0 48px;
+  margin: 0;
   display: inline-flex;
-  align-items: baseline;
-  flex: 0 0 auto;
-  gap: 6px;
   padding: 4px 10px;
   border-radius: 999px;
-  background: var(--paper);
-  color: var(--navy);
+  background: rgba(255, 255, 255, .14);
+  color: #fff;
   font-size: 12.5px;
   font-weight: 700;
-}
-.lp-price-card.is-popular .lp-price-seats {
-  background: rgba(30, 78, 255, .12);
-  color: var(--blue);
-}
-.lp-price-seats b {
-  font-size: 15px;
-  letter-spacing: -.03em;
 }
 .lp-price-body {
   display: flex;
   flex-direction: column;
   flex: 1;
-  padding: 8px 22px 22px;
+  padding: 22px 26px 26px;
   background: #fff;
 }
 .lp-price-card.is-popular .lp-price-body {
-  background: #fff;
+  background: #f7f9ff;
+}
+.lp-price-was {
+  margin: 0 0 4px;
+  color: #667089;
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
 }
 .lp-price-now {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 8px 10px;
+  gap: 8px;
   margin: 0 0 12px;
-  padding-top: 4px;
-  border-top: 0;
   color: var(--navy);
-}
-.lp-price-was,
-.lp-price-now s {
-  margin: 0;
-  color: #8a93a8;
-  font-size: 14px;
-  font-weight: 600;
-  text-decoration: line-through;
-  text-decoration-thickness: 1.5px;
 }
 .lp-price-now strong {
-  font-size: clamp(24px, 2.4vw, 34px);
+  font-size: clamp(26px, 2.6vw, 36px);
   letter-spacing: -.04em;
   line-height: 1.05;
-  width: 100%;
-  color: var(--navy);
 }
 .lp-price-now span {
   color: var(--muted);
@@ -2601,7 +2525,7 @@ html.is-pwa .gate-home {
   position: relative;
   padding: 8px 0 8px 22px;
   color: var(--ink);
-  font-size: 13.5px;
+  font-size: 14px;
   line-height: 1.45;
   border-top: 1px solid #eef1f6;
 }
@@ -2625,7 +2549,7 @@ html.is-pwa .gate-home {
   box-shadow: 0 10px 22px rgba(30, 78, 255, .28);
 }
 .lp-pricing-register {
-  margin: 28px auto 0;
+  margin: 36px auto 0;
   max-width: 640px;
   color: var(--muted);
   font-size: 14.5px;
@@ -2869,8 +2793,7 @@ html.is-pwa .gate-home {
 body.is-paying .lp-floats { display: none; }
 
 @media (max-width: 980px) {
-  .lp-price-board { padding: 0; }
-  .lp-price-grid { grid-template-columns: 1fr; max-width: 440px; margin: 0 auto; }
+  .lp-price-grid { grid-template-columns: 1fr; max-width: 420px; margin: 0 auto; }
   .lp-price-card.is-popular { transform: none; }
   .lp-checkout,
   .lp-checkout.is-pay { grid-template-columns: 1fr; padding-top: 28px; }
@@ -2882,19 +2805,12 @@ body.is-paying .lp-floats { display: none; }
   .lp-pricing { padding-top: 48px; padding-bottom: 56px; text-align: left; }
   .lp-pricing h2,
   .lp-pricing-lead,
+  .lp-pricing-clock,
   .lp-pricing-register { text-align: center; }
-  .lp-pricing-clock {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    max-width: 420px;
-    border-radius: 20px;
-    padding: 12px 12px 10px;
-  }
   .lp-price-grid {
     grid-template-columns: 1fr;
     max-width: 100%;
-    gap: 12px;
+    gap: 16px;
   }
   .lp-price-card { border-radius: 20px; }
   .lp-price-head h3 { font-size: 26px; }
@@ -2902,16 +2818,11 @@ body.is-paying .lp-floats { display: none; }
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     width: 100%;
-    gap: 0;
+    max-width: 420px;
+    gap: 8px;
   }
-  .lp-clock-unit {
-    min-width: 0;
-    width: 100%;
-    padding: 8px 4px;
-    border-right: 1px solid #e8ecf4;
-  }
-  .lp-clock-unit:nth-child(4n) { border-right: 0; }
-  .lp-clock-unit b { font-size: 20px; }
+  .lp-clock-unit { min-width: 0; width: 100%; padding: 10px 6px 8px; }
+  .lp-clock-unit b { font-size: 22px; }
   .lp-pay-frame { min-height: 820px; height: 85vh; }
 }
 
