@@ -20,11 +20,11 @@ function vellisys_email_wrap(string $innerHtml, string $kicker = 'Vellisys'): st
         . '<tr><td align="center" style="padding:28px 12px;">'
         . '<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background:' . $white . ';border:1px solid ' . $navy . ';">'
         . '<tr><td style="height:8px;line-height:8px;font-size:0;background:' . $blue . ';">&nbsp;</td></tr>'
-        . '<tr><td style="padding:24px 32px 18px;background:' . $white . ';">'
-        . '<img src="cid:vellisys-logo" alt="Vellisys" width="176" style="display:block;border:0;outline:none;text-decoration:none;height:auto;max-width:176px;background:' . $white . ';">'
+        . '<tr><td align="center" style="padding:24px 32px 18px;background:' . $white . ';text-align:center;">'
+        . '<img src="cid:vellisys-logo" alt="Vellisys" width="176" style="display:inline-block;margin:0 auto;border:0;outline:none;text-decoration:none;height:auto;max-width:176px;background:' . $white . ';">'
         . '</td></tr>'
-        . '<tr><td style="background:' . $navy . ';padding:13px 32px;">'
-        . '<p style="margin:0;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:' . $white . ';font-weight:700;">' . h($kicker) . '</p>'
+        . '<tr><td align="center" style="background:' . $navy . ';padding:13px 32px;text-align:center;">'
+        . '<p style="margin:0;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:' . $white . ';font-weight:700;text-align:center;">' . h($kicker) . '</p>'
         . '</td></tr>'
         . '<tr><td style="padding:28px 32px 16px;background:' . $white . ';color:' . $black . ';font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:15px;line-height:1.65;">'
         . $innerHtml
@@ -62,8 +62,8 @@ function branded_company_wrap(array $brand, string $innerHtml, string $kicker = 
     $path = (string) ($brand['logo_path'] ?? '');
     $fullLogo = $path !== '' ? ROOT_PATH . '/' . ltrim($path, '/') : '';
     $logoHtml = ($fullLogo !== '' && is_file($fullLogo))
-        ? '<img src="cid:company-logo" alt="' . h($name) . '" width="160" style="display:block;border:0;outline:none;max-height:56px;width:auto;background:' . $white . ';">'
-        : '<p style="margin:0;font-size:20px;font-weight:700;color:' . $navy . '">' . h($name) . '</p>';
+        ? '<img src="cid:company-logo" alt="' . h($name) . '" width="160" style="display:inline-block;margin:0 auto;border:0;outline:none;max-height:56px;width:auto;background:' . $white . ';">'
+        : '<p style="margin:0;font-size:20px;font-weight:700;color:' . $navy . ';text-align:center;">' . h($name) . '</p>';
     $phone = trim((string) ($brand['phone'] ?? ''));
     $email = trim((string) ($brand['email'] ?? ''));
     $foot = '<p style="margin:0;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:13px;line-height:1.7;color:' . $white . ';">' . h($name);
@@ -81,9 +81,9 @@ function branded_company_wrap(array $brand, string $innerHtml, string $kicker = 
         . '<tr><td align="center" style="padding:28px 12px;">'
         . '<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background:' . $white . ';border:1px solid ' . $navy . ';">'
         . '<tr><td style="height:8px;line-height:8px;font-size:0;background:' . $blue . ';">&nbsp;</td></tr>'
-        . '<tr><td style="padding:24px 32px 18px;background:' . $white . ';">' . $logoHtml . '</td></tr>'
-        . '<tr><td style="background:' . $navy . ';padding:13px 32px;">'
-        . '<p style="margin:0;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:' . $white . ';font-weight:700;">' . h($kicker) . '</p>'
+        . '<tr><td align="center" style="padding:24px 32px 18px;background:' . $white . ';text-align:center;">' . $logoHtml . '</td></tr>'
+        . '<tr><td align="center" style="background:' . $navy . ';padding:13px 32px;text-align:center;">'
+        . '<p style="margin:0;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:' . $white . ';font-weight:700;text-align:center;">' . h($kicker) . '</p>'
         . '</td></tr>'
         . '<tr><td style="padding:28px 32px 16px;background:' . $white . ';color:' . $black . ';font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:15px;line-height:1.65;">'
         . $innerHtml
