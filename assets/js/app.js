@@ -423,7 +423,7 @@ document.querySelectorAll('[data-add-template]').forEach(function (btn) {
   var root = document.querySelector('[data-clock]');
   if (!root) return;
   var dateEl = root.querySelector('[data-clock-date]');
-  var timeEl = root.querySelector('[data-clock-time]');
+  if (!dateEl) return;
   function partsOf(now) {
     try {
       var fmt = new Intl.DateTimeFormat('en-GB', {
@@ -431,34 +431,21 @@ document.querySelectorAll('[data-add-template]').forEach(function (btn) {
         weekday: 'short',
         day: 'numeric',
         month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false
+        year: 'numeric'
       });
       var map = {};
       fmt.formatToParts(now).forEach(function (p) { map[p.type] = p.value; });
-      return {
-        date: [map.weekday, map.day, map.month, map.year].filter(Boolean).join(' '),
-        time: [map.hour, map.minute, map.second].join(':')
-      };
+      return [map.weekday, map.day, map.month, map.year].filter(Boolean).join(' ');
     } catch (err) {
       return null;
     }
   }
   function tick() {
-    var now = new Date();
-    var p = partsOf(now);
-    if (!p) return;
-    if (dateEl) dateEl.textContent = p.date;
-    if (timeEl) {
-      timeEl.textContent = p.time;
-      if (timeEl.tagName === 'TIME') timeEl.setAttribute('datetime', now.toISOString());
-    }
+    var p = partsOf(new Date());
+    if (p) dateEl.textContent = p;
   }
   tick();
-  setInterval(tick, 1000);
+  setInterval(tick, 60000);
 })();
 
 document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
