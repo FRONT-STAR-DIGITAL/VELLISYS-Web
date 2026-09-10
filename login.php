@@ -68,5 +68,7 @@ $adminPass = platform_admin_password();
   </main>
 </div>
 <script src="<?= h(asset('js/app.js')) ?>"></script>
+<?php public_float_widgets(); ?>
+<script src="<?= h(asset('js/landing.js')) ?>"></script>
 </body>
 </html>

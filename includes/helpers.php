@@ -740,7 +740,20 @@ function product_email(): string
 
 function product_phones(): array
 {
-    return ['+256 779 971 024', '+256 756 524 451'];
+    return array_column(product_agents(), 'phone');
+}
+
+function product_agents(): array
+{
+    return [
+        ['name' => 'Agent 1', 'phone' => '+256 779 971 024'],
+        ['name' => 'Agent 2', 'phone' => '+256 756 524 451'],
+    ];
+}
+
+function phone_digits(string $phone): string
+{
+    return preg_replace('/\D+/', '', $phone) ?? '';
 }
 
 function product_maker_name(): string
@@ -927,7 +940,6 @@ function public_header(string $page = 'home'): void
 
 function public_footer(): void
 {
-    $phones = product_phones();
     ?>
   <footer class="lp-foot">
     <div class="lp-foot-grid">
@@ -938,8 +950,9 @@ function public_footer(): void
       <div>
         <h3>Talk to us</h3>
         <p class="lp-foot-line"><?= icon('letter', 18) ?><a href="mailto:<?= h(product_email()) ?>"><?= h(product_email()) ?></a></p>
-        <p class="lp-foot-line"><?= icon('phone', 18) ?><a href="tel:+256779971024"><?= h($phones[0]) ?></a></p>
-        <p class="lp-foot-line"><?= icon('phone', 18) ?><a href="tel:+256756524451"><?= h($phones[1]) ?></a></p>
+        <?php foreach (product_agents() as $agent): ?>
+          <p class="lp-foot-line"><?= icon('whatsapp', 18) ?><a href="tel:+<?= h(phone_digits($agent['phone'])) ?>"><strong><?= h($agent['name']) ?></strong> <?= h($agent['phone']) ?></a></p>
+        <?php endforeach; ?>
         <p class="lp-foot-line"><?= icon('help', 18) ?><a href="<?= h(url()) ?>#ask">Have a question</a></p>
       </div>
       <div>
@@ -950,6 +963,62 @@ function public_footer(): void
     </div>
     <p class="lp-copy">© <?= h((string) date('Y')) ?> <?= h(product_name()) ?>. All rights reserved.</p>
   </footer>
+  <?php public_float_widgets(); ?>
+    <?php
+}
+
+function public_float_widgets(): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    $agents = product_agents();
+    $waMark = '<svg class="icon" width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>';
+    ?>
+  <div class="lp-floats" data-lp-floats>
+    <button type="button" class="lp-top" data-lp-top hidden><?= icon('chevron-up', 22) ?><span>Top</span></button>
+    <div class="lp-wa" data-lp-wa>
+      <div class="lp-wa-panel" id="lp-wa-panel" hidden>
+        <div class="lp-wa-head">
+          <div>
+            <strong>WhatsApp an agent</strong>
+            <p>Pick Agent 1 or Agent 2. Chat stays on this page.</p>
+          </div>
+          <button type="button" class="lp-wa-x" data-lp-wa-close aria-label="Close WhatsApp"><?= icon('x', 18) ?></button>
+        </div>
+        <div class="lp-wa-home" data-lp-wa-home>
+          <?php foreach ($agents as $agent): ?>
+            <button type="button" class="lp-wa-agent" data-lp-agent data-name="<?= h($agent['name']) ?>" data-phone="<?= h(phone_digits($agent['phone'])) ?>">
+              <span class="lp-wa-ava"><?= h(preg_replace('/\D+/', '', $agent['name']) ?: 'A') ?></span>
+              <span>
+                <b><?= h($agent['name']) ?></b>
+                <em><?= h($agent['phone']) ?></em>
+              </span>
+            </button>
+          <?php endforeach; ?>
+        </div>
+        <form class="lp-wa-compose" data-lp-wa-compose hidden>
+          <p>To <strong data-lp-agent-label>Agent</strong></p>
+          <label for="lp-wa-text">Message
+            <textarea id="lp-wa-text" data-lp-wa-text rows="4" maxlength="1000">Hello, I have a question about a Vellisys desk.</textarea>
+          </label>
+          <button class="lp-wa-send" type="submit"><?= icon('whatsapp', 16) ?>Open chat here</button>
+          <button class="lp-wa-back" type="button" data-lp-wa-back>All agents</button>
+        </form>
+      </div>
+      <button type="button" class="lp-wa-fab" data-lp-wa-toggle aria-expanded="false" aria-controls="lp-wa-panel" aria-label="WhatsApp an agent"><?= $waMark ?></button>
+    </div>
+  </div>
+  <div class="lp-wa-dock" data-lp-wa-dock hidden>
+    <header>
+      <strong data-lp-wa-dock-title>WhatsApp</strong>
+      <button type="button" class="lp-wa-x" data-lp-wa-dock-close aria-label="Close chat"><?= icon('x', 18) ?></button>
+    </header>
+    <iframe data-lp-wa-frame title="WhatsApp chat" referrerpolicy="no-referrer"></iframe>
+    <p class="lp-wa-note">If the chat stays blank, WhatsApp blocked the panel. Use <button type="button" class="lp-wa-win" data-lp-wa-window>Open WhatsApp in a window</button> - this page stays open.</p>
+  </div>
     <?php
 }
 

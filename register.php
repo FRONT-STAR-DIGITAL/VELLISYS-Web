@@ -81,5 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php endif; ?>
   </main>
 </div>
+<?php public_float_widgets(); ?>
+<script src="<?= h(asset('js/landing.js')) ?>"></script>
 </body>
 </html>
