@@ -291,15 +291,16 @@ $lessons = [
     ],
     [
         'id' => 'install',
-        'icon' => 'image',
+        'icon' => 'download',
         'title' => 'Install the app',
         'file' => 'install.png',
-        'alt' => 'Sign-in page with install the Vellisys app',
-        'lead' => 'Put Vellisys on the phone or computer from the sign-in page. The installed app opens on login, not the public website.',
+        'alt' => 'Current Vellisys sign-in page, where you install the app on a phone or a computer',
+        'lead' => 'Put Vellisys on a phone or a computer from the Sign in page. The installed app opens on login, not the public website.',
         'points' => [
-            'On the login page, use Install the Vellisys app when the browser offers it.',
-            'On iPhone, share the page and choose Add to Home Screen. The icon opens straight on sign-in.',
-            'The public landing page stays on the website. Books stay behind the login.',
+            'Open Sign in in the browser and stay on that page while you install. The app should start there. The public landing page stays on the website. Books stay behind the login.',
+            'On a computer in Chrome or Edge, use the install icon in the address bar, or Install app in the browser menu. On a Mac in Safari: File, then Add to Dock.',
+            'On Android, use Install app or Add to Home screen in the browser menu. On iPhone or iPad, open Sign in in Safari, tap Share, then Add to Home Screen.',
+            'Tap the new Vellisys icon. You land on Sign in. From there you open the desk the same way as in the browser.',
         ],
     ],
 ];
