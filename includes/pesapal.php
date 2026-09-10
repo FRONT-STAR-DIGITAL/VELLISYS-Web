@@ -10,6 +10,16 @@ function pesapal_config(): array
     return $cfg;
 }
 
+/** Payment methods Pesapal presents on the hosted checkout. */
+function pesapal_payment_methods(): array
+{
+    return [
+        ['group' => 'Mobile money', 'items' => ['M-Pesa', 'Airtel Money', 'MTN Mobile Money', 'Tigo Pesa', 'Equitel']],
+        ['group' => 'Cards', 'items' => ['Visa', 'Mastercard', 'American Express']],
+        ['group' => 'Bank and wallet', 'items' => ['Bank transfer', 'Pesapal e-wallet']],
+    ];
+}
+
 function pesapal_request(string $method, string $path, ?array $body = null, string $token = ''): array
 {
     $cfg = pesapal_config();

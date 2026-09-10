@@ -745,31 +745,31 @@ img { max-width: 100%; }
 }
 .lp-world-lead {
   margin: 0 auto 32px;
-  max-width: 38em;
+  max-width: 40em;
   font-size: 17px;
   line-height: 1.55;
   color: #fff;
 }
-.lp-world-steps {
+.lp-pay-flow {
   list-style: none;
-  margin: 0 auto 32px;
+  margin: 0 auto 36px;
   padding: 0;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 14px 28px;
-  max-width: 720px;
+  gap: 12px 22px;
+  max-width: 860px;
 }
-.lp-world-steps li {
+.lp-pay-flow li {
   display: flex;
   align-items: center;
   gap: 10px;
   font-weight: 700;
   letter-spacing: .04em;
   text-transform: uppercase;
-  font-size: 13px;
+  font-size: 12.5px;
 }
-.lp-world-steps b {
+.lp-pay-flow b {
   display: grid;
   place-items: center;
   width: 36px;
@@ -778,6 +778,74 @@ img { max-width: 100%; }
   background: #1e4eff;
   color: #fff;
   font-size: 15px;
+  flex-shrink: 0;
+}
+.lp-pay-board {
+  display: grid;
+  grid-template-columns: 1.15fr .85fr;
+  gap: 22px;
+  max-width: 980px;
+  margin: 0 auto 36px;
+  text-align: left;
+}
+.lp-pay-col {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 18px;
+  padding: 22px 22px 18px;
+}
+.lp-pay-col h3 {
+  margin: 0 0 12px;
+  font-size: 15px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #8eb0ff;
+}
+.lp-pay-group {
+  margin: 14px 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #fff;
+}
+.lp-pay-group:first-of-type { margin-top: 0; }
+.lp-pay-note {
+  margin: 0 0 14px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #fff;
+}
+.lp-pay-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.lp-pay-chips li {
+  background: #fff;
+  color: #08143a;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.lp-pay-ccy li {
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.35);
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-weight: 600;
+}
+.lp-pay-ccy strong {
+  display: block;
+  font-size: 14px;
+  letter-spacing: .04em;
+  color: #8eb0ff;
 }
 .lp-world .lp-cta { justify-content: center; }
 .lp-world .lp-btn-ghost {
@@ -1445,6 +1513,7 @@ img { max-width: 100%; }
   .lp-band, .lp-compare { padding-top: 48px; padding-bottom: 52px; }
   .lp-grid3, .lp-path-steps, .lp-foot-grid { grid-template-columns: 1fr; }
   .lp-manage-grid { grid-template-columns: 1fr 1fr; }
+  .lp-pay-board { grid-template-columns: 1fr; text-align: left; }
   .lp-path-steps::before { display: none; }
   .lp-steps { grid-template-columns: 1fr; }
   .lp-btn-lg { min-width: 0; width: 100%; }

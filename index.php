@@ -272,18 +272,41 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
     </section>
     <?php endif; ?>
 
-    <section class="lp-world" id="anywhere" data-reveal>
-      <p class="lp-kicker">Worldwide</p>
-      <h2>Anywhere you are in the world</h2>
-      <p class="lp-world-lead">Register, request a quote, and get onboarded. Bill in UGX, KES, EUR, USD or the currency your company actually uses. The desk is yours on any device. The best books software companies pick in East Africa, across Africa and worldwide.</p>
-      <ol class="lp-world-steps">
-        <li><b>1</b><span>Register</span></li>
-        <li><b>2</b><span>Request a quote</span></li>
-        <li><b>3</b><span>Get onboarded</span></li>
+    <section class="lp-world lp-pay" id="pay" data-reveal>
+      <p class="lp-kicker">Pay on Pesapal</p>
+      <h2>Pick a package. Pay the way you already pay.</h2>
+      <p class="lp-world-lead">Choose Quill, Ledger or Crest, enter the company, then Pesapal opens a secure page. Pay with mobile money, a card, a bank or a Pesapal wallet - in the currency you selected. We onboard the desk after the payment lands.</p>
+      <ol class="lp-pay-flow">
+        <li><b>1</b><span>Choose a package</span></li>
+        <li><b>2</b><span>Enter company details</span></li>
+        <li><b>3</b><span>Pay on Pesapal</span></li>
+        <li><b>4</b><span>We onboard the desk</span></li>
       </ol>
+      <div class="lp-pay-board">
+        <div class="lp-pay-col">
+          <h3>Pesapal methods</h3>
+          <?php foreach (pesapal_payment_methods() as $group): ?>
+            <p class="lp-pay-group"><?= h($group['group']) ?></p>
+            <ul class="lp-pay-chips">
+              <?php foreach ($group['items'] as $method): ?>
+                <li><?= h($method) ?></li>
+              <?php endforeach; ?>
+            </ul>
+          <?php endforeach; ?>
+        </div>
+        <div class="lp-pay-col">
+          <h3>Pay in any currency</h3>
+          <p class="lp-pay-note">Packages on this page are shown and charged in the currency you pick. The company desk can bill clients in any three-letter currency you set in Settings.</p>
+          <ul class="lp-pay-chips lp-pay-ccy">
+            <?php foreach (pricing_currencies() as $code => $meta): ?>
+              <li><strong><?= h($code) ?></strong> <?= h($meta['name']) ?></li>
+            <?php endforeach; ?>
+          </ul>
+        </div>
+      </div>
       <div class="lp-cta lp-cta-band">
-        <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('register.php')) ?>">Register</a>
-        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('quote.php')) ?>">Request a quote</a>
+        <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url()) ?>#pricing">See packages</a>
+        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('register.php')) ?>">Register without paying</a>
       </div>
     </section>
 
