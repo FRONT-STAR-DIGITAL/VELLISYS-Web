@@ -49,6 +49,8 @@ function icon(string $name, int $size = 18): string
         'trash' => '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>',
         'chevron-up' => '<path d="m18 15-6-6-6 6"/>',
         'x' => '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+        'arrow-right' => '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+        'mail' => '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
     ];
     $aliases = ['delivery' => 'truck', 'custom' => 'file'];
     $name = $aliases[$name] ?? $name;

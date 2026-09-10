@@ -35,10 +35,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="gate-shell">
   <?php gate_art(
       'A desk for the company. Live from anywhere.',
-      'Anywhere in the world: register, request a quote, get onboarded. Then quotations, invoices and receipts sit on one desk you can open from anywhere.',
-      'Already a member? <a href="' . h(url('login.php')) . '">Log in</a>'
+      'Register, get onboarded, then quotations, invoices and receipts sit on one desk you can open from anywhere.',
+      '',
+      [
+          'kicker' => 'Documents simplified',
+          'heading_html' => 'A desk for the company.<br><em>Live from anywhere.</em>',
+          'tag' => 'Simple tools. Real progress.',
+      ]
   ); ?>
   <main class="gate-panel">
+    <img class="gate-panel-mark" src="<?= h(product_v_mark_url()) ?>" alt="" decoding="async">
+    <div class="gate-stack">
     <?php if ($ok): ?>
       <div class="gate-box gate-ok">
         <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
@@ -50,8 +57,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <form class="gate-box" method="post" action="<?= h(url('register.php')) ?>" autocomplete="off">
         <?= csrf_field() ?>
         <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
-        <h2><em>Sign up</em> - we contact you to onboard</h2>
-        <p class="gate-lead">Four fields. This form does not take payment. A Vellisys admin will contact you to onboard the company. You get a password when the desk goes live. To pay now, <a href="<?= h(url()) ?>#pricing">pick a package</a>. Or <a href="<?= h(url('quote.php')) ?>">request a quote</a>.</p>
+        <h2>Create your account</h2>
+        <p class="gate-lead">Four fields. This form does not take payment. A Vellisys admin will contact you to onboard the company. You get a password when the desk goes live.</p>
         <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
         <label class="gate-field" for="contact_name">Your name
           <input id="contact_name" name="contact_name" required autocomplete="name" value="<?= h(post('contact_name')) ?>" placeholder="Jane Okello">
@@ -65,11 +72,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <label class="gate-field" for="contact_phone">Phone
           <input id="contact_phone" name="contact_phone" type="tel" required autocomplete="tel" value="<?= h(post('contact_phone')) ?>" placeholder="+254 700 000 000">
         </label>
-        <button class="gate-submit" type="submit">Register</button>
-        <p class="gate-switch">Already a member? <a href="<?= h(url('login.php')) ?>">Log in</a></p>
-        <p class="gate-home"><a href="<?= h(url()) ?>">Back to <?= h(product_name()) ?></a></p>
+        <button class="gate-submit" type="submit">Create Account <?= icon('arrow-right', 18) ?></button>
+        <p class="gate-or"><span>or</span></p>
+        <a class="gate-alt" href="<?= h(url('login.php')) ?>">Sign In</a>
+        <?php render_gate_legal(); ?>
       </form>
     <?php endif; ?>
+    </div>
   </main>
 </div>
 <?php public_float_widgets(); ?>

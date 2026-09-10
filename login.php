@@ -7,8 +7,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' && ($user = current_user())) {
 }
 
 $error = '';
+$remember = true;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $remember = post('remember') === '1';
     if (attempt_login(post('email'), post('password'))) {
+        remember_login($remember);
         $user = current_user();
         redirect(($user['role'] ?? '') === 'platform' ? 'admin_signups.php' : 'dashboard.php');
     }
@@ -31,30 +34,47 @@ $showDemoKeys = !folio_is_live_host();
 <body class="gate">
 <div class="gate-shell">
   <?php gate_art(
-      'Your books. One click from the client.',
-      'Quotations, invoices, receipts and reports on one desk. Share a record, or open the books from anywhere.',
-      'Don\'t have an account? <a href="' . h(url('register.php')) . '">Register now</a>'
+      'Manage your business documents in one place.',
+      'Store, organize, and access your important documents securely - so you can focus on what moves your business forward.',
+      '',
+      [
+          'kicker' => 'Documents simplified',
+          'heading_html' => 'Manage your<br>business documents<br><em>in one place.</em>',
+          'tag' => 'Simple tools. Real progress.',
+      ]
   ); ?>
   <main class="gate-panel">
+    <img class="gate-panel-mark" src="<?= h(product_v_mark_url()) ?>" alt="" decoding="async">
     <div class="gate-stack">
     <form class="gate-box" method="post" action="<?= h(url('login.php')) ?>">
       <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
-      <h2><em>Log in</em> to your desk to continue</h2>
-      <p class="gate-lead">Use the mailbox issued when Vellisys onboarded your company.</p>
+      <h2>Welcome back</h2>
+      <p class="gate-lead">Sign in to your account to continue</p>
       <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
-      <label class="gate-field" for="email">Email
-        <input id="email" name="email" type="email" required value="<?= h(post('email')) ?>" autocomplete="username" placeholder="accounts@company.ug">
-      </label>
-      <label class="gate-field" for="password">Password
-        <span class="gate-pw">
-          <input id="password" name="password" type="password" required autocomplete="current-password" placeholder="Password">
-          <button class="pw-toggle" type="button" data-toggle-password aria-label="Show password" title="Show password">
-            <span data-eye><?= icon('eye', 16) ?></span>
-            <span data-eye-off hidden><?= icon('eye-off', 16) ?></span>
-          </button>
-        </span>
-      </label>
-      <button class="gate-submit" type="submit">Sign in</button>
+      <label class="gate-field" for="email">Email</label>
+      <div class="gate-control">
+        <?= icon('mail', 18) ?>
+        <input id="email" name="email" type="email" required value="<?= h(post('email')) ?>" autocomplete="username" placeholder="you@company.com">
+      </div>
+      <label class="gate-field" for="password">Password</label>
+      <div class="gate-control gate-pw">
+        <?= icon('lock', 18) ?>
+        <input id="password" name="password" type="password" required autocomplete="current-password" placeholder="Enter your password">
+        <button class="pw-toggle" type="button" data-toggle-password aria-label="Show password" title="Show password">
+          <span data-eye><?= icon('eye', 16) ?></span>
+          <span data-eye-off hidden><?= icon('eye-off', 16) ?></span>
+        </button>
+      </div>
+      <div class="gate-row">
+        <label class="gate-check">
+          <input type="checkbox" name="remember" value="1" <?= $remember ? 'checked' : '' ?>>
+          Remember me
+        </label>
+        <a class="gate-forgot" href="<?= h(url('forgot.php')) ?>">Forgot password?</a>
+      </div>
+      <button class="gate-submit" type="submit">Sign In <?= icon('arrow-right', 18) ?></button>
+      <p class="gate-or"><span>or</span></p>
+      <a class="gate-alt" href="<?= h(url('register.php')) ?>">Create Account</a>
       <?php if ($showDemoKeys): ?>
       <details class="gate-keys">
         <summary>Try a desk</summary>
@@ -68,12 +88,12 @@ $showDemoKeys = !folio_is_live_host();
         <button type="button" class="lp-btn lp-btn-ghost" data-fill-login data-fill-email="accounts@ofagros.org" data-fill-password="folio2026">Use demo desk</button>
       </details>
       <?php endif; ?>
-      <p class="gate-switch">Don't have an account? <a href="<?= h(url('register.php')) ?>">Register now</a></p>
-      <p class="gate-home"><a href="<?= h(url()) ?>">Back to <?= h(product_name()) ?></a></p>
+      <?php render_gate_legal(); ?>
     </form>
+    </div>
 
-    <section class="gate-install" data-pwa-install>
-      <p class="gate-install-kicker">Install the app</p>
+    <details class="gate-install" data-pwa-install>
+      <summary class="gate-install-kicker">Install the app</summary>
       <h3>Put Vellisys on your phone or computer</h3>
       <p>The installed app opens on this sign-in page. The public website still starts on the landing page.</p>
       <button class="gate-submit gate-install-btn" type="button" data-pwa-install-btn>Install the Vellisys app</button>
@@ -94,8 +114,7 @@ $showDemoKeys = !folio_is_live_host();
         </ol>
         <p>On a Mac in Safari: File, then Add to Dock.</p>
       </div>
-    </section>
-    </div>
+    </details>
   </main>
 </div>
 <script src="<?= h(asset('js/app.js')) ?>" defer></script>

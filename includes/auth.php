@@ -166,3 +166,17 @@ function attempt_login(string $email, string $password): bool
     $_SESSION['role'] = $user['role'] ?? 'member';
     return true;
 }
+
+function remember_login(bool $remember): void
+{
+    $lifetime = $remember ? 60 * 60 * 24 * 30 : 0;
+    $_SESSION['remember'] = $remember ? 1 : 0;
+    $params = session_get_cookie_params();
+    setcookie(session_name(), session_id(), [
+        'expires' => $lifetime > 0 ? time() + $lifetime : 0,
+        'path' => $params['path'] ?: '/',
+        'secure' => folio_request_is_https(),
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+}

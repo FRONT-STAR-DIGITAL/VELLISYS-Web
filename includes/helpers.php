@@ -1750,26 +1750,47 @@ function maybe_unlink_upload(string $rel): void
     }
 }
 
-function gate_art(string $heading, string $lead, string $switchHtml): void
+function product_v_mark_url(): string
+{
+    $full = ROOT_PATH . '/assets/img/v-mark.png';
+    if (is_file($full)) {
+        return asset('img/v-mark.png');
+    }
+    return product_mark_url();
+}
+
+function render_gate_legal(): void
 {
     ?>
+    <div class="gate-legal">
+      <nav>
+        <a href="<?= h(url('privacy.php')) ?>">Privacy</a>
+        <a href="<?= h(url('terms.php')) ?>">Terms</a>
+        <a href="<?= h(url()) ?>#ask">Support</a>
+      </nav>
+      <p>© <?= h((string) date('Y')) ?> <?= h(product_name()) ?>. All rights reserved.</p>
+    </div>
+    <?php
+}
+
+function gate_art(string $heading, string $lead, string $switchHtml = '', array $opts = []): void
+{
+    $kicker = array_key_exists('kicker', $opts) ? (string) $opts['kicker'] : 'Documents simplified';
+    $tag = array_key_exists('tag', $opts) ? (string) $opts['tag'] : 'Simple tools. Real progress.';
+    $headingHtml = $opts['heading_html'] ?? null;
+    ?>
     <aside class="gate-art">
-      <img class="gate-watermark" src="<?= h(asset(is_file(ROOT_PATH . '/assets/img/landing/nw-sm.webp') ? 'img/landing/nw-sm.webp' : 'img/landing/nw.png')) ?>" alt="" decoding="async" fetchpriority="low">
+      <img class="gate-watermark" src="<?= h(product_v_mark_url()) ?>" alt="" decoding="async">
+      <a class="lp-brand" href="<?= h(url()) ?>">
+        <img class="lp-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
+      </a>
       <div class="gate-art-inner">
-        <a class="lp-brand" href="<?= h(url()) ?>">
-          <img class="lp-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
-        </a>
-        <h1><?= h($heading) ?></h1>
-        <p><?= h($lead) ?></p>
-        <span class="gate-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        <?php if ($kicker !== ''): ?><p class="gate-kicker"><?= h($kicker) ?></p><?php endif; ?>
+        <h1><?= $headingHtml !== null ? $headingHtml : h($heading) ?></h1>
+        <?php if ($lead !== ''): ?><p><?= h($lead) ?></p><?php endif; ?>
       </div>
-      <p class="gate-art-foot"><?= $switchHtml ?></p>
-      <svg class="gate-wave gate-wave-y" viewBox="0 0 80 900" preserveAspectRatio="none" aria-hidden="true">
-        <path d="M80 0 C18 180 18 720 80 900 L80 0 Z" fill="#fff"/>
-      </svg>
-      <svg class="gate-wave gate-wave-x" viewBox="0 0 400 72" preserveAspectRatio="none" aria-hidden="true">
-        <path d="M0 72 C90 8 310 8 400 72 L400 72 L0 72 Z" fill="#fff"/>
-      </svg>
+      <?php if ($tag !== ''): ?><p class="gate-tag"><?= h($tag) ?></p><?php endif; ?>
+      <?php if ($switchHtml !== ''): ?><p class="gate-art-foot"><?= $switchHtml ?></p><?php endif; ?>
     </aside>
     <?php
 }

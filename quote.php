@@ -35,14 +35,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="gate-shell">
   <?php gate_art(
       'Ask for a quote. We will call you.',
-      'Anywhere in the world: tell us the company, we send a quote, then we onboard the desk. No password yet.',
-      'Ready to sign up? <a href="' . h(url('register.php')) . '">Get a desk</a>'
+      'Tell us the company, we send a quote, then we onboard the desk. No password yet.',
+      '',
+      [
+          'kicker' => 'Documents simplified',
+          'heading_html' => 'Ask for a quote.<br><em>We will call you.</em>',
+          'tag' => 'Simple tools. Real progress.',
+      ]
   ); ?>
   <main class="gate-panel">
+    <img class="gate-panel-mark" src="<?= h(product_v_mark_url()) ?>" alt="" decoding="async">
+    <div class="gate-stack">
     <?php if ($ok): ?>
       <div class="gate-box gate-ok">
         <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
-        <h2><em>We have</em> your quote request</h2>
+        <h2>We have your quote request</h2>
         <p class="gate-lead">We sent a confirmation to your email from <?= h(product_email()) ?>. A Vellisys admin will reach out with a quote and onboard your company. No password yet - you get one when the company goes live.</p>
         <a class="gate-submit" href="<?= h(url()) ?>" data-pwa-home="<?= h(url('login.php')) ?>">Back to Vellisys</a>
       </div>
@@ -50,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <form class="gate-box" method="post" action="<?= h(url('quote.php')) ?>" autocomplete="off">
         <?= csrf_field() ?>
         <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
-        <h2><em>Request</em> a quote</h2>
+        <h2>Request a quote</h2>
         <p class="gate-lead">Four fields, optional note. We send a quote, then we onboard you. Have a question instead? <a href="<?= h(url()) ?>#ask">Write to us</a>.</p>
         <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
         <label class="gate-field" for="contact_name">Your name
@@ -68,11 +75,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <label class="gate-field" for="quote_note">What do you need? <span class="gate-optional">optional</span>
           <textarea id="quote_note" name="quote_note" rows="4" maxlength="2000" placeholder="How many people, which documents, when you want to start"><?= h(post('quote_note')) ?></textarea>
         </label>
-        <button class="gate-submit" type="submit">Send quote request</button>
-        <p class="gate-switch">Already a member? <a href="<?= h(url('login.php')) ?>">Log in</a></p>
-        <p class="gate-home"><a href="<?= h(url()) ?>">Back to <?= h(product_name()) ?></a></p>
+        <button class="gate-submit" type="submit">Send quote request <?= icon('arrow-right', 18) ?></button>
+        <p class="gate-or"><span>or</span></p>
+        <a class="gate-alt" href="<?= h(url('login.php')) ?>">Sign In</a>
+        <?php render_gate_legal(); ?>
       </form>
     <?php endif; ?>
+    </div>
   </main>
 </div>
 <?php public_float_widgets(); ?>
