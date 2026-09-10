@@ -16,7 +16,7 @@ if (!$order && $ref !== '') {
 
 if ($order) {
     if ($cancelled && ($order['status'] ?? '') !== 'paid') {
-        $order = apply_order_payment_status($order, 'cancelled', 'Customer cancelled on Pesapal.');
+        $order = apply_order_payment_status($order, 'cancelled', 'Customer cancelled payment.');
     } else {
         $order = refresh_order_from_pesapal($order);
     }
@@ -24,6 +24,9 @@ if ($order) {
 
 $status = (string) ($order['status'] ?? ($cancelled ? 'cancelled' : 'pending'));
 $pkg = $order ? pricing_package((string) $order['plan']) : null;
+$retry = $order
+    ? url(checkout_plan_url((string) $order['plan'], (string) $order['public_id']))
+    : url('index.php#pricing');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -33,10 +36,15 @@ $pkg = $order ? pricing_package((string) $order['plan']) : null;
   <title>Payment · <?= h(product_name()) ?></title>
   <?php product_icons(); ?>
   <?php folio_landing_head(); ?>
+  <script>if (window.top !== window.self) { window.top.location.replace(window.location.href); }</script>
 </head>
 <body class="lp">
   <?php public_header('checkout'); ?>
   <main class="lp-checkout lp-checkout-done">
+    <ol class="lp-check-steps" aria-label="Checkout">
+      <li class="is-done"><b>1</b><span>Company</span></li>
+      <li class="<?= $status === 'paid' ? 'is-done' : 'is-current' ?>"><b>2</b><span>Pay</span></li>
+    </ol>
     <div class="lp-checkout-copy">
       <?php if ($status === 'paid'): ?>
         <p class="lp-kicker">Paid</p>
@@ -45,19 +53,19 @@ $pkg = $order ? pricing_package((string) $order['plan']) : null;
       <?php elseif ($status === 'cancelled'): ?>
         <p class="lp-kicker">Cancelled</p>
         <h1>Payment was cancelled</h1>
-        <p>We kept the company details. <?= h(product_email()) ?> has been notified. You can pay again, or register and wait for a call.</p>
+        <p>We kept the company details. <?= h(product_email()) ?> has been notified. You can pay again on this site, or register and wait for a call.</p>
       <?php elseif ($status === 'failed'): ?>
         <p class="lp-kicker">Not paid</p>
         <h1>Payment did not go through</h1>
-        <p>We still have your form. <?= h(product_email()) ?> has been notified and will follow up. You can try Pesapal again.</p>
+        <p>We still have your form. <?= h(product_email()) ?> has been notified and will follow up. You can try again on this page.</p>
       <?php else: ?>
         <p class="lp-kicker">Waiting</p>
-        <h1>Pesapal is still processing</h1>
-        <p>If money left the account, sit tight. We email <?= h(product_email()) ?> when Pesapal confirms. Refresh this page in a minute.</p>
+        <h1>Payment is still processing</h1>
+        <p>If money left the account, sit tight. We email <?= h(product_email()) ?> when the payment confirms. Refresh this page in a minute.</p>
       <?php endif; ?>
       <div class="lp-cta">
         <?php if ($order && in_array($status, ['failed', 'cancelled', 'pending', 'draft'], true)): ?>
-          <a class="lp-btn lp-btn-solid" href="<?= h(url('checkout.php?plan=' . rawurlencode((string) $order['plan']) . '&o=' . rawurlencode((string) $order['public_id']))) ?>">Return to checkout</a>
+          <a class="lp-btn lp-btn-solid" href="<?= h($retry) ?>">Return to checkout</a>
         <?php endif; ?>
         <a class="lp-btn lp-btn-ghost" href="<?= h(url()) ?>">Back to Vellisys</a>
       </div>

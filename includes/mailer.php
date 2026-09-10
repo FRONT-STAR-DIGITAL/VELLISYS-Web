@@ -495,6 +495,9 @@ function order_pay_url(array $order): string
     if ($public !== '') {
         $q .= '&o=' . rawurlencode($public);
     }
+    if (function_exists('order_hosted_pay_url') && order_hosted_pay_url($order) !== '') {
+        $q .= '&pay=1';
+    }
     return absolute_url($q);
 }
 
@@ -529,7 +532,7 @@ function payment_awaits_copy(array $order, string $planName): array
         '<p style="margin:0 0 16px">Dear ' . h($who) . ',</p>'
         . '<p style="margin:0 0 14px">Thank you for choosing the <strong>' . h($planName) . '</strong> desk for <strong>' . h($company) . '</strong>. Your payment awaits.</p>'
         . '<p style="margin:0 0 14px">The amount due is <strong>' . h($amount) . '</strong> for the ' . h($term) . '. Unpaid invoice <strong>' . h($inv) . '</strong> follows in a separate email.</p>'
-        . '<p style="margin:0 0 18px">Complete payment on Pesapal to confirm the desk. If the payment page closed, open <a href="' . h($pay) . '" style="color:#1E4EFF">your checkout</a> again. A Vellisys admin contacts you after payment to onboard. You do not get a password until the desk is opened.</p>'
+        . '<p style="margin:0 0 18px">Complete payment on the Vellisys checkout page to confirm the desk. If the form closed, open <a href="' . h($pay) . '" style="color:#1E4EFF">your checkout</a> again - you stay on our site. A Vellisys admin contacts you after payment to onboard. You do not get a password until the desk is opened.</p>'
         . '<p style="margin:0 0 14px">If you need us, write to <a href="mailto:' . h(product_email()) . '" style="color:#1E4EFF">' . h(product_email()) . '</a> or call ' . h($phones) . '.</p>'
         . '<p style="margin:0">Kind regards,<br><strong>Vellisys</strong></p>',
         'Payment awaits'
@@ -537,7 +540,7 @@ function payment_awaits_copy(array $order, string $planName): array
     $text = "Dear {$who},\n\n"
         . "Thank you for choosing the {$planName} desk for {$company}. Your payment awaits.\n\n"
         . "The amount due is {$amount} for the {$term}. Unpaid invoice {$inv} follows in a separate email.\n\n"
-        . "Complete payment on Pesapal to confirm the desk. If the payment page closed, open {$pay} again. A Vellisys admin contacts you after payment to onboard. You do not get a password until the desk is opened.\n\n"
+        . "Complete payment on the Vellisys checkout page to confirm the desk. If the form closed, open {$pay} again - you stay on our site. A Vellisys admin contacts you after payment to onboard. You do not get a password until the desk is opened.\n\n"
         . 'If you need us, write to ' . product_email() . " or call {$phones}.\n\nKind regards,\nVellisys";
     return ['subject' => $subject, 'html' => $html, 'text' => $text];
 }
@@ -599,7 +602,7 @@ function unpaid_invoice_copy(array $order, string $planName): array
         . ($ccy !== 'UGX' ? '<tr><td style="padding:0 14px 12px;color:#000000;font-size:13px;">Charged equivalent</td><td style="padding:0 14px 12px;color:#000000;text-align:right;font-size:13px;">' . h($ugx) . '</td></tr>' : '')
         . '</table>'
         . '<p style="margin:0 0 16px"><a href="' . h($pay) . '" style="display:inline-block;background:#1E4EFF;color:#FFFFFF;text-decoration:none;padding:12px 18px;font-weight:700;">Pay this invoice</a></p>'
-        . '<p style="margin:0 0 14px;color:#000000">If Pesapal did not finish, use the button above. After payment, a Vellisys admin contacts you to onboard the company.</p>'
+        . '<p style="margin:0 0 14px;color:#000000">If payment did not finish, use the button above. After payment, a Vellisys admin contacts you to onboard the company.</p>'
         . '<p style="margin:0 0 14px;color:#000000">Questions: <a href="mailto:' . h(product_email()) . '" style="color:#1E4EFF">' . h(product_email()) . '</a> · ' . h($phones) . '</p>'
         . '<p style="margin:0;color:#000000">Kind regards,<br><strong>Vellisys</strong></p>',
         'Unpaid invoice'

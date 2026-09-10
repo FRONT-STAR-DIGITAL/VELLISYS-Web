@@ -265,6 +265,18 @@ function pricing_pay_currency(string $display): string
     return $display === 'RWF' ? 'UGX' : $display;
 }
 
+function checkout_plan_url(string $plan, string $publicId = '', bool $pay = false): string
+{
+    $query = ['plan' => $plan];
+    if ($publicId !== '') {
+        $query['o'] = $publicId;
+    }
+    if ($pay) {
+        $query['pay'] = '1';
+    }
+    return 'checkout.php?' . http_build_query($query);
+}
+
 function pricing_convert_ugx(float $ugx, string $currency): float
 {
     $rates = pricing_ugx_rates();
@@ -360,6 +372,7 @@ function render_landing_pricing(): void
         </div>
       </div>
       <?php endif; ?>
+      <div class="lp-price-board">
       <div class="lp-price-grid">
         <?php foreach ($packages as $pkg): ?>
           <article class="lp-price-card<?= !empty($pkg['popular']) ? ' is-popular' : '' ?>">
@@ -371,13 +384,16 @@ function render_landing_pricing(): void
                 <p class="lp-price-kicker"><?= h($pkg['kicker']) ?></p>
               <?php endif; ?>
               <h3><?= h($pkg['name']) ?></h3>
-              <p class="lp-price-seats"><?= (int) $pkg['seats'] ?> login<?= $pkg['seats'] === 1 ? '' : 's' ?></p>
+              <p class="lp-price-seats"><b><?= (int) $pkg['seats'] ?></b> login<?= (int) $pkg['seats'] === 1 ? '' : 's' ?></p>
             </header>
             <div class="lp-price-body">
-              <?php if ((float) $pkg['was_ugx'] > (float) $pkg['price_ugx']): ?>
-                <p class="lp-price-was" data-ugx="<?= (int) $pkg['was_ugx'] ?>"><?= h(pricing_format((float) $pkg['was_ugx'], $ccy)) ?></p>
-              <?php endif; ?>
-              <p class="lp-price-now"><strong data-ugx="<?= (int) $pkg['price_ugx'] ?>"><?= h(pricing_format((float) $pkg['price_ugx'], $ccy)) ?></strong><span><?= h($section['term_label']) ?></span></p>
+              <p class="lp-price-now">
+                <?php if ((float) $pkg['was_ugx'] > (float) $pkg['price_ugx']): ?>
+                  <s class="lp-price-was" data-ugx="<?= (int) $pkg['was_ugx'] ?>"><?= h(pricing_format((float) $pkg['was_ugx'], $ccy)) ?></s>
+                <?php endif; ?>
+                <strong data-ugx="<?= (int) $pkg['price_ugx'] ?>"><?= h(pricing_format((float) $pkg['price_ugx'], $ccy)) ?></strong>
+                <span><?= h($section['term_label']) ?></span>
+              </p>
               <?php if (trim((string) $pkg['lead']) !== ''): ?>
                 <p class="lp-price-lead"><?= h($pkg['lead']) ?></p>
               <?php endif; ?>
@@ -392,6 +408,7 @@ function render_landing_pricing(): void
             </div>
           </article>
         <?php endforeach; ?>
+      </div>
       </div>
       <?php if (trim((string) $section['register_copy']) !== ''): ?>
         <p class="lp-pricing-register"><?= $register ?></p>

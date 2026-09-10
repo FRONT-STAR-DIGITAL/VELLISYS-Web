@@ -278,6 +278,23 @@
   window.addEventListener('load', paceMarquees);
   window.addEventListener('resize', paceMarquees);
 
+  var payFrame = document.querySelector('[data-pay-frame]');
+  if (payFrame) {
+    var hold = document.querySelector('[data-pay-hold]');
+    var fallback = document.querySelector('[data-pay-fallback]');
+    var ready = false;
+    function markReady() {
+      ready = true;
+      payFrame.classList.add('is-ready');
+      if (hold) hold.hidden = true;
+    }
+    payFrame.addEventListener('load', markReady);
+    window.setTimeout(function () {
+      if (!ready && fallback) fallback.hidden = false;
+      if (hold && !ready) hold.hidden = true;
+    }, 9000);
+  }
+
   var checkout = document.querySelector('[data-checkout-form]');
   if (checkout) {
     var timer = 0;

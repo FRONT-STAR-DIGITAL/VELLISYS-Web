@@ -275,12 +275,12 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
 
     <section class="lp-world lp-pay" id="pay" data-reveal>
       <p class="lp-kicker">Pay</p>
-      <h2>Pick a package. Pay the way you already pay.</h2>
-      <p class="lp-world-lead">Choose Quill, Ledger or Crest, enter the company, then pay. Mobile money, a card, a bank or a wallet - in the currency you selected. We onboard the desk after payment lands.</p>
+      <h2>Pick a package. Pay on this site.</h2>
+      <p class="lp-world-lead">Choose Quill, Ledger or Crest, enter the company, then pay on the checkout page. Mobile money, a card, a bank or a wallet - in the currency you selected. You do not leave Vellisys. We onboard the desk after payment lands.</p>
       <ol class="lp-pay-flow">
         <li><b>1</b><span>Choose a package</span></li>
         <li><b>2</b><span>Enter company details</span></li>
-        <li><b>3</b><span>Pay</span></li>
+        <li><b>3</b><span>Pay on this page</span></li>
         <li><b>4</b><span>We onboard the desk</span></li>
       </ol>
       <div class="lp-pay-board">

@@ -141,6 +141,7 @@ function pesapal_submit_order(array $order, string $token, string $ipnId): array
         'callback_url' => absolute_url('pesapal_callback.php'),
         'cancellation_url' => absolute_url('pesapal_callback.php?cancel=1'),
         'notification_id' => $ipnId,
+        'redirect_mode' => 'PARENT_WINDOW',
         'billing_address' => [
             'email_address' => (string) $order['email'],
             'phone_number' => (string) $order['phone'],
@@ -159,6 +160,47 @@ function pesapal_submit_order(array $order, string $token, string $ipnId): array
         return ['ok' => false, 'error' => (string) ($res['body']['message'] ?? $res['error'] ?: 'Pesapal did not return a payment page.')];
     }
     return ['ok' => true, 'redirect' => $redirect, 'tracking' => $tracking, 'body' => $res['body']];
+}
+
+/** Pesapal hosted checkout URL, or empty if it is not a pesapal.com https address. */
+function pesapal_hosted_url(string $url): string
+{
+    $url = trim($url);
+    if ($url === '' || !preg_match('#^https://#i', $url)) {
+        return '';
+    }
+    $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+    if ($host === '' || !preg_match('/(^|\.)pesapal\.com$/', $host)) {
+        return '';
+    }
+    return $url;
+}
+
+function order_hosted_pay_url(?array $order): string
+{
+    if (!$order) {
+        return '';
+    }
+    $status = (string) ($order['status'] ?? '');
+    if (!in_array($status, ['draft', 'pending'], true)) {
+        return '';
+    }
+    return pesapal_hosted_url((string) ($order['pesapal_redirect'] ?? ''));
+}
+
+function order_rotate_merchant_ref(array $order): array
+{
+    $id = (int) ($order['id'] ?? 0);
+    if ($id < 1) {
+        return $order;
+    }
+    $now = desk_now()->format('Y-m-d H:i:s');
+    db_exec(
+        'UPDATE website_orders SET merchant_ref=?, pesapal_tracking=?, pesapal_redirect=NULL, last_error=?, updated_at=? WHERE id=?',
+        'ssssi',
+        [order_merchant_ref(), '', '', $now, $id]
+    );
+    return db_one('SELECT * FROM website_orders WHERE id = ?', 'i', [$id]) ?: $order;
 }
 
 function pesapal_transaction_status(string $tracking, string $token): array

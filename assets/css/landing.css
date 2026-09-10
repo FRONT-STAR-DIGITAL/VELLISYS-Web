@@ -2340,60 +2340,75 @@ html.is-pwa .gate-home {
   line-height: 1.55;
 }
 .lp-pricing-clock {
-  display: flex;
-  flex-direction: column;
+  display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
-  margin: 0 auto 40px;
-  max-width: 520px;
+  justify-content: center;
+  gap: 4px 18px;
+  margin: 0 auto 32px;
+  padding: 8px 10px 8px 18px;
+  max-width: 100%;
+  background: #fff;
+  border: 1px solid rgba(8, 20, 58, .1);
+  border-radius: 999px;
+  box-shadow: 0 10px 24px rgba(8, 20, 58, .06);
 }
 .lp-clock-label {
   margin: 0;
   color: var(--navy);
-  font-size: 13px;
+  font-size: 11.5px;
   font-weight: 700;
-  letter-spacing: .08em;
+  letter-spacing: .1em;
   text-transform: uppercase;
 }
 .lp-clock-units {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
-  gap: 10px;
+  gap: 0;
 }
 .lp-clock-unit {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 76px;
-  padding: 12px 14px 10px;
-  border-radius: 16px;
-  background: var(--navy);
-  color: #fff;
-  box-shadow: 0 12px 24px rgba(8, 20, 58, .16);
+  min-width: 58px;
+  padding: 4px 14px;
+  border-right: 1px solid #e8ecf4;
+  background: transparent;
+  color: var(--navy);
+  box-shadow: none;
 }
+.lp-clock-unit:last-child { border-right: 0; }
 .lp-clock-unit b {
   font-variant-numeric: tabular-nums;
-  font-size: 28px;
+  font-size: 22px;
   line-height: 1;
   letter-spacing: -.03em;
+  color: var(--blue);
 }
 .lp-clock-unit small {
-  margin-top: 6px;
-  font-size: 11px;
+  margin-top: 4px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: .08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, .72);
+  color: var(--muted);
+}
+.lp-price-board {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 14px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, .62);
+  border: 1px solid rgba(8, 20, 58, .08);
+  box-shadow: 0 18px 40px rgba(8, 20, 58, .06);
 }
 .lp-price-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 22px;
+  gap: 12px;
   align-items: stretch;
-  max-width: 1120px;
-  margin: 0 auto;
   text-align: left;
 }
 .lp-price-card {
@@ -2402,19 +2417,25 @@ html.is-pwa .gate-home {
   flex-direction: column;
   min-width: 0;
   background: #fff;
-  border-radius: 24px;
-  overflow: hidden;
-  box-shadow: 0 18px 40px rgba(8, 20, 58, .1);
+  border: 1.5px solid rgba(8, 20, 58, .1);
+  border-radius: 22px;
+  overflow: visible;
+  box-shadow: none;
 }
 .lp-price-head {
   position: relative;
-  padding: 28px 26px 22px;
-  background: var(--navy);
-  color: #fff;
+  padding: 26px 24px 0;
+  background: transparent;
+  color: var(--navy);
 }
 .lp-price-card.is-popular {
-  transform: translateY(-14px);
-  box-shadow: 0 32px 56px rgba(30, 78, 255, .22);
+  border-color: var(--blue);
+  background: linear-gradient(180deg, #f4f7ff 0%, #fff 42%);
+  box-shadow: 0 18px 36px rgba(30, 78, 255, .14);
+  z-index: 1;
+}
+.lp-price-card.is-popular .lp-price-head {
+  padding-top: 44px;
 }
 .lp-price-ribbon {
   position: absolute;
@@ -2423,71 +2444,79 @@ html.is-pwa .gate-home {
   margin: 0;
   padding: 5px 10px;
   border-radius: 999px;
-  background: #fff;
-  color: var(--blue);
-  font-size: 11px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: .04em;
+  letter-spacing: .06em;
   text-transform: uppercase;
 }
-.lp-price-card.is-popular .lp-price-head {
-  background: linear-gradient(160deg, #1e4eff 0%, #1639c9 100%);
-  padding-top: 48px;
-}
 .lp-price-kicker {
-  margin: 0 0 8px;
-  color: rgba(255, 255, 255, .72);
-  font-size: 12px;
+  margin: 0 0 6px;
+  color: var(--blue);
+  font-size: 11.5px;
   font-weight: 700;
-  letter-spacing: .1em;
+  letter-spacing: .12em;
   text-transform: uppercase;
 }
 .lp-price-head h3 {
-  margin: 0 0 8px;
-  font-size: 32px;
-  letter-spacing: -.03em;
-  color: #fff;
+  margin: 0 0 10px;
+  font-size: 30px;
+  letter-spacing: -.04em;
+  color: var(--navy);
 }
+.lp-price-card.is-popular .lp-price-head h3 { color: var(--navy); }
 .lp-price-seats {
   margin: 0;
   display: inline-flex;
-  padding: 4px 10px;
+  align-items: baseline;
+  gap: 6px;
+  padding: 5px 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, .14);
-  color: #fff;
+  background: var(--paper);
+  color: var(--navy);
   font-size: 12.5px;
   font-weight: 700;
+}
+.lp-price-card.is-popular .lp-price-seats {
+  background: rgba(30, 78, 255, .1);
+  color: var(--blue);
+}
+.lp-price-seats b {
+  font-size: 15px;
+  letter-spacing: -.03em;
 }
 .lp-price-body {
   display: flex;
   flex-direction: column;
   flex: 1;
-  padding: 22px 26px 26px;
-  background: #fff;
-}
-.lp-price-card.is-popular .lp-price-body {
-  background: #f7f9ff;
-}
-.lp-price-was {
-  margin: 0 0 4px;
-  color: #667089;
-  font-size: 16px;
-  font-weight: 600;
-  text-decoration: line-through;
-  text-decoration-thickness: 1.5px;
+  padding: 18px 24px 24px;
+  background: transparent;
 }
 .lp-price-now {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 8px;
+  gap: 8px 10px;
   margin: 0 0 12px;
+  padding-top: 16px;
+  border-top: 1px solid #eef1f6;
   color: var(--navy);
 }
+.lp-price-was,
+.lp-price-now s {
+  margin: 0;
+  color: #8a93a8;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
 .lp-price-now strong {
-  font-size: clamp(26px, 2.6vw, 36px);
+  font-size: clamp(24px, 2.4vw, 34px);
   letter-spacing: -.04em;
   line-height: 1.05;
+  width: 100%;
 }
 .lp-price-now span {
   color: var(--muted);
@@ -2510,7 +2539,7 @@ html.is-pwa .gate-home {
   position: relative;
   padding: 8px 0 8px 22px;
   color: var(--ink);
-  font-size: 14px;
+  font-size: 13.5px;
   line-height: 1.45;
   border-top: 1px solid #eef1f6;
 }
@@ -2534,7 +2563,7 @@ html.is-pwa .gate-home {
   box-shadow: 0 10px 22px rgba(30, 78, 255, .28);
 }
 .lp-pricing-register {
-  margin: 36px auto 0;
+  margin: 28px auto 0;
   max-width: 640px;
   color: var(--muted);
   font-size: 14.5px;
@@ -2543,16 +2572,71 @@ html.is-pwa .gate-home {
 
 .lp-checkout {
   display: grid;
-  grid-template-columns: minmax(0, .9fr) minmax(0, 1fr);
-  gap: 36px;
+  grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr);
+  gap: 22px 40px;
   align-items: start;
-  padding: 48px 5vw 80px;
-  max-width: 1120px;
+  padding: 36px 5vw 80px;
+  max-width: 1140px;
   margin: 0 auto;
 }
+.lp-checkout.is-pay {
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+}
 .lp-checkout-done { grid-template-columns: minmax(0, 640px); justify-content: center; }
+.lp-check-steps {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 10px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+.lp-check-steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 14px 8px 8px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid rgba(8, 20, 58, .1);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+.lp-check-steps li::before { content: none; }
+.lp-check-steps b {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--navy);
+  font-size: 12px;
+}
+.lp-check-steps .is-current {
+  border-color: var(--blue);
+  color: var(--navy);
+  box-shadow: 0 8px 18px rgba(30, 78, 255, .12);
+}
+.lp-check-steps .is-current b,
+.lp-check-steps .is-done b {
+  background: var(--blue);
+  color: #fff;
+}
+.lp-check-steps .is-done { color: var(--navy); }
+.lp-checkout-copy {
+  background: #fff;
+  border: 1px solid rgba(8, 20, 58, .1);
+  border-radius: 22px;
+  padding: 28px 26px;
+}
+.lp-checkout-done .lp-checkout-copy { box-shadow: 0 18px 40px rgba(8, 20, 58, .08); }
+.lp-checkout-copy .lp-kicker { margin-bottom: 6px; }
 .lp-checkout-copy h1 {
-  margin: 4px 0 12px;
+  margin: 0 0 10px;
   font-size: clamp(28px, 4vw, 40px);
   color: var(--navy);
   letter-spacing: -.03em;
@@ -2562,7 +2646,7 @@ html.is-pwa .gate-home {
   flex-wrap: wrap;
   align-items: baseline;
   gap: 10px;
-  margin: 0 0 14px;
+  margin: 0 0 8px;
   color: var(--navy);
   font-size: 22px;
   font-weight: 700;
@@ -2573,13 +2657,24 @@ html.is-pwa .gate-home {
   font-weight: 600;
 }
 .lp-checkout-price span { color: var(--muted); font-size: 14px; font-weight: 600; }
+.lp-check-seats {
+  display: inline-flex;
+  margin: 0 0 14px !important;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--navy) !important;
+  font-size: 12.5px;
+  font-weight: 700;
+}
 .lp-checkout-copy p { margin: 0 0 14px; color: var(--muted); line-height: 1.55; }
-.lp-checkout-copy ul { margin: 0; padding: 0; list-style: none; }
+.lp-checkout-copy ul { margin: 0 0 16px; padding: 0; list-style: none; }
 .lp-checkout-copy li {
   position: relative;
   padding: 8px 0 8px 18px;
   border-top: 1px solid #e8ecf4;
   color: var(--ink);
+  font-size: 14px;
 }
 .lp-checkout-copy li::before {
   content: "";
@@ -2591,19 +2686,39 @@ html.is-pwa .gate-home {
   border-radius: 50%;
   background: var(--blue);
 }
-.lp-checkout-form {
+.lp-check-stay {
+  margin: 0 0 10px !important;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f4f7ff;
+  color: var(--navy) !important;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.lp-check-switch { margin: 0 !important; font-size: 13.5px; }
+.lp-check-switch a { color: var(--blue); font-weight: 700; }
+.lp-checkout-form,
+.lp-checkout-pay {
   background: #fff;
   border: 1px solid rgba(8, 20, 58, .1);
   border-radius: 22px;
   padding: 28px 26px;
   box-shadow: 0 18px 40px rgba(8, 20, 58, .08);
 }
-.lp-checkout-form h2 {
+.lp-checkout-form h2,
+.lp-pay-head h2 {
   margin: 0 0 8px;
   color: var(--navy);
   font-size: 22px;
 }
-.lp-checkout-hint { margin: 0 0 16px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.lp-checkout-hint,
+.lp-pay-head p { margin: 0 0 16px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.lp-pay-who { margin: 0 0 12px !important; color: var(--navy) !important; font-size: 14px; }
+.lp-check-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 14px;
+}
 .lp-checkout-form label {
   display: block;
   margin: 0 0 12px;
@@ -2633,11 +2748,71 @@ html.is-pwa .gate-home {
 .lp-checkout-note { margin: 14px 0 0; color: var(--muted); font-size: 13.5px; }
 .lp-checkout-note a { color: var(--blue); font-weight: 700; }
 .lp-checkout .lp-cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.lp-pay-stage {
+  position: relative;
+  min-height: 640px;
+  border: 1px solid #e8ecf4;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--paper);
+}
+.lp-pay-hold {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 1;
+}
+.lp-pay-frame {
+  display: block;
+  width: 100%;
+  min-height: 720px;
+  height: 78vh;
+  border: 0;
+  background: #fff;
+  opacity: 0;
+}
+.lp-pay-frame.is-ready { opacity: 1; }
+.lp-pay-fallback {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.lp-pay-fallback a { color: var(--blue); font-weight: 700; }
+.lp-pay-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+.lp-pay-actions a { color: var(--blue); font-weight: 700; }
+.lp-pay-retry { display: inline; margin: 0; }
+.lp-pay-retry button {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--blue);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+body.is-paying .lp-floats { display: none; }
 
 @media (max-width: 980px) {
-  .lp-price-grid { grid-template-columns: 1fr; max-width: 420px; }
+  .lp-price-board { padding: 10px; }
+  .lp-price-grid { grid-template-columns: 1fr; max-width: 440px; margin: 0 auto; }
   .lp-price-card.is-popular { transform: none; }
-  .lp-checkout { grid-template-columns: 1fr; padding-top: 32px; }
+  .lp-checkout,
+  .lp-checkout.is-pay { grid-template-columns: 1fr; padding-top: 28px; }
+  .lp-check-fields { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 820px) {
@@ -2645,12 +2820,19 @@ html.is-pwa .gate-home {
   .lp-pricing { padding-top: 48px; padding-bottom: 56px; text-align: left; }
   .lp-pricing h2,
   .lp-pricing-lead,
-  .lp-pricing-clock,
   .lp-pricing-register { text-align: center; }
+  .lp-pricing-clock {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 420px;
+    border-radius: 20px;
+    padding: 12px 12px 10px;
+  }
   .lp-price-grid {
     grid-template-columns: 1fr;
     max-width: 100%;
-    gap: 16px;
+    gap: 12px;
   }
   .lp-price-card { border-radius: 20px; }
   .lp-price-head h3 { font-size: 26px; }
@@ -2658,16 +2840,26 @@ html.is-pwa .gate-home {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     width: 100%;
-    max-width: 420px;
-    gap: 8px;
+    gap: 0;
   }
-  .lp-clock-unit { min-width: 0; width: 100%; padding: 10px 6px 8px; }
-  .lp-clock-unit b { font-size: 22px; }
+  .lp-clock-unit {
+    min-width: 0;
+    width: 100%;
+    padding: 8px 4px;
+    border-right: 1px solid #e8ecf4;
+  }
+  .lp-clock-unit:nth-child(4n) { border-right: 0; }
+  .lp-clock-unit b { font-size: 20px; }
+  .lp-pay-frame { min-height: 820px; height: 85vh; }
 }
 
 @media (max-width: 480px) {
   .lp-nav nav { gap: 4px; }
   .lp-price-head,
   .lp-price-body { padding-left: 18px; padding-right: 18px; }
-  .lp-checkout-form { padding: 20px 16px; }
+  .lp-checkout-form,
+  .lp-checkout-pay,
+  .lp-checkout-copy { padding: 20px 16px; }
+  .lp-check-steps { gap: 8px; }
+  .lp-check-steps li { padding: 6px 12px 6px 6px; font-size: 12.5px; }
 }
