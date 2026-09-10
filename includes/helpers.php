@@ -1364,16 +1364,18 @@ function public_header(string $page = 'home'): void
     $ticker = landing_ticker_lines();
     ?>
   <header class="lp-chrome" data-lp-chrome>
+  <?php if ($ticker): ?>
   <div class="lp-ticker" data-lp-ticker>
     <div class="lp-ticker-track">
       <?php for ($i = 0; $i < 2; $i++): ?>
-        <?php foreach ($ticker as $line): ?>
-          <p><?= h($line) ?></p>
-          <span class="lp-ticker-sep" aria-hidden="true">✦</span>
+        <?php foreach ($ticker as $n => $line): ?>
+          <p class="lp-ticker-line<?= $n % 2 === 1 ? ' is-alt' : '' ?>"><?= h($line) ?></p>
+          <span class="lp-ticker-sep" aria-hidden="true">|</span>
         <?php endforeach; ?>
       <?php endfor; ?>
     </div>
   </div>
+  <?php endif; ?>
   <div class="lp-nav">
     <a class="lp-brand" href="<?= h(url()) ?>">
       <img class="lp-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
@@ -1846,7 +1848,6 @@ function desk_manage_items(): array
         ['icon' => 'send', 'title' => 'Send emails', 'body' => 'Quotations, invoices, receipts, letters and reminders leave from your assigned mailbox.'],
         ['icon' => 'palette', 'title' => '10+ templates', 'body' => 'Pick Folio, Ledger, Twin copy, Estate, Night and more. The whole books follow that layout.'],
         ['icon' => 'image', 'title' => 'Your company branding', 'body' => 'Logo, three colours, letterhead. Every document looks like it left your office.'],
-        ['icon' => 'globe', 'title' => 'Anywhere, any time', 'body' => 'Sign in from wherever you are. This month is there, in the currency you actually use.'],
     ];
 }
 
@@ -1895,12 +1896,43 @@ function product_mark_url(): string
     return asset('img/vellisys-mark.png');
 }
 
-function landing_ticker_lines(): array
+function landing_ticker_defaults(): array
 {
     return [
-        'Join 100+ businesses and corporate companies using Vellisys',
-        'Stop losing the books. Share them branded, in one click.',
+        ['body' => 'Join 100+ businesses and corporate companies using Vellisys', 'sort' => 10],
+        ['body' => 'Stop losing the books. Share them branded, in one click.', 'sort' => 20],
     ];
+}
+
+function landing_ticker_lines(): array
+{
+    try {
+        $rows = db_all('SELECT body FROM landing_ticker ORDER BY sort, id');
+        $lines = [];
+        foreach ($rows as $row) {
+            $body = trim((string) ($row['body'] ?? ''));
+            if ($body !== '') {
+                $lines[] = $body;
+            }
+        }
+        if ($lines) {
+            return $lines;
+        }
+    } catch (Throwable $e) {
+        // Table may not exist until migrate runs.
+    }
+    return array_column(landing_ticker_defaults(), 'body');
+}
+
+function landing_way_image_url(): string
+{
+    foreach (['img/landing/nw.png', 'img/landing/new.png'] as $rel) {
+        $full = ROOT_PATH . '/assets/' . $rel;
+        if (is_file($full)) {
+            return asset($rel);
+        }
+    }
+    return product_mark_url();
 }
 
 function product_logo_file(): string

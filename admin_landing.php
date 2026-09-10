@@ -9,7 +9,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
     $form = post('form');
 
-    if ($form === 'reviews') {
+    if ($form === 'ticker') {
+        $action = post('action');
+        if ($action === 'add') {
+            $body = mb_substr(trim(post('body')), 0, 220);
+            $sort = (int) post('sort');
+            if ($body === '') {
+                $error = 'Write a line for the top bar.';
+            } else {
+                if ($sort <= 0) {
+                    $max = db_one('SELECT MAX(sort) AS s FROM landing_ticker');
+                    $sort = (int) ($max['s'] ?? 0) + 10;
+                }
+                db_exec('INSERT INTO landing_ticker (body, sort) VALUES (?,?)', 'si', [$body, $sort]);
+                flash('Added a top-bar line.');
+                redirect('admin_landing.php#top-bar');
+            }
+        } elseif ($action === 'save') {
+            $id = (int) post('id');
+            $row = $id ? db_one('SELECT * FROM landing_ticker WHERE id = ?', 'i', [$id]) : null;
+            if (!$row) {
+                flash('That top-bar line was not found.', 'err');
+                redirect('admin_landing.php#top-bar');
+            }
+            $body = mb_substr(trim(post('body')), 0, 220);
+            $sort = (int) post('sort');
+            if ($body === '') {
+                $error = 'Write a line for the top bar.';
+            } else {
+                db_exec('UPDATE landing_ticker SET body=?, sort=? WHERE id=?', 'sii', [$body, $sort, $id]);
+                flash('Saved the top-bar line.');
+                redirect('admin_landing.php#top-bar');
+            }
+        } elseif ($action === 'delete') {
+            $id = (int) post('id');
+            $row = $id ? db_one('SELECT * FROM landing_ticker WHERE id = ?', 'i', [$id]) : null;
+            if ($row) {
+                db_exec('DELETE FROM landing_ticker WHERE id = ?', 'i', [$id]);
+                flash('Removed that top-bar line.');
+            }
+            redirect('admin_landing.php#top-bar');
+        }
+    } elseif ($form === 'reviews') {
         $action = post('action');
         if ($action === 'add') {
             $name = mb_substr(post('name'), 0, 120);
@@ -145,6 +186,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $cards = landing_cards();
 $trust = [];
 $reviews = [];
+$ticker = [];
 try {
     $trust = db_all('SELECT * FROM trust_clients ORDER BY sort, id');
 } catch (Throwable $e) {
@@ -155,18 +197,60 @@ try {
 } catch (Throwable $e) {
     $reviews = [];
 }
+try {
+    $ticker = db_all('SELECT * FROM landing_ticker ORDER BY sort, id');
+} catch (Throwable $e) {
+    $ticker = [];
+}
 
 layout_admin_start('Landing', $user);
 ?>
 <div class="page-head">
   <div>
     <h1><?= icon('image') ?>Landing page</h1>
-    <p class="lede">Change the pictures, the words, the <strong>Clients who trust us</strong> logos, and the scrolling <strong>client reviews</strong> on the public site. The favicon stays the V mark. The header uses the Vellisys logo on its own.</p>
+    <p class="lede">Change the top-bar lines, the pictures, the words, the <strong>Clients who trust us</strong> logos, and the scrolling <strong>client reviews</strong> on the public site. The favicon stays the V mark. The header uses the Vellisys logo on its own.</p>
   </div>
   <a class="btn ghost" href="<?= h(url()) ?>" target="_blank" rel="noopener">View site</a>
 </div>
 
 <?php if ($error): ?><p class="flash flash-err" style="margin:0 0 16px"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
+
+<h2 class="landing-admin-h" id="top-bar"><?= icon('globe', 20) ?>Top bar</h2>
+<p class="lede" style="margin-top:-8px">These lines scroll above the header, separated by a blue |. White and pale blue alternate so the two statements stay distinct. Lower order numbers come first.</p>
+
+<form class="card trust-admin-add" method="post">
+  <?= csrf_field() ?>
+  <input type="hidden" name="form" value="ticker">
+  <input type="hidden" name="action" value="add">
+  <h3 style="margin:0 0 4px">Add a line</h3>
+  <label for="ticker-new-body">Statement</label>
+  <input id="ticker-new-body" name="body" required maxlength="220" placeholder="Join 100+ businesses and corporate companies using Vellisys">
+  <label for="ticker-new-sort">Order <span class="hint">(optional)</span></label>
+  <input id="ticker-new-sort" name="sort" type="number" min="0" step="1" placeholder="Auto">
+  <div class="actions" style="margin-top:12px">
+    <button class="btn" type="submit"><?= icon('plus') ?>Add line</button>
+  </div>
+</form>
+
+<?php if ($ticker): ?>
+  <div class="trust-admin">
+    <?php foreach ($ticker as $t): ?>
+      <form class="card" method="post">
+        <?= csrf_field() ?>
+        <input type="hidden" name="form" value="ticker">
+        <input type="hidden" name="id" value="<?= (int) $t['id'] ?>">
+        <label for="ticker-body-<?= (int) $t['id'] ?>">Statement</label>
+        <input id="ticker-body-<?= (int) $t['id'] ?>" name="body" required maxlength="220" value="<?= h($t['body']) ?>">
+        <label for="ticker-sort-<?= (int) $t['id'] ?>">Order</label>
+        <input id="ticker-sort-<?= (int) $t['id'] ?>" name="sort" type="number" required min="0" step="1" value="<?= (int) $t['sort'] ?>">
+        <div class="actions" style="margin-top:12px">
+          <button class="btn" type="submit" name="action" value="save"><?= icon('check') ?>Save</button>
+          <button class="btn ghost" type="submit" name="action" value="delete" onclick="return confirm('Remove this line from the top bar?');"><?= icon('trash') ?>Remove</button>
+        </div>
+      </form>
+    <?php endforeach; ?>
+  </div>
+<?php endif; ?>
 
 <h2 class="landing-admin-h">Page cards</h2>
 <div class="landing-admin">

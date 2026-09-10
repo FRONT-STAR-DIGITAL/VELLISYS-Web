@@ -195,9 +195,35 @@ function folio_migrate(mysqli $db): void
     if ($ver < 23) {
         folio_migrate_signup_source($db);
     }
+    if ($ver < 24) {
+        folio_migrate_landing_ticker($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '23')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '24')");
     $done = true;
+}
+
+function folio_migrate_landing_ticker(mysqli $db): void
+{
+    $db->query("CREATE TABLE IF NOT EXISTS landing_ticker (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      body VARCHAR(220) NOT NULL,
+      sort INT NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY sort_id (sort, id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $count = $db->query('SELECT COUNT(*) AS c FROM landing_ticker');
+    $n = $count ? (int) ($count->fetch_assoc()['c'] ?? 0) : 0;
+    if ($n > 0) {
+        return;
+    }
+    foreach (landing_ticker_defaults() as $c) {
+        $stmt = $db->prepare('INSERT INTO landing_ticker (body, sort) VALUES (?,?)');
+        $stmt->bind_param('si', $c['body'], $c['sort']);
+        $stmt->execute();
+        $stmt->close();
+    }
 }
 
 function folio_migrate_signup_source(mysqli $db): void

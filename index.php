@@ -147,7 +147,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
         <h2>Your brand. Their copy.</h2>
         <p class="lp-compare-lead">Documents are printed and sent in the client's branding. Pick from many templates - letterhead, ledger, twin copy and more - so every quotation, invoice and receipt looks like it came from their office, not a generic pad.</p>
         <figure class="lp-new-shot">
-          <img class="lp-new-main" src="<?= h(asset('img/landing/nw.png')) ?>" alt="A Vellisys receipt on desktop, laptop and phone" loading="lazy" decoding="async">
+          <img class="lp-new-main" src="<?= h(landing_way_image_url()) ?>" alt="A Vellisys receipt on desktop, laptop and phone" width="1254" height="1254" decoding="async">
         </figure>
       </div>
     </section>
