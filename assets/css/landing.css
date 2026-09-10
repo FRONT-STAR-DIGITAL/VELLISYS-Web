@@ -1513,7 +1513,7 @@ img { max-width: 100%; }
     gap: 8px;
     min-width: 0;
   }
-  .lp-logo { height: 60px; max-width: min(240px, 52vw); }
+  .lp-nav .lp-logo { height: 40px; max-width: min(160px, 35vw); }
   .lp-foot .lp-logo,
   .lp-foot .lp-logo-on-dark { height: 60px; max-width: min(240px, 56vw); }
   .lp-nav nav { flex-wrap: wrap; justify-content: flex-end; gap: 6px; min-width: 0; }
@@ -1558,7 +1558,7 @@ img { max-width: 100%; }
 
 @media (max-width: 480px) {
   .lp-nav { padding: 8px max(10px, env(safe-area-inset-right)) 8px max(10px, env(safe-area-inset-left)); gap: 8px; }
-  .lp-logo { height: 52px; max-width: min(204px, 48vw); }
+  .lp-nav .lp-logo { height: 35px; max-width: min(136px, 32vw); }
   .lp-foot .lp-logo,
   .lp-foot .lp-logo-on-dark { height: 52px; max-width: min(204px, 52vw); }
   .lp-nav .lp-btn { padding: 7px 10px; font-size: 12px; border-radius: 10px; }
