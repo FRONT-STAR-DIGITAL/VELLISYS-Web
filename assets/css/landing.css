@@ -1757,6 +1757,7 @@ body.gate-register .gate-art h1 em {
   position: relative;
   z-index: 1;
   overflow: hidden;
+  flex-shrink: 0;
 }
 .gate-stack-mark {
   position: absolute;
@@ -2096,9 +2097,16 @@ html.is-pwa body.gate .gate-shell {
 html.is-pwa body.gate .gate-panel {
   min-height: 0;
   height: 100%;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  justify-content: flex-start;
   padding-top: 28px;
   padding-bottom: 28px;
+}
+html.is-pwa body.gate .gate-stack {
+  margin-block: auto;
 }
 html.is-pwa body.gate .lp-floats { display: none !important; }
 @media (display-mode: standalone),
@@ -2124,9 +2132,16 @@ html.is-pwa body.gate .lp-floats { display: none !important; }
   body.gate .gate-panel {
     min-height: 0;
     height: 100%;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    justify-content: flex-start;
     padding-top: 28px;
     padding-bottom: 28px;
+  }
+  body.gate .gate-stack {
+    margin-block: auto;
   }
   body.gate .lp-floats { display: none !important; }
 }
@@ -2221,7 +2236,8 @@ html.is-pwa body.gate .lp-floats { display: none !important; }
   html.is-pwa body.gate .gate-panel {
     min-height: 0;
     height: 100%;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 }
 
@@ -2230,7 +2246,7 @@ html.is-pwa body.gate .lp-floats { display: none !important; }
   .gate-stack { padding: 24px 18px 18px; border-radius: 20px; }
   .gate-logo { height: 34px; max-width: min(168px, 56vw); }
   .gate-box h2 { font-size: 22px; }
-  html.is-pwa .gate-panel { overflow: hidden; }
+  html.is-pwa .gate-panel { overflow-x: hidden; overflow-y: auto; }
 }
 
 .lp-floats {
