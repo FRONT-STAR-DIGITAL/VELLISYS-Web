@@ -1676,7 +1676,11 @@ body.gate {
   justify-content: center;
   flex: 0 0 auto;
   gap: 4px;
+  width: 48px;
+  height: 48px;
+  padding: 0;
   border: 0;
+  border-radius: 50%;
   cursor: pointer;
   box-shadow: 0 10px 24px rgba(8, 20, 58, .22);
 }
@@ -1685,10 +1689,6 @@ body.gate {
 .lp-wa-home[hidden],
 .lp-wa-compose[hidden] { display: none !important; }
 .lp-top {
-  width: 48px;
-  height: 48px;
-  padding: 0;
-  border-radius: 50%;
   background: var(--navy);
   color: #fff;
 }
@@ -1696,16 +1696,13 @@ body.gate {
 .lp-top:hover { filter: brightness(1.08); }
 .lp-wa { position: relative; display: flex; flex-direction: column; align-items: flex-end; }
 .lp-wa-fab {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
   background: #25d366;
   color: #fff;
 }
 .lp-wa-fab:hover { filter: brightness(1.06); }
 .lp-wa-mark {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   display: block;
   fill: currentColor;
   stroke: none;
@@ -1714,7 +1711,7 @@ body.gate {
 .lp-wa-panel {
   position: absolute;
   right: 0;
-  bottom: 68px;
+  bottom: 60px;
   width: min(320px, calc(100vw - 32px));
   max-width: calc(100vw - 32px);
   background: #fff;
