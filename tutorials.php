@@ -328,12 +328,14 @@ layout_start('Tutorials', $user);
 
 <?php foreach ($lessons as $i => $lesson): ?>
   <article class="tut-lesson card" id="<?= h($lesson['id']) ?>">
-    <p class="tut-num">Lesson <?= $i + 1 ?></p>
-    <h2><?= icon($lesson['icon'], 20) ?><?= h($lesson['title']) ?></h2>
-    <p class="tut-desc"><?= h($lesson['lead']) ?></p>
-    <?php foreach ($lesson['points'] as $point): ?>
-      <p class="tut-desc"><?= h($point) ?></p>
-    <?php endforeach; ?>
+    <div class="tut-copy">
+      <p class="tut-num">Lesson <?= $i + 1 ?></p>
+      <h2><?= icon($lesson['icon'], 20) ?><?= h($lesson['title']) ?></h2>
+      <p class="tut-desc"><?= h($lesson['lead']) ?></p>
+      <?php foreach ($lesson['points'] as $point): ?>
+        <p class="tut-desc"><?= h($point) ?></p>
+      <?php endforeach; ?>
+    </div>
     <?= $shot($lesson['file'], $lesson['alt']) ?>
   </article>
 <?php endforeach; ?>
