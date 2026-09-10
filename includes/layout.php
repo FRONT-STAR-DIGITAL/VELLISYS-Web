@@ -83,9 +83,8 @@ function layout_start(string $title, array $user, array $opts = []): void
 <div class="app">
   <div class="nav-scrim" data-nav-scrim hidden></div>
   <aside class="nav" data-nav>
-    <a class="brand" href="<?= h(url('dashboard.php')) ?>">
+    <a class="brand" href="<?= h(url('dashboard.php')) ?>" title="<?= h($brand['name']) ?>">
       <img class="brand-logo" src="<?= h(logo_url($brand)) ?>" alt="<?= h($brand['name']) ?>">
-      <strong><?= h($brand['name']) ?></strong>
     </a>
     <nav>
       <?php foreach ($nav as [$href, $label, $iconName]):
