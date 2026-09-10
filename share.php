@@ -60,6 +60,11 @@ require ROOT_PATH . '/includes/sheet.php';
       justify-content: flex-end;
       gap: 8px;
     }
+    @media (max-width: 720px) {
+      .share-toolbar { max-width: none; padding: 12px; }
+      .share-toolbar .btn { flex: 1; min-height: 44px; }
+      .sheet-wrap { padding: 10px 0; }
+    }
     @media print {
       .share-toolbar { display: none !important; }
     }
@@ -72,10 +77,14 @@ require ROOT_PATH . '/includes/sheet.php';
     </div>
   <?php endif; ?>
   <div class="sheet-wrap">
-    <?php render_sheet($brand, $doc); ?>
+    <div class="sheet-stage">
+      <?php render_sheet($brand, $doc); ?>
+    </div>
   </div>
   <?php if ($print): ?>
     <script>window.addEventListener('load', function () { window.print(); });</script>
+  <?php else: ?>
+    <script src="<?= h(asset('js/sheet-fit.js')) ?>"></script>
   <?php endif; ?>
 </body>
 </html>

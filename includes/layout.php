@@ -230,6 +230,7 @@ function layout_end(string $extra = ''): void
 </div>
 <?php endif; ?>
 <script src="<?= h(asset('js/app.js')) ?>"></script>
+<script src="<?= h(asset('js/sheet-fit.js')) ?>"></script>
 <?= $extra ?>
 </body>
 </html>

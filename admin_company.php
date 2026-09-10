@@ -182,7 +182,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($unit === 'months' && $term > 120) {
             $term = 120;
         }
+        $sendReceipt = post('send_receipt') !== '';
         if ($term === 0) {
+            if ($sendReceipt) {
+                $error = 'Set the paid term, start date and amount before sending a payment receipt.';
+            } else {
             db_exec(
                 'UPDATE companies SET paid_term=0, paid_unit=?, paid_from=NULL, expires_at=NULL, renewal_notice_sent_at=NULL WHERE id=?',
                 'si',
@@ -190,7 +194,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
             flash('Paid term cleared for ' . $company['name'] . '.');
             redirect('admin_company.php?id=' . $id);
-        }
+            }
+        } else {
         if ($from === '' || !DateTime::createFromFormat('Y-m-d', $from)) {
             $from = date('Y-m-d');
         }
@@ -207,8 +212,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'isssddsi',
                 [$term, $unit, $from, $expires, $feeAmount, $feePaid, $feeCurrency, $id]
             );
-            flash($company['name'] . ' is paid for ' . $term . ' ' . $unit . ', until ' . format_date($expires) . '.');
+            $fresh = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$id]);
+            $note = $company['name'] . ' is paid for ' . $term . ' ' . $unit . ', until ' . format_date($expires) . '.';
+            if ($sendReceipt) {
+                $sent = send_payment_receipt($fresh ?: $company, $user);
+                if (!empty($sent['ok'])) {
+                    flash($note . ' Payment receipt sent to ' . ($sent['contact']['email'] ?? '') . ' from ' . product_email() . '.');
+                } elseif (($sent['status'] ?? '') === 'queued') {
+                    flash($note . ' Receipt queued for ' . ($sent['contact']['email'] ?? '') . '. ' . ($sent['error'] ?? ''), 'err');
+                } else {
+                    flash($note . ' ' . ($sent['error'] ?? 'Could not send the payment receipt.'), 'err');
+                }
+            } else {
+                flash($note);
+            }
             redirect('admin_company.php?id=' . $id);
+        }
         }
     }
 }
@@ -230,6 +249,8 @@ $checks = [
     ['A document issued', $docCount > 0],
     ['Marked live', ($company['status'] ?? '') === 'live'],
 ];
+$receiptContact = company_notice_email($id, $brand ?: [], $members);
+$receiptPreview = company_expires_on($company) ? payment_receipt_copy($company, $receiptContact, $members) : null;
 
 layout_admin_start($company['name'], $user);
 ?>
@@ -342,8 +363,19 @@ layout_admin_start($company['name'], $user);
     </p>
     <div class="actions">
       <button class="btn" type="submit"><?= icon('check') ?>Save paid term</button>
+      <button class="btn ghost" type="submit" name="send_receipt" value="1"><?= icon('receipt', 16) ?>Save and send receipt</button>
       <a class="btn ghost" href="<?= h(url('admin_reports.php')) ?>"><?= icon('reports', 16) ?>Reports</a>
     </div>
+    <?php if ($receiptPreview): ?>
+      <details class="receipt-preview" style="margin-top:16px">
+        <summary>Payment receipt template</summary>
+        <p class="hint">Sent from <?= h(product_email()) ?> to <?= h($receiptContact['email'] !== '' ? $receiptContact['email'] : 'the company email on file') ?>. Shows when the term started, when the account expires, the currency and amount received, thanks, and either a wait for onboarding credentials or a sign-in note.</p>
+        <div class="mail-preview">
+          <div class="mail-preview-head"><?= h($receiptPreview['subject']) ?></div>
+          <iframe title="Payment receipt preview" srcdoc="<?= h(email_html_preview($receiptPreview['html'])) ?>"></iframe>
+        </div>
+      </details>
+    <?php endif; ?>
   </div>
 </form>
 

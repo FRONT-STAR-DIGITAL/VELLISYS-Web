@@ -686,7 +686,16 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 22%, transparent);
 }
 
-.sheet-wrap { background: #fff; padding: 28px 16px; overflow: auto; border-radius: var(--radius); }
+.sheet-wrap { background: #fff; padding: 28px 16px; overflow: hidden; border-radius: var(--radius); min-width: 0; max-width: 100%; }
+.sheet-stage {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  justify-content: flex-start;
+}
+.sheet-stage .invoice-sheet { flex-shrink: 0; }
 .invoice-sheet {
   width: 210mm;
   min-height: 297mm;
@@ -1189,6 +1198,107 @@ table.grid tfoot td {
   .q-detail { padding: 18px 16px 22px; }
   .tut-lesson, .tut-lesson:not(:has(.tut-shot)) { grid-template-columns: 1fr; }
 }
+@media (max-width: 720px) {
+  .top {
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    gap: 8px;
+  }
+  .top-meta { flex: 1 1 100%; }
+  .top-actions {
+    width: 100%;
+    margin-left: 0;
+  }
+  .top-actions .btn { flex: 1; min-height: 44px; }
+  .page-head { align-items: stretch; }
+  .page-head .actions {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .page-head .actions .btn,
+  .page-head .actions form { flex: 1 1 calc(50% - 8px); min-width: 140px; }
+  .page-head .actions .btn { width: 100%; min-height: 44px; white-space: normal; }
+  .stats, .stats.six { grid-template-columns: 1fr; }
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .filters input,
+  .filters select,
+  .filters input[type=date] { width: 100%; }
+  .chip { min-height: 36px; }
+  h1 { font-size: 22px; }
+  .lede { max-width: none; }
+  .sheet-wrap { padding: 10px 0; border-radius: 0; }
+  .share-toolbar {
+    max-width: none;
+    padding: 12px;
+    justify-content: stretch;
+  }
+  .share-toolbar .btn { flex: 1; min-height: 44px; }
+  .mail-preview iframe { min-height: 420px; width: 100%; border: 0; }
+  .receipt-preview summary {
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--brand-ink);
+  }
+  input, select, textarea, .btn { font-size: 16px; }
+  .qty-btn { min-width: 40px; min-height: 40px; }
+  .lines .qty-wrap { width: 100%; max-width: 200px; }
+  .desk-body, .print-body { overflow-x: hidden; }
+  .content { min-width: 0; }
+  .lines thead { display: none; }
+  .lines, .lines tbody, .lines tr, .lines td { display: block; width: 100%; }
+  .lines { border: 0; }
+  .lines tr {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    margin: 0 0 12px;
+    padding: 6px 12px 10px;
+    background: #fff;
+  }
+  .lines td {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 8px;
+    align-items: center;
+    width: 100%;
+    min-width: 0 !important;
+    padding: 8px 0;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .lines td:last-child { border-bottom: 0; }
+  .lines td::before {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .lines td:nth-child(1)::before { content: "Item"; }
+  .lines td:nth-child(2)::before { content: "Description"; align-self: start; padding-top: 8px; }
+  .lines td:nth-child(3)::before { content: "Qty"; }
+  .lines td:nth-child(4)::before { content: "Unit price"; }
+  .lines td:nth-child(5)::before { content: "Total Amt"; }
+  .lines td:nth-child(6)::before { content: "VAT"; }
+  .lines td.right, .lines td.center { text-align: left; }
+  .card:has(table.grid:not(.lines)) {
+    -webkit-overflow-scrolling: touch;
+  }
+  table.grid:not(.lines) { min-width: 560px; }
+  .form-grid > div { min-width: 0; }
+  .color-row { flex-wrap: wrap; }
+  .template-grid { grid-template-columns: 1fr; }
+  .acting-bar { flex-wrap: wrap; gap: 8px; }
+  .nav-toggle { min-width: 44px; min-height: 44px; }
+}
+@media (max-width: 420px) {
+  .page-head .actions .btn,
+  .page-head .actions form { flex-basis: 100%; }
+}
 .q-detail { padding: 18px 22px 24px; }
 .q-detail-meta {
   display: grid;
@@ -1226,6 +1336,16 @@ table.grid tfoot td {
   font-size: 14px;
   line-height: 1.55;
   color: #000000;
+  width: 100%;
+  min-height: 480px;
+  border: 0;
+  display: block;
+}
+.receipt-preview summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--brand-ink);
+  margin-bottom: 8px;
 }
 .tut-toc {
   display: flex;
@@ -1298,5 +1418,6 @@ table.grid tfoot td {
   .nav, .nav-toggle, .nav-scrim { display: none !important; }
   .desk-body .main { margin-left: 0; width: 100%; max-width: 100%; }
   .content, .sheet-wrap { padding: 0; background: #fff; max-width: none; overflow: visible; }
-  .invoice-sheet { box-shadow: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .sheet-stage { height: auto !important; overflow: visible !important; display: block !important; }
+  .invoice-sheet { box-shadow: none; transform: none !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }

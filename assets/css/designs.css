@@ -324,9 +324,15 @@
     overflow: visible !important;
     border-radius: 0 !important;
   }
+  .sheet-stage {
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+  }
   .invoice-sheet {
     box-shadow: none !important;
     margin: 0 auto;
+    transform: none !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }

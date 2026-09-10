@@ -314,20 +314,20 @@ function notify_visitor_question(array $q): void
     $who = $name !== '' ? $name : 'there';
     $message = trim((string) ($q['message'] ?? ''));
     $phones = implode(' or ', product_phones());
-    $subject = 'We have your question - Vellisys';
+    $subject = 'Thank you - we have your question';
     $html = vellisys_email_wrap(
         '<p style="margin:0 0 16px">Dear ' . h($who) . ',</p>'
-        . '<p style="margin:0 0 14px">Thank you for writing to Vellisys. We have your question and a member of the team will reply to this email.</p>'
+        . '<p style="margin:0 0 14px">Thank you for writing to us. We have your note, and a person on the Vellisys team will reply to this email.</p>'
         . ($message !== ''
-            ? '<p style="margin:0 0 8px"><strong>Your note</strong></p><p style="margin:0 0 18px;padding:14px;background:#FFFFFF;border:1px solid #08143A;color:#000000">' . nl2br(h($message)) . '</p>'
+            ? '<p style="margin:0 0 8px"><strong>What you asked</strong></p><p style="margin:0 0 18px;padding:14px;background:#FFFDF8;border:1px solid #08143A;color:#000000">' . nl2br(h($message)) . '</p>'
             : '')
-        . '<p style="margin:0 0 14px">If it is urgent, call ' . h($phones) . '.</p>'
-        . '<p style="margin:0">Kind regards,<br><strong>Vellisys</strong></p>',
-        'We have your question'
+        . '<p style="margin:0 0 14px">If you need us today, call ' . h($phones) . '. We are glad you reached out.</p>'
+        . '<p style="margin:0">Warm regards,<br><strong>Vellisys</strong></p>',
+        'Thank you'
     );
-    $text = "Dear {$who},\n\nThank you for writing to Vellisys. We have your question and a member of the team will reply to this email.\n\n"
-        . ($message !== '' ? "Your note:\n{$message}\n\n" : '')
-        . "If it is urgent, call {$phones}.\n\nKind regards,\nVellisys\n" . product_email();
+    $text = "Dear {$who},\n\nThank you for writing to us. We have your note, and a person on the Vellisys team will reply to this email.\n\n"
+        . ($message !== '' ? "What you asked:\n{$message}\n\n" : '')
+        . "If you need us today, call {$phones}. We are glad you reached out.\n\nWarm regards,\nVellisys\n" . product_email();
     send_platform_email($to, $subject, $html, $text, 0, product_email());
 }
 
@@ -507,6 +507,134 @@ function renewal_notice_copy(array $company, array $contact): array
     );
 
     return ['subject' => $subject, 'html' => $html, 'text' => $text];
+}
+
+function payment_receipt_ref(array $company): string
+{
+    $id = (int) ($company['id'] ?? 0);
+    $from = preg_replace('/\D+/', '', (string) ($company['paid_from'] ?? '')) ?: date('Ymd');
+    return 'VEL-PAY-' . $id . '-' . substr($from, 0, 8);
+}
+
+function payment_receipt_waiting_credentials(array $company, array $members = []): bool
+{
+    if (($company['status'] ?? '') !== 'live') {
+        return true;
+    }
+    foreach ($members as $m) {
+        if (filter_var((string) ($m['email'] ?? ''), FILTER_VALIDATE_EMAIL)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function payment_receipt_copy(array $company, array $contact, array $members = []): array
+{
+    $who = trim((string) ($contact['name'] ?? ''));
+    if ($who === '' || strcasecmp($who, 'the team') === 0) {
+        $who = 'the team';
+    }
+    $name = (string) ($company['name'] ?? 'your company');
+    $currency = company_fee_currency($company);
+    $paid = company_fee_paid($company);
+    $amount = $paid > 0 ? $paid : company_fee_amount($company);
+    $started = format_date((string) ($company['paid_from'] ?? ''));
+    $expires = format_date((string) ($company['expires_at'] ?? ''));
+    $term = company_term_label($company);
+    $ref = payment_receipt_ref($company);
+    $phones = implode(' or ', product_phones());
+    $wait = payment_receipt_waiting_credentials($company, $members);
+    $login = absolute_url('login.php');
+    $money = money($amount, $currency);
+
+    if ($wait) {
+        $nextTitle = 'Please wait for onboarding credentials';
+        $nextBody = 'Thank you. Please wait while we finish onboarding. Sign-in credentials will be sent to this mailbox in a separate letter. Do not try to sign in until you receive that letter.';
+        $nextText = "Please wait for onboarding credentials. We will send the desk login to this mailbox in a separate letter. Do not try to sign in until you receive it.";
+    } else {
+        $nextTitle = 'Your desk is ready';
+        $nextBody = 'Thank you. Your Vellisys desk is live. Sign in at ' . $login . ' with the mailbox we issued for the team.';
+        $nextText = 'Your desk is live. Sign in at ' . $login . ' with the mailbox we issued for the team.';
+    }
+
+    $subject = 'Payment received - ' . $name;
+    $text = "Dear {$who},\n\n"
+        . "Thank you. We have received payment for the Vellisys desk used by {$name}.\n\n"
+        . "PAYMENT RECEIPT {$ref}\n"
+        . "Company: {$name}\n"
+        . "Term started: {$started}\n"
+        . "Account expires: {$expires}\n"
+        . "Paid term: {$term}\n"
+        . "Currency: {$currency}\n"
+        . "Amount received: {$money}\n\n"
+        . $nextText . "\n\n"
+        . "If you need us, write to " . product_email() . " or call {$phones}.\n\n"
+        . "Kind regards,\nVellisys\nA product of " . product_maker_name() . "\n" . product_email();
+
+    $row = static function (string $label, string $value, bool $last = false): string {
+        $border = $last ? '0' : '1px solid #08143A';
+        return '<tr>'
+            . '<td style="padding:10px 14px;border-bottom:' . $border . ';font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#08143A;width:42%;">' . h($label) . '</td>'
+            . '<td style="padding:10px 14px;border-bottom:' . $border . ';font-size:15px;color:#000000;font-weight:600;">' . h($value) . '</td>'
+            . '</tr>';
+    };
+
+    $html = vellisys_email_wrap(
+        '<p style="margin:0 0 16px;color:#000000">Dear ' . h($who) . ',</p>'
+        . '<p style="margin:0 0 18px;color:#000000">Thank you. We have received payment for the Vellisys desk used by <strong>' . h($name) . '</strong>.</p>'
+        . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #08143A;border-collapse:collapse;margin:0 0 20px;">'
+        . '<tr><td colspan="2" style="background:#08143A;padding:12px 14px;">'
+        . '<p style="margin:0;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#FFFFFF;font-weight:700;">Payment receipt</p>'
+        . '<p style="margin:4px 0 0;font-size:13px;color:#FFFFFF;">' . h($ref) . '</p>'
+        . '</td></tr>'
+        . $row('Company', $name)
+        . $row('Term started', $started !== '' ? $started : '-')
+        . $row('Account expires', $expires !== '' ? $expires : '-')
+        . $row('Paid term', $term)
+        . $row('Currency', $currency)
+        . $row('Amount received', $money, true)
+        . '</table>'
+        . '<p style="margin:0 0 18px;color:#000000">Thank you for choosing Vellisys.</p>'
+        . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #1E4EFF;margin:0 0 18px;">'
+        . '<tr><td style="padding:14px 16px;background:#FFFFFF;">'
+        . '<p style="margin:0 0 6px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#1E4EFF;font-weight:700;">Next</p>'
+        . '<p style="margin:0 0 8px;font-weight:700;color:#08143A;">' . h($nextTitle) . '</p>'
+        . '<p style="margin:0;color:#000000;">' . h($nextBody) . '</p>'
+        . '</td></tr></table>'
+        . '<p style="margin:0 0 14px;color:#000000">If you need us, write to <a href="mailto:' . h(product_email()) . '" style="color:#1E4EFF">' . h(product_email()) . '</a> or call ' . h($phones) . '.</p>'
+        . '<p style="margin:0;color:#000000">Kind regards,<br><strong>Vellisys</strong></p>',
+        'Payment receipt'
+    );
+
+    return ['subject' => $subject, 'html' => $html, 'text' => $text, 'to_name' => $who];
+}
+
+function send_payment_receipt(array $company, array $user): array
+{
+    $id = (int) ($company['id'] ?? 0);
+    if (!company_expires_on($company)) {
+        return ['ok' => false, 'error' => 'Save a paid term with a start date before sending a payment receipt.', 'contact' => ['email' => '', 'name' => '']];
+    }
+    $brand = $id ? (branding_for($id) ?: []) : [];
+    $members = $id ? db_all('SELECT id, name, email FROM users WHERE company_id = ? ORDER BY id', 'i', [$id]) : [];
+    $contact = company_notice_email($id, $brand, $members);
+    if ($contact['email'] === '' || !filter_var($contact['email'], FILTER_VALIDATE_EMAIL)) {
+        return ['ok' => false, 'error' => 'No email on file for this company. Add a public email on stationery or a desk login.', 'contact' => $contact];
+    }
+    $copy = payment_receipt_copy($company, $contact, $members);
+    $sent = send_platform_email($contact['email'], $copy['subject'], $copy['html'], $copy['text'], (int) ($user['id'] ?? 0));
+    $status = !empty($sent['ok']) ? 'sent' : 'queued';
+    notify_platform(
+        'Payment receipt: ' . ($company['name'] ?? ''),
+        '<p style="margin:0">A payment receipt for <strong>' . h($company['name'] ?? '') . '</strong> was ' . h($status) . ' to ' . h($contact['email']) . ' from ' . h(product_email()) . '.</p>'
+            . '<p style="margin:8px 0 0">Amount ' . h(money(company_fee_paid($company) > 0 ? company_fee_paid($company) : company_fee_amount($company), company_fee_currency($company)))
+            . ' · Term ' . h(format_date((string) ($company['paid_from'] ?? ''))) . ' to ' . h(format_date((string) ($company['expires_at'] ?? ''))) . '.</p>',
+        'Payment receipt for ' . ($company['name'] ?? '') . ' to ' . $contact['email'] . ' (' . $status . ').',
+        $contact['email'],
+        (int) ($user['id'] ?? 0)
+    );
+    return ['ok' => !empty($sent['ok']), 'contact' => $contact, 'copy' => $copy, 'status' => $status, 'error' => (string) ($sent['error'] ?? '')];
 }
 
 function send_renewal_notice(array $company, array $user): array

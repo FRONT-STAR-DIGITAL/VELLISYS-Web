@@ -9,6 +9,8 @@ $help = landing_cards('help');
 $steps = landing_cards('steps');
 $oldPhotos = old_way_photos();
 $clients = trust_clients();
+$reviews = landing_reviews();
+$manage = desk_manage_items();
 $faqs = landing_faqs();
 $_SESSION['ask_form_at'] = time();
 $askFlash = flash();
@@ -119,6 +121,45 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       </div>
     </section>
     <?php endif; ?>
+
+    <?php if ($reviews): ?>
+    <section class="lp-reviews" id="client-reviews" aria-label="Client reviews">
+      <p class="lp-kicker">From the books</p>
+      <h2>What clients say</h2>
+      <div class="lp-marquee lp-reviews-marquee">
+        <div class="lp-marquee-track lp-reviews-track">
+          <?php foreach ([$reviews, $reviews] as $setIndex => $set): ?>
+            <?php foreach ($set as $review): ?>
+              <article class="lp-review" <?= $setIndex === 1 ? 'aria-hidden="true"' : '' ?>>
+                <blockquote><?= h($review['quote']) ?></blockquote>
+                <footer>
+                  <strong><?= h($review['name']) ?></strong>
+                  <?php if (trim((string) ($review['role'] ?? '')) !== ''): ?>
+                    <span><?= h($review['role']) ?></span>
+                  <?php endif; ?>
+                </footer>
+              </article>
+            <?php endforeach; ?>
+          <?php endforeach; ?>
+        </div>
+      </div>
+    </section>
+    <?php endif; ?>
+
+    <section class="lp-manage" id="what-you-manage" data-reveal>
+      <p class="lp-kicker">The desk</p>
+      <h2>What you get to manage</h2>
+      <p class="lp-manage-lead">One professional desk for the books. Quotations through reports, in the company's branding, on a phone in the field or a laptop at the office - anywhere, any time.</p>
+      <div class="lp-manage-grid">
+        <?php foreach ($manage as $item): ?>
+          <article>
+            <span class="lp-manage-icon" aria-hidden="true"><?= icon($item['icon'], 22) ?></span>
+            <h3><?= h($item['title']) ?></h3>
+            <p><?= h($item['body']) ?></p>
+          </article>
+        <?php endforeach; ?>
+      </div>
+    </section>
 
     <section class="lp-send" id="send-in-a-minute" data-reveal>
       <figure class="lp-send-pic">
@@ -248,10 +289,24 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       <div class="lp-ask-panel">
         <?php if ($askedOk): ?>
           <div class="lp-ask-form lp-ask-ok">
-            <p class="lp-kicker">Sent</p>
-            <h3>We have your question</h3>
-            <p>We sent a confirmation to the email you left, from <?= h(product_email()) ?>. A Vellisys admin will reply there. If it is urgent, call <?= h(product_phones()[0]) ?>.</p>
-            <a class="lp-btn lp-btn-ghost" href="<?= h(url()) ?>#ask">Ask another</a>
+            <span class="lp-ask-mark" aria-hidden="true"><?= icon('heart', 26) ?></span>
+            <p class="lp-kicker">Thank you</p>
+            <h3>We have your note</h3>
+            <p class="lp-ask-ok-lead">A person on the Vellisys team will read it and reply by email. You are not waiting on a ticket queue.</p>
+            <ul class="lp-ask-ok-next">
+              <li>
+                <span><?= icon('letter', 18) ?></span>
+                <p>A short confirmation is on its way from <a href="mailto:<?= h(product_email()) ?>"><?= h(product_email()) ?></a>.</p>
+              </li>
+              <li>
+                <span><?= icon('phone', 18) ?></span>
+                <p>If you need us today, call <a href="tel:+<?= h(phone_digits(product_phones()[0])) ?>"><?= h(product_phones()[0]) ?></a>.</p>
+              </li>
+            </ul>
+            <div class="lp-ask-ok-actions">
+              <a class="lp-btn lp-btn-solid" href="<?= h(url()) ?>#ask">Ask another</a>
+              <a class="lp-btn lp-btn-ghost" href="tel:+<?= h(phone_digits(product_phones()[0])) ?>">Call us</a>
+            </div>
           </div>
         <?php else: ?>
           <form class="lp-ask-form" method="post" action="<?= h(url('ask.php')) ?>" autocomplete="off">

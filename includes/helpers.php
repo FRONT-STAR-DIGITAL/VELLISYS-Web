@@ -1508,6 +1508,53 @@ function visitor_ip_hash(): string
     return hash('sha256', $ip . '|' . $secret);
 }
 
+function landing_review_defaults(): array
+{
+    return [
+        ['name' => 'Priya Menon', 'role' => 'Accounts, Harbour & Co.', 'quote' => 'Our quotations finally look like us. Clients stopped asking if the PDF came from our office.', 'sort' => 10],
+        ['name' => 'Daniel Okello', 'role' => 'Finance lead, Westland Traders', 'quote' => 'Invoices and receipts match. Debtors is honest by Friday without a spreadsheet chase.', 'sort' => 20],
+        ['name' => 'Sofia Alvarez', 'role' => 'Practice manager, Nueve Studio', 'quote' => 'Headed letters and invoices share one letterhead. We send from the desk in a tap.', 'sort' => 30],
+        ['name' => 'James Boateng', 'role' => 'Owner, Accra Millworks', 'quote' => 'We bill in GHS. Reports still add up. The yard team opens the books on phones.', 'sort' => 40],
+        ['name' => 'Mei Chen', 'role' => 'Operations, Pacific Supply', 'quote' => 'Ten templates, our colours. Automated reminders replaced the awkward WhatsApp chase.', 'sort' => 50],
+        ['name' => 'Amina Yusuf', 'role' => 'Director, Sahel Goods', 'quote' => 'Onboarding was a login in the mailbox. The desk is the professional we needed.', 'sort' => 60],
+    ];
+}
+
+function landing_reviews(): array
+{
+    try {
+        $rows = db_all('SELECT * FROM landing_reviews ORDER BY sort, id');
+        if ($rows) {
+            return $rows;
+        }
+    } catch (Throwable $e) {
+        // Table may not exist until migrate runs.
+    }
+    return landing_review_defaults();
+}
+
+function desk_manage_items(): array
+{
+    return [
+        ['icon' => 'quotation', 'title' => 'Quotations', 'body' => 'Raise a quote, share it branded, convert it to an invoice when they say yes.'],
+        ['icon' => 'invoice', 'title' => 'Invoices', 'body' => 'Issue full or part-paid invoices. Balances stay visible until they are cleared.'],
+        ['icon' => 'receipt', 'title' => 'Receipts', 'body' => 'Record what came in. RECEIVED and DUE print on the sheet, in your currency.'],
+        ['icon' => 'clients', 'title' => 'Debtors', 'body' => 'See who still owes you. Send a reminder from the row, from the company mailbox.'],
+        ['icon' => 'bank', 'title' => 'Creditors', 'body' => 'Track suppliers you still need to pay. Note a payment or write to them from the desk.'],
+        ['icon' => 'letter', 'title' => 'Headed letters', 'body' => 'Correspondence on the same stationery as the books. Print or email in one click.'],
+        ['icon' => 'send', 'title' => 'Send emails', 'body' => 'Quotations, invoices, receipts, letters and reminders leave from your assigned mailbox.'],
+        ['icon' => 'clock', 'title' => 'Automated client communication', 'body' => 'Share links, reminders and follow-ups without hunting through WhatsApp later.'],
+        ['icon' => 'reports', 'title' => 'Business reports', 'body' => 'Collections, outstanding, aging and documents issued - this month on one screen.'],
+        ['icon' => 'reports', 'title' => 'Business performance reports', 'body' => 'Time series, expense mix, quote conversion and top clients. Know how the books are doing.'],
+        ['icon' => 'desk', 'title' => 'A professional desk', 'body' => 'One place for the team. No drawer of slips, no inbox archaeology.'],
+        ['icon' => 'palette', 'title' => '10+ templates', 'body' => 'Pick Folio, Ledger, Twin copy, Estate, Night and more. The whole books follow that layout.'],
+        ['icon' => 'image', 'title' => 'Your company branding', 'body' => 'Logo, three colours, letterhead. Every document looks like it left your office.'],
+        ['icon' => 'phone', 'title' => 'Phones and laptops', 'body' => 'The desk and every sheet are built for a phone in the field and a laptop at the office.'],
+        ['icon' => 'globe', 'title' => 'Anywhere, any time', 'body' => 'Sign in from wherever you are. This month is there, in the currency you actually use.'],
+        ['icon' => 'expense', 'title' => 'And more on the desk', 'body' => 'Expenses, CSV export, VAT on or off per line, share links, tutorials, and part receipts.'],
+    ];
+}
+
 function landing_faqs(): array
 {
     return [

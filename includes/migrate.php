@@ -29,7 +29,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 20) {
+    if ($ver >= 21) {
         $done = true;
         return;
     }
@@ -181,12 +181,16 @@ function folio_migrate(mysqli $db): void
     folio_migrate_subscriptions($db);
     }
 
-    folio_migrate_mailboxes($db);
-    folio_migrate_fees($db);
-    folio_migrate_email_from($db);
-    folio_refresh_landing_copy($db);
+    if ($ver < 20) {
+        folio_migrate_mailboxes($db);
+        folio_migrate_fees($db);
+        folio_migrate_email_from($db);
+        folio_refresh_landing_copy($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '20')");
+    folio_migrate_landing_reviews($db);
+
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '21')");
     $done = true;
 }
 
@@ -298,6 +302,31 @@ function folio_refresh_landing_copy(mysqli $db): void
         }
         $stmt->bind_param('sss', $c['title'], $c['body'], $c['slot']);
         $stmt->execute();
+    }
+}
+
+function folio_migrate_landing_reviews(mysqli $db): void
+{
+    $db->query("CREATE TABLE IF NOT EXISTS landing_reviews (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(120) NOT NULL,
+      role VARCHAR(160) NOT NULL DEFAULT '',
+      quote TEXT NOT NULL,
+      sort INT NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY sort_id (sort, id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $count = $db->query('SELECT COUNT(*) AS c FROM landing_reviews');
+    $n = $count ? (int) ($count->fetch_assoc()['c'] ?? 0) : 0;
+    if ($n > 0) {
+        return;
+    }
+    foreach (landing_review_defaults() as $c) {
+        $stmt = $db->prepare('INSERT INTO landing_reviews (name, role, quote, sort) VALUES (?,?,?,?)');
+        $stmt->bind_param('sssi', $c['name'], $c['role'], $c['quote'], $c['sort']);
+        $stmt->execute();
+        $stmt->close();
     }
 }
 

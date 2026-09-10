@@ -43,6 +43,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         redirect('admin_mail.php');
     }
+    if ($action === 'payment_receipt') {
+        $companyId = (int) post('company_id');
+        $co = $companyId ? db_one('SELECT * FROM companies WHERE id = ?', 'i', [$companyId]) : null;
+        if (!$co) {
+            flash('Pick a company to send a payment receipt.', 'err');
+            redirect('admin_mail.php');
+        }
+        $sent = send_payment_receipt($co, $user);
+        $pickQ = '?company=' . $companyId;
+        if (!empty($sent['ok'])) {
+            flash('Payment receipt sent to ' . ($sent['contact']['email'] ?? '') . ' from ' . product_email() . '.');
+        } elseif (($sent['status'] ?? '') === 'queued') {
+            flash('Payment receipt queued for ' . ($sent['contact']['email'] ?? '') . '. ' . ($sent['error'] ?? ''), 'err');
+        } else {
+            flash($sent['error'] ?? 'Could not send the payment receipt.', 'err');
+        }
+        redirect('admin_mail.php' . $pickQ);
+    }
     $to = strtolower(post('to'));
     $companyId = (int) post('company_id');
     $name = post('to_name');
@@ -88,7 +106,7 @@ layout_admin_start('Email', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('send') ?>Email</h1>
-    <p class="lede">Send a custom Vellisys letter from <strong><?= h(product_email()) ?></strong>. Clients receive from this mailbox when they submit a question, register, go live, or get a renewal reminder. This tab is for any other letter you need to send as Vellisys.</p>
+    <p class="lede">Send a custom Vellisys letter from <strong><?= h(product_email()) ?></strong>. Clients receive from this mailbox when they submit a question, register, pay (receipt), go live, or get a renewal reminder. Pick a company to send the payment receipt template: term started, expiry, currency, amount received, thanks, and a wait for onboarding credentials when the desk is not live yet.</p>
   </div>
   <form method="post">
     <?= csrf_field() ?>
@@ -111,7 +129,7 @@ layout_admin_start('Email', $user);
     <div class="form-grid">
       <div>
         <label for="company_id">Company (optional)</label>
-        <select id="company_id" name="company_id">
+        <select id="company_id" name="company_id" onchange="location.href=this.value?('<?= h(url('admin_mail.php')) ?>?company='+this.value):'<?= h(url('admin_mail.php')) ?>'">
           <option value="">Choose a desk…</option>
           <?php foreach ($companies as $c): ?>
             <option value="<?= (int) $c['id'] ?>" <?= $pick === (int) $c['id'] ? 'selected' : '' ?>><?= h($c['name']) ?></option>
@@ -138,6 +156,15 @@ layout_admin_start('Email', $user);
       <button class="btn" type="submit"><?= icon('send') ?>Send from Vellisys</button>
     </div>
   </form>
+  <?php if ($picked): ?>
+    <form method="post" style="padding:0 22px 18px">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="payment_receipt">
+      <input type="hidden" name="company_id" value="<?= (int) $picked['id'] ?>">
+      <p class="hint" style="margin:0 0 10px">Payment receipt for <strong><?= h($picked['name']) ?></strong>: term <?= h(company_term_label($picked)) ?><?php if (company_expires_on($picked)): ?>, <?= h(format_date((string) $picked['paid_from'])) ?> to <?= h(format_date((string) $picked['expires_at'])) ?><?php endif; ?>, <?= h(money(company_fee_paid($picked) > 0 ? company_fee_paid($picked) : company_fee_amount($picked), company_fee_currency($picked))) ?>.</p>
+      <button class="btn ghost" type="submit"><?= icon('receipt', 16) ?>Send payment receipt</button>
+    </form>
+  <?php endif; ?>
 </div>
 
 <div class="card">

@@ -69,7 +69,9 @@ if ($doc['kind'] === 'invoice') {
 </div>
 
 <div class="sheet-wrap">
-  <?php render_sheet(branding(), $doc); ?>
+  <div class="sheet-stage">
+    <?php render_sheet(branding(), $doc); ?>
+  </div>
 </div>
 
 <?php if ($emails): ?>

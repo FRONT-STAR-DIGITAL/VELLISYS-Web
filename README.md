@@ -21,6 +21,9 @@ Open the **landing page** at the site root. Companies **register** in a few fiel
 ## What you get
 
 - Public landing page in three sections, with pictures on every card. Super admin can replace those pictures under **Landing**, and add **Clients who trust us** names and logos
+- Horizontal auto-scrolling **client reviews** on the landing page (editable under Landing)
+- **What you get to manage** on the landing page: quotations, invoices, receipts, debtors, creditors, headed letters, email, reports, automated communication, 10+ templates, branding, phones and laptops
+- Super admin **payment receipt**: after recording a paid term, send a receipt from `info@vellisys.com` with start date, expiry, currency, amount received, thanks, and a wait for onboarding credentials when the desk is not live yet
 - **Have a question** form on the landing page. Super admin sees each note under **Questions**, opens the full message on its own page, and a copy is emailed to `info@vellisys.com`. The person who sent the question also gets a confirmation from that mailbox
 - Super admin **Email** tab: send a custom Vellisys letter from `info@vellisys.com`
 - Super admin **Reports**: fees collected and balances per client, unused term value, desk collections vs outstanding, onboarding and expiry charts, sign-up funnel, time series of platform books, plus paid terms, desks due within a month, lapsed desks, and one-click renewal letters
@@ -48,6 +51,7 @@ Open the **landing page** at the site root. Companies **register** in a few fiel
 - Date filters: today, this week, last week, this month, last month, plus from/to
 - Company reports with a time series, expense pie, debtors aging, collections vs outstanding, quote conversion, top clients billed, and documents issued over time
 - Super admin top bar stays on screen on a phone so the menu stays in reach
+- Company desk and every document template scale to fit a phone; line items stack so they stay easy to fill
 - VAT 18% on taxed lines for every company
 - Email sends **From** the signed-in account
 - No stock module, no plan packages, no EFRIS box on documents
@@ -81,6 +85,7 @@ Two mailboxes, never mixed.
 
 - submit a question
 - register for a desk
+- pay for a term (payment receipt: start, expiry, currency, amount, thanks, wait for credentials)
 - are onboarded (welcome + tutorials)
 - are marked live
 - are due a renewal reminder
