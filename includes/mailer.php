@@ -959,7 +959,14 @@ function send_renewal_notice(array $company, array $user): array
 
 function absolute_url(string $path): string
 {
-    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+    $https = function_exists('folio_request_is_https') ? folio_request_is_https() : (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    if (function_exists('folio_is_live_host') && folio_is_live_host()) {
+        $https = true;
+        $bare = function_exists('folio_http_host') ? folio_http_host() : strtolower($host);
+        if ($bare === 'vellisys.com') {
+            $host = 'www.vellisys.com';
+        }
+    }
     return ($https ? 'https' : 'http') . '://' . $host . url($path);
 }

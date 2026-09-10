@@ -2357,8 +2357,16 @@ function landing_card_image_url(array $card): string
 
 function product_icons(): void
 {
-    echo '<link rel="icon" type="image/png" href="' . h(product_mark_url()) . '">';
-    echo '<link rel="apple-touch-icon" href="' . h(product_mark_url()) . '">';
+    $mark = product_mark_url();
+    $apple = url('assets/img/pwa-180.png');
+    echo '<link rel="icon" type="image/png" href="' . h($mark) . '">';
+    echo '<link rel="apple-touch-icon" href="' . h($apple) . '">';
+    echo '<link rel="manifest" href="' . h(url('manifest.php')) . '">';
+    echo '<meta name="theme-color" content="#08143A">';
+    echo '<meta name="mobile-web-app-capable" content="yes">';
+    echo '<meta name="apple-mobile-web-app-capable" content="yes">';
+    echo '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">';
+    echo '<meta name="apple-mobile-web-app-title" content="' . h(product_name()) . '">';
 }
 
 function folio_critical_css(string $surface = 'landing'): void

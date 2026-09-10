@@ -20,13 +20,14 @@ $askedOk = isset($_GET['asked']);
 $askDraft = $_SESSION['ask_draft'] ?? [];
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-pwa-login="<?= h(url('login.php')) ?>">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= h(product_name()) ?> · Stop losing the books</title>
   <?php product_icons(); ?>
   <?php folio_landing_head(); ?>
+  <script src="<?= h(asset('js/pwa-standalone.js')) ?>" data-cfasync="false"></script>
 </head>
 <body class="lp">
   <div class="lp-glow lp-glow-a" aria-hidden="true"></div>

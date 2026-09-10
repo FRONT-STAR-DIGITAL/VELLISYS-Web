@@ -43,7 +43,11 @@ if ($uri !== '/' && is_file($file) && !str_contains($uri, '..')) {
             }
         }
         header('Content-Type: ' . $type);
-        header('Cache-Control: public, max-age=31536000, immutable');
+        if (basename($file) === 'sw.js') {
+            header('Cache-Control: no-cache');
+        } else {
+            header('Cache-Control: public, max-age=31536000, immutable');
+        }
         readfile($file);
         return true;
     }

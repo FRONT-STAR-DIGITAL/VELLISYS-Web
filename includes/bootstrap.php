@@ -5,6 +5,7 @@ session_start();
 date_default_timezone_set('Africa/Kampala');
 
 define('ROOT_PATH', dirname(__DIR__));
+require_once ROOT_PATH . '/config/env.php';
 
 $scriptName = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/'));
 if ($scriptName === '/' || $scriptName === '\\') {

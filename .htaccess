@@ -6,6 +6,22 @@ DirectoryIndex index.php login.php
   </FilesMatch>
 </IfModule>
 
+AddType application/manifest+json .webmanifest
+AddType application/javascript .js
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Live domain only: apex -> www, and HTTP -> HTTPS.
+  RewriteCond %{HTTP_HOST} ^vellisys\.com$ [NC]
+  RewriteRule ^ https://www.vellisys.com%{REQUEST_URI} [L,R=301]
+
+  RewriteCond %{HTTP_HOST} ^(www\.)?vellisys\.com$ [NC]
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
 <IfModule mod_expires.c>
   ExpiresActive On
   ExpiresByType text/css "access plus 30 days"
@@ -18,7 +34,16 @@ DirectoryIndex index.php login.php
 </IfModule>
 
 <IfModule mod_headers.c>
-  <FilesMatch "\.(css|js|woff2|png|jpg|jpeg|gif|svg|webp|ico)$">
+  <FilesMatch "\.(css|woff2|png|jpg|jpeg|gif|svg|webp|ico)$">
     Header set Cache-Control "public, max-age=2592000"
   </FilesMatch>
+  <FilesMatch "^(?!sw\.js$).+\.js$">
+    Header set Cache-Control "public, max-age=2592000"
+  </FilesMatch>
+  <Files "sw.js">
+    Header set Cache-Control "no-cache"
+  </Files>
+  <Files "manifest.php">
+    Header set Cache-Control "no-cache"
+  </Files>
 </IfModule>

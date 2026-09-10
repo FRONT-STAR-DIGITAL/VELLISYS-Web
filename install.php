@@ -3,6 +3,11 @@ declare(strict_types=1);
 $_GET['installing'] = '1';
 require __DIR__ . '/includes/bootstrap.php';
 
+if (folio_is_live_host()) {
+    http_response_code(404);
+    exit('Installer is disabled on the live site.');
+}
+
 $cfg = require ROOT_PATH . '/config/database.php';
 $db = new mysqli($cfg['host'], $cfg['user'], $cfg['pass']);
 if ($db->connect_errno) {

@@ -135,6 +135,22 @@ export FOLIO_DB_USER=root
 export FOLIO_DB_PASS=
 ```
 
+## Web app
+
+The public website still opens on the **landing page**. Sign in at `login.php`. That page has the **Install the Vellisys app** button and the iPhone / computer instructions.
+
+When someone installs the web app, the icon opens **login**, not the landing page. After they sign in, they go to the desk as usual. A browser tab on the domain is unchanged.
+
+## Hostinger (`www.vellisys.com`)
+
+1. In hPanel, point **www.vellisys.com** (and the apex `vellisys.com`) at this hosting. Turn on SSL. The included `.htaccess` sends apex and HTTP to `https://www.vellisys.com`.
+2. Set PHP to **8.2 or 8.3**.
+3. Upload this project into **public_html** (document root of `www.vellisys.com`). Keep `index.php` at the root, not inside a subfolder.
+4. In phpMyAdmin, select the Hostinger database **`u454222977_Vell`** and import **`sql/vellisys-hostinger-import.sql`**. Do not run `install.php` on the live domain (it is disabled there).
+5. `config/database.php` uses that Hostinger database when the request host is `vellisys.com` / `www.vellisys.com`. Local XAMPP still uses `folio` / `root`. Override with `FOLIO_DB_*` if you ever need to.
+
+After upload, open `https://www.vellisys.com/` for the landing page and `https://www.vellisys.com/login.php` to sign in or install the app.
+
 ## Git
 
 Commit this folder as-is. Uploaded logos live in `uploads/logos/` and are gitignored except `.gitkeep`.

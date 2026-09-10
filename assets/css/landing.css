@@ -1613,6 +1613,75 @@ body.gate {
 .gate-switch, .gate-home { margin: 16px 0 0; font-size: 14px; color: var(--muted); }
 .gate-switch a, .gate-home a { color: var(--blue); font-weight: 700; text-decoration: none; }
 .gate-switch { display: none; }
+.gate-install {
+  width: min(420px, 100%);
+  margin: 28px 0 0;
+  padding: 18px 18px 16px;
+  border: 1px solid rgba(8, 20, 58, .12);
+  border-radius: 16px;
+  background: #f7f9ff;
+}
+.gate-install-kicker {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--blue);
+}
+.gate-install h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: var(--navy);
+}
+.gate-install > p {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.gate-install-btn {
+  margin-top: 0;
+  background: #08143a;
+}
+.gate-install-note {
+  margin: 10px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--navy);
+}
+.gate-install-ios,
+.gate-install-fallback {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(8, 20, 58, .08);
+  font-size: 13px;
+  color: var(--muted);
+}
+.gate-install ol {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+.gate-install li { margin: 6px 0; }
+.gate-install-help {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.gate-install-help summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--navy);
+}
+.gate-install-help p { margin: 8px 0 0; line-height: 1.5; }
+html.is-pwa .gate-install,
+html.is-pwa .gate-home {
+  display: none !important;
+}
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  .gate-install,
+  .gate-home { display: none !important; }
+}
 .gate-ok { text-align: left; }
 @media (max-width: 1100px) and (min-width: 861px) {
   .gate-shell { grid-template-columns: minmax(220px, 38%) minmax(0, 62%); }
