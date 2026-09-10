@@ -140,9 +140,9 @@ layout_admin_start('Companies', $user);
       <input id="name" name="name" required value="<?= h($pref('name')) ?>">
     </div>
     <div>
-      <label for="currency">Currency</label>
+      <label for="currency-pick">Currency</label>
       <?php currency_field('currency', 'currency', post('currency') ?: 'USD'); ?>
-      <p class="hint">The company types their billing currency later if this is wrong - UGX, KES, EUR, USD…</p>
+      <p class="hint">Choose the desk currency, or type a custom three-letter primary code. The company admin can change this later in Settings.</p>
     </div>
     <div>
       <label for="user_name">First user (admin)</label>

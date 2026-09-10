@@ -528,8 +528,9 @@ layout_admin_start($company['name'], $user);
       <input id="prefix" name="prefix" value="<?= h((string) ($brand['prefix'] ?? '')) ?>">
     </div>
     <div>
-      <label for="currency">Currency</label>
+      <label for="currency-pick">Currency</label>
       <?php currency_field('currency', 'currency', (string) ($brand['currency'] ?? 'UGX'), ['data-fx-home-input' => true]); ?>
+      <p class="hint">Choose the desk currency, or type a custom three-letter primary code.</p>
     </div>
     <div>
       <label for="fx_ugx_per_usd">1 USD equals</label>

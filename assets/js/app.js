@@ -347,6 +347,16 @@ document.querySelectorAll('[data-fx-form]').forEach(function (form) {
 document.querySelectorAll('.currency-code').forEach(function (inp) {
   var tidy = function () {
     inp.value = String(inp.value || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
+    var wrap = inp.closest('[data-currency-pick]');
+    var sel = wrap && wrap.querySelector('[data-currency-select]');
+    if (sel) {
+      var code = inp.value;
+      var match = false;
+      Array.prototype.forEach.call(sel.options, function (opt) {
+        if (opt.value === code) match = true;
+      });
+      sel.value = match ? code : 'other';
+    }
     if (inp.hasAttribute('data-fx-home-input')) {
       document.querySelectorAll('[data-fx-home-label]').forEach(function (el) {
         el.textContent = inp.value || 'USD';
@@ -357,6 +367,21 @@ document.querySelectorAll('.currency-code').forEach(function (inp) {
   };
   inp.addEventListener('input', tidy);
   inp.addEventListener('blur', tidy);
+});
+
+document.querySelectorAll('[data-currency-pick]').forEach(function (wrap) {
+  var sel = wrap.querySelector('[data-currency-select]');
+  var custom = wrap.querySelector('[data-currency-custom]');
+  if (!sel || !custom) return;
+  sel.addEventListener('change', function () {
+    if (sel.value && sel.value !== 'other') {
+      custom.value = sel.value;
+      custom.dispatchEvent(new Event('input', { bubbles: true }));
+    } else {
+      custom.focus();
+      custom.select();
+    }
+  });
 });
 
 document.querySelectorAll('[data-add-template]').forEach(function (btn) {

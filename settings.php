@@ -334,9 +334,9 @@ layout_start('Settings', $user);
           <input id="vat_no" name="vat_no" value="<?= h($b['vat_no'] ?? '') ?>">
         </div>
         <div>
-          <label for="currency">Currency</label>
+          <label for="currency-pick">Currency</label>
           <?php currency_field('currency', 'currency', (string) ($b['currency'] ?? default_currency()), ['data-fx-home-input' => true]); ?>
-          <p class="hint">UGX, KES, EUR, USD - type the three-letter code you bill in.</p>
+          <p class="hint">Pick a currency, or type any three-letter primary code (UGX, KES, EUR, MWK…).</p>
         </div>
         <div>
           <label for="fx_ugx_per_usd">1 USD equals</label>

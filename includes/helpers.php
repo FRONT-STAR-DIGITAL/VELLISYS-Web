@@ -208,8 +208,9 @@ function currencies(): array
 
 function currency_field(string $id, string $name, string $value, array $attrs = []): void
 {
-    static $list = false;
     $value = normalize_currency($value, 'USD');
+    $known = currencies();
+    $isKnown = isset($known[$value]);
     $extra = '';
     foreach ($attrs as $k => $v) {
         if ($v === true) {
@@ -218,15 +219,17 @@ function currency_field(string $id, string $name, string $value, array $attrs = 
             $extra .= ' ' . $k . '="' . h((string) $v) . '"';
         }
     }
-    if (!$list) {
-        $list = true;
-        echo '<datalist id="currency-codes">';
-        foreach (currencies() as $code => $label) {
-            echo '<option value="' . h($code) . '">' . h($label) . '</option>';
-        }
-        echo '</datalist>';
+    echo '<div class="currency-pick" data-currency-pick>';
+    echo '<select class="currency-pick-list" id="' . h($id) . '-pick" data-currency-select aria-label="Choose a currency">';
+    foreach ($known as $code => $label) {
+        $sel = $isKnown && $value === $code ? ' selected' : '';
+        echo '<option value="' . h($code) . '"' . $sel . '>' . h($code . ' · ' . $label) . '</option>';
     }
-    echo '<input class="currency-code" id="' . h($id) . '" name="' . h($name) . '" list="currency-codes" maxlength="3" spellcheck="false" autocomplete="off" value="' . h($value) . '" placeholder="KES"' . $extra . '>';
+    echo '<option value="other"' . ($isKnown ? '' : ' selected') . '>Other — type a primary currency</option>';
+    echo '</select>';
+    echo '<label class="currency-custom-label" for="' . h($id) . '">Primary currency</label>';
+    echo '<input class="currency-code" id="' . h($id) . '" name="' . h($name) . '" maxlength="3" spellcheck="false" autocomplete="off" value="' . h($value) . '" placeholder="KES" data-currency-custom' . $extra . '>';
+    echo '</div>';
 }
 
 function currency_unit_name(string $currency): string
