@@ -191,7 +191,7 @@ function render_landing_pricing(): void
           <article class="lp-price-card<?= !empty($pkg['popular']) ? ' is-popular' : '' ?>">
             <header class="lp-price-head">
               <?php if (!empty($pkg['popular'])): ?><p class="lp-price-ribbon">Most companies</p><?php endif; ?>
-              <p class="lp-price-kicker"><?= h($pkg['kicker']) ?></p>
+              <?php if (empty($pkg['popular'])): ?><p class="lp-price-kicker"><?= h($pkg['kicker']) ?></p><?php endif; ?>
               <h3><?= h($pkg['name']) ?></h3>
               <p class="lp-price-seats"><?= (int) $pkg['seats'] ?> login<?= $pkg['seats'] === 1 ? '' : 's' ?></p>
             </header>
