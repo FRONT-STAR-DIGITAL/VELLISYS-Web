@@ -203,6 +203,8 @@ layout_admin_start('Companies', $user);
         <tr>
           <th>Company</th>
           <th>Status</th>
+          <th>Paid term</th>
+          <th>Expiry</th>
           <th>Users</th>
           <th>Documents</th>
           <th>Actions</th>
@@ -213,6 +215,8 @@ layout_admin_start('Companies', $user);
           <tr>
             <td><a href="<?= h(url('admin_company.php?id=' . $c['id'])) ?>"><strong><?= h($c['name']) ?></strong></a></td>
             <td><span class="pill<?= $c['status'] === 'live' ? '' : ($c['status'] === 'suspended' ? ' bad' : ' warn') ?>"><?= h($c['status']) ?></span></td>
+            <td><?= h(company_term_label($c)) ?></td>
+            <td class="<?= company_expiry_state($c) === 'expired' ? 'expiry-expired' : (company_expiry_state($c) === 'soon' ? 'expiry-soon' : '') ?>"><?= h(company_expiry_label($c)) ?></td>
             <td class="mono"><?= (int) $c['users'] ?></td>
             <td class="mono"><?= (int) $c['docs'] ?></td>
             <td class="row-actions">

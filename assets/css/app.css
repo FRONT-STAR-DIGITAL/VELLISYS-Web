@@ -283,6 +283,14 @@ img { max-width: 100%; display: block; }
   background: var(--card);
   border-bottom: 1px solid var(--line);
 }
+.admin-body .main { overflow: visible; }
+.admin-body .top {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: #fff;
+}
 .top-title { display: none; }
 .top-actions { display: flex; gap: 8px; }
 .content { padding: 24px 22px 72px; max-width: none; width: 100%; min-width: 0; overflow-x: hidden; }
@@ -1095,12 +1103,60 @@ table.grid tfoot td {
   .login-still { height: 96px; }
   .template-grid, .chart-grid, .expense-meta { grid-template-columns: 1fr; }
   .card:has(table.grid) { overflow-x: auto; }
+  .admin-body .top {
+    position: -webkit-sticky;
+    position: sticky;
+    top: 0;
+    z-index: 32;
+    background: #fff;
+    box-shadow: 0 8px 20px rgba(8, 20, 58, .06);
+  }
   .admin-body .top-actions .btn { padding: 8px 12px; }
   .admin-body h1 { font-size: 24px; }
   .admin-body .lede { font-size: 14px; }
   .admin-body .landing-admin-h { margin-top: 20px; }
   .admin-body .grid { font-size: 13px; }
+  .q-detail { padding: 18px 16px 22px; }
 }
+.q-detail { padding: 18px 22px 24px; }
+.q-detail-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px 18px;
+  margin: 0 0 18px;
+}
+.q-detail-meta p { margin: 0; }
+.q-detail-meta span { display: block; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.q-body {
+  white-space: pre-wrap;
+  line-height: 1.6;
+  font-size: 15.5px;
+  margin: 0;
+  padding: 16px;
+  background: #f5f7fc;
+  border-radius: 12px;
+}
+.mail-preview {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 12px 0 0;
+  background: #fff;
+}
+.mail-preview-head {
+  padding: 10px 14px;
+  background: #08143a;
+  color: #fff;
+  font-size: 13px;
+}
+.mail-preview iframe, .mail-preview-body {
+  padding: 16px 18px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #10182c;
+}
+.expiry-soon { color: #8a5a00; }
+.expiry-expired { color: var(--danger); }
 @media (prefers-reduced-motion: reduce) {
   .nav, .nav nav a, .nav nav a span, .brand-logo, .brand strong,
   .nav-user-name span, .nav-user-mail, .nav-user a span {

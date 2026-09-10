@@ -104,6 +104,7 @@ function layout_admin_start(string $title, array $user): void
         ['admin_signups.php', 'Sign-ups', 'letter'],
         ['admin_questions.php', 'Questions', 'help'],
         ['admin_companies.php', 'Companies', 'building'],
+        ['admin_reports.php', 'Reports', 'reports'],
     ];
     ?>
 <!DOCTYPE html>
@@ -129,7 +130,8 @@ function layout_admin_start(string $title, array $user): void
       <?php foreach ($nav as [$href, $label, $iconName]):
           $file = strtok($href, '?');
           $active = $file === $here
-              || ($here === 'admin_company.php' && $file === 'admin_companies.php');
+              || ($here === 'admin_company.php' && $file === 'admin_companies.php')
+              || ($here === 'admin_question.php' && $file === 'admin_questions.php');
           $count = 0;
           if ($file === 'admin_signups.php') {
               $count = $signupNew;

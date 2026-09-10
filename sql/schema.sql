@@ -4,6 +4,11 @@ CREATE TABLE IF NOT EXISTS companies (
   status ENUM('onboarding','live','suspended') NOT NULL DEFAULT 'onboarding',
   plan ENUM('starter','sme','office') NOT NULL DEFAULT 'sme',
   notes TEXT,
+  paid_term INT UNSIGNED NOT NULL DEFAULT 0,
+  paid_unit ENUM('months','years') NOT NULL DEFAULT 'months',
+  paid_from DATE NULL,
+  expires_at DATE NULL,
+  renewal_notice_sent_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -163,4 +168,15 @@ CREATE TABLE IF NOT EXISTS trust_clients (
   sort INT NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY sort_id (sort, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS renewal_notices (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  company_id INT UNSIGNED NOT NULL,
+  to_email VARCHAR(190) NOT NULL,
+  subject VARCHAR(255) NOT NULL,
+  body TEXT,
+  status ENUM('sent','queued','failed') NOT NULL DEFAULT 'queued',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY company_id (company_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

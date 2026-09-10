@@ -1038,14 +1038,109 @@ function new_signup_count(): int
     }
 }
 
-function new_question_count(): int
+function clip_text(string $text, int $max = 90): string
 {
-    try {
-        $row = db_one("SELECT COUNT(*) AS c FROM questions WHERE status = 'new'");
-        return (int) ($row['c'] ?? 0);
-    } catch (Throwable $e) {
-        return 0;
+    $text = trim($text);
+    if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+        if (mb_strlen($text) <= $max) {
+            return $text;
+        }
+        return rtrim(mb_substr($text, 0, $max)) . '…';
     }
+    if (strlen($text) <= $max) {
+        return $text;
+    }
+    return rtrim(substr($text, 0, $max)) . '…';
+}
+
+function company_expires_on(array $company): ?string
+{
+    $d = trim((string) ($company['expires_at'] ?? ''));
+    return $d !== '' ? $d : null;
+}
+
+function company_days_left(?string $expires): ?int
+{
+    if (!$expires) {
+        return null;
+    }
+    $end = DateTime::createFromFormat('Y-m-d', substr($expires, 0, 10));
+    if (!$end) {
+        return null;
+    }
+    $today = new DateTime('today');
+    return (int) $today->diff($end)->format('%r%a');
+}
+
+function company_term_label(array $company): string
+{
+    $n = (int) ($company['paid_term'] ?? 0);
+    if ($n <= 0 || !company_expires_on($company)) {
+        return 'Not set';
+    }
+    $unit = ($company['paid_unit'] ?? 'months') === 'years' ? ($n === 1 ? 'year' : 'years') : ($n === 1 ? 'month' : 'months');
+    return $n . ' ' . $unit;
+}
+
+function company_expiry_label(array $company): string
+{
+    $expires = company_expires_on($company);
+    $days = company_days_left($expires);
+    $state = company_expiry_state($company);
+    return match ($state) {
+        'soon' => $days === 0 ? 'Ends today' : ($days === 1 ? '1 day left' : $days . ' days left'),
+        'expired' => 'Expired ' . format_date($expires),
+        'ok' => 'Until ' . format_date($expires),
+        default => 'No term',
+    };
+}
+
+function company_expiry_state(array $company): string
+{
+    $days = company_days_left(company_expires_on($company));
+    if ($days === null) {
+        return 'none';
+    }
+    if ($days < 0) {
+        return 'expired';
+    }
+    if ($days <= 31) {
+        return 'soon';
+    }
+    return 'ok';
+}
+
+function compute_expiry_date(string $from, int $term, string $unit): ?string
+{
+    if ($term <= 0) {
+        return null;
+    }
+    $unit = $unit === 'years' ? 'years' : 'months';
+    $dt = DateTime::createFromFormat('Y-m-d', substr($from, 0, 10));
+    if (!$dt) {
+        return null;
+    }
+    $dt->modify('+' . $term . ' ' . $unit);
+    return $dt->format('Y-m-d');
+}
+
+function company_notice_email(int $companyId, array $brand = [], array $members = []): array
+{
+    $email = trim((string) ($brand['email'] ?? ''));
+    $name = trim((string) ($brand['name'] ?? ''));
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        foreach ($members as $m) {
+            if (filter_var((string) ($m['email'] ?? ''), FILTER_VALIDATE_EMAIL)) {
+                $email = (string) $m['email'];
+                $name = (string) ($m['name'] ?: $name);
+                break;
+            }
+        }
+    }
+    if ($name === '') {
+        $name = 'the team';
+    }
+    return ['email' => $email, 'name' => $name];
 }
 
 function visitor_ip_hash(): string

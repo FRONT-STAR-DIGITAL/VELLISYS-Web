@@ -103,6 +103,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash($company['name'] . ' is live.');
         redirect('admin_company.php?id=' . $id);
     }
+    if ($action === 'term') {
+        $term = (int) post('paid_term');
+        $unit = post('paid_unit') === 'years' ? 'years' : 'months';
+        $from = post('paid_from');
+        if ($term < 0) {
+            $term = 0;
+        }
+        if ($unit === 'years' && $term > 20) {
+            $term = 20;
+        }
+        if ($unit === 'months' && $term > 120) {
+            $term = 120;
+        }
+        if ($term === 0) {
+            db_exec(
+                'UPDATE companies SET paid_term=0, paid_unit=?, paid_from=NULL, expires_at=NULL, renewal_notice_sent_at=NULL WHERE id=?',
+                'si',
+                [$unit, $id]
+            );
+            flash('Paid term cleared for ' . $company['name'] . '.');
+            redirect('admin_company.php?id=' . $id);
+        }
+        if ($from === '' || !DateTime::createFromFormat('Y-m-d', $from)) {
+            $from = date('Y-m-d');
+        }
+        $expires = compute_expiry_date($from, $term, $unit);
+        if (!$expires) {
+            $error = 'Could not calculate the expiry date. Check the start date and term.';
+        } else {
+            db_exec(
+                'UPDATE companies SET paid_term=?, paid_unit=?, paid_from=?, expires_at=?, renewal_notice_sent_at=NULL WHERE id=?',
+                'isssi',
+                [$term, $unit, $from, $expires, $id]
+            );
+            flash($company['name'] . ' is paid for ' . $term . ' ' . $unit . ', until ' . format_date($expires) . '.');
+            redirect('admin_company.php?id=' . $id);
+        }
+    }
 }
 
 $company = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$id]);
@@ -128,7 +166,7 @@ layout_admin_start($company['name'], $user);
 <div class="page-head">
   <div>
     <h1><?= icon('building') ?><?= h($company['name']) ?></h1>
-    <p class="lede"><?= h(ucfirst((string) $company['status'])) ?> · <?= h($brand['currency'] ?? 'UGX') ?> · <?= count($members) ?> user<?= count($members) === 1 ? '' : 's' ?></p>
+    <p class="lede"><?= h(ucfirst((string) $company['status'])) ?> · <?= h($brand['currency'] ?? 'UGX') ?> · <?= count($members) ?> user<?= count($members) === 1 ? '' : 's' ?> · <?= h(company_term_label($company)) ?><?php if (company_expires_on($company)): ?> · <?= h(company_expiry_label($company)) ?><?php endif; ?></p>
   </div>
   <div class="actions">
     <a class="btn" href="<?= h(url('admin_desk.php?id=' . $id)) ?>"><?= icon('desk') ?>Open desk</a>
@@ -187,6 +225,44 @@ layout_admin_start($company['name'], $user);
     </form>
   </div>
 </div>
+
+<form class="card form-wide" method="post" style="margin-top:16px">
+  <?= csrf_field() ?>
+  <input type="hidden" name="id" value="<?= $id ?>">
+  <input type="hidden" name="action" value="term">
+  <div class="card-head"><h2><?= icon('calendar', 16) ?>Paid term</h2></div>
+  <div class="form-grid" style="padding:0 22px">
+    <div>
+      <label for="paid_from">Paid from</label>
+      <input id="paid_from" name="paid_from" type="date" value="<?= h((string) ($company['paid_from'] ?: date('Y-m-d'))) ?>">
+    </div>
+    <div>
+      <label for="paid_term">Number</label>
+      <input id="paid_term" name="paid_term" type="number" min="0" max="120" value="<?= (int) ($company['paid_term'] ?? 0) ?>">
+    </div>
+    <div>
+      <label for="paid_unit">Unit</label>
+      <select id="paid_unit" name="paid_unit">
+        <option value="months" <?= ($company['paid_unit'] ?? 'months') === 'months' ? 'selected' : '' ?>>Months</option>
+        <option value="years" <?= ($company['paid_unit'] ?? '') === 'years' ? 'selected' : '' ?>>Years</option>
+      </select>
+    </div>
+  </div>
+  <div style="padding:0 22px 22px">
+    <p class="hint" style="margin:8px 0 12px">
+      <?php if (company_expires_on($company)): ?>
+        Current expiry <?= h(format_date($company['expires_at'])) ?> · <?= h(company_expiry_label($company)) ?>.
+        Saving recalculates the end date. Set number to 0 to clear the term.
+      <?php else: ?>
+        Set how many months or years this client has paid for. Expiry is the start date plus that term. Reports list desks one month from that date so you can send a renewal letter.
+      <?php endif; ?>
+    </p>
+    <div class="actions">
+      <button class="btn" type="submit"><?= icon('check') ?>Save paid term</button>
+      <a class="btn ghost" href="<?= h(url('admin_reports.php')) ?>"><?= icon('reports', 16) ?>Reports</a>
+    </div>
+  </div>
+</form>
 
 <form class="card form-wide" method="post" style="margin-top:16px">
   <?= csrf_field() ?>

@@ -29,7 +29,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 15) {
+    if ($ver >= 16) {
         $done = true;
         return;
     }
@@ -177,9 +177,39 @@ function folio_migrate(mysqli $db): void
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     folio_migrate_trust_clients($db);
+    folio_migrate_subscriptions($db);
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '15')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '16')");
     $done = true;
+}
+
+function folio_migrate_subscriptions(mysqli $db): void
+{
+    if (!db_has_column($db, 'companies', 'paid_term')) {
+        $db->query('ALTER TABLE companies ADD COLUMN paid_term INT UNSIGNED NOT NULL DEFAULT 0');
+    }
+    if (!db_has_column($db, 'companies', 'paid_unit')) {
+        $db->query("ALTER TABLE companies ADD COLUMN paid_unit ENUM('months','years') NOT NULL DEFAULT 'months'");
+    }
+    if (!db_has_column($db, 'companies', 'paid_from')) {
+        $db->query('ALTER TABLE companies ADD COLUMN paid_from DATE NULL');
+    }
+    if (!db_has_column($db, 'companies', 'expires_at')) {
+        $db->query('ALTER TABLE companies ADD COLUMN expires_at DATE NULL');
+    }
+    if (!db_has_column($db, 'companies', 'renewal_notice_sent_at')) {
+        $db->query('ALTER TABLE companies ADD COLUMN renewal_notice_sent_at DATETIME NULL');
+    }
+    $db->query("CREATE TABLE IF NOT EXISTS renewal_notices (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      company_id INT UNSIGNED NOT NULL,
+      to_email VARCHAR(190) NOT NULL,
+      subject VARCHAR(255) NOT NULL,
+      body TEXT,
+      status ENUM('sent','queued','failed') NOT NULL DEFAULT 'queued',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY company_id (company_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
 function folio_migrate_landing_cards(mysqli $db): void

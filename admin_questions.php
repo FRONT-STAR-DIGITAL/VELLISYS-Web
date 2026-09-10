@@ -39,14 +39,8 @@ $pill = static function (string $status): string {
 $rowActions = static function (array $q): void {
     ?>
     <div class="actions">
-      <a class="btn sm" href="mailto:<?= h($q['email']) ?>?subject=<?= h(rawurlencode('Re: your question to Vellisys')) ?>"><?= icon('letter', 14) ?>Reply</a>
-      <?php if ($q['status'] === 'new'): ?>
-      <form method="post">
-        <?= csrf_field() ?>
-        <input type="hidden" name="id" value="<?= (int) $q['id'] ?>">
-        <button class="btn ghost sm" name="action" value="read"><?= icon('check', 14) ?>Read</button>
-      </form>
-      <?php endif; ?>
+      <a class="btn sm" href="<?= h(url('admin_question.php?id=' . $q['id'])) ?>"><?= icon('eye', 14) ?>Open</a>
+      <a class="btn ghost sm" href="mailto:<?= h($q['email']) ?>?subject=<?= h(rawurlencode('Re: your question to Vellisys')) ?>"><?= icon('letter', 14) ?>Reply</a>
       <?php if ($q['status'] !== 'replied'): ?>
       <form method="post">
         <?= csrf_field() ?>
@@ -61,7 +55,7 @@ $rowActions = static function (array $q): void {
 <div class="page-head">
   <div>
     <h1><?= icon('help') ?>Questions</h1>
-    <p class="lede">People write from Have a Question on the landing page. A copy is also emailed to <?= h(product_email()) ?>.</p>
+    <p class="lede">People write from Have a Question on the landing page. Open a row for the full message. A copy is also emailed to <?= h(product_email()) ?>.</p>
   </div>
 </div>
 
@@ -89,7 +83,7 @@ $rowActions = static function (array $q): void {
               <div><a href="mailto:<?= h($q['email']) ?>"><?= h($q['email']) ?></a></div>
               <?php if ($q['phone'] !== ''): ?><div class="mono"><?= h($q['phone']) ?></div><?php endif; ?>
             </td>
-            <td><?= nl2br(h($q['message'])) ?></td>
+            <td><a href="<?= h(url('admin_question.php?id=' . $q['id'])) ?>"><?= h(clip_text((string) $q['message'], 110)) ?></a></td>
             <td><?= $pill($q['status']) ?></td>
             <td class="row-actions"><?php $rowActions($q); ?></td>
           </tr>
@@ -111,6 +105,7 @@ $rowActions = static function (array $q): void {
           <th>From</th>
           <th>Question</th>
           <th>Status</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -121,8 +116,11 @@ $rowActions = static function (array $q): void {
               <strong><?= h($q['name']) ?></strong>
               <div><?= h($q['email']) ?></div>
             </td>
-            <td><?= nl2br(h($q['message'])) ?></td>
+            <td><a href="<?= h(url('admin_question.php?id=' . $q['id'])) ?>"><?= h(clip_text((string) $q['message'], 110)) ?></a></td>
             <td><?= $pill($q['status']) ?></td>
+            <td class="row-actions">
+              <a class="btn sm" href="<?= h(url('admin_question.php?id=' . $q['id'])) ?>"><?= icon('eye', 14) ?>Open</a>
+            </td>
           </tr>
         <?php endforeach; ?>
       </tbody>
