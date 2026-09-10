@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS companies (
   paid_from DATE NULL,
   expires_at DATE NULL,
   renewal_notice_sent_at DATETIME NULL,
+  user_limit TINYINT UNSIGNED NOT NULL DEFAULT 3,
   fee_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
   fee_paid DECIMAL(14,2) NOT NULL DEFAULT 0,
   fee_currency CHAR(3) NOT NULL DEFAULT 'UGX',
@@ -31,9 +32,11 @@ CREATE TABLE IF NOT EXISTS companies (
 CREATE TABLE IF NOT EXISTS users (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(120) NOT NULL,
+  job_title VARCHAR(80) NOT NULL DEFAULT '',
   email VARCHAR(190) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
-  role ENUM('platform','member') NOT NULL DEFAULT 'member',
+  role ENUM('platform','admin','member') NOT NULL DEFAULT 'member',
+  access VARCHAR(20) NOT NULL DEFAULT 'books',
   company_id INT UNSIGNED NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY company_id (company_id)

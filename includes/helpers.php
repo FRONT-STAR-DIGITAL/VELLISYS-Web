@@ -794,11 +794,14 @@ function desk_primary_kind(?array $company = null): string
 
 function require_desk_kind(string $kind): void
 {
-    if (company_allows_kind($kind)) {
-        return;
+    if (!company_allows_kind($kind) && $kind !== 'expense') {
+        flash('This desk does not use that document.', 'err');
+        redirect('dashboard.php');
     }
-    flash('This desk does not use that document.', 'err');
-    redirect('dashboard.php');
+    if (function_exists('user_can_kind') && !user_can_kind($kind)) {
+        flash('Your login cannot open that document.', 'err');
+        redirect('dashboard.php');
+    }
 }
 
 function desk_kind_nav_items(): array
@@ -808,6 +811,9 @@ function desk_kind_nav_items(): array
     $out = [];
     foreach ($order as $kind) {
         if ($kind !== 'expense' && !in_array($kind, $enabled, true)) {
+            continue;
+        }
+        if (function_exists('user_can_kind') && !user_can_kind($kind)) {
             continue;
         }
         $out[] = ['documents.php?kind=' . $kind, kind_nav_label($kind), document_kind_icon($kind), $kind];
@@ -920,6 +926,81 @@ function is_platform(?array $user = null): bool
 {
     $user = $user ?? (function_exists('current_user') ? current_user() : null);
     return ($user['role'] ?? '') === 'platform';
+}
+
+function clamp_user_limit(int $n): int
+{
+    return max(1, min(3, $n));
+}
+
+function company_user_limit(?array $company = null): int
+{
+    $company = $company ?? current_company();
+    return clamp_user_limit((int) ($company['user_limit'] ?? 3));
+}
+
+function company_seat_count(int $companyId): int
+{
+    $row = db_one("SELECT COUNT(*) AS c FROM users WHERE company_id = ? AND role <> 'platform'", 'i', [$companyId]);
+    return (int) ($row['c'] ?? 0);
+}
+
+function desk_access_label(string $role, string $access = 'books'): string
+{
+    if ($role === 'admin' || $access === 'admin') {
+        return 'Company admin';
+    }
+    $levels = function_exists('desk_staff_access_levels') ? desk_staff_access_levels() : [];
+    return (string) ($levels[$access]['label'] ?? 'Books');
+}
+
+function create_desk_user(int $companyId, array $fields): array
+{
+    $company = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$companyId]);
+    if (!$company) {
+        return ['ok' => false, 'error' => 'Company not found.'];
+    }
+    $name = trim((string) ($fields['name'] ?? ''));
+    $email = strtolower(trim((string) ($fields['email'] ?? '')));
+    $password = (string) ($fields['password'] ?? '');
+    $title = mb_substr(trim((string) ($fields['job_title'] ?? '')), 0, 80);
+    $access = (string) ($fields['access'] ?? 'books');
+    if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return ['ok' => false, 'error' => 'Name and a valid email are required.'];
+    }
+    if ($password === '') {
+        $password = 'folio2026';
+    }
+    if (strlen($password) < 8) {
+        return ['ok' => false, 'error' => 'Password must be at least 8 characters.'];
+    }
+    if (db_one('SELECT id FROM users WHERE email = ?', 's', [$email])) {
+        return ['ok' => false, 'error' => 'That email already has a Vellisys login.'];
+    }
+    $limit = company_user_limit($company);
+    if (company_seat_count($companyId) >= $limit) {
+        return ['ok' => false, 'error' => 'This desk already has its ' . $limit . ' login' . ($limit === 1 ? '' : 's') . '.'];
+    }
+    $hasAdmin = db_one("SELECT id FROM users WHERE company_id = ? AND role = 'admin'", 'i', [$companyId]);
+    if (!$hasAdmin) {
+        $role = 'admin';
+        $access = 'admin';
+        if ($title === '') {
+            $title = 'Administrator';
+        }
+    } else {
+        $role = 'member';
+        if ($access !== 'sales') {
+            $access = 'books';
+        }
+    }
+    $hash = password_hash($password, PASSWORD_DEFAULT);
+    db_exec(
+        'INSERT INTO users (name, job_title, email, password_hash, role, access, company_id) VALUES (?,?,?,?,?,?,?)',
+        'ssssssi',
+        [$name, $title, $email, $hash, $role, $access, $companyId]
+    );
+    return ['ok' => true, 'email' => $email, 'password' => $password, 'role' => $role];
 }
 
 function letter_template_defaults(): array

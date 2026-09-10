@@ -49,9 +49,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'create') {
             $showNew = true;
         } else {
         $cid = db_exec(
-            'INSERT INTO companies (name, status, plan, notes, enabled_kinds, custom_doc) VALUES (?,?,?,?,?,?)',
-            'ssssss',
-            [$name, 'onboarding', 'sme', post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc()]
+            'INSERT INTO companies (name, status, plan, notes, enabled_kinds, custom_doc, user_limit) VALUES (?,?,?,?,?,?,?)',
+            'ssssssi',
+            [$name, 'onboarding', 'sme', post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), clamp_user_limit((int) post('user_limit') ?: 3)]
         );
         $prefix = strtoupper(post('prefix') ?: prefix_from_name($name));
         db_exec(
@@ -85,9 +85,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'create') {
         );
         $hash = password_hash($password, PASSWORD_DEFAULT);
         db_exec(
-            'INSERT INTO users (name, email, password_hash, role, company_id) VALUES (?,?,?,?,?)',
-            'ssssi',
-            [$userName, $userEmail, $hash, 'member', $cid]
+            'INSERT INTO users (name, job_title, email, password_hash, role, access, company_id) VALUES (?,?,?,?,?,?,?)',
+            'ssssssi',
+            [$userName, post('user_title') ?: 'Administrator', $userEmail, $hash, 'admin', 'admin', $cid]
         );
         if ($signupId && $signup) {
             db_exec("UPDATE signups SET status = 'onboarded', company_id = ? WHERE id = ?", 'ii', [$cid, $signupId]);
@@ -145,8 +145,12 @@ layout_admin_start('Companies', $user);
       <p class="hint">The company types their billing currency later if this is wrong - UGX, KES, EUR, USD…</p>
     </div>
     <div>
-      <label for="user_name">First user</label>
+      <label for="user_name">First user (admin)</label>
       <input id="user_name" name="user_name" required value="<?= h($pref('user_name')) ?>" placeholder="Accounts">
+    </div>
+    <div>
+      <label for="user_title">Title</label>
+      <input id="user_title" name="user_title" value="<?= h(post('user_title') ?: 'Administrator') ?>">
     </div>
     <div>
       <label for="user_email">Desk email</label>
@@ -155,6 +159,15 @@ layout_admin_start('Companies', $user);
     <div>
       <label for="user_password">Temporary password</label>
       <input id="user_password" name="user_password" value="<?= h(post('user_password') ?: 'folio2026') ?>">
+    </div>
+    <div>
+      <label for="user_limit">Logins allowed</label>
+      <select id="user_limit" name="user_limit">
+        <?php $limitPick = clamp_user_limit((int) (post('user_limit') ?: 3)); ?>
+        <?php for ($n = 1; $n <= 3; $n++): ?>
+          <option value="<?= $n ?>" <?= $limitPick === $n ? 'selected' : '' ?>><?= $n ?> <?= $n === 1 ? '(admin only)' : ($n === 2 ? '(admin + 1)' : '(admin + 2)') ?></option>
+        <?php endfor; ?>
+      </select>
     </div>
     <div>
       <label for="prefix">Document prefix</label>
@@ -235,7 +248,7 @@ layout_admin_start('Companies', $user);
             <td class="<?= company_expiry_state($c) === 'expired' ? 'expiry-expired' : (company_expiry_state($c) === 'soon' ? 'expiry-soon' : '') ?>"><?= h(company_remaining_phrase($c)) ?></td>
             <td class="mono"><?= company_fee_paid($c) > 0 ? h(money(company_fee_paid($c), company_fee_currency($c))) : '—' ?></td>
             <td class="mono"><?= company_fee_balance($c) > 0 ? h(money(company_fee_balance($c), company_fee_currency($c))) : '—' ?></td>
-            <td class="mono"><?= (int) $c['users'] ?></td>
+            <td class="mono"><?= (int) $c['users'] ?> / <?= (int) company_user_limit($c) ?></td>
             <td class="mono"><?= (int) $c['docs'] ?></td>
             <td class="row-actions">
               <div class="actions">

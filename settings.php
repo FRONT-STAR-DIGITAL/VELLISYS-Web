@@ -1,13 +1,47 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
-$user = require_member();
+$user = require_desk_admin();
 
 $brand = branding();
 $error = '';
+$cid = current_company_id();
+$deskCompany = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$cid]);
+$members = db_all('SELECT id, name, job_title, email, role, access, created_at FROM users WHERE company_id = ? ORDER BY role = \'admin\' DESC, id', 'i', [$cid]);
+$seats = company_user_limit($deskCompany ?: null);
+$used = company_seat_count($cid);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
+    $action = post('action');
+    if ($action === 'add_user') {
+        $made = create_desk_user($cid, [
+            'name' => post('user_name'),
+            'email' => post('user_email'),
+            'password' => post('user_password'),
+            'job_title' => post('user_title'),
+            'access' => post('user_access'),
+        ]);
+        if (empty($made['ok'])) {
+            $error = (string) ($made['error'] ?? 'Could not add that user.');
+        } else {
+            flash('Login created for ' . $made['email'] . '. Temporary password: ' . $made['password']);
+            redirect('settings.php#people');
+        }
+    } elseif ($action === 'reset_password') {
+        $uid = (int) post('user_id');
+        $member = db_one('SELECT * FROM users WHERE id = ? AND company_id = ?', 'ii', [$uid, $cid]);
+        $newPass = post('new_password');
+        if (!$member) {
+            $error = 'That user is not on this desk.';
+        } elseif (strlen($newPass) < 8) {
+            $error = 'Password must be at least 8 characters.';
+        } else {
+            db_exec('UPDATE users SET password_hash = ? WHERE id = ?', 'si', [password_hash($newPass, PASSWORD_DEFAULT), $uid]);
+            flash('Password updated for ' . $member['email'] . '.');
+            redirect('settings.php#people');
+        }
+    } elseif ($action === '' || $action === 'save_brand') {
     $color = parse_hex_color(post('brand_color'), '#82B440');
     $accent = parse_hex_color(post('brand_accent'), '#C6A15B');
     $deep = parse_hex_color(post('brand_deep'), '#1F3A12');
@@ -69,6 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash('Settings saved. This design now prints on every document. USD converts at your ' . default_currency() . ' rate.');
         redirect('settings.php');
     }
+    }
 }
 
 $b = branding();
@@ -83,10 +118,10 @@ layout_start('Settings', $user);
 
 <?php if ($error): ?><p class="flash flash-err" style="margin:0 0 16px"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
 
-<form class="settings-layout" method="post" enctype="multipart/form-data">
-  <?= csrf_field() ?>
+<div class="settings-layout">
   <aside class="settings-toc">
     <a href="#account"><?= icon('lock', 16) ?>Account</a>
+    <a href="#people"><?= icon('user', 16) ?>People</a>
     <a href="#appearance"><?= icon('palette', 16) ?>Appearance</a>
     <a href="#company"><?= icon('building', 16) ?>Company</a>
     <a href="#tax"><?= icon('hash', 16) ?>Tax</a>
@@ -98,14 +133,15 @@ layout_start('Settings', $user);
   <div class="settings-stack">
     <section class="card settings-card" id="account">
       <h2><?= icon('lock') ?>Signed-in account</h2>
-      <p class="lede">This is who is using the desk. Outgoing mail leaves from the company mailbox Vellisys assigned. Only a Vellisys admin can change that mailbox.</p>
+      <p class="lede">This is who is using the desk. Change your own password on Password. Outgoing mail leaves from the company mailbox Vellisys assigned. Only a Vellisys admin can change that mailbox.</p>
       <div class="account-chip">
         <?= icon('user', 22) ?>
         <div>
           <strong><?= h($user['name']) ?></strong>
-          <span><?= h($user['email']) ?></span>
+          <span><?= h($user['email']) ?><?= !empty($user['job_title']) ? ' · ' . h((string) $user['job_title']) : '' ?></span>
         </div>
       </div>
+      <p style="margin:12px 0 0"><a class="btn ghost sm" href="<?= h(url('account.php')) ?>"><?= icon('lock', 14) ?>Change my password</a></p>
       <?php
         $deskCompany = db_one('SELECT * FROM companies WHERE id = ?', 'i', [current_company_id()]);
         $sendAcct = $deskCompany ? company_mail_account($deskCompany) : null;
@@ -123,6 +159,89 @@ layout_start('Settings', $user);
       </div>
     </section>
 
+    <section class="card settings-card" id="people">
+      <h2><?= icon('user') ?>People</h2>
+      <p class="lede">This desk has <?= (int) $used ?> of <?= (int) $seats ?> login<?= $seats === 1 ? '' : 's' ?>. Vellisys sets the number. Maximum is 3: the company admin and up to two more. Only the company admin can open Reports, Settings and this list.</p>
+      <?php if (!$members): ?>
+        <p class="empty">No logins yet.</p>
+      <?php else: ?>
+        <div class="table-scroll">
+        <table class="grid">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Title</th>
+              <th>Email</th>
+              <th>Access</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($members as $m): ?>
+              <tr>
+                <td><?= h($m['name']) ?></td>
+                <td><?= h((string) ($m['job_title'] ?? '')) ?></td>
+                <td class="mono"><?= h($m['email']) ?></td>
+                <td><?= h(desk_access_label((string) $m['role'], (string) ($m['access'] ?? 'books'))) ?></td>
+                <td>
+                  <form method="post" class="people-reset">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="reset_password">
+                    <input type="hidden" name="user_id" value="<?= (int) $m['id'] ?>">
+                    <input name="new_password" type="password" minlength="8" required placeholder="New password" autocomplete="new-password" aria-label="New password for <?= h($m['name']) ?>">
+                    <button class="btn ghost sm" type="submit">Reset</button>
+                  </form>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+        </div>
+      <?php endif; ?>
+      <?php if ($used < $seats): ?>
+        <form method="post" class="people-add" autocomplete="off">
+          <?= csrf_field() ?>
+          <input type="hidden" name="action" value="add_user">
+          <h3>Add a user</h3>
+          <div class="form-grid">
+            <div>
+              <label for="user_name">Name</label>
+              <input id="user_name" name="user_name" required value="<?= h(post('user_name')) ?>">
+            </div>
+            <div>
+              <label for="user_title">Title</label>
+              <input id="user_title" name="user_title" value="<?= h(post('user_title')) ?>" placeholder="Accountant">
+            </div>
+            <div>
+              <label for="user_email">Email</label>
+              <input id="user_email" name="user_email" type="email" required value="<?= h(post('user_email')) ?>">
+            </div>
+            <div>
+              <label for="user_access">Access</label>
+              <select id="user_access" name="user_access">
+                <?php foreach (desk_staff_access_levels() as $key => $info): ?>
+                  <option value="<?= h($key) ?>" <?= post('user_access') === $key ? 'selected' : '' ?>><?= h($info['label']) ?></option>
+                <?php endforeach; ?>
+              </select>
+              <p class="hint"><?= h(desk_staff_access_levels()['books']['hint']) ?> Sales: <?= h(desk_staff_access_levels()['sales']['hint']) ?></p>
+            </div>
+            <div>
+              <label for="user_password">Temporary password</label>
+              <input id="user_password" name="user_password" value="<?= h(post('user_password') !== '' ? post('user_password') : 'folio2026') ?>" minlength="8">
+            </div>
+          </div>
+          <div class="actions" style="margin-top:12px">
+            <button class="btn sm" type="submit"><?= icon('plus', 14) ?>Create login</button>
+          </div>
+        </form>
+      <?php else: ?>
+        <p class="hint">All <?= (int) $seats ?> seats are in use. Ask Vellisys if you need to replace a login.</p>
+      <?php endif; ?>
+    </section>
+
+    <form method="post" enctype="multipart/form-data">
+    <?= csrf_field() ?>
+    <input type="hidden" name="action" value="save_brand">
     <section class="card settings-card" id="appearance">
       <h2><?= icon('palette') ?>Appearance</h2>
       <p class="lede">Logo and three brand colours. Primary paints the desk. Accent and deep colour the document designs - bars, corners, rails and totals.</p>
@@ -310,8 +429,9 @@ layout_start('Settings', $user);
         <button class="btn" type="submit"><?= icon('check') ?>Save settings</button>
       </div>
     </section>
+    </form>
   </div>
-</form>
+</div>
 <template id="tpl-proto">
   <div class="tpl-edit" data-tpl-card>
     <div class="form-grid">

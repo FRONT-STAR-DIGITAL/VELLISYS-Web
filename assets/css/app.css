@@ -346,6 +346,18 @@ img { max-width: 100%; display: block; }
 .top-term-expired .icon { color: #b42318; }
 .top-term-none { color: var(--muted); }
 .top-actions { display: flex; gap: 8px; margin-left: auto; flex-shrink: 0; }
+.desk-term-wrap { margin: 0 0 18px; }
+.desk-term-wrap .top-term { display: inline-flex; }
+.people-reset {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 0;
+  flex-wrap: wrap;
+}
+.people-reset input { width: 9.5rem; margin: 0; }
+.people-add { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.people-add h3 { margin: 0 0 10px; font-size: 15px; }
 .content { padding: 24px 22px 72px; max-width: none; width: 100%; min-width: 0; overflow-x: hidden; }
 .flash {
   margin: 16px 22px 0;
@@ -1229,16 +1241,17 @@ table.grid tfoot td {
 }
 @media (max-width: 720px) {
   .top {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     padding: 8px 12px;
     gap: 8px;
   }
-  .top-meta { flex: 1 1 100%; }
+  .top-meta { flex: 1 1 auto; min-width: 0; }
   .top-actions {
-    width: 100%;
-    margin-left: 0;
+    width: auto;
+    margin-left: auto;
+    flex-shrink: 0;
   }
-  .top-actions .btn { flex: 1; min-height: 44px; }
+  .top-actions .btn { flex: 0 0 auto; min-height: 44px; }
   .page-head { align-items: stretch; }
   .page-head .actions {
     width: 100%;
@@ -1280,7 +1293,8 @@ table.grid tfoot td {
   .content { min-width: 0; }
   .lines thead { display: none; }
   .lines, .lines tbody, .lines tr, .lines td { display: block; width: 100%; }
-  .lines { border: 0; }
+  .lines { border: 0; min-width: 0 !important; table-layout: auto; }
+  .lines-wrap { overflow: visible; }
   .lines tr {
     border: 1px solid var(--line);
     border-radius: 12px;
@@ -1289,10 +1303,10 @@ table.grid tfoot td {
     background: #fff;
   }
   .lines td {
-    display: grid;
-    grid-template-columns: 92px minmax(0, 1fr);
-    gap: 8px;
-    align-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
     width: 100%;
     min-width: 0 !important;
     padding: 8px 0;
@@ -1308,12 +1322,22 @@ table.grid tfoot td {
     color: var(--muted);
   }
   .lines td:nth-child(1)::before { content: "Item"; }
-  .lines td:nth-child(2)::before { content: "Description"; align-self: start; padding-top: 8px; }
+  .lines td:nth-child(2)::before { content: "Description"; }
   .lines td:nth-child(3)::before { content: "Qty"; }
   .lines td:nth-child(4)::before { content: "Unit price"; }
   .lines td:nth-child(5)::before { content: "Total Amt"; }
   .lines td:nth-child(6)::before { content: "VAT"; }
   .lines td.right, .lines td.center { text-align: left; }
+  .lines textarea,
+  .lines input {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    word-break: normal;
+    overflow-wrap: anywhere;
+  }
+  .lines .qty-wrap { width: 100%; max-width: none; }
   .card:has(table.grid:not(.lines)) {
     -webkit-overflow-scrolling: touch;
   }

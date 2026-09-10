@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
-$user = require_member();
+$user = require_desk_admin();
 
 $cid = current_company_id();
 [$extra, $types, $params] = period_sql('d.date');

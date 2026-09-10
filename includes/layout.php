@@ -40,10 +40,13 @@ function render_top_term(?array $company): void
 function layout_start(string $title, array $user, array $opts = []): void
 {
     $brand = branding();
-    $deskCompany = current_company();
     $flash = flash();
     $kind = $opts['kind'] ?? ($_GET['kind'] ?? '');
-    $primaryKind = desk_primary_kind();
+    $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
+    if ($here !== '' && function_exists('user_can_open') && !user_can_open($here, (string) $kind)) {
+        flash('Your login cannot open that page.', 'err');
+        redirect('dashboard.php');
+    }
     $nav = array_merge(
         [['dashboard.php', 'Desk', 'desk']],
         desk_kind_nav_items(),
@@ -55,9 +58,17 @@ function layout_start(string $title, array $user, array $opts = []): void
             ['tutorials.php', 'Tutorials', 'book'],
             ['reports.php', 'Reports', 'reports'],
             ['settings.php', 'Settings', 'settings'],
+            ['account.php', 'Password', 'lock'],
         ]
     );
-    $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
+    $nav = array_values(array_filter($nav, static function (array $item) {
+        $file = (string) strtok($item[0], '?');
+        $kind = '';
+        if (str_contains($item[0], 'kind=')) {
+            $kind = (string) substr((string) strstr($item[0], 'kind='), 5);
+        }
+        return user_can_open($file, $kind);
+    }));
     ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -94,8 +105,8 @@ function layout_start(string $title, array $user, array $opts = []): void
           if (in_array($here, ['client_view.php', 'client_edit.php'], true)) {
               $active = $file === 'clients.php';
           }
-          if ($here === 'branding.php') {
-              $active = $file === 'settings.php';
+          if ($here === 'branding.php' || $here === 'account.php') {
+              $active = $file === ($here === 'branding.php' ? 'settings.php' : 'account.php');
           }
           ?>
         <a class="<?= $active ? 'is-on' : '' ?>" href="<?= h(url($href)) ?>" title="<?= h($label) ?>"><?= icon($iconName, 18) ?><span><?= h($label) ?></span></a>
@@ -104,6 +115,9 @@ function layout_start(string $title, array $user, array $opts = []): void
     <div class="nav-user">
       <span class="nav-user-name"><?= icon('user', 16) ?><span><?= h($user['name']) ?></span></span>
       <span class="nav-user-mail"><?= h($user['email']) ?></span>
+      <?php if (!empty($user['job_title'])): ?>
+        <span class="nav-user-mail"><?= h((string) $user['job_title']) ?></span>
+      <?php endif; ?>
       <?php if (is_acting_admin()): ?>
         <a href="<?= h(url('admin_desk.php?leave=1')) ?>" title="Leave desk"><?= icon('logout', 15) ?><span>Leave desk</span></a>
       <?php endif; ?>
@@ -121,11 +135,9 @@ function layout_start(string $title, array $user, array $opts = []): void
       <button class="nav-toggle" type="button" data-nav-toggle aria-label="Menu" aria-expanded="false"><?= icon('menu', 20) ?></button>
       <div class="top-meta">
         <?php render_top_clock(); ?>
-        <?php render_top_term($deskCompany); ?>
       </div>
       <div class="top-actions">
         <button class="btn ghost" type="button" data-quick><?= icon('plus', 16) ?>Quick add</button>
-        <a class="btn" href="<?= h(url('document_new.php?kind=' . $primaryKind)) ?>"><?= icon(document_kind_icon($primaryKind), 16) ?><?= h(kind_meta($primaryKind)['verb']) ?></a>
       </div>
     </header>
     <?php if ($flash): ?>

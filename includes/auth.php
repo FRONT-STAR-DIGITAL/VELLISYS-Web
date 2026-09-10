@@ -6,7 +6,7 @@ function current_user(): ?array
     if (empty($_SESSION['user_id'])) {
         return null;
     }
-    return db_one('SELECT id, name, email, role, company_id FROM users WHERE id = ?', 'i', [(int) $_SESSION['user_id']]);
+    return db_one('SELECT id, name, job_title, email, role, access, company_id FROM users WHERE id = ?', 'i', [(int) $_SESSION['user_id']]);
 }
 
 function require_login(): array
@@ -43,6 +43,105 @@ function require_platform(): array
         redirect('dashboard.php');
     }
     return $user;
+}
+
+function is_desk_admin(?array $user = null): bool
+{
+    $user = $user ?? current_user();
+    if (!$user) {
+        return false;
+    }
+    if (($user['role'] ?? '') === 'platform') {
+        return true;
+    }
+    return ($user['role'] ?? '') === 'admin';
+}
+
+function require_desk_admin(): array
+{
+    $user = require_member();
+    if (!is_desk_admin($user)) {
+        flash('Only the company admin can open that page.', 'err');
+        redirect('dashboard.php');
+    }
+    return $user;
+}
+
+function user_access(?array $user = null): string
+{
+    $user = $user ?? current_user();
+    if (!$user) {
+        return 'books';
+    }
+    if (is_desk_admin($user)) {
+        return 'admin';
+    }
+    $access = (string) ($user['access'] ?? 'books');
+    return $access === 'sales' ? 'sales' : 'books';
+}
+
+function desk_staff_access_levels(): array
+{
+    return [
+        'books' => [
+            'label' => 'Books',
+            'hint' => 'Documents, clients, debtors, creditors and email. No reports, settings or people.',
+        ],
+        'sales' => [
+            'label' => 'Sales',
+            'hint' => 'Quotations, invoices, receipts, clients and email. No expenses, reports, settings or people.',
+        ],
+    ];
+}
+
+function user_allowed_kinds(?array $user = null): ?array
+{
+    if (is_desk_admin($user) || user_access($user) === 'books') {
+        return null;
+    }
+    return ['quotation', 'invoice', 'receipt'];
+}
+
+function user_can_kind(string $kind, ?array $user = null): bool
+{
+    if (!company_allows_kind($kind) && $kind !== 'expense') {
+        return false;
+    }
+    if ($kind === 'expense' && user_access($user) === 'sales') {
+        return false;
+    }
+    $allowed = user_allowed_kinds($user);
+    if ($allowed === null) {
+        return true;
+    }
+    return in_array($kind, $allowed, true);
+}
+
+function user_can_open(string $script, string $kind = ''): bool
+{
+    $script = basename($script);
+    if (is_desk_admin()) {
+        return true;
+    }
+    $access = user_access();
+    $adminOnly = ['settings.php', 'reports.php', 'branding.php'];
+    if (in_array($script, $adminOnly, true)) {
+        return false;
+    }
+    $kindScripts = ['documents.php', 'document_new.php', 'document_view.php', 'document_email.php', 'document_action.php'];
+    if (in_array($script, $kindScripts, true)) {
+        if ($kind === '') {
+            return true;
+        }
+        return user_can_kind($kind);
+    }
+    if ($script === 'export.php') {
+        return $kind === '' || user_can_kind($kind);
+    }
+    if ($script === 'creditors.php' && $access === 'sales') {
+        return false;
+    }
+    return true;
 }
 
 function attempt_login(string $email, string $password): bool

@@ -27,17 +27,27 @@ $hour = (int) date('G');
 $hello = $hour < 12 ? 'Good morning' : ($hour < 17 ? 'Good afternoon' : 'Good evening');
 
 layout_start('Desk', $user);
+$deskCompany = current_company();
+$canQuote = user_can_kind('quotation');
+$canInvoice = user_can_kind('invoice');
 ?>
+<?php if ($deskCompany): ?>
+  <div class="desk-term-wrap">
+    <?php render_top_term($deskCompany); ?>
+  </div>
+<?php endif; ?>
 <div class="desk-hero">
   <div>
     <p class="desk-kicker"><?= h($brand['name']) ?> · <?= h(default_currency()) ?> · <?= h(fx_rate_label()) ?></p>
     <h1><?= h($hello) ?>, <?= h(explode(' ', $user['name'])[0]) ?>.</h1>
-    <p class="lede">What needs sending or collecting today. Colour and stationery live in Settings.</p>
+    <p class="lede"><?= is_desk_admin($user) ? 'What needs sending or collecting today. Colour and stationery live in Settings.' : 'What needs sending or collecting today.' ?></p>
   </div>
+  <?php if ($canQuote || $canInvoice): ?>
   <div class="actions">
-    <a class="btn ghost" href="<?= h(url('document_new.php?kind=quotation')) ?>"><?= icon('quotation', 16) ?>Quotation</a>
-    <a class="btn" href="<?= h(url('document_new.php?kind=invoice')) ?>"><?= icon('invoice', 16) ?>Invoice</a>
+    <?php if ($canQuote): ?><a class="btn ghost" href="<?= h(url('document_new.php?kind=quotation')) ?>"><?= icon('quotation', 16) ?>Quotation</a><?php endif; ?>
+    <?php if ($canInvoice): ?><a class="btn" href="<?= h(url('document_new.php?kind=invoice')) ?>"><?= icon('invoice', 16) ?>Invoice</a><?php endif; ?>
   </div>
+  <?php endif; ?>
 </div>
 
 <div class="desk-grid">
@@ -72,14 +82,16 @@ layout_start('Desk', $user);
       <span>Overdue</span>
       <strong><?= h(money(documents_sum($overdue, 'balance'))) ?></strong>
     </a>
-    <a href="<?= h(url('reports.php')) ?>">
+    <a href="<?= h(url(is_desk_admin($user) ? 'reports.php' : 'documents.php?kind=invoice')) ?>">
       <span>Invoiced this month</span>
       <strong><?= h(money($incomeMonth)) ?></strong>
     </a>
+    <?php if (user_can_kind('expense')): ?>
     <div class="meter-row">
       <span>Spent this month</span>
       <strong><?= h(money($expenseMonth)) ?></strong>
     </div>
+    <?php endif; ?>
     <a href="<?= h(url('documents.php?kind=quotation')) ?>">
       <span>Open quotations</span>
       <strong><?= $quotes ?></strong>

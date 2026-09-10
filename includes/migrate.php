@@ -29,7 +29,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 22) {
+    if ($ver >= 25) {
         $done = true;
         return;
     }
@@ -198,9 +198,40 @@ function folio_migrate(mysqli $db): void
     if ($ver < 24) {
         folio_migrate_landing_ticker($db);
     }
+    if ($ver < 25) {
+        folio_migrate_desk_users($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '24')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '25')");
     $done = true;
+}
+
+function folio_migrate_desk_users(mysqli $db): void
+{
+    if (!db_has_column($db, 'companies', 'user_limit')) {
+        $db->query('ALTER TABLE companies ADD COLUMN user_limit TINYINT UNSIGNED NOT NULL DEFAULT 3');
+    }
+    $db->query('UPDATE companies SET user_limit = 3 WHERE user_limit IS NULL OR user_limit < 1 OR user_limit > 3');
+    if (!db_has_column($db, 'users', 'job_title')) {
+        $db->query("ALTER TABLE users ADD COLUMN job_title VARCHAR(80) NOT NULL DEFAULT '' AFTER name");
+    }
+    if (!db_has_column($db, 'users', 'access')) {
+        $db->query("ALTER TABLE users ADD COLUMN access VARCHAR(20) NOT NULL DEFAULT 'books' AFTER role");
+    }
+    $db->query("ALTER TABLE users MODIFY role ENUM('platform','admin','member') NOT NULL DEFAULT 'member'");
+    $companies = $db->query('SELECT id FROM companies');
+    if ($companies) {
+        while ($c = $companies->fetch_assoc()) {
+            $cid = (int) $c['id'];
+            $first = $db->query('SELECT id FROM users WHERE company_id = ' . $cid . " AND role <> 'platform' ORDER BY id ASC LIMIT 1");
+            $row = $first ? $first->fetch_assoc() : null;
+            if ($row) {
+                $uid = (int) $row['id'];
+                $db->query("UPDATE users SET role = 'admin', access = 'admin' WHERE id = " . $uid);
+            }
+            $db->query("UPDATE users SET access = 'books' WHERE company_id = " . $cid . " AND role = 'member' AND (access = '' OR access = 'admin')");
+        }
+    }
 }
 
 function folio_migrate_landing_ticker(mysqli $db): void

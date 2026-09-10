@@ -10,7 +10,7 @@ if (!$company) {
     redirect('admin_companies.php');
 }
 $brand = branding_for($id);
-$members = db_all('SELECT id, name, email, created_at FROM users WHERE company_id = ? ORDER BY id', 'i', [$id]);
+$members = db_all('SELECT id, name, job_title, email, role, access, created_at FROM users WHERE company_id = ? ORDER BY role = \'admin\' DESC, id', 'i', [$id]);
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -23,10 +23,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $name = post('name') ?: $company['name'];
         $kindsPosted = $_POST['enabled_kinds'] ?? [];
+        $limit = clamp_user_limit((int) post('user_limit'));
         if (!is_array($kindsPosted) || $kindsPosted === []) {
             $error = 'Select at least one document type this company will use.';
+        } elseif ($limit < company_seat_count($id)) {
+            $error = 'This desk already has ' . company_seat_count($id) . ' logins. Raise the seat count or remove a user first.';
         } else {
-            db_exec('UPDATE companies SET name=?, status=?, notes=?, enabled_kinds=?, custom_doc=? WHERE id=?', 'sssssi', [$name, $status, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), $id]);
+            db_exec('UPDATE companies SET name=?, status=?, notes=?, enabled_kinds=?, custom_doc=?, user_limit=? WHERE id=?', 'sssssii', [$name, $status, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), $limit, $id]);
             db_exec('UPDATE branding SET name=? WHERE company_id=?', 'si', [$name, $id]);
             flash('Company profile saved.');
             redirect('admin_company.php?id=' . $id);
@@ -89,17 +92,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     if ($action === 'add_user') {
-        $n = post('user_name');
-        $e = strtolower(post('user_email'));
-        $p = post('user_password') ?: 'folio2026';
-        if ($n === '' || !filter_var($e, FILTER_VALIDATE_EMAIL)) {
-            $error = 'Name and a valid email are required.';
-        } elseif (db_one('SELECT id FROM users WHERE email = ?', 's', [$e])) {
-            $error = 'That email already has a Vellisys login.';
+        $made = create_desk_user($id, [
+            'name' => post('user_name'),
+            'email' => post('user_email'),
+            'password' => post('user_password'),
+            'job_title' => post('user_title'),
+            'access' => post('user_access'),
+        ]);
+        if (empty($made['ok'])) {
+            $error = (string) ($made['error'] ?? 'Could not add that user.');
         } else {
-            $hash = password_hash($p, PASSWORD_DEFAULT);
-            db_exec('INSERT INTO users (name, email, password_hash, role, company_id) VALUES (?,?,?,?,?)', 'ssssi', [$n, $e, $hash, 'member', $id]);
-            flash('Desk login created for ' . $e . '.');
+            flash('Desk login created for ' . $made['email'] . ($made['role'] === 'admin' ? ' as company admin.' : '.'));
             redirect('admin_company.php?id=' . $id);
         }
     }
@@ -239,7 +242,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $company = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$id]);
 $brand = branding_for($id);
-$members = db_all('SELECT id, name, email, created_at FROM users WHERE company_id = ? ORDER BY id', 'i', [$id]);
+$members = db_all('SELECT id, name, job_title, email, role, access, created_at FROM users WHERE company_id = ? ORDER BY role = \'admin\' DESC, id', 'i', [$id]);
 $partyCount = (int) (db_one('SELECT COUNT(*) c FROM parties WHERE company_id = ?', 'i', [$id])['c'] ?? 0);
 $docCount = (int) (db_one('SELECT COUNT(*) c FROM documents WHERE company_id = ?', 'i', [$id])['c'] ?? 0);
 $hasLogo = !empty($brand['logo_path']);
@@ -262,7 +265,7 @@ layout_admin_start($company['name'], $user);
 <div class="page-head">
   <div>
     <h1><?= icon('building') ?><?= h($company['name']) ?></h1>
-    <p class="lede"><?= h(ucfirst((string) $company['status'])) ?> · <?= h($brand['currency'] ?? 'UGX') ?> · <?= count($members) ?> user<?= count($members) === 1 ? '' : 's' ?> · <?= h(company_term_label($company)) ?><?php if (company_expires_on($company)): ?> · <?= h(company_remaining_phrase($company)) ?> · <?= h(company_expiry_date_label($company)) ?><?php endif; ?><?php if (company_fee_paid($company) > 0 || company_fee_amount($company) > 0): ?> · Paid <?= h(money(company_fee_paid($company), company_fee_currency($company))) ?><?php if (company_fee_balance($company) > 0): ?> · Balance <?= h(money(company_fee_balance($company), company_fee_currency($company))) ?><?php endif; ?><?php endif; ?></p>
+    <p class="lede"><?= h(ucfirst((string) $company['status'])) ?> · <?= h($brand['currency'] ?? 'UGX') ?> · <?= count($members) ?> / <?= (int) company_user_limit($company) ?> user<?= count($members) === 1 ? '' : 's' ?> · <?= h(company_term_label($company)) ?><?php if (company_expires_on($company)): ?> · <?= h(company_remaining_phrase($company)) ?> · <?= h(company_expiry_date_label($company)) ?><?php endif; ?><?php if (company_fee_paid($company) > 0 || company_fee_amount($company) > 0): ?> · Paid <?= h(money(company_fee_paid($company), company_fee_currency($company))) ?><?php if (company_fee_balance($company) > 0): ?> · Balance <?= h(money(company_fee_balance($company), company_fee_currency($company))) ?><?php endif; ?><?php endif; ?></p>
   </div>
   <div class="actions">
     <a class="btn" href="<?= h(url('admin_desk.php?id=' . $id)) ?>"><?= icon('desk') ?>Open desk</a>
@@ -297,28 +300,46 @@ layout_admin_start($company['name'], $user);
       <p class="empty">No users yet.</p>
     <?php else: ?>
       <table class="grid">
-        <thead><tr><th>Name</th><th>Email</th></tr></thead>
+        <thead><tr><th>Name</th><th>Title</th><th>Email</th><th>Access</th></tr></thead>
         <tbody>
           <?php foreach ($members as $m): ?>
-            <tr><td><?= h($m['name']) ?></td><td class="mono"><?= h($m['email']) ?></td></tr>
+            <tr>
+              <td><?= h($m['name']) ?></td>
+              <td><?= h((string) ($m['job_title'] ?? '')) ?></td>
+              <td class="mono"><?= h($m['email']) ?></td>
+              <td><?= h(desk_access_label((string) $m['role'], (string) ($m['access'] ?? 'books'))) ?></td>
+            </tr>
           <?php endforeach; ?>
         </tbody>
       </table>
     <?php endif; ?>
+      <?php if (count($members) < company_user_limit($company)): ?>
     <form class="form" method="post" style="padding-bottom:18px">
       <?= csrf_field() ?>
       <input type="hidden" name="id" value="<?= $id ?>">
       <input type="hidden" name="action" value="add_user">
+      <p class="hint">Seats: <?= count($members) ?> of <?= (int) company_user_limit($company) ?>. Maximum 3 (admin + 2). The first login is the company admin.</p>
       <label for="user_name">Add a desk user</label>
       <input id="user_name" name="user_name" required placeholder="Name">
+      <label for="user_title">Title</label>
+      <input id="user_title" name="user_title" placeholder="Accountant">
       <label for="user_email">Email</label>
       <input id="user_email" name="user_email" type="email" required>
+      <label for="user_access">Access</label>
+      <select id="user_access" name="user_access">
+        <?php foreach (desk_staff_access_levels() as $key => $info): ?>
+          <option value="<?= h($key) ?>"><?= h($info['label']) ?></option>
+        <?php endforeach; ?>
+      </select>
       <label for="user_password">Temporary password</label>
       <input id="user_password" name="user_password" value="folio2026">
       <div class="actions" style="margin-top:12px">
         <button class="btn sm" type="submit"><?= icon('plus', 14) ?>Create login</button>
       </div>
     </form>
+      <?php else: ?>
+        <p class="hint">All <?= (int) company_user_limit($company) ?> seats are in use.</p>
+      <?php endif; ?>
   </div>
 </div>
 
@@ -471,6 +492,14 @@ layout_admin_start($company['name'], $user);
         <?php foreach (['onboarding' => 'Onboarding', 'live' => 'Live', 'suspended' => 'Suspended'] as $k => $label): ?>
           <option value="<?= h($k) ?>" <?= $company['status'] === $k ? 'selected' : '' ?>><?= h($label) ?></option>
         <?php endforeach; ?>
+      </select>
+    </div>
+    <div>
+      <label for="user_limit">Logins allowed</label>
+      <select id="user_limit" name="user_limit">
+        <?php for ($n = 1; $n <= 3; $n++): ?>
+          <option value="<?= $n ?>" <?= company_user_limit($company) === $n ? 'selected' : '' ?>><?= $n ?> <?= $n === 1 ? '(admin only)' : ($n === 2 ? '(admin + 1)' : '(admin + 2)') ?></option>
+        <?php endfor; ?>
       </select>
     </div>
   </div>
