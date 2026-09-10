@@ -37,6 +37,7 @@ $showDemoKeys = !folio_is_live_host();
       'Don\'t have an account? <a href="' . h(url('register.php')) . '">Register now</a>'
   ); ?>
   <main class="gate-panel">
+    <div class="gate-stack">
     <form class="gate-box" method="post" action="<?= h(url('login.php')) ?>">
       <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
       <h2><em>Log in</em> to your desk to continue</h2>
@@ -99,6 +100,7 @@ $showDemoKeys = !folio_is_live_host();
         <p>The website at the domain still shows the landing page, pricing, register and quote. The installed web app is a shortcut onto this login. After you sign in, you land on your desk.</p>
       </details>
     </section>
+    </div>
   </main>
 </div>
 <script src="<?= h(asset('js/app.js')) ?>"></script>

@@ -1521,7 +1521,13 @@ body.gate {
   position: relative;
   z-index: 3;
 }
-.gate-box { width: min(420px, 100%); }
+.gate-stack {
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.gate-box { width: 100%; }
 .gate-logo {
   height: 36px;
   width: auto;
@@ -1614,7 +1620,7 @@ body.gate {
 .gate-switch a, .gate-home a { color: var(--blue); font-weight: 700; text-decoration: none; }
 .gate-switch { display: none; }
 .gate-install {
-  width: min(420px, 100%);
+  width: 100%;
   margin: 28px 0 0;
   padding: 18px 18px 16px;
   border: 1px solid rgba(8, 20, 58, .12);
