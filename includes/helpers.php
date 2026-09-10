@@ -2164,7 +2164,7 @@ function landing_faqs(): array
         ],
         [
             'q' => 'How much does a desk cost?',
-            'a' => 'Three first-year packages on this page: Solo, Studio and Practice. Pay on the site, then a Vellisys admin contacts you to onboard the company. Register without paying if you want us to call first.',
+            'a' => 'Three first-year packages on this page: Quill, Ledger and Crest. Pay on the site, then a Vellisys admin contacts you to onboard the company. Register without paying if you want us to call first.',
             'link' => ['href' => '#pricing', 'label' => 'See packages'],
         ],
         [

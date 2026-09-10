@@ -225,7 +225,7 @@
       return found ? found.value : '01';
     };
     var start = Date.parse(get('year') + '-' + get('month') + '-' + get('day') + 'T00:00:00+03:00');
-    return start + (3 * 24 * 60 * 60 * 1000);
+    return start + (3 * 24 * 60 * 60 * 1000) + (12 * 60 * 60 * 1000);
   }
 
   function tickDiscount() {
@@ -233,14 +233,17 @@
     if (!clocks.length) return;
     var remain = Math.max(0, kampalaDeadline() - Date.now());
     var total = Math.floor(remain / 1000);
-    var h = Math.floor(total / 3600);
+    var d = Math.floor(total / 86400);
+    var h = Math.floor((total % 86400) / 3600);
     var m = Math.floor((total % 3600) / 60);
     var s = total % 60;
     var pad = function (n) { return String(n).padStart(2, '0'); };
     clocks.forEach(function (clock) {
+      var db = clock.querySelector('[data-discount-d]');
       var hb = clock.querySelector('[data-discount-h]');
       var mb = clock.querySelector('[data-discount-m]');
       var sb = clock.querySelector('[data-discount-s]');
+      if (db) db.textContent = pad(d);
       if (hb) hb.textContent = pad(h);
       if (mb) mb.textContent = pad(m);
       if (sb) sb.textContent = pad(s);
