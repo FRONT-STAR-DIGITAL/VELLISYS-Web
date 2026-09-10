@@ -159,6 +159,14 @@ function doc_templates(): array
             'name' => 'Lake night',
             'blurb' => 'Deep dusk header and accent copper lines.',
         ],
+        'atelier' => [
+            'name' => 'Atelier',
+            'blurb' => 'Quiet studio letter. Thin rules, small caps - made to email.',
+        ],
+        'seal' => [
+            'name' => 'Company seal',
+            'blurb' => 'Centered mark and double hairline. Formal, for quotations and retainers.',
+        ],
     ];
 }
 
@@ -1160,7 +1168,7 @@ function landing_faqs(): array
         ],
         [
             'q' => 'Are the documents in our branding?',
-            'a' => 'Yes. Every quotation, invoice, receipt, expense and headed note uses the company logo, three brand colours, and one of eight templates you pick in Settings.',
+            'a' => 'Yes. Every quotation, invoice, receipt, expense and headed note uses the company logo, three brand colours, and one of the templates you pick in Settings.',
         ],
         [
             'q' => 'Can we work in UGX and USD?',
@@ -1262,4 +1270,14 @@ function folio_font_links(): void
     echo '<link rel="preload" href="' . h(asset('fonts/montserrat-400.woff2')) . '" as="font" type="font/woff2" crossorigin>';
     echo '<link rel="preload" href="' . h(asset('fonts/montserrat-600.woff2')) . '" as="font" type="font/woff2" crossorigin>';
     echo '<link rel="preload" href="' . h(asset('fonts/montserrat-700.woff2')) . '" as="font" type="font/woff2" crossorigin>';
+}
+
+function new_question_count(): int
+{
+    try {
+        $row = db_one("SELECT COUNT(*) AS c FROM questions WHERE status = 'new'");
+        return (int) ($row['c'] ?? 0);
+    } catch (Throwable $e) {
+        return 0;
+    }
 }

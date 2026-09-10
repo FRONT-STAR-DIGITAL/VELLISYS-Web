@@ -32,6 +32,7 @@ layout_start('Clients', $user);
   </div>
   <div class="actions">
     <a class="btn ghost" href="<?= h(export_query('clients')) ?>"><?= icon('download', 16) ?>Export CSV</a>
+    <a class="btn ghost" href="<?= h(url('tutorials.php')) ?>"><?= icon('book', 16) ?>Tutorials</a>
     <a class="btn" href="<?= h(url('client_edit.php')) ?>"><?= icon('plus') ?>New client</a>
   </div>
 </div>

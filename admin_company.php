@@ -100,8 +100,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if ($action === 'go_live') {
         db_exec("UPDATE companies SET status='live' WHERE id=?", 'i', [$id]);
-        flash($company['name'] . ' is live.');
+        $member = $members[0] ?? null;
+        if ($member) {
+            $live = send_live_email(array_merge($company, ['status' => 'live']), $member, (int) $user['id']);
+            flash($company['name'] . ' is live. ' . ($live['ok'] ? 'The team was emailed from ' . product_email() . '.' : 'Welcome mail was queued from ' . product_email() . '.'));
+        } else {
+            flash($company['name'] . ' is live.');
+        }
         redirect('admin_company.php?id=' . $id);
+    }
+    if ($action === 'mailbox' || $action === 'mailbox_test') {
+        $provider = post('mail_provider');
+        if (!isset(mail_provider_presets()[$provider])) {
+            $provider = 'hostinger';
+        }
+        $preset = mail_provider_presets()[$provider];
+        $email = strtolower(post('mail_email'));
+        $fromName = post('mail_from_name') ?: $company['name'];
+        $host = post('smtp_host') ?: $preset['smtp_host'];
+        $port = (int) post('smtp_port') ?: (int) $preset['smtp_port'];
+        $secure = post('smtp_secure');
+        if (!in_array($secure, ['ssl', 'tls', 'none'], true)) {
+            $secure = $preset['smtp_secure'];
+        }
+        $popHost = post('pop_host') ?: $preset['pop_host'];
+        $popPort = (int) post('pop_port') ?: (int) $preset['pop_port'];
+        $imapHost = post('imap_host') ?: $preset['imap_host'];
+        $imapPort = (int) post('imap_port') ?: (int) $preset['imap_port'];
+        $passPlain = post('mail_password');
+        $stored = (string) ($company['mail_password'] ?? '');
+        if ($passPlain !== '') {
+            $stored = mail_encrypt_secret($passPlain);
+        }
+        if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $error = 'The sending mailbox must be a valid email.';
+        } else {
+            db_exec(
+                'UPDATE companies SET mail_provider=?, mail_email=?, mail_password=?, mail_from_name=?, smtp_host=?, smtp_port=?, smtp_secure=?, pop_host=?, pop_port=?, imap_host=?, imap_port=? WHERE id=?',
+                'sssssissisii',
+                [$provider, $email, $stored, $fromName, $host, $port, $secure, $popHost, $popPort, $imapHost, $imapPort, $id]
+            );
+            $company = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$id]);
+            if ($action === 'mailbox_test') {
+                $acct = company_mail_account($company);
+                if (!$acct) {
+                    $error = 'Save a mailbox email and password before testing.';
+                } else {
+                    $html = branded_company_wrap(branding_for($id), '<p style="margin:0">Vellisys connected this mailbox for <strong>' . h($company['name']) . '</strong>. Invoices and quotations will leave from this address, in the company colours.</p>');
+                    $test = deliver_mail($acct, $acct['from_email'], 'Vellisys connected your sending mailbox', $html, 'Vellisys connected this mailbox for ' . $company['name'] . '.');
+                    notify_platform(
+                        'Mailbox test: ' . $company['name'],
+                        '<p style="margin:0">' . h($company['name']) . ' mailbox ' . h($acct['from_email']) . ' test was ' . ($test['ok'] ? 'sent' : 'queued') . '.</p>',
+                        'Mailbox test for ' . $company['name'],
+                        $acct['from_email'],
+                        (int) $user['id']
+                    );
+                    if ($test['ok']) {
+                        flash('Test sent from ' . $acct['from_email'] . '. Check that inbox.');
+                    } else {
+                        flash('Test queued: ' . ($test['error'] ?? 'SMTP did not accept the message.'), 'err');
+                    }
+                    redirect('admin_company.php?id=' . $id);
+                }
+            } else {
+                flash('Sending mailbox saved for ' . $company['name'] . '. The company desk cannot edit it.');
+                redirect('admin_company.php?id=' . $id);
+            }
+        }
     }
     if ($action === 'term') {
         $term = (int) post('paid_term');
@@ -262,6 +327,77 @@ layout_admin_start($company['name'], $user);
       <a class="btn ghost" href="<?= h(url('admin_reports.php')) ?>"><?= icon('reports', 16) ?>Reports</a>
     </div>
   </div>
+</form>
+
+<form class="card form-wide" method="post" style="margin-top:16px" data-mail-box>
+  <?= csrf_field() ?>
+  <input type="hidden" name="id" value="<?= $id ?>">
+  <div class="card-head"><h2><?= icon('send', 16) ?>Sending mailbox</h2></div>
+  <div class="form-grid" style="padding:0 22px">
+    <div>
+      <label for="mail_provider">Mail type</label>
+      <select id="mail_provider" name="mail_provider" data-mail-provider>
+        <?php foreach (mail_provider_presets() as $key => $preset): ?>
+          <option value="<?= h($key) ?>" <?= ($company['mail_provider'] ?? 'hostinger') === $key ? 'selected' : '' ?>><?= h($preset['label']) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div>
+      <label for="mail_email">Mailbox</label>
+      <input id="mail_email" name="mail_email" type="email" value="<?= h((string) ($company['mail_email'] ?? '')) ?>" placeholder="accounts@company.com">
+    </div>
+    <div>
+      <label for="mail_password">Password</label>
+      <input id="mail_password" name="mail_password" type="password" autocomplete="new-password" placeholder="<?= !empty($company['mail_password']) ? 'Saved · leave blank to keep' : 'Hostinger or Titan password' ?>">
+    </div>
+    <div>
+      <label for="mail_from_name">From name</label>
+      <input id="mail_from_name" name="mail_from_name" value="<?= h((string) (($company['mail_from_name'] ?? '') !== '' ? $company['mail_from_name'] : $company['name'])) ?>">
+    </div>
+    <div>
+      <label for="smtp_host">SMTP host</label>
+      <input id="smtp_host" name="smtp_host" data-mail-field="smtp_host" value="<?= h((string) ($company['smtp_host'] ?? 'smtp.hostinger.com')) ?>">
+    </div>
+    <div>
+      <label for="smtp_port">SMTP port</label>
+      <input id="smtp_port" name="smtp_port" type="number" data-mail-field="smtp_port" value="<?= (int) ($company['smtp_port'] ?? 465) ?>">
+    </div>
+    <div>
+      <label for="smtp_secure">SMTP security</label>
+      <select id="smtp_secure" name="smtp_secure" data-mail-field="smtp_secure">
+        <?php foreach (['ssl' => 'SSL (465)', 'tls' => 'STARTTLS (587)', 'none' => 'None'] as $k => $label): ?>
+          <option value="<?= h($k) ?>" <?= ($company['smtp_secure'] ?? 'ssl') === $k ? 'selected' : '' ?>><?= h($label) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div>
+      <label for="pop_host">POP host</label>
+      <input id="pop_host" name="pop_host" data-mail-field="pop_host" value="<?= h((string) ($company['pop_host'] ?? 'pop.hostinger.com')) ?>">
+    </div>
+    <div>
+      <label for="pop_port">POP port</label>
+      <input id="pop_port" name="pop_port" type="number" data-mail-field="pop_port" value="<?= (int) ($company['pop_port'] ?? 995) ?>">
+    </div>
+    <div>
+      <label for="imap_host">IMAP host</label>
+      <input id="imap_host" name="imap_host" data-mail-field="imap_host" value="<?= h((string) ($company['imap_host'] ?? 'imap.hostinger.com')) ?>">
+    </div>
+    <div>
+      <label for="imap_port">IMAP port</label>
+      <input id="imap_port" name="imap_port" type="number" data-mail-field="imap_port" value="<?= (int) ($company['imap_port'] ?? 993) ?>">
+    </div>
+  </div>
+  <div style="padding:0 22px 22px">
+    <p class="hint" style="margin:8px 0 12px">
+      Hostinger hPanel uses smtp.hostinger.com:465 SSL, pop.hostinger.com:995, imap.hostinger.com:993. Titan uses smtp.titan.email with the same ports. The company desk can send invoices from this address and cannot edit it.
+      <?= company_mail_account($company) ? 'Mailbox is ready to send.' : 'Add the email and password to start sending.' ?>
+    </p>
+    <div class="actions">
+      <button class="btn" type="submit" name="action" value="mailbox"><?= icon('check') ?>Save mailbox</button>
+      <button class="btn ghost" type="submit" name="action" value="mailbox_test"><?= icon('send', 16) ?>Send test</button>
+    </div>
+  </div>
+  <script type="application/json" data-mail-presets><?= json_encode(mail_provider_presets(), JSON_UNESCAPED_SLASHES) ?></script>
 </form>
 
 <form class="card form-wide" method="post" style="margin-top:16px">

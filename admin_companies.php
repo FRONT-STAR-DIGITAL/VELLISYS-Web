@@ -87,7 +87,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'create') {
         if ($signupId && $signup) {
             db_exec("UPDATE signups SET status = 'onboarded', company_id = ? WHERE id = ?", 'ii', [$cid, $signupId]);
         }
-        flash($name . ' is ready for onboarding. Share the desk login with ' . $userEmail . '.');
+        $created = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$cid]);
+        $welcome = send_welcome_email(
+            $created ?: ['id' => $cid, 'name' => $name],
+            ['name' => $userName, 'email' => $userEmail],
+            $password,
+            (int) $user['id']
+        );
+        flash(
+            $name . ' is ready. Desk login ' . $userEmail
+            . ($welcome['ok'] ? '. Welcome mail sent from ' . product_email() . '.' : '. Welcome mail queued from ' . product_email() . '.')
+        );
         redirect('admin_company.php?id=' . $cid);
     }
 }

@@ -26,6 +26,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'sssss',
             [$name, $company, $email, $phone, 'new']
         );
+        notify_admin_signup([
+            'name' => $name,
+            'company' => $company,
+            'email' => $email,
+            'phone' => $phone,
+        ]);
         redirect('register.php?ok=1');
     }
 }

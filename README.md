@@ -21,9 +21,13 @@ Open the **landing page** at the site root. Companies **register** in a few fiel
 ## What you get
 
 - Public landing page in three sections, with pictures on every card. Super admin can replace those pictures under **Landing**, and add **Clients who trust us** names and logos
-- **Have a question** form on the landing page. Super admin sees each note under **Questions**, opens the full message on its own page, and a copy is emailed to `info@vellisys.com`
+- **Have a question** form on the landing page. Super admin sees each note under **Questions**, opens the full message on its own page, and a copy is emailed to `info@vellisys.com` from the Hostinger mailbox
+- Super admin **Email** tab: send a custom Vellisys letter from `info@vellisys.com`
 - Super admin **Reports**: paid terms, desks due within a month, lapsed desks, and one-click renewal letters to the client
 - On each company, super admin sets how many **months or years** the client has paid for. Expiry is calculated from the start date. When a desk is one month from expiry, Reports prepares a professional notice to send
+- Super admin assigns each company a **Hostinger (or Titan) sending mailbox**. SMTP and POP/IMAP are prefilled. The company desk can send invoices and quotations from that address, with its logo, and cannot edit the password
+- Desk **Tutorials** (also from Clients) with a tour of the whole portal and screenshots
+- When a company is onboarded, `info@vellisys.com` sends a welcome letter and a short tutorial. The same mailbox is notified for sign-ups, questions, live desks, renewal letters and company mail tests
 - Easy **register** form - no password to invent. Super admin sees each request, calls the company, then creates the desk
 - Sign-in with a **show password** control
 - **UGX or USD** on each document, converted at a rate you enter in Settings (1 USD = n UGX)
@@ -66,9 +70,19 @@ Default MySQL in XAMPP is user `root` with an empty password. If you set a passw
 
 Create a database named `folio`, then import `sql/schema.sql`. If the `users` table is empty, still run `install.php` so the demo user and seed documents are created.
 
-### Email on XAMPP
+### Email (Hostinger)
 
-PHP `mail()` needs Mercury (bundled with some XAMPP builds) or an SMTP relay. If send fails, Vellisys still **logs the email on the document** as queued. On a live host, ordinary PHP mail usually works.
+Platform mail is **`info@vellisys.com`**. Super admin only. It sends and receives through Hostinger SMTP:
+
+- SMTP `smtp.hostinger.com` port **465** SSL (STARTTLS 587 also works)
+- POP `pop.hostinger.com` port **995**
+- IMAP `imap.hostinger.com` port **993**
+
+Username is the full address. Credentials live in `config/mail.php` (override with `FOLIO_SMTP_*` on the live host). Titan mailboxes for a company use `smtp.titan.email` / `pop.titan.email` / `imap.titan.email` on the same ports - pick Titan on the company page and the hosts fill in.
+
+Company invoices do **not** leave from `info@vellisys.com`. Super admin pastes that company's Hostinger address and password on the company page. The desk user clicks Send; the letter uses the company logo and colours.
+
+If SMTP is refused (firewall, wrong password), Vellisys still **logs the email as queued**.
 
 Print / PDF uses the browser print dialog (Save as PDF). CSV downloads from the Export CSV buttons.
 

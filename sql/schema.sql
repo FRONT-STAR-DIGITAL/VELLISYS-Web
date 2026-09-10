@@ -9,6 +9,17 @@ CREATE TABLE IF NOT EXISTS companies (
   paid_from DATE NULL,
   expires_at DATE NULL,
   renewal_notice_sent_at DATETIME NULL,
+  mail_provider VARCHAR(20) NOT NULL DEFAULT 'hostinger',
+  mail_email VARCHAR(190) NOT NULL DEFAULT '',
+  mail_password TEXT NULL,
+  mail_from_name VARCHAR(160) NOT NULL DEFAULT '',
+  smtp_host VARCHAR(190) NOT NULL DEFAULT 'smtp.hostinger.com',
+  smtp_port INT UNSIGNED NOT NULL DEFAULT 465,
+  smtp_secure VARCHAR(10) NOT NULL DEFAULT 'ssl',
+  pop_host VARCHAR(190) NOT NULL DEFAULT 'pop.hostinger.com',
+  pop_port INT UNSIGNED NOT NULL DEFAULT 995,
+  imap_host VARCHAR(190) NOT NULL DEFAULT 'imap.hostinger.com',
+  imap_port INT UNSIGNED NOT NULL DEFAULT 993,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

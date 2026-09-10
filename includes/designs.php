@@ -505,6 +505,105 @@ function render_sheet_night(array $d): void
 <?php
 }
 
+function render_sheet_atelier(array $d): void
+{
+    $brand = $d['brand'];
+    $doc = $d['doc'];
+    ?>
+<article class="invoice-sheet sheet-atelier" style="<?= h($d['vars']) ?>">
+  <header class="atelier-head">
+    <div class="atelier-brand">
+      <img src="<?= h($d['logo']) ?>" alt="" class="d-logo">
+      <p class="atelier-kicker"><?= h($brand['name']) ?></p>
+      <p><?= h($brand['address']) ?><?= !empty($brand['tin']) ? ' · TIN ' . h($brand['tin']) : '' ?></p>
+    </div>
+    <div class="atelier-meta">
+      <em><?= h($d['heading']) ?></em>
+      <strong><?= h($doc['number']) ?></strong>
+      <span>Issued <?= h(format_date($doc['date'])) ?></span>
+      <?php if (!empty($doc['due_date'])): ?><span>Due <?= h(format_date($doc['due_date'])) ?></span><?php endif; ?>
+      <span><?= h($d['cur']) ?></span>
+    </div>
+  </header>
+  <hr class="atelier-rule">
+  <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
+  <div class="atelier-party">
+    <span><?= $doc['kind'] === 'letter' ? 'To' : 'Prepared for' ?></span>
+    <strong><?= h($doc['party_name'] ?? '') ?></strong>
+    <p><?= h($doc['party_address'] ?? '') ?><?= !empty($doc['party_email']) ? ' · ' . h($doc['party_email']) : '' ?></p>
+  </div>
+  <?php if ($doc['kind'] === 'letter'): ?>
+    <?php render_letter_body($doc); ?>
+  <?php else: ?>
+    <?php render_line_table($doc, $d['deep'], $d['tint']); ?>
+    <div class="atelier-end">
+      <div class="atelier-note">
+        <span>Notes</span>
+        <p><?= h($d['comments'] ?: ($brand['payment_note'] ?? '')) ?></p>
+      </div>
+      <div class="atelier-sums">
+        <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
+        <?php if (!empty($d['show_vat'])): ?><div><span>VAT 18%</span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
+        <div class="atelier-total"><span>Amount due</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
+        <?php render_fx_equiv($d); ?>
+        <?php render_settlement($d); ?>
+      </div>
+    </div>
+  <?php endif; ?>
+  <footer class="atelier-foot">
+    <?= h($brand['phone']) ?> · <?= h($brand['email']) ?> · <?= h($brand['website']) ?>
+  </footer>
+</article>
+<?php
+}
+
+function render_sheet_seal(array $d): void
+{
+    $brand = $d['brand'];
+    $doc = $d['doc'];
+    ?>
+<article class="invoice-sheet sheet-seal" style="<?= h($d['vars']) ?>">
+  <header class="seal-head">
+    <img src="<?= h($d['logo']) ?>" alt="" class="d-logo">
+    <h1><?= h($brand['name']) ?></h1>
+    <p><?= h($brand['address']) ?> · <?= h($brand['phone']) ?> · <?= h($brand['email']) ?></p>
+    <div class="seal-title">
+      <i></i>
+      <strong><?= h($d['heading']) ?></strong>
+      <i></i>
+    </div>
+  </header>
+  <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
+  <div class="seal-meta">
+    <div><span>Reference</span><b><?= h($doc['number']) ?></b></div>
+    <div><span>Date</span><b><?= h(format_date($doc['date'])) ?></b></div>
+    <?php if (!empty($doc['due_date'])): ?><div><span>Due</span><b><?= h(format_date($doc['due_date'])) ?></b></div><?php endif; ?>
+    <div><span>Currency</span><b><?= h($d['cur']) ?></b></div>
+  </div>
+  <p class="seal-for"><span><?= $doc['kind'] === 'letter' ? 'Addressed to' : 'In account with' ?></span> <strong><?= h($doc['party_name'] ?? '') ?></strong></p>
+  <?php if ($doc['kind'] === 'letter'): ?>
+    <?php render_letter_body($doc); ?>
+  <?php else: ?>
+    <?php render_line_table($doc, $d['deep'], $d['tint']); ?>
+    <div class="seal-end">
+      <p><?= h($d['comments'] ?: ($brand['payment_note'] ?? '')) ?></p>
+      <aside>
+        <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
+        <?php if (!empty($d['show_vat'])): ?><div><span>VAT 18%</span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
+        <div class="seal-due"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
+        <?php render_fx_equiv($d); ?>
+        <?php render_settlement($d); ?>
+      </aside>
+    </div>
+  <?php endif; ?>
+  <footer class="seal-sign">
+    <div>For and on behalf of <?= h($brand['name']) ?></div>
+    <div>Authorised</div>
+  </footer>
+</article>
+<?php
+}
+
 function render_expense_card(array $brand, array $doc): void
 {
     render_sheet($brand, $doc);
@@ -521,6 +620,8 @@ function render_sheet(array $brand, array $doc): void
         'stripe' => render_sheet_stripe($d),
         'estate' => render_sheet_estate($d),
         'night' => render_sheet_night($d),
+        'atelier' => render_sheet_atelier($d),
+        'seal' => render_sheet_seal($d),
         default => render_sheet_folio($d),
     };
 }

@@ -16,6 +16,7 @@ function layout_start(string $title, array $user, array $opts = []): void
         ['debtors.php', 'Debtors', 'clients'],
         ['creditors.php', 'Creditors', 'bank'],
         ['clients.php', 'Clients', 'building'],
+        ['tutorials.php', 'Tutorials', 'book'],
         ['reports.php', 'Reports', 'reports'],
         ['settings.php', 'Settings', 'settings'],
     ];
@@ -105,6 +106,7 @@ function layout_admin_start(string $title, array $user): void
         ['admin_questions.php', 'Questions', 'help'],
         ['admin_companies.php', 'Companies', 'building'],
         ['admin_reports.php', 'Reports', 'reports'],
+        ['admin_mail.php', 'Email', 'send'],
     ];
     ?>
 <!DOCTYPE html>

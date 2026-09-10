@@ -30,5 +30,6 @@ require_once ROOT_PATH . '/includes/helpers.php';
 require_once ROOT_PATH . '/includes/auth.php';
 require_once ROOT_PATH . '/includes/icons.php';
 require_once ROOT_PATH . '/includes/documents.php';
+require_once ROOT_PATH . '/includes/smtp.php';
 require_once ROOT_PATH . '/includes/mailer.php';
 require_once ROOT_PATH . '/includes/layout.php';

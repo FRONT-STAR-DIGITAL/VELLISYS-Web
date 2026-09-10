@@ -77,7 +77,7 @@ layout_start('Settings', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('settings') ?>Settings</h1>
-    <p class="lede">Letterhead, colours, the UGX / USD rate, and the account that sends mail. The design you pick prints on every document.</p>
+    <p class="lede">Letterhead, colours, the UGX / USD rate. Mail leaves from the company mailbox Vellisys assigned - you cannot change it here.</p>
   </div>
 </div>
 
@@ -98,12 +98,27 @@ layout_start('Settings', $user);
   <div class="settings-stack">
     <section class="card settings-card" id="account">
       <h2><?= icon('lock') ?>Signed-in account</h2>
-      <p class="lede">Emails leave <?= h(product_name()) ?> as this person. Change the mailbox by signing in with the address clients should reply to.</p>
+      <p class="lede">This is who is using the desk. Invoices and quotations leave from the company mailbox Vellisys assigned. Only a Vellisys admin can change that mailbox.</p>
       <div class="account-chip">
         <?= icon('user', 22) ?>
         <div>
           <strong><?= h($user['name']) ?></strong>
           <span><?= h($user['email']) ?></span>
+        </div>
+      </div>
+      <?php
+        $deskCompany = db_one('SELECT * FROM companies WHERE id = ?', 'i', [current_company_id()]);
+        $sendAcct = $deskCompany ? company_mail_account($deskCompany) : null;
+      ?>
+      <div class="account-chip" style="margin-top:12px">
+        <?= icon('send', 22) ?>
+        <div>
+          <strong>Sending mailbox</strong>
+          <?php if ($sendAcct): ?>
+            <span><?= h($sendAcct['from_name']) ?> · <?= h($sendAcct['from_email']) ?> (locked)</span>
+          <?php else: ?>
+            <span>Not assigned yet. Ask Vellisys to add the company Hostinger address. You can still print and share a link.</span>
+          <?php endif; ?>
         </div>
       </div>
     </section>
@@ -251,7 +266,7 @@ layout_start('Settings', $user);
 
     <section class="card settings-card" id="templates">
       <h2><?= icon('palette') ?>Document designs</h2>
-      <p class="lede">Eight layouts. Pick the one that matches the company. Every invoice, quotation, receipt, expense and headed note reprints in that design, in the client's logo and colours. Changing it here reprints the whole books. Correspondence text stays editable - only the paper around it changes.</p>
+      <p class="lede">Ten layouts. Pick the one that matches the company. Atelier and Company seal are quiet, formal sheets meant to email. Every invoice, quotation, receipt, expense and headed note reprints in that design, in the client's logo and colours. Changing it here reprints the whole books. Correspondence text stays editable - only the paper around it changes.</p>
       <div class="design-grid">
         <?php
         $currentDesign = doc_template_key(['doc_template' => $b['doc_template'] ?? 'folio']);

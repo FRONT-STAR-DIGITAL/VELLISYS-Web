@@ -326,3 +326,26 @@ document.querySelectorAll('[data-add-template]').forEach(function (btn) {
     if (title) title.focus();
   });
 });
+
+(function () {
+  var box = document.querySelector('[data-mail-box]');
+  if (!box) return;
+  var sel = box.querySelector('[data-mail-provider]');
+  var json = box.querySelector('[data-mail-presets]');
+  if (!sel || !json) return;
+  var presets = {};
+  try {
+    presets = JSON.parse(json.textContent || '{}');
+  } catch (e) {
+    return;
+  }
+  sel.addEventListener('change', function () {
+    var p = presets[sel.value];
+    if (!p) return;
+    Object.keys(p).forEach(function (key) {
+      if (key === 'label') return;
+      var el = box.querySelector('[data-mail-field="' + key + '"]');
+      if (el) el.value = p[key];
+    });
+  });
+})();

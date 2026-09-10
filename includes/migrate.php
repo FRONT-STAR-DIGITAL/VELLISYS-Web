@@ -29,11 +29,12 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 16) {
+    if ($ver >= 17) {
         $done = true;
         return;
     }
 
+    if ($ver < 16) {
     $db->query("CREATE TABLE IF NOT EXISTS companies (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(160) NOT NULL,
@@ -178,8 +179,11 @@ function folio_migrate(mysqli $db): void
 
     folio_migrate_trust_clients($db);
     folio_migrate_subscriptions($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '16')");
+    folio_migrate_mailboxes($db);
+
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '17')");
     $done = true;
 }
 
@@ -210,6 +214,28 @@ function folio_migrate_subscriptions(mysqli $db): void
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       KEY company_id (company_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+function folio_migrate_mailboxes(mysqli $db): void
+{
+    $cols = [
+        'mail_provider' => "VARCHAR(20) NOT NULL DEFAULT 'hostinger'",
+        'mail_email' => "VARCHAR(190) NOT NULL DEFAULT ''",
+        'mail_password' => 'TEXT NULL',
+        'mail_from_name' => "VARCHAR(160) NOT NULL DEFAULT ''",
+        'smtp_host' => "VARCHAR(190) NOT NULL DEFAULT 'smtp.hostinger.com'",
+        'smtp_port' => 'INT UNSIGNED NOT NULL DEFAULT 465',
+        'smtp_secure' => "VARCHAR(10) NOT NULL DEFAULT 'ssl'",
+        'pop_host' => "VARCHAR(190) NOT NULL DEFAULT 'pop.hostinger.com'",
+        'pop_port' => 'INT UNSIGNED NOT NULL DEFAULT 995',
+        'imap_host' => "VARCHAR(190) NOT NULL DEFAULT 'imap.hostinger.com'",
+        'imap_port' => 'INT UNSIGNED NOT NULL DEFAULT 993',
+    ];
+    foreach ($cols as $col => $ddl) {
+        if (!db_has_column($db, 'companies', $col)) {
+            $db->query("ALTER TABLE companies ADD COLUMN {$col} {$ddl}");
+        }
+    }
 }
 
 function folio_migrate_landing_cards(mysqli $db): void
