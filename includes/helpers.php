@@ -1935,16 +1935,12 @@ function landing_way_image_url(): string
 
 function product_original_logo_url(): string
 {
-    $full = ROOT_PATH . '/assets/img/logo.png';
-    if (is_file($full)) {
-        return asset('img/logo.png');
-    }
     return product_logo_url();
 }
 
 function product_logo_file(): string
 {
-    foreach (['assets/img/our-logo.png', 'assets/img/logo.png', 'assets/img/vellisys-logo.png'] as $rel) {
+    foreach (['assets/img/our-logo.png', 'assets/img/vellisys-logo.png', 'assets/img/logo.png'] as $rel) {
         $full = ROOT_PATH . '/' . $rel;
         if (is_file($full)) {
             return $full;
@@ -1955,7 +1951,7 @@ function product_logo_file(): string
 
 function product_email_logo_file(): string
 {
-    foreach (['assets/img/logo.png', 'assets/img/our-logo.png', 'assets/img/vellisys-logo.png'] as $rel) {
+    foreach (['assets/img/vellisys-email-logo.png', 'assets/img/our-logo.png', 'assets/img/vellisys-logo.png', 'assets/img/logo.png'] as $rel) {
         $full = ROOT_PATH . '/' . $rel;
         if (is_file($full)) {
             return $full;
