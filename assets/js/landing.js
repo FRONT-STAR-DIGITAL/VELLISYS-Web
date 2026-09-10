@@ -264,15 +264,9 @@
   tickDiscount();
   setInterval(tickDiscount, 1000);
 
-  var manualMarqueeMq = window.matchMedia('(hover: none), (pointer: coarse), (max-width: 820px)');
   function paceMarquees() {
-    var manual = manualMarqueeMq.matches;
     document.querySelectorAll('[data-marquee-track]').forEach(function (track) {
-      var strip = track.closest('.lp-trust, .lp-reviews');
-      if (strip && manual) {
-        track.style.animationDuration = '';
-        return;
-      }
+      if (track.closest('[data-lp-strip]')) return;
       var set = track.querySelector('[data-marquee-set]');
       if (!set) return;
       var width = set.offsetWidth;
@@ -284,11 +278,141 @@
   paceMarquees();
   window.addEventListener('load', paceMarquees);
   window.addEventListener('resize', paceMarquees);
-  if (manualMarqueeMq.addEventListener) {
-    manualMarqueeMq.addEventListener('change', paceMarquees);
-  } else if (manualMarqueeMq.addListener) {
-    manualMarqueeMq.addListener(paceMarquees);
+
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  var strips = [];
+  function bindStrip(scroller) {
+    var set = scroller.querySelector('[data-marquee-set]');
+    if (!set) return;
+    var state = {
+      el: scroller,
+      set: set,
+      pxPerMs: 0.042,
+      paused: false,
+      dragging: false,
+      lastTs: 0,
+      resumeTimer: 0,
+      ignoreUntil: 0,
+      visible: true,
+      dragX: 0,
+      dragScroll: 0
+    };
+    function measure() {
+      var width = set.offsetWidth;
+      if (!width) return;
+      var seconds = scroller.classList.contains('lp-reviews-marquee')
+        ? Math.max(22, Math.round(width / 36))
+        : Math.max(18, Math.round(width / 42));
+      state.pxPerMs = width / (seconds * 1000);
+    }
+    function wrap() {
+      var width = set.offsetWidth;
+      if (width < 8) return;
+      if (scroller.scrollLeft >= width) {
+        state.ignoreUntil = performance.now() + 80;
+        scroller.scrollLeft -= width;
+      }
+    }
+    function pause() {
+      state.paused = true;
+      state.lastTs = 0;
+      if (state.resumeTimer) {
+        window.clearTimeout(state.resumeTimer);
+        state.resumeTimer = 0;
+      }
+    }
+    function armResume() {
+      if (state.dragging) return;
+      if (state.resumeTimer) window.clearTimeout(state.resumeTimer);
+      state.resumeTimer = window.setTimeout(function () {
+        state.paused = false;
+        state.lastTs = 0;
+        state.resumeTimer = 0;
+      }, 1200);
+    }
+    scroller.addEventListener('pointerdown', function (e) {
+      pause();
+      if (e.pointerType === 'touch') return;
+      state.dragging = true;
+      state.dragX = e.clientX;
+      state.dragScroll = scroller.scrollLeft;
+      scroller.classList.add('is-dragging');
+      try { scroller.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    scroller.addEventListener('pointermove', function (e) {
+      if (!state.dragging) return;
+      state.ignoreUntil = performance.now() + 80;
+      scroller.scrollLeft = state.dragScroll - (e.clientX - state.dragX);
+      wrap();
+    });
+    function endPointer() {
+      state.dragging = false;
+      scroller.classList.remove('is-dragging');
+      armResume();
+    }
+    scroller.addEventListener('pointerup', endPointer);
+    scroller.addEventListener('pointercancel', endPointer);
+    scroller.addEventListener('scroll', function () {
+      if (performance.now() < state.ignoreUntil) return;
+      wrap();
+    }, { passive: true });
+    scroller.addEventListener('wheel', function () {
+      pause();
+      armResume();
+    }, { passive: true });
+    scroller.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        pause();
+        armResume();
+      }
+    });
+    scroller.addEventListener('scrollend', function () {
+      if (state.dragging || !state.paused) return;
+      if (performance.now() < state.ignoreUntil) return;
+      armResume();
+    });
+    if ('IntersectionObserver' in window) {
+      var io = new IntersectionObserver(function (entries) {
+        state.visible = entries.some(function (entry) { return entry.isIntersecting; });
+        if (!state.visible) state.lastTs = 0;
+      }, { threshold: 0.08 });
+      io.observe(scroller);
+    }
+    measure();
+    strips.push(state);
+    return measure;
   }
+  var remeasure = [];
+  document.querySelectorAll('[data-lp-strip]').forEach(function (el) {
+    remeasure.push(bindStrip(el));
+  });
+  function measureStrips() {
+    remeasure.forEach(function (fn) { if (fn) fn(); });
+  }
+  window.addEventListener('load', measureStrips);
+  window.addEventListener('resize', measureStrips);
+  function tickStrips(now) {
+    window.requestAnimationFrame(tickStrips);
+    if (document.hidden || reduceMotion.matches) return;
+    strips.forEach(function (state) {
+      if (state.paused || state.dragging || !state.visible) {
+        state.lastTs = 0;
+        return;
+      }
+      if (!state.lastTs) {
+        state.lastTs = now;
+        return;
+      }
+      var dt = Math.min(48, now - state.lastTs);
+      state.lastTs = now;
+      var width = state.set.offsetWidth;
+      if (!width) return;
+      state.ignoreUntil = now + 80;
+      state.el.scrollLeft += state.pxPerMs * dt;
+      if (state.el.scrollLeft >= width) state.el.scrollLeft -= width;
+    });
+  }
+  if (strips.length) window.requestAnimationFrame(tickStrips);
 
   var payFrame = document.querySelector('[data-pay-frame]');
   if (payFrame) {
