@@ -111,7 +111,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       <div class="lp-grid3">
         <?php foreach ($familiar as $card): ?>
           <article>
-            <img class="lp-card-pic" src="<?= h(landing_card_image_url($card)) ?>" alt="<?= h($card['title'] ?? '') ?>" loading="lazy" decoding="async">
+            <img class="lp-card-pic" src="<?= h(landing_card_image_url($card)) ?>" alt="<?= h($card['title'] ?? '') ?>" decoding="async">
             <div class="lp-card-copy">
               <h3><?= h($card['title']) ?></h3>
               <p><?= h($card['body']) ?></p>
@@ -157,7 +157,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       <div class="lp-grid3">
         <?php foreach ($help as $card): ?>
           <article>
-            <img class="lp-card-pic" src="<?= h(landing_card_image_url($card)) ?>" alt="<?= h($card['title'] ?? '') ?>" loading="lazy" decoding="async">
+            <img class="lp-card-pic" src="<?= h(landing_card_image_url($card)) ?>" alt="<?= h($card['title'] ?? '') ?>" decoding="async">
             <div class="lp-card-copy">
               <h3><?= h($card['title']) ?></h3>
               <p><?= h($card['body']) ?></p>
@@ -220,7 +220,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
           <li>
             <span class="lp-path-n"><?= (int) $i + 1 ?></span>
             <article>
-              <img class="lp-card-pic" src="<?= h(landing_card_image_url($card)) ?>" alt="<?= h($card['title'] ?? '') ?>" loading="lazy" decoding="async">
+              <img class="lp-card-pic" src="<?= h(landing_card_image_url($card)) ?>" alt="<?= h($card['title'] ?? '') ?>" decoding="async">
               <div class="lp-card-copy">
                 <h3><?= h($card['title']) ?></h3>
                 <p><?= h($card['body']) ?></p>

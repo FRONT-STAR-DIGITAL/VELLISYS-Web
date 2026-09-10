@@ -25,7 +25,24 @@ if ($uri !== '/' && is_file($file) && !str_contains($uri, '..')) {
         'ico' => 'image/x-icon',
     ];
     if (isset($cached[$ext])) {
-        header('Content-Type: ' . $cached[$ext]);
+        $type = $cached[$ext];
+        if (in_array($ext, ['png', 'jpg', 'jpeg', 'webp', 'gif'], true)) {
+            $fh = fopen($file, 'rb');
+            $magic = $fh ? (string) fread($fh, 12) : '';
+            if ($fh) {
+                fclose($fh);
+            }
+            if (str_starts_with($magic, "\xFF\xD8\xFF")) {
+                $type = 'image/jpeg';
+            } elseif (str_starts_with($magic, "\x89PNG")) {
+                $type = 'image/png';
+            } elseif (str_starts_with($magic, 'GIF87a') || str_starts_with($magic, 'GIF89a')) {
+                $type = 'image/gif';
+            } elseif (str_starts_with($magic, 'RIFF') && str_contains($magic, 'WEBP')) {
+                $type = 'image/webp';
+            }
+        }
+        header('Content-Type: ' . $type);
         header('Cache-Control: public, max-age=31536000, immutable');
         readfile($file);
         return true;
