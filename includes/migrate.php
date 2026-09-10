@@ -16,7 +16,7 @@ function folio_migrate(mysqli $db): void
         return;
     }
     $verRow = @$db->query("SELECT v FROM schema_meta WHERE k='version'");
-    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 31) {
+    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 32) {
         $done = true;
         return;
     }
@@ -34,7 +34,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 31) {
+    if ($ver >= 32) {
         $done = true;
         return;
     }
@@ -224,8 +224,12 @@ function folio_migrate(mysqli $db): void
     if ($ver < 31) {
         folio_migrate_positioning_ticker($db);
     }
+    if ($ver < 32) {
+        $db->query("UPDATE landing_pricing SET term_label = 'per year' WHERE LOWER(TRIM(term_label)) = 'first year'");
+        $db->query("UPDATE landing_pricing SET lead = REPLACE(lead, 'First year,', 'Billed per year,')");
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '31')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '32')");
     $done = true;
 }
 

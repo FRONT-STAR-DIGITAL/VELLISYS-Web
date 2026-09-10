@@ -1683,12 +1683,14 @@ function public_header(string $page = 'home'): void
   <header class="lp-chrome" data-lp-chrome>
   <?php if ($ticker): ?>
   <div class="lp-ticker" data-lp-ticker>
-    <div class="lp-ticker-track">
+    <div class="lp-ticker-track" data-marquee-track>
       <?php for ($i = 0; $i < 2; $i++): ?>
-        <?php foreach ($ticker as $n => $line): ?>
-          <p class="lp-ticker-line<?= $n % 2 === 1 ? ' is-alt' : '' ?>"><?= h($line) ?></p>
-          <span class="lp-ticker-sep" aria-hidden="true">|</span>
-        <?php endforeach; ?>
+        <div class="lp-ticker-set" data-marquee-set <?= $i === 1 ? 'aria-hidden="true"' : '' ?>>
+          <?php foreach ($ticker as $n => $line): ?>
+            <p class="lp-ticker-line<?= $n % 2 === 1 ? ' is-alt' : '' ?>"><?= h($line) ?></p>
+            <span class="lp-ticker-sep" aria-hidden="true">|</span>
+          <?php endforeach; ?>
+        </div>
       <?php endfor; ?>
     </div>
   </div>

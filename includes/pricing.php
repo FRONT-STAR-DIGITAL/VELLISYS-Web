@@ -97,9 +97,9 @@ function pricing_section_defaults(): array
     return [
         'kicker' => 'Packages',
         'heading' => 'Onboard as the discount lasts',
-        'lead' => 'First year, shown in {currency}. Change currency in the header. Pay, then a Vellisys admin contacts you to open the desk.',
+        'lead' => 'Billed per year, shown in {currency}. Change currency in the header. Pay, then a Vellisys admin contacts you to open the desk.',
         'clock_label' => 'Discount ends in',
-        'term_label' => 'first year',
+        'term_label' => 'per year',
         'register_copy' => 'Prefer a call first? {register} - a Vellisys admin contacts you to onboard.',
         'register_label' => 'Register without paying',
         'countdown_days' => 3,
@@ -214,6 +214,9 @@ function pricing_section(): array
         'countdown_hours' => max(0, min(23, (int) ($row['countdown_hours'] ?? $base['countdown_hours']))),
         'rates' => $rates,
     ];
+    if (strcasecmp(trim($cached['term_label']), 'first year') === 0) {
+        $cached['term_label'] = 'per year';
+    }
     return $cached;
 }
 

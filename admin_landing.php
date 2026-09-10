@@ -69,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 mb_substr(post('heading'), 0, 180),
                 post('lead'),
                 mb_substr(post('clock_label'), 0, 80),
-                mb_substr(post('term_label'), 0, 40) ?: 'first year',
+                mb_substr(post('term_label'), 0, 40) ?: 'per year',
                 post('register_copy'),
                 mb_substr(post('register_label'), 0, 80),
                 max(0, min(30, (int) post('countdown_days'))),

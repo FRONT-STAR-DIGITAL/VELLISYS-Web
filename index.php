@@ -37,13 +37,20 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
   <main>
     <section class="lp-hero">
       <div class="lp-hero-copy" data-reveal>
+        <p class="lp-kicker">One desk. Your branding. Sent in a tap.</p>
         <h1>Lose track of your financial records?</h1>
-        <p class="lp-lead">Tired of receipts in a drawer and invoices living in WhatsApp? Vellisys keeps quotations, invoices, receipts and reports on one desk. Every sheet is customised to the client's branding - logo, colours, and many templates to choose from - then shared in a single click. Anywhere you are in the world: register, request a quote, and get onboarded. Built for East Africa, used across Africa and worldwide - the best branded alternative to QuickBooks and other finance software.</p>
+        <p class="lp-lead">Receipts in a drawer and invoices in WhatsApp never add up. Vellisys keeps quotations, invoices, receipts and reports on one desk, printed in the client's logo and colours, then shared in a click.</p>
+        <ul class="lp-hero-points">
+          <li>Quotations</li>
+          <li>Invoices</li>
+          <li>Receipts</li>
+          <li>Reports</li>
+        </ul>
         <div class="lp-cta">
           <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('register.php')) ?>">Get my company a desk</a>
           <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('login.php')) ?>">I already have a desk</a>
         </div>
-        <p class="lp-note">Anywhere in the world. <a href="<?= h(url('register.php')) ?>">Register</a>. <a href="<?= h(url('quote.php')) ?>">Request a quote</a>. Get onboarded.</p>
+        <p class="lp-note">Anywhere in the world. <a href="<?= h(url('register.php')) ?>">Register</a>. <a href="<?= h(url('quote.php')) ?>">Request a quote</a>. Get onboarded. Built for East Africa, used across Africa and worldwide.</p>
       </div>
 
       <div class="lp-stage" data-reveal>
@@ -97,11 +104,13 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       <p class="lp-kicker">On the desk</p>
       <h2>Clients who trust us</h2>
       <div class="lp-marquee">
-        <div class="lp-marquee-track">
+        <div class="lp-marquee-track" data-marquee-track>
           <?php foreach ([$clients, $clients] as $setIndex => $set): ?>
-            <?php foreach ($set as $client): ?>
-              <img src="<?= h(trust_client_logo_url($client)) ?>" alt="<?= $setIndex === 0 ? h($client['name']) : '' ?>" <?= $setIndex === 1 ? 'aria-hidden="true"' : '' ?> loading="lazy" decoding="async">
-            <?php endforeach; ?>
+            <div class="lp-marquee-set" data-marquee-set <?= $setIndex === 1 ? 'aria-hidden="true"' : '' ?>>
+              <?php foreach ($set as $client): ?>
+                <img src="<?= h(trust_client_logo_url($client)) ?>" alt="<?= $setIndex === 0 ? h($client['name']) : '' ?>" <?= $setIndex === 1 ? 'aria-hidden="true"' : '' ?> decoding="async">
+              <?php endforeach; ?>
+            </div>
           <?php endforeach; ?>
         </div>
       </div>
@@ -127,13 +136,13 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       <div class="lp-compare-old">
         <p class="lp-kicker">Leave this behind</p>
         <h2>The old way</h2>
-        <div class="lp-stack">
+        <div class="lp-stack" data-lp-stack role="button" tabindex="0" aria-expanded="false" aria-label="Paper pile. Tap to spread, tap again to stack.">
           <?php foreach ($oldPhotos as $i => $photo): ?>
             <img src="<?= h(asset(substr($photo, strlen('assets/')))) ?>" alt="Paper receipts from the old way of keeping books" style="--i:<?= (int) $i ?>" loading="lazy" decoding="async">
           <?php endforeach; ?>
           <span class="lp-x" aria-hidden="true">×</span>
         </div>
-        <p class="lp-stack-hint">That pile is why the books go missing. Leave the drawer, the screenshots and the slips behind.</p>
+        <p class="lp-stack-hint">Tap the pile to spread it. Tap again to stack it. That drawer is why the books go missing.</p>
       </div>
 
       <div class="lp-compare-arrow" aria-hidden="true">
@@ -171,7 +180,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
 
     <section class="lp-send" id="send-in-a-minute" data-reveal>
       <figure class="lp-send-pic">
-        <img src="<?= h(asset('img/landing/rec.png')) ?>" alt="A receipt generated on Vellisys, open on a phone and already sent to the client" loading="lazy" decoding="async">
+        <img src="<?= h(asset(is_file(ROOT_PATH . '/assets/img/landing/rec-sm.webp') ? 'img/landing/rec-sm.webp' : 'img/landing/rec.png')) ?>" alt="A receipt generated on Vellisys, open on a phone and already sent to the client" decoding="async" width="1200" height="1200">
         <span class="lp-send-badge" aria-hidden="true">Sent · 48s</span>
         <span class="lp-send-ring" aria-hidden="true"></span>
       </figure>
@@ -242,19 +251,21 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       <p class="lp-kicker"><?= h($reviewSection['kicker']) ?></p>
       <h2><?= h($reviewSection['heading']) ?></h2>
       <div class="lp-marquee lp-reviews-marquee">
-        <div class="lp-marquee-track lp-reviews-track">
+        <div class="lp-marquee-track lp-reviews-track" data-marquee-track>
           <?php foreach ([$reviews, $reviews] as $setIndex => $set): ?>
-            <?php foreach ($set as $review): ?>
-              <article class="lp-review" <?= $setIndex === 1 ? 'aria-hidden="true"' : '' ?>>
-                <blockquote><?= h($review['quote']) ?></blockquote>
-                <footer>
-                  <strong><?= h($review['name']) ?></strong>
-                  <?php if (trim((string) ($review['role'] ?? '')) !== ''): ?>
-                    <span><?= h($review['role']) ?></span>
-                  <?php endif; ?>
-                </footer>
-              </article>
-            <?php endforeach; ?>
+            <div class="lp-marquee-set" data-marquee-set <?= $setIndex === 1 ? 'aria-hidden="true"' : '' ?>>
+              <?php foreach ($set as $review): ?>
+                <article class="lp-review" <?= $setIndex === 1 ? 'aria-hidden="true"' : '' ?>>
+                  <blockquote><?= h($review['quote']) ?></blockquote>
+                  <footer>
+                    <strong><?= h($review['name']) ?></strong>
+                    <?php if (trim((string) ($review['role'] ?? '')) !== ''): ?>
+                      <span><?= h($review['role']) ?></span>
+                    <?php endif; ?>
+                  </footer>
+                </article>
+              <?php endforeach; ?>
+            </div>
           <?php endforeach; ?>
         </div>
       </div>
@@ -347,6 +358,6 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
   </main>
 
   <?php public_footer(); ?>
-  <script src="<?= h(asset('js/landing.js')) ?>"></script>
+  <script src="<?= h(asset('js/landing.js')) ?>" defer></script>
 </body>
 </html>

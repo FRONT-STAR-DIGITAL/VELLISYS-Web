@@ -94,10 +94,6 @@ $showDemoKeys = !folio_is_live_host();
         </ol>
         <p>On a Mac in Safari: File, then Add to Dock.</p>
       </div>
-      <details class="gate-install-help">
-        <summary>How installing works</summary>
-        <p>The website at the domain still shows the landing page, pricing, register and quote. The installed web app is a shortcut onto this login. After you sign in, you land on your desk.</p>
-      </details>
     </section>
     </div>
   </main>

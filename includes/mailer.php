@@ -459,7 +459,7 @@ function order_term_label(): string
             return $label;
         }
     }
-    return 'first year';
+    return 'per year';
 }
 
 function payment_awaits_copy(array $order, string $planName): array
