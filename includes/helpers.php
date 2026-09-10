@@ -489,6 +489,24 @@ function current_company_id(): int
     return (int) ($_SESSION['company_id'] ?? 0);
 }
 
+function current_company(): ?array
+{
+    static $cache = [];
+    $id = current_company_id();
+    if ($id <= 0) {
+        return null;
+    }
+    if (!array_key_exists($id, $cache)) {
+        $cache[$id] = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$id]);
+    }
+    return $cache[$id];
+}
+
+function desk_now(): DateTimeImmutable
+{
+    return new DateTimeImmutable('now', new DateTimeZone('Africa/Kampala'));
+}
+
 function is_platform(?array $user = null): bool
 {
     $user = $user ?? (function_exists('current_user') ? current_user() : null);
@@ -1116,6 +1134,197 @@ function company_expiry_state(array $company): string
         return 'soon';
     }
     return 'ok';
+}
+
+function parse_money_string(string $raw): float
+{
+    return money_parse($raw);
+}
+
+function company_remaining_phrase(array $company): string
+{
+    $expires = company_expires_on($company);
+    if (!$expires) {
+        return 'No paid term set';
+    }
+    $end = DateTime::createFromFormat('Y-m-d', substr($expires, 0, 10));
+    if (!$end) {
+        return 'No paid term set';
+    }
+    $end->setTime(0, 0, 0);
+    $today = new DateTime('today');
+    if ($end == $today) {
+        return 'Expires today';
+    }
+    $diff = $today->diff($end);
+    $parts = [];
+    if ($diff->y > 0) {
+        $parts[] = $diff->y . ($diff->y === 1 ? ' year' : ' years');
+    }
+    if ($diff->m > 0) {
+        $parts[] = $diff->m . ($diff->m === 1 ? ' month' : ' months');
+    }
+    if ($diff->d > 0 || !$parts) {
+        $parts[] = $diff->d === 1 ? '1 day' : $diff->d . ' days';
+    }
+    $span = implode(' ', $parts);
+    return $diff->invert ? ('Expired ' . $span . ' ago') : ($span . ' left');
+}
+
+function company_expiry_date_label(array $company): string
+{
+    $expires = company_expires_on($company);
+    if (!$expires) {
+        return 'Expiry not set';
+    }
+    $when = format_date($expires);
+    return company_expiry_state($company) === 'expired' ? ('Ended ' . $when) : ('Expires ' . $when);
+}
+
+function company_fee_currency(array $company): string
+{
+    $cur = strtoupper(trim((string) ($company['fee_currency'] ?? 'UGX')));
+    return $cur === 'USD' ? 'USD' : 'UGX';
+}
+
+function company_fee_amount(array $company): float
+{
+    return max(0, round((float) ($company['fee_amount'] ?? 0), 2));
+}
+
+function company_fee_paid(array $company): float
+{
+    return max(0, round((float) ($company['fee_paid'] ?? 0), 2));
+}
+
+function company_fee_balance(array $company): float
+{
+    return max(0, round(company_fee_amount($company) - company_fee_paid($company), 2));
+}
+
+function company_term_days(array $company): ?int
+{
+    $from = trim((string) ($company['paid_from'] ?? ''));
+    $expires = company_expires_on($company);
+    if ($from === '' || !$expires) {
+        return null;
+    }
+    $a = DateTime::createFromFormat('Y-m-d', substr($from, 0, 10));
+    $b = DateTime::createFromFormat('Y-m-d', substr($expires, 0, 10));
+    if (!$a || !$b) {
+        return null;
+    }
+    $n = (int) $a->diff($b)->days;
+    return $n > 0 ? $n : 1;
+}
+
+function company_remaining_value(array $company): float
+{
+    $paid = company_fee_paid($company);
+    $daysLeft = company_days_left(company_expires_on($company));
+    $termDays = company_term_days($company);
+    if ($paid <= 0 || $daysLeft === null || $termDays === null || $termDays <= 0) {
+        return 0.0;
+    }
+    if ($daysLeft <= 0) {
+        return 0.0;
+    }
+    return round($paid * min($daysLeft, $termDays) / $termDays, 2);
+}
+
+function company_fee_ugx(array $company, string $field): float
+{
+    $amt = match ($field) {
+        'amount' => company_fee_amount($company),
+        'balance' => company_fee_balance($company),
+        'remaining' => company_remaining_value($company),
+        default => company_fee_paid($company),
+    };
+    return convert_money($amt, company_fee_currency($company), 'UGX');
+}
+
+function month_axis(int $months = 12): array
+{
+    $out = [];
+    $cursor = new DateTime('first day of this month');
+    for ($i = $months - 1; $i >= 0; $i--) {
+        $out[] = (clone $cursor)->modify('-' . $i . ' months')->format('Y-m');
+    }
+    return $out;
+}
+
+function platform_issued_documents(): array
+{
+    $rows = db_all(
+        "SELECT d.id, d.company_id, d.kind, d.date, d.currency, d.vat_rate, d.related_id, d.allocated_amount,
+                r.kind AS related_kind
+         FROM documents d
+         LEFT JOIN documents r ON r.id = d.related_id
+         WHERE d.status = 'issued'"
+    );
+    if (!$rows) {
+        return [];
+    }
+    $ids = array_map(static fn ($r) => (int) $r['id'], $rows);
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $types = str_repeat('i', count($ids));
+    $sums = db_all(
+        "SELECT document_id,
+                COALESCE(SUM(ROUND(qty * rate, 2)), 0) AS net,
+                COALESCE(SUM(CASE WHEN taxed = 1 THEN ROUND(qty * rate, 2) ELSE 0 END), 0) AS taxed_net
+         FROM document_items WHERE document_id IN ($placeholders)
+         GROUP BY document_id",
+        $types,
+        $ids
+    );
+    $byDoc = [];
+    foreach ($sums as $sum) {
+        $byDoc[(int) $sum['document_id']] = $sum;
+    }
+    $byId = [];
+    foreach ($rows as $row) {
+        $byId[(int) $row['id']] = $row;
+    }
+    $paidBy = [];
+    foreach ($rows as $row) {
+        if (($row['kind'] ?? '') !== 'receipt') {
+            continue;
+        }
+        $rid = (int) ($row['related_id'] ?? 0);
+        if ($rid <= 0) {
+            continue;
+        }
+        $agg = $byDoc[(int) $row['id']] ?? ['net' => 0, 'taxed_net' => 0];
+        $net = round((float) $agg['net'], 2);
+        $vat = round((float) $agg['taxed_net'] * (float) ($row['vat_rate'] ?? 0), 2);
+        $charge = round($net + $vat, 2);
+        $amt = (float) ($row['allocated_amount'] ?? 0);
+        if ($amt <= 0 || ($charge > 0 && $amt > $charge + 0.009)) {
+            $amt = $charge;
+        }
+        $to = isset($byId[$rid]) ? doc_currency($byId[$rid]) : doc_currency($row);
+        $paidBy[$rid] = ($paidBy[$rid] ?? 0) + convert_money($amt, doc_currency($row), $to);
+    }
+    foreach ($rows as &$row) {
+        $agg = $byDoc[(int) $row['id']] ?? ['net' => 0, 'taxed_net' => 0];
+        $net = round((float) $agg['net'], 2);
+        $vat = round((float) $agg['taxed_net'] * (float) ($row['vat_rate'] ?? 0), 2);
+        $row['totals'] = ['net' => $net, 'vat' => $vat, 'total' => round($net + $vat, 2)];
+        if ($row['kind'] === 'invoice' || $row['kind'] === 'expense') {
+            $row['paid'] = round_money($paidBy[(int) $row['id']] ?? 0.0, doc_currency($row));
+            $row['balance'] = max(0, round((float) $row['totals']['total'] - (float) $row['paid'], 2));
+        } else {
+            $received = (float) ($row['allocated_amount'] ?? 0);
+            $charge = (float) $row['totals']['total'];
+            if ($received <= 0 || ($charge > 0 && $received > $charge + 0.009)) {
+                $received = $charge;
+            }
+            $row['paid'] = $received;
+            $row['balance'] = 0.0;
+        }
+    }
+    unset($row);
+    return $rows;
 }
 
 function compute_expiry_date(string $from, int $term, string $unit): ?string

@@ -23,8 +23,10 @@ Open the **landing page** at the site root. Companies **register** in a few fiel
 - Public landing page in three sections, with pictures on every card. Super admin can replace those pictures under **Landing**, and add **Clients who trust us** names and logos
 - **Have a question** form on the landing page. Super admin sees each note under **Questions**, opens the full message on its own page, and a copy is emailed to `info@vellisys.com` from the Hostinger mailbox
 - Super admin **Email** tab: send a custom Vellisys letter from `info@vellisys.com`
-- Super admin **Reports**: paid terms, desks due within a month, lapsed desks, and one-click renewal letters to the client
-- On each company, super admin sets how many **months or years** the client has paid for. Expiry is calculated from the start date. When a desk is one month from expiry, Reports prepares a professional notice to send
+- Super admin **Reports**: fees collected and balances per client, unused term value, desk collections vs outstanding, onboarding and expiry charts, sign-up funnel, time series of platform books, plus paid terms, desks due within a month, lapsed desks, and one-click renewal letters
+- On each company, super admin sets how many **months or years** the client has paid for, the **fee** and **amount paid**, and expiry is calculated from the start date. When a desk is one month from expiry, Reports prepares a professional notice to send
+- Company desk **top bar** shows Kampala date and live time, how much of the paid term is left (days and months), and the expiry date
+- Company reports with a time series, expense pie, debtors aging, collections vs outstanding, quote conversion, top clients, and documents issued over time
 - Super admin assigns each company a **Hostinger (or Titan) sending mailbox**. SMTP and POP/IMAP are prefilled. The company desk can send invoices and quotations from that address, with its logo, and cannot edit the password
 - Desk **Tutorials** (also from Clients) with a tour of the whole portal and screenshots
 - When a company is onboarded, `info@vellisys.com` sends a welcome letter and a short tutorial. The same mailbox is notified for sign-ups, questions, live desks, renewal letters and company mail tests
@@ -43,7 +45,7 @@ Open the **landing page** at the site root. Companies **register** in a few fiel
 - **Correspondence** stays fully editable. Settings → Templates picks a document design (ledger, bills, twin copy, stripe, plus Estate cream and Lake night)
 - Expenses as cards; debtors and creditors as tables with totals
 - Date filters: today, this week, last week, this month, last month, plus from/to
-- Company reports with a time series, expense pie and debtors aging bars
+- Company reports with a time series, expense pie, debtors aging, collections vs outstanding, quote conversion, top clients billed, and documents issued over time
 - Super admin top bar stays on screen on a phone so the menu stays in reach
 - VAT 18% on taxed lines for every company
 - Email sends **From** the signed-in account

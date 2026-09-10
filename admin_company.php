@@ -194,13 +194,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $from = date('Y-m-d');
         }
         $expires = compute_expiry_date($from, $term, $unit);
+        $feeAmount = money_parse(post('fee_amount'));
+        $paidRaw = str_replace([',', ' '], '', post('fee_paid'));
+        $feePaid = $paidRaw === '' ? $feeAmount : money_parse($paidRaw);
+        $feeCurrency = strtoupper(post('fee_currency')) === 'USD' ? 'USD' : 'UGX';
         if (!$expires) {
             $error = 'Could not calculate the expiry date. Check the start date and term.';
         } else {
             db_exec(
-                'UPDATE companies SET paid_term=?, paid_unit=?, paid_from=?, expires_at=?, renewal_notice_sent_at=NULL WHERE id=?',
-                'isssi',
-                [$term, $unit, $from, $expires, $id]
+                'UPDATE companies SET paid_term=?, paid_unit=?, paid_from=?, expires_at=?, renewal_notice_sent_at=NULL, fee_amount=?, fee_paid=?, fee_currency=? WHERE id=?',
+                'isssddsi',
+                [$term, $unit, $from, $expires, $feeAmount, $feePaid, $feeCurrency, $id]
             );
             flash($company['name'] . ' is paid for ' . $term . ' ' . $unit . ', until ' . format_date($expires) . '.');
             redirect('admin_company.php?id=' . $id);
@@ -231,7 +235,7 @@ layout_admin_start($company['name'], $user);
 <div class="page-head">
   <div>
     <h1><?= icon('building') ?><?= h($company['name']) ?></h1>
-    <p class="lede"><?= h(ucfirst((string) $company['status'])) ?> · <?= h($brand['currency'] ?? 'UGX') ?> · <?= count($members) ?> user<?= count($members) === 1 ? '' : 's' ?> · <?= h(company_term_label($company)) ?><?php if (company_expires_on($company)): ?> · <?= h(company_expiry_label($company)) ?><?php endif; ?></p>
+    <p class="lede"><?= h(ucfirst((string) $company['status'])) ?> · <?= h($brand['currency'] ?? 'UGX') ?> · <?= count($members) ?> user<?= count($members) === 1 ? '' : 's' ?> · <?= h(company_term_label($company)) ?><?php if (company_expires_on($company)): ?> · <?= h(company_remaining_phrase($company)) ?> · <?= h(company_expiry_date_label($company)) ?><?php endif; ?><?php if (company_fee_paid($company) > 0 || company_fee_amount($company) > 0): ?> · Paid <?= h(money(company_fee_paid($company), company_fee_currency($company))) ?><?php if (company_fee_balance($company) > 0): ?> · Balance <?= h(money(company_fee_balance($company), company_fee_currency($company))) ?><?php endif; ?><?php endif; ?></p>
   </div>
   <div class="actions">
     <a class="btn" href="<?= h(url('admin_desk.php?id=' . $id)) ?>"><?= icon('desk') ?>Open desk</a>
@@ -312,14 +316,31 @@ layout_admin_start($company['name'], $user);
         <option value="years" <?= ($company['paid_unit'] ?? '') === 'years' ? 'selected' : '' ?>>Years</option>
       </select>
     </div>
+    <div>
+      <label for="fee_amount">Fee for this term</label>
+      <input id="fee_amount" name="fee_amount" inputmode="decimal" value="<?= h(company_fee_amount($company) > 0 ? (string) company_fee_amount($company) : '') ?>" placeholder="0">
+    </div>
+    <div>
+      <label for="fee_paid">Amount paid</label>
+      <input id="fee_paid" name="fee_paid" inputmode="decimal" value="<?= h(company_fee_paid($company) > 0 ? (string) company_fee_paid($company) : '') ?>" placeholder="Same as fee if left blank">
+    </div>
+    <div>
+      <label for="fee_currency">Fee currency</label>
+      <select id="fee_currency" name="fee_currency">
+        <?php foreach (currencies() as $code => $label): ?>
+          <option value="<?= h($code) ?>" <?= company_fee_currency($company) === $code ? 'selected' : '' ?>><?= h($label) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
   </div>
   <div style="padding:0 22px 22px">
     <p class="hint" style="margin:8px 0 12px">
       <?php if (company_expires_on($company)): ?>
-        Current expiry <?= h(format_date($company['expires_at'])) ?> · <?= h(company_expiry_label($company)) ?>.
-        Saving recalculates the end date. Set number to 0 to clear the term.
+        Current expiry <?= h(format_date($company['expires_at'])) ?> · <?= h(company_remaining_phrase($company)) ?>.
+        Balance <?= h(money(company_fee_balance($company), company_fee_currency($company))) ?>.
+        Saving recalculates the end date. Set number to 0 to clear the term (fees already collected stay on Reports).
       <?php else: ?>
-        Set how many months or years this client has paid for. Expiry is the start date plus that term. Reports list desks one month from that date so you can send a renewal letter.
+        Set how many months or years this client has paid for, and the fee you collected. Expiry is the start date plus that term. Reports list desks one month from that date so you can send a renewal letter.
       <?php endif; ?>
     </p>
     <div class="actions">

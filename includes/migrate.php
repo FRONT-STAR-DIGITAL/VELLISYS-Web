@@ -29,7 +29,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 17) {
+    if ($ver >= 18) {
         $done = true;
         return;
     }
@@ -182,8 +182,9 @@ function folio_migrate(mysqli $db): void
     }
 
     folio_migrate_mailboxes($db);
+    folio_migrate_fees($db);
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '17')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '18')");
     $done = true;
 }
 
@@ -214,6 +215,20 @@ function folio_migrate_subscriptions(mysqli $db): void
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       KEY company_id (company_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+function folio_migrate_fees(mysqli $db): void
+{
+    if (!db_has_column($db, 'companies', 'fee_amount')) {
+        $db->query('ALTER TABLE companies ADD COLUMN fee_amount DECIMAL(14,2) NOT NULL DEFAULT 0');
+    }
+    if (!db_has_column($db, 'companies', 'fee_paid')) {
+        $db->query('ALTER TABLE companies ADD COLUMN fee_paid DECIMAL(14,2) NOT NULL DEFAULT 0');
+    }
+    if (!db_has_column($db, 'companies', 'fee_currency')) {
+        $db->query("ALTER TABLE companies ADD COLUMN fee_currency CHAR(3) NOT NULL DEFAULT 'UGX'");
+    }
+    $db->query("UPDATE companies SET fee_amount = 450000, fee_paid = 450000, fee_currency = 'UGX' WHERE name = 'Ofagros Limited' AND fee_amount = 0 AND fee_paid = 0");
 }
 
 function folio_migrate_mailboxes(mysqli $db): void

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 session_start();
+date_default_timezone_set('Africa/Kampala');
 
 define('ROOT_PATH', dirname(__DIR__));
 

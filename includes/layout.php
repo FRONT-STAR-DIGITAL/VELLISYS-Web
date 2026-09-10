@@ -1,9 +1,46 @@
 <?php
 declare(strict_types=1);
 
+function render_top_clock(): void
+{
+    $now = desk_now();
+    ?>
+    <div class="top-clock" data-clock>
+      <?= icon('clock', 15) ?>
+      <span data-clock-date><?= h($now->format('D j M Y')) ?></span>
+      <span class="top-clock-dot" aria-hidden="true">·</span>
+      <time datetime="<?= h($now->format('c')) ?>" data-clock-time><?= h($now->format('H:i:s')) ?></time>
+    </div>
+    <?php
+}
+
+function render_top_term(?array $company): void
+{
+    if (!$company) {
+        return;
+    }
+    $state = company_expiry_state($company);
+    $class = match ($state) {
+        'expired' => 'top-term-expired',
+        'soon' => 'top-term-soon',
+        'ok' => 'top-term-ok',
+        default => 'top-term-none',
+    };
+    $iconName = in_array($state, ['expired', 'soon'], true) ? 'alert' : 'calendar';
+    ?>
+    <div class="top-term <?= $class ?>">
+      <?= icon($iconName, 15) ?>
+      <span class="top-term-left"><?= h(company_remaining_phrase($company)) ?></span>
+      <span class="top-clock-dot" aria-hidden="true">·</span>
+      <span class="top-term-exp"><?= h(company_expiry_date_label($company)) ?></span>
+    </div>
+    <?php
+}
+
 function layout_start(string $title, array $user, array $opts = []): void
 {
     $brand = branding();
+    $deskCompany = current_company();
     $flash = flash();
     $kind = $opts['kind'] ?? ($_GET['kind'] ?? '');
     $nav = [
@@ -82,6 +119,10 @@ function layout_start(string $title, array $user, array $opts = []): void
     <?php endif; ?>
     <header class="top">
       <button class="nav-toggle" type="button" data-nav-toggle aria-label="Menu" aria-expanded="false"><?= icon('menu', 20) ?></button>
+      <div class="top-meta">
+        <?php render_top_clock(); ?>
+        <?php render_top_term($deskCompany); ?>
+      </div>
       <div class="top-actions">
         <button class="btn ghost" type="button" data-quick><?= icon('plus', 16) ?>Quick add</button>
         <a class="btn" href="<?= h(url('document_new.php?kind=invoice')) ?>"><?= icon('invoice', 16) ?>New invoice</a>
@@ -153,6 +194,9 @@ function layout_admin_start(string $title, array $user): void
   <div class="main">
     <header class="top">
       <button class="nav-toggle" type="button" data-nav-toggle aria-label="Menu" aria-expanded="false"><?= icon('menu', 20) ?></button>
+      <div class="top-meta">
+        <?php render_top_clock(); ?>
+      </div>
       <div class="top-actions">
         <a class="btn" href="<?= h(url('admin_companies.php?new=1')) ?>"><?= icon('plus', 16) ?>New company</a>
       </div>
