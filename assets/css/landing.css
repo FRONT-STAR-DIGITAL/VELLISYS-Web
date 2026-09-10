@@ -1505,7 +1505,9 @@ img { max-width: 100%; }
     gap: 8px;
     min-width: 0;
   }
-  .lp-logo { height: 28px; max-width: min(118px, 34vw); }
+  .lp-logo { height: 30px; max-width: min(120px, 36vw); }
+  .lp-foot .lp-logo,
+  .lp-foot .lp-logo-on-dark { height: 30px; max-width: min(120px, 40vw); }
   .lp-nav nav { flex-wrap: wrap; justify-content: flex-end; gap: 6px; min-width: 0; }
   .lp-nav .lp-btn { padding: 8px 12px; font-size: 12.5px; }
   .lp-nav-home { padding: 0 4px; font-size: 12.5px; white-space: nowrap; }
@@ -1523,7 +1525,9 @@ img { max-width: 100%; }
 
 @media (max-width: 480px) {
   .lp-nav { padding: 8px max(10px, env(safe-area-inset-right)) 8px max(10px, env(safe-area-inset-left)); gap: 8px; }
-  .lp-logo { height: 24px; max-width: min(100px, 30vw); }
+  .lp-logo { height: 26px; max-width: min(102px, 32vw); }
+  .lp-foot .lp-logo,
+  .lp-foot .lp-logo-on-dark { height: 26px; max-width: min(102px, 36vw); }
   .lp-nav .lp-btn { padding: 7px 10px; font-size: 12px; border-radius: 10px; }
   .lp-hero h1 { font-size: 26px; }
   .lp-lead { font-size: 14.5px; }
