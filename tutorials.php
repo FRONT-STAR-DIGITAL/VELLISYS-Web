@@ -3,6 +3,8 @@ declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
 $user = require_member();
 $brand = branding();
+$customDoc = company_custom_doc();
+$customTitle = (string) ($customDoc['title'] ?? 'Custom document');
 
 $shot = static function (string $file, string $alt): string {
     $rel = 'assets/img/tutorials/' . $file;
@@ -19,7 +21,7 @@ $lessons = [
         'icon' => 'desk',
         'title' => 'The desk',
         'file' => 'desk.png',
-        'alt' => 'Vellisys desk home with open invoices and this month’s totals',
+        'alt' => 'Vellisys desk home with open invoices and this month\'s totals',
         'lead' => 'Sign in and you land on Desk. That is the morning list: who still owes you, what you invoiced this month, and a short trail of recent documents.',
         'points' => [
             'Start here every day. Overdue invoices sit at the top so you chase them first. Remind emails them from the company mailbox.',
@@ -69,27 +71,40 @@ $lessons = [
     [
         'id' => 'receipts',
         'icon' => 'receipt',
-        'title' => 'Receipts and debtors',
+        'title' => 'Receipts',
         'file' => 'receipt.png',
         'alt' => 'Receipt showing amount received and amount still due',
-        'lead' => 'A receipt is proof you were paid. Debtors is the list of who has not finished paying.',
+        'lead' => 'A receipt is proof you were paid. It sits against the invoice so Debtors and Reports stay honest.',
         'points' => [
             'Open the invoice and record a receipt, or start from Receipts. The sheet shows RECEIVED and DUE.',
-            'Debtors ages the unpaid balances: current, 1-30, 31-60, and so on. Use Remind on an open invoice to email the client from the company mailbox.',
-            'Never delete a paid invoice to “clean up”. The receipt is the history your auditor wants.',
+            'Part payments are allowed. Each receipt drops the balance. Never rewrite the invoice to hide a part payment.',
+            'The receipt prints in the same logo and colours as the invoice. Email it from Share, or print a copy for the file.',
+        ],
+    ],
+    [
+        'id' => 'delivery',
+        'icon' => 'truck',
+        'title' => 'Delivery notes',
+        'file' => 'delivery.png',
+        'alt' => 'A branded delivery note with quantities to send',
+        'lead' => 'A delivery note is what leaves with the goods. Quantities, not prices. The client signs the sheet, not a quote.',
+        'points' => [
+            'New delivery note, pick the client, add the items and quantities that are going out.',
+            'Print it for the driver, or share the branded sheet. Prices stay on the invoice; this sheet is the packing list.',
+            'Vellisys only shows Delivery notes when your desk is set up to use them. Ask Vellisys if the tab is missing.',
         ],
     ],
     [
         'id' => 'expenses',
         'icon' => 'expense',
-        'title' => 'Expenses and creditors',
+        'title' => 'Expenses',
         'file' => 'expenses.png',
-        'alt' => 'Expense cards and creditors awaiting payment',
-        'lead' => 'Money out is an expense. Unpaid supplier bills sit on Creditors until you mark them paid.',
+        'alt' => 'Expense list with suppliers, categories and amounts',
+        'lead' => 'Money out is an expense. Log the supplier, the category, the VAT and the date so Reports can tot it up.',
         'points' => [
-            'Log the supplier, the category, the VAT, the date. That is what Reports uses for the pie chart.',
-            'Pay from the expense or from Creditors. Message the supplier from the same row - that letter leaves from the company mailbox.',
-            'Keep personal spend off this desk. Vellisys is the company books.',
+            'Record expense from the menu or Quick add. Pick or add the supplier, then the lines.',
+            'Category is what the pie chart uses. Keep personal spend off this desk - Vellisys is the company books.',
+            'Unpaid bills stay on Creditors until you mark them paid. Pay from the expense, or from that list.',
         ],
     ],
     [
@@ -101,33 +116,21 @@ $lessons = [
         'lead' => 'Headed notes - demands, cover letters, introductions - use the same logo as the invoices.',
         'points' => [
             'Write the body on Correspondence. It stays editable. Pick a letter layout in Settings → Templates.',
-            'Email or print. Clients see you, not a generic PDF from an accounting package. Custom notes that are not a headed sheet go from Email in the menu.',
+            'Email or print. Clients see you, not a generic PDF from an accounting package.',
+            'Custom notes that are not a headed sheet go from Email in the menu.',
         ],
     ],
     [
-        'id' => 'reports',
-        'icon' => 'reports',
-        'title' => 'Reports',
-        'file' => 'reports.png',
-        'alt' => 'Reports with income, expenses, a time series and debtors aging',
-        'lead' => 'Reports tot up the period you pick: today, this month, last month, or a from/to range.',
+        'id' => 'custom',
+        'icon' => 'file',
+        'title' => $customTitle,
+        'file' => 'custom.png',
+        'alt' => 'A custom branded document with company fields',
+        'lead' => 'A custom document is a form Vellisys built for this desk - not a letter, not an invoice. The title on the menu is what you named it.',
         'points' => [
-            'Income is invoiced net. Expenses are spent net. VAT due is output minus input.',
-            'Export CSV when you need the numbers in a spreadsheet. The charts are for the meeting; the CSV is for the file.',
-            'Filter before you export so you are not sending the whole year by accident.',
-        ],
-    ],
-    [
-        'id' => 'settings',
-        'icon' => 'settings',
-        'title' => 'Settings and brand',
-        'file' => 'settings.png',
-        'alt' => 'Settings with logo upload and three brand colours',
-        'lead' => 'Logo, three colours, TIN, bank, document prefix, and the currency you bill in. One design prints on every sheet.',
-        'points' => [
-            'Primary paints the desk. Accent and deep colour the document designs.',
-            'The sending mailbox is assigned by Vellisys. You can see the address. You cannot change the password. That keeps invoices leaving as the company, not as whoever last signed in.',
-            'If a colour or logo is wrong, fix it here. Old documents keep the layout you pick now when you reprint.',
+            'Open ' . $customTitle . ' and fill the fields Vellisys set: job number, site, whatever this company prints besides a quote.',
+            'A body is optional. Tick that in Settings if you need a paragraph under the fields.',
+            'If the tab is missing, this desk was onboarded without custom documents. Ask Vellisys to switch it on.',
         ],
     ],
     [
@@ -143,6 +146,97 @@ $lessons = [
             'If Send says the mailbox is not assigned yet, tell Vellisys. Until then you can still print and share a link.',
         ],
     ],
+    [
+        'id' => 'debtors',
+        'icon' => 'clients',
+        'title' => 'Debtors',
+        'file' => 'debtors.png',
+        'alt' => 'Debtors list of clients who still owe money',
+        'lead' => 'Debtors is who has not finished paying. Open invoices, aged balances, one place to chase.',
+        'points' => [
+            'The list groups by client and ages the unpaid balances: current, 1-30, 31-60, and so on.',
+            'Open an invoice to take a receipt, or use Remind to email the client from the company mailbox.',
+            'Export CSV when you need the aging in a spreadsheet. Never delete a paid invoice to "clean up".',
+        ],
+    ],
+    [
+        'id' => 'creditors',
+        'icon' => 'bank',
+        'title' => 'Creditors',
+        'file' => 'creditors.png',
+        'alt' => 'Creditors list of unpaid supplier bills',
+        'lead' => 'Creditors is what the company still owes suppliers. Pay the bill, or write to them from the same row.',
+        'points' => [
+            'Each unpaid expense sits here with amount, paid so far, and balance.',
+            'Pay from the row, or Message the supplier - that letter leaves from the company mailbox.',
+            'Keep supplier names consistent so the same firm does not appear twice on the list.',
+        ],
+    ],
+    [
+        'id' => 'reports',
+        'icon' => 'reports',
+        'title' => 'Reports',
+        'file' => 'reports.png',
+        'alt' => 'Reports with income, expenses, a time series and debtors aging',
+        'lead' => 'Reports tot up the period you pick: today, this month, last month, or a from/to range. Only the company admin opens this tab.',
+        'points' => [
+            'Income is invoiced net. Expenses are spent net. VAT due is output minus input.',
+            'Export CSV when you need the numbers in a spreadsheet. The charts are for the meeting; the CSV is for the file.',
+            'Filter before you export so you are not sending the whole year by accident.',
+        ],
+    ],
+    [
+        'id' => 'share',
+        'icon' => 'share',
+        'title' => 'Share, print and WhatsApp',
+        'file' => 'share.png',
+        'alt' => 'Document actions including print, share, email and WhatsApp',
+        'lead' => 'Every sheet can leave the desk without a PDF attachment hunt. Print it, email it, or send the link on WhatsApp.',
+        'points' => [
+            'Open any quotation, invoice, receipt or letter. Print opens the sheet. Share offers WhatsApp and Email.',
+            'The share link is the branded page the client sees. They can print from there. No login required.',
+            'WhatsApp opens with the document link already in the message. Email sends the sheet from the company mailbox.',
+        ],
+    ],
+    [
+        'id' => 'settings',
+        'icon' => 'settings',
+        'title' => 'Settings and brand',
+        'file' => 'settings.png',
+        'alt' => 'Settings with logo upload and three brand colours',
+        'lead' => 'Logo, three colours, TIN, bank, document prefix, and the currency you bill in. One design prints on every sheet. Only the company admin opens Settings.',
+        'points' => [
+            'Primary paints the desk. Accent and deep colour the document designs. Pick a template under Templates.',
+            'The sending mailbox is assigned by Vellisys. You can see the address. You cannot change the password.',
+            'If a colour or logo is wrong, fix it here. Old documents keep the layout you pick now when you reprint.',
+        ],
+    ],
+    [
+        'id' => 'people',
+        'icon' => 'user',
+        'title' => 'People on the desk',
+        'file' => 'people.png',
+        'alt' => 'Settings People with logins, titles and access',
+        'lead' => 'A desk has up to three logins: the company admin and two more. Vellisys sets the number of seats. Only the admin adds people.',
+        'points' => [
+            'Settings → People. Add a name, title, email, access and a temporary password.',
+            'Books sees documents, clients, debtors, creditors and email. Sales sees quotations, invoices, receipts, clients and email. Neither opens Reports or Settings.',
+            'Reset a password from the same list. People change their own password under Password in the menu.',
+        ],
+    ],
+    [
+        'id' => 'password',
+        'icon' => 'lock',
+        'title' => 'Password',
+        'file' => 'password.png',
+        'alt' => 'Password page to change the signed-in login',
+        'lead' => 'Anyone on the desk can change their own password. The company admin can also reset passwords under Settings → People.',
+        'points' => [
+            'Open Password in the menu. Enter the current password, then the new one twice. At least 8 characters.',
+            'This is your login, not the company sending mailbox. Outgoing mail still leaves as the company.',
+            'If you forget it, the company admin resets it. Super admin can also reach the desk if the company is locked out.',
+        ],
+    ],
 ];
 
 layout_start('Tutorials', $user);
@@ -152,7 +246,9 @@ layout_start('Tutorials', $user);
     <h1><?= icon('book') ?>Tutorials</h1>
     <p class="lede">How <?= h($brand['name']) ?> gets the most from Vellisys: branded books, one desk, mail that looks like you.</p>
   </div>
-  <a class="btn" href="<?= h(url('document_new.php?kind=quotation')) ?>"><?= icon('quotation', 16) ?>New quotation</a>
+  <div class="actions">
+    <a class="btn" href="<?= h(url('document_new.php?kind=quotation')) ?>"><?= icon('quotation', 16) ?>New quotation</a>
+  </div>
 </div>
 
 <nav class="tut-toc" aria-label="Lessons">

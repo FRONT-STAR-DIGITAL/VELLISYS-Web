@@ -1247,7 +1247,31 @@ table.grid tfoot td {
   .admin-body .landing-admin-h { margin-top: 20px; }
   .admin-body .grid { font-size: 13px; }
   .q-detail { padding: 18px 16px 22px; }
-  .tut-lesson, .tut-lesson:not(:has(.tut-shot)) { grid-template-columns: 1fr; }
+  .tut-toc {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .tut-toc a {
+    width: 100%;
+    min-height: 44px;
+    justify-content: flex-start;
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 12.5px;
+    white-space: normal;
+  }
+  .tut-lead,
+  .tut-help { padding: 16px 14px; }
+  .tut-lesson,
+  .tut-lesson:not(:has(.tut-shot)) {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    padding: 16px 14px;
+  }
+  .tut-copy { order: 0; }
+  .tut-shot { order: 1; width: 100%; }
+  .tut-lesson h2 { font-size: 20px; }
 }
 @media (max-width: 720px) {
   .top {
@@ -1361,6 +1385,10 @@ table.grid tfoot td {
 @media (max-width: 420px) {
   .page-head .actions .btn,
   .page-head .actions form { flex-basis: 100%; }
+  .tut-toc { grid-template-columns: 1fr; }
+  .tut-lesson { padding: 14px 12px; gap: 12px; }
+  .tut-lesson h2 { font-size: 18px; }
+  .tut-lesson ul { padding-left: 16px; }
 }
 .q-detail { padding: 18px 22px 24px; }
 .q-detail-meta {
@@ -1420,6 +1448,7 @@ table.grid tfoot td {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  max-width: 100%;
   padding: 8px 12px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -1430,7 +1459,7 @@ table.grid tfoot td {
 }
 .tut-toc a:hover { border-color: var(--brand); color: var(--brand); text-decoration: none; }
 .tut-lead { padding: 18px 22px; margin-bottom: 20px; }
-.tut-lead p { margin: 0; max-width: 72ch; }
+.tut-lead p { margin: 0; max-width: 72ch; overflow-wrap: anywhere; }
 .tut-lesson {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(220px, .9fr);
@@ -1438,8 +1467,13 @@ table.grid tfoot td {
   padding: 22px;
   margin-bottom: 18px;
   align-items: start;
+  min-width: 0;
+  scroll-margin-top: 76px;
 }
 .tut-lesson:not(:has(.tut-shot)) { grid-template-columns: 1fr; }
+.tut-copy { min-width: 0; }
+.tut-copy p,
+.tut-copy li { overflow-wrap: anywhere; }
 .tut-num {
   margin: 0 0 6px;
   font-size: 11px;
@@ -1453,13 +1487,21 @@ table.grid tfoot td {
   font-size: 22px;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
+  min-width: 0;
 }
 .tut-lesson ul { margin: 12px 0 0; padding-left: 18px; }
 .tut-lesson li { margin: 0 0 8px; }
-.tut-shot { margin: 0; }
+.tut-shot {
+  margin: 0;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
 .tut-shot img {
   width: 100%;
+  max-width: 100%;
   height: auto;
   display: block;
   object-fit: contain;
