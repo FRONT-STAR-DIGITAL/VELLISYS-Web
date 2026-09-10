@@ -33,7 +33,10 @@ html, body { margin: 0; }
 html {
   scroll-behavior: smooth;
   overflow-x: hidden;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
   max-width: 100%;
+  background: var(--paper);
 }
 body.lp {
   font-family: "Montserrat", "Segoe UI", sans-serif;
@@ -43,12 +46,12 @@ body.lp {
   width: 100%;
   max-width: 100%;
   overflow-x: hidden;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
   isolation: isolate;
 }
-.lp-chrome,
 .lp-foot {
   max-width: 100%;
-  overflow-x: hidden;
 }
 main {
   max-width: 100%;
@@ -68,16 +71,17 @@ a { color: inherit; }
 .lp-glow-a { top: -10vw; left: -18vw; background: #c9d6ff; }
 .lp-glow-b { top: 4vw; right: -18vw; background: #ffe0d0; }
 
-.lp-nav, .lp-hero, .lp-band, .lp-foot, .lp-chrome, .lp-compare, .lp-trust, .lp-reviews, .lp-world, .lp-send, .lp-ask, .lp-manage { position: relative; z-index: 1; }
+.lp-nav, .lp-hero, .lp-band, .lp-foot, .lp-compare, .lp-trust, .lp-reviews, .lp-world, .lp-send, .lp-ask, .lp-manage { position: relative; z-index: 1; }
 .lp-chrome {
   position: sticky;
   top: 0;
-  z-index: 30;
-  animation: lp-drop .6s ease both;
+  z-index: 40;
+  transition: transform .28s cubic-bezier(.22, 1, .36, 1);
+  will-change: transform;
 }
-@keyframes lp-drop {
-  from { transform: translateY(-16px); opacity: 0; }
-  to { transform: none; opacity: 1; }
+.lp-chrome.is-away {
+  transform: translateY(-110%);
+  pointer-events: none;
 }
 .lp-nav {
   display: flex;
@@ -919,6 +923,8 @@ a { color: inherit; }
   color: #5c6780;
 }
 @media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .lp-chrome { transition: none; }
   .lp-send-docs li, .lp-send-badge, .lp-send-ring { animation: none; }
 }
 
@@ -1179,6 +1185,12 @@ a { color: inherit; }
   color: var(--muted);
   font-size: 13px;
 }
+.lp-note a {
+  color: var(--navy);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .lp-steps {
   list-style: none;
   margin: 0 0 8px;
@@ -1372,6 +1384,7 @@ body.gate {
   font-family: "Montserrat", "Segoe UI", sans-serif;
   color: var(--ink);
   overflow-x: hidden;
+  overflow-x: clip;
 }
 .gate-shell {
   display: grid;
@@ -1471,8 +1484,11 @@ body.gate {
 }
 .gate-box h2 em { color: var(--blue); font-style: normal; }
 .gate-lead { margin: 0 0 18px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.gate-lead a { color: var(--blue); font-weight: 700; text-decoration: none; }
 .gate-field { display: block; margin: 14px 0 0; font-size: 12px; font-weight: 700; color: var(--navy); }
-.gate-field input {
+.gate-optional { font-weight: 600; color: var(--muted); }
+.gate-field input,
+.gate-field textarea {
   display: block;
   width: 100%;
   margin-top: 6px;
@@ -1485,7 +1501,9 @@ body.gate {
   font-weight: 400;
   color: var(--ink);
 }
-.gate-field input:focus {
+.gate-field textarea { min-height: 110px; resize: vertical; line-height: 1.45; }
+.gate-field input:focus,
+.gate-field textarea:focus {
   outline: none;
   box-shadow: 0 0 0 3px rgba(30, 78, 255, .18);
   background: #fff;
@@ -1583,14 +1601,15 @@ body.gate {
 
 .lp-floats {
   position: fixed;
-  z-index: 50;
+  z-index: 80;
   right: max(16px, env(safe-area-inset-right));
   bottom: max(16px, env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 10px;
-  max-width: calc(100% - 32px);
+  width: auto;
+  max-width: none;
   pointer-events: none;
 }
 .lp-floats > *,
@@ -1600,6 +1619,7 @@ body.gate {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
   gap: 4px;
   border: 0;
   cursor: pointer;
@@ -1610,8 +1630,8 @@ body.gate {
 .lp-wa-home[hidden],
 .lp-wa-compose[hidden] { display: none !important; }
 .lp-top {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   padding: 0;
   border-radius: 50%;
   background: var(--navy);
@@ -1621,20 +1641,27 @@ body.gate {
 .lp-top:hover { filter: brightness(1.08); }
 .lp-wa { position: relative; display: flex; flex-direction: column; align-items: flex-end; }
 .lp-wa-fab {
-  width: 44px;
-  height: 44px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: #25d366;
   color: #fff;
 }
 .lp-wa-fab:hover { filter: brightness(1.06); }
-.lp-wa-fab .icon { width: 20px; height: 20px; display: block; }
+.lp-wa-mark {
+  width: 28px;
+  height: 28px;
+  display: block;
+  fill: currentColor;
+  stroke: none;
+  flex-shrink: 0;
+}
 .lp-wa-panel {
   position: absolute;
   right: 0;
-  bottom: 54px;
-  width: min(320px, 100%);
-  max-width: 100%;
+  bottom: 68px;
+  width: min(320px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
   background: #fff;
   color: var(--ink);
   border-radius: 18px;

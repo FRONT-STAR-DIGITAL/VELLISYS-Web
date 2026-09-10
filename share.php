@@ -18,8 +18,8 @@ if (!$probe || !hash_equals(document_share_token($probe), $token)) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Document not available</title>
   <?php product_icons(); ?>
-  <?php folio_font_links(); ?>
   <?php folio_css_links(); ?>
+  <?php folio_font_links(); ?>
 </head>
 <body class="print-body">
   <p class="empty" style="padding:48px;text-align:center">This document is not available. Ask the company to send the link again.</p>
@@ -47,8 +47,8 @@ require ROOT_PATH . '/includes/sheet.php';
   <meta name="robots" content="noindex">
   <title><?= h($doc['number']) ?> · <?= h($brand['name']) ?></title>
   <?php product_icons(); ?>
-  <?php folio_font_links(); ?>
   <?php folio_css_links(); ?>
+  <?php folio_font_links(); ?>
   <style>
     :root { <?= brand_css_vars($brand) ?> }
     @page { size: A4; margin: 0; }

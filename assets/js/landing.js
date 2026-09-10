@@ -31,12 +31,43 @@
   }
 
   var topBtn = document.querySelector('[data-lp-top]');
+  var chrome = document.querySelector('[data-lp-chrome]');
+  var lastY = window.scrollY || 0;
+  var chromeAway = false;
+  var ticking = false;
+
+  function onScrollFrame() {
+    ticking = false;
+    var y = window.scrollY || 0;
+    if (topBtn) {
+      topBtn.hidden = y < 420;
+    }
+    if (chrome) {
+      var goingDown = y > lastY + 6;
+      var goingUp = y < lastY - 6;
+      if (y < 64) {
+        chromeAway = false;
+      } else if (goingDown) {
+        chromeAway = true;
+      } else if (goingUp) {
+        chromeAway = false;
+      }
+      chrome.classList.toggle('is-away', chromeAway);
+    }
+    lastY = y;
+  }
+
+  function requestScroll() {
+    if (!ticking) {
+      ticking = true;
+      window.requestAnimationFrame(onScrollFrame);
+    }
+  }
+
+  onScrollFrame();
+  window.addEventListener('scroll', requestScroll, { passive: true });
+
   if (topBtn) {
-    var onScroll = function () {
-      topBtn.hidden = window.scrollY < 420;
-    };
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
     topBtn.addEventListener('click', function () {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });

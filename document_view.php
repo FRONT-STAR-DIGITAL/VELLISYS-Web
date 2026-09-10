@@ -23,8 +23,8 @@ if ($print) {
   <meta name="robots" content="noindex">
   <title><?= h($doc['number']) ?></title>
   <?php product_icons(); ?>
-  <?php folio_font_links(); ?>
   <?php folio_css_links(); ?>
+  <?php folio_font_links(); ?>
   <style>
     :root { <?= brand_css_vars() ?> }
     @page { size: A4; margin: 0; }

@@ -192,9 +192,22 @@ function folio_migrate(mysqli $db): void
     if ($ver < 22) {
         folio_migrate_desk_kinds($db);
     }
+    if ($ver < 23) {
+        folio_migrate_signup_source($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '22')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '23')");
     $done = true;
+}
+
+function folio_migrate_signup_source(mysqli $db): void
+{
+    if (!db_has_column($db, 'signups', 'source')) {
+        $db->query("ALTER TABLE signups ADD COLUMN source VARCHAR(20) NOT NULL DEFAULT 'register'");
+    }
+    if (!db_has_column($db, 'signups', 'note')) {
+        $db->query('ALTER TABLE signups ADD COLUMN note TEXT NULL');
+    }
 }
 
 function folio_migrate_desk_kinds(mysqli $db): void

@@ -1353,7 +1353,7 @@ function gate_art(string $heading, string $lead, string $switchHtml): void
 function public_header(string $page = 'home'): void
 {
     ?>
-  <header class="lp-chrome">
+  <header class="lp-chrome" data-lp-chrome>
   <div class="lp-nav">
     <a class="lp-brand" href="<?= h(url()) ?>">
       <img class="lp-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
@@ -1361,6 +1361,9 @@ function public_header(string $page = 'home'): void
     <nav>
       <?php if ($page !== 'home'): ?>
         <a class="lp-nav-home" href="<?= h(url()) ?>">Home</a>
+      <?php endif; ?>
+      <?php if ($page !== 'quote'): ?>
+        <a class="lp-nav-home" href="<?= h(url('quote.php')) ?>">Request a quote</a>
       <?php endif; ?>
       <a class="lp-btn lp-btn-ghost" href="<?= h(url('login.php')) ?>">Sign in</a>
       <a class="lp-btn lp-btn-solid" href="<?= h(url('register.php')) ?>">Get a desk</a>
@@ -1386,6 +1389,7 @@ function public_footer(): void
           <p class="lp-foot-line"><?= icon('whatsapp', 18) ?><a href="tel:+<?= h(phone_digits($agent['phone'])) ?>"><strong><?= h($agent['name']) ?></strong> <?= h($agent['phone']) ?></a></p>
         <?php endforeach; ?>
         <p class="lp-foot-line"><?= icon('help', 18) ?><a href="<?= h(url()) ?>#ask">Have a question</a></p>
+        <p class="lp-foot-line"><?= icon('quotation', 18) ?><a href="<?= h(url('quote.php')) ?>">Request a quote</a></p>
       </div>
       <div>
         <h3>FS Digital</h3>
@@ -1407,7 +1411,7 @@ function public_float_widgets(): void
     }
     $done = true;
     $agents = product_agents();
-    $waMark = '<svg class="icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>';
+    $waMark = '<svg class="lp-wa-mark" width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>';
     ?>
   <div class="lp-floats" data-lp-floats>
     <button type="button" class="lp-top" data-lp-top hidden aria-label="Back to top"><?= icon('chevron-up', 20) ?></button>
@@ -1957,10 +1961,36 @@ function product_icons(): void
     echo '<link rel="apple-touch-icon" href="' . h(product_mark_url()) . '">';
 }
 
-function folio_css_links(): void
+function folio_critical_css(string $surface = 'landing'): void
 {
-    echo '<link rel="stylesheet" href="' . h(asset('css/app.css')) . '">';
-    echo '<link rel="stylesheet" href="' . h(asset('css/designs.css')) . '">';
+    if ($surface === 'desk') {
+        echo '<style>html,body{margin:0;background:#f4f6fb}html{background:#f4f6fb}body{font-family:Montserrat,"Segoe UI",sans-serif;color:#10182c}.desk-body{background:#f4f3ef}.app{display:flex;min-height:100vh}.nav{width:72px;flex-shrink:0;background:#fff}</style>';
+        return;
+    }
+    echo '<style>html{background:#f5f7fc;scroll-behavior:smooth;overflow-x:hidden;overflow-x:clip}body{margin:0;font-family:Montserrat,"Segoe UI",sans-serif;color:#10182c;background:#f5f7fc}body.gate{background:#08143a;color:#fff}.lp-chrome{position:sticky;top:0;z-index:40}.lp-nav{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 5vw;background:rgba(255,255,255,.92);border-bottom:1px solid rgba(8,20,58,.08)}.lp-logo{display:block;height:38px;width:auto}.lp-btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 18px;border-radius:12px;font-weight:700;text-decoration:none}.lp-btn-solid{background:#1e4eff;color:#fff}.lp-btn-ghost{background:#fff;color:#08143a;border:1px solid rgba(8,20,58,.12)}.lp-floats{position:fixed;right:16px;bottom:16px;z-index:80}.lp-wa-fab{width:56px;height:56px;border:0;border-radius:50%;background:#25d366;color:#fff}</style>';
+}
+
+function folio_stylesheet(string $path): void
+{
+    $href = h(asset($path));
+    echo '<link rel="preload" href="' . $href . '" as="style">';
+    echo '<link rel="stylesheet" href="' . $href . '">';
+}
+
+function folio_css_links(bool $critical = true): void
+{
+    if ($critical) {
+        folio_critical_css('desk');
+    }
+    folio_stylesheet('css/app.css');
+    folio_stylesheet('css/designs.css');
+}
+
+function folio_landing_head(): void
+{
+    folio_critical_css('landing');
+    folio_stylesheet('css/landing.css');
+    folio_font_links();
 }
 
 function folio_font_links(): void
@@ -1968,6 +1998,11 @@ function folio_font_links(): void
     echo '<link rel="preload" href="' . h(asset('fonts/montserrat-400.woff2')) . '" as="font" type="font/woff2" crossorigin>';
     echo '<link rel="preload" href="' . h(asset('fonts/montserrat-600.woff2')) . '" as="font" type="font/woff2" crossorigin>';
     echo '<link rel="preload" href="' . h(asset('fonts/montserrat-700.woff2')) . '" as="font" type="font/woff2" crossorigin>';
+}
+
+function signup_source_label(?string $source): string
+{
+    return ($source ?? '') === 'quote' ? 'Quote' : 'Sign-up';
 }
 
 function new_question_count(): int

@@ -66,8 +66,8 @@ function layout_start(string $title, array $user, array $opts = []): void
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= h($title) ?> · <?= h(product_name()) ?></title>
   <?php product_icons(); ?>
-  <?php folio_font_links(); ?>
   <?php folio_css_links(); ?>
+  <?php folio_font_links(); ?>
   <style>:root { <?= brand_css_vars() ?> }</style>
 </head>
 <body class="desk-body">
@@ -157,8 +157,8 @@ function layout_admin_start(string $title, array $user): void
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= h($title) ?> · <?= h(product_name()) ?> admin</title>
   <?php product_icons(); ?>
-  <?php folio_font_links(); ?>
   <?php folio_css_links(); ?>
+  <?php folio_font_links(); ?>
   <style>:root { <?= product_css_vars() ?> }</style>
 </head>
 <body class="desk-body admin-body">

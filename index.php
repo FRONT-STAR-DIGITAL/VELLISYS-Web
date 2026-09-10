@@ -25,8 +25,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
   <title><?= h(product_name()) ?> · Stop losing the books</title>
   <meta name="description" content="Vellisys keeps quotations, invoices and receipts on one desk, in your branding and your currency. Anywhere in the world: register, request a quote, get onboarded.">
   <?php product_icons(); ?>
-  <?php folio_font_links(); ?>
-  <link rel="stylesheet" href="<?= h(asset('css/landing.css')) ?>">
+  <?php folio_landing_head(); ?>
 </head>
 <body class="lp">
   <div class="lp-glow lp-glow-a" aria-hidden="true"></div>
@@ -42,7 +41,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
           <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('register.php')) ?>">Get my company a desk</a>
           <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('login.php')) ?>">I already have a desk</a>
         </div>
-        <p class="lp-note">Anywhere in the world. Register. Request a quote. Get onboarded.</p>
+        <p class="lp-note">Anywhere in the world. <a href="<?= h(url('register.php')) ?>">Register</a>. <a href="<?= h(url('quote.php')) ?>">Request a quote</a>. Get onboarded.</p>
       </div>
 
       <div class="lp-stage" data-reveal>
@@ -271,7 +270,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       </ol>
       <div class="lp-cta lp-cta-band">
         <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('register.php')) ?>">Register</a>
-        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url()) ?>#ask">Request a quote</a>
+        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('quote.php')) ?>">Request a quote</a>
       </div>
     </section>
 

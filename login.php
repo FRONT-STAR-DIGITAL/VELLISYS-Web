@@ -21,9 +21,8 @@ $adminPass = platform_admin_password();
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sign in · <?= h(product_name()) ?></title>
   <?php product_icons(); ?>
-  <?php folio_font_links(); ?>
-  <?php folio_css_links(); ?>
-  <link rel="stylesheet" href="<?= h(asset('css/landing.css')) ?>">
+  <?php folio_landing_head(); ?>
+  <?php folio_css_links(false); ?>
 </head>
 <body class="gate">
 <div class="gate-shell">

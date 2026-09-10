@@ -73,7 +73,7 @@ $rowActions = static function (array $s): void {
 <div class="page-head">
   <div>
     <h1><?= icon('letter') ?>Website sign-ups</h1>
-    <p class="lede">People register from the landing page. Call them, then onboard the company and issue a desk login.</p>
+    <p class="lede">People register or request a quote from the website. Call them, then onboard the company and issue a desk login.</p>
   </div>
 </div>
 
@@ -86,6 +86,7 @@ $rowActions = static function (array $s): void {
       <thead>
         <tr>
           <th>When</th>
+          <th>Kind</th>
           <th>Person</th>
           <th>Company</th>
           <th>Reach them</th>
@@ -97,8 +98,14 @@ $rowActions = static function (array $s): void {
         <?php foreach ($open as $s): ?>
           <tr>
             <td class="mono"><?= h(substr((string) $s['created_at'], 0, 16)) ?></td>
+            <td><?= ($s['source'] ?? '') === 'quote' ? '<span class="pill warn">Quote</span>' : '<span class="pill">Sign-up</span>' ?></td>
             <td><strong><?= h($s['name']) ?></strong></td>
-            <td><?= h($s['company']) ?></td>
+            <td>
+              <?= h($s['company']) ?>
+              <?php if (trim((string) ($s['note'] ?? '')) !== ''): ?>
+                <div class="muted"><?= h(mb_substr(trim((string) $s['note']), 0, 80)) ?></div>
+              <?php endif; ?>
+            </td>
             <td>
               <a href="mailto:<?= h($s['email']) ?>"><?= h($s['email']) ?></a>
               <?php if ($s['phone'] !== ''): ?><div class="mono"><?= h($s['phone']) ?></div><?php endif; ?>
@@ -121,6 +128,7 @@ $rowActions = static function (array $s): void {
       <thead>
         <tr>
           <th>When</th>
+          <th>Kind</th>
           <th>Person</th>
           <th>Company</th>
           <th>Email</th>
@@ -132,6 +140,7 @@ $rowActions = static function (array $s): void {
         <?php foreach ($done as $s): ?>
           <tr>
             <td class="mono"><?= h(substr((string) $s['created_at'], 0, 16)) ?></td>
+            <td><?= ($s['source'] ?? '') === 'quote' ? 'Quote' : 'Sign-up' ?></td>
             <td><?= h($s['name']) ?></td>
             <td><?= h($s['company']) ?></td>
             <td><?= h($s['email']) ?></td>

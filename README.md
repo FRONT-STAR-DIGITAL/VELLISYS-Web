@@ -4,7 +4,7 @@ Branded books for companies anywhere in the world - quotations, invoices, receip
 
 This is a **PHP + MySQL** desk meant to run on **XAMPP**. There is no Node or Next.js. Copy the folder, start Apache and MySQL, open the installer.
 
-Open the **landing page** at the site root. Companies **register** in a few fields. A Vellisys super admin sees the sign-up, reaches out, and onboards the company.
+Open the **landing page** at the site root. Companies **register** or **request a quote**. A Vellisys super admin sees the request, reaches out, and onboards the company.
 
 ## Logins
 
@@ -37,6 +37,8 @@ Open the **landing page** at the site root. Companies **register** in a few fiel
 - Desk **Tutorials** (also from Clients) with a tour of the whole portal and screenshots
 - When a company is onboarded, `info@vellisys.com` sends a welcome letter and a short tutorial. The same mailbox confirms questions and registrations, notifies the admin of those events, marks desks live, and sends renewal reminders
 - Easy **register** form - no password to invent. Super admin sees each request, the person who registered gets a confirmation from `info@vellisys.com`, then an admin calls the company and creates the desk
+- Dedicated **Request a quote** page (`quote.php`) - name, company, email, phone, optional note. Super admin sees it on Sign-ups as a quote, not mixed with the landing-page question form
+- Header on the public site stays put when you scroll up, and tucks away when you scroll down. The WhatsApp button stays a round green mark in the corner
 - Sign-in with a **show password** control
 - **Any currency** on the desk - the company enters UGX, KES, EUR, USD or another three-letter code in Settings. Documents can also be in USD; the rate is 1 USD = n of the home currency
 - **One document design** for the whole desk - the layout you pick in Settings prints on every invoice, quotation, receipt, expense and headed note
