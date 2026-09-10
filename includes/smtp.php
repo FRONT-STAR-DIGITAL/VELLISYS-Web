@@ -76,6 +76,10 @@ function mail_decrypt_secret(string $stored): string
 function platform_mail_account(): array
 {
     $c = mail_config();
+    $fromName = trim((string) ($c['from_name'] ?? ''));
+    if ($fromName === '' || strcasecmp($fromName, 'Vellisys') === 0) {
+        $fromName = product_from_name();
+    }
     return [
         'host' => (string) $c['host'],
         'port' => (int) $c['port'],
@@ -83,7 +87,7 @@ function platform_mail_account(): array
         'username' => (string) $c['username'],
         'password' => (string) $c['password'],
         'from_email' => (string) $c['from_email'],
-        'from_name' => (string) $c['from_name'],
+        'from_name' => $fromName,
     ];
 }
 
@@ -119,7 +123,7 @@ function smtp_send(array $account, string $to, string $subject, string $html, st
     $user = (string) ($account['username'] ?? '');
     $pass = (string) ($account['password'] ?? '');
     $from = (string) ($account['from_email'] ?? $user);
-    $fromName = (string) ($account['from_name'] ?? 'Vellisys');
+    $fromName = (string) ($account['from_name'] ?? product_from_name());
     if ($host === '' || $user === '' || $pass === '' || !filter_var($to, FILTER_VALIDATE_EMAIL) || !filter_var($from, FILTER_VALIDATE_EMAIL)) {
         return ['ok' => false, 'error' => 'Mailbox is not fully configured.'];
     }

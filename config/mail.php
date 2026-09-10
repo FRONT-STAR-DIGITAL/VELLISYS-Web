@@ -12,7 +12,7 @@ return [
         ? (string) getenv('FOLIO_SMTP_PASS')
         : 'VellumS@7',
     'from_email' => getenv('FOLIO_SMTP_FROM') ?: 'info@vellisys.com',
-    'from_name' => getenv('FOLIO_SMTP_FROM_NAME') ?: 'Vellisys',
+    'from_name' => getenv('FOLIO_SMTP_FROM_NAME') ?: 'VELLISYS',
     'pop_host' => getenv('FOLIO_POP_HOST') ?: 'pop.hostinger.com',
     'pop_port' => (int) (getenv('FOLIO_POP_PORT') ?: 995),
     'imap_host' => getenv('FOLIO_IMAP_HOST') ?: 'imap.hostinger.com',

@@ -1168,6 +1168,11 @@ function product_name(): string
     return 'Vellisys';
 }
 
+function product_from_name(): string
+{
+    return 'VELLISYS';
+}
+
 function product_email(): string
 {
     return 'info@vellisys.com';
