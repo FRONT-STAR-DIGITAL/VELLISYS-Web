@@ -25,7 +25,6 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= h(product_name()) ?> · Stop losing the books</title>
-  <meta name="description" content="Vellisys keeps quotations, invoices and receipts on one desk, in your branding and your currency. Anywhere in the world: register, request a quote, get onboarded.">
   <?php product_icons(); ?>
   <?php folio_landing_head(); ?>
 </head>
@@ -38,7 +37,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
     <section class="lp-hero">
       <div class="lp-hero-copy" data-reveal>
         <h1>Lose track of your financial records?</h1>
-        <p class="lp-lead">Tired of receipts in a drawer and invoices living in WhatsApp? Vellisys keeps quotations, invoices, receipts and reports on one desk. Every sheet is customised to the client's branding - logo, colours, and many templates to choose from - then shared in a single click. Anywhere you are in the world: register, request a quote, and get onboarded.</p>
+        <p class="lp-lead">Tired of receipts in a drawer and invoices living in WhatsApp? Vellisys keeps quotations, invoices, receipts and reports on one desk. Every sheet is customised to the client's branding - logo, colours, and many templates to choose from - then shared in a single click. Anywhere you are in the world: register, request a quote, and get onboarded. Built for East Africa, used across Africa and worldwide - the best branded alternative to QuickBooks and other finance software.</p>
         <div class="lp-cta">
           <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('register.php')) ?>">Get my company a desk</a>
           <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('login.php')) ?>">I already have a desk</a>
@@ -264,7 +263,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
     <section class="lp-world" id="anywhere" data-reveal>
       <p class="lp-kicker">Worldwide</p>
       <h2>Anywhere you are in the world</h2>
-      <p class="lp-world-lead">Register, request a quote, and get onboarded. Bill in UGX, KES, EUR, USD or the currency your company actually uses. The desk is yours on any device.</p>
+      <p class="lp-world-lead">Register, request a quote, and get onboarded. Bill in UGX, KES, EUR, USD or the currency your company actually uses. The desk is yours on any device. The best books software companies pick in East Africa, across Africa and worldwide.</p>
       <ol class="lp-world-steps">
         <li><b>1</b><span>Register</span></li>
         <li><b>2</b><span>Request a quote</span></li>

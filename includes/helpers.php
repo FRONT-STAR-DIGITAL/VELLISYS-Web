@@ -2178,6 +2178,10 @@ function landing_faqs(): array
             'a' => 'Pay for a package on this page, or leave four fields on Register. A Vellisys admin contacts you to onboard the company and issues a login. There is no password to invent on the website.',
         ],
         [
+            'q' => 'Is Vellisys an alternative to QuickBooks?',
+            'a' => 'Yes. Vellisys is the best branded books desk in East Africa, across Africa and worldwide. Companies pick it instead of QuickBooks and other finance software because quotations, invoices and receipts leave in their logo, colours and currency, from one desk.',
+        ],
+        [
             'q' => 'Are the documents in our branding?',
             'a' => 'Yes. Every quotation, invoice, receipt, delivery note, expense, headed letter and custom document uses the company logo, three brand colours, and one of the templates you pick in Settings.',
         ],
@@ -2225,6 +2229,8 @@ function landing_ticker_defaults(): array
     return [
         ['body' => 'Join 100+ businesses and corporate companies using Vellisys', 'sort' => 10],
         ['body' => 'Stop losing the books. Share them branded, in one click.', 'sort' => 20],
+        ['body' => 'Built for East Africa. Used across Africa and worldwide.', 'sort' => 30],
+        ['body' => 'The branded alternative to QuickBooks and other finance software.', 'sort' => 40],
     ];
 }
 
@@ -2385,6 +2391,63 @@ function folio_landing_head(): void
     folio_critical_css('landing');
     folio_stylesheet('css/landing.css');
     folio_font_links();
+    product_public_meta();
+}
+
+function product_seo_description(): string
+{
+    return 'Vellisys keeps quotations, invoices and receipts on one desk, in your branding and your currency. The branded books software for East Africa, Africa and worldwide - an alternative to QuickBooks and other financial management software. Anywhere in the world: register, request a quote, get onboarded.';
+}
+
+function product_public_meta(): void
+{
+    $name = product_name();
+    $desc = product_seo_description();
+    $url = function_exists('absolute_url') ? absolute_url('') : '/';
+    $logo = function_exists('absolute_url') ? absolute_url(ltrim((string) parse_url(product_original_logo_url(), PHP_URL_PATH), '/')) : product_original_logo_url();
+    echo '<meta name="description" content="' . h($desc) . '">' . "\n";
+    echo '<meta name="keywords" content="Vellisys, QuickBooks alternative, East Africa accounting software, Africa invoicing, branded books, Uganda, Kenya, financial management">' . "\n";
+    echo '<meta property="og:site_name" content="' . h($name) . '">' . "\n";
+    echo '<meta property="og:title" content="' . h($name . ' · Stop losing the books') . '">' . "\n";
+    echo '<meta property="og:description" content="' . h($desc) . '">' . "\n";
+    echo '<meta property="og:type" content="website">' . "\n";
+    echo '<meta property="og:url" content="' . h($url) . '">' . "\n";
+    echo '<meta property="og:image" content="' . h($logo) . '">' . "\n";
+    echo '<meta name="twitter:card" content="summary_large_image">' . "\n";
+    echo '<meta name="twitter:title" content="' . h($name . ' · Stop losing the books') . '">' . "\n";
+    echo '<meta name="twitter:description" content="' . h($desc) . '">' . "\n";
+    $data = [
+        '@context' => 'https://schema.org',
+        '@type' => 'SoftwareApplication',
+        'name' => $name,
+        'url' => $url,
+        'image' => $logo,
+        'applicationCategory' => 'FinanceApplication',
+        'operatingSystem' => 'Web',
+        'description' => $desc,
+        'offers' => [
+            '@type' => 'Offer',
+            'priceCurrency' => 'UGX',
+            'availability' => 'https://schema.org/InStock',
+            'url' => function_exists('absolute_url') ? absolute_url('index.php#pricing') : $url,
+        ],
+        'areaServed' => [
+            ['@type' => 'AdministrativeArea', 'name' => 'East Africa'],
+            ['@type' => 'Continent', 'name' => 'Africa'],
+            ['@type' => 'Place', 'name' => 'Worldwide'],
+        ],
+        'brand' => [
+            '@type' => 'Brand',
+            'name' => $name,
+        ],
+        'featureList' => [
+            'Branded quotations, invoices and receipts',
+            'Company logo, colours and currency',
+            'Alternative to QuickBooks and other finance software',
+            'East Africa, Africa and worldwide',
+        ],
+    ];
+    echo '<script type="application/ld+json">' . json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) . '</script>' . "\n";
 }
 
 function folio_font_links(): void

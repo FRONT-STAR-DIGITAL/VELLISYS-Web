@@ -29,7 +29,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 30) {
+    if ($ver >= 31) {
         $done = true;
         return;
     }
@@ -216,8 +216,11 @@ function folio_migrate(mysqli $db): void
     if ($ver < 30) {
         folio_migrate_landing_testimonials($db);
     }
+    if ($ver < 31) {
+        folio_migrate_positioning_ticker($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '30')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '31')");
     $done = true;
 }
 
@@ -639,5 +642,33 @@ function folio_migrate_landing_testimonials(mysqli $db): void
         $heading = $s['heading'];
         $stmt->bind_param('ss', $kicker, $heading);
         $stmt->execute();
+    }
+}
+
+function folio_migrate_positioning_ticker(mysqli $db): void
+{
+    require_once ROOT_PATH . '/includes/helpers.php';
+    folio_migrate_landing_ticker($db);
+    $lines = [
+        ['body' => 'Built for East Africa. Used across Africa and worldwide.', 'sort' => 30],
+        ['body' => 'The branded alternative to QuickBooks and other finance software.', 'sort' => 40],
+    ];
+    foreach ($lines as $c) {
+        $stmt = $db->prepare('SELECT id FROM landing_ticker WHERE body = ? LIMIT 1');
+        if (!$stmt) {
+            continue;
+        }
+        $stmt->bind_param('s', $c['body']);
+        $stmt->execute();
+        $exists = $stmt->get_result();
+        if ($exists && $exists->num_rows > 0) {
+            continue;
+        }
+        $ins = $db->prepare('INSERT INTO landing_ticker (body, sort) VALUES (?,?)');
+        if (!$ins) {
+            continue;
+        }
+        $ins->bind_param('si', $c['body'], $c['sort']);
+        $ins->execute();
     }
 }

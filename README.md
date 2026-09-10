@@ -1,6 +1,6 @@
 # Vellisys
 
-Branded books for companies anywhere in the world - quotations, invoices, receipts, expenses and headed correspondence in the company's own logo, colour and currency. One desk, everything included.
+Branded books for companies anywhere in the world - quotations, invoices, receipts, expenses and headed correspondence in the company's own logo, colour and currency. One desk, everything included. The branded alternative to QuickBooks and other finance software, built for East Africa and used across Africa and worldwide.
 
 This is a **PHP + MySQL** desk meant to run on **XAMPP**. There is no Node or Next.js. Copy the folder, start Apache and MySQL, open the installer.
 
