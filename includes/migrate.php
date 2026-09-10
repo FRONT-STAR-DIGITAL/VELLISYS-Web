@@ -29,7 +29,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 28) {
+    if ($ver >= 29) {
         $done = true;
         return;
     }
@@ -210,8 +210,11 @@ function folio_migrate(mysqli $db): void
     if ($ver < 28) {
         folio_migrate_order_country($db);
     }
+    if ($ver < 29) {
+        folio_migrate_order_pending_mail($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '28')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '29')");
     $done = true;
 }
 
@@ -515,6 +518,7 @@ function folio_migrate_website_orders(mysqli $db): void
       pesapal_redirect TEXT NULL,
       signup_id INT UNSIGNED NULL,
       notified_draft TINYINT UNSIGNED NOT NULL DEFAULT 0,
+      notified_pending TINYINT UNSIGNED NOT NULL DEFAULT 0,
       last_error TEXT NULL,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -606,5 +610,12 @@ function folio_migrate_order_country(mysqli $db): void
 {
     if (!db_has_column($db, 'website_orders', 'country')) {
         $db->query("ALTER TABLE website_orders ADD COLUMN country VARCHAR(80) NOT NULL DEFAULT '' AFTER city");
+    }
+}
+
+function folio_migrate_order_pending_mail(mysqli $db): void
+{
+    if (!db_has_column($db, 'website_orders', 'notified_pending')) {
+        $db->query("ALTER TABLE website_orders ADD COLUMN notified_pending TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER notified_draft");
     }
 }

@@ -131,7 +131,7 @@ $termLabel = pricing_section()['term_label'];
       <input type="hidden" name="action" value="pay">
       <input type="hidden" name="public_id" value="<?= h((string) ($existing['public_id'] ?? '')) ?>" data-order-public>
       <h2>Company details</h2>
-      <p class="lp-checkout-hint">Pay <span data-ugx="<?= (int) $pkg['price_ugx'] ?>"><?= h($payNow) ?></span> on Pesapal<?= $payCcy !== $ccy ? ' (charged in ' . h($payCcy) . ')' : '' ?>. <?= h(product_email()) ?> is notified at every step, including if payment fails.</p>
+      <p class="lp-checkout-hint">Pay <span data-ugx="<?= (int) $pkg['price_ugx'] ?>"><?= h($payNow) ?></span> on Pesapal<?= $payCcy !== $ccy ? ' (charged in ' . h($payCcy) . ')' : '' ?>. We email you that payment awaits, then the unpaid invoice. <?= h(product_email()) ?> is copied, and is notified if payment fails.</p>
       <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
       <label for="contact_name">Your name
         <input id="contact_name" name="contact_name" required autocomplete="name" value="<?= h($take('name', $take('contact_name'))) ?>" placeholder="Jane Okello">

@@ -394,6 +394,7 @@ function notify_admin_order(array $order, string $event): void
         default => 'Website checkout',
     };
     $amount = h((string) ($order['currency'] ?? '')) . ' ' . h((string) ($order['amount'] ?? ''));
+    $place = order_place_label($order);
     $html = vellisys_email_wrap(
         '<p style="margin:0 0 14px">' . h($title) . ' for <strong>' . h((string) ($order['company'] ?? 'a company')) . '</strong>.</p>'
         . '<p style="margin:0 0 8px"><strong>Package:</strong> ' . h($planName) . '</p>'
@@ -401,9 +402,7 @@ function notify_admin_order(array $order, string $event): void
         . '<p style="margin:0 0 8px"><strong>Contact:</strong> ' . h((string) ($order['name'] ?? '')) . '</p>'
         . '<p style="margin:0 0 8px"><strong>Email:</strong> ' . h((string) ($order['email'] ?? '')) . '</p>'
         . '<p style="margin:0 0 8px"><strong>Phone:</strong> ' . h((string) ($order['phone'] ?? '')) . '</p>'
-        . ((string) ($order['city'] ?? '') !== '' || (string) ($order['country'] ?? '') !== ''
-            ? '<p style="margin:0 0 8px"><strong>Place:</strong> ' . h(trim((string) ($order['city'] ?? '') . (((string) ($order['city'] ?? '') !== '' && (string) ($order['country'] ?? '') !== '') ? ', ' : '') . (string) ($order['country'] ?? ''))) . '</p>'
-            : '')
+        . ($place !== '' ? '<p style="margin:0 0 8px"><strong>Place:</strong> ' . h($place) . '</p>' : '')
         . '<p style="margin:0 0 8px"><strong>Status:</strong> ' . h((string) ($order['status'] ?? $event)) . '</p>'
         . ((string) ($order['last_error'] ?? '') !== ''
             ? '<p style="margin:0 0 14px"><strong>Error:</strong> ' . h((string) $order['last_error']) . '</p>'
@@ -414,6 +413,177 @@ function notify_admin_order(array $order, string $event): void
     notify_platform('Vellisys ' . $title . ': ' . ($order['company'] ?? 'a company'), $html, $text, (string) ($order['email'] ?? ''));
     if ($event === 'paid') {
         notify_visitor_order_paid($order, $planName, $amount);
+    } elseif (in_array($event, ['pending', 'failed', 'cancelled'], true)) {
+        notify_visitor_payment_open($order, $planName);
+    }
+}
+
+function order_place_label(array $order): string
+{
+    $city = trim((string) ($order['city'] ?? ''));
+    $country = trim((string) ($order['country'] ?? ''));
+    return trim($city . ($city !== '' && $country !== '' ? ', ' : '') . $country);
+}
+
+function order_invoice_number(array $order): string
+{
+    $ref = strtoupper(preg_replace('/[^A-Z0-9]/', '', (string) ($order['merchant_ref'] ?? '')) ?? '');
+    if ($ref === '') {
+        $ref = strtoupper(substr((string) ($order['public_id'] ?? 'INV'), 0, 8));
+    }
+    return 'VEL-INV-' . $ref;
+}
+
+function order_pay_url(array $order): string
+{
+    $plan = trim((string) ($order['plan'] ?? ''));
+    $public = trim((string) ($order['public_id'] ?? ''));
+    $q = 'checkout.php?plan=' . rawurlencode($plan);
+    if ($public !== '') {
+        $q .= '&o=' . rawurlencode($public);
+    }
+    return absolute_url($q);
+}
+
+function order_amount_label(array $order): string
+{
+    $ccy = strtoupper(trim((string) ($order['currency'] ?? 'UGX'))) ?: 'UGX';
+    return money((float) ($order['amount'] ?? 0), $ccy);
+}
+
+function order_term_label(): string
+{
+    if (function_exists('pricing_section')) {
+        $label = trim((string) (pricing_section()['term_label'] ?? ''));
+        if ($label !== '') {
+            return $label;
+        }
+    }
+    return 'first year';
+}
+
+function payment_awaits_copy(array $order, string $planName): array
+{
+    $who = trim((string) ($order['name'] ?? '')) ?: 'there';
+    $company = trim((string) ($order['company'] ?? 'your company'));
+    $amount = order_amount_label($order);
+    $inv = order_invoice_number($order);
+    $pay = order_pay_url($order);
+    $phones = implode(' or ', product_phones());
+    $term = order_term_label();
+    $subject = 'Your Vellisys payment awaits - ' . $company;
+    $html = vellisys_email_wrap(
+        '<p style="margin:0 0 16px">Dear ' . h($who) . ',</p>'
+        . '<p style="margin:0 0 14px">Thank you for choosing the <strong>' . h($planName) . '</strong> desk for <strong>' . h($company) . '</strong>. Your payment awaits.</p>'
+        . '<p style="margin:0 0 14px">The amount due is <strong>' . h($amount) . '</strong> for the ' . h($term) . '. Unpaid invoice <strong>' . h($inv) . '</strong> follows in a separate email.</p>'
+        . '<p style="margin:0 0 18px">Complete payment on Pesapal to confirm the desk. If the payment page closed, open <a href="' . h($pay) . '" style="color:#1E4EFF">your checkout</a> again. A Vellisys admin contacts you after payment to onboard. You do not get a password until the desk is opened.</p>'
+        . '<p style="margin:0 0 14px">If you need us, write to <a href="mailto:' . h(product_email()) . '" style="color:#1E4EFF">' . h(product_email()) . '</a> or call ' . h($phones) . '.</p>'
+        . '<p style="margin:0">Kind regards,<br><strong>Vellisys</strong></p>',
+        'Payment awaits'
+    );
+    $text = "Dear {$who},\n\n"
+        . "Thank you for choosing the {$planName} desk for {$company}. Your payment awaits.\n\n"
+        . "The amount due is {$amount} for the {$term}. Unpaid invoice {$inv} follows in a separate email.\n\n"
+        . "Complete payment on Pesapal to confirm the desk. If the payment page closed, open {$pay} again. A Vellisys admin contacts you after payment to onboard. You do not get a password until the desk is opened.\n\n"
+        . 'If you need us, write to ' . product_email() . " or call {$phones}.\n\nKind regards,\nVellisys";
+    return ['subject' => $subject, 'html' => $html, 'text' => $text];
+}
+
+function unpaid_invoice_copy(array $order, string $planName): array
+{
+    $who = trim((string) ($order['name'] ?? '')) ?: 'there';
+    $company = trim((string) ($order['company'] ?? 'your company'));
+    $email = trim((string) ($order['email'] ?? ''));
+    $phone = trim((string) ($order['phone'] ?? ''));
+    $place = order_place_label($order);
+    $amount = order_amount_label($order);
+    $ugx = money((float) ($order['amount_ugx'] ?? 0), 'UGX');
+    $ccy = strtoupper(trim((string) ($order['currency'] ?? 'UGX'))) ?: 'UGX';
+    $inv = order_invoice_number($order);
+    $pay = order_pay_url($order);
+    $term = order_term_label();
+    $issued = format_date(desk_now()->format('Y-m-d')) ?: desk_now()->format('d/m/Y');
+    $plan = function_exists('pricing_package') ? pricing_package((string) ($order['plan'] ?? '')) : null;
+    $seats = max(1, (int) ($plan['seats'] ?? 1));
+    $seatWord = $seats === 1 ? '1 login' : $seats . ' logins';
+    $line = 'Vellisys ' . $planName . ' desk (' . $seatWord . '), ' . $term;
+    $billTo = $company;
+    if ($who !== '' && strcasecmp($who, 'there') !== 0) {
+        $billTo = $who . "\n" . $company;
+    }
+    $phones = implode(' or ', product_phones());
+    $subject = 'Unpaid invoice ' . $inv . ' - ' . $company;
+    $border = '1px solid #08143A';
+    $row = static function (string $label, string $value, bool $last = false) use ($border): string {
+        return '<tr>'
+            . '<td style="padding:10px 14px;border-bottom:' . ($last ? '0' : $border) . ';font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#08143A;width:38%;">' . h($label) . '</td>'
+            . '<td style="padding:10px 14px;border-bottom:' . ($last ? '0' : $border) . ';font-size:15px;color:#000000;font-weight:600;">' . nl2br(h($value)) . '</td>'
+            . '</tr>';
+    };
+    $html = vellisys_email_wrap(
+        '<p style="margin:0 0 16px;color:#000000">Dear ' . h($who) . ',</p>'
+        . '<p style="margin:0 0 18px;color:#000000">This is your unpaid Vellisys invoice. Balance due on receipt.</p>'
+        . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #08143A;border-collapse:collapse;margin:0 0 20px;">'
+        . '<tr><td colspan="2" style="background:#08143A;padding:12px 14px;">'
+        . '<p style="margin:0;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#FFFFFF;font-weight:700;">Unpaid invoice</p>'
+        . '<p style="margin:4px 0 0;font-size:13px;color:#FFFFFF;">' . h($inv) . '</p>'
+        . '</td></tr>'
+        . $row('Bill to', $billTo)
+        . ($email !== '' ? $row('Email', $email) : '')
+        . ($phone !== '' ? $row('Phone', $phone) : '')
+        . ($place !== '' ? $row('Place', $place) : '')
+        . $row('Issued', $issued)
+        . $row('Due', 'On receipt')
+        . $row('Status', 'UNPAID', true)
+        . '</table>'
+        . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #08143A;border-collapse:collapse;margin:0 0 20px;">'
+        . '<tr><td style="background:#08143A;padding:10px 14px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#FFFFFF;font-weight:700;">Description</td>'
+        . '<td style="background:#08143A;padding:10px 14px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#FFFFFF;font-weight:700;text-align:right;width:34%;">Amount</td></tr>'
+        . '<tr><td style="padding:12px 14px;border-bottom:' . $border . ';color:#000000;">' . h($line) . '</td>'
+        . '<td style="padding:12px 14px;border-bottom:' . $border . ';color:#000000;text-align:right;font-weight:700;">' . h($amount) . '</td></tr>'
+        . '<tr><td style="padding:12px 14px;color:#08143A;font-weight:700;">Balance due</td>'
+        . '<td style="padding:12px 14px;color:#08143A;text-align:right;font-weight:700;">' . h($amount) . '</td></tr>'
+        . ($ccy !== 'UGX' ? '<tr><td style="padding:0 14px 12px;color:#000000;font-size:13px;">Charged equivalent</td><td style="padding:0 14px 12px;color:#000000;text-align:right;font-size:13px;">' . h($ugx) . '</td></tr>' : '')
+        . '</table>'
+        . '<p style="margin:0 0 16px"><a href="' . h($pay) . '" style="display:inline-block;background:#1E4EFF;color:#FFFFFF;text-decoration:none;padding:12px 18px;font-weight:700;">Pay this invoice</a></p>'
+        . '<p style="margin:0 0 14px;color:#000000">If Pesapal did not finish, use the button above. After payment, a Vellisys admin contacts you to onboard the company.</p>'
+        . '<p style="margin:0 0 14px;color:#000000">Questions: <a href="mailto:' . h(product_email()) . '" style="color:#1E4EFF">' . h(product_email()) . '</a> · ' . h($phones) . '</p>'
+        . '<p style="margin:0;color:#000000">Kind regards,<br><strong>Vellisys</strong></p>',
+        'Unpaid invoice'
+    );
+    $text = "Dear {$who},\n\n"
+        . "UNPAID INVOICE {$inv}\n"
+        . "Bill to: {$company}\n"
+        . ($email !== '' ? "Email: {$email}\n" : '')
+        . ($phone !== '' ? "Phone: {$phone}\n" : '')
+        . ($place !== '' ? "Place: {$place}\n" : '')
+        . "Issued: {$issued}\nDue: On receipt\nStatus: UNPAID\n\n"
+        . "{$line}\nAmount due: {$amount}"
+        . ($ccy !== 'UGX' ? " ({$ugx})" : '') . "\n\n"
+        . "Pay: {$pay}\n\n"
+        . 'Questions: ' . product_email() . " · {$phones}\n\nKind regards,\nVellisys";
+    return ['subject' => $subject, 'html' => $html, 'text' => $text];
+}
+
+function notify_visitor_payment_open(array $order, string $planName): void
+{
+    $to = strtolower(trim((string) ($order['email'] ?? '')));
+    if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+        return;
+    }
+    $id = (int) ($order['id'] ?? 0);
+    if ($id > 0 && function_exists('db_has_column') && db_has_column(db(), 'website_orders', 'notified_pending')) {
+        $row = db_one('SELECT notified_pending FROM website_orders WHERE id = ?', 'i', [$id]);
+        if ($row && (int) ($row['notified_pending'] ?? 0) !== 0) {
+            return;
+        }
+    }
+    $awaits = payment_awaits_copy($order, $planName);
+    send_platform_email($to, $awaits['subject'], $awaits['html'], $awaits['text'], 0, product_email());
+    $invoice = unpaid_invoice_copy($order, $planName);
+    send_platform_email($to, $invoice['subject'], $invoice['html'], $invoice['text'], 0, product_email());
+    if ($id > 0 && function_exists('db_has_column') && db_has_column(db(), 'website_orders', 'notified_pending')) {
+        db_exec('UPDATE website_orders SET notified_pending=1 WHERE id=?', 'i', [$id]);
     }
 }
 
