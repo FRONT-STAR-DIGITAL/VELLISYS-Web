@@ -1006,6 +1006,208 @@ function create_desk_user(int $companyId, array $fields): array
     return ['ok' => true, 'email' => $email, 'password' => $password, 'role' => $role];
 }
 
+function generate_desk_password(): string
+{
+    return 'Vs-' . substr(bin2hex(random_bytes(6)), 0, 10);
+}
+
+function store_company_logo_upload(int $companyId, string $field = 'logo'): array
+{
+    if (empty($_FILES[$field]['tmp_name']) || !is_uploaded_file($_FILES[$field]['tmp_name'])) {
+        return ['ok' => true, 'path' => ''];
+    }
+    $ext = strtolower(pathinfo((string) ($_FILES[$field]['name'] ?? ''), PATHINFO_EXTENSION));
+    if (!in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'], true)) {
+        return ['ok' => false, 'error' => 'Logo must be PNG, JPG, SVG, GIF or WebP.'];
+    }
+    if ((int) ($_FILES[$field]['size'] ?? 0) > 2_000_000) {
+        return ['ok' => false, 'error' => 'Logo must be under 2 MB.'];
+    }
+    $dir = ROOT_PATH . '/uploads/logos';
+    if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
+        return ['ok' => false, 'error' => 'Could not save the logo file.'];
+    }
+    $fname = 'logo-' . $companyId . '-' . date('YmdHis') . '.' . $ext;
+    if (!move_uploaded_file($_FILES[$field]['tmp_name'], $dir . '/' . $fname)) {
+        return ['ok' => false, 'error' => 'Could not save the logo file.'];
+    }
+    return ['ok' => true, 'path' => 'uploads/logos/' . $fname];
+}
+
+function platform_create_company(?int $signupId = null): array
+{
+    $name = post('name');
+    $userName = post('user_name');
+    $userEmail = strtolower(post('user_email'));
+    $password = post('user_password');
+    $generated = false;
+    if ($password === '') {
+        $password = generate_desk_password();
+        $generated = true;
+    }
+    $kindsPosted = $_POST['enabled_kinds'] ?? [];
+    $status = post('status') ?: 'onboarding';
+    if (!in_array($status, ['onboarding', 'live'], true)) {
+        $status = 'onboarding';
+    }
+    if ($name === '' || $userName === '' || !filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
+        return ['ok' => false, 'error' => 'Company name, desk admin and a valid email are required.'];
+    }
+    if (strlen($password) < 8) {
+        return ['ok' => false, 'error' => 'Password must be at least 8 characters, or leave it blank to generate one.'];
+    }
+    if (db_one('SELECT id FROM users WHERE email = ?', 's', [$userEmail])) {
+        return ['ok' => false, 'error' => 'That email already has a Vellisys login.'];
+    }
+    if (!is_array($kindsPosted) || $kindsPosted === []) {
+        return ['ok' => false, 'error' => 'Select at least one document type this company will use.'];
+    }
+    $mailEmail = strtolower(post('mail_email'));
+    if ($mailEmail !== '' && !filter_var($mailEmail, FILTER_VALIDATE_EMAIL)) {
+        return ['ok' => false, 'error' => 'The sending mailbox must be a valid email.'];
+    }
+    if (!empty($_FILES['logo']['tmp_name']) && is_uploaded_file($_FILES['logo']['tmp_name'])) {
+        $ext = strtolower(pathinfo((string) ($_FILES['logo']['name'] ?? ''), PATHINFO_EXTENSION));
+        if (!in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'], true)) {
+            return ['ok' => false, 'error' => 'Logo must be PNG, JPG, SVG, GIF or WebP.'];
+        }
+        if ((int) ($_FILES['logo']['size'] ?? 0) > 2_000_000) {
+            return ['ok' => false, 'error' => 'Logo must be under 2 MB.'];
+        }
+    }
+
+    $currency = posted_currency('currency', 'USD');
+    $color = parse_hex_color(post('brand_color'), '#1E4EFF');
+    $accent = parse_hex_color(post('brand_accent'), '#C6A15B');
+    $deep = parse_hex_color(post('brand_deep'), '#08143A');
+    $prefix = strtoupper(post('prefix') ?: prefix_from_name($name));
+    $limit = clamp_user_limit((int) post('user_limit') ?: 3);
+    $accountName = post('account_name') ?: $name;
+    $paymentNote = post('payment_note') ?: ('Make payment to ' . $name . '.');
+    $comments = post('invoice_comments') ?: "1. Payment is due by the date shown above.\n2. Quote the invoice number on the transfer.";
+
+    $cid = db_exec(
+        'INSERT INTO companies (name, status, plan, notes, enabled_kinds, custom_doc, user_limit) VALUES (?,?,?,?,?,?,?)',
+        'ssssssi',
+        [$name, $status, 'sme', post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), $limit]
+    );
+
+    $term = (int) post('paid_term');
+    $unit = post('paid_unit') === 'years' ? 'years' : 'months';
+    if ($term > 0) {
+        if ($unit === 'years' && $term > 20) {
+            $term = 20;
+        }
+        if ($unit === 'months' && $term > 120) {
+            $term = 120;
+        }
+        $from = post('paid_from');
+        if ($from === '' || !DateTime::createFromFormat('Y-m-d', $from)) {
+            $from = date('Y-m-d');
+        }
+        $expires = compute_expiry_date($from, $term, $unit);
+        $feeAmount = money_parse(post('fee_amount'));
+        $paidRaw = str_replace([',', ' '], '', post('fee_paid'));
+        $feePaid = $paidRaw === '' ? $feeAmount : money_parse($paidRaw);
+        $feeCurrency = posted_currency('fee_currency', $currency);
+        if ($expires) {
+            db_exec(
+                'UPDATE companies SET paid_term=?, paid_unit=?, paid_from=?, expires_at=?, fee_amount=?, fee_paid=?, fee_currency=? WHERE id=?',
+                'isssddsi',
+                [$term, $unit, $from, $expires, $feeAmount, $feePaid, $feeCurrency, $cid]
+            );
+        }
+    }
+
+    if ($mailEmail !== '') {
+        $provider = post('mail_provider');
+        if (!isset(mail_provider_presets()[$provider])) {
+            $provider = 'hostinger';
+        }
+        $preset = mail_provider_presets()[$provider];
+        $fromName = post('mail_from_name') ?: $name;
+        $host = post('smtp_host') ?: $preset['smtp_host'];
+        $port = (int) post('smtp_port') ?: (int) $preset['smtp_port'];
+        $secure = post('smtp_secure');
+        if (!in_array($secure, ['ssl', 'tls', 'none'], true)) {
+            $secure = $preset['smtp_secure'];
+        }
+        $popHost = post('pop_host') ?: $preset['pop_host'];
+        $popPort = (int) post('pop_port') ?: (int) $preset['pop_port'];
+        $imapHost = post('imap_host') ?: $preset['imap_host'];
+        $imapPort = (int) post('imap_port') ?: (int) $preset['imap_port'];
+        $stored = post('mail_password') !== '' ? mail_encrypt_secret(post('mail_password')) : null;
+        db_exec(
+            'UPDATE companies SET mail_provider=?, mail_email=?, mail_password=?, mail_from_name=?, smtp_host=?, smtp_port=?, smtp_secure=?, pop_host=?, pop_port=?, imap_host=?, imap_port=? WHERE id=?',
+            'sssssissisii',
+            [$provider, $mailEmail, $stored, $fromName, $host, $port, $secure, $popHost, $popPort, $imapHost, $imapPort, $cid]
+        );
+    }
+
+    db_exec(
+        'INSERT INTO branding (company_id, name, tagline, tin, vat_no, address, city, phone, email, website, bank_name, account_name, account_number, brand_color, brand_accent, brand_deep, logo_path, prefix, payment_note, invoice_comments, plan, currency)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'isssssssssssssssssssss',
+        [
+            $cid,
+            $name,
+            post('tagline'),
+            post('tin'),
+            post('vat_no'),
+            post('address'),
+            post('city'),
+            post('phone'),
+            $userEmail,
+            post('website'),
+            post('bank_name'),
+            $accountName,
+            post('account_number'),
+            $color,
+            $accent,
+            $deep,
+            '',
+            $prefix,
+            $paymentNote,
+            $comments,
+            'sme',
+            $currency,
+        ]
+    );
+
+    $logo = store_company_logo_upload($cid);
+    if (!empty($logo['path'])) {
+        db_exec('UPDATE branding SET logo_path=? WHERE company_id=?', 'si', [$logo['path'], $cid]);
+    } elseif (empty($logo['ok'])) {
+        return ['ok' => false, 'error' => (string) ($logo['error'] ?? 'Could not save the logo.'), 'id' => $cid];
+    }
+
+    $made = create_desk_user($cid, [
+        'name' => $userName,
+        'email' => $userEmail,
+        'password' => $password,
+        'job_title' => post('user_title') ?: 'Administrator',
+        'access' => 'admin',
+    ]);
+    if (empty($made['ok'])) {
+        return ['ok' => false, 'error' => (string) ($made['error'] ?? 'Could not create the desk login.'), 'id' => $cid];
+    }
+
+    if ($signupId) {
+        db_exec("UPDATE signups SET status = 'onboarded', company_id = ? WHERE id = ?", 'ii', [$cid, $signupId]);
+    }
+
+    return [
+        'ok' => true,
+        'id' => $cid,
+        'name' => $name,
+        'email' => $userEmail,
+        'password' => $made['password'] ?? $password,
+        'generated' => $generated,
+        'status' => $status,
+        'send_welcome' => post('send_welcome') !== '',
+    ];
+}
+
 function letter_template_defaults(): array
 {
     return [

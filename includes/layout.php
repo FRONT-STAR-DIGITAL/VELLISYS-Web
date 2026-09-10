@@ -182,7 +182,7 @@ function layout_admin_start(string $title, array $user): void
       <?php foreach ($nav as [$href, $label, $iconName]):
           $file = strtok($href, '?');
           $active = $file === $here
-              || ($here === 'admin_company.php' && $file === 'admin_companies.php')
+              || (in_array($here, ['admin_company.php', 'admin_company_new.php'], true) && $file === 'admin_companies.php')
               || ($here === 'admin_question.php' && $file === 'admin_questions.php');
           $count = 0;
           if ($file === 'admin_signups.php') {
@@ -207,7 +207,7 @@ function layout_admin_start(string $title, array $user): void
         <?php render_top_clock(); ?>
       </div>
       <div class="top-actions">
-        <a class="btn" href="<?= h(url('admin_companies.php?new=1')) ?>"><?= icon('plus', 16) ?>New company</a>
+        <a class="btn" href="<?= h(url('admin_company_new.php')) ?>"><?= icon('plus', 16) ?>New company</a>
       </div>
     </header>
     <?php if ($flash): ?>

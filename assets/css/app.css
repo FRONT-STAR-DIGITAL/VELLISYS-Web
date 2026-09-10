@@ -1510,6 +1510,8 @@ table.grid tfoot td {
 }
 .tut-help { padding: 18px 22px; }
 .tut-help h2 { margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
+.create-company .card-head { padding-left: 22px; padding-right: 22px; }
+.create-company .lede { max-width: none; }
 @media (prefers-reduced-motion: reduce) {
   .nav, .nav nav a, .nav nav a span, .brand-logo, .brand strong,
   .nav-user-name span, .nav-user-mail, .nav-user a span {

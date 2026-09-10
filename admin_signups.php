@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $action = post('action');
     if ($action === 'onboard') {
-        redirect('admin_companies.php?new=1&signup=' . $id);
+        redirect('admin_company_new.php?signup=' . $id);
     }
     if ($action === 'contacted') {
         db_exec("UPDATE signups SET status = 'contacted' WHERE id = ?", 'i', [$id]);
@@ -73,7 +73,7 @@ $rowActions = static function (array $s): void {
 <div class="page-head">
   <div>
     <h1><?= icon('letter') ?>Website sign-ups</h1>
-    <p class="lede">People register or request a quote from the website. Call them, then onboard the company and issue a desk login.</p>
+    <p class="lede">People register or request a quote from the website. Call them, then onboard the company - or create one from scratch under Companies.</p>
   </div>
 </div>
 

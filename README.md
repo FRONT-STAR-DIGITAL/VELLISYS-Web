@@ -35,6 +35,7 @@ Open the **landing page** at the site root. Companies **register** or **request 
 - Company reports with a time series, expense pie, debtors aging, collections vs outstanding, quote conversion, top clients, and documents issued over time
 - Super admin assigns each company a **Hostinger (or Titan) sending mailbox**. SMTP and POP/IMAP are prefilled. The company desk sends quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors, and custom mail from that address, with its logo on a white band, and cannot edit the password
 - Desk **Email** tab for custom letters; **Remind** on Debtors and **Message** on Creditors use the same mailbox
+- Super admin **Create company**: type a desk in by hand (login, stationery, documents, paid term, mailbox) without a website sign-up
 - Desk **Tutorials** (also from Clients) with a tour of the whole portal and screenshots
 - When a company is onboarded, `info@vellisys.com` sends a welcome letter and a short tutorial. The same mailbox confirms questions and registrations, notifies the admin of those events, marks desks live, and sends renewal reminders
 - Easy **register** form - no password to invent. Super admin sees each request, the person who registered gets a confirmation from `info@vellisys.com`, then an admin calls the company and creates the desk
