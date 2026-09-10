@@ -72,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <label class="gate-field" for="contact_phone">Phone
           <input id="contact_phone" name="contact_phone" type="tel" required autocomplete="tel" value="<?= h(post('contact_phone')) ?>" placeholder="+254 700 000 000">
         </label>
-        <button class="gate-submit" type="submit">Create Account <?= icon('arrow-right', 18) ?></button>
+        <button class="gate-submit" type="submit">Register <?= icon('arrow-right', 18) ?></button>
         <p class="gate-or"><span>or</span></p>
         <a class="gate-alt" href="<?= h(url('login.php')) ?>">Sign In</a>
         <?php render_gate_legal(); ?>

@@ -1198,21 +1198,12 @@ table.grid tfoot td {
   .app { flex-direction: column; }
   .nav-toggle { display: inline-flex; }
   .nav {
-    width: min(100%, 100vw);
-    max-width: 100%;
+    width: min(var(--open), 86vw);
     transform: translateX(-105%);
     box-shadow: none;
     border-right: 0;
     transition: transform .32s cubic-bezier(.22, 1, .36, 1), box-shadow .32s ease;
   }
-  .nav nav {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    padding: 8px 12px 16px;
-    overflow-x: hidden;
-  }
-  .nav-user { padding-left: 12px; padding-right: 12px; }
   .nav .brand-logo {
     width: auto;
     max-width: 148px;
@@ -1228,15 +1219,9 @@ table.grid tfoot td {
     max-width: none;
   }
   .nav nav a {
-    margin: 0;
-    padding: 10px 12px;
-    border-radius: 999px;
-    white-space: normal;
-    font-size: 12.5px;
-    line-height: 1.25;
-    gap: 8px;
-    min-height: 48px;
-    align-items: center;
+    margin: 2px 14px 2px 0;
+    padding: 10px 16px 10px 22px;
+    border-radius: 0 20px 20px 0;
   }
   .nav nav a[data-badge]::after { display: none; }
   .desk-body.nav-open .nav {

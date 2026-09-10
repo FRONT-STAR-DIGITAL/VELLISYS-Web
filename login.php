@@ -74,7 +74,7 @@ $showDemoKeys = !folio_is_live_host();
       </div>
       <button class="gate-submit" type="submit">Sign In <?= icon('arrow-right', 18) ?></button>
       <p class="gate-or"><span>or</span></p>
-      <a class="gate-alt" href="<?= h(url('register.php')) ?>">Create Account</a>
+      <a class="gate-alt" href="<?= h(url('register.php')) ?>">Register</a>
       <?php if ($showDemoKeys): ?>
       <details class="gate-keys">
         <summary>Try a desk</summary>

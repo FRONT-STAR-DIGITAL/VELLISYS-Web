@@ -381,6 +381,59 @@ function notify_visitor_question(array $q): void
     send_platform_email($to, $subject, $html, $text, 0, product_email());
 }
 
+function notify_password_reset_request(string $email): array
+{
+    $email = strtolower(trim($email));
+    $found = null;
+    try {
+        $found = db_one(
+            'SELECT u.id, u.name, u.email, u.role, u.company_id, c.name AS company_name, c.status AS company_status
+             FROM users u
+             LEFT JOIN companies c ON c.id = u.company_id
+             WHERE u.email = ?',
+            's',
+            [$email]
+        );
+    } catch (Throwable $e) {
+        $found = null;
+    }
+
+    $uid = $found ? (int) $found['id'] : 0;
+    $cid = $found ? (int) ($found['company_id'] ?? 0) : 0;
+    $role = $found ? (string) ($found['role'] ?? '') : '';
+    $who = $found ? (string) ($found['name'] ?? '') : '';
+    $company = $found ? trim((string) ($found['company_name'] ?? '')) : '';
+    $status = $found ? trim((string) ($found['company_status'] ?? '')) : '';
+    if ($found && $role === 'platform') {
+        $company = 'Vellisys platform';
+    }
+    $deskLink = $cid > 0 ? absolute_url('admin_company.php?id=' . $cid) : absolute_url('admin_companies.php');
+    $matchLine = $found
+        ? h($who !== '' ? $who : $email) . ' · ' . h($role !== '' ? $role : 'desk')
+        : 'No matching desk login';
+    $companyLine = $company !== ''
+        ? h($company) . ($status !== '' ? ' · ' . h($status) : '')
+        : ($found ? 'No company on this login' : 'Unknown');
+
+    $html = vellisys_email_wrap(
+        '<p style="margin:0 0 14px">Someone asked a Vellisys admin to send a reset password.</p>'
+        . '<p style="margin:0 0 8px"><strong>Personal email:</strong> ' . h($email) . '</p>'
+        . '<p style="margin:0 0 8px"><strong>Desk user:</strong> ' . $matchLine . '</p>'
+        . '<p style="margin:0 0 8px"><strong>Company:</strong> ' . $companyLine . '</p>'
+        . '<p style="margin:16px 0 0">Reset the password on the company page (People), then send it to this mailbox. Do not post the new password in a public place.</p>'
+        . '<p style="margin:16px 0 0"><a href="' . h($deskLink) . '" style="color:#1E4EFF">Open the company</a></p>',
+        'Password reset request'
+    );
+    $text = "Someone asked a Vellisys admin to send a reset password.\n\n"
+        . "Personal email: {$email}\n"
+        . 'Desk user: ' . ($found ? (($who !== '' ? $who : $email) . ' (' . $role . ')') : 'no matching desk login') . "\n"
+        . 'Company: ' . strip_tags($companyLine) . "\n\n"
+        . "Reset the password on the desk, then send it to this mailbox.\n"
+        . $deskLink;
+
+    return notify_platform('Password reset request: ' . $email, $html, $text, $email, $uid);
+}
+
 function notify_admin_order(array $order, string $event): void
 {
     $plan = function_exists('pricing_package') ? pricing_package((string) ($order['plan'] ?? '')) : null;
