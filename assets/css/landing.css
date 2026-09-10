@@ -1533,8 +1533,9 @@ img { max-width: 100%; }
   .lp-lead { font-size: 14.5px; }
   .lp-stage { padding: 12px 8px; border-radius: 18px; }
   .lp-board { padding: 12px 10px 12px; border-radius: 16px; }
-  .lp-pies { flex-direction: column; gap: 8px; margin-bottom: 10px; }
-  .lp-pies figure { padding: 8px 10px; }
+  .lp-pies { flex-direction: row; gap: 6px; margin-bottom: 10px; }
+  .lp-pies figure { padding: 6px 8px; gap: 6px; }
+  .lp-pie { width: 36px; height: 36px; }
   .lp-kpis { gap: 6px; }
   .lp-kpis li { padding: 8px 6px; }
   .lp-kpis b { font-size: 11.5px; }
