@@ -27,23 +27,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'sssssss',
             [$name, $company, $email, $phone, 'new', 'quote', $note]
         );
-        notify_admin_signup([
+        $signup = [
             'name' => $name,
             'company' => $company,
             'email' => $email,
             'phone' => $phone,
             'source' => 'quote',
             'note' => $note,
-        ]);
-        redirect('quote.php?ok=1');
+        ];
+        folio_redirect_then('quote.php?ok=1', static function () use ($signup): void {
+            notify_admin_signup($signup);
+        });
     }
 }
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-sw="<?= h(url('sw.js')) ?>" data-pwa-login="<?= h(url('login.php')) ?>">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Request a quote · <?= h(product_name()) ?></title>
   <?php product_icons(); ?>
   <?php folio_landing_head(); ?>
@@ -61,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
         <h2><em>We have</em> your quote request</h2>
         <p class="gate-lead">We sent a confirmation to your email from <?= h(product_email()) ?>. A Vellisys admin will reach out with a quote and onboard your company. No password yet - you get one when the company goes live.</p>
-        <a class="gate-submit" href="<?= h(url()) ?>">Back to Vellisys</a>
+        <a class="gate-submit" href="<?= h(url()) ?>" data-pwa-home="<?= h(url('login.php')) ?>">Back to Vellisys</a>
       </div>
     <?php else: ?>
       <form class="gate-box" method="post" action="<?= h(url('quote.php')) ?>" autocomplete="off">
@@ -93,6 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   </main>
 </div>
 <?php public_float_widgets(); ?>
-<script src="<?= h(asset('js/landing.js')) ?>"></script>
+<script src="<?= h(asset('js/landing.js')) ?>" defer></script>
+<script src="<?= h(asset('js/pwa.js')) ?>" defer></script>
 </body>
 </html>

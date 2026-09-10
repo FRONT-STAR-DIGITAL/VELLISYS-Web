@@ -608,24 +608,28 @@ function notify_visitor_order_paid(array $order, string $planName, string $amoun
 
 function notify_admin_signup(array $signup): void
 {
-    $isQuote = ($signup['source'] ?? '') === 'quote';
-    $note = trim((string) ($signup['note'] ?? ''));
-    $html = vellisys_email_wrap(
-        '<p style="margin:0 0 14px">' . ($isQuote ? 'A company asked for a Vellisys quote.' : 'A company asked for a Vellisys desk.') . '</p>'
-        . '<p style="margin:0 0 8px"><strong>Kind:</strong> ' . h(signup_source_label($signup['source'] ?? null)) . '</p>'
-        . '<p style="margin:0 0 8px"><strong>Contact:</strong> ' . h($signup['name'] ?? '') . '</p>'
-        . '<p style="margin:0 0 8px"><strong>Company:</strong> ' . h($signup['company'] ?? '') . '</p>'
-        . '<p style="margin:0 0 8px"><strong>Email:</strong> ' . h($signup['email'] ?? '') . '</p>'
-        . '<p style="margin:0 0 14px"><strong>Phone:</strong> ' . h($signup['phone'] ?? '') . '</p>'
-        . ($note !== ''
-            ? '<p style="margin:0 0 8px"><strong>Note</strong></p><p style="margin:0 0 14px;padding:14px;background:#FFFDF8;border:1px solid #08143A;color:#000000">' . nl2br(h($note)) . '</p>'
-            : '')
-        . '<p style="margin:0"><a href="' . h(absolute_url('admin_signups.php')) . '" style="color:#1E4EFF">Open sign-ups</a></p>'
-    );
-    $kind = $isQuote ? 'quote request' : 'sign-up';
-    $text = 'New ' . $kind . ': ' . ($signup['company'] ?? '') . ' / ' . ($signup['name'] ?? '') . ' / ' . ($signup['email'] ?? '') . ' / ' . ($signup['phone'] ?? '');
-    notify_platform('Vellisys ' . $kind . ': ' . ($signup['company'] ?? 'a company'), $html, $text, (string) ($signup['email'] ?? ''));
-    notify_visitor_signup($signup);
+    try {
+        $isQuote = ($signup['source'] ?? '') === 'quote';
+        $note = trim((string) ($signup['note'] ?? ''));
+        $html = vellisys_email_wrap(
+            '<p style="margin:0 0 14px">' . ($isQuote ? 'A company asked for a Vellisys quote.' : 'A company asked for a Vellisys desk.') . '</p>'
+            . '<p style="margin:0 0 8px"><strong>Kind:</strong> ' . h(signup_source_label($signup['source'] ?? null)) . '</p>'
+            . '<p style="margin:0 0 8px"><strong>Contact:</strong> ' . h($signup['name'] ?? '') . '</p>'
+            . '<p style="margin:0 0 8px"><strong>Company:</strong> ' . h($signup['company'] ?? '') . '</p>'
+            . '<p style="margin:0 0 8px"><strong>Email:</strong> ' . h($signup['email'] ?? '') . '</p>'
+            . '<p style="margin:0 0 14px"><strong>Phone:</strong> ' . h($signup['phone'] ?? '') . '</p>'
+            . ($note !== ''
+                ? '<p style="margin:0 0 8px"><strong>Note</strong></p><p style="margin:0 0 14px;padding:14px;background:#FFFDF8;border:1px solid #08143A;color:#000000">' . nl2br(h($note)) . '</p>'
+                : '')
+            . '<p style="margin:0"><a href="' . h(absolute_url('admin_signups.php')) . '" style="color:#1E4EFF">Open sign-ups</a></p>'
+        );
+        $kind = $isQuote ? 'quote request' : 'sign-up';
+        $text = 'New ' . $kind . ': ' . ($signup['company'] ?? '') . ' / ' . ($signup['name'] ?? '') . ' / ' . ($signup['email'] ?? '') . ' / ' . ($signup['phone'] ?? '');
+        notify_platform('Vellisys ' . $kind . ': ' . ($signup['company'] ?? 'a company'), $html, $text, (string) ($signup['email'] ?? ''));
+        notify_visitor_signup($signup);
+    } catch (Throwable $e) {
+        error_log('Vellisys signup mail: ' . $e->getMessage());
+    }
 }
 
 function notify_visitor_signup(array $signup): void

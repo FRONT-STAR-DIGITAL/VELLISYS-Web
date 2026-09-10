@@ -15,6 +15,11 @@ function folio_migrate(mysqli $db): void
     if ($done) {
         return;
     }
+    $verRow = @$db->query("SELECT v FROM schema_meta WHERE k='version'");
+    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 31) {
+        $done = true;
+        return;
+    }
     $tables = $db->query("SHOW TABLES LIKE 'users'");
     if (!$tables || $tables->num_rows === 0) {
         return;

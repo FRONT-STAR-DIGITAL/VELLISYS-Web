@@ -20,14 +20,13 @@ $adminPass = platform_admin_password();
 $showDemoKeys = !folio_is_live_host();
 ?>
 <!DOCTYPE html>
-<html lang="en" data-sw="<?= h(url('sw.js')) ?>">
+<html lang="en" data-sw="<?= h(url('sw.js')) ?>" data-pwa-login="<?= h(url('login.php')) ?>">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Sign in · <?= h(product_name()) ?></title>
   <?php product_icons(); ?>
   <?php folio_landing_head(); ?>
-  <?php folio_css_links(false); ?>
 </head>
 <body class="gate">
 <div class="gate-shell">
@@ -103,9 +102,9 @@ $showDemoKeys = !folio_is_live_host();
     </div>
   </main>
 </div>
-<script src="<?= h(asset('js/app.js')) ?>"></script>
+<script src="<?= h(asset('js/app.js')) ?>" defer></script>
 <?php public_float_widgets(); ?>
-<script src="<?= h(asset('js/landing.js')) ?>"></script>
-<script src="<?= h(asset('js/pwa.js')) ?>"></script>
+<script src="<?= h(asset('js/landing.js')) ?>" defer></script>
+<script src="<?= h(asset('js/pwa.js')) ?>" defer></script>
 </body>
 </html>

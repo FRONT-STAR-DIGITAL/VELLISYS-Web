@@ -72,13 +72,15 @@ $id = db_exec(
 
 $_SESSION['ask_hour_count'] = $sessionHits + 1;
 $_SESSION['ask_hour_at'] = $_SESSION['ask_hour_at'] ?? time();
+unset($_SESSION['ask_form_at'], $_SESSION['ask_draft']);
 
-notify_admin_question([
+$question = [
     'id' => $id,
     'name' => $name,
     'email' => $email,
     'phone' => $phone,
     'message' => $message,
-]);
-
-ask_done(true);
+];
+folio_redirect_then('?asked=1#ask', static function () use ($question): void {
+    notify_admin_question($question);
+});

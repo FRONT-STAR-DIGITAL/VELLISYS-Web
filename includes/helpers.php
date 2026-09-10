@@ -381,6 +381,33 @@ function redirect(string $path): never
     exit;
 }
 
+function folio_redirect_then(string $path, callable $after): never
+{
+    $location = preg_match('#^https?://#i', $path) ? $path : url($path);
+    session_write_close();
+    ignore_user_abort(true);
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    header('Location: ' . $location, true, 303);
+    header('Content-Length: 0');
+    header('Connection: close');
+    echo '';
+    if (function_exists('litespeed_finish_request')) {
+        litespeed_finish_request();
+    } elseif (function_exists('fastcgi_finish_request')) {
+        fastcgi_finish_request();
+    } else {
+        flush();
+    }
+    try {
+        $after();
+    } catch (Throwable $e) {
+        error_log('Vellisys after-redirect: ' . $e->getMessage());
+    }
+    exit;
+}
+
 function post(string $key, string $default = ''): string
 {
     return trim((string) ($_POST[$key] ?? $default));
@@ -1629,7 +1656,7 @@ function gate_art(string $heading, string $lead, string $switchHtml): void
 {
     ?>
     <aside class="gate-art">
-      <img class="gate-watermark" src="<?= h(asset('img/landing/nw.png')) ?>" alt="">
+      <img class="gate-watermark" src="<?= h(asset(is_file(ROOT_PATH . '/assets/img/landing/nw-sm.webp') ? 'img/landing/nw-sm.webp' : 'img/landing/nw.png')) ?>" alt="" decoding="async" fetchpriority="low">
       <div class="gate-art-inner">
         <a class="lp-brand" href="<?= h(url()) ?>">
           <img class="lp-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">

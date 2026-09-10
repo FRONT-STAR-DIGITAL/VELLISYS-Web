@@ -128,7 +128,7 @@ function smtp_send(array $account, string $to, string $subject, string $html, st
         return ['ok' => false, 'error' => 'Mailbox is not fully configured.'];
     }
 
-    $timeout = 20;
+    $timeout = 8;
     $remote = ($secure === 'ssl' ? 'ssl://' : 'tcp://') . $host . ':' . $port;
     $ctx = stream_context_create([
         'ssl' => [
