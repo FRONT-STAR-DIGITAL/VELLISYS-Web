@@ -620,12 +620,102 @@ function csrf_token(): string
     return $_SESSION['csrf'];
 }
 
+function csrf_valid(): bool
+{
+    $token = (string) ($_POST['csrf'] ?? '');
+    $expect = (string) ($_SESSION['csrf'] ?? '');
+    return $token !== '' && $expect !== '' && hash_equals($expect, $token);
+}
+
 function csrf_check(): void
 {
-    $ok = hash_equals($_SESSION['csrf'] ?? '', $_POST['csrf'] ?? '');
-    if (!$ok) {
+    if (!csrf_valid()) {
         http_response_code(400);
         exit('Invalid session. Refresh and try again.');
+    }
+}
+
+function record_website_signup(string $source, string $note = ''): array
+{
+    $name = post('contact_name');
+    $company = post('company_name');
+    $email = strtolower(post('contact_email'));
+    $phone = post('contact_phone');
+    $note = mb_substr($note, 0, 2000);
+    if ($name === '' || $company === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || $phone === '') {
+        return ['ok' => false, 'error' => 'Your name, company, email and phone are enough - please fill those in.'];
+    }
+    try {
+        if (db_one('SELECT id FROM users WHERE email = ?', 's', [$email])) {
+            return ['ok' => false, 'error' => 'That email already has a Vellisys login. Sign in, or use another mailbox.'];
+        }
+        if (db_one("SELECT id FROM signups WHERE email = ? AND status IN ('new','contacted')", 's', [$email])) {
+            return ['ok' => false, 'error' => 'We already have this request. A Vellisys admin will call you.'];
+        }
+        try {
+            if ($source === 'quote') {
+                db_exec(
+                    'INSERT INTO signups (name, company, email, phone, status, source, note) VALUES (?,?,?,?,?,?,?)',
+                    'sssssss',
+                    [$name, $company, $email, $phone, 'new', 'quote', $note]
+                );
+            } else {
+                db_exec(
+                    'INSERT INTO signups (name, company, email, phone, status, source) VALUES (?,?,?,?,?,?)',
+                    'ssssss',
+                    [$name, $company, $email, $phone, 'new', 'register']
+                );
+            }
+        } catch (Throwable $e) {
+            db_exec(
+                'INSERT INTO signups (name, company, email, phone, status) VALUES (?,?,?,?,?)',
+                'sssss',
+                [$name, $company, $email, $phone, 'new']
+            );
+        }
+    } catch (Throwable $e) {
+        error_log('Vellisys signup save: ' . $e->getMessage());
+        return ['ok' => false, 'error' => 'We could not save that just now. Please try again in a moment.'];
+    }
+    return [
+        'ok' => true,
+        'signup' => [
+            'name' => $name,
+            'company' => $company,
+            'email' => $email,
+            'phone' => $phone,
+            'source' => $source === 'quote' ? 'quote' : 'register',
+            'note' => $note,
+        ],
+    ];
+}
+
+function take_pending_signup_mail(): ?array
+{
+    $signup = $_SESSION['signup_notify'] ?? null;
+    unset($_SESSION['signup_notify']);
+    return is_array($signup) ? $signup : null;
+}
+
+function send_pending_signup_mail(?array $signup): void
+{
+    if ($signup === null) {
+        return;
+    }
+    session_write_close();
+    while (ob_get_level() > 0) {
+        ob_end_flush();
+    }
+    flush();
+    if (function_exists('litespeed_finish_request')) {
+        litespeed_finish_request();
+    } elseif (function_exists('fastcgi_finish_request')) {
+        fastcgi_finish_request();
+    }
+    try {
+        notify_admin_signup($signup);
+    } catch (Throwable $e) {
+        error_log('Vellisys signup mail: ' . $e->getMessage());
     }
 }
 

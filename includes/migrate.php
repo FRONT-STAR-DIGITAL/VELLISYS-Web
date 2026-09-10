@@ -5,7 +5,7 @@ function db_has_column(mysqli $db, string $table, string $column): bool
 {
     $t = $db->real_escape_string($table);
     $c = $db->real_escape_string($column);
-    $row = $db->query("SHOW COLUMNS FROM `$t` LIKE '$c'");
+    $row = @$db->query("SHOW COLUMNS FROM `$t` LIKE '$c'");
     return $row && $row->num_rows > 0;
 }
 
@@ -15,13 +15,18 @@ function folio_migrate(mysqli $db): void
     if ($done) {
         return;
     }
+    $tables = $db->query("SHOW TABLES LIKE 'users'");
+    if (!$tables || $tables->num_rows === 0) {
+        return;
+    }
+    try {
+        folio_ensure_public_tables($db);
+    } catch (Throwable $e) {
+        error_log('Vellisys public tables: ' . $e->getMessage());
+    }
     $verRow = @$db->query("SELECT v FROM schema_meta WHERE k='version'");
     if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 32) {
         $done = true;
-        return;
-    }
-    $tables = $db->query("SHOW TABLES LIKE 'users'");
-    if (!$tables || $tables->num_rows === 0) {
         return;
     }
 
@@ -282,6 +287,38 @@ function folio_migrate_landing_ticker(mysqli $db): void
         $stmt->execute();
         $stmt->close();
     }
+}
+
+function folio_ensure_public_tables(mysqli $db): void
+{
+    $db->query("CREATE TABLE IF NOT EXISTS signups (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(160) NOT NULL,
+      company VARCHAR(160) NOT NULL,
+      email VARCHAR(190) NOT NULL,
+      phone VARCHAR(40) NOT NULL DEFAULT '',
+      status ENUM('new','contacted','onboarded','declined') NOT NULL DEFAULT 'new',
+      source VARCHAR(20) NOT NULL DEFAULT 'register',
+      note TEXT NULL,
+      company_id INT UNSIGNED NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY status_created (status, created_at),
+      KEY email (email)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    folio_migrate_signup_source($db);
+
+    $db->query("CREATE TABLE IF NOT EXISTS questions (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(120) NOT NULL,
+      email VARCHAR(190) NOT NULL,
+      phone VARCHAR(40) NOT NULL DEFAULT '',
+      message TEXT NOT NULL,
+      ip_hash CHAR(64) NOT NULL DEFAULT '',
+      status ENUM('new','read','replied') NOT NULL DEFAULT 'new',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY status_created (status, created_at),
+      KEY email (email)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
 function folio_migrate_signup_source(mysqli $db): void

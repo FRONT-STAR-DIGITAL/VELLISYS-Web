@@ -1,11 +1,18 @@
 <?php
 declare(strict_types=1);
 
-session_start();
-date_default_timezone_set('Africa/Kampala');
-
 define('ROOT_PATH', dirname(__DIR__));
 require_once ROOT_PATH . '/config/env.php';
+
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path' => '/',
+    'secure' => folio_request_is_https(),
+    'httponly' => true,
+    'samesite' => 'Lax',
+]);
+session_start();
+date_default_timezone_set('Africa/Kampala');
 
 $scriptName = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/'));
 if ($scriptName === '/' || $scriptName === '\\') {

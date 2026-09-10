@@ -1,5 +1,5 @@
 /* Vellisys service worker: cache images/fonts/css only. Never intercept pages or form posts. */
-const CACHE = 'vellisys-shell-v3';
+const CACHE = 'vellisys-shell-v4';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

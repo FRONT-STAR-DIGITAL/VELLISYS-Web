@@ -7,37 +7,18 @@ if ($user = current_user()) {
 
 $error = '';
 $ok = isset($_GET['ok']);
+$pendingMail = $ok ? take_pending_signup_mail() : null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    csrf_check();
-    $name = post('contact_name');
-    $company = post('company_name');
-    $email = strtolower(post('contact_email'));
-    $phone = post('contact_phone');
-    $note = mb_substr(post('quote_note'), 0, 2000);
-    if ($name === '' || $company === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || $phone === '') {
-        $error = 'Your name, company, email and phone are enough - please fill those in.';
-    } elseif (db_one('SELECT id FROM users WHERE email = ?', 's', [$email])) {
-        $error = 'That email already has a Vellisys login. Sign in, or use another mailbox.';
-    } elseif (db_one("SELECT id FROM signups WHERE email = ? AND status IN ('new','contacted')", 's', [$email])) {
-        $error = 'We already have this request. A Vellisys admin will call you.';
+    if (!csrf_valid()) {
+        $error = 'Your session expired. Please submit the form again.';
     } else {
-        db_exec(
-            'INSERT INTO signups (name, company, email, phone, status, source, note) VALUES (?,?,?,?,?,?,?)',
-            'sssssss',
-            [$name, $company, $email, $phone, 'new', 'quote', $note]
-        );
-        $signup = [
-            'name' => $name,
-            'company' => $company,
-            'email' => $email,
-            'phone' => $phone,
-            'source' => 'quote',
-            'note' => $note,
-        ];
-        folio_redirect_then('quote.php?ok=1', static function () use ($signup): void {
-            notify_admin_signup($signup);
-        });
+        $made = record_website_signup('quote', post('quote_note'));
+        if (!empty($made['ok'])) {
+            $_SESSION['signup_notify'] = $made['signup'];
+            redirect('quote.php?ok=1');
+        }
+        $error = (string) ($made['error'] ?? 'We could not save that just now. Please try again in a moment.');
     }
 }
 ?>
@@ -99,3 +80,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <script src="<?= h(asset('js/pwa.js')) ?>" defer></script>
 </body>
 </html>
+<?php send_pending_signup_mail($pendingMail); ?>

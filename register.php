@@ -7,35 +7,18 @@ if ($user = current_user()) {
 
 $error = '';
 $ok = isset($_GET['ok']);
+$pendingMail = $ok ? take_pending_signup_mail() : null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    csrf_check();
-    $name = post('contact_name');
-    $company = post('company_name');
-    $email = strtolower(post('contact_email'));
-    $phone = post('contact_phone');
-    if ($name === '' || $company === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $error = 'Your name, company and a valid email are enough - please fill those in.';
-    } elseif (db_one('SELECT id FROM users WHERE email = ?', 's', [$email])) {
-        $error = 'That email already has a Vellisys login. Sign in, or use another mailbox.';
-    } elseif (db_one("SELECT id FROM signups WHERE email = ? AND status IN ('new','contacted')", 's', [$email])) {
-        $error = 'We already have this request. A Vellisys admin will call you.';
+    if (!csrf_valid()) {
+        $error = 'Your session expired. Please submit the form again.';
     } else {
-        db_exec(
-            'INSERT INTO signups (name, company, email, phone, status, source) VALUES (?,?,?,?,?,?)',
-            'ssssss',
-            [$name, $company, $email, $phone, 'new', 'register']
-        );
-        $signup = [
-            'name' => $name,
-            'company' => $company,
-            'email' => $email,
-            'phone' => $phone,
-            'source' => 'register',
-        ];
-        folio_redirect_then('register.php?ok=1', static function () use ($signup): void {
-            notify_admin_signup($signup);
-        });
+        $made = record_website_signup('register');
+        if (!empty($made['ok'])) {
+            $_SESSION['signup_notify'] = $made['signup'];
+            redirect('register.php?ok=1');
+        }
+        $error = (string) ($made['error'] ?? 'We could not save that just now. Please try again in a moment.');
     }
 }
 ?>
@@ -94,3 +77,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <script src="<?= h(asset('js/pwa.js')) ?>" defer></script>
 </body>
 </html>
+<?php send_pending_signup_mail($pendingMail); ?>
