@@ -71,6 +71,7 @@
     function showHome() {
       if (home) home.hidden = false;
       if (compose) compose.hidden = true;
+      if (text) text.value = '';
     }
 
     function closeDock() {
@@ -107,7 +108,10 @@
         if (label) label.textContent = agentName;
         if (home) home.hidden = true;
         if (compose) compose.hidden = false;
-        if (text) text.focus();
+        if (text) {
+          text.value = '';
+          text.focus();
+        }
       });
     });
     var back = wa.querySelector('[data-lp-wa-back]');
