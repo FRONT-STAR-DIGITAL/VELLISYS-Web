@@ -1782,6 +1782,13 @@ function render_gate_home(): void
     <?php
 }
 
+function render_gate_card_mark(): void
+{
+    ?>
+    <img class="gate-stack-mark" src="<?= h(product_v_mark_url()) ?>" alt="" decoding="async">
+    <?php
+}
+
 function gate_art(string $heading, string $lead, string $switchHtml = '', array $opts = []): void
 {
     $kicker = array_key_exists('kicker', $opts) ? (string) $opts['kicker'] : '';

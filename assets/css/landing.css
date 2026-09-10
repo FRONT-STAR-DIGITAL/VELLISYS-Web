@@ -1682,8 +1682,20 @@ body.gate-register .gate-art h1 em {
   box-shadow: 0 18px 50px rgba(8, 20, 58, .08);
   position: relative;
   z-index: 1;
+  overflow: hidden;
 }
-.gate-box { width: 100%; }
+.gate-stack-mark {
+  position: absolute;
+  right: -16%;
+  bottom: -22%;
+  width: min(78%, 280px);
+  height: auto;
+  opacity: .14;
+  pointer-events: none;
+  z-index: 0;
+  object-fit: contain;
+}
+.gate-box { width: 100%; position: relative; z-index: 1; }
 .gate-logo {
   display: block;
   height: 40px;
@@ -1996,8 +2008,11 @@ html.is-pwa .gate-home {
     min-height: 100vh;
     min-height: 100dvh;
     padding: max(18px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(28px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
-    align-items: stretch;
-    justify-content: flex-start;
+    overflow-x: hidden;
+    overflow-y: auto;
+    align-items: center;
+    justify-content: center;
+    justify-content: safe center;
   }
   .gate-panel-mark {
     right: -22%;
@@ -2009,12 +2024,11 @@ html.is-pwa .gate-home {
     z-index: 0;
   }
   .gate-home {
-    position: relative;
-    top: auto;
-    left: auto;
-    width: 100%;
-    max-width: 420px;
-    margin: 0 auto 18px;
+    position: absolute;
+    top: max(16px, env(safe-area-inset-top));
+    left: max(20px, env(safe-area-inset-left));
+    width: auto;
+    margin: 0;
   }
   .gate-home a { color: #fff; }
   .gate-home a:hover { color: #dce5ff; }
@@ -2026,6 +2040,13 @@ html.is-pwa .gate-home {
     box-shadow: 0 22px 50px rgba(0, 0, 0, .22);
     border-radius: 22px;
     padding: 28px 22px 22px;
+    flex-shrink: 0;
+  }
+  .gate-stack-mark {
+    width: min(92%, 300px);
+    right: -14%;
+    bottom: -18%;
+    opacity: .18;
   }
   .gate-box { width: 100%; max-width: none; margin: 0; }
   .gate-logo {
@@ -2037,8 +2058,12 @@ html.is-pwa .gate-home {
   .gate-lead { font-size: 13.5px; margin-bottom: 16px; }
   .gate-submit, .gate-alt { width: 100%; }
   .gate-install {
-    width: min(420px, 100%);
-    margin: 18px auto 0;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: max(12px, env(safe-area-inset-bottom));
+    width: min(420px, calc(100% - 40px));
+    margin: 0;
     padding: 4px 4px 0;
   }
   .gate-install-kicker { color: #9db4ff; }

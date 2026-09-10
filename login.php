@@ -45,6 +45,7 @@ $showDemoKeys = !folio_is_live_host();
     <img class="gate-panel-mark" src="<?= h(product_v_mark_url()) ?>" alt="" decoding="async">
     <?php render_gate_home(); ?>
     <div class="gate-stack">
+    <?php render_gate_card_mark(); ?>
     <form class="gate-box" method="post" action="<?= h(url('login.php')) ?>">
       <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
       <h2>Welcome back</h2>
