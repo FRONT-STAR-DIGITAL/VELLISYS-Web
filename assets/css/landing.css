@@ -676,6 +676,7 @@ a { color: inherit; }
 }
 .lp-world .lp-cta { justify-content: center; }
 .lp-world .lp-btn-ghost {
+  background: transparent;
   border-color: #fff;
   color: #fff;
 }
