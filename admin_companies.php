@@ -29,7 +29,7 @@ $pref = static function (string $key, string $fallback = '') use ($signup): stri
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'create') {
     csrf_check();
     $name = post('name');
-    $currency = strtoupper(post('currency') ?: 'UGX') === 'USD' ? 'USD' : 'UGX';
+    $currency = posted_currency('currency', 'USD');
     $userName = post('user_name');
     $userEmail = strtolower(post('user_email'));
     $password = post('user_password') ?: 'folio2026';
@@ -60,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'create') {
                 post('tin'),
                 post('vat_no'),
                 post('address'),
-                post('city') ?: 'Kampala, Uganda',
+                post('city'),
                 post('phone'),
                 $userEmail,
                 post('website'),
@@ -135,11 +135,8 @@ layout_admin_start('Companies', $user);
     </div>
     <div>
       <label for="currency">Currency</label>
-      <select id="currency" name="currency">
-        <?php foreach (currencies() as $code => $label): ?>
-          <option value="<?= h($code) ?>" <?= (post('currency') ?: 'UGX') === $code ? 'selected' : '' ?>><?= h($label) ?></option>
-        <?php endforeach; ?>
-      </select>
+      <?php currency_field('currency', 'currency', post('currency') ?: 'USD'); ?>
+      <p class="hint">The company types their billing currency later if this is wrong - UGX, KES, EUR, USD…</p>
     </div>
     <div>
       <label for="user_name">First user</label>
@@ -188,7 +185,7 @@ layout_admin_start('Companies', $user);
     </div>
     <div>
       <label for="city">City</label>
-      <input id="city" name="city" value="<?= h(post('city') ?: 'Kampala, Uganda') ?>">
+      <input id="city" name="city" value="<?= h(post('city') ?: $pref('city')) ?>" placeholder="City">
     </div>
   </div>
   <label for="address">Address</label>

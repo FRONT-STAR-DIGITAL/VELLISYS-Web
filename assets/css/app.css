@@ -482,6 +482,13 @@ form.actions, td form { display: inline; margin: 0; }
 .fx-row { display: flex; align-items: center; gap: 8px; }
 .fx-row input { flex: 1; min-width: 0; }
 .fx-row span { font-weight: 700; color: var(--muted); }
+.currency-code {
+  width: 7.5rem;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  font-weight: 700;
+  font-family: var(--mono);
+}
 .qty-wrap {
   display: flex;
   align-items: stretch;

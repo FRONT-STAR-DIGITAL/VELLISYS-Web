@@ -74,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     strtoupper(post('prefix') ?: prefix_from_name($company['name'])),
                     post('payment_note'),
                     post('invoice_comments'),
-                    strtoupper(post('currency') ?: 'UGX') === 'USD' ? 'USD' : 'UGX',
+                    posted_currency('currency', 'UGX'),
                     parse_fx_rate(post('fx_ugx_per_usd')),
                     $id,
                 ]
@@ -198,7 +198,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $feeAmount = money_parse(post('fee_amount'));
         $paidRaw = str_replace([',', ' '], '', post('fee_paid'));
         $feePaid = $paidRaw === '' ? $feeAmount : money_parse($paidRaw);
-        $feeCurrency = strtoupper(post('fee_currency')) === 'USD' ? 'USD' : 'UGX';
+        $feeCurrency = posted_currency('fee_currency', 'USD');
         if (!$expires) {
             $error = 'Could not calculate the expiry date. Check the start date and term.';
         } else {
@@ -327,11 +327,7 @@ layout_admin_start($company['name'], $user);
     </div>
     <div>
       <label for="fee_currency">Fee currency</label>
-      <select id="fee_currency" name="fee_currency">
-        <?php foreach (currencies() as $code => $label): ?>
-          <option value="<?= h($code) ?>" <?= company_fee_currency($company) === $code ? 'selected' : '' ?>><?= h($label) ?></option>
-        <?php endforeach; ?>
-      </select>
+      <?php currency_field('fee_currency', 'fee_currency', company_fee_currency($company)); ?>
     </div>
   </div>
   <div style="padding:0 22px 22px">
@@ -466,17 +462,13 @@ layout_admin_start($company['name'], $user);
     </div>
     <div>
       <label for="currency">Currency</label>
-      <select id="currency" name="currency">
-        <?php foreach (currencies() as $code => $label): ?>
-          <option value="<?= h($code) ?>" <?= ($brand['currency'] ?? 'UGX') === $code ? 'selected' : '' ?>><?= h($label) ?></option>
-        <?php endforeach; ?>
-      </select>
+      <?php currency_field('currency', 'currency', (string) ($brand['currency'] ?? 'UGX'), ['data-fx-home-input' => true]); ?>
     </div>
     <div>
       <label for="fx_ugx_per_usd">1 USD equals</label>
       <div class="fx-row">
-        <input id="fx_ugx_per_usd" name="fx_ugx_per_usd" inputmode="decimal" value="<?= h(rtrim(rtrim(number_format((float) ($brand['fx_ugx_per_usd'] ?? 3700), 4, '.', ''), '0'), '.')) ?>">
-        <span>UGX</span>
+        <input id="fx_ugx_per_usd" name="fx_ugx_per_usd" inputmode="decimal" value="<?= h(rtrim(rtrim(number_format((float) ($brand['fx_ugx_per_usd'] ?? 1), 4, '.', ''), '0'), '.')) ?>">
+        <span data-fx-home-label><?= h(normalize_currency((string) ($brand['currency'] ?? 'UGX'), 'UGX')) ?></span>
       </div>
     </div>
     <div>

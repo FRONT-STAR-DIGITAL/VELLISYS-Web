@@ -1,6 +1,6 @@
 # Vellisys
 
-Branded books for Ugandan SMEs - quotations, invoices, receipts, expenses and headed correspondence in the company's own logo and colour. One desk, everything included.
+Branded books for companies anywhere in the world - quotations, invoices, receipts, expenses and headed correspondence in the company's own logo, colour and currency. One desk, everything included.
 
 This is a **PHP + MySQL** desk meant to run on **XAMPP**. There is no Node or Next.js. Copy the folder, start Apache and MySQL, open the installer.
 
@@ -25,7 +25,7 @@ Open the **landing page** at the site root. Companies **register** in a few fiel
 - Super admin **Email** tab: send a custom Vellisys letter from `info@vellisys.com`
 - Super admin **Reports**: fees collected and balances per client, unused term value, desk collections vs outstanding, onboarding and expiry charts, sign-up funnel, time series of platform books, plus paid terms, desks due within a month, lapsed desks, and one-click renewal letters
 - On each company, super admin sets how many **months or years** the client has paid for, the **fee** and **amount paid**, and expiry is calculated from the start date. When a desk is one month from expiry, Reports prepares a professional notice to send
-- Company desk **top bar** shows Kampala date and live time, how much of the paid term is left (days and months), and the expiry date
+- Company desk **top bar** shows live date and time, how much of the paid term is left (days and months), and the expiry date
 - Company reports with a time series, expense pie, debtors aging, collections vs outstanding, quote conversion, top clients, and documents issued over time
 - Super admin assigns each company a **Hostinger (or Titan) sending mailbox**. SMTP and POP/IMAP are prefilled. The company desk sends quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors, and custom mail from that address, with its logo on a white band, and cannot edit the password
 - Desk **Email** tab for custom letters; **Remind** on Debtors and **Message** on Creditors use the same mailbox
@@ -33,7 +33,7 @@ Open the **landing page** at the site root. Companies **register** in a few fiel
 - When a company is onboarded, `info@vellisys.com` sends a welcome letter and a short tutorial. The same mailbox confirms questions and registrations, notifies the admin of those events, marks desks live, and sends renewal reminders
 - Easy **register** form - no password to invent. Super admin sees each request, the person who registered gets a confirmation from `info@vellisys.com`, then an admin calls the company and creates the desk
 - Sign-in with a **show password** control
-- **UGX or USD** on each document, converted at a rate you enter in Settings (1 USD = n UGX)
+- **Any currency** on the desk - the company enters UGX, KES, EUR, USD or another three-letter code in Settings. Documents can also be in USD; the rate is 1 USD = n of the home currency
 - **One document design** for the whole desk - the layout you pick in Settings prints on every invoice, quotation, receipt, expense and headed note
 - **Three brand colours** (primary, accent, deep) that paint the desk and every document design
 - **CSV export** on invoices, quotations, receipts, expenses, correspondence, debtors, creditors, clients, reports, and on a single document's lines

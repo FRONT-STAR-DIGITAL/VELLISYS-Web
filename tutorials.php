@@ -60,7 +60,7 @@ $lessons = [
         'alt' => 'A branded invoice with totals and payment details',
         'lead' => 'Invoices are what you are owed. Due dates feed Debtors. Part payments stay honest.',
         'points' => [
-            'Issue in UGX or USD. The rate lives in Settings (1 USD = n UGX) so reports can add them up.',
+            'Issue in your currency, or in USD. The rate lives in Settings (1 USD = n of your currency) so reports can add them up.',
             'Print, share a link, or email the sheet. The letterhead is yours: logo, three colours, bank details, TIN.',
             'Record a receipt against the invoice when money lands. The balance drops. Full or part - both work.',
         ],
@@ -122,7 +122,7 @@ $lessons = [
         'title' => 'Settings and brand',
         'file' => 'settings.png',
         'alt' => 'Settings with logo upload and three brand colours',
-        'lead' => 'Logo, three colours, TIN, bank, document prefix, and the UGX/USD rate. One design prints on every sheet.',
+        'lead' => 'Logo, three colours, TIN, bank, document prefix, and the currency you bill in. One design prints on every sheet.',
         'points' => [
             'Primary paints the desk. Accent and deep colour the document designs.',
             'The sending mailbox is assigned by Vellisys. You can see the address. You cannot change the password. That keeps invoices leaving as the company, not as whoever last signed in.',

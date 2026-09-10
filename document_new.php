@@ -151,7 +151,7 @@ layout_start($heading, $user, ['kind' => $kind]);
   </div>
 </div>
 
-<form class="card form-wide" method="post" <?= $kind === 'letter' ? 'data-letter-templates' : '' ?> <?= $kind === 'receipt' ? 'data-receipt-form' : '' ?> data-fx-form>
+<form class="card form-wide" method="post" <?= $kind === 'letter' ? 'data-letter-templates' : '' ?> <?= $kind === 'receipt' ? 'data-receipt-form' : '' ?> data-fx-form data-fx-home="<?= h(default_currency()) ?>">
   <?= csrf_field() ?>
   <input type="hidden" name="kind" value="<?= h($kind) ?>">
   <?php if ($existing): ?>
@@ -209,20 +209,16 @@ layout_start($heading, $user, ['kind' => $kind]);
     <?php if ($kind !== 'letter'): ?>
       <div>
         <label for="currency">Currency</label>
-        <select id="currency" name="currency" data-fx-currency="<?= h($docCurrency) ?>">
-          <?php foreach (currencies() as $code => $label): ?>
-            <option value="<?= h($code) ?>" <?= $docCurrency === $code ? 'selected' : '' ?>><?= h($label) ?></option>
-          <?php endforeach; ?>
-        </select>
+        <?php currency_field('currency', 'currency', $docCurrency, ['data-fx-currency' => $docCurrency]); ?>
         <p class="hint" data-fx-preview></p>
       </div>
       <div>
         <label for="fx_ugx_per_usd">1 USD equals</label>
         <div class="fx-row">
-          <input id="fx_ugx_per_usd" name="fx_ugx_per_usd" data-fx-rate inputmode="decimal" value="<?= h(rtrim(rtrim(number_format(fx_ugx_per_usd(), 4, '.', ''), '0'), '.')) ?>">
-          <span>UGX</span>
+          <input id="fx_ugx_per_usd" name="fx_ugx_per_usd" data-fx-rate inputmode="decimal" value="<?= h(rtrim(rtrim(number_format(fx_home_per_usd(), 4, '.', ''), '0'), '.')) ?>">
+          <span data-fx-home-label><?= h(default_currency()) ?></span>
         </div>
-        <p class="hint">Switching UGX and USD converts unit prices and totals at this rate, on every document.</p>
+        <p class="hint">USD converts into <?= h(default_currency()) ?> at this rate. Other currencies stay as entered.</p>
       </div>
     <?php endif; ?>
     <div>

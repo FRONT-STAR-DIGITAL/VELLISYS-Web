@@ -49,8 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body class="gate">
 <div class="gate-shell">
   <?php gate_art(
-      'A desk for the company. Live in a few steps.',
-      'Leave four fields. We call you. Then quotations, invoices and receipts sit on one desk you can open from anywhere.',
+      'A desk for the company. Live from anywhere.',
+      'Anywhere in the world: register, request a quote, get onboarded. Then quotations, invoices and receipts sit on one desk you can open from anywhere.',
       'Already a member? <a href="' . h(url('login.php')) . '">Log in</a>'
   ); ?>
   <main class="gate-panel">
@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?= csrf_field() ?>
         <img class="gate-logo" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
         <h2><em>Sign up</em> to get a company desk</h2>
-        <p class="gate-lead">Four fields. We call you. Then the books are yours.</p>
+        <p class="gate-lead">Anywhere in the world. Four fields. We send a quote, then we onboard you.</p>
         <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
         <label class="gate-field" for="contact_name">Your name
           <input id="contact_name" name="contact_name" required autocomplete="name" value="<?= h(post('contact_name')) ?>" placeholder="Jane Okello">
@@ -75,10 +75,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <input id="company_name" name="company_name" required autocomplete="organization" value="<?= h(post('company_name')) ?>" placeholder="Okello Traders Ltd">
         </label>
         <label class="gate-field" for="contact_email">Email
-          <input id="contact_email" name="contact_email" type="email" required autocomplete="email" value="<?= h(post('contact_email')) ?>" placeholder="accounts@company.ug">
+          <input id="contact_email" name="contact_email" type="email" required autocomplete="email" value="<?= h(post('contact_email')) ?>" placeholder="accounts@company.com">
         </label>
         <label class="gate-field" for="contact_phone">Phone
-          <input id="contact_phone" name="contact_phone" type="tel" required autocomplete="tel" value="<?= h(post('contact_phone')) ?>" placeholder="+256 700 000 000">
+          <input id="contact_phone" name="contact_phone" type="tel" required autocomplete="tel" value="<?= h(post('contact_phone')) ?>" placeholder="+254 700 000 000">
         </label>
         <button class="gate-submit" type="submit">Register</button>
         <p class="gate-switch">Already a member? <a href="<?= h(url('login.php')) ?>">Log in</a></p>

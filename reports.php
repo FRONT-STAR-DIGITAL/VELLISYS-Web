@@ -188,7 +188,7 @@ layout_start('Reports', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('reports') ?>Reports</h1>
-    <p class="lede">Time series, collections, clients, quotes and aging - for the dates you pick. Mixed UGX and USD are converted at <?= h(number_format(fx_ugx_per_usd(), fx_ugx_per_usd() == floor(fx_ugx_per_usd()) ? 0 : 2, '.', ',')) ?> UGX / USD.</p>
+    <p class="lede">Time series, collections, clients, quotes and aging - for the dates you pick. Mixed currencies convert at <?= h(fx_rate_label()) ?>.</p>
   </div>
   <a class="btn ghost" href="<?= h(export_query('reports')) ?>"><?= icon('download', 16) ?>Export CSV</a>
 </div>
@@ -385,7 +385,7 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
   var brand = d.color || "#82B440";
   Chart.defaults.font.family = "Montserrat, sans-serif";
   Chart.defaults.color = "#66705f";
-  function money(v){ return (d.currency || "UGX") + " " + Number(v).toLocaleString("en-UG"); }
+  function money(v){ return (d.currency || "USD") + " " + Number(v).toLocaleString("en-US"); }
   var palette = ["#82B440","#1f3a12","#c4a35a","#4a6fa5","#b42318","#6b7c5e","#8d6e63","#546e7a"];
   var line = document.getElementById("chart-series");
   if (line) {

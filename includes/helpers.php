@@ -6,60 +6,106 @@ function h(?string $value): string
     return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 }
 
+function normalize_currency(string $code, ?string $fallback = null): string
+{
+    $code = strtoupper(preg_replace('/[^A-Za-z]/', '', $code) ?? '');
+    if (strlen($code) === 3) {
+        return $code;
+    }
+    $fallback = strtoupper(preg_replace('/[^A-Za-z]/', '', (string) $fallback) ?? '');
+    return strlen($fallback) === 3 ? $fallback : 'USD';
+}
+
+function posted_currency(string $key, ?string $fallback = null): string
+{
+    return normalize_currency(post($key), $fallback);
+}
+
+function currency_decimals(string $currency): int
+{
+    $currency = normalize_currency($currency, 'USD');
+    $zero = ['BIF', 'CLP', 'DJF', 'GNF', 'ISK', 'JPY', 'KMF', 'KRW', 'PYG', 'RWF', 'UGX', 'VND', 'VUV', 'XAF', 'XOF', 'XPF'];
+    return in_array($currency, $zero, true) ? 0 : 2;
+}
+
 function money($amount, ?string $currency = null): string
 {
-    $currency = strtoupper($currency ?: default_currency());
+    $currency = normalize_currency((string) ($currency ?: default_currency()), default_currency());
     $n = (float) $amount;
-    if ($currency === 'USD') {
-        return 'USD ' . number_format($n, 2, '.', ',');
+    $dec = currency_decimals($currency);
+    if ($dec === 0 && $n != floor($n)) {
+        $dec = 2;
     }
-    return 'UGX ' . number_format($n, $n == floor($n) ? 0 : 2, '.', ',');
+    return $currency . ' ' . number_format($n, $dec, '.', ',');
 }
 
 function fx_ugx_per_usd(): float
 {
-    $n = (float) (branding()['fx_ugx_per_usd'] ?? 3700);
-    return $n > 0 ? $n : 3700.0;
+    $n = (float) (branding()['fx_ugx_per_usd'] ?? 1);
+    return $n > 0 ? $n : 1.0;
+}
+
+function fx_home_per_usd(?array $brand = null): float
+{
+    if ($brand) {
+        $n = (float) ($brand['fx_ugx_per_usd'] ?? 0);
+        return $n > 0 ? $n : 1.0;
+    }
+    return fx_ugx_per_usd();
+}
+
+function fx_rate_label(?float $rate = null, ?string $home = null): string
+{
+    $rate = $rate ?? fx_home_per_usd();
+    $home = normalize_currency((string) ($home ?: default_currency()), 'USD');
+    $dec = $rate == floor($rate) ? 0 : 2;
+    return number_format($rate, $dec, '.', ',') . ' ' . $home . ' / USD';
 }
 
 function parse_fx_rate(string $raw): float
 {
     $n = money_parse($raw);
-    return $n > 0 ? $n : fx_ugx_per_usd();
+    return $n > 0 ? $n : fx_home_per_usd();
 }
 
-function other_currency(string $currency): string
+function other_currency(string $currency, ?string $home = null): string
 {
-    return strtoupper($currency) === 'USD' ? 'UGX' : 'USD';
+    $home = normalize_currency((string) ($home ?: default_currency()), 'USD');
+    $currency = normalize_currency($currency, $home);
+    return $currency === 'USD' ? $home : 'USD';
 }
 
 function round_money(float $amount, string $currency): float
 {
-    return strtoupper($currency) === 'USD' ? round($amount, 2) : round($amount, 0);
+    $dec = currency_decimals($currency);
+    return round($amount, $dec);
 }
 
-function convert_money(float $amount, string $from, string $to, ?float $rate = null): float
+function convert_money(float $amount, string $from, string $to, ?float $rate = null, ?string $home = null): float
 {
-    $from = strtoupper($from) === 'USD' ? 'USD' : 'UGX';
-    $to = strtoupper($to) === 'USD' ? 'USD' : 'UGX';
+    $home = normalize_currency((string) ($home ?: default_currency()), 'USD');
+    $from = normalize_currency($from, $home);
+    $to = normalize_currency($to, $home);
     if ($from === $to) {
         return round_money($amount, $to);
     }
-    $rate = $rate ?? fx_ugx_per_usd();
+    $rate = $rate ?? fx_home_per_usd();
     if ($rate <= 0) {
-        $rate = 3700.0;
+        $rate = 1.0;
     }
-    if ($from === 'USD') {
-        return round_money($amount * $rate, 'UGX');
+    $usd = $from === 'USD' ? $amount : $amount / $rate;
+    if ($to === 'USD') {
+        return round_money($usd, 'USD');
     }
-    return round_money($amount / $rate, 'USD');
+    return round_money($usd * $rate, $to);
 }
 
-function money_pair($amount, string $currency, ?float $rate = null): string
+function money_pair($amount, string $currency, ?float $rate = null, ?string $home = null): string
 {
-    $currency = strtoupper($currency) === 'USD' ? 'USD' : 'UGX';
-    $alt = other_currency($currency);
-    return money($amount, $currency) . ' · ' . money(convert_money((float) $amount, $currency, $alt, $rate), $alt);
+    $home = normalize_currency((string) ($home ?: default_currency()), 'USD');
+    $currency = normalize_currency($currency, $home);
+    $alt = other_currency($currency, $home);
+    return money($amount, $currency) . ' · ' . money(convert_money((float) $amount, $currency, $alt, $rate, $home), $alt);
 }
 
 function apply_company_doc_template(string $key): void
@@ -88,15 +134,13 @@ function ugx($amount, ?string $currency = null): string
 
 function default_currency(): string
 {
-    $c = strtoupper((string) (branding()['currency'] ?? 'UGX'));
-    return $c === 'USD' ? 'USD' : 'UGX';
+    return normalize_currency((string) (branding()['currency'] ?? ''), 'UGX');
 }
 
 function doc_currency(?array $doc = null): string
 {
     if ($doc && !empty($doc['currency'])) {
-        $c = strtoupper((string) $doc['currency']);
-        return $c === 'USD' ? 'USD' : 'UGX';
+        return normalize_currency((string) $doc['currency'], default_currency());
     }
     return default_currency();
 }
@@ -121,7 +165,95 @@ function format_qty($qty): string
 
 function currencies(): array
 {
-    return ['UGX' => 'UGX - Uganda shilling', 'USD' => 'USD - US dollar'];
+    return [
+        'USD' => 'US dollar',
+        'EUR' => 'Euro',
+        'GBP' => 'Pound sterling',
+        'KES' => 'Kenyan shilling',
+        'UGX' => 'Ugandan shilling',
+        'TZS' => 'Tanzanian shilling',
+        'RWF' => 'Rwandan franc',
+        'NGN' => 'Nigerian naira',
+        'GHS' => 'Ghanaian cedi',
+        'ZAR' => 'South African rand',
+        'AED' => 'UAE dirham',
+        'SAR' => 'Saudi riyal',
+        'INR' => 'Indian rupee',
+        'CAD' => 'Canadian dollar',
+        'AUD' => 'Australian dollar',
+        'CHF' => 'Swiss franc',
+        'JPY' => 'Japanese yen',
+        'CNY' => 'Chinese yuan',
+        'SGD' => 'Singapore dollar',
+        'HKD' => 'Hong Kong dollar',
+        'NZD' => 'New Zealand dollar',
+        'SEK' => 'Swedish krona',
+        'NOK' => 'Norwegian krone',
+        'DKK' => 'Danish krone',
+        'PLN' => 'Polish zloty',
+        'BRL' => 'Brazilian real',
+        'MXN' => 'Mexican peso',
+        'EGP' => 'Egyptian pound',
+        'MAD' => 'Moroccan dirham',
+        'ZMW' => 'Zambian kwacha',
+        'MWK' => 'Malawian kwacha',
+        'BWP' => 'Botswana pula',
+        'NAD' => 'Namibian dollar',
+        'MUR' => 'Mauritian rupee',
+        'ETB' => 'Ethiopian birr',
+        'XOF' => 'West African CFA franc',
+        'XAF' => 'Central African CFA franc',
+    ];
+}
+
+function currency_field(string $id, string $name, string $value, array $attrs = []): void
+{
+    static $list = false;
+    $value = normalize_currency($value, 'USD');
+    $extra = '';
+    foreach ($attrs as $k => $v) {
+        if ($v === true) {
+            $extra .= ' ' . $k;
+        } elseif ($v !== false && $v !== null && $v !== '') {
+            $extra .= ' ' . $k . '="' . h((string) $v) . '"';
+        }
+    }
+    if (!$list) {
+        $list = true;
+        echo '<datalist id="currency-codes">';
+        foreach (currencies() as $code => $label) {
+            echo '<option value="' . h($code) . '">' . h($label) . '</option>';
+        }
+        echo '</datalist>';
+    }
+    echo '<input class="currency-code" id="' . h($id) . '" name="' . h($name) . '" list="currency-codes" maxlength="3" spellcheck="false" autocomplete="off" value="' . h($value) . '" placeholder="KES"' . $extra . '>';
+}
+
+function currency_unit_name(string $currency): string
+{
+    $currency = normalize_currency($currency, 'USD');
+    $names = [
+        'USD' => 'dollars',
+        'EUR' => 'euros',
+        'GBP' => 'pounds',
+        'KES' => 'Kenya shillings',
+        'UGX' => 'Uganda shillings',
+        'TZS' => 'Tanzania shillings',
+        'RWF' => 'Rwanda francs',
+        'NGN' => 'naira',
+        'GHS' => 'cedis',
+        'ZAR' => 'rand',
+        'AED' => 'dirhams',
+        'INR' => 'rupees',
+        'JPY' => 'yen',
+        'CHF' => 'francs',
+        'CAD' => 'Canadian dollars',
+        'AUD' => 'Australian dollars',
+        'CNY' => 'yuan',
+        'XOF' => 'CFA francs',
+        'XAF' => 'CFA francs',
+    ];
+    return $names[$currency] ?? strtolower($currency);
 }
 
 function doc_templates(): array
@@ -213,11 +345,11 @@ function number_to_words(int $n): string
 
 function amount_in_words($amount, ?string $currency = null): string
 {
-    $currency = strtoupper($currency ?: default_currency());
+    $currency = normalize_currency((string) ($currency ?: default_currency()), default_currency());
     $n = round(abs((float) $amount), 2);
     $whole = (int) floor($n);
     $frac = (int) round(($n - $whole) * 100);
-    $unit = $currency === 'USD' ? 'dollars' : 'shillings';
+    $unit = currency_unit_name($currency);
     $out = ucfirst(number_to_words($whole)) . ' ' . $unit;
     if ($frac > 0) {
         $out .= ' and ' . number_to_words($frac) . ' cents';
@@ -971,7 +1103,7 @@ function public_footer(): void
     <div class="lp-foot-grid">
       <div class="lp-foot-brand">
         <img class="lp-logo lp-logo-on-dark" src="<?= h(product_logo_url()) ?>" alt="<?= h(product_name()) ?>">
-        <p>Books you can share in one click - branded to each client, with many templates to choose from. A product of <?= h(product_maker_name()) ?>.</p>
+        <p>Books you can share in one click - branded to each client, in their currency, with many templates to choose from. Anywhere in the world. A product of <?= h(product_maker_name()) ?>.</p>
       </div>
       <div>
         <h3>Talk to us</h3>
@@ -1183,8 +1315,7 @@ function company_expiry_date_label(array $company): string
 
 function company_fee_currency(array $company): string
 {
-    $cur = strtoupper(trim((string) ($company['fee_currency'] ?? 'UGX')));
-    return $cur === 'USD' ? 'USD' : 'UGX';
+    return normalize_currency((string) ($company['fee_currency'] ?? ''), 'USD');
 }
 
 function company_fee_amount(array $company): float
@@ -1232,6 +1363,14 @@ function company_remaining_value(array $company): float
     return round($paid * min($daysLeft, $termDays) / $termDays, 2);
 }
 
+function company_fx_context(int $companyId): array
+{
+    $brand = $companyId > 0 ? branding_for($companyId) : [];
+    $home = normalize_currency((string) ($brand['currency'] ?? ''), 'USD');
+    $rate = (float) ($brand['fx_ugx_per_usd'] ?? 0);
+    return ['home' => $home, 'rate' => $rate > 0 ? $rate : 1.0];
+}
+
 function company_fee_ugx(array $company, string $field): float
 {
     $amt = match ($field) {
@@ -1240,7 +1379,8 @@ function company_fee_ugx(array $company, string $field): float
         'remaining' => company_remaining_value($company),
         default => company_fee_paid($company),
     };
-    return convert_money($amt, company_fee_currency($company), 'UGX');
+    $fx = company_fx_context((int) ($company['id'] ?? 0));
+    return convert_money($amt, company_fee_currency($company), 'USD', $fx['rate'], $fx['home']);
 }
 
 function month_axis(int $months = 12): array
@@ -1380,8 +1520,8 @@ function landing_faqs(): array
             'a' => 'Yes. Every quotation, invoice, receipt, expense and headed note uses the company logo, three brand colours, and one of the templates you pick in Settings.',
         ],
         [
-            'q' => 'Can we work in UGX and USD?',
-            'a' => 'Each document is UGX or USD. Settings holds the rate (1 USD = n UGX). Debtors and reports convert mixed currencies at that rate.',
+            'q' => 'Can we work in our own currency?',
+            'a' => 'Yes. In Settings you enter the currency you bill in - UGX, KES, EUR, USD or any other three-letter code. Documents can also be in USD; set how many of your currency equal one dollar so reports can add them up.',
         ],
         [
             'q' => 'What are Debtors and Creditors?',
@@ -1445,15 +1585,15 @@ function product_logo_url(): string
 function landing_card_defaults(): array
 {
     return [
-        ['slot' => 'familiar_1', 'section' => 'familiar', 'sort' => 1, 'image_path' => 'assets/img/landing/landing-receipts.png', 'title' => 'Still stuffing receipts in a drawer?', 'body' => 'Slips, phone photos, part payments in UGX and USD. By month-end you are guessing what is still owed.'],
+        ['slot' => 'familiar_1', 'section' => 'familiar', 'sort' => 1, 'image_path' => 'assets/img/landing/landing-receipts.png', 'title' => 'Still stuffing receipts in a drawer?', 'body' => 'Slips, phone photos, part payments in whatever currency you actually use. By month-end you are guessing what is still owed.'],
         ['slot' => 'familiar_2', 'section' => 'familiar', 'sort' => 2, 'image_path' => 'assets/img/landing/landing-whatsapp.png', 'title' => 'Did that invoice vanish into WhatsApp?', 'body' => 'Quotes in email. Invoices in a chat. Nobody has one number for who still owes the company.'],
         ['slot' => 'familiar_3', 'section' => 'familiar', 'sort' => 3, 'image_path' => 'assets/img/landing/landing-office.png', 'title' => 'Can you only open the books at the office?', 'body' => 'If you are on the road, the PC is off, or the accountant is out, the records are out of reach.'],
         ['slot' => 'help_1', 'section' => 'help', 'sort' => 4, 'image_path' => 'assets/img/landing/landing-share.png', 'title' => 'Your client\'s brand. Many templates.', 'body' => 'Every quotation, invoice and receipt is customised to the client\'s logo and colours. Choose from many templates, then email, WhatsApp or print the sheet.'],
-        ['slot' => 'help_2', 'section' => 'help', 'sort' => 5, 'image_path' => 'assets/img/landing/landing-anywhere.png', 'title' => 'Open the books from wherever you are.', 'body' => 'Sign in and this month is there - invoices, receipts, expenses, reports - on the screen in front of you.'],
+        ['slot' => 'help_2', 'section' => 'help', 'sort' => 5, 'image_path' => 'assets/img/landing/landing-anywhere.png', 'title' => 'Open the books from wherever you are.', 'body' => 'Anywhere in the world. Sign in and this month is there - invoices, receipts, expenses, reports - on the screen in front of you.'],
         ['slot' => 'help_3', 'section' => 'help', 'sort' => 6, 'image_path' => 'assets/img/landing/landing-desk.png', 'title' => 'Quotes, invoices, receipts. One desk.', 'body' => 'Pick a template once. The whole books print in that layout, in the company colours. Quotations convert to invoices. Invoices take full or part receipts.'],
-        ['slot' => 'steps_1', 'section' => 'steps', 'sort' => 7, 'image_path' => 'assets/img/landing/landing-form.png', 'title' => 'Leave your details', 'body' => 'Name, company, email, phone. That is the whole form. No password to invent.'],
-        ['slot' => 'steps_2', 'section' => 'steps', 'sort' => 8, 'image_path' => 'assets/img/landing/landing-call.png', 'title' => 'We call you', 'body' => 'A Vellisys admin sees the sign-up and reaches out to onboard your company.'],
-        ['slot' => 'steps_3', 'section' => 'steps', 'sort' => 9, 'image_path' => 'assets/img/landing/landing-live.png', 'title' => 'Your desk goes live', 'body' => 'You get a login. The books are yours, on any device, any time.'],
+        ['slot' => 'steps_1', 'section' => 'steps', 'sort' => 7, 'image_path' => 'assets/img/landing/landing-form.png', 'title' => 'Register', 'body' => 'Name, company, email, phone. That is the whole form. No password to invent. From any country.'],
+        ['slot' => 'steps_2', 'section' => 'steps', 'sort' => 8, 'image_path' => 'assets/img/landing/landing-call.png', 'title' => 'Request a quote', 'body' => 'A Vellisys admin sees the sign-up, sends a quote, and reaches out to onboard your company.'],
+        ['slot' => 'steps_3', 'section' => 'steps', 'sort' => 9, 'image_path' => 'assets/img/landing/landing-live.png', 'title' => 'Get onboarded', 'body' => 'You get a login. The books are yours, in your currency, on any device, any time.'],
     ];
 }
 

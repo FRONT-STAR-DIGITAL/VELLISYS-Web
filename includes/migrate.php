@@ -29,7 +29,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 19) {
+    if ($ver >= 20) {
         $done = true;
         return;
     }
@@ -184,8 +184,9 @@ function folio_migrate(mysqli $db): void
     folio_migrate_mailboxes($db);
     folio_migrate_fees($db);
     folio_migrate_email_from($db);
+    folio_refresh_landing_copy($db);
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '19')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '20')");
     $done = true;
 }
 
@@ -288,7 +289,7 @@ function folio_migrate_landing_cards(mysqli $db): void
 function folio_refresh_landing_copy(mysqli $db): void
 {
     foreach (landing_card_defaults() as $c) {
-        if (!in_array($c['slot'], ['help_1', 'help_3'], true)) {
+        if (!in_array($c['slot'], ['help_1', 'help_3', 'familiar_1', 'help_2', 'steps_1', 'steps_2', 'steps_3'], true)) {
             continue;
         }
         $stmt = $db->prepare('UPDATE landing_cards SET title = ?, body = ? WHERE slot = ?');

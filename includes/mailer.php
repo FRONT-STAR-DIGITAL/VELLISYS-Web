@@ -38,7 +38,7 @@ function vellisys_email_wrap(string $innerHtml, string $kicker = 'Vellisys'): st
         . '</p>'
         . '</td></tr>'
         . '</table>'
-        . '<p style="margin:18px 8px 0;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:11px;color:' . $black . ';">Branded books for Ugandan SMEs · <a href="' . h($site) . '" style="color:' . $blue . ';text-decoration:none;">' . h($maker) . '</a></p>'
+        . '<p style="margin:18px 8px 0;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:11px;color:' . $black . ';">Branded books for teams everywhere · <a href="' . h($site) . '" style="color:' . $blue . ';text-decoration:none;">' . h($maker) . '</a></p>'
         . '</td></tr></table></body></html>';
 }
 

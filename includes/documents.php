@@ -120,10 +120,7 @@ function create_document(array $data): int
     $alloc = isset($data['allocated_amount']) ? (float) $data['allocated_amount'] : null;
     $cat = $data['expense_category'] ?? null;
     $tpl = $data['letter_template'] ?? null;
-    $currency = strtoupper((string) ($data['currency'] ?? default_currency()));
-    if ($currency !== 'USD') {
-        $currency = 'UGX';
-    }
+    $currency = normalize_currency((string) ($data['currency'] ?? default_currency()), default_currency());
     $docTpl = trim((string) ($data['doc_template'] ?? ''));
     if ($docTpl === '' || !array_key_exists($docTpl, doc_templates())) {
         $docTpl = doc_template_key();
@@ -223,10 +220,7 @@ function update_document(int $id, array $data): void
     $alloc = isset($data['allocated_amount']) ? (float) $data['allocated_amount'] : (float) ($doc['allocated_amount'] ?? 0);
     $cat = $data['expense_category'] ?? $doc['expense_category'];
     $tpl = $data['letter_template'] ?? $doc['letter_template'];
-    $currency = strtoupper((string) ($data['currency'] ?? doc_currency($doc)));
-    if ($currency !== 'USD') {
-        $currency = 'UGX';
-    }
+    $currency = normalize_currency((string) ($data['currency'] ?? doc_currency($doc)), doc_currency($doc));
     $docTpl = trim((string) ($data['doc_template'] ?? doc_template_key($doc)));
     if ($docTpl === '' || !array_key_exists($docTpl, doc_templates())) {
         $docTpl = doc_template_key($doc);

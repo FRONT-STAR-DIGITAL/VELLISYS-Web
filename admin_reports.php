@@ -138,6 +138,10 @@ foreach ($companies as $c) {
         'letters' => 0,
     ];
 }
+$fxByCo = [];
+foreach ($companies as $c) {
+    $fxByCo[(int) $c['id']] = company_fx_context((int) $c['id']);
+}
 $bookMonths = [];
 foreach ($months as $m) {
     $bookMonths[$m] = ['invoiced' => 0.0, 'collected' => 0.0, 'expenses' => 0.0];
@@ -147,25 +151,26 @@ foreach (platform_issued_documents() as $d) {
     if (!isset($booksBy[$cid])) {
         continue;
     }
+    $fx = $fxByCo[$cid] ?? ['home' => 'USD', 'rate' => 1.0];
     $kind = (string) ($d['kind'] ?? '');
-    $ugxAmt = convert_money((float) $d['totals']['total'], doc_currency($d), 'UGX');
+    $usdAmt = convert_money((float) $d['totals']['total'], doc_currency($d), 'USD', $fx['rate'], $fx['home']);
     $ym = substr((string) $d['date'], 0, 7);
     if ($kind === 'invoice') {
-        $booksBy[$cid]['invoiced'] += $ugxAmt;
-        $booksBy[$cid]['outstanding'] += convert_money((float) $d['balance'], doc_currency($d), 'UGX');
+        $booksBy[$cid]['invoiced'] += $usdAmt;
+        $booksBy[$cid]['outstanding'] += convert_money((float) $d['balance'], doc_currency($d), 'USD', $fx['rate'], $fx['home']);
         $booksBy[$cid]['invoices']++;
         if (isset($bookMonths[$ym])) {
-            $bookMonths[$ym]['invoiced'] += $ugxAmt;
+            $bookMonths[$ym]['invoiced'] += $usdAmt;
         }
     } elseif ($kind === 'expense') {
-        $booksBy[$cid]['expenses'] += $ugxAmt;
+        $booksBy[$cid]['expenses'] += $usdAmt;
         $booksBy[$cid]['expenses_n']++;
         if (isset($bookMonths[$ym])) {
-            $bookMonths[$ym]['expenses'] += $ugxAmt;
+            $bookMonths[$ym]['expenses'] += $usdAmt;
         }
     } elseif ($kind === 'receipt') {
         $booksBy[$cid]['receipts']++;
-        $got = convert_money((float) ($d['paid'] ?: $d['totals']['total']), doc_currency($d), 'UGX');
+        $got = convert_money((float) ($d['paid'] ?: $d['totals']['total']), doc_currency($d), 'USD', $fx['rate'], $fx['home']);
         if (($d['related_kind'] ?? '') !== 'expense') {
             $booksBy[$cid]['collected'] += $got;
             if (isset($bookMonths[$ym])) {
@@ -239,7 +244,7 @@ $adminChart = [
     'bookExpenses' => array_column($bookMonths, 'expenses'),
     'funnelLabels' => array_keys($signupStatus),
     'funnelValues' => array_values($signupStatus),
-    'currency' => 'UGX',
+    'currency' => 'USD',
 ];
 
 layout_admin_start('Reports', $user);
@@ -298,12 +303,12 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
   <div class="card stat"><?= icon('ban', 20) ?><span>Expired</span><strong><?= count($expired) ?></strong></div>
 </div>
 <div class="stats">
-  <div class="card stat"><?= icon('bank', 20) ?><span>Fees collected</span><strong><?= h(ugx($totalPaid)) ?></strong></div>
-  <div class="card stat"><?= icon('invoice', 20) ?><span>Fee balances</span><strong><?= h(ugx($totalBalance)) ?></strong></div>
-  <div class="card stat"><?= icon('receipt', 20) ?><span>Desk collections</span><strong><?= h(ugx($deskCollected)) ?></strong></div>
-  <div class="card stat"><?= icon('clients', 20) ?><span>Desk outstanding</span><strong><?= h(ugx($deskOutstanding)) ?></strong></div>
+  <div class="card stat"><?= icon('bank', 20) ?><span>Fees collected</span><strong><?= h(money($totalPaid, 'USD')) ?></strong></div>
+  <div class="card stat"><?= icon('invoice', 20) ?><span>Fee balances</span><strong><?= h(money($totalBalance, 'USD')) ?></strong></div>
+  <div class="card stat"><?= icon('receipt', 20) ?><span>Desk collections</span><strong><?= h(money($deskCollected, 'USD')) ?></strong></div>
+  <div class="card stat"><?= icon('clients', 20) ?><span>Desk outstanding</span><strong><?= h(money($deskOutstanding, 'USD')) ?></strong></div>
 </div>
-<p class="hint" style="margin:-12px 0 20px"><?= $withTerm ?> of <?= count($companies) ?> <?= count($companies) === 1 ? 'company has' : 'companies have' ?> a paid term on file. Remaining unused term value <?= h(ugx($totalRemaining)) ?>. Desk invoiced <?= h(ugx($deskInvoiced)) ?> · expenses <?= h(ugx($deskExpenses)) ?>.</p>
+<p class="hint" style="margin:-12px 0 20px"><?= $withTerm ?> of <?= count($companies) ?> <?= count($companies) === 1 ? 'company has' : 'companies have' ?> a paid term on file. Remaining unused term value <?= h(money($totalRemaining, 'USD')) ?>. Desk invoiced <?= h(money($deskInvoiced, 'USD')) ?> · expenses <?= h(money($deskExpenses, 'USD')) ?>. Combined totals are USD equivalents.</p>
 
 <div class="chart-grid equal">
   <div class="card chart-box">
@@ -381,11 +386,11 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
       </tbody>
       <tfoot>
         <tr>
-          <td colspan="5">Totals (UGX)</td>
-          <td class="right mono"><?= h(ugx($totalFee)) ?></td>
-          <td class="right mono"><?= h(ugx($totalPaid)) ?></td>
-          <td class="right mono"><?= h(ugx($totalBalance)) ?></td>
-          <td class="right mono"><?= h(ugx($totalRemaining)) ?></td>
+          <td colspan="5">Totals (USD equivalent)</td>
+          <td class="right mono"><?= h(money($totalFee, 'USD')) ?></td>
+          <td class="right mono"><?= h(money($totalPaid, 'USD')) ?></td>
+          <td class="right mono"><?= h(money($totalBalance, 'USD')) ?></td>
+          <td class="right mono"><?= h(money($totalRemaining, 'USD')) ?></td>
         </tr>
       </tfoot>
     </table>
@@ -417,10 +422,10 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
         <?php foreach ($companies as $c): $b = $booksBy[(int) $c['id']]; ?>
           <tr>
             <td><a href="<?= h(url('admin_company.php?id=' . $c['id'])) ?>"><strong><?= h($c['name']) ?></strong></a></td>
-            <td class="right mono"><?= h(ugx($b['invoiced'])) ?></td>
-            <td class="right mono"><?= h(ugx($b['collected'])) ?></td>
-            <td class="right mono"><?= h(ugx($b['outstanding'])) ?></td>
-            <td class="right mono"><?= h(ugx($b['expenses'])) ?></td>
+            <td class="right mono"><?= h(money($b['invoiced'], 'USD')) ?></td>
+            <td class="right mono"><?= h(money($b['collected'], 'USD')) ?></td>
+            <td class="right mono"><?= h(money($b['outstanding'], 'USD')) ?></td>
+            <td class="right mono"><?= h(money($b['expenses'], 'USD')) ?></td>
             <td class="right mono"><?= (int) $b['quotes'] ?></td>
             <td class="right mono"><?= (int) $b['invoices'] ?></td>
             <td class="right mono"><?= (int) $b['receipts'] ?></td>
@@ -431,10 +436,10 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
       <tfoot>
         <tr>
           <td>Totals</td>
-          <td class="right mono"><?= h(ugx($deskInvoiced)) ?></td>
-          <td class="right mono"><?= h(ugx($deskCollected)) ?></td>
-          <td class="right mono"><?= h(ugx($deskOutstanding)) ?></td>
-          <td class="right mono"><?= h(ugx($deskExpenses)) ?></td>
+          <td class="right mono"><?= h(money($deskInvoiced, 'USD')) ?></td>
+          <td class="right mono"><?= h(money($deskCollected, 'USD')) ?></td>
+          <td class="right mono"><?= h(money($deskOutstanding, 'USD')) ?></td>
+          <td class="right mono"><?= h(money($deskExpenses, 'USD')) ?></td>
           <td colspan="4"></td>
         </tr>
       </tfoot>
@@ -607,7 +612,7 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
   Chart.defaults.font.family = "Montserrat, sans-serif";
   Chart.defaults.color = "#66705f";
   var palette = ["#82B440","#1f3a12","#c4a35a","#4a6fa5","#b42318","#6b7c5e"];
-  function money(v){ return (d.currency || "UGX") + " " + Number(v).toLocaleString("en-UG"); }
+  function money(v){ return (d.currency || "USD") + " " + Number(v).toLocaleString("en-US"); }
   var onboard = document.getElementById("chart-onboard");
   if (onboard) {
     new Chart(onboard, {

@@ -21,7 +21,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= h(product_name()) ?> · Stop losing the books</title>
-  <meta name="description" content="Tired of hunting receipts and losing invoices? Vellisys keeps quotations, invoices and receipts on one desk, customised to each client's branding, with many templates to choose from. Register in a minute. We call you, then the books go live.">
+  <meta name="description" content="Vellisys keeps quotations, invoices and receipts on one desk, in your branding and your currency. Anywhere in the world: register, request a quote, get onboarded.">
   <?php product_icons(); ?>
   <?php folio_font_links(); ?>
   <link rel="stylesheet" href="<?= h(asset('css/landing.css')) ?>">
@@ -35,12 +35,12 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
     <section class="lp-hero">
       <div class="lp-hero-copy" data-reveal>
         <h1>Lose track of your financial records?</h1>
-        <p class="lp-lead">Tired of receipts in a drawer and invoices living in WhatsApp? Vellisys keeps quotations, invoices, receipts and reports on one desk. Every sheet is customised to the client's branding - logo, colours, and many templates to choose from - then shared in a single click. Open the books any time, anywhere you are.</p>
+        <p class="lp-lead">Tired of receipts in a drawer and invoices living in WhatsApp? Vellisys keeps quotations, invoices, receipts and reports on one desk. Every sheet is customised to the client's branding - logo, colours, and many templates to choose from - then shared in a single click. Anywhere you are in the world: register, request a quote, and get onboarded.</p>
         <div class="lp-cta">
           <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('register.php')) ?>">Get my company a desk</a>
           <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('login.php')) ?>">I already have a desk</a>
         </div>
-        <p class="lp-note">Four fields. We call you. Then your books go live.</p>
+        <p class="lp-note">Anywhere in the world. Register. Request a quote. Get onboarded.</p>
       </div>
 
       <div class="lp-stage" data-reveal>
@@ -81,11 +81,26 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
             </figure>
           </div>
           <ul class="lp-kpis">
-            <li><span>Invoiced</span><b>UGX 12.4m</b></li>
-            <li><span>Collected</span><b>UGX 9.1m</b></li>
-            <li><span>Open</span><b>UGX 3.3m</b></li>
+            <li><span>Invoiced</span><b>12.4m</b></li>
+            <li><span>Collected</span><b>9.1m</b></li>
+            <li><span>Open</span><b>3.3m</b></li>
           </ul>
         </article>
+      </div>
+    </section>
+
+    <section class="lp-world" id="anywhere" data-reveal>
+      <p class="lp-kicker">Worldwide</p>
+      <h2>Anywhere you are in the world</h2>
+      <p class="lp-world-lead">Register, request a quote, and get onboarded. Bill in UGX, KES, EUR, USD or the currency your company actually uses. The desk is yours on any device.</p>
+      <ol class="lp-world-steps">
+        <li><b>1</b><span>Register</span></li>
+        <li><b>2</b><span>Request a quote</span></li>
+        <li><b>3</b><span>Get onboarded</span></li>
+      </ol>
+      <div class="lp-cta lp-cta-band">
+        <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('register.php')) ?>">Register</a>
+        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url()) ?>#ask">Request a quote</a>
       </div>
     </section>
 
@@ -195,7 +210,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
     <section class="lp-band lp-path" id="get-a-desk" data-reveal>
       <p class="lp-kicker">Get a desk</p>
       <h2>You are three steps away</h2>
-      <p class="lp-path-lead">Leave your details. We call you. Then the books go live.</p>
+      <p class="lp-path-lead">Anywhere you are in the world: register, request a quote, get onboarded. Then the books go live.</p>
       <ol class="lp-path-steps">
         <?php foreach ($steps as $i => $card): ?>
           <li>

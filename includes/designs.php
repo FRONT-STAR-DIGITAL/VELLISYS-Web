@@ -34,8 +34,9 @@ function sheet_data(array $brand, array $doc): array
         'comments' => $doc['notes'] ?: ($brand['invoice_comments'] ?? ''),
         'logo' => logo_url($brand),
         'cur' => doc_currency($doc),
+        'home_cur' => default_currency(),
         'alt_cur' => other_currency(doc_currency($doc)),
-        'fx_rate' => fx_ugx_per_usd(),
+        'fx_rate' => fx_home_per_usd(),
         'method' => $method,
         'methods' => payment_methods(),
     ];
@@ -62,10 +63,11 @@ function render_fx_equiv(array $d, $amount = null): void
 {
     $amt = $amount === null ? (float) $d['total'] : (float) $amount;
     $alt = $d['alt_cur'] ?? other_currency($d['cur']);
-    $conv = convert_money($amt, $d['cur'], $alt, $d['fx_rate'] ?? null);
-    $rate = (float) ($d['fx_rate'] ?? fx_ugx_per_usd());
+    $home = $d['home_cur'] ?? default_currency();
+    $conv = convert_money($amt, $d['cur'], $alt, $d['fx_rate'] ?? null, $home);
+    $rate = (float) ($d['fx_rate'] ?? fx_home_per_usd());
     ?>
-    <div class="d-fx"><?= h(money($conv, $alt)) ?> <em>at <?= h(number_format($rate, $rate == floor($rate) ? 0 : 2, '.', ',')) ?> UGX / USD</em></div>
+    <div class="d-fx"><?= h(money($conv, $alt)) ?> <em>at <?= h(fx_rate_label($rate, $home)) ?></em></div>
     <?php
 }
 
@@ -197,7 +199,7 @@ function render_sheet_ledger(array $d): void
 {
     $brand = $d['brand'];
     $doc = $d['doc'];
-    $unit = $d['cur'] === 'USD' ? 'Dollars' : 'Shillings';
+    $unit = ucfirst(currency_unit_name($d['cur']));
     ?>
 <article class="invoice-sheet sheet-ledger" style="<?= h($d['vars']) ?>">
   <div class="ledger-top">
@@ -212,7 +214,7 @@ function render_sheet_ledger(array $d): void
   <div class="ledger-grid">
     <label>Date <b><?= h(format_date($doc['date'])) ?></b></label>
     <label class="wide">From <b><?= h($doc['party_name'] ?? '') ?></b></label>
-    <div class="ledger-amt"><span><?= h($d['cur']) ?></span><strong><?= h(number_format($d['total'], $d['cur'] === 'USD' ? 2 : 0)) ?></strong></div>
+    <div class="ledger-amt"><span><?= h($d['cur']) ?></span><strong><?= h(number_format($d['total'], currency_decimals($d['cur']))) ?></strong></div>
   </div>
   <?php if ($doc['kind'] !== 'letter'): ?>
     <div style="text-align:right;margin:-4px 0 10px"><?php render_fx_equiv($d); ?></div>

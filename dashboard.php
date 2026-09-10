@@ -30,7 +30,7 @@ layout_start('Desk', $user);
 ?>
 <div class="desk-hero">
   <div>
-    <p class="desk-kicker"><?= h($brand['name']) ?> · <?= h(default_currency()) ?> · <?= h(number_format(fx_ugx_per_usd(), fx_ugx_per_usd() == floor(fx_ugx_per_usd()) ? 0 : 2, '.', ',')) ?> UGX / USD</p>
+    <p class="desk-kicker"><?= h($brand['name']) ?> · <?= h(default_currency()) ?> · <?= h(fx_rate_label()) ?></p>
     <h1><?= h($hello) ?>, <?= h(explode(' ', $user['name'])[0]) ?>.</h1>
     <p class="lede">What needs sending or collecting today. Colour and stationery live in Settings.</p>
   </div>

@@ -223,40 +223,51 @@ document.querySelectorAll('[data-receipt-form]').forEach(function (form) {
   });
 });
 
+function fxHome(form) {
+  return String((form && form.getAttribute('data-fx-home')) || 'USD').toUpperCase();
+}
+
 function fxRate(form) {
   var el = (form || document).querySelector('[data-fx-rate]');
   var n = parseFloat(String((el && el.value) || '0').replace(/,/g, ''));
-  return n > 0 ? n : 3700;
+  return n > 0 ? n : 1;
 }
 
-function convertAmount(n, from, to, rate) {
+function convertAmount(n, from, to, rate, home) {
+  from = String(from || '').toUpperCase();
+  to = String(to || '').toUpperCase();
+  home = String(home || 'USD').toUpperCase();
   if (from === to) return n;
-  if (from === 'USD') return Math.round(n * rate);
-  return Math.round((n / rate) * 100) / 100;
+  var usd = from === 'USD' ? n : n / rate;
+  if (to === 'USD') return Math.round(usd * 100) / 100;
+  return Math.round(usd * rate * 100) / 100;
 }
 
 function formatConverted(n, currency) {
-  if (currency === 'USD') return n.toFixed(2);
-  return Number.isInteger(n) ? String(n) : String(n);
+  currency = String(currency || '').toUpperCase();
+  var zero = { BIF:1, CLP:1, DJF:1, GNF:1, ISK:1, JPY:1, KMF:1, KRW:1, PYG:1, RWF:1, UGX:1, VND:1, VUV:1, XAF:1, XOF:1, XPF:1 };
+  if (zero[currency] && Math.abs(n - Math.round(n)) < 0.0001) return String(Math.round(n));
+  return n.toFixed(2);
 }
 
 function convertDocumentCurrency(form, from, to) {
   if (!from || !to || from === to) return;
   var rate = fxRate(form);
+  var home = fxHome(form);
   form.querySelectorAll('[data-line-rate]').forEach(function (inp) {
     var n = parseFloat(String(inp.value || '0').replace(/,/g, ''));
     if (!n) {
       inp.value = '';
       return;
     }
-    inp.value = formatConverted(convertAmount(n, from, to, rate), to);
+    inp.value = formatConverted(convertAmount(n, from, to, rate, home), to);
     var row = inp.closest('tr');
     if (row) updateLineTotal(row);
   });
   var alloc = form.querySelector('#allocated_amount');
   if (alloc && alloc.value) {
     var a = parseFloat(String(alloc.value).replace(/,/g, ''));
-    if (!isNaN(a) && a) alloc.value = formatConverted(convertAmount(a, from, to, rate), to);
+    if (!isNaN(a) && a) alloc.value = formatConverted(convertAmount(a, from, to, rate, home), to);
   }
 }
 
@@ -265,8 +276,9 @@ function updateFxPreview(form) {
   var hint = form.querySelector('[data-fx-preview]');
   var currency = form.querySelector('#currency');
   if (!hint || !currency) return;
-  var from = currency.value || 'UGX';
-  var to = from === 'USD' ? 'UGX' : 'USD';
+  var home = fxHome(form);
+  var from = (currency.value || home).toUpperCase();
+  var to = from === 'USD' ? home : 'USD';
   var rate = fxRate(form);
   var net = 0;
   var vat = 0;
@@ -286,13 +298,17 @@ function updateFxPreview(form) {
     if (!isNaN(a) && a > net) net = a;
   }
   var total = net + vat;
-  if (!total) {
-    hint.textContent = 'Also ' + to + ' at ' + rate.toLocaleString('en-US') + ' UGX / USD.';
+  if (from === to) {
+    hint.textContent = 'Working in ' + from + '.';
     return;
   }
-  var conv = convertAmount(total, from, to, rate);
-  var shown = to === 'USD' ? conv.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : conv.toLocaleString('en-US');
-  hint.textContent = 'Also ' + to + ' ' + shown + ' at ' + rate.toLocaleString('en-US') + ' UGX / USD.';
+  if (!total) {
+    hint.textContent = 'Also ' + to + ' at ' + rate.toLocaleString('en-US') + ' ' + home + ' / USD.';
+    return;
+  }
+  var conv = convertAmount(total, from, to, rate, home);
+  var shown = formatConverted(conv, to);
+  hint.textContent = 'Also ' + to + ' ' + shown + ' at ' + rate.toLocaleString('en-US') + ' ' + home + ' / USD.';
 }
 
 document.querySelectorAll('[data-fx-form]').forEach(function (form) {
@@ -313,6 +329,21 @@ document.querySelectorAll('[data-fx-form]').forEach(function (form) {
     updateFxPreview(form);
   });
   updateFxPreview(form);
+});
+
+document.querySelectorAll('.currency-code').forEach(function (inp) {
+  var tidy = function () {
+    inp.value = String(inp.value || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
+    if (inp.hasAttribute('data-fx-home-input')) {
+      document.querySelectorAll('[data-fx-home-label]').forEach(function (el) {
+        el.textContent = inp.value || 'USD';
+      });
+      var form = inp.closest('[data-fx-form]');
+      if (form) form.setAttribute('data-fx-home', inp.value || 'USD');
+    }
+  };
+  inp.addEventListener('input', tidy);
+  inp.addEventListener('blur', tidy);
 });
 
 document.querySelectorAll('[data-add-template]').forEach(function (btn) {

@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 strtoupper(post('prefix') ?: 'OFG'),
                 post('payment_note'),
                 post('invoice_comments'),
-                strtoupper(post('currency') ?: 'UGX') === 'USD' ? 'USD' : 'UGX',
+                posted_currency('currency', default_currency()),
                 parse_fx_rate(post('fx_ugx_per_usd')),
                 encode_letter_templates(isset($_POST['tpl']) && is_array($_POST['tpl']) ? $_POST['tpl'] : []),
                 array_key_exists(post('doc_template'), doc_templates()) ? post('doc_template') : 'folio',
@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tpl = array_key_exists(post('doc_template'), doc_templates()) ? post('doc_template') : 'folio';
         db_exec('UPDATE documents SET doc_template = ? WHERE company_id = ?', 'si', [$tpl, current_company_id()]);
         branding(true);
-        flash('Settings saved. This design now prints on every document. Amounts convert at your UGX / USD rate.');
+        flash('Settings saved. This design now prints on every document. USD converts at your ' . default_currency() . ' rate.');
         redirect('settings.php');
     }
 }
@@ -77,7 +77,7 @@ layout_start('Settings', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('settings') ?>Settings</h1>
-    <p class="lede">Letterhead, colours, the UGX / USD rate. Quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors and custom mail leave from the company mailbox Vellisys assigned - you cannot change it here.</p>
+    <p class="lede">Letterhead, colours, and your currency. Quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors and custom mail leave from the company mailbox Vellisys assigned - you cannot change it here.</p>
   </div>
 </div>
 
@@ -215,20 +215,17 @@ layout_start('Settings', $user);
           <input id="vat_no" name="vat_no" value="<?= h($b['vat_no'] ?? '') ?>">
         </div>
         <div>
-          <label for="currency">Default currency</label>
-          <select id="currency" name="currency">
-            <?php foreach (currencies() as $code => $label): ?>
-              <option value="<?= h($code) ?>" <?= doc_currency($b) === $code ? 'selected' : '' ?>><?= h($label) ?></option>
-            <?php endforeach; ?>
-          </select>
+          <label for="currency">Currency</label>
+          <?php currency_field('currency', 'currency', (string) ($b['currency'] ?? default_currency()), ['data-fx-home-input' => true]); ?>
+          <p class="hint">UGX, KES, EUR, USD - type the three-letter code you bill in.</p>
         </div>
         <div>
           <label for="fx_ugx_per_usd">1 USD equals</label>
           <div class="fx-row">
-            <input id="fx_ugx_per_usd" name="fx_ugx_per_usd" inputmode="decimal" value="<?= h(rtrim(rtrim(number_format(fx_ugx_per_usd(), 4, '.', ''), '0'), '.')) ?>">
-            <span>UGX</span>
+            <input id="fx_ugx_per_usd" name="fx_ugx_per_usd" inputmode="decimal" value="<?= h(rtrim(rtrim(number_format(fx_home_per_usd(), 4, '.', ''), '0'), '.')) ?>">
+            <span data-fx-home-label><?= h(default_currency()) ?></span>
           </div>
-          <p class="hint">Used whenever a document switches between UGX and USD, and on printed equivalents.</p>
+          <p class="hint">Used when a document is in USD and your books are in <?= h(default_currency()) ?>, and on printed equivalents.</p>
         </div>
         <div>
           <label for="prefix">Document prefix</label>
