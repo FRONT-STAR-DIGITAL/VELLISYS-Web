@@ -21,8 +21,8 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 ## What you get
 
 - Public landing page in three sections, with pictures on every card. Super admin can replace those pictures under **Landing**, and add **Clients who trust us** names and logos
-- Horizontal auto-scrolling **client reviews** on the landing page (editable under Landing)
-- Landing page on a phone stays in the screen - no sideways scroll
+- **Clients who trust us** and **What clients say** auto-scroll on desktop. On a phone you swipe those strips by hand. Super admin edits them under Landing
+- Landing page on a phone stays in the screen - no sideways page scroll
 - **What you get to manage** on the landing page: quotations, invoices, receipts, expenses, delivery notes, custom documents, debtors, creditors, headed letters, email, 10+ templates, branding
 - A navy **top bar** above the header. Super admin edits the scrolling statements under **Landing**. Lines are separated by a blue |
 - Super admin **onboarding**: tick only the documents that company needs (quotations, invoices, receipts, delivery notes, headed letters, custom). Custom documents are a form with fields and/or a body, not a letter

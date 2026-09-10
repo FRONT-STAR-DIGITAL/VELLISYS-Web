@@ -264,8 +264,15 @@
   tickDiscount();
   setInterval(tickDiscount, 1000);
 
+  var manualMarqueeMq = window.matchMedia('(hover: none), (pointer: coarse), (max-width: 820px)');
   function paceMarquees() {
+    var manual = manualMarqueeMq.matches;
     document.querySelectorAll('[data-marquee-track]').forEach(function (track) {
+      var strip = track.closest('.lp-trust, .lp-reviews');
+      if (strip && manual) {
+        track.style.animationDuration = '';
+        return;
+      }
       var set = track.querySelector('[data-marquee-set]');
       if (!set) return;
       var width = set.offsetWidth;
@@ -277,6 +284,11 @@
   paceMarquees();
   window.addEventListener('load', paceMarquees);
   window.addEventListener('resize', paceMarquees);
+  if (manualMarqueeMq.addEventListener) {
+    manualMarqueeMq.addEventListener('change', paceMarquees);
+  } else if (manualMarqueeMq.addListener) {
+    manualMarqueeMq.addListener(paceMarquees);
+  }
 
   var payFrame = document.querySelector('[data-pay-frame]');
   if (payFrame) {

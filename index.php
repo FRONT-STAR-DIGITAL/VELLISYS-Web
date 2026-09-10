@@ -102,7 +102,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
     <section class="lp-trust" id="clients-who-trust-us" aria-label="Clients who trust us">
       <p class="lp-kicker">On the desk</p>
       <h2>Clients who trust us</h2>
-      <div class="lp-marquee">
+      <div class="lp-marquee" tabindex="0" role="region" aria-label="Clients who trust us">
         <div class="lp-marquee-track" data-marquee-track>
           <?php foreach ([$clients, $clients] as $setIndex => $set): ?>
             <div class="lp-marquee-set" data-marquee-set <?= $setIndex === 1 ? 'aria-hidden="true"' : '' ?>>
@@ -249,7 +249,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
     <section class="lp-reviews" id="testimonials" aria-label="Testimonials">
       <p class="lp-kicker"><?= h($reviewSection['kicker']) ?></p>
       <h2><?= h($reviewSection['heading']) ?></h2>
-      <div class="lp-marquee lp-reviews-marquee">
+      <div class="lp-marquee lp-reviews-marquee" tabindex="0" role="region" aria-label="What clients say">
         <div class="lp-marquee-track lp-reviews-track" data-marquee-track>
           <?php foreach ([$reviews, $reviews] as $setIndex => $set): ?>
             <div class="lp-marquee-set" data-marquee-set <?= $setIndex === 1 ? 'aria-hidden="true"' : '' ?>>
