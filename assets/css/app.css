@@ -1198,12 +1198,21 @@ table.grid tfoot td {
   .app { flex-direction: column; }
   .nav-toggle { display: inline-flex; }
   .nav {
-    width: min(var(--open), 86vw);
+    width: min(100%, 100vw);
+    max-width: 100%;
     transform: translateX(-105%);
     box-shadow: none;
     border-right: 0;
     transition: transform .32s cubic-bezier(.22, 1, .36, 1), box-shadow .32s ease;
   }
+  .nav nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 8px 12px 16px;
+    overflow-x: hidden;
+  }
+  .nav-user { padding-left: 12px; padding-right: 12px; }
   .nav .brand-logo {
     width: auto;
     max-width: 148px;
@@ -1219,9 +1228,15 @@ table.grid tfoot td {
     max-width: none;
   }
   .nav nav a {
-    margin: 2px 14px 2px 0;
-    padding: 10px 16px 10px 22px;
-    border-radius: 0 20px 20px 0;
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 999px;
+    white-space: normal;
+    font-size: 12.5px;
+    line-height: 1.25;
+    gap: 8px;
+    min-height: 48px;
+    align-items: center;
   }
   .nav nav a[data-badge]::after { display: none; }
   .desk-body.nav-open .nav {
@@ -1265,21 +1280,19 @@ table.grid tfoot td {
     width: 100%;
     min-height: 44px;
     justify-content: flex-start;
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 8px 10px;
     font-size: 12.5px;
     white-space: normal;
   }
   .tut-lead,
   .tut-help { padding: 16px 14px; }
-  .tut-lesson,
-  .tut-lesson:not(:has(.tut-shot)) {
-    grid-template-columns: 1fr;
-    gap: 14px;
+  .tut-lesson {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
     padding: 16px 14px;
   }
-  .tut-copy { order: 0; }
-  .tut-shot { order: 1; width: 100%; }
   .tut-lesson h2 { font-size: 20px; }
 }
 @media (max-width: 720px) {
@@ -1394,10 +1407,8 @@ table.grid tfoot td {
 @media (max-width: 420px) {
   .page-head .actions .btn,
   .page-head .actions form { flex-basis: 100%; }
-  .tut-toc { grid-template-columns: 1fr; }
-  .tut-lesson { padding: 14px 12px; gap: 12px; }
+  .tut-lesson { padding: 14px 12px; gap: 10px; }
   .tut-lesson h2 { font-size: 18px; }
-  .tut-lesson ul { padding-left: 16px; }
 }
 .q-detail { padding: 18px 22px 24px; }
 .q-detail-meta {
@@ -1468,42 +1479,56 @@ table.grid tfoot td {
 }
 .tut-toc a:hover { border-color: var(--brand); color: var(--brand); text-decoration: none; }
 .tut-lead { padding: 18px 22px; margin-bottom: 20px; }
-.tut-lead p { margin: 0; max-width: 72ch; overflow-wrap: anywhere; }
+.tut-lead p { margin: 0; max-width: 72ch; overflow-wrap: break-word; }
 .tut-lesson {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(220px, .9fr);
-  gap: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   padding: 22px;
   margin-bottom: 18px;
-  align-items: start;
   min-width: 0;
   scroll-margin-top: 76px;
 }
-.tut-lesson:not(:has(.tut-shot)) { grid-template-columns: 1fr; }
 .tut-copy { min-width: 0; }
-.tut-copy p,
-.tut-copy li { overflow-wrap: anywhere; }
+.tut-copy p { overflow-wrap: break-word; word-break: normal; }
 .tut-num {
-  margin: 0 0 6px;
+  margin: 0;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: .12em;
   text-transform: uppercase;
   color: var(--brand);
+  white-space: nowrap;
 }
 .tut-lesson h2 {
-  margin: 0 0 8px;
+  margin: 0;
   font-size: 22px;
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 10px;
   min-width: 0;
+  overflow-wrap: normal;
+  word-break: normal;
 }
-.tut-lesson ul { margin: 12px 0 0; padding-left: 18px; }
-.tut-lesson li { margin: 0 0 8px; }
-.tut-shot {
+.tut-lesson h2 .icon { flex-shrink: 0; }
+.tut-desc {
   margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink);
+  max-width: 72ch;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: none;
+}
+.tut-desc + .tut-desc {
+  margin-top: 8px;
+  font-size: 14.5px;
+  color: var(--muted);
+}
+.tut-shot {
+  margin: 10px 0 0;
   min-width: 0;
   width: 100%;
   max-width: 100%;

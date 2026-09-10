@@ -287,12 +287,12 @@ function doc_templates(): array
             'blurb' => 'Deep title bar, accent rail, and a boxed total.',
         ],
         'estate' => [
-            'name' => 'Estate cream',
-            'blurb' => 'Deep header band, accent rule, harvest paper.',
+            'name' => 'Estate panel',
+            'blurb' => 'Deep header band, solid accent bar, harvest paper - no fade, no wash.',
         ],
         'night' => [
-            'name' => 'Lake night',
-            'blurb' => 'Deep dusk header and accent copper lines.',
+            'name' => 'Harbour block',
+            'blurb' => 'Solid deep header and a flat accent rule. Built for dusk print.',
         ],
         'atelier' => [
             'name' => 'Atelier',
@@ -301,6 +301,14 @@ function doc_templates(): array
         'seal' => [
             'name' => 'Company seal',
             'blurb' => 'Centered mark and double hairline. Formal, for quotations and retainers.',
+        ],
+        'mark' => [
+            'name' => 'Logo watermark',
+            'blurb' => 'White sheet with the company logo faint in the centre of every page.',
+        ],
+        'bond' => [
+            'name' => 'Bond watermark',
+            'blurb' => 'Cream bond paper with a large tilted logo mark behind the lines.',
         ],
     ];
 }

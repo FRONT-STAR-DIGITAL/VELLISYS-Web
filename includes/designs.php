@@ -148,6 +148,21 @@ function render_party_contact(array $doc): void
     <?php
 }
 
+function render_logo_watermark(array $d): void
+{
+    $src = (string) ($d['logo'] ?? '');
+    if ($src === '') {
+        return;
+    }
+    echo '<img class="d-watermark" src="' . h($src) . '" alt="">';
+}
+
+function sheet_uses_watermark(?array $doc = null): bool
+{
+    $key = doc_template_key($doc);
+    return $key === 'mark' || $key === 'bond';
+}
+
 function render_letter_body(array $doc): void
 {
     ?>
@@ -169,8 +184,12 @@ function render_sheet_correspondence(array $d): void
     $subject = trim((string) ($doc['subject'] ?? ''));
     $body = (string) ($doc['body'] ?? '');
     $showBody = !$isCustom || !empty($custom['has_body']) || trim($body) !== '';
+    $wm = sheet_uses_watermark($doc);
     ?>
-<article class="invoice-sheet sheet-corr" style="<?= h($d['vars']) ?>">
+<article class="invoice-sheet sheet-corr<?= $wm ? ' sheet-' . h(doc_template_key($doc)) : '' ?>" style="<?= h($d['vars']) ?>">
+  <?php if ($wm) {
+      render_logo_watermark($d);
+  } ?>
   <header class="corr-head">
     <div class="corr-brand">
       <img src="<?= h($d['logo']) ?>" alt="" class="d-logo">
@@ -708,6 +727,105 @@ function render_sheet_seal(array $d): void
 <?php
 }
 
+function render_sheet_mark(array $d): void
+{
+    $brand = $d['brand'];
+    $doc = $d['doc'];
+    ?>
+<article class="invoice-sheet sheet-mark" style="<?= h($d['vars']) ?>">
+  <?php render_logo_watermark($d); ?>
+  <header class="mark-head">
+    <div>
+      <img src="<?= h($d['logo']) ?>" alt="" class="d-logo">
+      <div class="d-co">
+        <strong><?= h($brand['name']) ?></strong>
+        <div><?= h($brand['address']) ?></div>
+        <div><?= h($brand['phone']) ?> · <?= h($brand['email']) ?></div>
+        <?php if (!empty($brand['tin'])): ?><div>TIN <?= h($brand['tin']) ?></div><?php endif; ?>
+      </div>
+    </div>
+    <div class="mark-meta">
+      <p class="mark-kind"><?= h($d['heading']) ?></p>
+      <div><span>Date</span><b><?= h(format_date($doc['date'])) ?></b></div>
+      <div><span>No.</span><b><?= h($doc['number']) ?></b></div>
+      <div><span>Currency</span><b><?= h($d['cur']) ?></b></div>
+    </div>
+  </header>
+  <hr class="mark-rule">
+  <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
+  <div class="mark-who">
+    <span>To</span>
+    <?php render_party_contact($doc); ?>
+  </div>
+  <?php if ($doc['kind'] === 'letter'): ?>
+    <?php render_letter_body($doc); ?>
+  <?php else: ?>
+    <?php render_line_table($doc, $d['color'], $d['tint']); ?>
+    <div class="d-split">
+      <div class="d-notes">
+        <div class="d-notes-body"><?= h($d['comments'] ?: ($brand['payment_note'] ?? '')) ?></div>
+      </div>
+      <div class="d-sums">
+        <div class="d-sum"><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
+        <?php if (!empty($d['show_vat'])): ?><div class="d-sum"><span>VAT 18%</span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
+        <div class="d-total"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
+        <?php render_fx_equiv($d); ?>
+        <?php render_settlement($d); ?>
+      </div>
+    </div>
+  <?php endif; ?>
+</article>
+<?php
+}
+
+function render_sheet_bond(array $d): void
+{
+    $brand = $d['brand'];
+    $doc = $d['doc'];
+    ?>
+<article class="invoice-sheet sheet-bond" style="<?= h($d['vars']) ?>">
+  <?php render_logo_watermark($d); ?>
+  <header class="bond-head">
+    <div class="bond-brand">
+      <img src="<?= h($d['logo']) ?>" alt="" class="d-logo">
+      <div>
+        <strong><?= h($brand['name']) ?></strong>
+        <p><?= h($brand['address']) ?></p>
+        <p><?= h($brand['phone']) ?> · <?= h($brand['email']) ?></p>
+      </div>
+    </div>
+    <div class="bond-stamp">
+      <em><?= h($d['heading']) ?></em>
+      <b><?= h($doc['number']) ?></b>
+      <span><?= h(format_date($doc['date'])) ?></span>
+    </div>
+  </header>
+  <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
+  <div class="bond-who">
+    <span>In account with</span>
+    <strong><?= h($doc['party_name'] ?? '') ?></strong>
+    <p><?= h($doc['party_address'] ?? '') ?></p>
+  </div>
+  <?php if ($doc['kind'] === 'letter'): ?>
+    <?php render_letter_body($doc); ?>
+  <?php else: ?>
+    <?php render_line_table($doc, $d['deep'], '#fff8ee'); ?>
+    <div class="bond-end">
+      <p><?= h($d['comments'] ?: ($brand['payment_note'] ?? '')) ?></p>
+      <aside>
+        <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
+        <?php if (!empty($d['show_vat'])): ?><div><span>VAT 18%</span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
+        <div class="bond-due"><span>Amount due</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
+        <?php render_fx_equiv($d); ?>
+        <?php render_settlement($d); ?>
+      </aside>
+    </div>
+  <?php endif; ?>
+  <footer class="bond-foot"><?= h($brand['website'] ?: $brand['email']) ?></footer>
+</article>
+<?php
+}
+
 function render_expense_card(array $brand, array $doc): void
 {
     render_sheet($brand, $doc);
@@ -730,6 +848,8 @@ function render_sheet(array $brand, array $doc): void
         'night' => render_sheet_night($d),
         'atelier' => render_sheet_atelier($d),
         'seal' => render_sheet_seal($d),
+        'mark' => render_sheet_mark($d),
+        'bond' => render_sheet_bond($d),
         default => render_sheet_folio($d),
     };
 }

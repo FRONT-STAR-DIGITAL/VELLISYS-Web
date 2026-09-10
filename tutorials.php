@@ -24,9 +24,9 @@ $lessons = [
         'alt' => 'Vellisys desk home with open invoices and this month\'s totals',
         'lead' => 'Sign in and you land on Desk. That is the morning list: who still owes you, what you invoiced this month, and a short trail of recent documents.',
         'points' => [
-            'Start here every day. Overdue invoices sit at the top so you chase them first. Remind emails them from the company mailbox.',
+            'Start here every day. Overdue invoices sit at the top so you chase them first.',
             'Quick add (the plus on the top bar) opens a quotation, invoice, receipt, expense, letter, email or client without hunting the menu.',
-            'The coloured rail on the left is your company. Hover it on a computer, or use the menu button on a phone.',
+            'The coloured rail on the left is your company. Hover it on a computer, or use the menu button on a phone - topics sit in two columns on a small screen.',
         ],
     ],
     [
@@ -56,6 +56,19 @@ $lessons = [
         ],
     ],
     [
+        'id' => 'convert',
+        'icon' => 'convert',
+        'title' => 'Convert a quotation',
+        'file' => 'convert.png',
+        'alt' => 'Quotation actions including convert to invoice',
+        'lead' => 'Do not retype an accepted quote. Open it and press Invoice. Vellisys copies the client, the lines, the VAT and the currency onto a new invoice.',
+        'points' => [
+            'The quotation stays on file. The new invoice gets its own number so you can still show the original offer.',
+            'Edit the invoice if the job changed - extra lines, a due date, or a different currency - then share or email it.',
+            'If they never accepted, leave the quotation as it is. Void it only when the offer is dead.',
+        ],
+    ],
+    [
         'id' => 'invoices',
         'icon' => 'invoice',
         'title' => 'Invoices',
@@ -63,7 +76,7 @@ $lessons = [
         'alt' => 'A branded invoice with totals and payment details',
         'lead' => 'Invoices are what you are owed. Due dates feed Debtors. Part payments stay honest.',
         'points' => [
-            'Issue in your currency, or in USD. The rate lives in Settings (1 USD = n of your currency) so reports can add them up.',
+            'Issue in your currency, or in USD. The rate lives in Settings so reports can add them up.',
             'Print, share a link, or email the sheet. The letterhead is yours: logo, three colours, bank details, TIN.',
             'Record a receipt against the invoice when money lands. The balance drops. Full or part - both work.',
         ],
@@ -115,7 +128,7 @@ $lessons = [
         'alt' => 'Headed correspondence on company stationery',
         'lead' => 'Headed notes - demands, cover letters, introductions - use the same logo as the invoices.',
         'points' => [
-            'Write the body on Correspondence. It stays editable. Pick a letter layout in Settings → Templates.',
+            'Write the body on Correspondence. It stays editable. Pick a letter layout in Settings under Templates.',
             'Email or print. Clients see you, not a generic PDF from an accounting package.',
             'Custom notes that are not a headed sheet go from Email in the menu.',
         ],
@@ -141,7 +154,7 @@ $lessons = [
         'alt' => 'Email form sending from the company mailbox',
         'lead' => 'Sheets and letters leave from the Hostinger mailbox Vellisys assigned to the company, with your logo on white.',
         'points' => [
-            'Share → Email on a quotation, invoice, receipt, expense or headed letter sends that branded sheet.',
+            'Share, then Email on a quotation, invoice, receipt, expense or headed letter sends that branded sheet.',
             'Email in the menu is for custom letters, Remind on Debtors, and Message on Creditors. Replies come back to the company mailbox.',
             'If Send says the mailbox is not assigned yet, tell Vellisys. Until then you can still print and share a link.',
         ],
@@ -156,7 +169,7 @@ $lessons = [
         'points' => [
             'The list groups by client and ages the unpaid balances: current, 1-30, 31-60, and so on.',
             'Open an invoice to take a receipt, or use Remind to email the client from the company mailbox.',
-            'Export CSV when you need the aging in a spreadsheet. Never delete a paid invoice to "clean up".',
+            'Export CSV when you need the aging in a spreadsheet. Never delete a paid invoice to clean up.',
         ],
     ],
     [
@@ -186,6 +199,19 @@ $lessons = [
         ],
     ],
     [
+        'id' => 'dates',
+        'icon' => 'calendar',
+        'title' => 'Date filters',
+        'file' => 'dates.png',
+        'alt' => 'Document list with this month, last month and custom date chips',
+        'lead' => 'Every list - invoices, receipts, expenses, reports - can shrink to a period. Use the chips above the table, or type a from and to date.',
+        'points' => [
+            'This month is the usual view for a Friday meeting. Last month is for the file you already closed.',
+            'Custom from/to is for a job that crossed months, or a tax quarter.',
+            'The same chips sit on Reports, so the charts match the table you just filtered.',
+        ],
+    ],
+    [
         'id' => 'share',
         'icon' => 'share',
         'title' => 'Share, print and WhatsApp',
@@ -212,6 +238,32 @@ $lessons = [
         ],
     ],
     [
+        'id' => 'designs',
+        'icon' => 'palette',
+        'title' => 'Document designs',
+        'file' => 'designs.png',
+        'alt' => 'Twelve document layouts including logo watermark and bond watermark',
+        'lead' => 'Twelve layouts live under Settings, Templates. Pick one and every quotation, invoice, receipt, expense and headed note reprints in that paper.',
+        'points' => [
+            'Logo watermark puts the company mark faint in the centre of a white sheet. Bond watermark does the same on cream paper, tilted.',
+            'Estate panel and Harbour block use solid colour bands - no fades, no washes - so they print cleanly.',
+            'Changing the design here reprints the whole books. Correspondence text stays editable; only the paper around it changes.',
+        ],
+    ],
+    [
+        'id' => 'currency',
+        'icon' => 'hash',
+        'title' => 'Currency and rate',
+        'file' => 'currency.png',
+        'alt' => 'Settings tax with home currency and USD exchange rate',
+        'lead' => 'The desk has a home currency. You can still issue a sheet in USD. Settings holds the rate: 1 USD equals n of your currency.',
+        'points' => [
+            'Open Settings, Tax. Pick UGX, KES, EUR or type any three-letter code. Set how many of that currency equal one US dollar.',
+            'Reports convert everything back to the home currency so the month still adds up.',
+            'Printed sheets show the other currency underneath the total when a rate is set.',
+        ],
+    ],
+    [
         'id' => 'people',
         'icon' => 'user',
         'title' => 'People on the desk',
@@ -219,7 +271,7 @@ $lessons = [
         'alt' => 'Settings People with logins, titles and access',
         'lead' => 'A desk has up to three logins: the company admin and two more. Vellisys sets the number of seats. Only the admin adds people.',
         'points' => [
-            'Settings → People. Add a name, title, email, access and a temporary password.',
+            'Settings, People. Add a name, title, email, access and a temporary password.',
             'Books sees documents, clients, debtors, creditors and email. Sales sees quotations, invoices, receipts, clients and email. Neither opens Reports or Settings.',
             'Reset a password from the same list. People change their own password under Password in the menu.',
         ],
@@ -230,11 +282,24 @@ $lessons = [
         'title' => 'Password',
         'file' => 'password.png',
         'alt' => 'Password page to change the signed-in login',
-        'lead' => 'Anyone on the desk can change their own password. The company admin can also reset passwords under Settings → People.',
+        'lead' => 'Anyone on the desk can change their own password. The company admin can also reset passwords under Settings, People.',
         'points' => [
             'Open Password in the menu. Enter the current password, then the new one twice. At least 8 characters.',
             'This is your login, not the company sending mailbox. Outgoing mail still leaves as the company.',
             'If you forget it, the company admin resets it. Super admin can also reach the desk if the company is locked out.',
+        ],
+    ],
+    [
+        'id' => 'install',
+        'icon' => 'image',
+        'title' => 'Install the app',
+        'file' => 'install.png',
+        'alt' => 'Sign-in page with install the Vellisys app',
+        'lead' => 'Put Vellisys on the phone or computer from the sign-in page. The installed app opens on login, not the public website.',
+        'points' => [
+            'On the login page, use Install the Vellisys app when the browser offers it.',
+            'On iPhone, share the page and choose Add to Home Screen. The icon opens straight on sign-in.',
+            'The public landing page stays on the website. Books stay behind the login.',
         ],
     ],
 ];
@@ -263,16 +328,12 @@ layout_start('Tutorials', $user);
 
 <?php foreach ($lessons as $i => $lesson): ?>
   <article class="tut-lesson card" id="<?= h($lesson['id']) ?>">
-    <div class="tut-copy">
-      <p class="tut-num">Lesson <?= $i + 1 ?></p>
-      <h2><?= icon($lesson['icon'], 20) ?><?= h($lesson['title']) ?></h2>
-      <p class="lede"><?= h($lesson['lead']) ?></p>
-      <ul>
-        <?php foreach ($lesson['points'] as $point): ?>
-          <li><?= h($point) ?></li>
-        <?php endforeach; ?>
-      </ul>
-    </div>
+    <p class="tut-num">Lesson <?= $i + 1 ?></p>
+    <h2><?= icon($lesson['icon'], 20) ?><?= h($lesson['title']) ?></h2>
+    <p class="tut-desc"><?= h($lesson['lead']) ?></p>
+    <?php foreach ($lesson['points'] as $point): ?>
+      <p class="tut-desc"><?= h($point) ?></p>
+    <?php endforeach; ?>
     <?= $shot($lesson['file'], $lesson['alt']) ?>
   </article>
 <?php endforeach; ?>

@@ -382,7 +382,7 @@ layout_start('Settings', $user);
 
     <section class="card settings-card" id="templates">
       <h2><?= icon('palette') ?>Document designs</h2>
-      <p class="lede">Ten layouts. Pick the one that matches the company. Atelier and Company seal are quiet, formal sheets meant to email. Every invoice, quotation, receipt, expense and headed note reprints in that design, in the client's logo and colours. Changing it here reprints the whole books. Correspondence text stays editable - only the paper around it changes.</p>
+      <p class="lede">Twelve layouts. Pick the one that matches the company. Logo watermark and Bond watermark print the company mark faintly on the paper. Atelier and Company seal are quiet, formal sheets meant to email. Every invoice, quotation, receipt, expense and headed note reprints in that design, in the client's logo and colours. Changing it here reprints the whole books. Correspondence text stays editable - only the paper around it changes.</p>
       <div class="design-grid">
         <?php
         $currentDesign = doc_template_key(['doc_template' => $b['doc_template'] ?? 'folio']);
