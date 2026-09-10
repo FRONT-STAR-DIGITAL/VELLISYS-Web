@@ -352,6 +352,7 @@ function render_landing_pricing(): void
     $showClock = ((int) $section['countdown_days'] + (int) $section['countdown_hours']) > 0;
     ?>
     <section class="lp-pricing" id="pricing" data-reveal data-pricing data-ccy="<?= h($ccy) ?>" data-rates="<?= h(json_encode(pricing_ugx_rates())) ?>" data-currencies="<?= h(json_encode(pricing_currencies())) ?>" data-discount-end="<?= h($clock['iso']) ?>" data-discount-days="<?= (int) $section['countdown_days'] ?>" data-discount-hours="<?= (int) $section['countdown_hours'] ?>">
+      <img class="lp-pricing-mark" src="<?= h(product_v_mark_url()) ?>" alt="" decoding="async">
       <?php if (trim((string) $section['kicker']) !== ''): ?>
         <p class="lp-kicker"><?= h($section['kicker']) ?></p>
       <?php endif; ?>
@@ -377,6 +378,7 @@ function render_landing_pricing(): void
         <?php foreach ($packages as $pkg): ?>
           <article class="lp-price-card<?= !empty($pkg['popular']) ? ' is-popular' : '' ?>">
             <header class="lp-price-head">
+              <img class="lp-price-v" src="<?= h(product_mark_url()) ?>" width="36" height="36" alt="">
               <?php if (!empty($pkg['popular']) && trim((string) $pkg['ribbon']) !== ''): ?>
                 <p class="lp-price-ribbon"><?= h($pkg['ribbon']) ?></p>
               <?php endif; ?>

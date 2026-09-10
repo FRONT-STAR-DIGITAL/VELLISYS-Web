@@ -1836,7 +1836,7 @@ function public_header(string $page = 'home'): void
     </a>
     <nav>
       <?php if ($page !== 'home'): ?>
-        <a class="lp-nav-home" href="<?= h(url()) ?>">Home</a>
+        <a class="lp-nav-home" href="<?= h(url()) ?>" aria-label="Home" title="Home"><?= icon('home', 18) ?></a>
       <?php endif; ?>
       <label class="lp-fx" for="lp-ccy">
         <span class="visually-hidden">Currency</span>

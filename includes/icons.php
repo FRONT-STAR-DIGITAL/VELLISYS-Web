@@ -51,6 +51,7 @@ function icon(string $name, int $size = 18): string
         'x' => '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
         'arrow-right' => '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
         'arrow-left' => '<path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>',
+        'home' => '<path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/>',
         'mail' => '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
     ];
     $aliases = ['delivery' => 'truck', 'custom' => 'file'];
