@@ -132,7 +132,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
           <?php endforeach; ?>
           <span class="lp-x" aria-hidden="true">×</span>
         </div>
-        <p class="lp-stack-hint">Hover to fan the pile. Move away and they stick together again.</p>
+        <p class="lp-stack-hint">That pile is why the books go missing. Leave the drawer, the screenshots and the slips behind.</p>
       </div>
 
       <div class="lp-compare-arrow" aria-hidden="true">

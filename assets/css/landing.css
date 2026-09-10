@@ -46,10 +46,13 @@ body.lp {
   isolation: isolate;
 }
 .lp-chrome,
-main,
 .lp-foot {
   max-width: 100%;
   overflow-x: hidden;
+}
+main {
+  max-width: 100%;
+  overflow-x: visible;
 }
 a { color: inherit; }
 .lp-glow {
@@ -441,8 +444,7 @@ a { color: inherit; }
   gap: 24px 20px;
   align-items: center;
   padding: 72px 5vw 80px;
-  overflow-x: hidden;
-  max-width: 100%;
+  overflow: visible;
 }
 .lp-compare .lp-kicker { text-align: center; }
 .lp-compare h2 { margin: 0; font-size: 28px; letter-spacing: -.02em; text-align: center; }
@@ -455,12 +457,14 @@ a { color: inherit; }
   line-height: 1.5;
 }
 .lp-stack-hint {
-  margin: 14px auto 0;
+  margin: 18px auto 0;
+  max-width: 28em;
   text-align: center;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
-  letter-spacing: .04em;
-  text-transform: uppercase;
+  letter-spacing: -.01em;
+  text-transform: none;
+  line-height: 1.45;
   color: var(--muted);
 }
 .lp-send .lp-kicker { text-align: center; }
@@ -474,7 +478,7 @@ a { color: inherit; }
   width: min(460px, 100%);
   height: 280px;
   margin: 28px auto 0;
-  overflow: hidden;
+  overflow: visible;
 }
 .lp-stack img {
   position: absolute;
@@ -1314,7 +1318,7 @@ a { color: inherit; }
   }
   .lp-arrow-right { display: none; }
   .lp-arrow-down { display: block; font-size: 40px; }
-  .lp-stack { height: 228px; }
+  .lp-stack { height: 228px; overflow: visible; }
   .lp-new-main { height: 285px; }
 }
 
@@ -1337,16 +1341,6 @@ a { color: inherit; }
   .lp-btn-lg { min-width: 0; width: 100%; }
   .lp-cta { flex-direction: column; }
   .lp-send-docs { justify-content: center; }
-  .lp-stack:hover img:nth-child(1),
-  .lp-stack.is-open img:nth-child(1) { transform: translate(-36px, -18px) rotate(-12deg) scale(1.03); }
-  .lp-stack:hover img:nth-child(2),
-  .lp-stack.is-open img:nth-child(2) { transform: translate(-22px, 18px) rotate(-8deg) scale(1.02); }
-  .lp-stack:hover img:nth-child(5),
-  .lp-stack.is-open img:nth-child(5) { transform: translate(18px, 16px) rotate(8deg) scale(1.02); }
-  .lp-stack:hover img:nth-child(6),
-  .lp-stack.is-open img:nth-child(6) { transform: translate(24px, -14px) rotate(10deg) scale(1.02); }
-  .lp-stack:hover img:nth-child(7),
-  .lp-stack.is-open img:nth-child(7) { transform: translate(36px, 16px) rotate(12deg) scale(1.03); }
 }
 
 @media (max-width: 480px) {
