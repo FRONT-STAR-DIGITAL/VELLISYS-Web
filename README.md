@@ -27,9 +27,10 @@ Open the **landing page** at the site root. Companies **register** in a few fiel
 - On each company, super admin sets how many **months or years** the client has paid for, the **fee** and **amount paid**, and expiry is calculated from the start date. When a desk is one month from expiry, Reports prepares a professional notice to send
 - Company desk **top bar** shows Kampala date and live time, how much of the paid term is left (days and months), and the expiry date
 - Company reports with a time series, expense pie, debtors aging, collections vs outstanding, quote conversion, top clients, and documents issued over time
-- Super admin assigns each company a **Hostinger (or Titan) sending mailbox**. SMTP and POP/IMAP are prefilled. The company desk can send invoices and quotations from that address, with its logo, and cannot edit the password
+- Super admin assigns each company a **Hostinger (or Titan) sending mailbox**. SMTP and POP/IMAP are prefilled. The company desk sends quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors, and custom mail from that address, with its logo on a white band, and cannot edit the password
+- Desk **Email** tab for custom letters; **Remind** on Debtors and **Message** on Creditors use the same mailbox
 - Desk **Tutorials** (also from Clients) with a tour of the whole portal and screenshots
-- When a company is onboarded, `info@vellisys.com` sends a welcome letter and a short tutorial. The same mailbox is notified for sign-ups, questions, live desks, renewal letters and company mail tests
+- When a company is onboarded, `info@vellisys.com` sends a welcome letter and a short tutorial. The same mailbox confirms questions and registrations, notifies the admin of those events, marks desks live, and sends renewal reminders
 - Easy **register** form - no password to invent. Super admin sees each request, the person who registered gets a confirmation from `info@vellisys.com`, then an admin calls the company and creates the desk
 - Sign-in with a **show password** control
 - **UGX or USD** on each document, converted at a rate you enter in Settings (1 USD = n UGX)
@@ -74,17 +75,28 @@ Create a database named `folio`, then import `sql/schema.sql`. If the `users` ta
 
 ### Email (Hostinger)
 
-Platform mail is **`info@vellisys.com`**. Super admin only. It sends and receives through Hostinger SMTP:
+Two mailboxes, never mixed.
+
+**Vellisys letters** leave from **`info@vellisys.com`**. Super admin only. Clients receive from that address when they:
+
+- submit a question
+- register for a desk
+- are onboarded (welcome + tutorials)
+- are marked live
+- are due a renewal reminder
+- are sent a custom letter from the admin Email tab
+
+Hostinger SMTP:
 
 - SMTP `smtp.hostinger.com` port **465** SSL (STARTTLS 587 also works)
 - POP `pop.hostinger.com` port **995**
 - IMAP `imap.hostinger.com` port **993**
 
-Username is the full address. Credentials live in `config/mail.php` (override with `FOLIO_SMTP_*` on the live host). Titan mailboxes for a company use `smtp.titan.email` / `pop.titan.email` / `imap.titan.email` on the same ports - pick Titan on the company page and the hosts fill in.
+Username is the full address. Credentials live in `config/mail.php` (override with `FOLIO_SMTP_*` on the live host). Letters use navy `#08143A`, blue `#1E4EFF`, white, and black text. The Vellisys logo sits on a white band.
 
-Company invoices do **not** leave from `info@vellisys.com`. Super admin pastes that company's Hostinger address and password on the company page. The desk user clicks Send; the letter uses the company logo and colours.
+**Company letters** do **not** leave from `info@vellisys.com`. Super admin pastes that company's Hostinger (or Titan) address and password on the company page. The desk then sends quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors, and custom emails from that mailbox, with the company logo on white. Titan hosts are `smtp.titan.email` / `pop.titan.email` / `imap.titan.email` on the same ports - pick Titan on the company page and the hosts fill in.
 
-If SMTP is refused (firewall, wrong password), Vellisys still **logs the email as queued**.
+If SMTP is refused (firewall, wrong password), Vellisys still **logs the email as queued**. Retry queued on the admin Email tab only retries Vellisys letters, not company mail.
 
 Print / PDF uses the browser print dialog (Save as PDF). CSV downloads from the Export CSV buttons.
 

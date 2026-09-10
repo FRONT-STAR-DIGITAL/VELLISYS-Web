@@ -42,7 +42,7 @@ layout_start('Email ' . $doc['number'], $user, ['kind' => $doc['kind']]);
 <div class="page-head">
   <div>
     <h1><?= icon('send') ?>Email <?= h($meta['singular']) ?></h1>
-    <p class="lede"><?php if ($sendAcct): ?>Sends as <strong><?= h($fromName) ?></strong> &lt;<?= h($fromEmail) ?>&gt; - the company mailbox Vellisys assigned, with your logo on the letter.<?php else: ?>Vellisys has not assigned a sending mailbox yet. You can still print and share a link. Ask the platform admin to add the Hostinger address on the company.<?php endif; ?></p>
+    <p class="lede"><?php if ($sendAcct): ?>Sends as <strong><?= h($fromName) ?></strong> &lt;<?= h($fromEmail) ?>&gt; - the company mailbox Vellisys assigned, with your logo on a white band. For a reminder, a note to a supplier, or any other letter, use Email in the menu.<?php else: ?>Vellisys has not assigned a sending mailbox yet. You can still print and share a link. Ask the platform admin to add the Hostinger address on the company.<?php endif; ?></p>
   </div>
 </div>
 

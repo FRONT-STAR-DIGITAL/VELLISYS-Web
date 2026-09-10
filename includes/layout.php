@@ -50,6 +50,7 @@ function layout_start(string $title, array $user, array $opts = []): void
         ['documents.php?kind=receipt', 'Receipts', 'receipt'],
         ['documents.php?kind=expense', 'Expenses', 'expense'],
         ['documents.php?kind=letter', 'Correspondence', 'letter'],
+        ['desk_mail.php', 'Email', 'send'],
         ['debtors.php', 'Debtors', 'clients'],
         ['creditors.php', 'Creditors', 'bank'],
         ['clients.php', 'Clients', 'building'],
@@ -224,6 +225,7 @@ function layout_end(string $extra = ''): void
   <a href="<?= h(url('document_new.php?kind=receipt')) ?>"><?= icon('receipt') ?>Receipt</a>
   <a href="<?= h(url('document_new.php?kind=expense')) ?>"><?= icon('expense') ?>Expense</a>
   <a href="<?= h(url('document_new.php?kind=letter')) ?>"><?= icon('letter') ?>Correspondence</a>
+  <a href="<?= h(url('desk_mail.php')) ?>"><?= icon('send') ?>Email</a>
   <a href="<?= h(url('client_edit.php')) ?>"><?= icon('clients') ?>Client</a>
 </div>
 <?php endif; ?>

@@ -1215,10 +1215,10 @@ table.grid tfoot td {
 }
 .mail-preview iframe, .mail-preview-body {
   padding: 0;
-  background: #f4f6fb;
+  background: #ffffff;
   font-size: 14px;
   line-height: 1.55;
-  color: #10182c;
+  color: #000000;
 }
 .tut-toc {
   display: flex;

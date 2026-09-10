@@ -29,7 +29,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 18) {
+    if ($ver >= 19) {
         $done = true;
         return;
     }
@@ -183,9 +183,17 @@ function folio_migrate(mysqli $db): void
 
     folio_migrate_mailboxes($db);
     folio_migrate_fees($db);
+    folio_migrate_email_from($db);
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '18')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '19')");
     $done = true;
+}
+
+function folio_migrate_email_from(mysqli $db): void
+{
+    if (!db_has_column($db, 'emails', 'from_email')) {
+        $db->query("ALTER TABLE emails ADD COLUMN from_email VARCHAR(190) NOT NULL DEFAULT '' AFTER to_email");
+    }
 }
 
 function folio_migrate_subscriptions(mysqli $db): void

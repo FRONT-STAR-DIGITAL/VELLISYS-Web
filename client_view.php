@@ -44,6 +44,7 @@ layout_start($party['name'], $user);
   </div>
   <div class="actions">
     <a class="btn ghost" href="<?= h(export_query('party', ['id' => (string) $id])) ?>"><?= icon('download', 16) ?>Export CSV</a>
+    <a class="btn ghost" href="<?= h(url('desk_mail.php?party=' . $id)) ?>"><?= icon('send') ?>Email</a>
     <a class="btn ghost" href="<?= h(url('client_edit.php?id=' . $id)) ?>"><?= icon('pencil') ?>Edit</a>
   </div>
 </div>
@@ -75,6 +76,11 @@ layout_start($party['name'], $user);
     <?= icon('expense', 20) ?>
     <span>Record expense</span>
     <strong><?= count($byKind['expense']) ?> recorded</strong>
+  </a>
+  <a class="card action-tile" href="<?= h(url('desk_mail.php?party=' . $id)) ?>">
+    <?= icon('send', 20) ?>
+    <span>Email this client</span>
+    <strong><?= $party['email'] ? h($party['email']) : 'Add an email to send' ?></strong>
   </a>
 </div>
 

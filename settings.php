@@ -77,7 +77,7 @@ layout_start('Settings', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('settings') ?>Settings</h1>
-    <p class="lede">Letterhead, colours, the UGX / USD rate. Mail leaves from the company mailbox Vellisys assigned - you cannot change it here.</p>
+    <p class="lede">Letterhead, colours, the UGX / USD rate. Quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors and custom mail leave from the company mailbox Vellisys assigned - you cannot change it here.</p>
   </div>
 </div>
 
@@ -98,7 +98,7 @@ layout_start('Settings', $user);
   <div class="settings-stack">
     <section class="card settings-card" id="account">
       <h2><?= icon('lock') ?>Signed-in account</h2>
-      <p class="lede">This is who is using the desk. Invoices and quotations leave from the company mailbox Vellisys assigned. Only a Vellisys admin can change that mailbox.</p>
+      <p class="lede">This is who is using the desk. Outgoing mail leaves from the company mailbox Vellisys assigned. Only a Vellisys admin can change that mailbox.</p>
       <div class="account-chip">
         <?= icon('user', 22) ?>
         <div>

@@ -719,10 +719,11 @@ function render_doc_actions(array $doc, bool $labeled = false): void
         <?php endif; ?>
         <?php if ($doc['kind'] === 'invoice' && ($doc['balance'] ?? 1) > 0): ?>
           <a class="<?= $pri ?>" href="<?= h(url('document_action.php?receive=' . $id)) ?>" title="Receipt" aria-label="Receipt"><?= icon('receipt', 15) ?><?php if ($labeled): ?> Receipt<?php endif; ?></a>
-          <a class="<?= $cls ?>" href="<?= h(url('document_new.php?kind=letter&party=' . (int) $doc['party_id'] . '&template=demand&related=' . $id)) ?>" title="Remind" aria-label="Remind"><?= icon('send', 15) ?><?php if ($labeled): ?> Remind<?php endif; ?></a>
+          <a class="<?= $cls ?>" href="<?= h(url('desk_mail.php?type=reminder&id=' . $id)) ?>" title="Remind" aria-label="Remind"><?= icon('send', 15) ?><?php if ($labeled): ?> Remind<?php endif; ?></a>
         <?php endif; ?>
         <?php if ($doc['kind'] === 'expense' && ($doc['balance'] ?? 1) > 0): ?>
           <a class="<?= $pri ?>" href="<?= h(url('document_action.php?pay=' . $id)) ?>" title="Pay" aria-label="Pay"><?= icon('bank', 15) ?><?php if ($labeled): ?> Pay<?php endif; ?></a>
+          <a class="<?= $cls ?>" href="<?= h(url('desk_mail.php?type=creditor&id=' . $id)) ?>" title="Message supplier" aria-label="Message supplier"><?= icon('letter', 15) ?><?php if ($labeled): ?> Message<?php endif; ?></a>
         <?php endif; ?>
         <form method="post" action="<?= h(url('document_action.php')) ?>" onsubmit="return confirm('Void this document?');">
           <?= csrf_field() ?>

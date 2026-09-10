@@ -11,7 +11,7 @@ layout_start('Creditors', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('bank') ?>Creditors</h1>
-    <p class="lede">Suppliers you still need to pay. Record a payment against the bill. Totals sit at the foot of the table.</p>
+    <p class="lede">Suppliers you still need to pay. Record a payment against the bill, or email them from the company mailbox. Totals sit at the foot of the table.</p>
   </div>
   <div class="actions">
     <a class="btn ghost" href="<?= h(export_query('creditors')) ?>"><?= icon('download', 16) ?>Export CSV</a>
@@ -25,7 +25,7 @@ layout_start('Creditors', $user);
   <div class="card stat"><?= icon('expense', 20) ?><span>Open bills</span><strong><?= count($rows) ?></strong></div>
   <div class="card stat"><?= icon('bank', 20) ?><span>Amount owing</span><strong><?= h(ugx($total)) ?></strong></div>
   <div class="card stat"><?= icon('hash', 20) ?><span>Paid so far</span><strong><?= h(ugx(documents_sum($rows, 'paid'))) ?></strong></div>
-  <div class="card stat"><?= icon('check', 20) ?><span>Action</span><strong>Pay supplier</strong></div>
+  <div class="card stat"><?= icon('send', 20) ?><span>Action</span><strong>Pay or message</strong></div>
 </div>
 
 <div class="card">

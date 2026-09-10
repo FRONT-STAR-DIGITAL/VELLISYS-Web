@@ -146,8 +146,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!$acct) {
                     $error = 'Save a mailbox email and password before testing.';
                 } else {
-                    $html = branded_company_wrap(branding_for($id), '<p style="margin:0">Vellisys connected this mailbox for <strong>' . h($company['name']) . '</strong>. Invoices and quotations will leave from this address, in the company colours.</p>');
-                    $test = deliver_mail($acct, $acct['from_email'], 'Vellisys connected your sending mailbox', $html, 'Vellisys connected this mailbox for ' . $company['name'] . '.');
+                    $coBrand = branding_for($id);
+                    $html = branded_company_wrap($coBrand, '<p style="margin:0;color:#000000">Vellisys connected this mailbox for <strong>' . h($company['name']) . '</strong>. Quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors and custom mail will leave from this address, with your logo on white.</p>', 'Mailbox connected');
+                    $test = deliver_mail($acct, $acct['from_email'], 'Vellisys connected your sending mailbox', $html, 'Vellisys connected this mailbox for ' . $company['name'] . '.', $acct['from_email'], company_logo_inlines($coBrand));
                     notify_platform(
                         'Mailbox test: ' . $company['name'],
                         '<p style="margin:0">' . h($company['name']) . ' mailbox ' . h($acct['from_email']) . ' test was ' . ($test['ok'] ? 'sent' : 'queued') . '.</p>',
@@ -410,7 +411,7 @@ layout_admin_start($company['name'], $user);
   </div>
   <div style="padding:0 22px 22px">
     <p class="hint" style="margin:8px 0 12px">
-      Hostinger hPanel uses smtp.hostinger.com:465 SSL, pop.hostinger.com:995, imap.hostinger.com:993. Titan uses smtp.titan.email with the same ports. The company desk can send invoices from this address and cannot edit it.
+      Hostinger hPanel uses smtp.hostinger.com:465 SSL, pop.hostinger.com:995, imap.hostinger.com:993. Titan uses smtp.titan.email with the same ports. The company desk sends quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors and custom mail from this address and cannot edit it.
       <?= company_mail_account($company) ? 'Mailbox is ready to send.' : 'Add the email and password to start sending.' ?>
     </p>
     <div class="actions">

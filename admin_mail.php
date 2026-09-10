@@ -77,7 +77,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $recent = db_all(
-    "SELECT * FROM emails WHERE document_id IS NULL ORDER BY id DESC LIMIT 30"
+    "SELECT * FROM emails WHERE document_id IS NULL AND (from_email = '' OR from_email = ?) ORDER BY id DESC LIMIT 30",
+    's',
+    [product_email()]
 );
 $cfg = mail_config();
 
@@ -86,7 +88,7 @@ layout_admin_start('Email', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('send') ?>Email</h1>
-    <p class="lede">Send a custom Vellisys letter from <strong><?= h(product_email()) ?></strong>. This mailbox also receives questions, sign-ups, onboarding, live desks, and renewal notices, and it sends a confirmation to the person who asked a question or registered.</p>
+    <p class="lede">Send a custom Vellisys letter from <strong><?= h(product_email()) ?></strong>. Clients receive from this mailbox when they submit a question, register, go live, or get a renewal reminder. This tab is for any other letter you need to send as Vellisys.</p>
   </div>
   <form method="post">
     <?= csrf_field() ?>

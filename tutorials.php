@@ -21,8 +21,8 @@ $lessons = [
         'alt' => 'Vellisys desk home with open invoices and this month’s totals',
         'lead' => 'Sign in and you land on Desk. That is the morning list: who still owes you, what you invoiced this month, and a short trail of recent documents.',
         'points' => [
-            'Start here every day. Overdue invoices sit at the top so you chase them first.',
-            'Quick add (the plus on the top bar) opens a quotation, invoice, receipt, expense, letter or client without hunting the menu.',
+            'Start here every day. Overdue invoices sit at the top so you chase them first. Remind emails them from the company mailbox.',
+            'Quick add (the plus on the top bar) opens a quotation, invoice, receipt, expense, letter, email or client without hunting the menu.',
             'The coloured rail on the left is your company. Hover it on a computer, or use the menu button on a phone.',
         ],
     ],
@@ -74,7 +74,7 @@ $lessons = [
         'lead' => 'A receipt is proof you were paid. Debtors is the list of who has not finished paying.',
         'points' => [
             'Open the invoice and record a receipt, or start from Receipts. The sheet shows RECEIVED and DUE.',
-            'Debtors ages the unpaid balances: current, 1-30, 31-60, and so on. Use it on Friday to chase.',
+            'Debtors ages the unpaid balances: current, 1-30, 31-60, and so on. Use Remind on an open invoice to email the client from the company mailbox.',
             'Never delete a paid invoice to “clean up”. The receipt is the history your auditor wants.',
         ],
     ],
@@ -87,7 +87,7 @@ $lessons = [
         'lead' => 'Money out is an expense. Unpaid supplier bills sit on Creditors until you mark them paid.',
         'points' => [
             'Log the supplier, the category, the VAT, the date. That is what Reports uses for the pie chart.',
-            'Pay from the expense or from Creditors. The same branded sheet can go back to the supplier.',
+            'Pay from the expense or from Creditors. Message the supplier from the same row - that letter leaves from the company mailbox.',
             'Keep personal spend off this desk. Vellisys is the company books.',
         ],
     ],
@@ -100,7 +100,7 @@ $lessons = [
         'lead' => 'Headed notes - demands, cover letters, introductions - use the same logo as the invoices.',
         'points' => [
             'Write the body on Correspondence. It stays editable. Pick a letter layout in Settings → Templates.',
-            'Email or print. Clients see you, not a generic PDF from an accounting package.',
+            'Email or print. Clients see you, not a generic PDF from an accounting package. Custom notes that are not a headed sheet go from Email in the menu.',
         ],
     ],
     [
@@ -132,13 +132,13 @@ $lessons = [
     [
         'id' => 'email',
         'icon' => 'send',
-        'title' => 'Email a sheet',
+        'title' => 'Email from the desk',
         'file' => 'email.png',
-        'alt' => 'Email form sending an invoice from the company mailbox',
-        'lead' => 'One click sends the quotation or invoice to the client, signed as your company, with your logo in the letter.',
+        'alt' => 'Email form sending from the company mailbox',
+        'lead' => 'Sheets and letters leave from the Hostinger mailbox Vellisys assigned to the company, with your logo on white.',
         'points' => [
-            'Open the document → Email. To, subject and a short note are filled in. Send.',
-            'The From address is the Hostinger mailbox Vellisys put on your company. Replies come back there.',
+            'Share → Email on a quotation, invoice, receipt, expense or headed letter sends that branded sheet.',
+            'Email in the menu is for custom letters, Remind on Debtors, and Message on Creditors. Replies come back to the company mailbox.',
             'If Send says the mailbox is not assigned yet, tell Vellisys. Until then you can still print and share a link.',
         ],
     ],

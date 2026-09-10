@@ -5,10 +5,8 @@ function vellisys_email_wrap(string $innerHtml, string $kicker = 'Vellisys'): st
 {
     $navy = '#08143A';
     $blue = '#1E4EFF';
-    $soft = '#8EB0FF';
-    $paper = '#F4F6FB';
-    $ink = '#10182C';
-    $muted = '#5C6780';
+    $white = '#FFFFFF';
+    $black = '#000000';
     $email = product_email();
     $phones = implode(' · ', product_phones());
     $maker = product_maker_name();
@@ -16,79 +14,89 @@ function vellisys_email_wrap(string $innerHtml, string $kicker = 'Vellisys'): st
     $site = product_maker_url();
 
     return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vellisys</title></head>'
-        . '<body style="margin:0;padding:0;background:' . $paper . ';-webkit-text-size-adjust:100%;">'
+        . '<body style="margin:0;padding:0;background:' . $white . ';-webkit-text-size-adjust:100%;">'
         . '<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">' . h($kicker) . ' from Vellisys</div>'
-        . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:' . $paper . ';margin:0;padding:0;">'
+        . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:' . $white . ';margin:0;padding:0;">'
         . '<tr><td align="center" style="padding:28px 12px;">'
-        . '<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e4e7f0;">'
+        . '<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background:' . $white . ';border:1px solid ' . $navy . ';">'
         . '<tr><td style="height:8px;line-height:8px;font-size:0;background:' . $blue . ';">&nbsp;</td></tr>'
-        . '<tr><td style="padding:26px 32px 18px;background:#ffffff;">'
-        . '<img src="cid:vellisys-logo" alt="Vellisys" width="176" style="display:block;border:0;outline:none;text-decoration:none;height:auto;max-width:176px;">'
+        . '<tr><td style="padding:24px 32px 18px;background:' . $white . ';">'
+        . '<img src="cid:vellisys-logo" alt="Vellisys" width="176" style="display:block;border:0;outline:none;text-decoration:none;height:auto;max-width:176px;background:' . $white . ';">'
         . '</td></tr>'
         . '<tr><td style="background:' . $navy . ';padding:13px 32px;">'
-        . '<p style="margin:0;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:' . $soft . ';font-weight:700;">' . h($kicker) . '</p>'
+        . '<p style="margin:0;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:' . $white . ';font-weight:700;">' . h($kicker) . '</p>'
         . '</td></tr>'
-        . '<tr><td style="padding:28px 32px 12px;background:#ffffff;color:' . $ink . ';font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:15px;line-height:1.65;">'
+        . '<tr><td style="padding:28px 32px 16px;background:' . $white . ';color:' . $black . ';font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:15px;line-height:1.65;">'
         . $innerHtml
         . '</td></tr>'
-        . '<tr><td style="padding:8px 32px 0;background:#ffffff;"><div style="height:1px;line-height:1px;background:#e4e7f0;font-size:0;">&nbsp;</div></td></tr>'
         . '<tr><td style="background:' . $navy . ';padding:24px 32px;">'
-        . '<p style="margin:0 0 6px;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:16px;font-weight:700;color:#ffffff;">Vellisys</p>'
-        . '<p style="margin:0 0 12px;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:13px;color:' . $soft . ';">A product of ' . h($maker) . '</p>'
-        . '<p style="margin:0;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:13px;line-height:1.7;color:#ffffff;">'
-        . '<a href="mailto:' . h($email) . '" style="color:' . $soft . ';text-decoration:none;">' . h($email) . '</a><br>'
+        . '<p style="margin:0 0 6px;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:16px;font-weight:700;color:' . $white . ';">Vellisys</p>'
+        . '<p style="margin:0 0 12px;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:13px;color:' . $white . ';">A product of ' . h($maker) . '</p>'
+        . '<p style="margin:0;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:13px;line-height:1.7;color:' . $white . ';">'
+        . '<a href="mailto:' . h($email) . '" style="color:' . $white . ';text-decoration:none;">' . h($email) . '</a><br>'
         . h($phones) . '<br>' . h($box)
         . '</p>'
         . '</td></tr>'
         . '</table>'
-        . '<p style="margin:18px 8px 0;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:11px;color:' . $muted . ';">Branded books for Ugandan SMEs · <a href="' . h($site) . '" style="color:' . $blue . ';text-decoration:none;">' . h($maker) . '</a></p>'
+        . '<p style="margin:18px 8px 0;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:11px;color:' . $black . ';">Branded books for Ugandan SMEs · <a href="' . h($site) . '" style="color:' . $blue . ';text-decoration:none;">' . h($maker) . '</a></p>'
         . '</td></tr></table></body></html>';
 }
 
 function email_html_preview(string $html): string
 {
-    $file = product_logo_file();
+    $file = product_email_logo_file();
     if ($file !== '' && is_file($file)) {
         $html = str_replace('cid:vellisys-logo', 'data:image/png;base64,' . base64_encode((string) file_get_contents($file)), $html);
     }
     return $html;
 }
 
-function branded_company_wrap(array $brand, string $innerHtml): string
+function branded_company_wrap(array $brand, string $innerHtml, string $kicker = ''): string
 {
     $name = (string) ($brand['name'] ?? 'Your company');
-    $color = parse_hex_color($brand['brand_color'] ?? '', '#1E4EFF');
-    $logoSrc = '';
+    $blue = parse_hex_color($brand['brand_color'] ?? '', '#1E4EFF');
+    $navy = parse_hex_color($brand['brand_deep'] ?? '', '#08143A');
+    $white = '#FFFFFF';
+    $black = '#000000';
+    $kicker = $kicker !== '' ? $kicker : $name;
     $path = (string) ($brand['logo_path'] ?? '');
     $fullLogo = $path !== '' ? ROOT_PATH . '/' . ltrim($path, '/') : '';
-    if ($fullLogo !== '' && is_file($fullLogo)) {
-        $logoSrc = 'cid:company-logo';
-    }
-    $header = $logoSrc !== ''
-        ? '<p style="margin:0 0 18px"><img src="' . h($logoSrc) . '" alt="' . h($name) . '" width="160" style="max-height:52px;width:auto;display:block;border:0"></p>'
-        : '<p style="margin:0 0 16px;font-size:18px;font-weight:700;color:' . h($color) . '">' . h($name) . '</p>';
+    $logoHtml = ($fullLogo !== '' && is_file($fullLogo))
+        ? '<img src="cid:company-logo" alt="' . h($name) . '" width="160" style="display:block;border:0;outline:none;max-height:56px;width:auto;background:' . $white . ';">'
+        : '<p style="margin:0;font-size:20px;font-weight:700;color:' . $navy . '">' . h($name) . '</p>';
     $phone = trim((string) ($brand['phone'] ?? ''));
     $email = trim((string) ($brand['email'] ?? ''));
-    $foot = '<p style="margin:28px 0 0;padding-top:16px;border-top:1px solid #e4e7f0;font-size:13px;color:#5c6780">'
-        . '<strong style="color:#10182c">' . h($name) . '</strong>';
+    $foot = '<p style="margin:0;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:13px;line-height:1.7;color:' . $white . ';">' . h($name);
     if ($email !== '') {
-        $foot .= '<br><a href="mailto:' . h($email) . '" style="color:' . h($color) . '">' . h($email) . '</a>';
+        $foot .= '<br><a href="mailto:' . h($email) . '" style="color:' . $white . ';text-decoration:none;">' . h($email) . '</a>';
     }
     if ($phone !== '') {
         $foot .= '<br>' . h($phone);
     }
     $foot .= '</p>';
-    return '<div style="font-family:Montserrat,Segoe UI,sans-serif;color:#10182c;line-height:1.55;font-size:15px;max-width:640px;margin:0 auto">'
-        . $header
+
+    return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . h($name) . '</title></head>'
+        . '<body style="margin:0;padding:0;background:' . $white . ';-webkit-text-size-adjust:100%;">'
+        . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:' . $white . ';margin:0;padding:0;">'
+        . '<tr><td align="center" style="padding:28px 12px;">'
+        . '<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background:' . $white . ';border:1px solid ' . $navy . ';">'
+        . '<tr><td style="height:8px;line-height:8px;font-size:0;background:' . $blue . ';">&nbsp;</td></tr>'
+        . '<tr><td style="padding:24px 32px 18px;background:' . $white . ';">' . $logoHtml . '</td></tr>'
+        . '<tr><td style="background:' . $navy . ';padding:13px 32px;">'
+        . '<p style="margin:0;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:' . $white . ';font-weight:700;">' . h($kicker) . '</p>'
+        . '</td></tr>'
+        . '<tr><td style="padding:28px 32px 16px;background:' . $white . ';color:' . $black . ';font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:15px;line-height:1.65;">'
         . $innerHtml
-        . $foot
-        . '</div>';
+        . '</td></tr>'
+        . '<tr><td style="background:' . $navy . ';padding:24px 32px;">' . $foot . '</td></tr>'
+        . '</table>'
+        . '</td></tr></table></body></html>';
 }
 
 function mail_inlines_for_html(string $html, array $extra = []): array
 {
     $known = [
-        'vellisys-logo' => product_logo_file(),
+        'vellisys-logo' => product_email_logo_file(),
     ];
     foreach ($extra as $cid => $path) {
         if (is_string($cid) && is_string($path) && $path !== '') {
@@ -117,41 +125,69 @@ function deliver_mail(array $account, string $to, string $subject, string $html,
         }
     }
     $result = smtp_send($account, $to, $subject, $html, $text, $replyTo, array_values($merged));
-    $result['from'] = $account['from_email'] ?? ($result['from'] ?? '');
+    $result['from'] = (string) ($account['from_email'] ?? ($result['from'] ?? ''));
     if (empty($result['error'])) {
         $result['error'] = $result['ok'] ? '' : 'The mailbox did not accept this message.';
     }
     return $result;
 }
 
-function log_email(?int $documentId, int $userId, string $to, string $subject, string $body, bool $ok, string $error = ''): void
+function log_email(?int $documentId, int $userId, string $to, string $subject, string $body, bool $ok, string $error = '', string $fromEmail = ''): void
 {
+    $status = $ok ? 'sent' : 'queued';
+    $err = $ok ? '' : $error;
     if ($documentId === null) {
         db_exec(
-            'INSERT INTO emails (document_id, user_id, to_email, subject, body, status, error) VALUES (NULL,?,?,?,?,?,?)',
-            'isssss',
-            [$userId, $to, $subject, $body, $ok ? 'sent' : 'queued', $ok ? '' : $error]
+            'INSERT INTO emails (document_id, user_id, to_email, from_email, subject, body, status, error) VALUES (NULL,?,?,?,?,?,?,?)',
+            'issssss',
+            [$userId, $to, $fromEmail, $subject, $body, $status, $err]
         );
         return;
     }
     db_exec(
-        'INSERT INTO emails (document_id, user_id, to_email, subject, body, status, error) VALUES (?,?,?,?,?,?,?)',
-        'iisssss',
-        [$documentId, $userId, $to, $subject, $body, $ok ? 'sent' : 'queued', $ok ? '' : $error]
+        'INSERT INTO emails (document_id, user_id, to_email, from_email, subject, body, status, error) VALUES (?,?,?,?,?,?,?,?)',
+        'iissssss',
+        [$documentId, $userId, $to, $fromEmail, $subject, $body, $status, $err]
     );
 }
 
 function send_platform_email(string $to, string $subject, string $html, string $text, int $userId = 0, string $replyTo = ''): array
 {
     $account = platform_mail_account();
-    $result = deliver_mail($account, $to, $subject, $html, $text, $replyTo !== '' ? $replyTo : (string) $account['from_email']);
-    log_email(null, $userId, $to, $subject, $text, $result['ok'], (string) ($result['error'] ?? ''));
+    $from = (string) ($account['from_email'] ?? '');
+    $result = deliver_mail($account, $to, $subject, $html, $text, $replyTo !== '' ? $replyTo : $from);
+    log_email(null, $userId, $to, $subject, $text, $result['ok'], (string) ($result['error'] ?? ''), $from);
     return $result;
+}
+
+function company_mailbox_missing_error(): string
+{
+    return 'Vellisys has not assigned a sending mailbox for this company yet. Ask the platform admin to add the Hostinger address on the company page.';
+}
+
+function desk_mail_query(string $type, int $docId, int $partyId): string
+{
+    $q = [];
+    if ($type !== '' && $type !== 'custom') {
+        $q[] = 'type=' . rawurlencode($type);
+    }
+    if ($docId > 0) {
+        $q[] = 'id=' . $docId;
+    }
+    if ($partyId > 0) {
+        $q[] = 'party=' . $partyId;
+    }
+    return $q ? '?' . implode('&', $q) : '';
 }
 
 function retry_queued_platform_mail(): array
 {
-    $rows = db_all("SELECT * FROM emails WHERE status = 'queued' AND document_id IS NULL ORDER BY id");
+    $from = product_email();
+    $rows = db_all(
+        "SELECT * FROM emails WHERE status = 'queued' AND document_id IS NULL AND (from_email = '' OR from_email = ?) ORDER BY id",
+        's',
+        [$from]
+    );
     $ok = 0;
     $fail = 0;
     foreach ($rows as $row) {
@@ -188,42 +224,64 @@ function notify_platform(string $subject, string $html, string $text, string $re
     return send_platform_email(product_email(), $subject, $inner, $text, $userId, $replyTo);
 }
 
+function company_logo_inlines(array $brand): array
+{
+    $logoPath = (string) ($brand['logo_path'] ?? '');
+    $logoFull = $logoPath !== '' ? ROOT_PATH . '/' . ltrim($logoPath, '/') : '';
+    if ($logoFull !== '' && is_file($logoFull)) {
+        return [['cid' => 'company-logo', 'path' => $logoFull, 'name' => basename($logoFull)]];
+    }
+    return [];
+}
+
 function send_document_email(array $user, array $doc, string $to, string $subject, string $message): array
+{
+    $meta = kind_meta((string) ($doc['kind'] ?? ''));
+    $kicker = trim($meta['singular'] . ' ' . (string) ($doc['number'] ?? ''));
+    $result = send_company_email($user, $to, $subject, $message, $doc, $kicker);
+    if (($result['from'] ?? '') !== '') {
+        $brand = branding();
+        notify_platform(
+            'Sent: ' . $meta['singular'] . ' ' . $doc['number'] . ' from ' . $brand['name'],
+            '<p style="margin:0 0 12px"><strong>' . h($brand['name']) . '</strong> sent ' . h(strtolower($meta['singular'])) . ' <strong>' . h($doc['number']) . '</strong> to ' . h($to) . ' from ' . h((string) $result['from']) . '.</p>'
+                . '<p style="margin:0">Status: ' . (!empty($result['ok']) ? 'sent' : 'queued') . '.</p>',
+            $brand['name'] . ' sent ' . $meta['singular'] . ' ' . $doc['number'] . ' to ' . $to . '.',
+            (string) $result['from'],
+            (int) $user['id']
+        );
+    }
+    return $result;
+}
+
+function send_company_email(array $user, string $to, string $subject, string $message, ?array $doc = null, string $kicker = ''): array
 {
     $brand = branding();
     $cid = (int) ($doc['company_id'] ?? current_company_id());
     $company = $cid ? db_one('SELECT * FROM companies WHERE id = ?', 'i', [$cid]) : null;
     $account = $company ? company_mail_account($company) : null;
+    $docId = $doc ? (int) ($doc['id'] ?? 0) : 0;
     if (!$account) {
-        $err = 'Vellisys has not assigned a sending mailbox for this company yet. Ask the platform admin to add the Hostinger address on the company page.';
-        log_email((int) $doc['id'], (int) $user['id'], $to, $subject, $message, false, $err);
+        $err = company_mailbox_missing_error();
+        log_email($docId > 0 ? $docId : null, (int) $user['id'], $to, $subject, $message, false, $err, '');
         return ['ok' => false, 'from' => '', 'error' => $err];
     }
-    $meta = kind_meta($doc['kind']);
-    $inner = '<p style="margin:0 0 14px">' . nl2br(h($message)) . '</p>'
-        . '<p style="margin:0 0 14px">' . h($meta['singular']) . ' <strong>' . h($doc['number']) . '</strong></p>'
-        . '<p style="margin:0 0 14px"><a href="' . h(document_share_url($doc)) . '" style="color:' . h(parse_hex_color($brand['brand_color'] ?? '', '#1E4EFF')) . '">Open the branded sheet</a></p>'
-        . '<p style="margin:0">' . h($user['name'] ?: $brand['name']) . '<br>' . h($brand['name']) . '</p>';
-    $html = branded_company_wrap($brand, $inner);
-    $text = $message . "\n\n" . $meta['singular'] . ' ' . $doc['number'] . "\n" . document_share_url($doc);
-    $reply = $account['from_email'];
-    $inlines = [];
-    $logoPath = (string) ($brand['logo_path'] ?? '');
-    $logoFull = $logoPath !== '' ? ROOT_PATH . '/' . ltrim($logoPath, '/') : '';
-    if ($logoFull !== '' && is_file($logoFull)) {
-        $inlines[] = ['cid' => 'company-logo', 'path' => $logoFull, 'name' => basename($logoFull)];
+    $from = (string) $account['from_email'];
+    $link = $doc ? document_share_url($doc) : '';
+    $inner = '<p style="margin:0 0 14px;color:#000000">' . nl2br(h($message)) . '</p>';
+    if ($doc) {
+        $meta = kind_meta((string) ($doc['kind'] ?? ''));
+        $inner .= '<p style="margin:0 0 14px;color:#000000">' . h($meta['singular']) . ' <strong>' . h((string) ($doc['number'] ?? '')) . '</strong></p>'
+            . '<p style="margin:0 0 14px"><a href="' . h($link) . '" style="color:#1E4EFF">Open the branded sheet</a></p>';
     }
-    $result = deliver_mail($account, $to, $subject, $html, $text, $reply, $inlines);
-    log_email((int) $doc['id'], (int) $user['id'], $to, $subject, $message, $result['ok'], (string) ($result['error'] ?? ''));
-    notify_platform(
-        'Sent: ' . $meta['singular'] . ' ' . $doc['number'] . ' from ' . $brand['name'],
-        '<p style="margin:0 0 12px"><strong>' . h($brand['name']) . '</strong> sent ' . h(strtolower($meta['singular'])) . ' <strong>' . h($doc['number']) . '</strong> to ' . h($to) . ' from ' . h($account['from_email']) . '.</p>'
-            . '<p style="margin:0">Status: ' . ($result['ok'] ? 'sent' : 'queued') . '.</p>',
-        $brand['name'] . ' sent ' . $meta['singular'] . ' ' . $doc['number'] . ' to ' . $to . '.',
-        $account['from_email'],
-        (int) $user['id']
-    );
-    $result['from'] = $account['from_email'];
+    $inner .= '<p style="margin:0;color:#000000">' . h($user['name'] ?: (string) $brand['name']) . '<br>' . h((string) $brand['name']) . '</p>';
+    $html = branded_company_wrap($brand, $inner, $kicker);
+    $text = $message;
+    if ($link !== '') {
+        $text .= "\n\n" . $link;
+    }
+    $result = deliver_mail($account, $to, $subject, $html, $text, $from, company_logo_inlines($brand));
+    log_email($docId > 0 ? $docId : null, (int) $user['id'], $to, $subject, $message, $result['ok'], (string) ($result['error'] ?? ''), $from);
+    $result['from'] = $from;
     return $result;
 }
 
@@ -238,7 +296,7 @@ function notify_admin_question(array $q): void
         . '<p style="margin:0 0 8px"><strong>Name:</strong> ' . h($name) . '</p>'
         . '<p style="margin:0 0 8px"><strong>Email:</strong> ' . h($email) . '</p>'
         . '<p style="margin:0 0 8px"><strong>Phone:</strong> ' . h($phone !== '' ? $phone : 'Not given') . '</p>'
-        . '<p style="margin:16px 0;padding:14px;background:#f5f7fc;border-radius:8px">' . nl2br(h($message)) . '</p>'
+        . '<p style="margin:16px 0;padding:14px;background:#FFFFFF;border:1px solid #08143A;color:#000000">' . nl2br(h($message)) . '</p>'
         . '<p style="margin:0"><a href="' . h(absolute_url('admin_question.php?id=' . (int) ($q['id'] ?? 0))) . '" style="color:#1E4EFF">Open the question</a></p>'
     );
     $text = "A visitor asked a question on the Vellisys site.\n\nName: {$name}\nEmail: {$email}\nPhone: " . ($phone !== '' ? $phone : '(none)') . "\n\n{$message}\n\nOpen: " . absolute_url('admin_questions.php');
@@ -261,7 +319,7 @@ function notify_visitor_question(array $q): void
         '<p style="margin:0 0 16px">Dear ' . h($who) . ',</p>'
         . '<p style="margin:0 0 14px">Thank you for writing to Vellisys. We have your question and a member of the team will reply to this email.</p>'
         . ($message !== ''
-            ? '<p style="margin:0 0 8px"><strong>Your note</strong></p><p style="margin:0 0 18px;padding:14px;background:#f5f7fc;border-radius:8px">' . nl2br(h($message)) . '</p>'
+            ? '<p style="margin:0 0 8px"><strong>Your note</strong></p><p style="margin:0 0 18px;padding:14px;background:#FFFFFF;border:1px solid #08143A;color:#000000">' . nl2br(h($message)) . '</p>'
             : '')
         . '<p style="margin:0 0 14px">If it is urgent, call ' . h($phones) . '.</p>'
         . '<p style="margin:0">Kind regards,<br><strong>Vellisys</strong></p>',

@@ -155,6 +155,7 @@ CREATE TABLE IF NOT EXISTS emails (
   document_id INT UNSIGNED DEFAULT NULL,
   user_id INT UNSIGNED DEFAULT NULL,
   to_email VARCHAR(190) NOT NULL,
+  from_email VARCHAR(190) NOT NULL DEFAULT '',
   subject VARCHAR(255) NOT NULL,
   body TEXT,
   status ENUM('sent','queued','failed') NOT NULL DEFAULT 'queued',

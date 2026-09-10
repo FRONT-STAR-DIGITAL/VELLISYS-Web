@@ -1409,6 +1409,17 @@ function product_mark_url(): string
 
 function product_logo_file(): string
 {
+    foreach (['assets/img/our-logo.png', 'assets/img/logo.png', 'assets/img/vellisys-logo.png'] as $rel) {
+        $full = ROOT_PATH . '/' . $rel;
+        if (is_file($full)) {
+            return $full;
+        }
+    }
+    return '';
+}
+
+function product_email_logo_file(): string
+{
     foreach (['assets/img/logo.png', 'assets/img/our-logo.png', 'assets/img/vellisys-logo.png'] as $rel) {
         $full = ROOT_PATH . '/' . $rel;
         if (is_file($full)) {

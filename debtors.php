@@ -22,7 +22,7 @@ layout_start('Debtors', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('clients') ?>Debtors</h1>
-    <p class="lede">Clients who still owe you, including balances left after part payments. Mixed currencies convert at your UGX / USD rate. Take a receipt, send a reminder, or print the invoice.</p>
+    <p class="lede">Clients who still owe you, including balances left after part payments. Mixed currencies convert at your UGX / USD rate. Take a receipt, email a reminder from the company mailbox, or print the invoice.</p>
   </div>
   <a class="btn" href="<?= h(url('document_new.php?kind=invoice')) ?>"><?= icon('invoice') ?>New invoice</a>
   <a class="btn ghost" href="<?= h(export_query('debtors')) ?>"><?= icon('download', 16) ?>Export CSV</a>
@@ -60,7 +60,7 @@ layout_start('Debtors', $user);
   <div class="card stat"><?= icon('invoice', 20) ?><span>Open invoices</span><strong><?= count($rows) ?></strong></div>
   <div class="card stat"><?= icon('bank', 20) ?><span>Amount owed</span><strong><?= h(ugx($total)) ?></strong></div>
   <div class="card stat"><?= icon('alert', 20) ?><span>Overdue</span><strong><?= h(ugx($overdue)) ?></strong></div>
-  <div class="card stat"><?= icon('send', 20) ?><span>Action</span><strong>Receipt or remind</strong></div>
+  <div class="card stat"><?= icon('send', 20) ?><span>Action</span><strong>Receipt or email</strong></div>
 </div>
 
 <div class="card">
