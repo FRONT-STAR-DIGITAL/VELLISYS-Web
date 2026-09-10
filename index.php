@@ -153,8 +153,10 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       <div class="lp-manage-grid">
         <?php foreach ($manage as $item): ?>
           <article>
-            <span class="lp-manage-icon" aria-hidden="true"><?= icon($item['icon'], 22) ?></span>
-            <h3><?= h($item['title']) ?></h3>
+            <div class="lp-manage-head">
+              <span class="lp-manage-icon" aria-hidden="true"><?= icon($item['icon'], 18) ?></span>
+              <h3><?= h($item['title']) ?></h3>
+            </div>
             <p><?= h($item['body']) ?></p>
           </article>
         <?php endforeach; ?>
