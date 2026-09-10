@@ -291,6 +291,31 @@ function folio_migrate_landing_ticker(mysqli $db): void
 
 function folio_ensure_public_tables(mysqli $db): void
 {
+    try {
+        if (!db_has_column($db, 'users', 'job_title')) {
+            $db->query("ALTER TABLE users ADD COLUMN job_title VARCHAR(80) NOT NULL DEFAULT '' AFTER name");
+        }
+        if (!db_has_column($db, 'users', 'access')) {
+            $db->query("ALTER TABLE users ADD COLUMN access VARCHAR(20) NOT NULL DEFAULT 'books' AFTER role");
+        }
+    } catch (Throwable $e) {
+        error_log('Vellisys users columns: ' . $e->getMessage());
+    }
+    try {
+        if (!db_has_column($db, 'companies', 'user_limit')) {
+            $db->query('ALTER TABLE companies ADD COLUMN user_limit TINYINT UNSIGNED NOT NULL DEFAULT 3');
+        }
+    } catch (Throwable $e) {
+        error_log('Vellisys companies columns: ' . $e->getMessage());
+    }
+    try {
+        folio_migrate_website_orders($db);
+        folio_migrate_order_country($db);
+        folio_migrate_order_pending_mail($db);
+    } catch (Throwable $e) {
+        error_log('Vellisys website_orders: ' . $e->getMessage());
+    }
+
     $db->query("CREATE TABLE IF NOT EXISTS signups (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(160) NOT NULL,
@@ -319,6 +344,11 @@ function folio_ensure_public_tables(mysqli $db): void
       KEY status_created (status, created_at),
       KEY email (email)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    try {
+        folio_migrate_landing_pricing($db);
+    } catch (Throwable $e) {
+        error_log('Vellisys landing pricing: ' . $e->getMessage());
+    }
 }
 
 function folio_migrate_signup_source(mysqli $db): void

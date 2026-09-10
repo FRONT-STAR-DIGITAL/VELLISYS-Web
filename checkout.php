@@ -39,60 +39,73 @@ $maybeNotifyDraft = static function (?array $row): void {
 };
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    csrf_check();
     $action = post('action') ?: 'pay';
-    $payload = [
-        'plan' => $pkg['key'],
-        'currency' => $ccy,
-        'name' => post('contact_name'),
-        'company' => post('company_name'),
-        'email' => strtolower(post('contact_email')),
-        'phone' => post('contact_phone'),
-        'city' => post('city'),
-        'country' => post('country'),
-        'status' => $action === 'pay' ? 'pending' : 'draft',
-    ];
-    $id = $existing ? (int) $existing['id'] : 0;
-    if ($id === 0 && post('public_id') !== '') {
-        $found = order_by_public(post('public_id'));
-        $id = $found ? (int) $found['id'] : 0;
-    }
-    $saved = ['order' => null];
-
-    if ($action === 'draft') {
-        $saved = save_website_order($payload, $id ?: null);
-        $row = $saved['order'] ?? null;
-        $maybeNotifyDraft($row);
-        header('Content-Type: application/json');
-        echo json_encode(['ok' => true, 'public_id' => $row['public_id'] ?? '']);
-        exit;
-    }
-
-    if ($payload['name'] === '' || $payload['company'] === '' || !filter_var($payload['email'], FILTER_VALIDATE_EMAIL) || $payload['phone'] === '') {
-        $payload['status'] = 'draft';
-        $saved = save_website_order($payload, $id ?: null);
-        $maybeNotifyDraft($saved['order'] ?? null);
-        $error = 'Name, company, email and phone are required before you pay. We kept what you typed.';
-    } else {
-        $saved = save_website_order($payload, $id ?: null);
-        $order = $saved['order'] ?? null;
-        if (!$order) {
-            $error = 'Could not save those details. Try again.';
-        } else {
-            attach_order_signup($order, 'pending');
-            notify_admin_order($order, 'pending');
-            $pay = start_pesapal_payment($order);
-            if (empty($pay['ok'])) {
-                $fresh = apply_order_payment_status($order, 'failed', (string) ($pay['error'] ?? 'Pesapal did not start.'));
-                $error = 'Payment did not start: ' . (string) ($pay['error'] ?? 'Pesapal is unavailable.') . ' We have your details and will contact you.';
-                $existing = $fresh;
-            } else {
-                redirect((string) $pay['redirect']);
-            }
+    if (!csrf_valid()) {
+        if ($action === 'draft') {
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'error' => 'session']);
+            exit;
         }
-    }
-    if (!empty($saved['order']['id'])) {
-        $existing = db_one('SELECT * FROM website_orders WHERE id = ?', 'i', [(int) $saved['order']['id']]) ?: $saved['order'];
+        $error = 'Your session expired. Please submit the form again.';
+    } else {
+        $payload = [
+            'plan' => $pkg['key'],
+            'currency' => $ccy,
+            'name' => post('contact_name'),
+            'company' => post('company_name'),
+            'email' => strtolower(post('contact_email')),
+            'phone' => post('contact_phone'),
+            'city' => post('city'),
+            'country' => post('country'),
+            'status' => $action === 'pay' ? 'pending' : 'draft',
+        ];
+        $id = $existing ? (int) $existing['id'] : 0;
+        if ($id === 0 && post('public_id') !== '') {
+            $found = order_by_public(post('public_id'));
+            $id = $found ? (int) $found['id'] : 0;
+        }
+        $saved = ['order' => null];
+
+        try {
+            if ($action === 'draft') {
+                $saved = save_website_order($payload, $id ?: null);
+                $row = $saved['order'] ?? null;
+                $maybeNotifyDraft($row);
+                header('Content-Type: application/json');
+                echo json_encode(['ok' => true, 'public_id' => $row['public_id'] ?? '']);
+                exit;
+            }
+
+            if ($payload['name'] === '' || $payload['company'] === '' || !filter_var($payload['email'], FILTER_VALIDATE_EMAIL) || $payload['phone'] === '') {
+                $payload['status'] = 'draft';
+                $saved = save_website_order($payload, $id ?: null);
+                $maybeNotifyDraft($saved['order'] ?? null);
+                $error = 'Name, company, email and phone are required before you pay. We kept what you typed.';
+            } else {
+                $saved = save_website_order($payload, $id ?: null);
+                $order = $saved['order'] ?? null;
+                if (!$order) {
+                    $error = 'Could not save those details. Try again.';
+                } else {
+                    attach_order_signup($order, 'pending');
+                    notify_admin_order($order, 'pending');
+                    $pay = start_pesapal_payment($order);
+                    if (empty($pay['ok'])) {
+                        $fresh = apply_order_payment_status($order, 'failed', (string) ($pay['error'] ?? 'Pesapal did not start.'));
+                        $error = 'Payment did not start: ' . (string) ($pay['error'] ?? 'Pesapal is unavailable.') . ' We have your details and will contact you.';
+                        $existing = $fresh;
+                    } else {
+                        redirect((string) $pay['redirect']);
+                    }
+                }
+            }
+            if (!empty($saved['order']['id'])) {
+                $existing = db_one('SELECT * FROM website_orders WHERE id = ?', 'i', [(int) $saved['order']['id']]) ?: $saved['order'];
+            }
+        } catch (Throwable $e) {
+            error_log('Vellisys checkout: ' . $e->getMessage());
+            $error = 'We could not save that just now. Import the Hostinger SQL dump, then try again.';
+        }
     }
 }
 

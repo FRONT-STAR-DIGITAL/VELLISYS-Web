@@ -143,13 +143,15 @@ When someone installs the web app, the icon opens **login**, not the landing pag
 
 ## Hostinger (`www.vellisys.com`)
 
+There is **no `.env` file**. Do not add one. On `www.vellisys.com` the app already uses the Hostinger database and mailbox from `config/database.php` and `config/mail.php`.
+
 1. In hPanel, point **www.vellisys.com** (and the apex `vellisys.com`) at this hosting. Turn on SSL. The included `.htaccess` sends apex and HTTP to `https://www.vellisys.com`.
 2. Set PHP to **8.2 or 8.3**.
 3. Upload this project into **public_html** (document root of `www.vellisys.com`). Keep `index.php` at the root, not inside a subfolder.
-4. In phpMyAdmin, select the Hostinger database **`u454222977_Vell`** and import **`sql/vellisys-hostinger-import.sql`**. Do not run `install.php` on the live domain (it is disabled there).
-5. `config/database.php` uses that Hostinger database when the request host is `vellisys.com` / `www.vellisys.com`. Local XAMPP still uses `folio` / `root`. Override with `FOLIO_DB_*` if you ever need to.
+4. In phpMyAdmin, select **`u454222977_Vell`** and import **`sql/vellisys-hostinger-import.sql`**. Full steps: `sql/IMPORT-HOSTINGER.md`. Do not run `install.php` on the live domain (it is disabled there).
+5. After import, sign in at `https://www.vellisys.com/login.php`.
 
-After upload, open `https://www.vellisys.com/` for the landing page and `https://www.vellisys.com/login.php` to sign in or install the app.
+If Register, Login and Checkout submit to a blank page online, the live database is behind the PHP. Re-import that SQL dump. Local XAMPP still uses `folio` / `root`.
 
 ## Git
 

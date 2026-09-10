@@ -1,10 +1,10 @@
--- Vellisys Hostinger import
--- In phpMyAdmin: select database u454222977_Vell, then Import this file.
--- There is no CREATE DATABASE statement. Import into the selected database only.
+-- Vellisys Hostinger import (schema version 32)
+-- phpMyAdmin: select database u454222977_Vell, then Import this file.
+-- There is no CREATE DATABASE and no .env file.
+-- After import sign in as admin@vellisys.ug / vellisys-admin-2026
+-- or the demo desk accounts@ofagros.org / folio2026
 
-SET NAMES utf8mb4;
-SET FOREIGN_KEY_CHECKS=0;
-
+/*M!999999\- enable the sandbox mode */ 
 -- MariaDB dump 10.19  Distrib 10.11.14-MariaDB, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: folio
@@ -277,7 +277,7 @@ CREATE TABLE `emails` (
   `error` varchar(255) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -304,7 +304,16 @@ INSERT INTO `emails` VALUES
 (15,NULL,0,'info@vellisys.com','info@vellisys.com','Copy - Your Vellisys payment awaits - front star','Copy for Vellisys. The client received this from info@vellisys.com. Reply to write to arimpaoscarmark7@gmail.com.\n\nDear arimpa,\n\nThank you for choosing the Ledger desk for front star. Your payment awaits.\n\nThe amount due is UGX 200,000 for the first year. Unpaid invoice VEL-INV-VS6FEEB8C93E84 follows in a separate email.\n\nComplete payment on Pesapal to confirm the desk. If the payment page closed, open http://127.0.0.1:43219/checkout.php?plan=studio&o=60e81d34b4e8fb76 again. A Vellisys admin contacts you after payment to onboard. You do not get a password until the desk is opened.\n\nIf you need us, write to info@vellisys.com or call +256 779 971 024 or +256 756 524 451.\n\nKind regards,\nVellisys','sent','','2026-09-10 13:13:29'),
 (16,NULL,0,'arimpaoscarmark7@gmail.com','info@vellisys.com','Your Vellisys payment awaits - front star','Dear arimpa,\n\nThank you for choosing the Ledger desk for front star. Your payment awaits.\n\nThe amount due is UGX 200,000 for the first year. Unpaid invoice VEL-INV-VS6FEEB8C93E84 follows in a separate email.\n\nComplete payment on Pesapal to confirm the desk. If the payment page closed, open http://127.0.0.1:43219/checkout.php?plan=studio&o=60e81d34b4e8fb76 again. A Vellisys admin contacts you after payment to onboard. You do not get a password until the desk is opened.\n\nIf you need us, write to info@vellisys.com or call +256 779 971 024 or +256 756 524 451.\n\nKind regards,\nVellisys','sent','','2026-09-10 13:13:29'),
 (17,NULL,0,'info@vellisys.com','info@vellisys.com','Copy - Unpaid invoice VEL-INV-VS6FEEB8C93E84 - front star','Copy for Vellisys. The client received this from info@vellisys.com. Reply to write to arimpaoscarmark7@gmail.com.\n\nDear arimpa,\n\nUNPAID INVOICE VEL-INV-VS6FEEB8C93E84\nBill to: front star\nEmail: arimpaoscarmark7@gmail.com\nPhone: +256779971024\nPlace: Kampala, Uganda\nIssued: 10/09/2026\nDue: On receipt\nStatus: UNPAID\n\nVellisys Ledger desk (2 logins), first year\nAmount due: UGX 200,000\n\nPay: http://127.0.0.1:43219/checkout.php?plan=studio&o=60e81d34b4e8fb76\n\nQuestions: info@vellisys.com · +256 779 971 024 or +256 756 524 451\n\nKind regards,\nVellisys','sent','','2026-09-10 13:13:31'),
-(18,NULL,0,'arimpaoscarmark7@gmail.com','info@vellisys.com','Unpaid invoice VEL-INV-VS6FEEB8C93E84 - front star','Dear arimpa,\n\nUNPAID INVOICE VEL-INV-VS6FEEB8C93E84\nBill to: front star\nEmail: arimpaoscarmark7@gmail.com\nPhone: +256779971024\nPlace: Kampala, Uganda\nIssued: 10/09/2026\nDue: On receipt\nStatus: UNPAID\n\nVellisys Ledger desk (2 logins), first year\nAmount due: UGX 200,000\n\nPay: http://127.0.0.1:43219/checkout.php?plan=studio&o=60e81d34b4e8fb76\n\nQuestions: info@vellisys.com · +256 779 971 024 or +256 756 524 451\n\nKind regards,\nVellisys','sent','','2026-09-10 13:13:31');
+(18,NULL,0,'arimpaoscarmark7@gmail.com','info@vellisys.com','Unpaid invoice VEL-INV-VS6FEEB8C93E84 - front star','Dear arimpa,\n\nUNPAID INVOICE VEL-INV-VS6FEEB8C93E84\nBill to: front star\nEmail: arimpaoscarmark7@gmail.com\nPhone: +256779971024\nPlace: Kampala, Uganda\nIssued: 10/09/2026\nDue: On receipt\nStatus: UNPAID\n\nVellisys Ledger desk (2 logins), first year\nAmount due: UGX 200,000\n\nPay: http://127.0.0.1:43219/checkout.php?plan=studio&o=60e81d34b4e8fb76\n\nQuestions: info@vellisys.com · +256 779 971 024 or +256 756 524 451\n\nKind regards,\nVellisys','sent','','2026-09-10 13:13:31'),
+(19,NULL,0,'info@vellisys.com','info@vellisys.com','Vellisys sign-up: Speed Test Ltd','New sign-up: Speed Test Ltd / Test User / speedtest-1789053199@example.com / +256700000099','sent','','2026-09-10 15:13:20'),
+(20,NULL,0,'info@vellisys.com','info@vellisys.com','Copy - We have your Vellisys registration','Copy for Vellisys. The client received this from info@vellisys.com. Reply to write to speedtest-1789053199@example.com.\n\nDear Test User,\n\nThank you for registering Speed Test Ltd for a Vellisys desk.\n\nWe have your request. A Vellisys admin will call you to onboard the company. There is no password yet - you receive one when the desk is opened.\n\nIf you need us sooner, write to info@vellisys.com or call +256 779 971 024 or +256 756 524 451.\n\nKind regards,\nVellisys\ninfo@vellisys.com','sent','','2026-09-10 15:13:24'),
+(21,NULL,0,'speedtest-1789053199@example.com','info@vellisys.com','We have your Vellisys registration','Dear Test User,\n\nThank you for registering Speed Test Ltd for a Vellisys desk.\n\nWe have your request. A Vellisys admin will call you to onboard the company. There is no password yet - you receive one when the desk is opened.\n\nIf you need us sooner, write to info@vellisys.com or call +256 779 971 024 or +256 756 524 451.\n\nKind regards,\nVellisys\ninfo@vellisys.com','sent','','2026-09-10 15:13:24'),
+(22,NULL,0,'info@vellisys.com','info@vellisys.com','Vellisys sign-up: Local Co','New sign-up: Local Co / Local Test / localreg1789056579@example.com / +256700000009','sent','','2026-09-10 16:09:41'),
+(23,NULL,0,'info@vellisys.com','info@vellisys.com','Copy - We have your Vellisys registration','Copy for Vellisys. The client received this from info@vellisys.com. Reply to write to localreg1789056579@example.com.\n\nDear Local Test,\n\nThank you for registering Local Co for a Vellisys desk.\n\nWe have your request. A Vellisys admin will call you to onboard the company. There is no password yet - you receive one when the desk is opened.\n\nIf you need us sooner, write to info@vellisys.com or call +256 779 971 024 or +256 756 524 451.\n\nKind regards,\nVellisys\ninfo@vellisys.com','sent','','2026-09-10 16:09:44'),
+(24,NULL,0,'localreg1789056579@example.com','info@vellisys.com','We have your Vellisys registration','Dear Local Test,\n\nThank you for registering Local Co for a Vellisys desk.\n\nWe have your request. A Vellisys admin will call you to onboard the company. There is no password yet - you receive one when the desk is opened.\n\nIf you need us sooner, write to info@vellisys.com or call +256 779 971 024 or +256 756 524 451.\n\nKind regards,\nVellisys\ninfo@vellisys.com','sent','','2026-09-10 16:09:44'),
+(25,NULL,0,'info@vellisys.com','info@vellisys.com','Vellisys sign-up: Browser Co Ltd','New sign-up: Browser Co Ltd / Browser Test / browsertest-1725989520@example.com / +256700111222','sent','','2026-09-10 16:13:48'),
+(26,NULL,0,'info@vellisys.com','info@vellisys.com','Copy - We have your Vellisys registration','Copy for Vellisys. The client received this from info@vellisys.com. Reply to write to browsertest-1725989520@example.com.\n\nDear Browser Test,\n\nThank you for registering Browser Co Ltd for a Vellisys desk.\n\nWe have your request. A Vellisys admin will call you to onboard the company. There is no password yet - you receive one when the desk is opened.\n\nIf you need us sooner, write to info@vellisys.com or call +256 779 971 024 or +256 756 524 451.\n\nKind regards,\nVellisys\ninfo@vellisys.com','sent','','2026-09-10 16:13:52'),
+(27,NULL,0,'browsertest-1725989520@example.com','info@vellisys.com','We have your Vellisys registration','Dear Browser Test,\n\nThank you for registering Browser Co Ltd for a Vellisys desk.\n\nWe have your request. A Vellisys admin will call you to onboard the company. There is no password yet - you receive one when the desk is opened.\n\nIf you need us sooner, write to info@vellisys.com or call +256 779 971 024 or +256 756 524 451.\n\nKind regards,\nVellisys\ninfo@vellisys.com','sent','','2026-09-10 16:13:52');
 /*!40000 ALTER TABLE `emails` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -417,7 +426,7 @@ CREATE TABLE `landing_pricing` (
 LOCK TABLES `landing_pricing` WRITE;
 /*!40000 ALTER TABLE `landing_pricing` DISABLE KEYS */;
 INSERT INTO `landing_pricing` VALUES
-(1,'Packages','Onboard as the discount lasts','First year, shown in {currency}. Change currency in the header. Pay, then a Vellisys admin contacts you to open the desk.','Discount ends in','first year','Prefer a call first? {register} - a Vellisys admin contacts you to onboard.','Register without paying',3,12,'{\"KES\":28.5,\"USD\":3700,\"EUR\":4050,\"GBP\":4750,\"RWF\":2.55}');
+(1,'Packages','Onboard as the discount lasts','Billed per year, shown in {currency}. Change currency in the header. Pay, then a Vellisys admin contacts you to open the desk.','Discount ends in','per year','Prefer a call first? {register} - a Vellisys admin contacts you to onboard.','Register without paying',3,12,'{\"KES\":28.5,\"USD\":3700,\"EUR\":4050,\"GBP\":4750,\"RWF\":2.55}');
 /*!40000 ALTER TABLE `landing_pricing` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -641,7 +650,7 @@ LOCK TABLES `schema_meta` WRITE;
 /*!40000 ALTER TABLE `schema_meta` DISABLE KEYS */;
 INSERT INTO `schema_meta` VALUES
 ('pesapal_ipn_id','a603c88f-600f-4fde-b038-d9eb2c8f002d'),
-('version','31');
+('version','32');
 /*!40000 ALTER TABLE `schema_meta` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -666,7 +675,7 @@ CREATE TABLE `signups` (
   PRIMARY KEY (`id`),
   KEY `status_created` (`status`,`created_at`),
   KEY `email` (`email`)
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -682,7 +691,10 @@ INSERT INTO `signups` VALUES
 (4,'Amina Nalwoga','Lakeview Studio Ltd','amina.lakeview.checkout.test@example.com','256700111222','new',NULL,'2026-09-10 12:35:09','checkout','Solo · UGX 150000.00 · payment draft'),
 (5,'Peter Mwangi','Ridge Books Ltd','peter.ridge.checkout.test@example.com','254700333444','new',NULL,'2026-09-10 12:35:41','checkout','Practice · UGX 250000.00 · payment draft'),
 (6,'Grace Atim','Nile Studio Ltd','grace.nile.checkout.test@example.com','256701222333','new',NULL,'2026-09-10 12:36:01','checkout','Studio · UGX 200000.00 · payment pending'),
-(7,'arimpa','front star','arimpaoscarmark7@gmail.com','','new',NULL,'2026-09-10 12:50:55','checkout','Ledger · UGX 200000.00 · payment pending · Kampala, Uganda');
+(7,'arimpa','front star','arimpaoscarmark7@gmail.com','','new',NULL,'2026-09-10 12:50:55','checkout','Ledger · UGX 200000.00 · payment pending · Kampala, Uganda'),
+(8,'Test User','Speed Test Ltd','speedtest-1789053199@example.com','+256700000099','new',NULL,'2026-09-10 15:13:19','register',NULL),
+(9,'Local Test','Local Co','localreg1789056579@example.com','+256700000009','new',NULL,'2026-09-10 16:09:39','register',NULL),
+(10,'Browser Test','Browser Co Ltd','browsertest-1725989520@example.com','+256700111222','new',NULL,'2026-09-10 16:13:44','register',NULL);
 /*!40000 ALTER TABLE `signups` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -823,4 +835,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed
+-- Dump completed on 2026-09-10 16:16:30

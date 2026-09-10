@@ -155,7 +155,7 @@ function pricing_packages(): array
                 $out[$pkg['key']] = $pkg;
             }
         }
-        $cached = $out;
+        $cached = $out !== [] ? $out : pricing_package_defaults();
         return $cached;
     } catch (Throwable $e) {
         $cached = pricing_package_defaults();

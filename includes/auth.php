@@ -6,7 +6,18 @@ function current_user(): ?array
     if (empty($_SESSION['user_id'])) {
         return null;
     }
-    return db_one('SELECT id, name, job_title, email, role, access, company_id FROM users WHERE id = ?', 'i', [(int) $_SESSION['user_id']]);
+    try {
+        $user = db_one('SELECT * FROM users WHERE id = ?', 'i', [(int) $_SESSION['user_id']]);
+    } catch (Throwable $e) {
+        return null;
+    }
+    if (!$user) {
+        return null;
+    }
+    $user['job_title'] = (string) ($user['job_title'] ?? '');
+    $user['access'] = (string) ($user['access'] ?? (($user['role'] ?? '') === 'admin' ? 'admin' : 'books'));
+    $user['role'] = (string) ($user['role'] ?? 'member');
+    return $user;
 }
 
 function require_login(): array
