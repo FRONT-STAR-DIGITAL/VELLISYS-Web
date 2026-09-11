@@ -100,13 +100,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tpl = array_key_exists(post('doc_template'), doc_templates()) ? post('doc_template') : 'folio';
         db_exec('UPDATE documents SET doc_template = ? WHERE company_id = ?', 'si', [$tpl, current_company_id()]);
         branding(true);
+        unset($_SESSION['branding_welcome']);
+        mark_branding_saved($cid, $user);
         flash('Settings saved. This design now prints on every document. USD converts at your ' . default_currency() . ' rate.');
         redirect('settings.php');
     }
     }
+    if ($action === 'dismiss_welcome') {
+        unset($_SESSION['branding_welcome']);
+        redirect('settings.php');
+    }
 }
 
 $b = branding();
+$showWelcome = isset($_GET['welcome']) || !empty($_SESSION['branding_welcome']);
 layout_start('Settings', $user);
 ?>
 <div class="page-head">
@@ -456,4 +463,20 @@ Accounts
 {company}</textarea>
   </div>
 </template>
+<?php if ($showWelcome && !is_acting_admin()): ?>
+  <div class="welcome-pop" role="dialog" aria-labelledby="welcome-title">
+    <div class="welcome-pop-card">
+      <h2 id="welcome-title">Finish company branding</h2>
+      <p>Welcome to your desk. Open Settings on this page and set the company name, logo, colours, TIN, bank and currency so every sheet leaves in your brand.</p>
+      <p>If you need help, call <?= h(implode(' or ', product_phones())) ?> and a Vellisys agent will walk you through it.</p>
+      <div class="actions">
+        <form method="post">
+          <?= csrf_field() ?>
+          <input type="hidden" name="action" value="dismiss_welcome">
+          <button class="btn" type="submit"><?= icon('check', 16) ?>I'll finish branding</button>
+        </form>
+      </div>
+    </div>
+  </div>
+<?php endif; ?>
 <?php layout_end(); ?>

@@ -1,3 +1,7 @@
+try {
+  document.cookie = 'vellisys_tz=' + encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone || '') + ';path=/;max-age=31536000;samesite=lax';
+} catch (e0) {}
+
 document.addEventListener('click', function (e) {
   document.querySelectorAll('details.share-pop[open]').forEach(function (el) {
     if (!el.contains(e.target)) el.removeAttribute('open');

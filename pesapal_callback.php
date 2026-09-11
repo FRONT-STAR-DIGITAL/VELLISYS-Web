@@ -20,6 +20,9 @@ if ($order) {
     } else {
         $order = refresh_order_from_pesapal($order);
     }
+    if (($order['status'] ?? '') === 'paid') {
+        $order = provision_paid_order($order);
+    }
 }
 
 $status = (string) ($order['status'] ?? ($cancelled ? 'cancelled' : 'pending'));
@@ -49,7 +52,7 @@ $retry = $order
       <?php if ($status === 'paid'): ?>
         <p class="lp-kicker">Paid</p>
         <h1>We have your payment</h1>
-        <p>Thank you. <strong><?= h((string) ($order['company'] ?? '')) ?></strong> paid for <?= h($pkg['name'] ?? 'a desk') ?>. A Vellisys admin will contact you on <?= h((string) ($order['email'] ?? '')) ?> to onboard the company. You do not get a password until the desk is opened.</p>
+        <p>Thank you. <strong><?= h((string) ($order['company'] ?? '')) ?></strong> paid for <?= h($pkg['name'] ?? 'a desk') ?>. Set the admin email and password you will use. We also emailed this link to <?= h((string) ($order['email'] ?? '')) ?> from <?= h(product_email()) ?>.</p>
       <?php elseif ($status === 'cancelled'): ?>
         <p class="lp-kicker">Cancelled</p>
         <h1>Payment was cancelled</h1>
@@ -64,10 +67,13 @@ $retry = $order
         <p>If money left the account, sit tight. We email <?= h(product_email()) ?> when the payment confirms. Refresh this page in a minute.</p>
       <?php endif; ?>
       <div class="lp-cta">
+        <?php if ($status === 'paid' && $order && trim((string) ($order['onboard_token'] ?? '')) !== ''): ?>
+          <a class="lp-btn lp-btn-solid" href="<?= h(url('register.php?t=' . rawurlencode((string) $order['onboard_token']))) ?>">Set up your desk</a>
+        <?php endif; ?>
         <?php if ($order && in_array($status, ['failed', 'cancelled', 'pending', 'draft'], true)): ?>
           <a class="lp-btn lp-btn-solid" href="<?= h($retry) ?>">Return to checkout</a>
         <?php endif; ?>
-        <a class="lp-btn lp-btn-ghost" href="<?= h(url()) ?>">Back to Vellisys</a>
+        <a class="lp-btn lp-btn-ghost" href="<?= h($status === 'paid' ? url('login.php') : url()) ?>"><?= $status === 'paid' ? 'Sign in' : 'Back to Vellisys' ?></a>
       </div>
     </div>
   </main>

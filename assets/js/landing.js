@@ -1,4 +1,7 @@
 (function () {
+  try {
+    document.cookie = 'vellisys_tz=' + encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone || '') + ';path=/;max-age=31536000;samesite=lax';
+  } catch (e) {}
   function playCharts() {
     document.querySelectorAll('[data-lp-bars], [data-lp-pies]').forEach(function (el) {
       el.classList.remove('is-play');

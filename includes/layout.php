@@ -59,6 +59,9 @@ function layout_start(string $title, array $user, array $opts = []): void
             ['account.php', 'Password', 'lock'],
         ]
     );
+    if (function_exists('record_site_visit')) {
+        record_site_visit();
+    }
     $nav = array_values(array_filter($nav, static function (array $item) {
         $file = (string) strtok($item[0], '?');
         $kind = '';
@@ -150,6 +153,9 @@ function layout_admin_start(string $title, array $user): void
     $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
     $signupNew = new_signup_count();
     $questionNew = new_question_count();
+    if (function_exists('record_site_visit')) {
+        record_site_visit();
+    }
     $nav = [
         ['admin_landing.php', 'Landing', 'image'],
         ['admin_signups.php', 'Sign-ups', 'letter'],

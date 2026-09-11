@@ -323,6 +323,7 @@ function apply_order_payment_status(array $order, string $status, string $error 
     $fresh = db_one('SELECT * FROM website_orders WHERE id = ?', 'i', [(int) $order['id']]) ?: $order;
     if ($status === 'paid') {
         attach_order_signup($fresh, 'paid');
+        $fresh = provision_paid_order($fresh);
         notify_admin_order($fresh, 'paid');
     } elseif (in_array($status, ['failed', 'cancelled'], true)) {
         attach_order_signup($fresh, $status);

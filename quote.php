@@ -1,4 +1,4 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
-redirect('register.php');
+redirect('index.php#pricing');

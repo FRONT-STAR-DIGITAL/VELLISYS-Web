@@ -1,50 +1,81 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
+if (function_exists('record_site_visit')) {
+    record_site_visit();
+}
 if ($user = current_user()) {
     redirect(($user['role'] ?? '') === 'platform' ? 'admin_signups.php' : 'dashboard.php');
 }
 
-$error = '';
-$ok = isset($_GET['ok']);
-$pendingMail = $ok ? take_pending_signup_mail() : null;
-form_mark_open('register');
+$token = trim((string) ($_GET['t'] ?? post('t', '', 64)));
+$order = $token !== '' ? order_by_onboard_token($token) : null;
+if ($order && ($order['status'] ?? '') !== 'paid') {
+    $order = null;
+}
+if ($order) {
+    $order = provision_paid_order($order);
+}
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+$error = '';
+$ready = false;
+if ($order) {
+    $cid = (int) ($order['company_id'] ?? 0);
+    $hasAdmin = $cid > 0 && db_one("SELECT id FROM users WHERE company_id = ? AND role = 'admin'", 'i', [$cid]);
+    $ready = (bool) $hasAdmin;
+}
+
+form_mark_open('register');
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $order && !$ready) {
     if (!csrf_valid()) {
         $error = 'Your session expired. Please submit the form again.';
     } elseif (form_is_spam('register', 1)) {
-        redirect('register.php?ok=1');
-    } elseif (form_rate_blocked('register', 5)) {
-        $error = 'Please wait a bit before sending another request.';
+        redirect('login.php');
+    } elseif (form_rate_blocked('register', 8)) {
+        $error = 'Please wait a bit before trying again.';
     } else {
-        $made = record_website_signup('register');
-        if (!empty($made['ok'])) {
+        $pass = post('password', '', 256);
+        $again = post('password_confirm', '', 256);
+        if ($pass === '' || strlen($pass) < 8) {
+            $error = 'Password must be at least 8 characters.';
+        } elseif ($pass !== $again) {
+            $error = 'The two passwords do not match.';
+        } else {
             form_rate_hit('register');
-            $_SESSION['signup_notify'] = $made['signup'];
-            redirect('register.php?ok=1');
+            $made = complete_self_onboard($order, [
+                'name' => post('contact_name', '', 80),
+                'email' => strtolower(post('contact_email', '', 190)),
+                'password' => $pass,
+            ]);
+            if (!empty($made['ok'])) {
+                flash('Desk login created. Sign in with the email and password you chose.');
+                redirect('login.php?email=' . rawurlencode((string) $made['email']));
+            }
+            $error = (string) ($made['error'] ?? 'Could not create that login.');
+            $ready = !empty($made['ready']);
         }
-        $error = (string) ($made['error'] ?? 'We could not save that just now. Please try again in a moment.');
     }
 }
+
+$pkg = $order ? pricing_package((string) $order['plan']) : null;
 ?>
 <!DOCTYPE html>
 <html lang="en" data-sw="<?= h(url('sw.js')) ?>" data-pwa-login="<?= h(url('login.php')) ?>">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Register · <?= h(product_name()) ?></title>
+  <title><?= $order ? 'Set up your desk' : 'Set up your desk' ?> · <?= h(product_name()) ?></title>
   <?php product_icons(); ?>
   <?php folio_landing_head(); ?>
 </head>
 <body class="gate gate-register">
 <div class="gate-shell">
   <?php gate_art(
-      'A desk for the company. Live from anywhere.',
-      'Register, get onboarded, then quotations, invoices and receipts sit on one desk you can open from anywhere.',
+      'Your desk is paid. Choose how you sign in.',
+      'After Pesapal confirms payment, this page is where you set the admin email and password for the company.',
       '',
       [
-          'heading_html' => 'A desk for the company.<br><em>Live from anywhere.</em>',
+          'heading_html' => 'Your desk is paid.<br><em>Choose how you sign in.</em>',
       ]
   ); ?>
   <main class="gate-panel">
@@ -52,36 +83,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php render_gate_home(); ?>
     <div class="gate-stack">
     <?php render_gate_card_mark(); ?>
-    <?php if ($ok): ?>
+    <?php if (!$order): ?>
       <div class="gate-box gate-ok">
         <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
-        <h2><em>We have</em> your request</h2>
-        <p class="gate-lead">We sent a confirmation to your email from <?= h(product_email()) ?>. A Vellisys admin will contact you to onboard the company and open the desk. No password yet - you get one when the company goes live.</p>
-        <a class="gate-submit" href="<?= h(url()) ?>" data-pwa-home="<?= h(url('login.php')) ?>">Back to Vellisys</a>
-      </div>
-    <?php else: ?>
-      <form class="gate-box" method="post" action="<?= h(url('register.php')) ?>" autocomplete="off">
-        <?= csrf_field() ?>
-        <?= form_honeypot_field() ?>
-        <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
-        <h2>Create your account</h2>
-        <p class="gate-lead">Four fields. This form does not take payment. A Vellisys admin will contact you to onboard the company. You get a password when the desk goes live.</p>
-        <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
-        <label class="gate-field" for="contact_name">Your name
-          <input id="contact_name" name="contact_name" required maxlength="80" autocomplete="name" value="<?= h(post('contact_name')) ?>" placeholder="Jane Okello">
-        </label>
-        <label class="gate-field" for="company_name">Company
-          <input id="company_name" name="company_name" required maxlength="160" autocomplete="organization" value="<?= h(post('company_name')) ?>" placeholder="Okello Traders Ltd">
-        </label>
-        <label class="gate-field" for="contact_email">Email
-          <input id="contact_email" name="contact_email" type="email" required maxlength="190" autocomplete="email" value="<?= h(post('contact_email')) ?>" placeholder="accounts@company.com">
-        </label>
-        <label class="gate-field" for="contact_phone">Phone
-          <input id="contact_phone" name="contact_phone" type="tel" required maxlength="40" autocomplete="tel" value="<?= h(post('contact_phone')) ?>" placeholder="+254 700 000 000">
-        </label>
-        <button class="gate-submit" type="submit">Register <?= icon('arrow-right', 18) ?></button>
+        <h2>Pay first, then set up</h2>
+        <p class="gate-lead">This page opens only after Pesapal confirms payment for a package. Choose a desk, pay on the site, then use the link we email from <?= h(product_email()) ?>.</p>
+        <a class="gate-submit" href="<?= h(url('index.php#pricing')) ?>">See packages</a>
         <p class="gate-or"><span>or</span></p>
         <a class="gate-alt" href="<?= h(url('login.php')) ?>">Sign In</a>
+        <?php render_gate_legal(); ?>
+      </div>
+    <?php elseif ($ready): ?>
+      <div class="gate-box gate-ok">
+        <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
+        <h2>This desk already has a login</h2>
+        <p class="gate-lead">Sign in with the admin email and password you created for <?= h((string) ($order['company'] ?? 'your company')) ?>.</p>
+        <a class="gate-submit" href="<?= h(url('login.php?email=' . rawurlencode((string) ($order['email'] ?? '')))) ?>">Sign in</a>
+        <?php render_gate_legal(); ?>
+      </div>
+    <?php else: ?>
+      <form class="gate-box" method="post" action="<?= h(url('register.php?t=' . rawurlencode($token))) ?>" autocomplete="off">
+        <?= csrf_field() ?>
+        <?= form_honeypot_field() ?>
+        <input type="hidden" name="t" value="<?= h($token) ?>">
+        <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
+        <h2>Create your admin login</h2>
+        <p class="gate-lead">
+          <?= h((string) ($order['company'] ?? 'Your company')) ?> paid for <?= h($pkg['name'] ?? 'a desk') ?>.
+          Set the name, email and password you will use to sign in. Enter the password twice.
+        </p>
+        <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
+        <label class="gate-field" for="contact_name">Admin name
+          <input id="contact_name" name="contact_name" required maxlength="80" autocomplete="name" value="<?= h(post('contact_name') ?: (string) ($order['name'] ?? '')) ?>" placeholder="Jane Okello">
+        </label>
+        <label class="gate-field" for="contact_email">Sign-in email
+          <input id="contact_email" name="contact_email" type="email" required maxlength="190" autocomplete="username" value="<?= h(post('contact_email') ?: (string) ($order['email'] ?? '')) ?>" placeholder="accounts@company.com">
+        </label>
+        <label class="gate-field" for="password">Password
+          <input id="password" name="password" type="password" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters">
+        </label>
+        <label class="gate-field" for="password_confirm">Confirm password
+          <input id="password_confirm" name="password_confirm" type="password" required minlength="8" autocomplete="new-password" placeholder="Type it again">
+        </label>
+        <button class="gate-submit" type="submit">Save and go to sign in <?= icon('arrow-right', 18) ?></button>
         <?php render_gate_legal(); ?>
       </form>
     <?php endif; ?>
@@ -93,4 +137,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <script src="<?= h(asset('js/pwa.js')) ?>" defer></script>
 </body>
 </html>
-<?php send_pending_signup_mail($pendingMail); ?>

@@ -25,7 +25,7 @@ function folio_migrate(mysqli $db): void
         error_log('Vellisys public tables: ' . $e->getMessage());
     }
     $verRow = @$db->query("SELECT v FROM schema_meta WHERE k='version'");
-    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 34) {
+    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 35) {
         $done = true;
         return;
     }
@@ -39,7 +39,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 34) {
+    if ($ver >= 35) {
         $done = true;
         return;
     }
@@ -239,8 +239,12 @@ function folio_migrate(mysqli $db): void
     if ($ver < 34) {
         folio_migrate_onboard_steps($db);
     }
+    if ($ver < 35) {
+        folio_migrate_self_onboard($db);
+        folio_migrate_site_visits($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '34')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '35')");
     $done = true;
 }
 
@@ -249,6 +253,39 @@ function folio_migrate_onboard_steps(mysqli $db): void
     if (!db_has_column($db, 'companies', 'onboard_steps')) {
         $db->query('ALTER TABLE companies ADD COLUMN onboard_steps TEXT NULL');
     }
+}
+
+function folio_migrate_self_onboard(mysqli $db): void
+{
+    if (!db_has_column($db, 'website_orders', 'company_id')) {
+        $db->query('ALTER TABLE website_orders ADD COLUMN company_id INT UNSIGNED NULL');
+    }
+    if (!db_has_column($db, 'website_orders', 'onboard_token')) {
+        $db->query('ALTER TABLE website_orders ADD COLUMN onboard_token VARCHAR(64) NULL');
+    }
+    if (!db_has_column($db, 'users', 'first_login_at')) {
+        $db->query('ALTER TABLE users ADD COLUMN first_login_at DATETIME NULL');
+        $db->query("UPDATE users SET first_login_at = created_at WHERE first_login_at IS NULL AND role <> 'platform'");
+    }
+    $db->query("UPDATE landing_pricing SET register_label = 'Ask a question', register_copy = 'Prefer a call first? {register}', lead = REPLACE(lead, 'Pay, then a Vellisys admin contacts you to open the desk.', 'Pay, then set your admin email and password and finish branding on Settings.') WHERE id > 0");
+}
+
+function folio_migrate_site_visits(mysqli $db): void
+{
+    $db->query("CREATE TABLE IF NOT EXISTS site_visits (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      occurred_at DATETIME NOT NULL,
+      path VARCHAR(190) NOT NULL DEFAULT '',
+      page_kind VARCHAR(20) NOT NULL DEFAULT 'other',
+      country CHAR(2) NOT NULL DEFAULT '',
+      country_name VARCHAR(80) NOT NULL DEFAULT '',
+      is_app TINYINT UNSIGNED NOT NULL DEFAULT 0,
+      device VARCHAR(20) NOT NULL DEFAULT 'desktop',
+      ip_hash CHAR(40) NOT NULL DEFAULT '',
+      KEY occurred_at (occurred_at),
+      KEY page_kind (page_kind),
+      KEY country (country)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
 function folio_migrate_form_indexes(mysqli $db): void

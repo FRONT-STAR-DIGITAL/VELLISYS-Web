@@ -97,11 +97,11 @@ function pricing_section_defaults(): array
     return [
         'kicker' => 'Packages',
         'heading' => 'Onboard as the discount lasts',
-        'lead' => 'Billed per year, shown in {currency}. Change currency in the header. Pay, then a Vellisys admin contacts you to open the desk.',
+        'lead' => 'Billed per year, shown in {currency}. Change currency in the header. Pay, then set your admin email and password and finish branding on Settings.',
         'clock_label' => 'Discount ends in',
         'term_label' => 'per year',
-        'register_copy' => 'Prefer a call first? {register} - a Vellisys admin contacts you to onboard.',
-        'register_label' => 'Register without paying',
+        'register_copy' => 'Prefer a call first? {register}',
+        'register_label' => 'Ask a question',
         'countdown_days' => 3,
         'countdown_hours' => 12,
         'rates' => pricing_ugx_rate_defaults(),
@@ -354,7 +354,7 @@ function render_landing_pricing(): void
     );
     $registerLabel = trim((string) $section['register_label']);
     $registerLink = $registerLabel !== ''
-        ? '<a href="' . h(url('register.php')) . '">' . h($registerLabel) . '</a>'
+        ? '<a href="' . h(url()) . '#ask">' . h($registerLabel) . '</a>'
         : '';
     $register = str_replace('{register}', $registerLink, h($section['register_copy']));
     $showClock = ((int) $section['countdown_days'] + (int) $section['countdown_hours']) > 0;

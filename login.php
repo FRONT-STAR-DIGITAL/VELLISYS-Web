@@ -1,9 +1,16 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
+if (function_exists('record_site_visit')) {
+    record_site_visit();
+}
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' && ($user = current_user())) {
     redirect(($user['role'] ?? '') === 'platform' ? 'admin_signups.php' : 'dashboard.php');
+}
+$prefillEmail = strtolower(trim((string) ($_GET['email'] ?? '')));
+if ($prefillEmail !== '' && !filter_var($prefillEmail, FILTER_VALIDATE_EMAIL)) {
+    $prefillEmail = '';
 }
 
 $error = '';
@@ -18,7 +25,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (attempt_login(post('email', '', 190), post('password', '', 256))) {
         remember_login($remember);
         $user = current_user();
-        redirect(($user['role'] ?? '') === 'platform' ? 'admin_signups.php' : 'dashboard.php');
+        if (($user['role'] ?? '') === 'platform') {
+            redirect('admin_signups.php');
+        }
+        $first = finish_member_first_login($user);
+        redirect($first ? 'settings.php?welcome=1' : 'dashboard.php');
     } else {
         form_rate_hit('login', 900);
         $error = 'Those details did not match an account.';
@@ -62,7 +73,7 @@ $showDemoKeys = !folio_is_live_host();
       <label class="gate-field" for="email">Email</label>
       <div class="gate-control">
         <?= icon('mail', 18) ?>
-        <input id="email" name="email" type="email" required maxlength="190" value="<?= h(post('email')) ?>" autocomplete="username" placeholder="you@company.com">
+        <input id="email" name="email" type="email" required maxlength="190" value="<?= h(post('email') ?: $prefillEmail) ?>" autocomplete="username" placeholder="you@company.com">
       </div>
       <label class="gate-field" for="password">Password</label>
       <div class="gate-control gate-pw">
@@ -82,7 +93,7 @@ $showDemoKeys = !folio_is_live_host();
       </div>
       <button class="gate-submit" type="submit">Sign In <?= icon('arrow-right', 18) ?></button>
       <p class="gate-or"><span>or</span></p>
-      <a class="gate-alt" href="<?= h(url('register.php')) ?>">Register</a>
+      <a class="gate-alt" href="<?= h(url('index.php#pricing')) ?>">Get a desk</a>
       <?php if ($showDemoKeys): ?>
       <details class="gate-keys">
         <summary>Try a desk</summary>

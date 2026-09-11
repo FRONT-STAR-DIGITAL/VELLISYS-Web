@@ -27,10 +27,10 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - A navy **top bar** above the header. Super admin edits the scrolling statements under **Landing**. Lines are separated by a blue |
 - Super admin **onboarding**: tick only the documents that company needs (quotations, invoices, receipts, delivery notes, headed letters, custom). Custom documents are a form with fields and/or a body, not a letter
 - Super admin **payment receipt**: on create company, or after recording a paid term, send a thanks-and-welcome receipt from `info@vellisys.com` with the amount received and the subscribed period
-- Super admin **onboarding checklist** on each company: tick paid term, receipt email, desk login, mailbox, welcome email, desk live, and client confirms login
+- Super admin **onboarding checklist** on each company: package paid, receipt email, admin credentials, first sign-in, branding saved, mailbox, welcome email, desk live, and client confirms login
 - **Have a question** form on the landing page. Super admin sees each note under **Questions**, opens the full message on its own page, and a copy is emailed to `info@vellisys.com`. The person who sent the question also gets a confirmation from that mailbox
 - Super admin **Email** tab: send a custom Vellisys letter from `info@vellisys.com`
-- Super admin **Reports**: fees collected and balances per client, unused term value, desk collections vs outstanding, onboarding and expiry charts, sign-up funnel, time series of platform books, plus paid terms, desks due within a month, lapsed desks, and one-click renewal letters
+- Super admin **Reports**: fees collected and balances per client, unused term value, desk collections vs outstanding, onboarding and expiry charts, sign-up funnel, time series of platform books, plus paid terms, desks due within a month, lapsed desks, one-click renewal letters, and **site visits** (landing page, desk, installed app, traffic by country)
 - On each company, super admin sets how many **months or years** the client has paid for, the **fee** and **amount paid**, and expiry is calculated from the start date. When a desk is one month from expiry, Reports prepares a professional notice to send
 - Company desk **top bar** shows live date and time, how much of the paid term is left (days and months), and the expiry date
 - Company reports with a time series, expense pie, debtors aging, collections vs outstanding, quote conversion, top clients, and documents issued over time
@@ -38,10 +38,10 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - Desk **Email** tab for custom letters; **Remind** on Debtors and **Message** on Creditors use the same mailbox
 - Super admin **Create company**: type a desk in by hand (login, stationery, documents, paid term, mailbox) without a website sign-up. Tick **Send a payment receipt** to email thanks, the amount paid, and the subscribed period from `info@vellisys.com`
 - Super admin **Landing**: edit top-bar lines, **packages**, **testimonials**, card photos and trust logos
-- **Pay** after company details, on the checkout page - the payment form stays on Vellisys (hosted checkout in the page: mobile money, cards, bank, wallet). The buyer is emailed that payment awaits, plus an unpaid invoice. `info@vellisys.com` is copied on those letters. Incomplete checkouts and failed payments are kept and emailed to that mailbox. Register without paying if you want a call first
+- **Pay** after company details, on the checkout page - the payment form stays on Vellisys (hosted checkout in the page: mobile money, cards, bank, wallet). When Pesapal confirms payment the desk is created, `info@vellisys.com` is notified, and the buyer gets a link to set their admin email and password. That self-onboard page is not public without a paid token. First sign-in opens Settings with a pop-up to finish branding. Ask a question if you want a call first
 - Desk **Tutorials** (also from Clients) with a tour of the whole portal and screenshots
 - When a company is onboarded, `info@vellisys.com` sends a welcome letter and a short tutorial. The same mailbox confirms questions and registrations, notifies the admin of those events, marks desks live, and sends renewal reminders
-- Easy **register** form - no password to invent. Super admin sees each request, the person who registered gets a confirmation from `info@vellisys.com`, then an admin calls the company and creates the desk
+- Self-onboard after a successful package payment: choose admin name, sign-in email and password (twice), then sign in. Super admin still sees every step on the company page. `info@vellisys.com` is copied on payment, credentials, first sign-in and branding saved
 - Header on the public site stays put when you scroll up, and tucks away when you scroll down. The WhatsApp button stays a round green mark in the corner
 - Sign-in with a **show password** control
 - **Any currency** on the desk - the company enters UGX, KES, EUR, USD or another three-letter code in Settings. Documents can also be in USD; the rate is 1 USD = n of the home currency
@@ -94,8 +94,11 @@ Two mailboxes, never mixed.
 - submit a question
 - register for a desk
 - start or fail a package checkout
-- pay for a term (thanks-and-welcome receipt: amount received, subscribed period, start, expiry)
-- are onboarded (welcome + tutorials)
+- pay for a package (thanks, amount, paid term, and the link to set a password)
+- set their admin login after payment
+- sign in for the first time
+- save company branding
+- are onboarded by an admin (welcome + tutorials)
 - are marked live
 - are due a renewal reminder
 - are sent a custom letter from the admin Email tab
@@ -114,7 +117,7 @@ If SMTP is refused (firewall, wrong password), Vellisys still **logs the email a
 
 **A copy of every outbound letter** also arrives at **`info@vellisys.com`**, including company-desk mail (quotations, invoices, receipts, letters, reminders). The copy is marked for Vellisys and Reply-To is the client, so the team can answer from that inbox. Letters that were already addressed to `info@vellisys.com` are not copied again.
 
-Print / PDF uses the browser print dialog (Save as PDF). CSV downloads from the Export CSV buttons.
+Print uses the browser print dialog. **PDF** on an open document downloads a branded PDF. CSV downloads from the Export CSV buttons. On a phone, document actions sit in two columns.
 
 ## Local PHP (without XAMPP)
 

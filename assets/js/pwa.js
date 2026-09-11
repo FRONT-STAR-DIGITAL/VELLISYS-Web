@@ -21,6 +21,7 @@
   var installed = isInstalledApp();
   if (installed) {
     html.classList.add('is-pwa');
+    document.cookie = 'vellisys_app=1;path=/;max-age=31536000;samesite=lax';
     var home = html.getAttribute('data-pwa-login') || 'login.php';
     document.querySelectorAll('[data-pwa-home]').forEach(function (el) {
       var dest = el.getAttribute('data-pwa-home') || home;

@@ -61,9 +61,6 @@ if ($doc['kind'] === 'invoice') {
     </p>
   </div>
   <div class="actions">
-    <?php if ($doc['kind'] !== 'letter'): ?>
-      <a class="btn ghost sm" href="<?= h(url('export.php?type=document&id=' . (int) $doc['id'])) ?>"><?= icon('download', 15) ?>CSV</a>
-    <?php endif; ?>
     <?php render_doc_actions($doc, true); ?>
   </div>
 </div>

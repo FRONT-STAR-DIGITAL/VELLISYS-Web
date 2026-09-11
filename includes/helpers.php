@@ -1985,6 +1985,9 @@ function gate_art(string $heading, string $lead, string $switchHtml = '', array 
 
 function public_header(string $page = 'home'): void
 {
+    if (function_exists('record_site_visit')) {
+        record_site_visit();
+    }
     $ticker = landing_ticker_lines();
     ?>
   <header class="lp-chrome" data-lp-chrome>
@@ -2267,9 +2270,13 @@ function company_fee_balance(array $company): float
 function onboard_step_defs(): array
 {
     return [
+        'package_paid' => 'Package paid',
         'paid_term' => 'Paid term recorded',
         'receipt_email' => 'Receipt email sent',
+        'credentials_set' => 'Admin credentials set',
         'desk_login' => 'Desk login created',
+        'first_login' => 'Client first sign-in',
+        'branding_saved' => 'Company branding saved',
         'mailbox' => 'Sending mailbox assigned',
         'welcome_email' => 'Welcome email sent',
         'desk_live' => 'Desk marked live',
@@ -2603,7 +2610,7 @@ function landing_faqs(): array
     return [
         [
             'q' => 'How do I get a desk?',
-            'a' => 'Pay for a package on this page, or leave four fields on Register. A Vellisys admin contacts you to onboard the company and issues a login. There is no password to invent on the website.',
+            'a' => 'Pay for a package on this page. After Pesapal confirms payment you set the admin email and password you will use, then sign in and finish branding on Settings. Send a question if you want a call first.',
         ],
         [
             'q' => 'Is Vellisys an alternative to QuickBooks?',
@@ -2627,7 +2634,7 @@ function landing_faqs(): array
             'a' => (static function (): string {
                 $names = array_values(array_filter(array_map(static fn (array $p): string => trim((string) ($p['name'] ?? '')), pricing_packages())));
                 $list = $names ? implode(', ', $names) : 'the packages on this page';
-                return 'Packages on this page: ' . $list . '. Billed per year. Pay, then a Vellisys admin contacts you to onboard the company. Register without paying if you want us to call first.';
+                return 'Packages on this page: ' . $list . '. Billed per year. Pay, then set your admin email and password and finish branding on Settings. Send a question if you want us to call first.';
             })(),
             'link' => ['href' => '#pricing', 'label' => 'See packages'],
         ],

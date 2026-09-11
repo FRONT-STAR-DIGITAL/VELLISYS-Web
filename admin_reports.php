@@ -228,6 +228,15 @@ if ($export === 'books') {
     csv_download('vellisys-desk-books.csv', ['Company', 'Status', 'Invoiced', 'Collected', 'Outstanding', 'Expenses', 'Quotations', 'Invoices', 'Receipts', 'Expenses issued', 'Letters'], $rows);
 }
 
+$traffic = visit_report(30);
+if ((string) ($_GET['export'] ?? '') === 'visits') {
+    $rows = [];
+    foreach ($traffic['countries'] as $c) {
+        $rows[] = [$c['name'], $c['code'], $c['visits']];
+    }
+    csv_download('vellisys-visits.csv', ['Country', 'Code', 'Visits (30 days)'], $rows);
+}
+
 $adminChart = [
     'months' => $months,
     'signups' => array_values($signupMonths),
@@ -245,6 +254,12 @@ $adminChart = [
     'funnelLabels' => array_keys($signupStatus),
     'funnelValues' => array_values($signupStatus),
     'currency' => 'USD',
+    'visitDays' => $traffic['daily']['labels'],
+    'visitLanding' => $traffic['daily']['landing'],
+    'visitDesk' => $traffic['daily']['desk'],
+    'visitApp' => $traffic['daily']['app'],
+    'visitCountryNames' => array_column($traffic['countries'], 'name'),
+    'visitCountryValues' => array_column($traffic['countries'], 'visits'),
 ];
 
 layout_admin_start('Reports', $user);
@@ -293,6 +308,7 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
   <div class="actions">
     <a class="btn ghost" href="<?= h(url('admin_reports.php?export=fees')) ?>"><?= icon('download', 16) ?>Fees CSV</a>
     <a class="btn ghost" href="<?= h(url('admin_reports.php?export=books')) ?>"><?= icon('download', 16) ?>Desk books CSV</a>
+    <a class="btn ghost" href="<?= h(url('admin_reports.php?export=visits')) ?>"><?= icon('globe', 16) ?>Visits CSV</a>
   </div>
 </div>
 
@@ -309,6 +325,55 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
   <div class="card stat"><?= icon('clients', 20) ?><span>Desk outstanding</span><strong><?= h(money($deskOutstanding, 'USD')) ?></strong></div>
 </div>
 <p class="hint" style="margin:-12px 0 20px"><?= $withTerm ?> of <?= count($companies) ?> <?= count($companies) === 1 ? 'company has' : 'companies have' ?> a paid term on file. Remaining unused term value <?= h(money($totalRemaining, 'USD')) ?>. Desk invoiced <?= h(money($deskInvoiced, 'USD')) ?> · expenses <?= h(money($deskExpenses, 'USD')) ?>. Combined totals are USD equivalents.</p>
+
+<div class="page-head" style="margin-top:8px">
+  <div>
+    <h2 style="margin:0;font-size:18px"><?= icon('globe', 18) ?>Site visits and app use</h2>
+    <p class="lede">Landing page, checkout, desk and installed-app traffic for the last <?= (int) $traffic['days'] ?> days, grouped by country when the network or timezone tells us.</p>
+  </div>
+</div>
+<div class="stats">
+  <div class="card stat"><?= icon('globe', 20) ?><span>Landing visits</span><strong><?= (int) $traffic['landing'] ?></strong></div>
+  <div class="card stat"><?= icon('desk', 20) ?><span>Desk and sign-in</span><strong><?= (int) $traffic['desk'] ?></strong></div>
+  <div class="card stat"><?= icon('download', 20) ?><span>Installed app</span><strong><?= (int) $traffic['app'] ?></strong></div>
+  <div class="card stat"><?= icon('pin', 20) ?><span>Countries</span><strong><?= count($traffic['countries']) ?></strong></div>
+</div>
+<div class="chart-grid equal">
+  <div class="card chart-box">
+    <div class="card-head"><h2><?= icon('reports', 16) ?>Traffic over time</h2></div>
+    <?php if ($traffic['total'] === 0): ?>
+      <p class="empty">No visits recorded yet. Open the landing page and a desk to start this chart.</p>
+    <?php else: ?>
+      <canvas id="chart-visits"></canvas>
+    <?php endif; ?>
+  </div>
+  <div class="card chart-box">
+    <div class="card-head"><h2><?= icon('pin', 16) ?>Traffic by country</h2></div>
+    <?php if (!$traffic['countries']): ?>
+      <p class="empty">Countries appear after people open the site. We read Cloudflare or host country headers when present, or the timezone the browser sends.</p>
+    <?php else: ?>
+      <canvas id="chart-visit-countries"></canvas>
+    <?php endif; ?>
+  </div>
+</div>
+<?php if ($traffic['countries']): ?>
+<div class="card" style="margin-bottom:24px">
+  <div class="card-head"><h2><?= icon('globe', 16) ?>Countries this month</h2></div>
+  <div class="table-scroll">
+    <table class="grid">
+      <thead><tr><th>Country</th><th class="right">Visits</th></tr></thead>
+      <tbody>
+        <?php foreach ($traffic['countries'] as $vc): ?>
+          <tr>
+            <td><?= h($vc['name']) ?><?php if ($vc['code'] !== ''): ?> <span class="mono"><?= h($vc['code']) ?></span><?php endif; ?></td>
+            <td class="right mono"><?= (int) $vc['visits'] ?></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+</div>
+<?php endif; ?>
 
 <div class="chart-grid equal">
   <div class="card chart-box">
@@ -663,6 +728,29 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
         ]
       },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, scales: { x: { stacked: true }, y: { stacked: true, ticks: { callback: money } } } }
+    });
+  }
+  var visits = document.getElementById("chart-visits");
+  if (visits) {
+    new Chart(visits, {
+      type: "line",
+      data: {
+        labels: d.visitDays,
+        datasets: [
+          { label: "Landing", data: d.visitLanding, borderColor: "#1E4EFF", backgroundColor: "rgba(30,78,255,.12)", tension: .25, fill: true },
+          { label: "Desk", data: d.visitDesk, borderColor: "#08143A", tension: .25, fill: false },
+          { label: "App", data: d.visitApp, borderColor: "#82B440", backgroundColor: "rgba(130,180,64,.14)", tension: .25, fill: true }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, scales: { y: { ticks: { precision: 0 } } } }
+    });
+  }
+  var visitCountries = document.getElementById("chart-visit-countries");
+  if (visitCountries && d.visitCountryNames && d.visitCountryNames.length) {
+    new Chart(visitCountries, {
+      type: "bar",
+      data: { labels: d.visitCountryNames, datasets: [{ label: "Visits", data: d.visitCountryValues, backgroundColor: "#1E4EFF" }] },
+      options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { precision: 0 } } } }
     });
   }
   var books = document.getElementById("chart-books");

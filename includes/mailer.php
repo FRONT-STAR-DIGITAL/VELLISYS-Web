@@ -532,7 +532,7 @@ function payment_awaits_copy(array $order, string $planName): array
         '<p style="margin:0 0 16px">Dear ' . h($who) . ',</p>'
         . '<p style="margin:0 0 14px">Thank you for choosing the <strong>' . h($planName) . '</strong> desk for <strong>' . h($company) . '</strong>. Your payment awaits.</p>'
         . '<p style="margin:0 0 14px">The amount due is <strong>' . h($amount) . '</strong> for the ' . h($term) . '. Unpaid invoice <strong>' . h($inv) . '</strong> follows in a separate email.</p>'
-        . '<p style="margin:0 0 18px">Complete payment on the Vellisys checkout page to confirm the desk. If the form closed, open <a href="' . h($pay) . '" style="color:#1E4EFF">your checkout</a> again - you stay on our site. A Vellisys admin contacts you after payment to onboard. You do not get a password until the desk is opened.</p>'
+        . '<p style="margin:0 0 18px">Complete payment on the Vellisys checkout page to confirm the desk. If the form closed, open <a href="' . h($pay) . '" style="color:#1E4EFF">your checkout</a> again - you stay on our site. After payment you set your own admin email and password.</p>'
         . '<p style="margin:0 0 14px">If you need us, write to <a href="mailto:' . h(product_email()) . '" style="color:#1E4EFF">' . h(product_email()) . '</a> or call ' . h($phones) . '.</p>'
         . '<p style="margin:0">Kind regards,<br><strong>Vellisys</strong></p>',
         'Payment awaits'
@@ -540,7 +540,7 @@ function payment_awaits_copy(array $order, string $planName): array
     $text = "Dear {$who},\n\n"
         . "Thank you for choosing the {$planName} desk for {$company}. Your payment awaits.\n\n"
         . "The amount due is {$amount} for the {$term}. Unpaid invoice {$inv} follows in a separate email.\n\n"
-        . "Complete payment on the Vellisys checkout page to confirm the desk. If the form closed, open {$pay} again - you stay on our site. A Vellisys admin contacts you after payment to onboard. You do not get a password until the desk is opened.\n\n"
+        . "Complete payment on the Vellisys checkout page to confirm the desk. If the form closed, open {$pay} again - you stay on our site. After payment you set your own admin email and password.\n\n"
         . 'If you need us, write to ' . product_email() . " or call {$phones}.\n\nKind regards,\nVellisys";
     return ['subject' => $subject, 'html' => $html, 'text' => $text];
 }
@@ -602,7 +602,7 @@ function unpaid_invoice_copy(array $order, string $planName): array
         . ($ccy !== 'UGX' ? '<tr><td style="padding:0 14px 12px;color:#000000;font-size:13px;">Charged equivalent</td><td style="padding:0 14px 12px;color:#000000;text-align:right;font-size:13px;">' . h($ugx) . '</td></tr>' : '')
         . '</table>'
         . '<p style="margin:0 0 16px"><a href="' . h($pay) . '" style="display:inline-block;background:#1E4EFF;color:#FFFFFF;text-decoration:none;padding:12px 18px;font-weight:700;">Pay this invoice</a></p>'
-        . '<p style="margin:0 0 14px;color:#000000">If payment did not finish, use the button above. After payment, a Vellisys admin contacts you to onboard the company.</p>'
+        . '<p style="margin:0 0 14px;color:#000000">If payment did not finish, use the button above. After payment you set your admin email and password, then sign in.</p>'
         . '<p style="margin:0 0 14px;color:#000000">Questions: <a href="mailto:' . h(product_email()) . '" style="color:#1E4EFF">' . h(product_email()) . '</a> · ' . h($phones) . '</p>'
         . '<p style="margin:0;color:#000000">Kind regards,<br><strong>Vellisys</strong></p>',
         'Unpaid invoice'
@@ -651,15 +651,84 @@ function notify_visitor_order_paid(array $order, string $planName, string $amoun
     }
     $who = trim((string) ($order['name'] ?? '')) ?: 'there';
     $company = trim((string) ($order['company'] ?? 'your company'));
-    $subject = 'We have your Vellisys payment for ' . $company;
+    $setup = function_exists('onboard_url') ? onboard_url($order) : absolute_url('login.php');
+    $cid = (int) ($order['company_id'] ?? 0);
+    $term = '';
+    if ($cid > 0) {
+        $co = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$cid]);
+        $term = $co ? company_term_label($co) : '';
+        if ($co) {
+            company_mark_onboard_step($cid, 'receipt_email');
+        }
+    }
+    $subject = 'Thank you for your payment - set up your Vellisys desk';
     $html = vellisys_email_wrap(
         '<p style="margin:0 0 14px">Dear ' . h($who) . ',</p>'
-        . '<p style="margin:0 0 14px">Thank you. We received payment for the <strong>' . h($planName) . '</strong> desk for <strong>' . h($company) . '</strong> (' . $amountHtml . ').</p>'
-        . '<p style="margin:0 0 14px">A Vellisys admin will contact you to onboard the company and issue the login. There is no password yet - you receive one when the desk is opened.</p>'
-        . '<p style="margin:0">Kind regards,<br><strong>Vellisys</strong></p>'
+        . '<p style="margin:0 0 14px">Thank you. We received payment for the <strong>' . h($planName) . '</strong> desk for <strong>' . h($company) . '</strong> (' . $amountHtml . '). Welcome to Vellisys.</p>'
+        . ($term !== '' ? '<p style="margin:0 0 14px"><strong>Paid term:</strong> ' . h($term) . '</p>' : '')
+        . '<p style="margin:0 0 14px">Your desk is waiting. Open the link below, choose the admin name, sign-in email and password you will use, then sign in with those details.</p>'
+        . '<p style="margin:0 0 18px"><a href="' . h($setup) . '" style="display:inline-block;background:#1E4EFF;color:#FFFFFF;text-decoration:none;padding:10px 16px;font-weight:700;">Set up your desk</a></p>'
+        . '<p style="margin:0 0 14px">If the button does not open, use ' . h($setup) . '</p>'
+        . '<p style="margin:0">Kind regards,<br><strong>Vellisys</strong></p>',
+        'Thank you'
     );
-    $text = "Dear {$who},\n\nThank you. We received payment for the {$planName} desk for {$company}. A Vellisys admin will contact you to onboard the company.\n\nKind regards,\nVellisys";
+    $text = "Dear {$who},\n\nThank you. We received payment for the {$planName} desk for {$company} ({$amountHtml})."
+        . ($term !== '' ? " Paid term: {$term}." : '')
+        . "\n\nSet your admin email and password: {$setup}\n\nKind regards,\nVellisys";
     send_platform_email($to, $subject, $html, $text, 0, product_email());
+}
+
+function notify_self_onboard_done(array $company, array $made, array $order): void
+{
+    $to = (string) ($made['email'] ?? '');
+    $login = absolute_url('login.php?email=' . rawurlencode($to));
+    $who = trim((string) ($order['name'] ?? '')) ?: 'the team';
+    $name = (string) ($company['name'] ?? 'your company');
+    if (filter_var($to, FILTER_VALIDATE_EMAIL)) {
+        $html = vellisys_email_wrap(
+            '<p style="margin:0 0 14px">Dear ' . h($who) . ',</p>'
+            . '<p style="margin:0 0 14px">Your Vellisys desk for <strong>' . h($name) . '</strong> is ready. Sign in with the email and password you just chose.</p>'
+            . '<p style="margin:0 0 18px"><a href="' . h($login) . '" style="color:#1E4EFF">Open sign in</a></p>'
+            . '<p style="margin:0">After you sign in, complete company branding on Settings. Call ' . h(implode(' or ', product_phones())) . ' if you need an agent.</p>'
+        );
+        $text = "Your Vellisys desk for {$name} is ready. Sign in at {$login} with the email and password you chose.";
+        send_platform_email($to, 'Your Vellisys desk login is ready', $html, $text, 0, product_email());
+    }
+    notify_platform(
+        'Credentials set: ' . $name,
+        '<p style="margin:0">The paid client <strong>' . h($name) . '</strong> set an admin login (' . h($to) . ').</p>'
+            . '<p style="margin:8px 0 0"><a href="' . h(absolute_url('admin_company.php?id=' . (int) ($company['id'] ?? 0))) . '" style="color:#1E4EFF">Open the company</a></p>',
+        'Credentials set for ' . $name . ' / ' . $to,
+        $to
+    );
+}
+
+function notify_client_first_login(array $company, array $user): void
+{
+    $name = (string) ($company['name'] ?? 'a company');
+    $email = (string) ($user['email'] ?? '');
+    notify_platform(
+        'First sign-in: ' . $name,
+        '<p style="margin:0"><strong>' . h($name) . '</strong> signed in for the first time as ' . h($email) . '. They were sent to Settings to finish branding.</p>'
+            . '<p style="margin:8px 0 0"><a href="' . h(absolute_url('admin_company.php?id=' . (int) ($company['id'] ?? 0))) . '" style="color:#1E4EFF">Open the company</a></p>',
+        'First sign-in for ' . $name . ' / ' . $email,
+        $email,
+        (int) ($user['id'] ?? 0)
+    );
+}
+
+function notify_branding_saved(array $company, array $user): void
+{
+    $name = (string) ($company['name'] ?? 'a company');
+    $email = (string) ($user['email'] ?? '');
+    notify_platform(
+        'Branding saved: ' . $name,
+        '<p style="margin:0"><strong>' . h($name) . '</strong> saved company branding on Settings (' . h($email) . ').</p>'
+            . '<p style="margin:8px 0 0"><a href="' . h(absolute_url('admin_company.php?id=' . (int) ($company['id'] ?? 0))) . '" style="color:#1E4EFF">Open the company</a></p>',
+        'Branding saved for ' . $name . ' / ' . $email,
+        $email,
+        (int) ($user['id'] ?? 0)
+    );
 }
 
 function notify_admin_signup(array $signup): void

@@ -46,10 +46,10 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
           <li>Reports</li>
         </ul>
         <div class="lp-cta">
-          <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('register.php')) ?>">Get my company a desk</a>
+          <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url()) ?>#pricing">Get my company a desk</a>
           <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('login.php')) ?>">I already have a desk</a>
         </div>
-        <p class="lp-note">Anywhere in the world. <a href="<?= h(url('register.php')) ?>">Register</a>. Get onboarded. Built for East Africa, used across Africa and worldwide.</p>
+        <p class="lp-note">Anywhere in the world. <a href="<?= h(url()) ?>#pricing">Pay for a package</a>, then set your login. Built for East Africa, used across Africa and worldwide.</p>
       </div>
 
       <div class="lp-stage" data-reveal>
@@ -199,7 +199,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
           <li><b>3</b><span>Client opens it</span></li>
         </ol>
         <div class="lp-cta">
-          <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('register.php')) ?>">Get a desk and send one</a>
+          <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url()) ?>#pricing">Get a desk and send one</a>
         </div>
       </div>
     </section>
@@ -240,7 +240,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
         <?php endforeach; ?>
       </ol>
       <div class="lp-cta lp-cta-band">
-        <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('register.php')) ?>">Get my company a desk</a>
+        <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url()) ?>#pricing">Get my company a desk</a>
         <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('login.php')) ?>">Sign in to my desk</a>
       </div>
     </section>
@@ -308,7 +308,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       </div>
       <div class="lp-cta lp-cta-band">
         <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url()) ?>#pricing">See packages</a>
-        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('register.php')) ?>">Register without paying</a>
+        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url()) ?>#ask">Have a question first</a>
       </div>
     </section>
 

@@ -150,6 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 if ($existing && ($existing['status'] ?? '') === 'paid') {
     $existing = refresh_order_from_pesapal($existing);
+    $existing = provision_paid_order($existing);
 }
 
 $payUrl = order_hosted_pay_url($existing);
@@ -193,9 +194,12 @@ $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'
       <div class="lp-checkout-copy">
         <p class="lp-kicker">Paid</p>
         <h1>We have your payment</h1>
-        <p>Thank you. <strong><?= h((string) ($existing['company'] ?? '')) ?></strong> paid for <?= h($pkg['name']) ?>. A Vellisys admin will contact you on <?= h((string) ($existing['email'] ?? '')) ?> to onboard the company. You do not get a password until the desk is opened.</p>
+        <p>Thank you. <strong><?= h((string) ($existing['company'] ?? '')) ?></strong> paid for <?= h($pkg['name']) ?>. Set the admin email and password you will use, then sign in. We emailed the same link to <?= h((string) ($existing['email'] ?? '')) ?> from <?= h(product_email()) ?>.</p>
         <div class="lp-cta">
-          <a class="lp-btn lp-btn-ghost" href="<?= h(url()) ?>">Back to Vellisys</a>
+          <?php if (trim((string) ($existing['onboard_token'] ?? '')) !== ''): ?>
+            <a class="lp-btn lp-btn-solid" href="<?= h(url('register.php?t=' . rawurlencode((string) $existing['onboard_token']))) ?>">Set up your desk</a>
+          <?php endif; ?>
+          <a class="lp-btn lp-btn-ghost" href="<?= h(url('login.php')) ?>">Sign in</a>
         </div>
       </div>
     <?php else: ?>
@@ -216,7 +220,7 @@ $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'
           <span><?= h($termLabel) ?></span>
         </p>
         <p class="lp-check-seats"><?= h($seatLabel) ?> · billed <?= h($termLabel) ?></p>
-        <p><?= h($pkg['lead']) ?> After you pay, a Vellisys admin contacts you to onboard the company. You do not get a password until the desk is opened.</p>
+        <p><?= h($pkg['lead']) ?> After Pesapal confirms payment you set your own admin email and password, then sign in and finish branding on Settings.</p>
         <ul>
           <?php foreach ($pkg['points'] as $point): ?>
             <li><?= h($point) ?></li>
@@ -310,7 +314,7 @@ $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'
             <option value="United States">
           </datalist>
           <button class="lp-btn lp-btn-solid lp-btn-lg" type="submit" data-pay-btn data-ugx="<?= (int) $pkg['price_ugx'] ?>">Continue to pay <?= h($payNow) ?></button>
-          <p class="lp-checkout-note">Prefer to be contacted first? <a href="<?= h(url('register.php')) ?>">Register without paying</a>.</p>
+          <p class="lp-checkout-note">Prefer a call first? <a href="<?= h(url('index.php#ask')) ?>">Send a question</a>.</p>
         </form>
       <?php endif; ?>
     <?php endif; ?>
