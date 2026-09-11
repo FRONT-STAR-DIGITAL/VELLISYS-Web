@@ -1376,6 +1376,7 @@ function platform_create_company(?int $signupId = null): array
         [$name, $status, 'sme', post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), $limit]
     );
 
+    $hasPaidTerm = false;
     $term = (int) post('paid_term');
     $unit = post('paid_unit') === 'years' ? 'years' : 'months';
     if ($term > 0) {
@@ -1400,6 +1401,7 @@ function platform_create_company(?int $signupId = null): array
                 'isssddsi',
                 [$term, $unit, $from, $expires, $feeAmount, $feePaid, $feeCurrency, $cid]
             );
+            $hasPaidTerm = true;
         }
     }
 
@@ -1480,6 +1482,17 @@ function platform_create_company(?int $signupId = null): array
         db_exec("UPDATE signups SET status = 'onboarded', company_id = ? WHERE id = ?", 'ii', [$cid, $signupId]);
     }
 
+    company_mark_onboard_step($cid, 'desk_login');
+    if ($hasPaidTerm) {
+        company_mark_onboard_step($cid, 'paid_term');
+    }
+    if ($mailEmail !== '') {
+        company_mark_onboard_step($cid, 'mailbox');
+    }
+    if ($status === 'live') {
+        company_mark_onboard_step($cid, 'desk_live');
+    }
+
     return [
         'ok' => true,
         'id' => $cid,
@@ -1489,6 +1502,8 @@ function platform_create_company(?int $signupId = null): array
         'generated' => $generated,
         'status' => $status,
         'send_welcome' => post('send_welcome') !== '',
+        'send_receipt' => post('send_receipt') !== '',
+        'has_paid_term' => $hasPaidTerm,
     ];
 }
 
@@ -2247,6 +2262,95 @@ function company_fee_paid(array $company): float
 function company_fee_balance(array $company): float
 {
     return max(0, round(company_fee_amount($company) - company_fee_paid($company), 2));
+}
+
+function onboard_step_defs(): array
+{
+    return [
+        'paid_term' => 'Paid term recorded',
+        'receipt_email' => 'Receipt email sent',
+        'desk_login' => 'Desk login created',
+        'mailbox' => 'Sending mailbox assigned',
+        'welcome_email' => 'Welcome email sent',
+        'desk_live' => 'Desk marked live',
+        'login_confirmed' => 'Client confirms login',
+    ];
+}
+
+function company_onboard_map(array $company): array
+{
+    $raw = trim((string) ($company['onboard_steps'] ?? ''));
+    if ($raw === '') {
+        return [];
+    }
+    $data = json_decode($raw, true);
+    return is_array($data) ? $data : [];
+}
+
+function company_onboard_done(array $company, string $key): bool
+{
+    $map = company_onboard_map($company);
+    return !empty($map[$key]);
+}
+
+function company_onboard_when(array $company, string $key): string
+{
+    $map = company_onboard_map($company);
+    $at = trim((string) ($map[$key] ?? ''));
+    if ($at === '') {
+        return '';
+    }
+    $dt = DateTime::createFromFormat('Y-m-d H:i:s', $at) ?: DateTime::createFromFormat('Y-m-d', substr($at, 0, 10));
+    return $dt ? format_date($dt->format('Y-m-d')) : $at;
+}
+
+function company_onboard_progress(array $company): array
+{
+    $defs = onboard_step_defs();
+    $done = 0;
+    foreach (array_keys($defs) as $key) {
+        if (company_onboard_done($company, $key)) {
+            $done++;
+        }
+    }
+    return ['done' => $done, 'total' => count($defs)];
+}
+
+function company_save_onboard_steps(int $companyId, array $doneKeys, ?array $previous = null): void
+{
+    $now = date('Y-m-d H:i:s');
+    $prev = $previous ?? [];
+    $out = [];
+    foreach (array_keys(onboard_step_defs()) as $key) {
+        if (!in_array($key, $doneKeys, true)) {
+            continue;
+        }
+        $out[$key] = (isset($prev[$key]) && is_string($prev[$key]) && $prev[$key] !== '') ? $prev[$key] : $now;
+    }
+    db_exec('UPDATE companies SET onboard_steps=? WHERE id=?', 'si', [json_encode($out, JSON_UNESCAPED_SLASHES), $companyId]);
+}
+
+function company_mark_onboard_step(int $companyId, string $key): void
+{
+    if (!isset(onboard_step_defs()[$key]) || $companyId <= 0) {
+        return;
+    }
+    $row = db_one('SELECT onboard_steps FROM companies WHERE id = ?', 'i', [$companyId]);
+    if (!$row) {
+        return;
+    }
+    $map = company_onboard_map($row);
+    if (!empty($map[$key])) {
+        return;
+    }
+    $map[$key] = date('Y-m-d H:i:s');
+    $clean = [];
+    foreach (array_keys(onboard_step_defs()) as $k) {
+        if (!empty($map[$k])) {
+            $clean[$k] = $map[$k];
+        }
+    }
+    db_exec('UPDATE companies SET onboard_steps=? WHERE id=?', 'si', [json_encode($clean, JSON_UNESCAPED_SLASHES), $companyId]);
 }
 
 function company_term_days(array $company): ?int

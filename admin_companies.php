@@ -44,6 +44,7 @@ layout_admin_start('Companies', $user);
           <th>Balance</th>
           <th>Users</th>
           <th>Documents</th>
+          <th>Onboard</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -58,6 +59,8 @@ layout_admin_start('Companies', $user);
             <td class="mono"><?= company_fee_balance($c) > 0 ? h(money(company_fee_balance($c), company_fee_currency($c))) : '—' ?></td>
             <td class="mono"><?= (int) $c['users'] ?> / <?= (int) company_user_limit($c) ?></td>
             <td class="mono"><?= (int) $c['docs'] ?></td>
+            <?php $onboard = company_onboard_progress($c); ?>
+            <td class="mono"><?= (int) $onboard['done'] ?> / <?= (int) $onboard['total'] ?></td>
             <td class="row-actions">
               <div class="actions">
                 <a class="btn sm" href="<?= h(url('admin_company.php?id=' . $c['id'])) ?>"><?= icon('eye', 14) ?>Open</a>

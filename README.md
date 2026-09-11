@@ -26,7 +26,8 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - **What you get to manage** on the landing page: quotations, invoices, receipts, expenses, delivery notes, custom documents, debtors, creditors, headed letters, email, 10+ templates, branding
 - A navy **top bar** above the header. Super admin edits the scrolling statements under **Landing**. Lines are separated by a blue |
 - Super admin **onboarding**: tick only the documents that company needs (quotations, invoices, receipts, delivery notes, headed letters, custom). Custom documents are a form with fields and/or a body, not a letter
-- Super admin **payment receipt**: after recording a paid term, send a receipt from `info@vellisys.com` with start date, expiry, currency, amount received, thanks, and a wait for onboarding credentials when the desk is not live yet
+- Super admin **payment receipt**: on create company, or after recording a paid term, send a thanks-and-welcome receipt from `info@vellisys.com` with the amount received and the subscribed period
+- Super admin **onboarding checklist** on each company: tick paid term, receipt email, desk login, mailbox, welcome email, desk live, and client confirms login
 - **Have a question** form on the landing page. Super admin sees each note under **Questions**, opens the full message on its own page, and a copy is emailed to `info@vellisys.com`. The person who sent the question also gets a confirmation from that mailbox
 - Super admin **Email** tab: send a custom Vellisys letter from `info@vellisys.com`
 - Super admin **Reports**: fees collected and balances per client, unused term value, desk collections vs outstanding, onboarding and expiry charts, sign-up funnel, time series of platform books, plus paid terms, desks due within a month, lapsed desks, and one-click renewal letters
@@ -35,7 +36,7 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - Company reports with a time series, expense pie, debtors aging, collections vs outstanding, quote conversion, top clients, and documents issued over time
 - Super admin assigns each company a **Hostinger (or Titan) sending mailbox**. SMTP and POP/IMAP are prefilled. The company desk sends quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors, and custom mail from that address, with its logo on a white band, and cannot edit the password
 - Desk **Email** tab for custom letters; **Remind** on Debtors and **Message** on Creditors use the same mailbox
-- Super admin **Create company**: type a desk in by hand (login, stationery, documents, paid term, mailbox) without a website sign-up
+- Super admin **Create company**: type a desk in by hand (login, stationery, documents, paid term, mailbox) without a website sign-up. Tick **Send a payment receipt** to email thanks, the amount paid, and the subscribed period from `info@vellisys.com`
 - Super admin **Landing**: edit top-bar lines, **packages**, **testimonials**, card photos and trust logos
 - **Pay** after company details, on the checkout page - the payment form stays on Vellisys (hosted checkout in the page: mobile money, cards, bank, wallet). The buyer is emailed that payment awaits, plus an unpaid invoice. `info@vellisys.com` is copied on those letters. Incomplete checkouts and failed payments are kept and emailed to that mailbox. Register without paying if you want a call first
 - Desk **Tutorials** (also from Clients) with a tour of the whole portal and screenshots
@@ -93,7 +94,7 @@ Two mailboxes, never mixed.
 - submit a question
 - register for a desk
 - start or fail a package checkout
-- pay for a term (payment receipt: start, expiry, currency, amount, thanks, wait for credentials)
+- pay for a term (thanks-and-welcome receipt: amount received, subscribed period, start, expiry)
 - are onboarded (welcome + tutorials)
 - are marked live
 - are due a renewal reminder

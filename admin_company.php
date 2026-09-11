@@ -31,6 +31,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             db_exec('UPDATE companies SET name=?, status=?, notes=?, enabled_kinds=?, custom_doc=?, user_limit=? WHERE id=?', 'sssssii', [$name, $status, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), $limit, $id]);
             db_exec('UPDATE branding SET name=? WHERE company_id=?', 'si', [$name, $id]);
+            if ($status === 'live') {
+                company_mark_onboard_step($id, 'desk_live');
+            }
             flash('Company profile saved.');
             redirect('admin_company.php?id=' . $id);
         }
@@ -102,12 +105,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($made['ok'])) {
             $error = (string) ($made['error'] ?? 'Could not add that user.');
         } else {
+            company_mark_onboard_step($id, 'desk_login');
             flash('Desk login created for ' . $made['email'] . ($made['role'] === 'admin' ? ' as company admin.' : '.'));
             redirect('admin_company.php?id=' . $id);
         }
     }
     if ($action === 'go_live') {
         db_exec("UPDATE companies SET status='live' WHERE id=?", 'i', [$id]);
+        company_mark_onboard_step($id, 'desk_live');
         $member = $members[0] ?? null;
         if ($member) {
             $live = send_live_email(array_merge($company, ['status' => 'live']), $member, (int) $user['id']);
@@ -149,6 +154,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 [$provider, $email, $stored, $fromName, $host, $port, $secure, $popHost, $popPort, $imapHost, $imapPort, $id]
             );
             $company = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$id]);
+            if ($email !== '') {
+                company_mark_onboard_step($id, 'mailbox');
+            }
             if ($action === 'mailbox_test') {
                 $acct = company_mail_account($company);
                 if (!$acct) {
@@ -221,6 +229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 [$term, $unit, $from, $expires, $feeAmount, $feePaid, $feeCurrency, $id]
             );
             $fresh = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$id]);
+            company_mark_onboard_step($id, 'paid_term');
             $note = $company['name'] . ' is paid for ' . $term . ' ' . $unit . ', until ' . format_date($expires) . '.';
             if ($sendReceipt) {
                 $sent = send_payment_receipt($fresh ?: $company, $user);
@@ -238,25 +247,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         }
     }
+    if ($action === 'onboard_steps') {
+        $posted = $_POST['onboard'] ?? [];
+        $keys = [];
+        if (is_array($posted)) {
+            foreach (array_keys(onboard_step_defs()) as $key) {
+                if (!empty($posted[$key])) {
+                    $keys[] = $key;
+                }
+            }
+        }
+        company_save_onboard_steps($id, $keys, company_onboard_map($company));
+        flash('Onboarding steps saved for ' . $company['name'] . '.');
+        redirect('admin_company.php?id=' . $id);
+    }
+    if ($action === 'send_receipt_only') {
+        $sent = send_payment_receipt($company, $user);
+        if (!empty($sent['ok'])) {
+            flash('Payment receipt sent to ' . ($sent['contact']['email'] ?? '') . ' from ' . product_email() . '.');
+        } elseif (($sent['status'] ?? '') === 'queued') {
+            flash('Payment receipt queued for ' . ($sent['contact']['email'] ?? '') . '. ' . ($sent['error'] ?? ''), 'err');
+        } else {
+            flash($sent['error'] ?? 'Could not send the payment receipt.', 'err');
+        }
+        redirect('admin_company.php?id=' . $id);
+    }
 }
 
 $company = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$id]);
 $brand = branding_for($id);
 $members = db_all('SELECT id, name, job_title, email, role, access, created_at FROM users WHERE company_id = ? ORDER BY role = \'admin\' DESC, id', 'i', [$id]);
-$partyCount = (int) (db_one('SELECT COUNT(*) c FROM parties WHERE company_id = ?', 'i', [$id])['c'] ?? 0);
-$docCount = (int) (db_one('SELECT COUNT(*) c FROM documents WHERE company_id = ?', 'i', [$id])['c'] ?? 0);
-$hasLogo = !empty($brand['logo_path']);
-$hasColour = !empty($brand['brand_color']);
-$hasTin = !empty($brand['tin']);
-$checks = [
-    ['First desk login', count($members) > 0],
-    ['Legal name and colour', $hasColour && !empty($brand['name'])],
-    ['TIN on stationery', $hasTin],
-    ['Logo uploaded', $hasLogo],
-    ['At least one client', $partyCount > 0],
-    ['A document issued', $docCount > 0],
-    ['Marked live', ($company['status'] ?? '') === 'live'],
-];
+$onboardDefs = onboard_step_defs();
+$onboardProgress = company_onboard_progress($company);
 $receiptContact = company_notice_email($id, $brand ?: [], $members);
 $receiptPreview = company_expires_on($company) ? payment_receipt_copy($company, $receiptContact, $members) : null;
 
@@ -284,15 +306,34 @@ layout_admin_start($company['name'], $user);
 
 <div class="desk-grid">
   <div class="card">
-    <div class="card-head"><h2><?= icon('check', 16) ?>Onboarding</h2></div>
-    <ul class="checklist">
-      <?php foreach ($checks as [$label, $ok]): ?>
-        <li>
-          <span class="<?= $ok ? 'ok' : 'wait' ?>"><?= $ok ? icon('check', 16) : icon('alert', 16) ?></span>
-          <?= h($label) ?>
-        </li>
-      <?php endforeach; ?>
-    </ul>
+    <form method="post">
+      <?= csrf_field() ?>
+      <input type="hidden" name="id" value="<?= $id ?>">
+      <div class="card-head">
+        <h2><?= icon('check', 16) ?>Onboarding</h2>
+        <span class="pill<?= $onboardProgress['done'] === $onboardProgress['total'] ? '' : ' warn' ?>"><?= (int) $onboardProgress['done'] ?> / <?= (int) $onboardProgress['total'] ?></span>
+      </div>
+      <p class="hint onboard-lead">Tick each step as you finish it. The last box is when the client confirms they signed in.</p>
+      <ol class="onboard-list">
+        <?php $stepN = 0; foreach ($onboardDefs as $key => $label): $stepN++; $isLast = $key === 'login_confirmed'; $when = company_onboard_when($company, $key); ?>
+          <li class="onboard-step<?= $isLast ? ' is-last' : '' ?><?= company_onboard_done($company, $key) ? ' is-done' : '' ?>">
+            <label class="onboard-tick">
+              <input type="checkbox" name="onboard[<?= h($key) ?>]" value="1" <?= company_onboard_done($company, $key) ? 'checked' : '' ?>>
+              <span class="onboard-num"><?= $stepN ?></span>
+              <span class="onboard-copy">
+                <strong><?= h($label) ?></strong>
+                <?php if ($when !== ''): ?><span class="onboard-when">Done <?= h($when) ?></span><?php endif; ?>
+                <?php if ($isLast): ?><span class="onboard-note">Call or write until they confirm they can open the desk, then tick this box.</span><?php endif; ?>
+              </span>
+            </label>
+          </li>
+        <?php endforeach; ?>
+      </ol>
+      <div class="actions onboard-actions">
+        <button class="btn sm" type="submit" name="action" value="onboard_steps"><?= icon('check', 14) ?>Save steps</button>
+        <button class="btn ghost sm" type="submit" name="action" value="send_receipt_only"><?= icon('receipt', 14) ?>Send receipt email</button>
+      </div>
+    </form>
   </div>
   <div class="card">
     <div class="card-head"><h2><?= icon('user', 16) ?>Desk logins</h2></div>
@@ -395,7 +436,7 @@ layout_admin_start($company['name'], $user);
     <?php if ($receiptPreview): ?>
       <details class="receipt-preview" style="margin-top:16px">
         <summary>Payment receipt template</summary>
-        <p class="hint">Sent from <?= h(product_email()) ?> to <?= h($receiptContact['email'] !== '' ? $receiptContact['email'] : 'the company email on file') ?>. Shows when the term started, when the account expires, the currency and amount received, thanks, and either a wait for onboarding credentials or a sign-in note.</p>
+        <p class="hint">Sent from <?= h(product_email()) ?> to <?= h($receiptContact['email'] !== '' ? $receiptContact['email'] : 'the company email on file') ?>. Thanks the client for the payment, names the amount received and the subscribed period, and welcomes them to Vellisys.</p>
         <div class="mail-preview">
           <div class="mail-preview-head"><?= h($receiptPreview['subject']) ?></div>
           <iframe title="Payment receipt preview" srcdoc="<?= h(email_html_preview($receiptPreview['html'])) ?>"></iframe>

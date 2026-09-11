@@ -25,7 +25,7 @@ function folio_migrate(mysqli $db): void
         error_log('Vellisys public tables: ' . $e->getMessage());
     }
     $verRow = @$db->query("SELECT v FROM schema_meta WHERE k='version'");
-    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 33) {
+    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 34) {
         $done = true;
         return;
     }
@@ -39,7 +39,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 33) {
+    if ($ver >= 34) {
         $done = true;
         return;
     }
@@ -236,9 +236,19 @@ function folio_migrate(mysqli $db): void
     if ($ver < 33) {
         folio_migrate_form_indexes($db);
     }
+    if ($ver < 34) {
+        folio_migrate_onboard_steps($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '33')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '34')");
     $done = true;
+}
+
+function folio_migrate_onboard_steps(mysqli $db): void
+{
+    if (!db_has_column($db, 'companies', 'onboard_steps')) {
+        $db->query('ALTER TABLE companies ADD COLUMN onboard_steps TEXT NULL');
+    }
 }
 
 function folio_migrate_form_indexes(mysqli $db): void

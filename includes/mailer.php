@@ -784,6 +784,11 @@ function send_welcome_email(array $company, array $member, string $password = ''
         $to,
         $userId
     );
+    $cid = (int) ($company['id'] ?? 0);
+    if ($cid > 0) {
+        company_mark_onboard_step($cid, 'welcome_email');
+        company_mark_onboard_step($cid, 'desk_login');
+    }
     return $result;
 }
 
@@ -809,6 +814,10 @@ function send_live_email(array $company, array $member, int $userId = 0): array
         $to,
         $userId
     );
+    $cid = (int) ($company['id'] ?? 0);
+    if ($cid > 0) {
+        company_mark_onboard_step($cid, 'desk_live');
+    }
     return $result;
 }
 
@@ -910,18 +919,19 @@ function payment_receipt_copy(array $company, array $contact, array $members = [
         $nextText = 'Your desk is live. Sign in at ' . $login . ' with the mailbox we issued for the team.';
     }
 
-    $subject = 'Payment received - ' . $name;
+    $subject = 'Thank you for your payment - welcome to Vellisys';
     $text = "Dear {$who},\n\n"
-        . "Thank you. We have received payment for the Vellisys desk used by {$name}.\n\n"
+        . "Thank you for trusting Vellisys with the books for {$name}. We have received your payment, and we are glad to welcome you to the platform.\n\n"
         . "PAYMENT RECEIPT {$ref}\n"
         . "Company: {$name}\n"
+        . "Amount received: {$money}\n"
+        . "Paid term: {$term}\n"
         . "Term started: {$started}\n"
         . "Account expires: {$expires}\n"
-        . "Paid term: {$term}\n"
-        . "Currency: {$currency}\n"
-        . "Amount received: {$money}\n\n"
+        . "Currency: {$currency}\n\n"
+        . "This letter is our thanks for that payment. Your desk is where quotations, invoices and receipts will leave in your branding.\n\n"
         . $nextText . "\n\n"
-        . "If you need us, write to " . product_email() . " or call {$phones}.\n\n"
+        . "Welcome to Vellisys. If you need us, write to " . product_email() . " or call {$phones}.\n\n"
         . "Kind regards,\nVellisys\nA product of " . product_maker_name() . "\n" . product_email();
 
     $row = static function (string $label, string $value, bool $last = false): string {
@@ -934,29 +944,29 @@ function payment_receipt_copy(array $company, array $contact, array $members = [
 
     $html = vellisys_email_wrap(
         '<p style="margin:0 0 16px;color:#000000">Dear ' . h($who) . ',</p>'
-        . '<p style="margin:0 0 18px;color:#000000">Thank you. We have received payment for the Vellisys desk used by <strong>' . h($name) . '</strong>.</p>'
+        . '<p style="margin:0 0 18px;color:#000000">Thank you for trusting Vellisys with the books for <strong>' . h($name) . '</strong>. We have received your payment, and we are glad to welcome you to the platform.</p>'
         . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #08143A;border-collapse:collapse;margin:0 0 20px;">'
         . '<tr><td colspan="2" style="background:#08143A;padding:12px 14px;">'
         . '<p style="margin:0;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#FFFFFF;font-weight:700;">Payment receipt</p>'
         . '<p style="margin:4px 0 0;font-size:13px;color:#FFFFFF;">' . h($ref) . '</p>'
         . '</td></tr>'
         . $row('Company', $name)
+        . $row('Amount received', $money)
+        . $row('Paid term', $term)
         . $row('Term started', $started !== '' ? $started : '-')
         . $row('Account expires', $expires !== '' ? $expires : '-')
-        . $row('Paid term', $term)
-        . $row('Currency', $currency)
-        . $row('Amount received', $money, true)
+        . $row('Currency', $currency, true)
         . '</table>'
-        . '<p style="margin:0 0 18px;color:#000000">Thank you for choosing Vellisys.</p>'
+        . '<p style="margin:0 0 18px;color:#000000">This letter is our thanks for that payment. Your desk is where quotations, invoices and receipts will leave in your branding.</p>'
         . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #1E4EFF;margin:0 0 18px;">'
         . '<tr><td style="padding:14px 16px;background:#FFFFFF;">'
-        . '<p style="margin:0 0 6px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#1E4EFF;font-weight:700;">Next</p>'
+        . '<p style="margin:0 0 6px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#1E4EFF;font-weight:700;">Welcome</p>'
         . '<p style="margin:0 0 8px;font-weight:700;color:#08143A;">' . h($nextTitle) . '</p>'
         . '<p style="margin:0;color:#000000;">' . h($nextBody) . '</p>'
         . '</td></tr></table>'
-        . '<p style="margin:0 0 14px;color:#000000">If you need us, write to <a href="mailto:' . h(product_email()) . '" style="color:#1E4EFF">' . h(product_email()) . '</a> or call ' . h($phones) . '.</p>'
+        . '<p style="margin:0 0 14px;color:#000000">Welcome to Vellisys. If you need us, write to <a href="mailto:' . h(product_email()) . '" style="color:#1E4EFF">' . h(product_email()) . '</a> or call ' . h($phones) . '.</p>'
         . '<p style="margin:0;color:#000000">Kind regards,<br><strong>Vellisys</strong></p>',
-        'Payment receipt'
+        'Thank you'
     );
 
     return ['subject' => $subject, 'html' => $html, 'text' => $text, 'to_name' => $who];
@@ -986,6 +996,10 @@ function send_payment_receipt(array $company, array $user): array
         $contact['email'],
         (int) ($user['id'] ?? 0)
     );
+    if ($id > 0) {
+        company_mark_onboard_step($id, 'receipt_email');
+        company_mark_onboard_step($id, 'paid_term');
+    }
     return ['ok' => !empty($sent['ok']), 'contact' => $contact, 'copy' => $copy, 'status' => $status, 'error' => (string) ($sent['error'] ?? '')];
 }
 

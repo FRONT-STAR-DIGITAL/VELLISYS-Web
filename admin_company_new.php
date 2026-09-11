@@ -35,9 +35,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'create') {
             redirect('admin_company.php?id=' . (int) $made['id']);
         }
     } else {
+        $created = db_one('SELECT * FROM companies WHERE id = ?', 'i', [(int) $made['id']]);
+        $receiptNote = '';
+        if (!empty($made['send_receipt'])) {
+            if (empty($made['has_paid_term']) || !company_expires_on($created ?: [])) {
+                $receiptNote = ' Receipt was not sent - set a paid term and amount first.';
+            } else {
+                $receipt = send_payment_receipt($created ?: ['id' => $made['id'], 'name' => $made['name']], $user);
+                if (!empty($receipt['ok'])) {
+                    $receiptNote = ' Payment receipt sent to ' . ($receipt['contact']['email'] ?? '') . ' from ' . product_email() . '.';
+                } elseif (($receipt['status'] ?? '') === 'queued') {
+                    $receiptNote = ' Payment receipt queued for ' . ($receipt['contact']['email'] ?? '') . '.';
+                } else {
+                    $receiptNote = ' ' . ($receipt['error'] ?? 'Could not send the payment receipt.');
+                }
+            }
+        }
         $welcomeNote = '';
         if (!empty($made['send_welcome'])) {
-            $created = db_one('SELECT * FROM companies WHERE id = ?', 'i', [(int) $made['id']]);
             $welcome = send_welcome_email(
                 $created ?: ['id' => $made['id'], 'name' => $made['name']],
                 ['name' => post('user_name'), 'email' => $made['email']],
@@ -50,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'create') {
         }
         flash(
             $made['name'] . ' is on the books as ' . $made['status'] . '. Desk login ' . $made['email']
-            . ' · password ' . $made['password'] . '.' . $welcomeNote
+            . ' · password ' . $made['password'] . '.' . $receiptNote . $welcomeNote
         );
         redirect('admin_company.php?id=' . (int) $made['id']);
     }
@@ -307,7 +322,12 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
   <div style="padding:0 22px 8px">
     <label for="notes">Internal notes</label>
     <textarea id="notes" name="notes" rows="3" placeholder="Call notes, who you spoke to, what they bought."><?= h($pref('notes')) ?></textarea>
-    <label class="kinds-opt" style="margin:12px 0">
+    <label class="kinds-opt" style="margin:12px 0 8px">
+      <input type="checkbox" name="send_receipt" value="1" <?= post('send_receipt') !== '' || $_SERVER['REQUEST_METHOD'] !== 'POST' ? 'checked' : '' ?>>
+      <span>Send a payment receipt from <?= h(product_email()) ?></span>
+    </label>
+    <p class="hint" style="margin:0 0 10px">Thanks the client for the payment, names the amount received, and states the subscribed period. Needs a paid term above.</p>
+    <label class="kinds-opt" style="margin:0 0 12px">
       <input type="checkbox" name="send_welcome" value="1" <?= post('send_welcome') !== '' || $_SERVER['REQUEST_METHOD'] !== 'POST' ? 'checked' : '' ?>>
       <span>Email the desk login from <?= h(product_email()) ?></span>
     </label>
