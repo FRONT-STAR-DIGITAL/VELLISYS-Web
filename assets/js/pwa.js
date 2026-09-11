@@ -54,7 +54,6 @@
   var deferred = null;
   var ua = navigator.userAgent || '';
   var isIos = /iphone|ipad|ipod/i.test(ua);
-  var isIosSafari = isIos && /safari/i.test(ua) && !/crios|fxios|edgios/i.test(ua);
 
   if (isIos && ios) {
     ios.hidden = false;
@@ -78,6 +77,7 @@
 
   if (btn) {
     btn.addEventListener('click', function () {
+      wrap.open = true;
       if (deferred) {
         deferred.prompt();
         deferred.userChoice.finally(function () {
@@ -85,11 +85,15 @@
         });
         return;
       }
-      if (fallback) {
+      if (isIos) {
+        if (ios) ios.hidden = false;
+      } else if (fallback) {
         fallback.hidden = false;
       }
-      if (isIosSafari && ios) {
-        ios.hidden = false;
+      try {
+        wrap.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      } catch (err) {
+        wrap.scrollIntoView(true);
       }
     });
   }

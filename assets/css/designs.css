@@ -393,6 +393,9 @@
     background: #fff !important;
     margin: 0 !important;
     padding: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
   }
   .nav, .top, .actions, .flash, .quick, .filters, .page-head, .acting-bar,
   .content > .card, .sheet-wrap ~ * {
@@ -419,6 +422,14 @@
     transform: none !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    height: auto !important;
+    min-height: 0 !important;
+    page-break-after: auto;
+    break-after: auto;
+  }
+  .invoice-sheet:not(.is-multipage) {
+    page-break-after: avoid;
+    break-after: avoid;
   }
   .sheet-ledger, .sheet-estate, .sheet-twin, .sheet-night, .sheet-bill, .sheet-stripe, .sheet-folio, .sheet-mark, .sheet-bond {
     -webkit-print-color-adjust: exact;

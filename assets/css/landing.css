@@ -2215,16 +2215,22 @@ html.is-pwa body.gate .lp-floats { display: none !important; }
   .gate-lead { font-size: 13.5px; margin-bottom: 16px; }
   .gate-submit, .gate-alt { width: 100%; }
   .gate-install {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    bottom: max(12px, env(safe-area-inset-bottom));
-    width: min(420px, calc(100% - 40px));
-    margin: 0;
-    padding: 4px 4px 0;
+    position: relative;
+    left: auto;
+    transform: none;
+    bottom: auto;
+    width: min(420px, 100%);
+    margin: 18px auto 0;
+    padding: 4px 4px 8px;
+    flex-shrink: 0;
   }
   .gate-install-kicker { color: #9db4ff; }
   .gate-install h3 { color: #fff; font-size: 16px; }
+  .gate-install-btn {
+    background: #fff;
+    color: #08143a;
+  }
+  .gate-install-btn:hover { background: #eef2ff; color: #08143a; }
   .gate-install > p,
   .gate-install-ios,
   .gate-install-fallback,

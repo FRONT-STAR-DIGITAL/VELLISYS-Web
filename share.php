@@ -82,7 +82,7 @@ require ROOT_PATH . '/includes/sheet.php';
     </div>
   </div>
   <?php if ($print): ?>
-    <script>window.addEventListener('load', function () { window.print(); });</script>
+    <script src="<?= h(asset('js/print-sheet.js')) ?>"></script>
   <?php else: ?>
     <script src="<?= h(asset('js/sheet-fit.js')) ?>"></script>
   <?php endif; ?>

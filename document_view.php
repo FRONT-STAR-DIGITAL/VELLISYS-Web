@@ -32,7 +32,7 @@ if ($print) {
 </head>
 <body class="print-body">
   <?php require ROOT_PATH . '/includes/sheet.php'; render_sheet($brand, $doc); ?>
-  <script>window.addEventListener('load', function () { window.print(); });</script>
+  <script src="<?= h(asset('js/print-sheet.js')) ?>"></script>
 </body>
 </html>
     <?php
