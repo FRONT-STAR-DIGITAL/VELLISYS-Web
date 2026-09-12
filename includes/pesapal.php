@@ -36,8 +36,9 @@ function pesapal_request(string $method, string $path, ?array $body = null, stri
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_CUSTOMREQUEST => $method,
         CURLOPT_HTTPHEADER => $headers,
-        CURLOPT_TIMEOUT => 25,
-        CURLOPT_CONNECTTIMEOUT => 12,
+        CURLOPT_TIMEOUT => 4,
+        CURLOPT_CONNECTTIMEOUT => 2,
+        CURLOPT_NOSIGNAL => true,
     ];
     if ($body !== null) {
         $opts[CURLOPT_POSTFIELDS] = json_encode($body, JSON_UNESCAPED_SLASHES);
@@ -59,6 +60,16 @@ function pesapal_request(string $method, string $path, ?array $body = null, stri
 
 function pesapal_token(): array
 {
+    $cache = function_exists('folio_cache_dir') ? folio_cache_dir() . '/pesapal_token.json' : '';
+    if ($cache !== '' && is_file($cache) && filemtime($cache) > time() - 240) {
+        $raw = @file_get_contents($cache);
+        $data = is_string($raw) ? json_decode($raw, true) : null;
+        $token = is_array($data) ? trim((string) ($data['token'] ?? '')) : '';
+        $exp = is_array($data) ? (int) ($data['exp'] ?? 0) : 0;
+        if ($token !== '' && $exp > time() + 15) {
+            return ['ok' => true, 'token' => $token];
+        }
+    }
     $cfg = pesapal_config();
     $res = pesapal_request('POST', '/Auth/RequestToken', [
         'consumer_key' => $cfg['consumer_key'],
@@ -67,6 +78,24 @@ function pesapal_token(): array
     $token = (string) ($res['body']['token'] ?? '');
     if ($token === '') {
         return ['ok' => false, 'error' => (string) ($res['body']['message'] ?? $res['error'] ?: 'Pesapal did not issue a token.')];
+    }
+    $expiryRaw = $res['body']['expiryDate'] ?? $res['body']['expirationDate'] ?? null;
+    if (is_numeric($expiryRaw)) {
+        $expiry = (int) $expiryRaw;
+        if ($expiry > 0 && $expiry < 4102444800 && $expiry < time() - 86400) {
+            $expiry = time() + min(240, $expiry);
+        }
+    } elseif (is_string($expiryRaw) && $expiryRaw !== '') {
+        $parsed = strtotime($expiryRaw);
+        $expiry = $parsed !== false ? $parsed : time() + 240;
+    } else {
+        $expiry = time() + 240;
+    }
+    if ($expiry < time() + 30) {
+        $expiry = time() + 240;
+    }
+    if ($cache !== '') {
+        @file_put_contents($cache, json_encode(['token' => $token, 'exp' => $expiry], JSON_UNESCAPED_SLASHES), LOCK_EX);
     }
     return ['ok' => true, 'token' => $token];
 }

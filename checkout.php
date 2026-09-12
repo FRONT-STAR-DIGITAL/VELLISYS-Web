@@ -72,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
         $error = 'Your session expired. Please submit the form again.';
-    } elseif (form_is_spam('checkout', $action === 'draft' ? 0 : 2)) {
+    } elseif (form_is_spam('checkout', 0)) {
         if ($action === 'draft') {
             header('Content-Type: application/json');
             echo json_encode(['ok' => true, 'public_id' => '']);
@@ -128,7 +128,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $error = 'Could not save those details. Try again.';
                 } else {
                     attach_order_signup($order, 'pending');
-                    notify_admin_order($order, 'pending');
                     $started = $beginHostedPay($order, $action);
                     $existing = $started['order'] ?? $order;
                     if (empty($started['ok'])) {
@@ -138,7 +137,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if ($payTo === '') {
                             $error = 'Payment did not start: the processor did not return a secure page.';
                         } else {
-                            redirect($payTo);
+                            $mailOrder = $existing;
+                            folio_redirect_then($payTo, static function () use ($mailOrder): void {
+                                try {
+                                    notify_admin_order($mailOrder, 'pending');
+                                } catch (Throwable $e) {
+                                    error_log('Vellisys checkout mail: ' . $e->getMessage());
+                                }
+                            });
                         }
                     }
                 }
@@ -197,7 +203,7 @@ $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'
   <?php product_icons(); ?>
   <?php folio_landing_head(); ?>
 </head>
-<body class="lp">
+<body class="lp lp-checkout-page">
   <?php public_header('checkout'); ?>
   <main class="lp-checkout<?= $step === 'done' ? ' lp-checkout-done' : '' ?>" data-pricing data-ccy="<?= h($ccy) ?>" data-rates="<?= h(json_encode(pricing_ugx_rates())) ?>" data-currencies="<?= h(json_encode(pricing_currencies())) ?>">
     <ol class="lp-check-steps" aria-label="Checkout">
@@ -236,11 +242,14 @@ $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'
         </p>
         <p class="lp-check-seats"><?= h($seatLabel) ?> · billed <?= h($termLabel) ?></p>
         <p><?= h(pricing_swap_legacy_names($pkg['lead'])) ?> After payment confirms you set your own admin email and password, then sign in and finish branding on Settings.</p>
-        <ul>
-          <?php foreach (pricing_display_points($pkg, pricing_packages()) as $point): ?>
-            <li><?= h($point) ?></li>
-          <?php endforeach; ?>
-        </ul>
+        <details class="lp-check-points" open>
+          <summary>What is included</summary>
+          <ul>
+            <?php foreach (pricing_display_points($pkg, pricing_packages()) as $point): ?>
+              <li><?= h($point) ?></li>
+            <?php endforeach; ?>
+          </ul>
+        </details>
         <p class="lp-check-stay">Continue to pay opens Pesapal in this tab so you can type a phone number or pick a card. When you finish, you return to Vellisys.</p>
         <p class="lp-check-switch"><a href="<?= h(url('index.php#pricing')) ?>">Change package</a></p>
       </aside>

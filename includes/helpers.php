@@ -1989,7 +1989,7 @@ function public_header(string $page = 'home'): void
     if (function_exists('record_site_visit')) {
         record_site_visit();
     }
-    $ticker = landing_ticker_lines();
+    $ticker = $page === 'checkout' ? [] : landing_ticker_lines();
     ?>
   <header class="lp-chrome" data-lp-chrome>
   <?php if ($ticker): ?>
@@ -2023,9 +2023,13 @@ function public_header(string $page = 'home'): void
           <?php endforeach; ?>
         </select>
       </label>
-      <a class="lp-btn lp-btn-ghost" href="<?= h(url('demo.php')) ?>">Book a demo</a>
+      <?php if ($page !== 'checkout'): ?>
+        <a class="lp-btn lp-btn-ghost lp-nav-wide" href="<?= h(url('demo.php')) ?>">Book a demo</a>
+      <?php endif; ?>
       <a class="lp-btn lp-btn-ghost" href="<?= h(url('login.php')) ?>">Sign in</a>
-      <a class="lp-btn lp-btn-solid" href="<?= h($page === 'home' ? '#pricing' : (rtrim(url(), '/') . '/#pricing')) ?>">Get a desk</a>
+      <?php if ($page !== 'checkout'): ?>
+        <a class="lp-btn lp-btn-solid" href="<?= h($page === 'home' ? '#pricing' : (rtrim(url(), '/') . '/#pricing')) ?>">Get a desk</a>
+      <?php endif; ?>
     </nav>
   </div>
   </header>
@@ -2727,7 +2731,7 @@ function product_logo_file(): string
 
 function product_email_logo_file(): string
 {
-    foreach (['assets/img/vellisys-email-logo.png', 'assets/img/our-logo.png', 'assets/img/vellisys-logo.png', 'assets/img/logo.png'] as $rel) {
+    foreach (['assets/img/vellisys-avatar.png', 'assets/img/vellisys-email-logo.png', 'assets/img/our-logo.png', 'assets/img/vellisys-logo.png', 'assets/img/logo.png'] as $rel) {
         $full = ROOT_PATH . '/' . $rel;
         if (is_file($full)) {
             return $full;
@@ -2803,8 +2807,13 @@ function landing_card_image_url(array $card): string
 
 function product_icons(): void
 {
-    $mark = product_mark_url();
-    $apple = url('assets/img/pwa-180.png');
+    $mark = asset('img/vellisys-avatar.png');
+    if (!is_file(ROOT_PATH . '/assets/img/vellisys-avatar.png')) {
+        $mark = product_mark_url();
+    }
+    $apple = is_file(ROOT_PATH . '/assets/img/vellisys-avatar.png')
+        ? asset('img/vellisys-avatar.png')
+        : url('assets/img/pwa-180.png');
     echo '<link rel="icon" type="image/png" href="' . h($mark) . '">';
     echo '<link rel="apple-touch-icon" href="' . h($apple) . '">';
     echo '<link rel="manifest" href="' . h(url('manifest.php')) . '">';

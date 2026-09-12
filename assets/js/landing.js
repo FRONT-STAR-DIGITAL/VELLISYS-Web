@@ -434,10 +434,17 @@
     }, 9000);
   }
 
-  var checkout = document.querySelector('[data-checkout-form]');
+    $checkout = document.querySelector('[data-checkout-form]');
   if (checkout) {
     var timer = 0;
     var publicInput = checkout.querySelector('[data-order-public]');
+    var payBtn = checkout.querySelector('[data-pay-btn]');
+    checkout.addEventListener('submit', function () {
+      if (payBtn) {
+        payBtn.disabled = true;
+        payBtn.textContent = 'Opening payment…';
+      }
+    });
     function saveDraft() {
       var name = (checkout.querySelector('[name="contact_name"]') || {}).value || '';
       var company = (checkout.querySelector('[name="company_name"]') || {}).value || '';
