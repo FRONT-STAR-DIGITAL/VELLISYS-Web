@@ -376,7 +376,26 @@ img { max-width: 100%; display: block; }
   box-shadow: 0 4px 12px rgba(8, 20, 58, .04);
 }
 .header-settings:hover { background: var(--paper); text-decoration: none; color: var(--brand); }
-.header-settings .icon { display: block; }
+.header-settings.is-on { border-color: var(--brand); color: var(--brand); background: color-mix(in srgb, var(--brand) 10%, #fff); }
+.party-brief {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 14px;
+  margin: 10px 0 0;
+  max-width: 40rem;
+}
+.party-brief div { min-width: 0; }
+.party-brief dt {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.party-brief dd { margin: 2px 0 0; font-size: 13.5px; overflow-wrap: anywhere; }
+.party-brief-wide { grid-column: 1 / -1; }
+.client-cards { display: none; }
+.date-cell { white-space: nowrap; }
 .desk-term-wrap { margin: 0 0 18px; }
 .desk-term-wrap .top-term { display: inline-flex; }
 .people-reset {
@@ -1435,7 +1454,9 @@ input, select, textarea { font-weight: 400; }
   .content { padding: 18px 16px 72px; }
   .page-head { gap: 12px; margin-bottom: 18px; }
   .page-head .btn { width: auto; }
-  .desk-hero, .page-head, .desk-grid, .form-grid, .action-grid, .login { grid-template-columns: 1fr; display: flex; flex-direction: column; }
+  .desk-hero, .page-head, .desk-grid, .form-grid, .login { grid-template-columns: 1fr; display: flex; flex-direction: column; }
+  .action-grid { display: grid; grid-template-columns: 1fr 1fr; }
+  .stats, .stats.six { grid-template-columns: 1fr 1fr; }
   .login-art { min-height: 240px; padding: 28px; }
   .login-still { height: 96px; }
   .template-grid, .chart-grid, .chart-grid.equal, .expense-meta { grid-template-columns: 1fr; }
@@ -1493,15 +1514,23 @@ input, select, textarea { font-weight: 400; }
   }
   .top-actions .btn { flex: 0 0 auto; min-height: 44px; }
   .page-head { align-items: stretch; }
-  .page-head .actions {
+  .page-head .actions,
+  .page-head .page-actions {
     width: 100%;
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 8px;
   }
   .page-head .actions .btn,
-  .page-head .actions form { flex: 1 1 calc(50% - 8px); min-width: 140px; }
-  .page-head .actions .btn { width: 100%; min-height: 44px; white-space: normal; }
+  .page-head .actions form,
+  .page-head .page-actions .btn {
+    flex: none;
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    white-space: nowrap;
+    padding: 8px 10px;
+  }
   .page-head .doc-toolbar {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1516,7 +1545,26 @@ input, select, textarea { font-weight: 400; }
     min-width: 0;
   }
   .page-head .doc-toolbar .share-pop > summary.btn { width: 100%; }
-  .stats, .stats.six { grid-template-columns: 1fr 1fr; }
+  .stats, .stats.six, .action-grid { grid-template-columns: 1fr 1fr; display: grid; }
+  .client-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 12px;
+  }
+  .client-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px;
+    text-decoration: none;
+    color: inherit;
+    min-width: 0;
+  }
+  .client-card:hover { text-decoration: none; }
+  .client-card strong { font-size: 13.5px; overflow-wrap: anywhere; }
+  .client-card span, .client-card em { font-size: 12px; color: var(--muted); font-style: normal; }
+  .clients-table { display: none; }
   .filters {
     flex-direction: column;
     align-items: stretch;
@@ -1633,7 +1681,8 @@ input, select, textarea { font-weight: 400; }
   .card:has(table.grid:not(.lines)) {
     -webkit-overflow-scrolling: touch;
   }
-  table.grid:not(.lines) { min-width: 560px; }
+  table.grid:not(.lines) { min-width: 680px; }
+  .date-cell { white-space: nowrap; min-width: 7.5rem; }
   .form-grid > div { min-width: 0; }
   .color-row { flex-wrap: wrap; }
   .template-grid { grid-template-columns: 1fr; }
@@ -1641,8 +1690,6 @@ input, select, textarea { font-weight: 400; }
   .nav-toggle { min-width: 44px; min-height: 44px; }
 }
 @media (max-width: 420px) {
-  .page-head .actions .btn,
-  .page-head .actions form { flex-basis: 100%; }
   .page-head .doc-toolbar .btn,
   .page-head .doc-toolbar form { flex-basis: auto; }
   .tut-lesson { padding: 14px 12px; gap: 10px; }

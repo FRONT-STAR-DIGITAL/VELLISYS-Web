@@ -1,10 +1,52 @@
 <?php
 declare(strict_types=1);
 
-function vellisys_pdf_escape(string $text): string
+function vellisys_pdf_latin(string $text): string
 {
     $text = str_replace(["\r\n", "\r"], "\n", $text);
+    $text = strtr($text, [
+        '—' => '-', '–' => '-', '−' => '-',
+        '’' => "'", '‘' => "'", '“' => '"', '”' => '"',
+    ]);
+    $converted = @iconv('UTF-8', 'ISO-8859-1//TRANSLIT//IGNORE', $text);
+    return $converted !== false ? $converted : $text;
+}
+
+function vellisys_pdf_escape(string $text): string
+{
+    $text = vellisys_pdf_latin($text);
     return str_replace(['\\', '(', ')'], ['\\\\', '\\(', '\\)'], $text);
+}
+
+function vellisys_pdf_wrap(string $text, int $width): array
+{
+    $text = trim(preg_replace('/[ \t]+/', ' ', $text) ?? $text);
+    if ($text === '') {
+        return [];
+    }
+    $lines = [];
+    foreach (explode("\n", $text) as $para) {
+        $para = trim($para);
+        if ($para === '') {
+            $lines[] = '';
+            continue;
+        }
+        while (strlen($para) > $width) {
+            $chunk = substr($para, 0, $width);
+            $sp = strrpos($chunk, ' ');
+            if ($sp !== false && $sp > 8) {
+                $lines[] = substr($para, 0, $sp);
+                $para = ltrim(substr($para, $sp));
+            } else {
+                $lines[] = $chunk;
+                $para = substr($para, $width);
+            }
+        }
+        if ($para !== '') {
+            $lines[] = $para;
+        }
+    }
+    return $lines;
 }
 
 function document_pdf_bytes(array $brand, array $doc): string
@@ -59,87 +101,159 @@ function document_pdf_bytes(array $brand, array $doc): string
     $kind = kind_meta((string) $doc['kind'])['singular'] ?? 'Document';
     $ccy = doc_currency($doc);
     $totals = $doc['totals'] ?? document_totals($doc);
+    $put = static function (float $x, float &$yy, string $s, float $size, string $font = 'F1') use ($text): void {
+        if ($s === '') {
+            return;
+        }
+        $text($x, $yy, $s, $size, $font);
+        $yy -= $size + 4;
+    };
 
-    $rgb($navy);
-    $fill($m, $h - 36, $w - $m * 2, 18);
-    $add("1 1 1 rg\n");
-    $text($m + 8, $h - 31, 'VELLISYS', 9, 'F2');
-    $y = $h - 58;
-    $rgb($navy);
-    $text($m, $y, $name, 16, 'F2');
-    $y -= 16;
-    $line = trim(implode(' · ', array_filter([
-        (string) ($brand['city'] ?? ''),
-        (string) ($brand['phone'] ?? ''),
-        (string) ($brand['email'] ?? ''),
-    ])));
-    if ($line !== '') {
-        $text($m, $y, $line, 9);
-        $y -= 14;
-    }
     $rgb($blue);
-    $text($m, $y, strtoupper($kind), 11, 'F2');
-    $y -= 16;
-    $rgb('#000000');
-    $text($m, $y, (string) $doc['number'], 13, 'F2');
-    $y -= 14;
-    $text($m, $y, 'Date ' . format_date((string) ($doc['date'] ?? '')), 10);
-    $y -= 18;
-    $text($m, $y, 'In account with ' . (string) ($doc['party_name'] ?? ''), 11, 'F2');
-    $y -= 22;
-
-    $cols = [28, 150, 200, 40, 50, 70];
-    $headers = ['#', 'Item', 'Description', 'Qty', 'Rate', 'Amount'];
-    $rgb($navy);
-    $fill($m, $y - 4, $w - $m * 2, 16);
+    $fill($m, $h - 32, $w - $m * 2, 14);
     $add("1 1 1 rg\n");
-    $x = $m + 4;
-    foreach ($headers as $i => $label) {
-        $text($x, $y, $label, 8, 'F2');
-        $x += $cols[$i];
+    $text($m + 8, $h - 27, strtoupper($kind), 10, 'F2');
+    $y = $h - 52;
+    $rgb($navy);
+    $put($m, $y, $name, 16, 'F2');
+    $rgb('#333333');
+    foreach (array_filter([
+        (string) ($brand['tagline'] ?? ''),
+        (string) ($brand['address'] ?? ''),
+        trim(implode(', ', array_filter([(string) ($brand['city'] ?? ''), (string) ($brand['phone'] ?? ''), (string) ($brand['email'] ?? '')]))),
+        !empty($brand['tin']) ? 'TIN ' . $brand['tin'] : '',
+        (string) ($brand['website'] ?? ''),
+    ]) as $line) {
+        foreach (vellisys_pdf_wrap($line, 90) as $wrap) {
+            $put($m, $y, $wrap, 9);
+        }
     }
-    $y -= 20;
-    $n = 0;
-    foreach ($doc['items'] ?? [] as $item) {
-        $n++;
-        $ensure(28);
+    $y -= 6;
+    $rgb($blue);
+    $put($m, $y, (string) $doc['number'], 13, 'F2');
+    $rgb('#000000');
+    $put($m, $y, 'Date ' . format_date((string) ($doc['date'] ?? '')), 10);
+    if (!empty($doc['due_date'])) {
+        $put($m, $y, 'Due ' . format_date((string) $doc['due_date']), 10);
+    }
+    $y -= 4;
+    $rgb($navy);
+    $put($m, $y, 'To', 9, 'F2');
+    $rgb('#000000');
+    $put($m, $y, (string) ($doc['party_name'] ?? ''), 12, 'F2');
+    foreach (array_filter([
+        !empty($doc['party_contact']) ? 'Attn ' . $doc['party_contact'] : '',
+        (string) ($doc['party_address'] ?? ''),
+        party_place_line($doc),
+        trim(implode(' · ', array_filter([(string) ($doc['party_phone'] ?? ''), (string) ($doc['party_phone2'] ?? '')]))),
+        (string) ($doc['party_email'] ?? ''),
+        !empty($doc['party_tin']) ? 'TIN ' . $doc['party_tin'] : '',
+    ]) as $line) {
+        foreach (vellisys_pdf_wrap((string) $line, 90) as $wrap) {
+            $put($m, $y, $wrap, 9);
+        }
+    }
+    $y -= 8;
+
+    $isLetter = in_array($doc['kind'] ?? '', ['letter', 'custom'], true) && (trim((string) ($doc['body'] ?? '')) !== '' || trim((string) ($doc['subject'] ?? '')) !== '');
+    if ($isLetter) {
+        if (trim((string) ($doc['subject'] ?? '')) !== '') {
+            $rgb($navy);
+            $put($m, $y, 'Subject: ' . (string) $doc['subject'], 12, 'F2');
+            $y -= 2;
+        }
         $rgb('#000000');
-        $row = [
-            (string) $n,
-            mb_substr(line_item_name($item) ?: '-', 0, 28),
-            mb_substr(line_item_description($item) ?: '-', 0, 36),
-            rtrim(rtrim(number_format((float) ($item['qty'] ?? 0), 2, '.', ''), '0'), '.') ?: '0',
-            money((float) ($item['rate'] ?? 0), $ccy),
-            money(line_amount($item), $ccy),
-        ];
+        foreach (vellisys_pdf_wrap((string) ($doc['body'] ?? ''), 88) as $wrap) {
+            $ensure(16);
+            $put($m, $y, $wrap, 10);
+        }
+    } else {
+        $cols = [28, 120, 190, 40, 70, 70];
+        $headers = ['#', 'Item', 'Description', 'Qty', 'Rate', 'Amount'];
+        $rgb($navy);
+        $fill($m, $y - 4, $w - $m * 2, 16);
+        $add("1 1 1 rg\n");
         $x = $m + 4;
-        foreach ($row as $i => $cell) {
-            $text($x, $y, $cell, 8);
+        foreach ($headers as $i => $label) {
+            $text($x, $y, $label, 8, 'F2');
             $x += $cols[$i];
         }
-        $y -= 16;
-        $add("0.85 0.87 0.9 RG\n");
-        $stroke($m, $y + 10, $w - $m, $y + 10);
-    }
-    $y -= 10;
-    $ensure(70);
-    $rgb($navy);
-    $text($w - $m - 200, $y, 'Net', 10);
-    $text($w - $m - 90, $y, money((float) ($totals['net'] ?? 0), $ccy), 10, 'F2');
-    $y -= 14;
-    if ((float) ($totals['vat'] ?? 0) > 0) {
-        $text($w - $m - 200, $y, 'VAT', 10);
-        $text($w - $m - 90, $y, money((float) $totals['vat'], $ccy), 10, 'F2');
+        $y -= 20;
+        $n = 0;
+        foreach ($doc['items'] ?? [] as $item) {
+            $n++;
+            $descLines = vellisys_pdf_wrap(line_item_description($item) ?: '-', 36) ?: ['-'];
+            $need = 16 + (count($descLines) - 1) * 11;
+            $ensure($need);
+            $rgb('#000000');
+            $text($m + 4, $y, (string) $n, 8);
+            $text($m + 4 + $cols[0], $y, mb_substr(line_item_name($item) ?: '-', 0, 22), 8, 'F2');
+            $text($m + 4 + $cols[0] + $cols[1], $y, $descLines[0], 8);
+            $text($m + 4 + $cols[0] + $cols[1] + $cols[2], $y, rtrim(rtrim(number_format((float) ($item['qty'] ?? 0), 2, '.', ''), '0'), '.') ?: '0', 8);
+            $text($m + 4 + $cols[0] + $cols[1] + $cols[2] + $cols[3], $y, money((float) ($item['rate'] ?? 0), $ccy), 8);
+            $text($m + 4 + $cols[0] + $cols[1] + $cols[2] + $cols[3] + $cols[4], $y, money(line_amount($item), $ccy), 8);
+            $y -= 12;
+            for ($di = 1; $di < count($descLines); $di++) {
+                $ensure(14);
+                $text($m + 4 + $cols[0] + $cols[1], $y, $descLines[$di], 8);
+                $y -= 11;
+            }
+            $add("0.85 0.87 0.9 RG\n");
+            $stroke($m, $y + 8, $w - $m, $y + 8);
+            $y -= 4;
+        }
+        $y -= 8;
+        $ensure(80);
+        $rgb($navy);
+        $text($w - $m - 200, $y, 'Net', 10);
+        $text($w - $m - 90, $y, money((float) ($totals['net'] ?? 0), $ccy), 10, 'F2');
         $y -= 14;
+        if ((float) ($totals['vat'] ?? 0) > 0) {
+            $text($w - $m - 200, $y, 'VAT', 10);
+            $text($w - $m - 90, $y, money((float) $totals['vat'], $ccy), 10, 'F2');
+            $y -= 14;
+        }
+        $text($w - $m - 200, $y, 'Total', 12, 'F2');
+        $text($w - $m - 90, $y, money((float) ($totals['total'] ?? 0), $ccy), 12, 'F2');
+        $y -= 16;
+        if (($doc['kind'] ?? '') === 'receipt') {
+            $s = $doc['settlement'] ?? [];
+            $text($w - $m - 200, $y, 'Received', 10);
+            $text($w - $m - 90, $y, money((float) ($s['received'] ?? $doc['paid'] ?? 0), $ccy), 10, 'F2');
+            $y -= 14;
+            $text($w - $m - 200, $y, 'Due', 10);
+            $text($w - $m - 90, $y, money((float) ($s['balance'] ?? $doc['balance'] ?? 0), $ccy), 10, 'F2');
+            $y -= 16;
+        } elseif (isset($doc['paid']) && (float) $doc['paid'] > 0) {
+            $text($w - $m - 200, $y, 'Paid', 10);
+            $text($w - $m - 90, $y, money((float) $doc['paid'], $ccy), 10, 'F2');
+            $y -= 14;
+            $text($w - $m - 200, $y, 'Balance', 10);
+            $text($w - $m - 90, $y, money((float) ($doc['balance'] ?? 0), $ccy), 10, 'F2');
+            $y -= 16;
+        }
     }
-    $text($w - $m - 200, $y, 'Total', 12, 'F2');
-    $text($w - $m - 90, $y, money((float) ($totals['total'] ?? 0), $ccy), 12, 'F2');
-    $y -= 28;
-    $note = trim((string) ($brand['payment_note'] ?? ''));
-    if ($note !== '') {
-        $ensure(24);
+
+    $y -= 10;
+    $notes = trim((string) ($doc['notes'] ?? ''));
+    $pay = trim((string) ($brand['payment_note'] ?? ''));
+    $method = trim((string) ($doc['payment_method'] ?? ''));
+    $ref = trim((string) ($doc['payment_ref'] ?? ''));
+    $extra = array_filter([
+        $method !== '' ? 'Paid how: ' . ($method) : '',
+        $ref !== '' ? 'Reference: ' . $ref : '',
+        $notes,
+        $pay,
+    ]);
+    if ($extra) {
         $rgb('#000000');
-        $text($m, $y, mb_substr($note, 0, 90), 9);
+        foreach ($extra as $block) {
+            foreach (vellisys_pdf_wrap((string) $block, 90) as $wrap) {
+                $ensure(14);
+                $put($m, $y, $wrap, 9);
+            }
+            $y -= 4;
+        }
     }
 
     $pages[] = $content;

@@ -48,7 +48,6 @@ function layout_start(string $title, array $user, array $opts = []): void
     $nav = array_merge(
         [
             ['dashboard.php', 'Desk', 'desk'],
-            ['settings.php', 'Settings', 'settings'],
         ],
         desk_kind_nav_items(),
         [
@@ -107,8 +106,8 @@ function layout_start(string $title, array $user, array $opts = []): void
           if (in_array($here, ['client_view.php', 'client_edit.php'], true)) {
               $active = $file === 'clients.php';
           }
-          if ($here === 'branding.php' || $here === 'account.php') {
-              $active = $file === ($here === 'branding.php' ? 'settings.php' : 'account.php');
+          if ($here === 'settings.php' || $here === 'branding.php') {
+              $active = false;
           }
           ?>
         <a class="<?= $active ? 'is-on' : '' ?>" href="<?= h(url($href)) ?>" title="<?= h($label) ?>"><?= icon($iconName, 18) ?><span><?= h($label) ?></span></a>
@@ -140,7 +139,7 @@ function layout_start(string $title, array $user, array $opts = []): void
       </div>
       <div class="top-actions">
         <?php if (user_can_open('settings.php')): ?>
-          <a class="header-settings" href="<?= h(url('settings.php')) ?>" title="Settings" aria-label="Settings"><?= icon('settings', 20) ?></a>
+          <a class="header-settings<?= in_array($here, ['settings.php', 'branding.php'], true) ? ' is-on' : '' ?>" href="<?= h(url('settings.php')) ?>" title="Settings" aria-label="Settings"><?= icon('settings', 20) ?></a>
         <?php endif; ?>
         <button class="btn ghost" type="button" data-quick><?= icon('plus', 16) ?><span class="quick-label">Quick add</span></button>
       </div>

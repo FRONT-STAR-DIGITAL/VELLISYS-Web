@@ -125,7 +125,7 @@ $canInvoice = user_can_kind('invoice');
           <tr>
             <td class="mono"><a href="<?= h(url('document_view.php?id=' . $doc['id'])) ?>"><?= h($doc['number']) ?></a></td>
             <td><a href="<?= h(url('client_view.php?id=' . $doc['party_id'])) ?>"><?= h($doc['party_name']) ?></a></td>
-            <td><?= h(format_date($doc['date'])) ?></td>
+            <td class="date-cell"><?= h(format_date($doc['date'])) ?></td>
             <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>
             <td><span class="pill<?= invoice_status_label($doc) === 'Overdue' ? ' warn' : '' ?>"><?= h(invoice_status_label($doc)) ?></span></td>
             <td class="row-actions"><?php render_doc_actions($doc); ?></td>

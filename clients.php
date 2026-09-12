@@ -41,7 +41,17 @@ layout_start('Clients', $user);
   <?php if (!$parties): ?>
     <p class="empty">No clients yet. <a href="<?= h(url('client_edit.php')) ?>">Add one</a>.</p>
   <?php else: ?>
-    <div class="table-scroll">
+    <div class="client-cards">
+      <?php foreach ($parties as $p): ?>
+        <a class="card client-card" href="<?= h(url('client_view.php?id=' . $p['id'])) ?>">
+          <strong><?= h($p['name']) ?></strong>
+          <span><?= h($p['kind']) ?></span>
+          <?php if ($p['phone']): ?><span><?= h($p['phone']) ?></span><?php endif; ?>
+          <em><?= (int) $p['invoices'] ?> inv · <?= (int) $p['quotes'] ?> qtn</em>
+        </a>
+      <?php endforeach; ?>
+    </div>
+    <div class="table-scroll clients-table">
     <table class="grid">
       <thead>
         <tr>

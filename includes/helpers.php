@@ -1236,8 +1236,21 @@ function format_date(?string $iso): string
     if (!$iso) {
         return '';
     }
-    $dt = DateTime::createFromFormat('Y-m-d', substr($iso, 0, 10));
-    return $dt ? $dt->format('d/m/Y') : $iso;
+    $raw = trim($iso);
+    $dt = DateTime::createFromFormat('Y-m-d', substr($raw, 0, 10));
+    if (!$dt) {
+        try {
+            $dt = new DateTime($raw);
+        } catch (Throwable $e) {
+            return $raw;
+        }
+    }
+    return $dt->format('j M Y');
+}
+
+function csv_date(?string $iso): string
+{
+    return format_date($iso);
 }
 
 function current_company_id(): int
@@ -1755,7 +1768,9 @@ function render_filters(string $action, array $keep = []): void
 function list_documents(string $kind): array
 {
     [$extra, $types, $params] = period_sql('d.date');
-    $sql = 'SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id
+    $sql = 'SELECT d.*, p.name AS party_name, p.email AS party_email, p.phone AS party_phone, p.phone2 AS party_phone2,
+                   p.tin AS party_tin, p.address AS party_address, p.city AS party_city, p.country AS party_country, p.contact_person AS party_contact
+            FROM documents d JOIN parties p ON p.id = d.party_id
             WHERE d.company_id = ? AND d.kind = ?' . $extra . ' ORDER BY d.date DESC, d.id DESC';
     return attach_document_totals(db_all($sql, 'is' . $types, array_merge([current_company_id(), $kind], $params)));
 }
@@ -1793,7 +1808,9 @@ function csv_download(string $filename, array $headers, array $rows): never
     header('Pragma: no-cache');
     $out = fopen('php://output', 'w');
     fwrite($out, "\xEF\xBB\xBF");
-    fputcsv($out, $headers);
+    if ($headers) {
+        fputcsv($out, $headers);
+    }
     foreach ($rows as $row) {
         fputcsv($out, $row);
     }
@@ -1840,9 +1857,37 @@ function product_agents(): array
     ];
 }
 
-function phone_digits(string $phone): string
+function phone_tel_href(string $phone): string
 {
-    return preg_replace('/\D+/', '', $phone) ?? '';
+    $digits = phone_digits($phone);
+    if ($digits === '') {
+        return '';
+    }
+    if (!str_starts_with($digits, '0') && strlen($digits) >= 9) {
+        return 'tel:+' . $digits;
+    }
+    return 'tel:' . $digits;
+}
+
+function product_phone_links_html(): string
+{
+    $bits = [];
+    foreach (product_phones() as $phone) {
+        $href = phone_tel_href($phone);
+        $label = h($phone);
+        $bits[] = $href !== '' ? '<a href="' . h($href) . '">' . $label . '</a>' : $label;
+    }
+    if (count($bits) === 1) {
+        return $bits[0];
+    }
+    $last = array_pop($bits);
+    return implode(', ', $bits) . ' or ' . $last;
+}
+
+function product_email_link_html(): string
+{
+    $email = product_email();
+    return '<a href="mailto:' . h($email) . '">' . h($email) . '</a>';
 }
 
 function product_maker_name(): string

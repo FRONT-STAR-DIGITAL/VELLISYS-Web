@@ -86,7 +86,7 @@ layout_start('Debtors', $user);
           <tr>
             <td class="mono"><a href="<?= h(url('document_view.php?id=' . $doc['id'])) ?>"><?= h($doc['number']) ?></a></td>
             <td><a href="<?= h(url('client_view.php?id=' . $doc['party_id'])) ?>"><?= h($doc['party_name']) ?></a></td>
-            <td><?= h(format_date($doc['date'])) ?></td>
+            <td class="date-cell"><?= h(format_date($doc['date'])) ?></td>
             <td><?= h(format_date($doc['due_date'])) ?></td>
             <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>
             <td class="right mono"><?= h(money($doc['balance'], doc_currency($doc))) ?></td>

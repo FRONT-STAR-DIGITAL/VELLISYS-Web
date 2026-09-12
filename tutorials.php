@@ -343,6 +343,6 @@ layout_start('Tutorials', $user);
 
 <div class="tut-help card">
   <h2><?= icon('phone', 16) ?>Still stuck?</h2>
-  <p class="lede">Call <?= h(implode(' or ', product_phones())) ?>, or write <?= h(product_email()) ?>. The same mailbox that welcomed you will answer.</p>
+  <p class="lede">Call <?= product_phone_links_html() ?>, or write <?= product_email_link_html() ?>. The same mailbox that welcomed you will answer.</p>
 </div>
 <?php layout_end(); ?>

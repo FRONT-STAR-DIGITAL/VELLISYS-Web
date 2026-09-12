@@ -36,23 +36,23 @@ layout_start($party['name'], $user);
 <div class="page-head">
   <div>
     <h1><?= icon('clients') ?><?= h($party['name']) ?></h1>
-    <p class="lede">
-      <?= h($party['kind']) ?>
-      <?php if (!empty($party['contact_person'])): ?> · Attn <?= h($party['contact_person']) ?><?php endif; ?>
-      <?php if ($party['tin']): ?> · TIN <?= h($party['tin']) ?><?php endif; ?>
-      <?php if ($party['email']): ?> · <?= h($party['email']) ?><?php endif; ?>
-      <?php if ($party['phone']): ?> · <?= h($party['phone']) ?><?php endif; ?>
-      <?php if (!empty($party['phone2'])): ?> · <?= h($party['phone2']) ?><?php endif; ?>
-      <?php if ($owed > 0): ?> · Outstanding <?= h(money($owed)) ?><?php endif; ?>
-    </p>
-    <?php
-      $place = party_place_line($party);
-      $addrBits = array_filter([trim((string) ($party['address'] ?? '')), $place]);
-    ?>
-    <?php if ($addrBits): ?><p class="lede" style="white-space:pre-wrap"><?= h(implode("\n", $addrBits)) ?></p><?php endif; ?>
+    <dl class="party-brief">
+      <div><dt>Kind</dt><dd><?= h($party['kind']) ?></dd></div>
+      <?php if (!empty($party['contact_person'])): ?><div><dt>Attn</dt><dd><?= h($party['contact_person']) ?></dd></div><?php endif; ?>
+      <?php if ($party['email']): ?><div><dt>Email</dt><dd><a href="mailto:<?= h($party['email']) ?>"><?= h($party['email']) ?></a></dd></div><?php endif; ?>
+      <?php if ($party['phone']): ?><div><dt>Phone</dt><dd><a href="<?= h(phone_tel_href((string) $party['phone'])) ?>"><?= h($party['phone']) ?></a></dd></div><?php endif; ?>
+      <?php if (!empty($party['phone2'])): ?><div><dt>Phone 2</dt><dd><a href="<?= h(phone_tel_href((string) $party['phone2'])) ?>"><?= h($party['phone2']) ?></a></dd></div><?php endif; ?>
+      <?php if ($party['tin']): ?><div><dt>TIN</dt><dd><?= h($party['tin']) ?></dd></div><?php endif; ?>
+      <?php if ($owed > 0): ?><div><dt>Outstanding</dt><dd><?= h(money($owed)) ?></dd></div><?php endif; ?>
+      <?php
+        $place = party_place_line($party);
+        $addrBits = array_filter([trim((string) ($party['address'] ?? '')), $place]);
+      ?>
+      <?php if ($addrBits): ?><div class="party-brief-wide"><dt>Address</dt><dd><?= h(implode(', ', $addrBits)) ?></dd></div><?php endif; ?>
+    </dl>
   </div>
-  <div class="actions">
-    <a class="btn ghost" href="<?= h(export_query('party', ['id' => (string) $id])) ?>"><?= icon('download', 16) ?>Export CSV</a>
+  <div class="actions page-actions">
+    <a class="btn ghost" href="<?= h(export_query('party', ['id' => (string) $id])) ?>"><?= icon('download', 16) ?>CSV</a>
     <a class="btn ghost" href="<?= h(url('desk_mail.php?party=' . $id)) ?>"><?= icon('send') ?>Email</a>
     <a class="btn ghost" href="<?= h(url('client_edit.php?id=' . $id)) ?>"><?= icon('pencil') ?>Edit</a>
   </div>
@@ -102,7 +102,7 @@ layout_start($party['name'], $user);
           <?php foreach ($byKind[$kind] as $doc): ?>
             <tr>
               <td class="mono"><a href="<?= h(url('document_view.php?id=' . $doc['id'])) ?>"><?= h($doc['number']) ?></a></td>
-              <td><?= h(format_date($doc['date'])) ?></td>
+              <td class="date-cell"><?= h(format_date($doc['date'])) ?></td>
               <?php if (kind_shows_money($kind)): ?>
                 <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>
               <?php endif; ?>
