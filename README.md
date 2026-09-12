@@ -53,7 +53,7 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - Print and share a clean sheet - no desk chrome, dates or page URLs around the paper
 - Line items are **Item**, **Description** (paragraph), **Qty**, **Unit price**, **Total Amt**, and **VAT** as Y or N. If every line is N, VAT is left off the printed sheet
 - Receipts show **RECEIVED** and **DUE**. The Receipts tab lists cleared and partially cleared payments
-- Static navigation; desk portals sit on white with a faint V watermark
+- Static navigation; desk portals use the landing-page wash, company brand colours, a coloured V watermark, and lightly shadowed cards
 - **Correspondence** stays fully editable. Settings → Templates picks a document design (ledger, bills, twin copy, stripe, plus Estate cream and Lake night)
 - Expenses as cards; debtors and creditors as tables with totals
 - Date filters: today, this week, last week, this month, last month, plus from/to

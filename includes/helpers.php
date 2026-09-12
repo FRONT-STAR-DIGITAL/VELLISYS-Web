@@ -758,7 +758,10 @@ function brand_css_vars(?array $brand = null): string
         . ';--brand-3-tint:' . $p['deep_tint']
         . ';--on-brand:' . $p['on_primary']
         . ';--on-brand-2:' . $p['on_accent']
-        . ';--on-brand-3:' . $p['on_deep'];
+        . ';--on-brand-3:' . $p['on_deep']
+        . ';--paper:' . hex_mix($p['tint'], '#f5f7fc', 0.48)
+        . ';--brand-ink:' . $p['deep']
+        . ';--nav:' . $p['deep'];
 }
 
 function brand_color(): string
@@ -2170,7 +2173,7 @@ function product_css_vars(): string
     return '--brand:#1E4EFF;--brand-2:#8EB0FF;--brand-3:#08143A'
         . ';--brand-tint:#e8eeff;--brand-2-tint:#eef3ff;--brand-3-tint:#d5dbeb'
         . ';--on-brand:#ffffff;--on-brand-2:#08143A;--on-brand-3:#ffffff'
-        . ';--nav:#08143A;--brand-ink:#08143A';
+        . ';--nav:#08143A;--brand-ink:#08143A;--paper:#f5f7fc';
 }
 
 function platform_admin_email(): string
@@ -2884,7 +2887,7 @@ function product_icons(): void
 function folio_critical_css(string $surface = 'landing'): void
 {
     if ($surface === 'desk') {
-        echo '<style>html,body{margin:0;background:#fff}html{background:#fff}body{font-family:Montserrat,"Segoe UI",sans-serif;color:#10182c}.desk-body{background:#fff}.app{display:flex;min-height:100vh}.nav{width:72px;flex-shrink:0;background:#fff}</style>';
+        echo '<style>html,body{margin:0;background:#f5f7fc}html{background:#f5f7fc}body{font-family:Montserrat,"Segoe UI",sans-serif;color:#10182c}.desk-body{background:#f5f7fc}.app{display:flex;min-height:100vh}.nav{width:72px;flex-shrink:0;background:#fff}</style>';
         return;
     }
     echo '<style>html{background:#f5f7fc;scroll-behavior:smooth;overflow-x:hidden;overflow-x:clip}body{margin:0;font-family:Montserrat,"Segoe UI",sans-serif;color:#10182c;background:#f5f7fc}body.gate{background:#08143a;color:#fff}.lp-chrome{position:sticky;top:0;z-index:40}.lp-ticker{background:#08143a;color:#fff;height:34px;overflow:hidden}.lp-nav{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 5vw;background:rgba(255,255,255,.92);border-bottom:1px solid rgba(8,20,58,.08)}.lp-logo{display:block;height:38px;width:auto;background:transparent}.lp-btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 18px;border-radius:12px;font-weight:700;text-decoration:none}.lp-btn-solid{background:#1e4eff;color:#fff}.lp-btn-ghost{background:#fff;color:#08143a;border:1px solid rgba(8,20,58,.12)}.lp-floats{position:fixed;right:16px;bottom:16px;z-index:80}.lp-wa-fab{width:48px;height:48px;border:0;border-radius:50%;background:#25d366;color:#fff}</style>';
