@@ -6,7 +6,7 @@ function render_top_clock(): void
     $now = desk_now();
     ?>
     <div class="top-clock" data-clock>
-      <?= icon('calendar', 15) ?>
+      <?= icon('calendar', 18) ?>
       <span data-clock-date><?= h($now->format('D j M Y')) ?></span>
     </div>
     <?php

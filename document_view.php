@@ -44,7 +44,7 @@ if ($doc['kind'] === 'invoice') {
   </div>
 </div>
 
-<div class="sheet-wrap">
+<div class="sheet-wrap<?= $doc['kind'] === 'expense' ? ' expense-wrap' : '' ?>">
   <div class="sheet-stage">
     <?php render_sheet(branding(), $doc); ?>
   </div>

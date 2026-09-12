@@ -904,11 +904,77 @@ function render_sheet_bond(array $d): void
 
 function render_expense_card(array $brand, array $doc): void
 {
-    render_sheet($brand, $doc);
+    $d = sheet_data($brand, $doc);
+    $cur = $d['cur'];
+    $paid = (float) ($doc['paid'] ?? 0);
+    $balance = (float) ($doc['balance'] ?? max(0, $d['total'] - $paid));
+    $method = (string) ($doc['payment_method'] ?? '');
+    $methods = payment_methods();
+    ?>
+<div class="expense-card">
+  <div class="expense-card-top">
+    <div>
+      <span>Expense</span>
+      <strong><?= h((string) $doc['number']) ?></strong>
+    </div>
+    <div class="right">
+      <span><?= h(format_date($doc['date'] ?? null)) ?></span>
+      <strong><?= h(invoice_status_label($doc)) ?></strong>
+    </div>
+  </div>
+  <div class="expense-card-body">
+    <div class="expense-meta">
+      <div><span>Payee</span><b><?= h((string) ($doc['party_name'] ?? '')) ?></b></div>
+      <div><span>Category</span><b><?= h((string) ($doc['expense_category'] ?: 'Other')) ?></b></div>
+      <?php if ($method !== ''): ?>
+        <div><span>Paid how</span><b><?= h($methods[$method] ?? $method) ?></b></div>
+      <?php endif; ?>
+      <?php if (!empty($doc['payment_ref'])): ?>
+        <div><span>Reference</span><b><?= h((string) $doc['payment_ref']) ?></b></div>
+      <?php endif; ?>
+      <div><span>Currency</span><b><?= h($cur) ?></b></div>
+      <div><span>Paid</span><b><?= h(money($paid, $cur)) ?></b></div>
+    </div>
+    <?php if (!empty($doc['items'])): ?>
+      <table class="grid">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Description</th>
+            <th class="right">Qty</th>
+            <th class="right">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($doc['items'] as $item): ?>
+            <tr>
+              <td><?= h(line_item_name($item)) ?></td>
+              <td><?= nl2br(h(line_item_description($item))) ?></td>
+              <td class="right mono"><?= h(format_qty($item['qty'] ?? 0)) ?></td>
+              <td class="right mono"><?= h(money(line_amount($item), $cur)) ?></td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    <?php endif; ?>
+    <div class="expense-total">
+      <span>Total<?= $balance > 0.009 ? ' · Balance ' . money($balance, $cur) : '' ?></span>
+      <strong><?= h(money($d['total'], $cur)) ?></strong>
+    </div>
+    <?php if (!empty($doc['notes'])): ?>
+      <p class="muted" style="margin:14px 0 0;white-space:pre-wrap"><?= h((string) $doc['notes']) ?></p>
+    <?php endif; ?>
+  </div>
+</div>
+<?php
 }
 
 function render_sheet(array $brand, array $doc): void
 {
+    if (($doc['kind'] ?? '') === 'expense') {
+        render_expense_card($brand, $doc);
+        return;
+    }
     $d = sheet_data($brand, $doc);
     ob_start();
     if (kind_is_stationery($doc['kind'] ?? '')) {

@@ -158,6 +158,45 @@ document.addEventListener('click', function (e) {
     tbody.appendChild(row);
     var focus = row.querySelector('input[name^="item_name"], textarea[name^="item_desc"]');
     if (focus) focus.focus();
+    refreshLinesPreview();
+    return;
+  }
+  var removeOne = e.target.closest('[data-remove-line]');
+  if (removeOne) {
+    e.preventDefault();
+    var row = removeOne.closest('tr');
+    var tbody = document.querySelector('#lines tbody');
+    if (!row || !tbody) return;
+    if (tbody.querySelectorAll('tr').length <= 1) {
+      row.querySelectorAll('input, textarea').forEach(function (inp) {
+        if (inp.type === 'checkbox') {
+          inp.checked = false;
+          var yn = row.querySelector('[data-vat-yn]');
+          if (yn) yn.textContent = 'N';
+        } else if (inp.name && inp.name.indexOf('item_qty') !== -1) {
+          inp.value = '1';
+        } else if (inp.type !== 'hidden') {
+          inp.value = '';
+        }
+      });
+      var total = row.querySelector('[data-line-total]');
+      if (total) total.textContent = '0';
+    } else {
+      row.remove();
+      renumberLines();
+    }
+    refreshLinesPreview();
+    return;
+  }
+  var removeLast = e.target.closest('[data-remove-last-line]');
+  if (removeLast) {
+    e.preventDefault();
+    var tbody = document.querySelector('#lines tbody');
+    if (!tbody) return;
+    var rows = tbody.querySelectorAll('tr');
+    if (!rows.length) return;
+    var btn = rows[rows.length - 1].querySelector('[data-remove-line]');
+    if (btn) btn.click();
     return;
   }
   var addField = e.target.closest('[data-add-custom-field]');
@@ -186,7 +225,18 @@ document.addEventListener('click', function (e) {
   input.value = Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);
   var row = wrap.closest('tr');
   if (row) updateLineTotal(row);
+  refreshLinesPreview();
 });
+
+function renumberLines() {
+  var tbody = document.querySelector('#lines tbody');
+  if (!tbody) return;
+  tbody.querySelectorAll('tr').forEach(function (row, i) {
+    row.querySelectorAll('input, textarea').forEach(function (inp) {
+      if (inp.name) inp.name = inp.name.replace(/\[\d+\]/, '[' + i + ']');
+    });
+  });
+}
 
 function updateLineTotal(row) {
   var qty = parseFloat(String((row.querySelector('[data-line-qty]') || {}).value || '0').replace(/,/g, ''));
@@ -198,17 +248,73 @@ function updateLineTotal(row) {
   if (out) out.textContent = n ? n.toLocaleString('en-US', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }) : '0';
 }
 
+function formatPreviewMoney(n) {
+  if (!n) return '0';
+  return n.toLocaleString('en-US', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 });
+}
+
+function refreshLinesPreview() {
+  var body = document.querySelector('[data-lines-preview-body]');
+  var panel = document.querySelector('[data-lines-panel]');
+  if (!body || !panel) return;
+  var delivery = panel.getAttribute('data-delivery') === '1';
+  var rows = document.querySelectorAll('#lines tbody tr');
+  var html = '';
+  var shown = 0;
+  rows.forEach(function (row) {
+    var name = ((row.querySelector('input[name^="item_name"]') || {}).value || '').trim();
+    var desc = ((row.querySelector('textarea[name^="item_desc"]') || {}).value || '').trim();
+    if (!name && !desc) return;
+    shown += 1;
+    var qty = parseFloat(String((row.querySelector('[data-line-qty]') || {}).value || '0').replace(/,/g, ''));
+    var rate = parseFloat(String((row.querySelector('[data-line-rate]') || {}).value || '0').replace(/,/g, ''));
+    if (isNaN(qty)) qty = 0;
+    if (isNaN(rate)) rate = 0;
+    var taxed = !!(row.querySelector('[data-vat-box]') || {}).checked;
+    html += '<tr>';
+    html += '<td>' + escapeHtml(name || '—') + '</td>';
+    html += '<td>' + escapeHtml(desc).replace(/\n/g, '<br>') + '</td>';
+    html += '<td class="center mono">' + escapeHtml(String(qty || '')) + '</td>';
+    if (!delivery) {
+      html += '<td class="right mono">' + escapeHtml(formatPreviewMoney(rate)) + '</td>';
+      html += '<td class="right mono">' + escapeHtml(formatPreviewMoney(Math.round(qty * rate * 100) / 100)) + '</td>';
+      html += '<td class="center">' + (taxed ? 'Y' : 'N') + '</td>';
+    }
+    html += '</tr>';
+  });
+  if (!shown) {
+    html = '<tr><td colspan="' + (delivery ? '3' : '6') + '" class="muted">Add an item above to preview the document table.</td></tr>';
+  }
+  body.innerHTML = html;
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 document.addEventListener('input', function (e) {
   var row = e.target.closest && e.target.closest('#lines tr');
   if (!row) return;
   if (e.target.matches('[data-line-qty], [data-line-rate]')) updateLineTotal(row);
+  if (e.target.matches('input[name^="item_name"], textarea[name^="item_desc"], [data-line-qty], [data-line-rate]')) {
+    refreshLinesPreview();
+  }
 });
 
 document.addEventListener('change', function (e) {
   if (!e.target.matches('[data-vat-box]')) return;
   var yn = e.target.closest('label') && e.target.closest('label').querySelector('[data-vat-yn]');
   if (yn) yn.textContent = e.target.checked ? 'Y' : 'N';
+  refreshLinesPreview();
 });
+
+if (document.querySelector('[data-lines-preview-body]')) {
+  refreshLinesPreview();
+}
 
 document.querySelectorAll('[data-letter-templates]').forEach(function (form) {
   var subject = form.querySelector('#subject');

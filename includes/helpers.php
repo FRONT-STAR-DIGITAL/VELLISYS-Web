@@ -1757,8 +1757,20 @@ function render_filters(string $action, array $keep = []): void
         <?php endforeach; ?>
       </div>
       <div class="filter-dates">
-        <label>From <input type="date" name="from" value="<?= h($p['from']) ?>"></label>
-        <label>To <input type="date" name="to" value="<?= h($p['to']) ?>"></label>
+        <label class="date-field">
+          <span>From</span>
+          <span class="date-input-wrap">
+            <?= icon('calendar', 16) ?>
+            <input type="date" name="from" value="<?= h($p['from']) ?>" aria-label="From date">
+          </span>
+        </label>
+        <label class="date-field">
+          <span>To</span>
+          <span class="date-input-wrap">
+            <?= icon('calendar', 16) ?>
+            <input type="date" name="to" value="<?= h($p['to']) ?>" aria-label="To date">
+          </span>
+        </label>
       </div>
       <button class="btn ghost sm filter-apply" type="submit">Apply</button>
     </form>
@@ -1855,6 +1867,11 @@ function product_agents(): array
         ['name' => 'Agent 1', 'phone' => '+256 779 971 024'],
         ['name' => 'Agent 2', 'phone' => '+256 756 524 451'],
     ];
+}
+
+function phone_digits(string $phone): string
+{
+    return preg_replace('/\D+/', '', $phone) ?? '';
 }
 
 function phone_tel_href(string $phone): string

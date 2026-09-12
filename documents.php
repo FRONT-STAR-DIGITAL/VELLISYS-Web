@@ -48,7 +48,7 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
     <h1><?= icon(document_kind_icon($kind)) ?><?= h($meta['title']) ?></h1>
     <p class="lede">
       <?php if ($kind === 'expense'): ?>
-        Bills in a table with totals. Open a row to see the expense as a card, not stationery.
+        Company spending - open a row to see the expense details. Not a bill sent to a client.
       <?php elseif ($kind === 'letter'): ?>
         Headed notes with a subject and body. They are stationery, not a receipt.
       <?php elseif ($kind === 'custom'): ?>

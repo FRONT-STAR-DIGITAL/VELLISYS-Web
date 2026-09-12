@@ -13,15 +13,21 @@ if (!$party) {
 
 [$extra, $types, $params] = period_sql('d.date');
 $docs = attach_document_totals(db_all(
-    'SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id WHERE d.company_id = ? AND d.party_id = ?' . $extra . ' ORDER BY d.date DESC, d.id DESC',
-    'ii' . $types,
-    array_merge([$cid, $id], $params)
+    'SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id WHERE d.company_id = ? AND d.party_id = ? AND d.kind <> ?' . $extra . ' ORDER BY d.date DESC, d.id DESC',
+    'iis' . $types,
+    array_merge([$cid, $id, 'expense'], $params)
 ));
 $byKind = [];
 foreach (desk_kind_list() as $k) {
+    if ($k === 'expense') {
+        continue;
+    }
     $byKind[$k] = [];
 }
 foreach ($docs as $d) {
+    if (($d['kind'] ?? '') === 'expense') {
+        continue;
+    }
     $byKind[$d['kind']][] = $d;
 }
 $owed = 0.0;
@@ -30,6 +36,11 @@ foreach ($byKind['invoice'] as $inv) {
         $owed += (float) ($inv['balance'] ?? 0);
     }
 }
+
+$clientKinds = array_values(array_filter(
+    desk_kind_nav_items(),
+    static fn (array $item): bool => ($item[3] ?? '') !== 'expense'
+));
 
 layout_start($party['name'], $user);
 ?>
@@ -40,7 +51,7 @@ layout_start($party['name'], $user);
       <div><dt>Kind</dt><dd><?= h($party['kind']) ?></dd></div>
       <?php if (!empty($party['contact_person'])): ?><div><dt>Attn</dt><dd><?= h($party['contact_person']) ?></dd></div><?php endif; ?>
       <?php if ($party['email']): ?><div><dt>Email</dt><dd><a href="mailto:<?= h($party['email']) ?>"><?= h($party['email']) ?></a></dd></div><?php endif; ?>
-      <?php if ($party['phone']): ?><div><dt>Phone</dt><dd><a href="<?= h(phone_tel_href((string) $party['phone'])) ?>"><?= h($party['phone']) ?></a></dd></div><?php endif; ?>
+      <?php if (trim((string) $party['phone']) !== ''): ?><div><dt>Phone</dt><dd><a href="<?= h(phone_tel_href((string) $party['phone'])) ?>"><?= h($party['phone']) ?></a></dd></div><?php endif; ?>
       <?php if (!empty($party['phone2'])): ?><div><dt>Phone 2</dt><dd><a href="<?= h(phone_tel_href((string) $party['phone2'])) ?>"><?= h($party['phone2']) ?></a></dd></div><?php endif; ?>
       <?php if ($party['tin']): ?><div><dt>TIN</dt><dd><?= h($party['tin']) ?></dd></div><?php endif; ?>
       <?php if ($owed > 0): ?><div><dt>Outstanding</dt><dd><?= h(money($owed)) ?></dd></div><?php endif; ?>
@@ -61,13 +72,13 @@ layout_start($party['name'], $user);
 <?php render_filters('client_view.php', ['id' => (string) $id]); ?>
 
 <div class="action-grid">
-  <?php foreach (desk_kind_nav_items() as [$href, $label, $iconName, $qKind]):
+  <?php foreach ($clientKinds as [$href, $label, $iconName, $qKind]):
       $count = count($byKind[$qKind] ?? []);
       ?>
     <a class="card action-tile" href="<?= h(url('document_new.php?kind=' . $qKind . '&party=' . $id)) ?>">
       <?= icon($iconName, 20) ?>
       <span><?= h(kind_meta($qKind)['verb']) ?></span>
-      <strong><?= $count ?> <?= $qKind === 'expense' ? 'recorded' : 'issued' ?></strong>
+      <strong><?= $count ?> issued</strong>
     </a>
   <?php endforeach; ?>
   <a class="card action-tile" href="<?= h(url('desk_mail.php?party=' . $id)) ?>">
@@ -77,7 +88,7 @@ layout_start($party['name'], $user);
   </a>
 </div>
 
-<?php foreach (desk_kind_nav_items() as [$href, $title, $iconName, $kind]): ?>
+<?php foreach ($clientKinds as [$href, $title, $iconName, $kind]): ?>
   <div class="card" style="margin-top:16px">
     <div class="card-head">
       <h2><?= icon($iconName, 16) ?><?= h($title) ?></h2>

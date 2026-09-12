@@ -145,7 +145,8 @@ if ($existing && $kind === 'letter') {
     }
 }
 $lines = kind_uses_lines($kind) ? ($existing['items'] ?? []) : [];
-while (kind_uses_lines($kind) && count($lines) < 4) {
+$minLines = $existing ? max(1, count($existing['items'] ?? [])) : 1;
+while (kind_uses_lines($kind) && count($lines) < $minLines) {
     $lines[] = ['item_name' => '', 'description' => '', 'qty' => 1, 'unit' => 'lot', 'rate' => '', 'taxed' => 0];
 }
 $heading = $existing ? 'Edit ' . strtolower($meta['singular']) : $meta['verb'];
@@ -185,6 +186,8 @@ layout_start($heading, $user, ['kind' => $kind]);
           echo 'Item, description and quantity. No prices - this is a delivery note, not a bill.';
       } elseif ($kind === 'receipt') {
           echo 'Link an open invoice to record a part payment. Anything still unpaid stays on Debtors.';
+      } elseif ($kind === 'expense') {
+          echo 'Record what the company spent. This is an expense for your books - not a bill sent to a client.';
       } else {
           echo 'Client, item, description, amount' . ($kind === 'invoice' ? ', due date' : '') . '. Numbering and branding are applied for you.';
       }
@@ -235,8 +238,9 @@ layout_start($heading, $user, ['kind' => $kind]);
           <option value="<?= (int) $p['id'] ?>" <?= (int) $p['id'] === $prefillParty ? 'selected' : '' ?>><?= h($p['name']) ?></option>
         <?php endforeach; ?>
       </select>
-      <p class="hint"><a href="<?= h(url('client_edit.php')) ?>">Add a new client</a></p>
+      <p class="hint"><a href="<?= h(url('client_edit.php')) ?>"><?= $kind === 'expense' ? 'Add a payee or supplier' : 'Add a new client' ?></a></p>
     </div>
+    <?php if ($kind !== 'expense'): ?>
     <div class="doc-side-block" style="grid-column:1 / -1">
       <details class="doc-side" open>
         <summary>From - your company on this sheet</summary>
@@ -275,8 +279,8 @@ layout_start($heading, $user, ['kind' => $kind]);
           </div>
         </div>
       </details>
-      <details class="doc-side" open>
-        <summary>To - <?= $kind === 'expense' ? 'payee' : 'client' ?> on this sheet</summary>
+      <details class="doc-side doc-side-to" open>
+        <summary>To - client on this sheet</summary>
         <div class="form-grid" data-to-fields>
           <div>
             <label for="to_name">Name</label>
@@ -318,6 +322,7 @@ layout_start($heading, $user, ['kind' => $kind]);
         <p class="hint">These print as From and Bill to / To. Saving updates the client record and the company letterhead.</p>
       </details>
     </div>
+    <?php endif; ?>
     <div>
       <label for="date">Date</label>
       <input id="date" name="date" type="date" value="<?= h((string) ($existing['date'] ?? today())) ?>" required>
@@ -343,7 +348,7 @@ layout_start($heading, $user, ['kind' => $kind]);
         <p class="hint">USD converts into <?= h(default_currency()) ?> at this rate. Other currencies stay as entered.</p>
       </div>
     <?php endif; ?>
-    <?php if (!kind_is_stationery($kind)): ?>
+    <?php if (!kind_is_stationery($kind) && $kind !== 'expense'): ?>
     <div>
       <label for="doc_template">Design</label>
       <select id="doc_template" name="doc_template">
@@ -422,65 +427,99 @@ layout_start($heading, $user, ['kind' => $kind]);
     <label for="notes">Internal note (not printed)</label>
     <textarea id="notes" name="notes" rows="3"><?= h((string) ($existing['notes'] ?? '')) ?></textarea>
   <?php else: ?>
-    <div class="lines-wrap">
-    <table class="grid lines" id="lines" data-lines>
-      <thead>
-        <tr>
-          <th>Item</th>
-          <th>Description</th>
-          <th>Qty</th>
-          <?php if ($kind !== 'delivery'): ?>
-            <th class="right">Unit price</th>
-            <th class="right">Total Amt</th>
-            <th class="center">VAT</th>
-          <?php endif; ?>
-        </tr>
-      </thead>
-      <tbody>
-        <?php foreach ($lines as $i => $line):
-            $qty = (float) ($line['qty'] ?? 1);
-            $rate = (float) ($line['rate'] ?? 0);
-            $lineTotal = $qty * $rate;
-            ?>
+    <div class="lines-panel" data-lines-panel data-delivery="<?= $kind === 'delivery' ? '1' : '0' ?>">
+      <div class="lines-wrap">
+      <table class="grid lines" id="lines" data-lines>
+        <thead>
           <tr>
-            <td><input name="item_name[<?= $i ?>]" placeholder="Item" value="<?= h((string) ($line['item_name'] ?? '')) ?>"></td>
-            <td><textarea name="item_desc[<?= $i ?>]" rows="4" placeholder="Description"><?= h((string) ($line['description'] ?? '')) ?></textarea></td>
-            <td>
-              <div class="qty-wrap">
-                <button type="button" class="qty-btn" data-qty-delta="-1" aria-label="Decrease quantity">-</button>
-                <input name="item_qty[<?= $i ?>]" type="number" min="0" step="any" inputmode="decimal" value="<?= h((string) ($line['qty'] ?? 1)) ?>" data-line-qty>
-                <button type="button" class="qty-btn" data-qty-delta="1" aria-label="Increase quantity">+</button>
-              </div>
-            </td>
+            <th>Item</th>
+            <th>Description</th>
+            <th>Qty</th>
             <?php if ($kind !== 'delivery'): ?>
-              <td><input name="item_rate[<?= $i ?>]" type="number" min="0" step="any" inputmode="decimal" placeholder="0" value="<?= h((string) ($line['rate'] ?? '')) ?>" data-line-rate></td>
-              <td class="right mono"><span data-line-total><?= $lineTotal ? h(number_format($lineTotal, 2, '.', ',')) : '0' ?></span></td>
-              <td class="center">
-                <label class="vat-yn">
-                  <input type="checkbox" name="item_taxed[<?= $i ?>]" value="1" <?= !empty($line['taxed']) ? 'checked' : '' ?> data-vat-box>
-                  <span data-vat-yn><?= !empty($line['taxed']) ? 'Y' : 'N' ?></span>
-                </label>
-              </td>
-            <?php else: ?>
-              <input type="hidden" name="item_rate[<?= $i ?>]" value="0">
+              <th class="right">Unit price</th>
+              <th class="right">Total Amt</th>
+              <th class="center">VAT</th>
             <?php endif; ?>
+            <th class="center lines-del-col"> </th>
           </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
-    </div>
-    <p class="hint" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      <button class="btn ghost sm" type="button" data-add-line><?= icon('plus', 14) ?>Add row</button>
-      <?php if ($kind === 'receipt'): ?>
-        Lines can be left blank if you set the amount received against an invoice.
-      <?php elseif ($kind === 'delivery'): ?>
-        Add as many rows as you need - long lists print on extra pages.
-      <?php else: ?>
-        Item is the short name. Description has room for a paragraph. Tick VAT for Y; leave it clear for N. If every line is N, VAT is left off the printed or shared sheet. Long lists print on extra pages.
+        </thead>
+        <tbody>
+          <?php foreach ($lines as $i => $line):
+              $qty = (float) ($line['qty'] ?? 1);
+              $rate = (float) ($line['rate'] ?? 0);
+              $lineTotal = $qty * $rate;
+              ?>
+            <tr>
+              <td><input name="item_name[<?= $i ?>]" placeholder="Item" value="<?= h((string) ($line['item_name'] ?? '')) ?>"></td>
+              <td><textarea name="item_desc[<?= $i ?>]" rows="2" placeholder="Description"><?= h((string) ($line['description'] ?? '')) ?></textarea></td>
+              <td>
+                <div class="qty-wrap">
+                  <button type="button" class="qty-btn" data-qty-delta="-1" aria-label="Decrease quantity">-</button>
+                  <input name="item_qty[<?= $i ?>]" type="number" min="0" step="any" inputmode="decimal" value="<?= h((string) ($line['qty'] ?? 1)) ?>" data-line-qty>
+                  <button type="button" class="qty-btn" data-qty-delta="1" aria-label="Increase quantity">+</button>
+                </div>
+              </td>
+              <?php if ($kind !== 'delivery'): ?>
+                <td><input name="item_rate[<?= $i ?>]" type="number" min="0" step="any" inputmode="decimal" placeholder="0" value="<?= h((string) ($line['rate'] ?? '')) ?>" data-line-rate></td>
+                <td class="right mono"><span data-line-total><?= $lineTotal ? h(number_format($lineTotal, 2, '.', ',')) : '0' ?></span></td>
+                <td class="center">
+                  <label class="vat-yn">
+                    <input type="checkbox" name="item_taxed[<?= $i ?>]" value="1" <?= !empty($line['taxed']) ? 'checked' : '' ?> data-vat-box>
+                    <span data-vat-yn><?= !empty($line['taxed']) ? 'Y' : 'N' ?></span>
+                  </label>
+                </td>
+              <?php else: ?>
+                <input type="hidden" name="item_rate[<?= $i ?>]" value="0">
+              <?php endif; ?>
+              <td class="center lines-del-col">
+                <button type="button" class="btn ghost sm icon-only" data-remove-line title="Delete row" aria-label="Delete row"><?= icon('trash', 14) ?></button>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+      </div>
+      <p class="lines-toolbar">
+        <button class="btn ghost sm" type="button" data-add-line><?= icon('plus', 14) ?>Add row</button>
+        <button class="btn ghost sm" type="button" data-remove-last-line><?= icon('trash', 14) ?>Delete row</button>
+        <?php if ($kind === 'receipt'): ?>
+          <span class="hint">Lines can be left blank if you set the amount received against an invoice.</span>
+        <?php elseif ($kind === 'delivery'): ?>
+          <span class="hint">Add as many rows as you need - long lists print on extra pages.</span>
+        <?php elseif ($kind === 'expense'): ?>
+          <span class="hint">What was bought or paid for. Expenses open as a detail card, not stationery.</span>
+        <?php else: ?>
+          <span class="hint">Item is the short name. Tick VAT for Y. Preview below shows how lines print.</span>
+        <?php endif; ?>
+      </p>
+      <?php if ($kind !== 'expense'): ?>
+      <div class="lines-preview" data-lines-preview>
+        <div class="lines-preview-head">
+          <strong>Document preview</strong>
+          <span class="muted">How this table will look on the printed sheet</span>
+        </div>
+        <div class="table-scroll">
+          <table class="grid lines-preview-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Description</th>
+                <th class="center">Qty</th>
+                <?php if ($kind !== 'delivery'): ?>
+                  <th class="right">Unit price</th>
+                  <th class="right">Total Amt</th>
+                  <th class="center">VAT</th>
+                <?php endif; ?>
+              </tr>
+            </thead>
+            <tbody data-lines-preview-body></tbody>
+          </table>
+        </div>
+      </div>
       <?php endif; ?>
-    </p>
-    <label for="notes">Comments on the document</label>
-    <textarea id="notes" name="notes" rows="4" placeholder="Payment is due by the date shown above."><?= h((string) ($existing['notes'] ?? ($kind === 'invoice' ? (string) branding()['invoice_comments'] : ''))) ?></textarea>
+    </div>
+    <label for="notes"><?= $kind === 'expense' ? 'Notes' : 'Comments on the document' ?></label>
+    <textarea id="notes" name="notes" rows="4" placeholder="<?= $kind === 'expense' ? 'Optional note for your records.' : 'Payment is due by the date shown above.' ?>"><?= h((string) ($existing['notes'] ?? ($kind === 'invoice' ? (string) branding()['invoice_comments'] : ''))) ?></textarea>
   <?php endif; ?>
 
   <div class="actions sticky-save">

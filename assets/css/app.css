@@ -350,7 +350,8 @@ img { max-width: 100%; display: block; }
   color: var(--ink);
 }
 .top-clock .icon,
-.top-term .icon { flex-shrink: 0; color: var(--muted); }
+.top-term .icon { flex-shrink: 0; color: var(--brand); }
+.top-clock .icon { width: 18px; height: 18px; }
 .top-clock-dot { color: var(--muted); }
 .top-term-left { font-weight: 700; white-space: nowrap; }
 .top-term-exp { color: var(--muted); white-space: nowrap; }
@@ -394,7 +395,6 @@ img { max-width: 100%; display: block; }
 }
 .party-brief dd { margin: 2px 0 0; font-size: 13.5px; overflow-wrap: anywhere; }
 .party-brief-wide { grid-column: 1 / -1; }
-.client-cards { display: none; }
 .date-cell { white-space: nowrap; }
 .desk-term-wrap { margin: 0 0 18px; }
 .desk-term-wrap .top-term { display: inline-flex; }
@@ -555,7 +555,7 @@ form.actions, td form { display: inline; margin: 0; }
 .lines th:nth-child(4), .lines td:nth-child(4) { width: 120px; min-width: 110px; }
 .lines th:nth-child(5), .lines td:nth-child(5) { width: 110px; min-width: 96px; }
 .lines th:nth-child(6), .lines td:nth-child(6) { width: 64px; min-width: 56px; }
-.lines textarea { min-height: 96px; resize: vertical; line-height: 1.45; width: 100%; }
+.lines textarea { min-height: 56px; resize: vertical; line-height: 1.45; width: 100%; }
 .lines-wrap { overflow-x: auto; margin: 12px 0 8px; padding-bottom: 6px; }
 .lines input[type="number"] {
   appearance: textfield;
@@ -870,11 +870,52 @@ table.grid tfoot td {
 .filter-dates {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  min-width: min(100%, 280px);
-  flex: 1 1 240px;
+  gap: 12px 16px;
+  min-width: min(100%, 320px);
+  flex: 1 1 280px;
 }
-.filter-dates label { display: grid; gap: 4px; min-width: 0; }
+.filter-dates .date-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  font-size: 11px;
+}
+.filter-dates .date-field > span:first-child {
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.date-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 10px 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #fff;
+}
+.date-input-wrap .icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: var(--brand);
+}
+.date-input-wrap input[type=date] {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  padding: 8px 4px 8px 0;
+  box-shadow: none;
+  font-weight: 400;
+  background: transparent;
+}
+.date-input-wrap:focus-within {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 22%, transparent);
+}
 .filter-dates input[type=date] { width: 100%; min-width: 0; font-weight: 400; }
 .chip {
   display: inline-flex;
@@ -891,6 +932,34 @@ table.grid tfoot td {
 .chip.is-on { background: var(--brand); color: var(--on-brand, #fff); border-color: var(--brand); }
 .filters label { margin: 0; font-size: 11px; }
 .filters input[type=date] { width: auto; padding: 6px 8px; }
+.lines-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin: 0 0 14px;
+}
+.lines-toolbar .hint { margin: 0; }
+.lines-del-col { width: 44px; }
+.lines-preview {
+  margin: 0 0 18px;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f7f8fc;
+}
+.lines-preview-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 10px;
+}
+.lines-preview-head strong { font-size: 13px; }
+.lines-preview-table { min-width: 0; background: #fff; }
+.lines-preview-table td, .lines-preview-table th { font-size: 12px; }
+.doc-side-to { margin-top: 14px; border-color: color-mix(in srgb, var(--brand) 28%, var(--line)); background: #fff; }
+.expense-wrap { background: transparent; box-shadow: none; padding: 8px 0; }
+.expense-wrap .sheet-stage { overflow: visible; }
 .chart-grid {
   display: grid;
   grid-template-columns: 1.35fr 1fr;
@@ -1518,7 +1587,7 @@ input, select, textarea { font-weight: 400; }
   .page-head .page-actions {
     width: 100%;
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
   }
   .page-head .actions .btn,
@@ -1533,7 +1602,7 @@ input, select, textarea { font-weight: 400; }
   }
   .page-head .doc-toolbar {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     width: 100%;
     gap: 8px;
   }
@@ -1545,31 +1614,31 @@ input, select, textarea { font-weight: 400; }
     min-width: 0;
   }
   .page-head .doc-toolbar .share-pop > summary.btn { width: 100%; }
-  .stats, .stats.six, .action-grid { grid-template-columns: 1fr 1fr; display: grid; }
-  .client-cards {
+  .stats, .stats.six, .action-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); display: grid; }
+  .filter-chips {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    padding: 12px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+    gap: 8px;
   }
-  .client-card {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 12px;
-    text-decoration: none;
-    color: inherit;
+  .filter-chips .chip {
+    justify-content: center;
+    text-align: center;
     min-width: 0;
+    padding-left: 6px;
+    padding-right: 6px;
   }
-  .client-card:hover { text-decoration: none; }
-  .client-card strong { font-size: 13.5px; overflow-wrap: anywhere; }
-  .client-card span, .client-card em { font-size: 12px; color: var(--muted); font-style: normal; }
-  .clients-table { display: none; }
   .filters {
     flex-direction: column;
     align-items: stretch;
   }
-  .filter-dates { flex: none; width: 100%; min-width: 0; }
+  .filter-dates {
+    flex: none;
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
   .filters input,
   .filters select { width: 100%; }
   .filters input[type=date] { width: 100%; font-weight: 400; color: var(--ink); }
@@ -1605,13 +1674,13 @@ input, select, textarea { font-weight: 400; }
     color: var(--brand-ink);
   }
   input, select, textarea, .btn { font-size: 16px; }
-  .qty-btn { min-width: 44px; min-height: 44px; }
+  .qty-btn { min-width: 40px; min-height: 40px; }
   .lines .qty-wrap {
     display: grid;
-    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    grid-template-columns: 40px minmax(0, 1fr) 40px;
     width: 100%;
     max-width: none;
-    gap: 8px;
+    gap: 6px;
   }
   .lines .qty-wrap input {
     width: 100%;
@@ -1625,15 +1694,18 @@ input, select, textarea { font-weight: 400; }
   .lines { border: 0; min-width: 0 !important; table-layout: auto; }
   .lines-wrap { overflow: visible; }
   .lines tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 10px;
     border: 1px solid var(--line);
     border-radius: 12px;
     margin: 0 0 12px;
-    padding: 6px 12px 10px;
+    padding: 8px 12px 10px;
     background: #fff;
   }
   .lines th,
   .lines td {
-    width: 100% !important;
+    width: auto !important;
     min-width: 0 !important;
     max-width: 100%;
   }
@@ -1641,10 +1713,24 @@ input, select, textarea { font-weight: 400; }
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 6px;
-    padding: 8px 0;
+    gap: 4px;
+    padding: 6px 0;
     border: 0;
     border-bottom: 1px solid var(--line);
+  }
+  .lines td:nth-child(1),
+  .lines td:nth-child(2) { grid-column: 1 / -1; }
+  .lines td.lines-del-col {
+    grid-column: 1 / -1;
+    border-bottom: 0;
+    align-items: flex-end;
+    padding-top: 4px;
+  }
+  .lines td.lines-del-col .btn {
+    min-width: 44px;
+    min-height: 44px;
+    width: 44px;
+    height: 44px;
   }
   .lines td:last-child { border-bottom: 0; }
   .lines td::before {
@@ -1660,6 +1746,7 @@ input, select, textarea { font-weight: 400; }
   .lines td:nth-child(4)::before { content: "Unit price"; }
   .lines td:nth-child(5)::before { content: "Total Amt"; }
   .lines td:nth-child(6)::before { content: "VAT"; }
+  .lines td.lines-del-col::before { content: none; }
   .lines td.right, .lines td.center { text-align: left; }
   .lines textarea,
   .lines input {
@@ -1670,7 +1757,9 @@ input, select, textarea { font-weight: 400; }
     word-break: normal;
     overflow-wrap: anywhere;
   }
-  .lines textarea { min-height: 96px; }
+  .lines textarea { min-height: 64px; }
+  .lines-preview { padding: 10px; }
+  .lines-preview-table { min-width: 520px; }
   .document-form .form-grid,
   .document-form .form-grid.two { grid-template-columns: 1fr; }
   .document-form input,
@@ -1690,6 +1779,15 @@ input, select, textarea { font-weight: 400; }
   .nav-toggle { min-width: 44px; min-height: 44px; }
 }
 @media (max-width: 420px) {
+  .page-head .doc-toolbar,
+  .page-head .actions,
+  .page-head .page-actions,
+  .filter-chips,
+  .stats,
+  .stats.six,
+  .action-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
   .page-head .doc-toolbar .btn,
   .page-head .doc-toolbar form { flex-basis: auto; }
   .tut-lesson { padding: 14px 12px; gap: 10px; }
