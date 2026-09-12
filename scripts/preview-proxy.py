@@ -59,7 +59,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Connection", "close")
         self.end_headers()
         if self.command != "HEAD":
-            self.wfile.write(data)
+            try:
+                self.wfile.write(data)
+            except (BrokenPipeError, ConnectionResetError):
+                return
 
     def do_GET(self) -> None:
         self.handle_one()
@@ -86,20 +89,19 @@ class Handler(BaseHTTPRequestHandler):
         sys.stderr.write("%s - %s\n" % (self.address_string(), fmt % args))
 
 
-class DualStackServer(ThreadingHTTPServer):
-    address_family = socket.AF_INET6
+class PreviewServer(ThreadingHTTPServer):
+    """IPv4 bind with a large accept queue so a landing-page asset burst is not RST."""
+
+    address_family = socket.AF_INET
     allow_reuse_address = True
     daemon_threads = True
-
-    def server_bind(self) -> None:
-        self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
-        super().server_bind()
+    request_queue_size = 256
 
 
 def main() -> None:
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 43219
-    httpd = DualStackServer(("::", port), Handler)
-    print(f"Vellisys proxy on 0.0.0.0:{port} and [::]:{port}", flush=True)
+    httpd = PreviewServer(("0.0.0.0", port), Handler)
+    print(f"Vellisys proxy on 0.0.0.0:{port}", flush=True)
     httpd.serve_forever()
 
 
