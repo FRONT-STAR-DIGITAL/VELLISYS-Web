@@ -440,6 +440,7 @@
     var publicInput = checkout.querySelector('[data-order-public]');
     var payBtn = checkout.querySelector('[data-pay-btn]');
     checkout.addEventListener('submit', function () {
+      clearTimeout(timer);
       if (payBtn) {
         payBtn.disabled = true;
         payBtn.textContent = 'Opening payment…';
