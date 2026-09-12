@@ -3,10 +3,25 @@ declare(strict_types=1);
 
 function db_has_column(mysqli $db, string $table, string $column): bool
 {
+    static $cache = [];
+    $key = $table . '.' . $column;
+    if (array_key_exists($key, $cache)) {
+        return $cache[$key];
+    }
     $t = $db->real_escape_string($table);
     $c = $db->real_escape_string($column);
     $row = @$db->query("SHOW COLUMNS FROM `$t` LIKE '$c'");
-    return $row && $row->num_rows > 0;
+    $cache[$key] = $row && $row->num_rows > 0;
+    return $cache[$key];
+}
+
+function folio_schema_ready_file(): string
+{
+    $dir = function_exists('folio_cache_dir') ? folio_cache_dir() : (rtrim(sys_get_temp_dir(), '/\\') . '/vellisys-cache');
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0700, true);
+    }
+    return $dir . '/schema-36.ok';
 }
 
 function folio_migrate(mysqli $db): void
@@ -15,17 +30,18 @@ function folio_migrate(mysqli $db): void
     if ($done) {
         return;
     }
+    $ready = folio_schema_ready_file();
+    if (is_file($ready) && filemtime($ready) > time() - 86400) {
+        $done = true;
+        return;
+    }
     $tables = $db->query("SHOW TABLES LIKE 'users'");
     if (!$tables || $tables->num_rows === 0) {
         return;
     }
-    try {
-        folio_ensure_public_tables($db);
-    } catch (Throwable $e) {
-        error_log('Vellisys public tables: ' . $e->getMessage());
-    }
     $verRow = @$db->query("SELECT v FROM schema_meta WHERE k='version'");
     if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 36) {
+        @touch($ready);
         $done = true;
         return;
     }
@@ -40,8 +56,15 @@ function folio_migrate(mysqli $db): void
         $ver = (int) $r['v'];
     }
     if ($ver >= 36) {
+        @touch($ready);
         $done = true;
         return;
+    }
+
+    try {
+        folio_ensure_public_tables($db);
+    } catch (Throwable $e) {
+        error_log('Vellisys public tables: ' . $e->getMessage());
     }
 
     if ($ver < 16) {
@@ -248,6 +271,7 @@ function folio_migrate(mysqli $db): void
     }
 
     $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '36')");
+    @touch($ready);
     $done = true;
 }
 

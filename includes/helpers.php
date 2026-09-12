@@ -409,6 +409,7 @@ function folio_redirect_then(string $path, callable $after): never
         flush();
     }
     try {
+        $GLOBALS['folio_mail_after'] = true;
         $after();
     } catch (Throwable $e) {
         error_log('Vellisys after-redirect: ' . $e->getMessage());

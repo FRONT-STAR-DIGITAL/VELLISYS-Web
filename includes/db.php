@@ -8,10 +8,23 @@ function db(): mysqli
         return $mysqli;
     }
     $cfg = require ROOT_PATH . '/config/database.php';
-    $mysqli = @new mysqli($cfg['host'], $cfg['user'], $cfg['pass'], $cfg['name']);
-    if ($mysqli->connect_errno) {
-        $mysqli = @new mysqli($cfg['host'], $cfg['user'], $cfg['pass']);
-        if ($mysqli->connect_errno) {
+    $mysqli = mysqli_init();
+    if ($mysqli === false) {
+        http_response_code(500);
+        echo 'Cannot start MySQL.';
+        exit;
+    }
+    $mysqli->options(MYSQLI_OPT_CONNECT_TIMEOUT, 2);
+    if (defined('MYSQLI_OPT_READ_TIMEOUT')) {
+        $mysqli->options(MYSQLI_OPT_READ_TIMEOUT, 5);
+    }
+    if (defined('MYSQLI_OPT_INT_AND_FLOAT_NATIVE')) {
+        $mysqli->options(MYSQLI_OPT_INT_AND_FLOAT_NATIVE, 1);
+    }
+    $ok = @$mysqli->real_connect($cfg['host'], $cfg['user'], $cfg['pass'], $cfg['name']);
+    if (!$ok) {
+        $ok = @$mysqli->real_connect($cfg['host'], $cfg['user'], $cfg['pass']);
+        if (!$ok) {
             http_response_code(500);
             echo 'Cannot connect to MySQL. Start MySQL in XAMPP and check config/database.php.';
             exit;
@@ -22,9 +35,6 @@ function db(): mysqli
         }
     }
     $mysqli->set_charset('utf8mb4');
-    if (defined('MYSQLI_OPT_INT_AND_FLOAT_NATIVE')) {
-        $mysqli->options(MYSQLI_OPT_INT_AND_FLOAT_NATIVE, 1);
-    }
     if ($mysqli->select_db($cfg['name'] ?? '')) {
         require_once ROOT_PATH . '/includes/migrate.php';
         try {

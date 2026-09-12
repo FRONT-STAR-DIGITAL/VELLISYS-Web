@@ -45,13 +45,6 @@ function visit_detect_country(): array
     if ($code === 'XX' || $code === 'T1') {
         $code = '';
     }
-    if ($code === '' && function_exists('geoip_country_code_by_name')) {
-        $ip = visit_client_ip();
-        if ($ip !== '') {
-            $got = @geoip_country_code_by_name($ip);
-            $code = is_string($got) ? strtoupper($got) : '';
-        }
-    }
     if ($code === '') {
         $code = visit_tz_country((string) ($_COOKIE['vellisys_tz'] ?? ''));
     }

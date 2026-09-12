@@ -172,7 +172,7 @@ function deliver_mail(array $account, string $to, string $subject, string $html,
     if (empty($result['error'])) {
         $result['error'] = $result['ok'] ? '' : 'The mailbox did not accept this message.';
     }
-    if (!empty($result['ok'])) {
+    if (!empty($result['ok']) && (microtime(true) - (float) ($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true))) < 0.8) {
         try {
             copy_outbound_to_platform($to, $subject, $html, $text, (string) $result['from']);
         } catch (Throwable $e) {

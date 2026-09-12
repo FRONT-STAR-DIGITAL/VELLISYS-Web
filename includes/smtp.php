@@ -128,7 +128,18 @@ function smtp_send(array $account, string $to, string $subject, string $html, st
         return ['ok' => false, 'error' => 'Mailbox is not fully configured.'];
     }
 
-    $timeout = 8;
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+    }
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && empty($GLOBALS['folio_mail_after'])) {
+        return ['ok' => false, 'error' => 'Mail is not sent during page load.'];
+    }
+    static $sent = 0;
+    if ($sent >= 2) {
+        return ['ok' => false, 'error' => 'Mail deferred so the site stays fast.'];
+    }
+    $sent++;
+    $timeout = 2;
     $remote = ($secure === 'ssl' ? 'ssl://' : 'tcp://') . $host . ':' . $port;
     $ctx = stream_context_create([
         'ssl' => [
