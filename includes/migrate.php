@@ -36,6 +36,32 @@ function folio_ensure_logo_bg(mysqli $db): void
     }
 }
 
+function folio_ensure_company_admins(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    $companies = @$db->query('SELECT id FROM companies');
+    if (!$companies) {
+        return;
+    }
+    while ($c = $companies->fetch_assoc()) {
+        $cid = (int) $c['id'];
+        $has = @$db->query("SELECT id FROM users WHERE company_id = {$cid} AND role = 'admin' LIMIT 1");
+        if ($has && $has->num_rows > 0) {
+            continue;
+        }
+        $first = @$db->query("SELECT id FROM users WHERE company_id = {$cid} AND role <> 'platform' ORDER BY id ASC LIMIT 1");
+        $row = $first ? $first->fetch_assoc() : null;
+        if ($row) {
+            $uid = (int) $row['id'];
+            @$db->query("UPDATE users SET role = 'admin', access = 'admin' WHERE id = {$uid}");
+        }
+    }
+}
+
 function folio_migrate(mysqli $db): void
 {
     static $done = false;
@@ -43,6 +69,7 @@ function folio_migrate(mysqli $db): void
         return;
     }
     folio_ensure_logo_bg($db);
+    folio_ensure_company_admins($db);
     $ready = folio_schema_ready_file();
     if (is_file($ready) && filemtime($ready) > time() - 86400) {
         $done = true;

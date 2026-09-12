@@ -44,7 +44,7 @@ if ((int) $exists['c'] === 0) {
     $ins = $db->prepare('INSERT INTO users (name, email, password_hash, role, company_id) VALUES (?,?,?,?,?)');
     $n = 'Accounts';
     $e = 'accounts@ofagros.org';
-    $role = 'member';
+    $role = 'admin';
     $ins->bind_param('ssssi', $n, $e, $hash, $role, $companyId);
     $ins->execute();
     $userId = $ins->insert_id;
