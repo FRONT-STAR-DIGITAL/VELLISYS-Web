@@ -2,13 +2,8 @@
 .DS_Store
 Thumbs.db
 
-# Uploads
-/uploads/logos/*
-!/uploads/logos/.gitkeep
-/uploads/landing/*
-!/uploads/landing/.gitkeep
-/uploads/trust/*
-!/uploads/trust/.gitkeep
+# Keep uploaded logos and landing photos in git so a deploy still shows them.
+# Ignore editor junk only.
 
 # Local env
 .env

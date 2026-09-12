@@ -158,4 +158,4 @@ If Register, Login and Checkout submit to a blank page online, the live database
 
 ## Git
 
-Commit this folder as-is. Uploaded logos live in `uploads/logos/` and are gitignored except `.gitkeep`.
+Commit this folder as-is. Landing photos, logos, PWA icons, tutorial screenshots, and files under `uploads/` (company logos, landing card photos, trust logos) stay in git so a push still has the pictures.
