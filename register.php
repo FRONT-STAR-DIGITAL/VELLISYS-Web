@@ -13,6 +13,9 @@ $order = $token !== '' ? order_by_onboard_token($token) : null;
 if ($order && ($order['status'] ?? '') !== 'paid') {
     $order = null;
 }
+if ($token === '' || !$order) {
+    join_boot('register');
+}
 if ($order) {
     $order = provision_paid_order($order);
 }
@@ -83,17 +86,7 @@ $pkg = $order ? pricing_package((string) $order['plan']) : null;
     <?php render_gate_home(); ?>
     <div class="gate-stack">
     <?php render_gate_card_mark(); ?>
-    <?php if (!$order): ?>
-      <div class="gate-box gate-ok">
-        <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
-        <h2>Pay first, then set up</h2>
-        <p class="gate-lead">This page opens only after Pesapal confirms payment for a package. Choose a desk, pay on the site, then use the link we email from <?= h(product_email()) ?>.</p>
-        <a class="gate-submit" href="<?= h(url('index.php#pricing')) ?>">See packages</a>
-        <p class="gate-or"><span>or</span></p>
-        <a class="gate-alt" href="<?= h(url('login.php')) ?>">Sign In</a>
-        <?php render_gate_legal(); ?>
-      </div>
-    <?php elseif ($ready): ?>
+    <?php if ($ready): ?>
       <div class="gate-box gate-ok">
         <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
         <h2>This desk already has a login</h2>

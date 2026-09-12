@@ -100,8 +100,8 @@ function pricing_section_defaults(): array
         'lead' => 'Billed per year, shown in {currency}. Change currency in the header. Pay, then set your admin email and password and finish branding on Settings.',
         'clock_label' => 'Discount ends in',
         'term_label' => 'per year',
-        'register_copy' => 'Prefer a call first? {register}',
-        'register_label' => 'Ask a question',
+        'register_copy' => 'Prefer we onboard you? {register}. You can also {demo}.',
+        'register_label' => 'register without paying',
         'countdown_days' => 3,
         'countdown_hours' => 12,
         'rates' => pricing_ugx_rate_defaults(),
@@ -123,7 +123,7 @@ function pricing_points_from_text(string $raw): array
 
 function pricing_package_from_row(array $row): array
 {
-    return [
+    $pkg = [
         'id' => (int) ($row['id'] ?? 0),
         'key' => (string) ($row['pkg_key'] ?? ''),
         'name' => (string) ($row['name'] ?? ''),
@@ -138,6 +138,137 @@ function pricing_package_from_row(array $row): array
         'points' => pricing_points_from_text((string) ($row['points'] ?? '')),
         'sort' => (int) ($row['sort'] ?? 0),
     ];
+    return $pkg;
+}
+
+function pricing_package_names(): array
+{
+    $names = [];
+    foreach (pricing_packages() as $pkg) {
+        $name = trim((string) ($pkg['name'] ?? ''));
+        if ($name !== '') {
+            $names[] = $name;
+        }
+    }
+    return $names;
+}
+
+function pricing_names_phrase(): string
+{
+    $names = pricing_package_names();
+    if (!$names) {
+        return 'a package';
+    }
+    if (count($names) === 1) {
+        return $names[0];
+    }
+    if (count($names) === 2) {
+        return $names[0] . ' or ' . $names[1];
+    }
+    $last = array_pop($names);
+    return implode(', ', $names) . ' or ' . $last;
+}
+
+function pricing_legacy_name_map(?array $packages = null): array
+{
+    $packages = $packages ?? pricing_packages();
+    $map = [];
+    foreach (pricing_package_defaults() as $key => $def) {
+        $legacy = trim((string) ($def['name'] ?? ''));
+        $current = trim((string) ($packages[$key]['name'] ?? $legacy));
+        if ($legacy !== '' && $current !== '' && strcasecmp($legacy, $current) !== 0) {
+            $map[$legacy] = $current;
+        }
+    }
+    uksort($map, static fn (string $a, string $b): int => strlen($b) <=> strlen($a));
+    return $map;
+}
+
+function pricing_swap_legacy_names(string $text, ?array $packages = null): string
+{
+    foreach (pricing_legacy_name_map($packages) as $old => $new) {
+        $text = preg_replace('/\b' . preg_quote($old, '/') . '\b/u', $new, $text) ?? $text;
+    }
+    return $text;
+}
+
+function pricing_display_cta(array $pkg, array $packages): string
+{
+    $cta = trim((string) ($pkg['cta'] ?? ''));
+    $name = trim((string) ($pkg['name'] ?? ''));
+    $legacy = array_keys(pricing_legacy_name_map($packages));
+    foreach ($packages as $other) {
+        $n = trim((string) ($other['name'] ?? ''));
+        if ($n !== '') {
+            $legacy[] = $n;
+        }
+    }
+    $legacy = array_values(array_unique($legacy));
+    usort($legacy, static fn (string $a, string $b): int => strlen($b) <=> strlen($a));
+    foreach ($legacy as $old) {
+        if ($old !== '' && preg_match('/^Select\s+' . preg_quote($old, '/') . '$/iu', $cta)) {
+            return $name !== '' ? 'Select ' . $name : $cta;
+        }
+    }
+    if ($cta === '') {
+        return $name !== '' ? 'Select ' . $name : 'Select package';
+    }
+    return pricing_swap_legacy_names($cta, $packages);
+}
+
+function pricing_display_points(array $pkg, array $packages): array
+{
+    $ordered = array_values($packages);
+    $idx = 0;
+    foreach ($ordered as $i => $item) {
+        if (($item['key'] ?? '') === ($pkg['key'] ?? '')) {
+            $idx = $i;
+            break;
+        }
+    }
+    $prev = $idx > 0 ? trim((string) ($ordered[$idx - 1]['name'] ?? '')) : '';
+    $out = [];
+    foreach ($pkg['points'] as $point) {
+        $line = trim((string) $point);
+        if ($prev !== '' && preg_match('/^Everything in\b/iu', $line)) {
+            $out[] = 'Everything in ' . $prev;
+            continue;
+        }
+        $out[] = pricing_swap_legacy_names($line, $packages);
+    }
+    return $out;
+}
+
+function pricing_retarget_package_name(string $oldName, string $newName, int $exceptId = 0): void
+{
+    $oldName = trim($oldName);
+    $newName = trim($newName);
+    if ($oldName === '' || $newName === '' || strcasecmp($oldName, $newName) === 0) {
+        return;
+    }
+    try {
+        $rows = db_all('SELECT id, cta, points, lead FROM landing_packages');
+    } catch (Throwable $e) {
+        return;
+    }
+    foreach ($rows as $row) {
+        $id = (int) ($row['id'] ?? 0);
+        $cta = (string) ($row['cta'] ?? '');
+        $points = (string) ($row['points'] ?? '');
+        $lead = (string) ($row['lead'] ?? '');
+        $nextCta = $cta;
+        if ($id === $exceptId && preg_match('/^Select\s+/iu', $cta)) {
+            $nextCta = 'Select ' . $newName;
+        } elseif (preg_match('/^Select\s+' . preg_quote($oldName, '/') . '$/iu', $cta)) {
+            $nextCta = 'Select ' . $newName;
+        }
+        $nextPoints = preg_replace('/\b' . preg_quote($oldName, '/') . '\b/u', $newName, $points) ?? $points;
+        $nextLead = preg_replace('/\b' . preg_quote($oldName, '/') . '\b/u', $newName, $lead) ?? $lead;
+        if ($nextCta === $cta && $nextPoints === $points && $nextLead === $lead) {
+            continue;
+        }
+        db_exec('UPDATE landing_packages SET cta=?, points=?, lead=? WHERE id=?', 'sssi', [$nextCta, $nextPoints, $nextLead, $id]);
+    }
 }
 
 function pricing_packages(): array
@@ -354,9 +485,14 @@ function render_landing_pricing(): void
     );
     $registerLabel = trim((string) $section['register_label']);
     $registerLink = $registerLabel !== ''
-        ? '<a href="' . h(url()) . '#ask">' . h($registerLabel) . '</a>'
+        ? '<a href="' . h(url('register.php')) . '">' . h($registerLabel) . '</a>'
         : '';
-    $register = str_replace('{register}', $registerLink, h($section['register_copy']));
+    $demoLink = '<a href="' . h(url('demo.php')) . '">book a demo</a>';
+    $register = str_replace(
+        ['{register}', '{demo}'],
+        [$registerLink, $demoLink],
+        h($section['register_copy'])
+    );
     $showClock = ((int) $section['countdown_days'] + (int) $section['countdown_hours']) > 0;
     ?>
     <section class="lp-pricing" id="pricing" data-reveal data-pricing data-ccy="<?= h($ccy) ?>" data-rates="<?= h(json_encode(pricing_ugx_rates())) ?>" data-currencies="<?= h(json_encode(pricing_currencies())) ?>" data-discount-end="<?= h($clock['iso']) ?>" data-discount-days="<?= (int) $section['countdown_days'] ?>" data-discount-hours="<?= (int) $section['countdown_hours'] ?>">
@@ -399,16 +535,16 @@ function render_landing_pricing(): void
               <?php endif; ?>
               <p class="lp-price-now"><strong data-ugx="<?= (int) $pkg['price_ugx'] ?>"><?= h(pricing_format((float) $pkg['price_ugx'], $ccy)) ?></strong><span><?= h($section['term_label']) ?></span></p>
               <?php if (trim((string) $pkg['lead']) !== ''): ?>
-                <p class="lp-price-lead"><?= h($pkg['lead']) ?></p>
+                <p class="lp-price-lead"><?= h(pricing_swap_legacy_names($pkg['lead'], $packages)) ?></p>
               <?php endif; ?>
               <?php if (!empty($pkg['points'])): ?>
               <ul>
-                <?php foreach ($pkg['points'] as $point): ?>
+                <?php foreach (pricing_display_points($pkg, $packages) as $point): ?>
                   <li><?= h($point) ?></li>
                 <?php endforeach; ?>
               </ul>
               <?php endif; ?>
-              <a class="lp-btn <?= !empty($pkg['popular']) ? 'lp-btn-solid' : 'lp-btn-ghost' ?>" href="<?= h(url('checkout.php?plan=' . $pkg['key'])) ?>"><?= h($pkg['cta'] !== '' ? $pkg['cta'] : ('Select ' . $pkg['name'])) ?></a>
+              <a class="lp-btn <?= !empty($pkg['popular']) ? 'lp-btn-solid' : 'lp-btn-ghost' ?>" href="<?= h(url('checkout.php?plan=' . $pkg['key'])) ?>"><?= h(pricing_display_cta($pkg, $packages)) ?></a>
             </div>
           </article>
         <?php endforeach; ?>
@@ -416,6 +552,10 @@ function render_landing_pricing(): void
       <?php if (trim((string) $section['register_copy']) !== ''): ?>
         <p class="lp-pricing-register"><?= $register ?></p>
       <?php endif; ?>
+      <div class="lp-cta lp-cta-band lp-join-cta">
+        <a class="lp-btn lp-btn-ghost" href="<?= h(url('register.php')) ?>">Register without paying</a>
+        <a class="lp-btn lp-btn-ghost" href="<?= h(url('demo.php')) ?>">Book a demo</a>
+      </div>
     </section>
     <?php
 }

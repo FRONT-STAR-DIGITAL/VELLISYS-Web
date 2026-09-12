@@ -141,7 +141,7 @@ function pesapal_submit_order(array $order, string $token, string $ipnId): array
         'callback_url' => absolute_url('pesapal_callback.php'),
         'cancellation_url' => absolute_url('pesapal_callback.php?cancel=1'),
         'notification_id' => $ipnId,
-        'redirect_mode' => 'PARENT_WINDOW',
+        'redirect_mode' => 'TOP_WINDOW',
         'billing_address' => [
             'email_address' => (string) $order['email'],
             'phone_number' => (string) $order['phone'],

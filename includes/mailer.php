@@ -734,10 +734,15 @@ function notify_branding_saved(array $company, array $user): void
 function notify_admin_signup(array $signup): void
 {
     try {
-        $isQuote = ($signup['source'] ?? '') === 'quote';
+        $source = (string) ($signup['source'] ?? 'register');
+        $isQuote = $source === 'quote';
+        $isDemo = $source === 'demo';
         $note = trim((string) ($signup['note'] ?? ''));
+        $intro = $isQuote
+            ? 'A company asked for a Vellisys quote.'
+            : ($isDemo ? 'A company booked a Vellisys demo.' : 'A company registered for a Vellisys desk (manual onboarding).');
         $html = vellisys_email_wrap(
-            '<p style="margin:0 0 14px">' . ($isQuote ? 'A company asked for a Vellisys quote.' : 'A company asked for a Vellisys desk.') . '</p>'
+            '<p style="margin:0 0 14px">' . $intro . '</p>'
             . '<p style="margin:0 0 8px"><strong>Kind:</strong> ' . h(signup_source_label($signup['source'] ?? null)) . '</p>'
             . '<p style="margin:0 0 8px"><strong>Contact:</strong> ' . h($signup['name'] ?? '') . '</p>'
             . '<p style="margin:0 0 8px"><strong>Company:</strong> ' . h($signup['company'] ?? '') . '</p>'
@@ -748,7 +753,7 @@ function notify_admin_signup(array $signup): void
                 : '')
             . '<p style="margin:0"><a href="' . h(absolute_url('admin_signups.php')) . '" style="color:#1E4EFF">Open sign-ups</a></p>'
         );
-        $kind = $isQuote ? 'quote request' : 'sign-up';
+        $kind = $isQuote ? 'quote request' : ($isDemo ? 'demo request' : 'registration');
         $text = 'New ' . $kind . ': ' . ($signup['company'] ?? '') . ' / ' . ($signup['name'] ?? '') . ' / ' . ($signup['email'] ?? '') . ' / ' . ($signup['phone'] ?? '');
         notify_platform('Vellisys ' . $kind . ': ' . ($signup['company'] ?? 'a company'), $html, $text, (string) ($signup['email'] ?? ''));
         notify_visitor_signup($signup);
@@ -769,25 +774,35 @@ function notify_visitor_signup(array $signup): void
     }
     $company = trim((string) ($signup['company'] ?? 'your company'));
     $phones = implode(' or ', product_phones());
-    $isQuote = ($signup['source'] ?? '') === 'quote';
-    $subject = $isQuote ? 'We have your Vellisys quote request' : 'We have your Vellisys registration';
+    $source = (string) ($signup['source'] ?? 'register');
+    $isQuote = $source === 'quote';
+    $isDemo = $source === 'demo';
+    $subject = $isQuote
+        ? 'We have your Vellisys quote request'
+        : ($isDemo ? 'We have your Vellisys demo request' : 'We have your Vellisys registration');
     $intro = $isQuote
         ? 'Thank you for requesting a quote for <strong>' . h($company) . '</strong>.'
-        : 'Thank you for registering <strong>' . h($company) . '</strong> for a Vellisys desk.';
+        : ($isDemo
+            ? 'Thank you for booking a demo of Vellisys for <strong>' . h($company) . '</strong>.'
+            : 'Thank you for registering <strong>' . h($company) . '</strong> for a Vellisys desk.');
     $next = $isQuote
         ? 'We have your request. A Vellisys admin will send a quote and call you to onboard the company. There is no password yet - you receive one when the desk is opened.'
-        : 'We have your request. A Vellisys admin will call you to onboard the company. There is no password yet - you receive one when the desk is opened.';
+        : ($isDemo
+            ? 'We have your request. A Vellisys admin will write or call to set a time for the walkthrough. There is no password yet - you receive one when a desk is opened.'
+            : 'We have your registration. A Vellisys admin will call you to onboard the company. There is no password yet - you receive one when the desk is opened.');
     $html = vellisys_email_wrap(
         '<p style="margin:0 0 16px">Dear ' . h($who) . ',</p>'
         . '<p style="margin:0 0 14px">' . $intro . '</p>'
         . '<p style="margin:0 0 14px">' . $next . '</p>'
         . '<p style="margin:0 0 14px">If you need us sooner, write to <a href="mailto:' . h(product_email()) . '" style="color:#1E4EFF">' . h(product_email()) . '</a> or call ' . h($phones) . '.</p>'
         . '<p style="margin:0">Kind regards,<br><strong>Vellisys</strong></p>',
-        $isQuote ? 'Quote request received' : 'Registration received'
+        $isQuote ? 'Quote request received' : ($isDemo ? 'Demo request received' : 'Registration received')
     );
     $textIntro = $isQuote
         ? "Thank you for requesting a quote for {$company}."
-        : "Thank you for registering {$company} for a Vellisys desk.";
+        : ($isDemo
+            ? "Thank you for booking a demo of Vellisys for {$company}."
+            : "Thank you for registering {$company} for a Vellisys desk.");
     $text = "Dear {$who},\n\n{$textIntro}\n\n"
         . strip_tags($next) . "\n\n"
         . 'If you need us sooner, write to ' . product_email() . " or call {$phones}.\n\nKind regards,\nVellisys\n" . product_email();

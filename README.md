@@ -1,6 +1,6 @@
 # Vellisys
 
-Branded books for companies anywhere in the world - quotations, invoices, receipts, expenses and headed correspondence in the company's own logo, colour and currency. One desk, everything included. The branded alternative to QuickBooks and other finance software, built for East Africa and used across Africa and worldwide.
+Branded books for companies anywhere in the world - quotations, invoices, receipts, expenses and headed correspondence in the company's own logo, colour and currency. One desk, everything included. Built for East Africa and used across Africa and worldwide.
 
 This is a **PHP + MySQL** desk meant to run on **XAMPP**. There is no Node or Next.js. Copy the folder, start Apache and MySQL, open the installer.
 
@@ -38,7 +38,7 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - Desk **Email** tab for custom letters; **Remind** on Debtors and **Message** on Creditors use the same mailbox
 - Super admin **Create company**: type a desk in by hand (login, stationery, documents, paid term, mailbox) without a website sign-up. Tick **Send a payment receipt** to email thanks, the amount paid, and the subscribed period from `info@vellisys.com`
 - Super admin **Landing**: edit top-bar lines, **packages**, **testimonials**, card photos and trust logos
-- **Pay** after company details, on the checkout page - the payment form stays on Vellisys (hosted checkout in the page: mobile money, cards, bank, wallet). When Pesapal confirms payment the desk is created, `info@vellisys.com` is notified, and the buyer gets a link to set their admin email and password. That self-onboard page is not public without a paid token. First sign-in opens Settings with a pop-up to finish branding. Ask a question if you want a call first
+- **Pay** after company details - continue to Pesapal in the same tab so mobile money and cards actually accept a number. When Pesapal confirms payment the desk is created, `info@vellisys.com` is notified, and the buyer gets a link to set their admin email and password. Companies can also **register without paying** or **book a demo**; super admin sees those on Sign-ups and onboards them. First sign-in opens Settings with a pop-up to finish branding.
 - Desk **Tutorials** (also from Clients) with a tour of the whole portal and screenshots
 - When a company is onboarded, `info@vellisys.com` sends a welcome letter and a short tutorial. The same mailbox confirms questions and registrations, notifies the admin of those events, marks desks live, and sends renewal reminders
 - Self-onboard after a successful package payment: choose admin name, sign-in email and password (twice), then sign in. Super admin still sees every step on the company page. `info@vellisys.com` is copied on payment, credentials, first sign-in and branding saved

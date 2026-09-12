@@ -134,7 +134,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (empty($started['ok'])) {
                         $error = (string) ($started['error'] ?? 'Payment did not start.');
                     } else {
-                        redirect(checkout_plan_url($pkg['key'], (string) $existing['public_id'], true));
+                        $payTo = pesapal_hosted_url((string) ($started['redirect'] ?? ''));
+                        if ($payTo === '') {
+                            $error = 'Payment did not start: the processor did not return a secure page.';
+                        } else {
+                            redirect($payTo);
+                        }
                     }
                 }
             }
@@ -158,10 +163,20 @@ $wantPay = isset($_GET['pay']) && (string) $_GET['pay'] !== '0' && (string) $_GE
 $step = 'details';
 if ($existing && ($existing['status'] ?? '') === 'paid') {
     $step = 'done';
-} elseif ($wantPay && $payUrl !== '') {
-    $step = 'pay';
-} elseif ($wantPay && $existing && $payUrl === '' && $error === '') {
-    $error = 'The payment form is not ready yet. Submit the company details again and we will open it on this page.';
+} elseif ($wantPay && $existing && $error === '') {
+    if ($payUrl === '') {
+        $started = $beginHostedPay($existing, 'pay');
+        $existing = $started['order'] ?? $existing;
+        $payUrl = pesapal_hosted_url((string) ($started['redirect'] ?? '')) ?: order_hosted_pay_url($existing);
+        if (empty($started['ok'])) {
+            $error = (string) ($started['error'] ?? 'Payment did not start.');
+        }
+    }
+    if ($payUrl !== '') {
+        redirect($payUrl);
+    } elseif ($error === '') {
+        $error = 'The payment page is not ready yet. Submit the company details again.';
+    }
 }
 
 $priceNow = pricing_format((float) $pkg['price_ugx'], $ccy);
@@ -182,9 +197,9 @@ $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'
   <?php product_icons(); ?>
   <?php folio_landing_head(); ?>
 </head>
-<body class="lp<?= $step === 'pay' ? ' is-paying' : '' ?>">
+<body class="lp">
   <?php public_header('checkout'); ?>
-  <main class="lp-checkout<?= $step === 'pay' ? ' is-pay' : ($step === 'done' ? ' lp-checkout-done' : '') ?>" data-pricing data-ccy="<?= h($ccy) ?>" data-rates="<?= h(json_encode(pricing_ugx_rates())) ?>" data-currencies="<?= h(json_encode(pricing_currencies())) ?>">
+  <main class="lp-checkout<?= $step === 'done' ? ' lp-checkout-done' : '' ?>" data-pricing data-ccy="<?= h($ccy) ?>" data-rates="<?= h(json_encode(pricing_ugx_rates())) ?>" data-currencies="<?= h(json_encode(pricing_currencies())) ?>">
     <ol class="lp-check-steps" aria-label="Checkout">
       <li class="<?= $step === 'details' ? 'is-current' : 'is-done' ?>"><b>1</b><span>Company</span></li>
       <li class="<?= $step === 'pay' ? 'is-current' : ($step === 'done' ? 'is-done' : '') ?>"><b>2</b><span>Pay</span></li>
@@ -220,64 +235,24 @@ $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'
           <span><?= h($termLabel) ?></span>
         </p>
         <p class="lp-check-seats"><?= h($seatLabel) ?> · billed <?= h($termLabel) ?></p>
-        <p><?= h($pkg['lead']) ?> After Pesapal confirms payment you set your own admin email and password, then sign in and finish branding on Settings.</p>
+        <p><?= h(pricing_swap_legacy_names($pkg['lead'])) ?> After payment confirms you set your own admin email and password, then sign in and finish branding on Settings.</p>
         <ul>
-          <?php foreach ($pkg['points'] as $point): ?>
+          <?php foreach (pricing_display_points($pkg, pricing_packages()) as $point): ?>
             <li><?= h($point) ?></li>
           <?php endforeach; ?>
         </ul>
-        <p class="lp-check-stay">You pay on this page. Mobile money and cards open here - you do not leave Vellisys.</p>
+        <p class="lp-check-stay">Continue to pay opens Pesapal in this tab so you can type a phone number or pick a card. When you finish, you return to Vellisys.</p>
         <p class="lp-check-switch"><a href="<?= h(url('index.php#pricing')) ?>">Change package</a></p>
       </aside>
 
-      <?php if ($step === 'pay'): ?>
-        <section class="lp-checkout-pay" aria-label="Pay">
-          <div class="lp-pay-head">
-            <h2>Pay <?= h($payNow) ?></h2>
-            <p>Choose mobile money or a card below. This stays on Vellisys - the form is hosted for us, on this page.</p>
-            <?php if ($existing): ?>
-              <p class="lp-pay-who"><strong><?= h((string) $existing['company']) ?></strong> · <?= h((string) $existing['email']) ?></p>
-            <?php endif; ?>
-          </div>
-          <div class="lp-pay-stage">
-            <p class="lp-pay-hold" data-pay-hold>Opening the payment form...</p>
-            <iframe
-              class="lp-pay-frame"
-              data-pay-frame
-              title="Pay for <?= h($pkg['name']) ?>"
-              src="<?= h($payUrl) ?>"
-              allow="payment *; clipboard-write"
-              referrerpolicy="origin"
-            ></iframe>
-          </div>
-          <p class="lp-pay-fallback" data-pay-fallback hidden>If the form did not appear, <a href="<?= h($payUrl) ?>">open it in this window</a>.</p>
-          <div class="lp-pay-actions">
-            <a href="<?= h(url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'] ?? '')))) ?>">Edit company details</a>
-            <form class="lp-pay-retry" method="post" action="<?= h($formAction) ?>">
-              <?= csrf_field() ?>
-              <?= form_honeypot_field() ?>
-              <input type="hidden" name="plan" value="<?= h($pkg['key']) ?>">
-              <input type="hidden" name="action" value="repay">
-              <input type="hidden" name="public_id" value="<?= h((string) ($existing['public_id'] ?? '')) ?>">
-              <input type="hidden" name="contact_name" value="<?= h((string) ($existing['name'] ?? '')) ?>">
-              <input type="hidden" name="company_name" value="<?= h((string) ($existing['company'] ?? '')) ?>">
-              <input type="hidden" name="contact_email" value="<?= h((string) ($existing['email'] ?? '')) ?>">
-              <input type="hidden" name="contact_phone" value="<?= h((string) ($existing['phone'] ?? '')) ?>">
-              <input type="hidden" name="city" value="<?= h((string) ($existing['city'] ?? '')) ?>">
-              <input type="hidden" name="country" value="<?= h((string) ($existing['country'] ?? '')) ?>">
-              <button type="submit">Start payment again</button>
-            </form>
-          </div>
-        </section>
-      <?php else: ?>
-        <form class="lp-checkout-form" method="post" action="<?= h($formAction) ?>" data-checkout-form>
+      <form class="lp-checkout-form" method="post" action="<?= h($formAction) ?>" data-checkout-form>
           <?= csrf_field() ?>
           <?= form_honeypot_field() ?>
           <input type="hidden" name="plan" value="<?= h($pkg['key']) ?>">
           <input type="hidden" name="action" value="pay">
           <input type="hidden" name="public_id" value="<?= h((string) ($existing['public_id'] ?? '')) ?>" data-order-public>
           <h2>Company details</h2>
-          <p class="lp-checkout-hint">Then pay <span data-ugx="<?= (int) $pkg['price_ugx'] ?>"><?= h($payNow) ?></span><?= $payCcy !== $ccy ? ' (charged in ' . h($payCcy) . ')' : '' ?> on the next step, still on this site. We email you that payment awaits, then the unpaid invoice. <?= h(product_email()) ?> is copied, and is notified if payment fails.</p>
+          <p class="lp-checkout-hint">Then continue to Pesapal to pay <span data-ugx="<?= (int) $pkg['price_ugx'] ?>"><?= h($payNow) ?></span><?= $payCcy !== $ccy ? ' (charged in ' . h($payCcy) . ')' : '' ?> in this tab. We email you that payment awaits. <?= h(product_email()) ?> is copied, and is notified if payment fails.</p>
           <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
           <div class="lp-check-fields">
             <label for="contact_name">Your name
@@ -314,9 +289,8 @@ $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'
             <option value="United States">
           </datalist>
           <button class="lp-btn lp-btn-solid lp-btn-lg" type="submit" data-pay-btn data-ugx="<?= (int) $pkg['price_ugx'] ?>">Continue to pay <?= h($payNow) ?></button>
-          <p class="lp-checkout-note">Prefer a call first? <a href="<?= h(url('index.php#ask')) ?>">Send a question</a>.</p>
+          <p class="lp-checkout-note">Prefer we onboard you? <a href="<?= h(url('register.php')) ?>">Register without paying</a>. Or <a href="<?= h(url('demo.php')) ?>">book a demo</a>.</p>
         </form>
-      <?php endif; ?>
     <?php endif; ?>
   </main>
   <?php public_float_widgets(); ?>

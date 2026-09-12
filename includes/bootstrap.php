@@ -53,6 +53,7 @@ require_once ROOT_PATH . '/includes/documents.php';
 require_once ROOT_PATH . '/includes/smtp.php';
 require_once ROOT_PATH . '/includes/mailer.php';
 require_once ROOT_PATH . '/includes/pesapal.php';
+require_once ROOT_PATH . '/includes/join.php';
 require_once ROOT_PATH . '/includes/onboard.php';
 require_once ROOT_PATH . '/includes/visits.php';
 require_once ROOT_PATH . '/includes/pdf.php';

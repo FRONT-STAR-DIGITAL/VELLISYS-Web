@@ -47,9 +47,9 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
         </ul>
         <div class="lp-cta">
           <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url()) ?>#pricing">Get my company a desk</a>
-          <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('login.php')) ?>">I already have a desk</a>
+          <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('demo.php')) ?>">Book a demo</a>
         </div>
-        <p class="lp-note">Anywhere in the world. <a href="<?= h(url()) ?>#pricing">Pay for a package</a>, then set your login. Built for East Africa, used across Africa and worldwide.</p>
+        <p class="lp-note">Anywhere in the world. <a href="<?= h(url()) ?>#pricing">Pay for a package</a>, <a href="<?= h(url('register.php')) ?>">register for onboarding</a>, or book a demo. Built for East Africa, used across Africa and worldwide.</p>
       </div>
 
       <div class="lp-stage" data-reveal>
@@ -224,7 +224,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
     <section class="lp-band lp-path" id="get-a-desk" data-reveal>
       <p class="lp-kicker">Get a desk</p>
       <h2>You are three steps away</h2>
-      <p class="lp-path-lead">Anywhere you are in the world: register, get onboarded. Then the books go live.</p>
+      <p class="lp-path-lead">Anywhere you are in the world: pay, register, or book a demo. Then we onboard. Then the books go live.</p>
       <ol class="lp-path-steps">
         <?php foreach ($steps as $i => $card): ?>
           <li>
@@ -241,7 +241,8 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       </ol>
       <div class="lp-cta lp-cta-band">
         <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url()) ?>#pricing">Get my company a desk</a>
-        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('login.php')) ?>">Sign in to my desk</a>
+        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('register.php')) ?>">Register without paying</a>
+        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('demo.php')) ?>">Book a demo</a>
       </div>
     </section>
 
@@ -275,12 +276,12 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
 
     <section class="lp-world lp-pay" id="pay" data-reveal>
       <p class="lp-kicker">Pay</p>
-      <h2>Pick a package. Pay on this site.</h2>
-      <p class="lp-world-lead">Choose Quill, Ledger or Crest, enter the company, then pay on the checkout page. Mobile money, a card, a bank or a wallet - in the currency you selected. You do not leave Vellisys. We onboard the desk after payment lands.</p>
+      <h2>Pick a package. Pay, register, or book a demo.</h2>
+      <p class="lp-world-lead">Choose <?= h(pricing_names_phrase()) ?>, enter the company, then continue to Pesapal in this tab. Mobile money, a card, a bank or a wallet - in the currency you selected. Prefer we open the desk for you? Register without paying. Want a walkthrough first? Book a demo.</p>
       <ol class="lp-pay-flow">
         <li><b>1</b><span>Choose a package</span></li>
         <li><b>2</b><span>Enter company details</span></li>
-        <li><b>3</b><span>Pay on this page</span></li>
+        <li><b>3</b><span>Pay with Pesapal</span></li>
         <li><b>4</b><span>We onboard the desk</span></li>
       </ol>
       <div class="lp-pay-board">
@@ -308,7 +309,8 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       </div>
       <div class="lp-cta lp-cta-band">
         <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url()) ?>#pricing">See packages</a>
-        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url()) ?>#ask">Have a question first</a>
+        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('register.php')) ?>">Register without paying</a>
+        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('demo.php')) ?>">Book a demo</a>
       </div>
     </section>
 

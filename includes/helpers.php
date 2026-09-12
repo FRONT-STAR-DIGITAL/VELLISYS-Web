@@ -815,26 +815,27 @@ function record_website_signup(string $source, string $note = ''): array
         if (db_one("SELECT id FROM signups WHERE email = ? AND status IN ('new','contacted')", 's', [$email])) {
             return ['ok' => false, 'error' => 'We already have this request. A Vellisys admin will call you.'];
         }
+        $kind = in_array($source, ['quote', 'demo', 'register', 'checkout'], true) ? $source : 'register';
         try {
-            if ($source === 'quote') {
-                db_exec(
-                    'INSERT INTO signups (name, company, email, phone, status, source, note) VALUES (?,?,?,?,?,?,?)',
-                    'sssssss',
-                    [$name, $company, $email, $phone, 'new', 'quote', $note]
-                );
-            } else {
+            db_exec(
+                'INSERT INTO signups (name, company, email, phone, status, source, note) VALUES (?,?,?,?,?,?,?)',
+                'sssssss',
+                [$name, $company, $email, $phone, 'new', $kind, $note]
+            );
+        } catch (Throwable $e) {
+            try {
                 db_exec(
                     'INSERT INTO signups (name, company, email, phone, status, source) VALUES (?,?,?,?,?,?)',
                     'ssssss',
-                    [$name, $company, $email, $phone, 'new', 'register']
+                    [$name, $company, $email, $phone, 'new', $kind]
+                );
+            } catch (Throwable $e2) {
+                db_exec(
+                    'INSERT INTO signups (name, company, email, phone, status) VALUES (?,?,?,?,?)',
+                    'sssss',
+                    [$name, $company, $email, $phone, 'new']
                 );
             }
-        } catch (Throwable $e) {
-            db_exec(
-                'INSERT INTO signups (name, company, email, phone, status) VALUES (?,?,?,?,?)',
-                'sssss',
-                [$name, $company, $email, $phone, 'new']
-            );
         }
     } catch (Throwable $e) {
         error_log('Vellisys signup save: ' . $e->getMessage());
@@ -847,7 +848,7 @@ function record_website_signup(string $source, string $note = ''): array
             'company' => $company,
             'email' => $email,
             'phone' => $phone,
-            'source' => $source === 'quote' ? 'quote' : 'register',
+            'source' => in_array($source, ['quote', 'demo', 'register', 'checkout'], true) ? $source : 'register',
             'note' => $note,
         ],
     ];
@@ -2022,6 +2023,7 @@ function public_header(string $page = 'home'): void
           <?php endforeach; ?>
         </select>
       </label>
+      <a class="lp-btn lp-btn-ghost" href="<?= h(url('demo.php')) ?>">Book a demo</a>
       <a class="lp-btn lp-btn-ghost" href="<?= h(url('login.php')) ?>">Sign in</a>
       <a class="lp-btn lp-btn-solid" href="<?= h($page === 'home' ? '#pricing' : (rtrim(url(), '/') . '/#pricing')) ?>">Get a desk</a>
     </nav>
@@ -2610,11 +2612,11 @@ function landing_faqs(): array
     return [
         [
             'q' => 'How do I get a desk?',
-            'a' => 'Pay for a package on this page. After Pesapal confirms payment you set the admin email and password you will use, then sign in and finish branding on Settings. Send a question if you want a call first.',
+            'a' => 'Pay for a package, register for us to onboard you, or book a demo first. After an online payment confirms you set the admin email and password, then sign in and finish branding on Settings.',
         ],
         [
-            'q' => 'Is Vellisys an alternative to QuickBooks?',
-            'a' => 'Yes. Vellisys is the best branded books desk in East Africa, across Africa and worldwide. Companies pick it instead of QuickBooks and other finance software because quotations, invoices and receipts leave in their logo, colours and currency, from one desk.',
+            'q' => 'How is Vellisys different?',
+            'a' => 'Vellisys is branded books software. Quotations, invoices and receipts leave in your logo, colours and currency, from one desk. Teams that want that stationery look use it as their books desk.',
         ],
         [
             'q' => 'Are the documents in our branding?',
@@ -2626,7 +2628,7 @@ function landing_faqs(): array
         ],
         [
             'q' => 'How do I pay for a package?',
-            'a' => 'Choose a package, enter the company, then pay. Pay with M-Pesa, Airtel Money, MTN Mobile Money, Tigo Pesa, Equitel, Visa, Mastercard, American Express, a bank transfer or a wallet. The charge is in the currency you picked on this page. The desk itself can still bill your clients in any currency you set in Settings.',
+            'a' => 'Choose a package, enter the company, then continue to the secure Pesapal page in this tab (mobile money, cards, bank or wallet). When payment finishes you return here. The charge is in the currency you picked on this page. The desk itself can still bill your clients in any currency you set in Settings.',
             'link' => ['href' => '#pay', 'label' => 'See how payment works'],
         ],
         [
@@ -2634,7 +2636,7 @@ function landing_faqs(): array
             'a' => (static function (): string {
                 $names = array_values(array_filter(array_map(static fn (array $p): string => trim((string) ($p['name'] ?? '')), pricing_packages())));
                 $list = $names ? implode(', ', $names) : 'the packages on this page';
-                return 'Packages on this page: ' . $list . '. Billed per year. Pay, then set your admin email and password and finish branding on Settings. Send a question if you want us to call first.';
+                return 'Packages on this page: ' . $list . '. Billed per year. Pay online, register for manual onboarding, or book a demo. After an online payment you set your admin email and password and finish branding on Settings.';
             })(),
             'link' => ['href' => '#pricing', 'label' => 'See packages'],
         ],
@@ -2670,7 +2672,7 @@ function landing_ticker_defaults(): array
         ['body' => 'Join 100+ businesses and corporate companies using Vellisys', 'sort' => 10],
         ['body' => 'Stop losing the books. Share them branded, in one click.', 'sort' => 20],
         ['body' => 'Built for East Africa. Used across Africa and worldwide.', 'sort' => 30],
-        ['body' => 'The branded alternative to QuickBooks and other finance software.', 'sort' => 40],
+        ['body' => 'Branded books for companies anywhere in the world.', 'sort' => 40],
     ];
 }
 
@@ -2862,7 +2864,7 @@ function folio_landing_head(): void
 
 function product_seo_description(): string
 {
-    return 'Vellisys keeps quotations, invoices and receipts on one desk, in your branding and your currency. The branded books software for East Africa, Africa and worldwide - an alternative to QuickBooks and other financial management software. Anywhere in the world: register, get onboarded.';
+    return 'Vellisys keeps quotations, invoices and receipts on one desk, in your branding and your currency. Branded books software for East Africa, Africa and worldwide. Anywhere in the world: pay, register, or book a demo, then get onboarded.';
 }
 
 function product_public_meta(): void
@@ -2872,7 +2874,7 @@ function product_public_meta(): void
     $url = function_exists('absolute_url') ? absolute_url('') : '/';
     $logo = function_exists('absolute_url') ? absolute_url(ltrim((string) parse_url(product_original_logo_url(), PHP_URL_PATH), '/')) : product_original_logo_url();
     echo '<meta name="description" content="' . h($desc) . '">' . "\n";
-    echo '<meta name="keywords" content="Vellisys, QuickBooks alternative, East Africa accounting software, Africa invoicing, branded books, Uganda, Kenya, financial management">' . "\n";
+    echo '<meta name="keywords" content="Vellisys, East Africa accounting software, Africa invoicing, branded books, Uganda, Kenya, financial management">' . "\n";
     echo '<meta property="og:site_name" content="' . h($name) . '">' . "\n";
     echo '<meta property="og:title" content="' . h($name . ' · Stop losing the books') . '">' . "\n";
     echo '<meta property="og:description" content="' . h($desc) . '">' . "\n";
@@ -2909,7 +2911,7 @@ function product_public_meta(): void
         'featureList' => [
             'Branded quotations, invoices and receipts',
             'Company logo, colours and currency',
-            'Alternative to QuickBooks and other finance software',
+            'Branded books desk for companies worldwide',
             'East Africa, Africa and worldwide',
         ],
     ];
@@ -2928,6 +2930,8 @@ function signup_source_label(?string $source): string
     return match ($source ?? '') {
         'quote' => 'Quote',
         'checkout' => 'Checkout',
+        'demo' => 'Demo',
+        'register' => 'Register',
         default => 'Sign-up',
     };
 }

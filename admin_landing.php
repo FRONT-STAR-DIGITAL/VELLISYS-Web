@@ -126,6 +126,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($name === '') {
                 $error = 'Give the package a name.';
             } else {
+                $oldName = (string) ($row['name'] ?? '');
+                $cta = mb_substr(post('cta') ?: ('Select ' . $name), 0, 80);
                 db_exec(
                     'UPDATE landing_packages SET name=?, kicker=?, ribbon=?, seats=?, price_ugx=?, was_ugx=?, cta=?, lead=?, points=?, popular=?, sort=? WHERE id=?',
                     'sssiddsssiii',
@@ -136,7 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         max(1, min(3, (int) post('seats') ?: 1)),
                         (float) str_replace(',', '', post('price_ugx')),
                         (float) str_replace(',', '', post('was_ugx')),
-                        mb_substr(post('cta') ?: ('Select ' . $name), 0, 80),
+                        $cta,
                         post('lead'),
                         post('points'),
                         post('popular') === '1' ? 1 : 0,
@@ -144,6 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $id,
                     ]
                 );
+                pricing_retarget_package_name($oldName, $name, $id);
                 flash('Saved ' . $name . '.');
                 redirect('admin_landing.php#packages');
             }
@@ -443,7 +446,7 @@ layout_admin_start('Landing', $user);
   <input type="hidden" name="action" value="add">
   <h3 style="margin:0 0 4px">Add a package</h3>
   <label for="pkg-new-name">Name</label>
-  <input id="pkg-new-name" name="name" required maxlength="80" placeholder="Quill">
+  <input id="pkg-new-name" name="name" required maxlength="80" placeholder="Starter">
   <label for="pkg-new-kicker">Kicker</label>
   <input id="pkg-new-kicker" name="kicker" maxlength="80" placeholder="Starting package">
   <label for="pkg-new-ribbon">Ribbon <span class="hint">(with Featured)</span></label>
@@ -455,7 +458,7 @@ layout_admin_start('Landing', $user);
   <label for="pkg-new-was">Was UGX</label>
   <input id="pkg-new-was" name="was_ugx" type="number" min="0" step="1" placeholder="200000">
   <label for="pkg-new-cta">Button</label>
-  <input id="pkg-new-cta" name="cta" maxlength="80" placeholder="Select Quill">
+  <input id="pkg-new-cta" name="cta" maxlength="80" placeholder="Select Starter">
   <label for="pkg-new-lead">Lead</label>
   <textarea id="pkg-new-lead" name="lead" rows="2"></textarea>
   <label for="pkg-new-points">Included <span class="hint">(one line each)</span></label>
@@ -477,7 +480,7 @@ layout_admin_start('Landing', $user);
         <?= csrf_field() ?>
         <input type="hidden" name="form" value="package">
         <input type="hidden" name="id" value="<?= (int) $p['id'] ?>">
-        <p class="hint" style="margin:0 0 8px">Key <code><?= h((string) $p['pkg_key']) ?></code> - used on checkout and Pesapal.</p>
+        <p class="hint" style="margin:0 0 8px">Key <code><?= h((string) $p['pkg_key']) ?></code> - used on checkout and Pesapal. Saving the name also updates “Everything in …” and “Select …” wording on the other packages.</p>
         <label for="pkg-name-<?= (int) $p['id'] ?>">Name</label>
         <input id="pkg-name-<?= (int) $p['id'] ?>" name="name" required maxlength="80" value="<?= h((string) $p['name']) ?>">
         <label for="pkg-kicker-<?= (int) $p['id'] ?>">Kicker</label>

@@ -79,7 +79,7 @@ $rowActions = static function (array $s): void {
 <div class="page-head">
   <div>
     <h1><?= icon('letter') ?>Website sign-ups</h1>
-    <p class="lede">People register, request a quote, or start checkout from the website. Incomplete forms and failed Pesapal payments land here too. Call them, then onboard the company - or create one from scratch under Companies.</p>
+    <p class="lede">People register, book a demo, or start checkout from the website. Incomplete forms and failed Pesapal payments land here too. Call them, then onboard the company - or create one from scratch under Companies.</p>
   </div>
 </div>
 
@@ -104,7 +104,7 @@ $rowActions = static function (array $s): void {
         <?php foreach ($open as $s): ?>
           <tr>
             <td class="mono"><?= h(substr((string) $s['created_at'], 0, 16)) ?></td>
-            <td><span class="pill<?= ($s['source'] ?? '') === 'quote' ? ' warn' : (($s['source'] ?? '') === 'checkout' ? ' warn' : '') ?>"><?= h(signup_source_label($s['source'] ?? null)) ?></span></td>
+            <td><span class="pill<?= in_array(($s['source'] ?? ''), ['quote', 'checkout', 'demo'], true) ? ' warn' : '' ?>"><?= h(signup_source_label($s['source'] ?? null)) ?></span></td>
             <td><strong><?= h($s['name']) ?></strong></td>
             <td>
               <?= h($s['company']) ?>

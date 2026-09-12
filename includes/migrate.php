@@ -25,7 +25,7 @@ function folio_migrate(mysqli $db): void
         error_log('Vellisys public tables: ' . $e->getMessage());
     }
     $verRow = @$db->query("SELECT v FROM schema_meta WHERE k='version'");
-    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 35) {
+    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 36) {
         $done = true;
         return;
     }
@@ -39,7 +39,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 35) {
+    if ($ver >= 36) {
         $done = true;
         return;
     }
@@ -243,8 +243,11 @@ function folio_migrate(mysqli $db): void
         folio_migrate_self_onboard($db);
         folio_migrate_site_visits($db);
     }
+    if ($ver < 36) {
+        folio_migrate_join_and_copy($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '35')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '36')");
     $done = true;
 }
 
@@ -252,6 +255,43 @@ function folio_migrate_onboard_steps(mysqli $db): void
 {
     if (!db_has_column($db, 'companies', 'onboard_steps')) {
         $db->query('ALTER TABLE companies ADD COLUMN onboard_steps TEXT NULL');
+    }
+}
+
+function folio_migrate_join_and_copy(mysqli $db): void
+{
+    $db->query("UPDATE landing_ticker SET body = 'Branded books for companies anywhere in the world.' WHERE body LIKE '%QuickBooks%'");
+    $db->query("UPDATE landing_pricing SET register_label = 'register without paying', register_copy = 'Prefer we onboard you? {register}. You can also {demo}.' WHERE id > 0 AND (register_label = 'register without paying' OR register_copy LIKE '%Prefer we onboard you%' OR register_copy LIKE '%Prefer a call first%')");
+    $pkgs = [];
+    $res = $db->query('SELECT id, pkg_key, name, cta, points FROM landing_packages ORDER BY sort, id');
+    if ($res) {
+        while ($row = $res->fetch_assoc()) {
+            $pkgs[] = $row;
+        }
+    }
+    foreach ($pkgs as $i => $pkg) {
+        $name = (string) ($pkg['name'] ?? '');
+        $cta = (string) ($pkg['cta'] ?? '');
+        $points = (string) ($pkg['points'] ?? '');
+        $nextCta = $cta;
+        if ($name !== '' && preg_match('/^Select\s+(Quill|Ledger|Crest)$/iu', $cta) && stripos($cta, $name) === false) {
+            $nextCta = 'Select ' . $name;
+        }
+        $nextPoints = $points;
+        if ($i > 0 && preg_match('/Everything in (Quill|Ledger|Crest)/iu', $points)) {
+            $prev = (string) ($pkgs[$i - 1]['name'] ?? '');
+            if ($prev !== '') {
+                $nextPoints = preg_replace('/Everything in (Quill|Ledger|Crest)/iu', 'Everything in ' . $prev, $points) ?? $points;
+            }
+        }
+        if ($nextCta !== $cta || $nextPoints !== $points) {
+            $stmt = $db->prepare('UPDATE landing_packages SET cta=?, points=? WHERE id=?');
+            if ($stmt) {
+                $id = (int) $pkg['id'];
+                $stmt->bind_param('ssi', $nextCta, $nextPoints, $id);
+                $stmt->execute();
+            }
+        }
     }
 }
 
@@ -799,7 +839,7 @@ function folio_migrate_positioning_ticker(mysqli $db): void
     folio_migrate_landing_ticker($db);
     $lines = [
         ['body' => 'Built for East Africa. Used across Africa and worldwide.', 'sort' => 30],
-        ['body' => 'The branded alternative to QuickBooks and other finance software.', 'sort' => 40],
+        ['body' => 'Branded books for companies anywhere in the world.', 'sort' => 40],
     ];
     foreach ($lines as $c) {
         $stmt = $db->prepare('SELECT id FROM landing_ticker WHERE body = ? LIMIT 1');
