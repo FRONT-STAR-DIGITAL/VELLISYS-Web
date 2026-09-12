@@ -24,12 +24,25 @@ function folio_schema_ready_file(): string
     return $dir . '/schema-36.ok';
 }
 
+function folio_ensure_logo_bg(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    if (!db_has_column($db, 'branding', 'logo_bg')) {
+        @$db->query('ALTER TABLE branding ADD COLUMN logo_bg TINYINT(1) NOT NULL DEFAULT 0');
+    }
+}
+
 function folio_migrate(mysqli $db): void
 {
     static $done = false;
     if ($done) {
         return;
     }
+    folio_ensure_logo_bg($db);
     $ready = folio_schema_ready_file();
     if (is_file($ready) && filemtime($ready) > time() - 86400) {
         $done = true;

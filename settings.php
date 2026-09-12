@@ -68,8 +68,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if ($error === '') {
         db_exec(
-            'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, currency=?, fx_ugx_per_usd=?, letter_templates=?, doc_template=? WHERE company_id=?',
-            'ssssssssssssssssssssdssi',
+            'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, currency=?, fx_ugx_per_usd=?, letter_templates=?, doc_template=?, logo_bg=? WHERE company_id=?',
+            'ssssssssssssssssssssdssii',
             [
                 post('name'),
                 post('tagline'),
@@ -94,6 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 parse_fx_rate(post('fx_ugx_per_usd')),
                 encode_letter_templates(isset($_POST['tpl']) && is_array($_POST['tpl']) ? $_POST['tpl'] : []),
                 array_key_exists(post('doc_template'), doc_templates()) ? post('doc_template') : 'folio',
+                (isset($_POST['logo_bg']) && (is_array($_POST['logo_bg']) ? in_array('1', $_POST['logo_bg'], true) : (string) $_POST['logo_bg'] === '1')) ? 1 : 0,
                 current_company_id(),
             ]
         );
@@ -390,6 +391,13 @@ layout_start('Settings', $user);
     <section class="card settings-card" id="templates">
       <h2><?= icon('palette') ?>Document designs</h2>
       <p class="lede">Twelve layouts. Pick the one that matches the company. Logo watermark and Bond watermark print the company mark faintly on the paper. Atelier and Company seal are quiet, formal sheets meant to email. Every invoice, quotation, receipt, expense and headed note reprints in that design, in the client's logo and colours. Changing it here reprints the whole books. Correspondence text stays editable - only the paper around it changes.</p>
+      <?php $letterTpls = letter_templates(true); ?>
+      <label class="check">
+        <input type="hidden" name="logo_bg" value="0">
+        <input type="checkbox" name="logo_bg" value="1" <?= !empty($b['logo_bg']) ? 'checked' : '' ?>>
+        Put the company logo in the background of documents
+      </label>
+      <p class="hint">A faint watermark of your logo on invoices, receipts, quotations, letters and the rest — not only the Logo watermark and Bond watermark layouts.</p>
       <div class="design-grid">
         <?php
         $currentDesign = doc_template_key(['doc_template' => $b['doc_template'] ?? 'folio']);
@@ -405,34 +413,41 @@ layout_start('Settings', $user);
       </div>
 
       <h2 style="margin-top:28px"><?= icon('letter') ?>Correspondence copy</h2>
-      <p class="lede">The note itself stays 100% editable when you write it. These are starting texts only. Put <code>{company}</code> where the company name should appear.</p>
-      <div data-tpl-list>
-        <?php foreach (letter_templates(true) as $key => $tpl): ?>
-          <div class="tpl-edit" data-tpl-card>
-            <div class="form-grid">
-              <div>
-                <label>Title on the desk</label>
-                <input name="tpl[<?= h($key) ?>][title]" value="<?= h($tpl['title']) ?>" required>
+      <p class="lede">The note itself stays 100% editable when you write it. These are starting texts only. Put <code>{company}</code> where the company name should appear. Open one tab at a time — Save still stores every letter and email template.</p>
+      <div class="tpl-tabs" data-tpl-tabs>
+        <div class="tpl-tab-bar" data-tpl-tab-bar>
+          <?php foreach ($letterTpls as $key => $tpl): ?>
+            <button type="button" class="tpl-tab" data-tpl-tab="<?= h($key) ?>"><?= h($tpl['title']) ?></button>
+          <?php endforeach; ?>
+        </div>
+        <div data-tpl-list>
+          <?php foreach ($letterTpls as $key => $tpl): ?>
+            <div class="tpl-edit" data-tpl-card data-tpl-panel="<?= h($key) ?>">
+              <div class="form-grid">
+                <div>
+                  <label>Title on the desk</label>
+                  <input name="tpl[<?= h($key) ?>][title]" value="<?= h($tpl['title']) ?>" required>
+                </div>
+                <div>
+                  <label>Heading on the page</label>
+                  <input name="tpl[<?= h($key) ?>][heading]" value="<?= h($tpl['heading']) ?>">
+                </div>
+                <div style="grid-column:1 / -1">
+                  <label>Subject</label>
+                  <input name="tpl[<?= h($key) ?>][subject]" value="<?= h($tpl['subject']) ?>">
+                </div>
               </div>
-              <div>
-                <label>Heading on the page</label>
-                <input name="tpl[<?= h($key) ?>][heading]" value="<?= h($tpl['heading']) ?>">
-              </div>
-              <div style="grid-column:1 / -1">
-                <label>Subject</label>
-                <input name="tpl[<?= h($key) ?>][subject]" value="<?= h($tpl['subject']) ?>">
-              </div>
+              <label>Body</label>
+              <textarea name="tpl[<?= h($key) ?>][body]" rows="7"><?= h($tpl['body']) ?></textarea>
             </div>
-            <label>Body</label>
-            <textarea name="tpl[<?= h($key) ?>][body]" rows="7"><?= h($tpl['body']) ?></textarea>
-          </div>
-        <?php endforeach; ?>
+          <?php endforeach; ?>
+        </div>
       </div>
       <p class="hint" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px">
         <button class="btn ghost sm" type="button" data-add-template><?= icon('plus', 14) ?>Add template</button>
         Clear a custom title and save to remove it.
       </p>
-      <div class="actions" style="margin-top:18px">
+      <div class="actions sticky-save">
         <button class="btn" type="submit"><?= icon('check') ?>Save settings</button>
       </div>
     </section>
@@ -440,7 +455,7 @@ layout_start('Settings', $user);
   </div>
 </div>
 <template id="tpl-proto">
-  <div class="tpl-edit" data-tpl-card>
+  <div class="tpl-edit" data-tpl-card data-tpl-panel="__KEY__">
     <div class="form-grid">
       <div>
         <label>Title on the desk</label>

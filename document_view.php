@@ -13,29 +13,8 @@ $print = isset($_GET['print']);
 $emails = db_all('SELECT * FROM emails WHERE document_id = ? ORDER BY id DESC LIMIT 8', 'i', [$id]);
 
 if ($print) {
-    $brand = branding();
-    ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="robots" content="noindex">
-  <title><?= h($doc['number']) ?></title>
-  <?php product_icons(); ?>
-  <?php folio_css_links(); ?>
-  <?php folio_font_links(); ?>
-  <style>
-    :root { <?= brand_css_vars() ?> }
-    @page { size: A4; margin: 0; }
-  </style>
-</head>
-<body class="print-body">
-  <?php require ROOT_PATH . '/includes/sheet.php'; render_sheet($brand, $doc); ?>
-  <script src="<?= h(asset('js/print-sheet.js')) ?>"></script>
-</body>
-</html>
-    <?php
+    require_once ROOT_PATH . '/includes/designs.php';
+    render_print_document_page($doc, false);
     exit;
 }
 

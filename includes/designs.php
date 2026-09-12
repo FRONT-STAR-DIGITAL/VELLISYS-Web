@@ -148,28 +148,101 @@ function render_party_contact(array $doc): void
     <?php
 }
 
-function render_logo_watermark(array $d): void
+function format_letter_html(string $body): string
+{
+    $body = str_replace(["\r\n", "\r"], "\n", $body);
+    $body = trim($body);
+    if ($body === '') {
+        return '';
+    }
+    $parts = preg_split("/\n{2,}/", $body) ?: [$body];
+    $html = '';
+    foreach ($parts as $part) {
+        $html .= '<p class="corr-p">' . nl2br(h($part), false) . '</p>';
+    }
+    return $html;
+}
+
+function watermark_markup(array $d): string
 {
     $src = (string) ($d['logo'] ?? '');
     if ($src === '') {
-        return;
+        return '';
     }
-    echo '<img class="d-watermark" src="' . h($src) . '" alt="">';
+    return '<img class="d-watermark" src="' . h($src) . '" alt="">';
+}
+
+function render_logo_watermark(array $d): void
+{
+    echo watermark_markup($d);
 }
 
 function sheet_uses_watermark(?array $doc = null): bool
 {
     $key = doc_template_key($doc);
-    return $key === 'mark' || $key === 'bond';
+    if ($key === 'mark' || $key === 'bond') {
+        return true;
+    }
+    return (int) (branding()['logo_bg'] ?? 0) === 1;
+}
+
+function inject_sheet_watermark(string $html, array $d, array $doc): string
+{
+    if (!sheet_uses_watermark($doc)) {
+        return $html;
+    }
+    $html = preg_replace('/class="([^"]*invoice-sheet[^"]*)"/', 'class="$1 has-wm"', $html, 1) ?? $html;
+    if (!str_contains($html, 'd-watermark')) {
+        $wm = watermark_markup($d);
+        if ($wm !== '') {
+            $html = preg_replace('/(<article\b[^>]*>)/', '$1' . $wm, $html, 1) ?? $html;
+        }
+    }
+    return $html;
 }
 
 function render_letter_body(array $doc): void
 {
     ?>
     <div class="d-letter">
-      <p class="d-letter-sub"><?= h((string) $doc['subject']) ?></p>
-      <div class="d-letter-body"><?= nl2br(h((string) $doc['body'])) ?></div>
+      <?php if (trim((string) $doc['subject']) !== ''): ?>
+        <p class="d-letter-sub"><?= h((string) $doc['subject']) ?></p>
+      <?php endif; ?>
+      <div class="d-letter-body"><?= format_letter_html((string) $doc['body']) ?></div>
     </div>
+    <?php
+}
+
+function render_print_document_page(array $doc, bool $pdf = false): void
+{
+    $brand = branding();
+    ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title><?= h((string) $doc['number']) ?></title>
+  <?php product_icons(); ?>
+  <?php folio_css_links(true, true); ?>
+  <?php folio_font_links(); ?>
+  <style>
+    :root { <?= brand_css_vars() ?> }
+    @page { size: A4; margin: 0; }
+  </style>
+</head>
+<body class="print-body<?= $pdf ? ' print-pdf' : '' ?>">
+  <?php if ($pdf): ?>
+    <div class="pdf-bar">
+      <p>This is the branded sheet. In the print dialog choose <strong>Save as PDF</strong> (or Microsoft Print to PDF).</p>
+      <button class="btn sm" type="button" onclick="window.print()"><?= icon('file', 15) ?> Save PDF</button>
+    </div>
+  <?php endif; ?>
+  <?php render_sheet($brand, $doc); ?>
+  <script src="<?= h(asset('js/print-sheet.js')) ?>"></script>
+</body>
+</html>
     <?php
 }
 
@@ -186,10 +259,7 @@ function render_sheet_correspondence(array $d): void
     $showBody = !$isCustom || !empty($custom['has_body']) || trim($body) !== '';
     $wm = sheet_uses_watermark($doc);
     ?>
-<article class="invoice-sheet sheet-corr<?= $wm ? ' sheet-' . h(doc_template_key($doc)) : '' ?>" style="<?= h($d['vars']) ?>">
-  <?php if ($wm) {
-      render_logo_watermark($d);
-  } ?>
+<article class="invoice-sheet sheet-corr<?= $wm && in_array(doc_template_key($doc), ['mark', 'bond'], true) ? ' sheet-' . h(doc_template_key($doc)) : '' ?>" style="<?= h($d['vars']) ?>">
   <header class="corr-head">
     <div class="corr-brand">
       <img src="<?= h($d['logo']) ?>" alt="" class="d-logo">
@@ -235,7 +305,7 @@ function render_sheet_correspondence(array $d): void
     </dl>
   <?php endif; ?>
   <?php if ($showBody): ?>
-    <div class="corr-body"><?= nl2br(h($body)) ?></div>
+    <div class="corr-body"><?= format_letter_html($body) ?></div>
   <?php endif; ?>
   <footer class="corr-sign">
     <p>Yours faithfully,</p>
@@ -733,7 +803,6 @@ function render_sheet_mark(array $d): void
     $doc = $d['doc'];
     ?>
 <article class="invoice-sheet sheet-mark" style="<?= h($d['vars']) ?>">
-  <?php render_logo_watermark($d); ?>
   <header class="mark-head">
     <div>
       <img src="<?= h($d['logo']) ?>" alt="" class="d-logo">
@@ -784,7 +853,6 @@ function render_sheet_bond(array $d): void
     $doc = $d['doc'];
     ?>
 <article class="invoice-sheet sheet-bond" style="<?= h($d['vars']) ?>">
-  <?php render_logo_watermark($d); ?>
   <header class="bond-head">
     <div class="bond-brand">
       <img src="<?= h($d['logo']) ?>" alt="" class="d-logo">
@@ -834,22 +902,24 @@ function render_expense_card(array $brand, array $doc): void
 function render_sheet(array $brand, array $doc): void
 {
     $d = sheet_data($brand, $doc);
+    ob_start();
     if (kind_is_stationery($doc['kind'] ?? '')) {
         render_sheet_correspondence($d);
-        return;
+    } else {
+        match (doc_template_key($doc)) {
+            'ledger' => render_sheet_ledger($d),
+            'crimson' => render_sheet_bill($d, 'crimson'),
+            'amber' => render_sheet_bill($d, 'amber'),
+            'twin' => render_sheet_twin($d),
+            'stripe' => render_sheet_stripe($d),
+            'estate' => render_sheet_estate($d),
+            'night' => render_sheet_night($d),
+            'atelier' => render_sheet_atelier($d),
+            'seal' => render_sheet_seal($d),
+            'mark' => render_sheet_mark($d),
+            'bond' => render_sheet_bond($d),
+            default => render_sheet_folio($d),
+        };
     }
-    match (doc_template_key($doc)) {
-        'ledger' => render_sheet_ledger($d),
-        'crimson' => render_sheet_bill($d, 'crimson'),
-        'amber' => render_sheet_bill($d, 'amber'),
-        'twin' => render_sheet_twin($d),
-        'stripe' => render_sheet_stripe($d),
-        'estate' => render_sheet_estate($d),
-        'night' => render_sheet_night($d),
-        'atelier' => render_sheet_atelier($d),
-        'seal' => render_sheet_seal($d),
-        'mark' => render_sheet_mark($d),
-        'bond' => render_sheet_bond($d),
-        default => render_sheet_folio($d),
-    };
+    echo inject_sheet_watermark((string) ob_get_clean(), $d, $doc);
 }

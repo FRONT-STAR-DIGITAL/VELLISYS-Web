@@ -117,7 +117,7 @@ If SMTP is refused (firewall, wrong password), Vellisys still **logs the email a
 
 **A copy of every outbound letter** also arrives at **`info@vellisys.com`**, including company-desk mail (quotations, invoices, receipts, letters, reminders). The copy is marked for Vellisys and Reply-To is the client, so the team can answer from that inbox. Letters that were already addressed to `info@vellisys.com` are not copied again.
 
-Print uses the browser print dialog. **PDF** on an open document downloads a branded PDF. CSV downloads from the Export CSV buttons. On a phone, document actions sit in two columns.
+Print uses the browser print dialog. **PDF** opens the same branded sheet and the print dialog — choose **Save as PDF**. CSV downloads from the Export CSV buttons. On a phone, document actions sit in two columns. Desk admins also have a Settings button in the top bar.
 
 ## Local PHP (without XAMPP)
 

@@ -170,7 +170,7 @@ layout_start($heading, $user, ['kind' => $kind]);
   </div>
 </div>
 
-<form class="card form-wide" method="post" <?= $kind === 'letter' ? 'data-letter-templates' : '' ?> <?= $kind === 'receipt' ? 'data-receipt-form' : '' ?> data-fx-form data-fx-home="<?= h(default_currency()) ?>">
+<form class="card form-wide document-form" method="post" <?= $kind === 'letter' ? 'data-letter-templates' : '' ?> <?= $kind === 'receipt' ? 'data-receipt-form' : '' ?> data-fx-form data-fx-home="<?= h(default_currency()) ?>">
   <?= csrf_field() ?>
   <input type="hidden" name="kind" value="<?= h($kind) ?>">
   <?php if ($existing): ?>
@@ -380,7 +380,7 @@ layout_start($heading, $user, ['kind' => $kind]);
     <textarea id="notes" name="notes" rows="4" placeholder="Payment is due by the date shown above."><?= h((string) ($existing['notes'] ?? ($kind === 'invoice' ? (string) branding()['invoice_comments'] : ''))) ?></textarea>
   <?php endif; ?>
 
-  <div class="actions" style="margin-top:16px">
+  <div class="actions sticky-save">
     <button class="btn" type="submit"><?= icon('check') ?>Save <?= h(strtolower($meta['singular'])) ?></button>
     <a class="btn ghost" href="<?= h(url($existing ? 'document_view.php?id=' . $existing['id'] : 'documents.php?kind=' . $kind)) ?>">Cancel</a>
   </div>

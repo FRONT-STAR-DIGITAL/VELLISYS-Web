@@ -650,6 +650,7 @@ function folio_defaults(): array
         'invoice_comments' => '',
         'letter_templates' => '',
         'doc_template' => 'folio',
+        'logo_bg' => 0,
         'fx_ugx_per_usd' => 3700,
     ];
 }
@@ -1741,8 +1742,10 @@ function render_filters(string $action, array $keep = []): void
           <a class="chip<?= $p['preset'] === $key ? ' is-on' : '' ?>" href="<?= h(url($action . '?' . $qs(['range' => $key, 'from' => '', 'to' => '']))) ?>"><?= h($label) ?></a>
         <?php endforeach; ?>
       </div>
-      <label>From <input type="date" name="from" value="<?= h($p['from']) ?>"></label>
-      <label>To <input type="date" name="to" value="<?= h($p['to']) ?>"></label>
+      <div class="filter-dates">
+        <label>From <input type="date" name="from" value="<?= h($p['from']) ?>"></label>
+        <label>To <input type="date" name="to" value="<?= h($p['to']) ?>"></label>
+      </div>
       <button class="btn ghost sm" type="submit">Apply</button>
     </form>
     <?php
@@ -2909,7 +2912,7 @@ function folio_css_links(bool $critical = true, ?bool $sheet = null): void
     folio_stylesheet('css/app.css');
     if ($sheet === null) {
         $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
-        $sheet = in_array($here, ['document_view.php', 'document_new.php', 'document_action.php', 'share.php'], true);
+        $sheet = in_array($here, ['document_view.php', 'document_new.php', 'document_action.php', 'share.php', 'document_pdf.php'], true);
     }
     if ($sheet) {
         folio_stylesheet('css/designs.css', false);

@@ -46,7 +46,10 @@ function layout_start(string $title, array $user, array $opts = []): void
         redirect('dashboard.php');
     }
     $nav = array_merge(
-        [['dashboard.php', 'Desk', 'desk']],
+        [
+            ['dashboard.php', 'Desk', 'desk'],
+            ['settings.php', 'Settings', 'settings'],
+        ],
         desk_kind_nav_items(),
         [
             ['desk_mail.php', 'Email', 'send'],
@@ -55,7 +58,6 @@ function layout_start(string $title, array $user, array $opts = []): void
             ['clients.php', 'Clients', 'building'],
             ['tutorials.php', 'Tutorials', 'book'],
             ['reports.php', 'Reports', 'reports'],
-            ['settings.php', 'Settings', 'settings'],
             ['account.php', 'Password', 'lock'],
         ]
     );
@@ -137,7 +139,10 @@ function layout_start(string $title, array $user, array $opts = []): void
         <?php render_top_clock(); ?>
       </div>
       <div class="top-actions">
-        <button class="btn ghost" type="button" data-quick><?= icon('plus', 16) ?>Quick add</button>
+        <?php if (user_can_open('settings.php')): ?>
+          <a class="header-settings" href="<?= h(url('settings.php')) ?>" title="Settings" aria-label="Settings"><?= icon('settings', 20) ?></a>
+        <?php endif; ?>
+        <button class="btn ghost" type="button" data-quick><?= icon('plus', 16) ?><span class="quick-label">Quick add</span></button>
       </div>
     </header>
     <?php if ($flash): ?>

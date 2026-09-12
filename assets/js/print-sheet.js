@@ -17,7 +17,7 @@
     window.setTimeout(function () {
       markPages();
       window.print();
-    }, 80);
+    }, 280);
   }
   if (document.readyState === 'complete') {
     go();

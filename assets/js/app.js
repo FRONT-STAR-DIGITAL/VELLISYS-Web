@@ -392,13 +392,46 @@ document.querySelectorAll('[data-add-template]').forEach(function (btn) {
   btn.addEventListener('click', function () {
     var list = document.querySelector('[data-tpl-list]');
     var proto = document.querySelector('#tpl-proto');
+    var bar = document.querySelector('[data-tpl-tab-bar]');
     if (!list || !proto) return;
-    var html = proto.innerHTML.replace(/__KEY__/g, 'c' + Date.now());
+    var key = 'c' + Date.now();
+    var html = proto.innerHTML.replace(/__KEY__/g, key);
     list.insertAdjacentHTML('beforeend', html);
-    var title = list.lastElementChild && list.lastElementChild.querySelector('input[name$="[title]"]');
+    if (bar) {
+      var tab = document.createElement('button');
+      tab.type = 'button';
+      tab.className = 'tpl-tab';
+      tab.setAttribute('data-tpl-tab', key);
+      tab.textContent = 'New template';
+      bar.appendChild(tab);
+    }
+    var card = list.lastElementChild;
+    var title = card && card.querySelector('input[name$="[title]"]');
+    if (window.folioActivateTpl) window.folioActivateTpl(key);
     if (title) title.focus();
   });
 });
+
+(function () {
+  var root = document.querySelector('[data-tpl-tabs]');
+  if (!root) return;
+  function activate(key) {
+    root.querySelectorAll('[data-tpl-tab]').forEach(function (t) {
+      t.classList.toggle('is-on', t.getAttribute('data-tpl-tab') === key);
+    });
+    root.querySelectorAll('[data-tpl-panel]').forEach(function (p) {
+      p.hidden = p.getAttribute('data-tpl-panel') !== key;
+    });
+  }
+  window.folioActivateTpl = activate;
+  root.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-tpl-tab]');
+    if (!t || !root.contains(t)) return;
+    activate(t.getAttribute('data-tpl-tab'));
+  });
+  var first = root.querySelector('[data-tpl-tab]');
+  if (first) activate(first.getAttribute('data-tpl-tab'));
+})();
 
 (function () {
   var box = document.querySelector('[data-mail-box]');

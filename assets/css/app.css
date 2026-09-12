@@ -46,8 +46,8 @@
 }
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; }
-html { font-size: 15px; background: var(--paper); }
-html:has(.desk-body) { background: var(--paper); }
+html { font-size: 15px; background: #f5f7fc; }
+html:has(.desk-body) { background: #f5f7fc; }
 body {
   font-family: var(--sans);
   color: var(--ink);
@@ -361,7 +361,22 @@ img { max-width: 100%; display: block; }
 .top-term-expired { background: #f8e4e1; border-color: #e3b4ad; }
 .top-term-expired .icon { color: #b42318; }
 .top-term-none { color: var(--muted); }
-.top-actions { display: flex; gap: 8px; margin-left: auto; flex-shrink: 0; }
+.top-actions { display: flex; gap: 8px; margin-left: auto; flex-shrink: 0; align-items: center; }
+.header-settings {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--brand-ink);
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(8, 20, 58, .04);
+}
+.header-settings:hover { background: var(--paper); text-decoration: none; color: var(--brand); }
+.header-settings .icon { display: block; }
 .desk-term-wrap { margin: 0 0 18px; }
 .desk-term-wrap .top-term { display: inline-flex; }
 .people-reset {
@@ -833,6 +848,15 @@ table.grid tfoot td {
   box-shadow: var(--card-shadow);
 }
 .filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.filter-dates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  min-width: min(100%, 280px);
+  flex: 1 1 240px;
+}
+.filter-dates label { display: grid; gap: 4px; min-width: 0; }
+.filter-dates input[type=date] { width: 100%; min-width: 0; }
 .chip {
   display: inline-flex;
   align-items: center;
@@ -1093,6 +1117,50 @@ table.grid tfoot td {
   background: #fafaf7;
 }
 .tpl-edit label { margin-top: 8px; }
+.tpl-tabs { margin-top: 8px; }
+.tpl-tab-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 4px;
+}
+.tpl-tab {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.tpl-tab.is-on {
+  background: var(--brand);
+  color: var(--on-brand, #fff);
+  border-color: var(--brand);
+}
+.sticky-save {
+  position: sticky;
+  bottom: 0;
+  z-index: 8;
+  margin-top: 18px;
+  padding: 12px 0 8px;
+  background: linear-gradient(180deg, transparent, var(--card) 28%);
+}
+.pdf-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  margin: 0 0 12px;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+}
+.pdf-bar p { margin: 0; max-width: 46rem; }
 
 /* Desk - home */
 .desk-hero {
@@ -1411,13 +1479,14 @@ table.grid tfoot td {
     min-width: 0;
   }
   .page-head .doc-toolbar .share-pop > summary.btn { width: 100%; }
-  .stats, .stats.six { grid-template-columns: 1fr; }
+  .stats, .stats.six { grid-template-columns: 1fr 1fr; }
   .filters {
     flex-direction: column;
     align-items: stretch;
   }
+  .filter-dates { flex: none; width: 100%; min-width: 0; }
   .filters input,
-  .filters select,
+  .filters select { width: 100%; }
   .filters input[type=date] { width: 100%; }
   .chip { min-height: 36px; }
   h1 { font-size: 22px; }
@@ -1436,8 +1505,19 @@ table.grid tfoot td {
     color: var(--brand-ink);
   }
   input, select, textarea, .btn { font-size: 16px; }
-  .qty-btn { min-width: 40px; min-height: 40px; }
-  .lines .qty-wrap { width: 100%; max-width: 200px; }
+  .qty-btn { min-width: 44px; min-height: 44px; }
+  .lines .qty-wrap {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    width: 100%;
+    max-width: none;
+    gap: 8px;
+  }
+  .lines .qty-wrap input {
+    width: 100%;
+    min-width: 0;
+    flex: none;
+  }
   .desk-body, .print-body { overflow-x: hidden; }
   .content { min-width: 0; }
   .lines thead { display: none; }
@@ -1451,13 +1531,17 @@ table.grid tfoot td {
     padding: 6px 12px 10px;
     background: #fff;
   }
+  .lines th,
+  .lines td {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100%;
+  }
   .lines td {
     display: flex;
     flex-direction: column;
     align-items: stretch;
     gap: 6px;
-    width: 100%;
-    min-width: 0 !important;
     padding: 8px 0;
     border: 0;
     border-bottom: 1px solid var(--line);
@@ -1486,7 +1570,14 @@ table.grid tfoot td {
     word-break: normal;
     overflow-wrap: anywhere;
   }
-  .lines .qty-wrap { width: 100%; max-width: none; }
+  .lines textarea { min-height: 96px; }
+  .document-form .form-grid,
+  .document-form .form-grid.two { grid-template-columns: 1fr; }
+  .document-form input,
+  .document-form select,
+  .document-form textarea { width: 100%; max-width: 100%; }
+  .header-settings { min-width: 44px; min-height: 44px; width: 44px; height: 44px; }
+  .sticky-save .btn { min-height: 44px; }
   .card:has(table.grid:not(.lines)) {
     -webkit-overflow-scrolling: touch;
   }
@@ -1498,6 +1589,8 @@ table.grid tfoot td {
   .nav-toggle { min-width: 44px; min-height: 44px; }
 }
 @media (max-width: 420px) {
+  .quick-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+  .top-actions [data-quick] { min-width: 44px; padding: 8px; }
   .page-head .actions .btn,
   .page-head .actions form { flex-basis: 100%; }
   .page-head .doc-toolbar .btn,
@@ -1692,6 +1785,7 @@ table.grid tfoot td {
     overflow: visible !important;
   }
   .share-toolbar { display: none !important; }
+  .pdf-bar { display: none !important; }
   .content > .card { display: none !important; }
   a[href]::after, a[href]::before { content: none !important; }
   .nav, .nav-toggle, .nav-scrim { display: none !important; }
