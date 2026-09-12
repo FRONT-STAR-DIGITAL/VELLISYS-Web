@@ -1525,14 +1525,21 @@ input, select, textarea { font-weight: 400; }
   .filters input,
   .filters select { width: 100%; }
   .filters input[type=date] { width: 100%; font-weight: 400; color: var(--ink); }
-  .filter-apply {
-    background: var(--brand);
-    color: var(--on-brand, #fff);
-    border-color: var(--brand);
+  .filters .btn.ghost.filter-apply,
+  .btn.ghost.filter-apply {
+    background: var(--brand) !important;
+    color: var(--on-brand, #fff) !important;
+    border: 0 !important;
     width: 100%;
     min-height: 44px;
   }
-  .filter-apply:hover { text-decoration: none; filter: brightness(0.96); }
+  .filters .btn.ghost.filter-apply:hover,
+  .btn.ghost.filter-apply:hover {
+    background: var(--brand) !important;
+    color: var(--on-brand, #fff) !important;
+    filter: brightness(0.96);
+    text-decoration: none;
+  }
   .chip { min-height: 36px; }
   h1 { font-size: 22px; }
   .lede { max-width: none; }
