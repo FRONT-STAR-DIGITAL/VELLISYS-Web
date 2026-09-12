@@ -759,7 +759,6 @@ function brand_css_vars(?array $brand = null): string
         . ';--on-brand:' . $p['on_primary']
         . ';--on-brand-2:' . $p['on_accent']
         . ';--on-brand-3:' . $p['on_deep']
-        . ';--paper:' . hex_mix($p['tint'], '#f5f7fc', 0.48)
         . ';--brand-ink:' . $p['deep']
         . ';--nav:' . $p['deep'];
 }
