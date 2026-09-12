@@ -1179,7 +1179,7 @@ img { max-width: 100%; }
   text-align: center;
   font-weight: 700;
 }
-.lp-faq[open] summary::after { content: "–"; }
+.lp-faq[open] summary::after { content: "-"; }
 .lp-faq p {
   margin: 0;
   padding: 0 16px 16px;

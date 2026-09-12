@@ -55,8 +55,8 @@ layout_admin_start('Companies', $user);
             <td><span class="pill<?= $c['status'] === 'live' ? '' : ($c['status'] === 'suspended' ? ' bad' : ' warn') ?>"><?= h($c['status']) ?></span></td>
             <td><?= h(company_term_label($c)) ?></td>
             <td class="<?= company_expiry_state($c) === 'expired' ? 'expiry-expired' : (company_expiry_state($c) === 'soon' ? 'expiry-soon' : '') ?>"><?= h(company_remaining_phrase($c)) ?></td>
-            <td class="mono"><?= company_fee_paid($c) > 0 ? h(money(company_fee_paid($c), company_fee_currency($c))) : '—' ?></td>
-            <td class="mono"><?= company_fee_balance($c) > 0 ? h(money(company_fee_balance($c), company_fee_currency($c))) : '—' ?></td>
+            <td class="mono"><?= company_fee_paid($c) > 0 ? h(money(company_fee_paid($c), company_fee_currency($c))) : '-' ?></td>
+            <td class="mono"><?= company_fee_balance($c) > 0 ? h(money(company_fee_balance($c), company_fee_currency($c))) : '-' ?></td>
             <td class="mono"><?= (int) $c['users'] ?> / <?= (int) company_user_limit($c) ?></td>
             <td class="mono"><?= (int) $c['docs'] ?></td>
             <?php $onboard = company_onboard_progress($c); ?>

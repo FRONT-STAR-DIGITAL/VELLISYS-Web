@@ -280,8 +280,8 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
       <td><span class="pill<?= $c['status'] === 'live' ? '' : ($c['status'] === 'suspended' ? ' bad' : ' warn') ?>"><?= h($c['status']) ?></span></td>
       <td><?= h(company_term_label($c)) ?></td>
       <td><?= $expiryCell($c) ?></td>
-      <td><?= $c['expires_at'] ? h(format_date($c['expires_at'])) : '—' ?></td>
-      <td><?= $sent !== '' ? h(substr($sent, 0, 16)) : '—' ?></td>
+      <td><?= $c['expires_at'] ? h(format_date($c['expires_at'])) : '-' ?></td>
+      <td><?= $sent !== '' ? h(substr($sent, 0, 16)) : '-' ?></td>
       <td class="row-actions">
         <div class="actions">
           <?php if ($canNotice): ?>
@@ -441,7 +441,7 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
             <td><span class="pill<?= $c['status'] === 'live' ? '' : ($c['status'] === 'suspended' ? ' bad' : ' warn') ?>"><?= h($c['status']) ?></span></td>
             <td><?= h(company_term_label($c)) ?></td>
             <td><?= h(company_remaining_phrase($c)) ?></td>
-            <td><?= $c['expires_at'] ? h(format_date((string) $c['expires_at'])) : '—' ?></td>
+            <td><?= $c['expires_at'] ? h(format_date((string) $c['expires_at'])) : '-' ?></td>
             <td class="right mono"><?= h(money(company_fee_amount($c), company_fee_currency($c))) ?></td>
             <td class="right mono"><?= h(money(company_fee_paid($c), company_fee_currency($c))) ?></td>
             <td class="right mono"><?= h(money(company_fee_balance($c), company_fee_currency($c))) ?></td>

@@ -68,8 +68,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if ($error === '') {
         db_exec(
-            'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, currency=?, fx_ugx_per_usd=?, letter_templates=?, doc_template=?, logo_bg=? WHERE company_id=?',
-            'ssssssssssssssssssssdssii',
+            'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, currency=?, fx_ugx_per_usd=?, letter_templates=?, doc_template=?, number_format=?, logo_bg=? WHERE company_id=?',
+            'ssssssssssssssssssssdsssii',
             [
                 post('name'),
                 post('tagline'),
@@ -94,6 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 parse_fx_rate(post('fx_ugx_per_usd')),
                 encode_letter_templates(isset($_POST['tpl']) && is_array($_POST['tpl']) ? $_POST['tpl'] : []),
                 array_key_exists(post('doc_template'), doc_templates()) ? post('doc_template') : 'folio',
+                sanitize_number_format(post('number_format')),
                 (isset($_POST['logo_bg']) && (is_array($_POST['logo_bg']) ? in_array('1', $_POST['logo_bg'], true) : (string) $_POST['logo_bg'] === '1')) ? 1 : 0,
                 current_company_id(),
             ]
@@ -358,6 +359,11 @@ layout_start('Settings', $user);
           <label for="prefix">Document prefix</label>
           <input id="prefix" name="prefix" maxlength="12" value="<?= h($b['prefix']) ?>">
         </div>
+        <div style="grid-column:1 / -1">
+          <label for="number_format">Document number format</label>
+          <input id="number_format" name="number_format" maxlength="80" value="<?= h((string) ($b['number_format'] ?? default_number_format())) ?>">
+          <p class="hint">Use <code>{prefix}</code>, <code>{kind}</code> (INV, QTN, RCT…), <code>{yyyy}</code> or <code>{yy}</code>, and <code>{seq:4}</code>. Example now: <strong><?= h(format_document_number('invoice', 1, $b)) ?></strong></p>
+        </div>
       </div>
     </section>
 
@@ -397,7 +403,7 @@ layout_start('Settings', $user);
         <input type="checkbox" name="logo_bg" value="1" <?= !empty($b['logo_bg']) ? 'checked' : '' ?>>
         Put the company logo in the background of documents
       </label>
-      <p class="hint">A faint watermark of your logo on invoices, receipts, quotations, letters and the rest — not only the Logo watermark and Bond watermark layouts.</p>
+      <p class="hint">A faint watermark of your logo on invoices, receipts, quotations, letters and the rest - not only the Logo watermark and Bond watermark layouts.</p>
       <div class="design-grid">
         <?php
         $currentDesign = doc_template_key(['doc_template' => $b['doc_template'] ?? 'folio']);
@@ -413,7 +419,7 @@ layout_start('Settings', $user);
       </div>
 
       <h2 style="margin-top:28px"><?= icon('letter') ?>Correspondence copy</h2>
-      <p class="lede">The note itself stays 100% editable when you write it. These are starting texts only. Put <code>{company}</code> where the company name should appear. Open one tab at a time — Save still stores every letter and email template.</p>
+      <p class="lede">The note itself stays 100% editable when you write it. These are starting texts only. Put <code>{company}</code> where the company name should appear. Open one tab at a time - Save still stores every letter and email template.</p>
       <div class="tpl-tabs" data-tpl-tabs>
         <div class="tpl-tab-bar" data-tpl-tab-bar>
           <?php foreach ($letterTpls as $key => $tpl): ?>

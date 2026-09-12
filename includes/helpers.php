@@ -225,7 +225,7 @@ function currency_field(string $id, string $name, string $value, array $attrs = 
         $sel = $isKnown && $value === $code ? ' selected' : '';
         echo '<option value="' . h($code) . '"' . $sel . '>' . h($code . ' · ' . $label) . '</option>';
     }
-    echo '<option value="other"' . ($isKnown ? '' : ' selected') . '>Other — type a primary currency</option>';
+        echo '<option value="other"' . ($isKnown ? '' : ' selected') . '>Other - type a primary currency</option>';
     echo '</select>';
     echo '<label class="currency-custom-label" for="' . h($id) . '">Primary currency</label>';
     echo '<input class="currency-code" id="' . h($id) . '" name="' . h($name) . '" maxlength="3" spellcheck="false" autocomplete="off" value="' . h($value) . '" placeholder="KES" data-currency-custom' . $extra . '>';
@@ -651,6 +651,7 @@ function folio_defaults(): array
         'letter_templates' => '',
         'doc_template' => 'folio',
         'logo_bg' => 0,
+        'number_format' => '{prefix}-{kind}-{yyyy}-{seq:4}',
         'fx_ugx_per_usd' => 3700,
     ];
 }
@@ -1746,7 +1747,7 @@ function render_filters(string $action, array $keep = []): void
         <label>From <input type="date" name="from" value="<?= h($p['from']) ?>"></label>
         <label>To <input type="date" name="to" value="<?= h($p['to']) ?>"></label>
       </div>
-      <button class="btn ghost sm" type="submit">Apply</button>
+      <button class="btn ghost sm filter-apply" type="submit">Apply</button>
     </form>
     <?php
 }

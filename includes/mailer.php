@@ -432,7 +432,7 @@ function notify_password_reset_request(string $email): array
         . "Reset the password on the desk, then send it to this mailbox.\n"
         . $deskLink;
 
-    return notify_platform('URGENT: password reset required — ' . $email, $html, $text, $email, $uid);
+    return notify_platform('URGENT: password reset required - ' . $email, $html, $text, $email, $uid);
 }
 
 function notify_admin_order(array $order, string $event): void

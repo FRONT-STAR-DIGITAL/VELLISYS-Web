@@ -34,6 +34,12 @@ function folio_ensure_logo_bg(mysqli $db): void
     if (!db_has_column($db, 'branding', 'logo_bg')) {
         @$db->query('ALTER TABLE branding ADD COLUMN logo_bg TINYINT(1) NOT NULL DEFAULT 0');
     }
+    if (!db_has_column($db, 'branding', 'number_format')) {
+        @$db->query("ALTER TABLE branding ADD COLUMN number_format VARCHAR(80) NOT NULL DEFAULT '{prefix}-{kind}-{yyyy}-{seq:4}'");
+    }
+    if (!db_has_column($db, 'documents', 'letterhead')) {
+        @$db->query('ALTER TABLE documents ADD COLUMN letterhead TEXT NULL');
+    }
 }
 
 function folio_ensure_company_admins(mysqli $db): void

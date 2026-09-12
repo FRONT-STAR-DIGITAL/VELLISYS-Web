@@ -3,6 +3,14 @@ declare(strict_types=1);
 
 function sheet_data(array $brand, array $doc): array
 {
+    $lh = decode_letterhead($doc['letterhead'] ?? '');
+    if ($lh) {
+        foreach ($lh as $k => $v) {
+            if (is_string($v) && trim($v) !== '') {
+                $brand[$k] = $v;
+            }
+        }
+    }
     $items = $doc['items'] ?? [];
     $net = doc_subtotal($items);
     $vat = doc_vat($items, (float) ($doc['vat_rate'] ?? 0));

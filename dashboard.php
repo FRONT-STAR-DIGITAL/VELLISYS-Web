@@ -37,9 +37,10 @@ $canInvoice = user_can_kind('invoice');
   </div>
 <?php endif; ?>
 <div class="desk-hero">
-  <div>
+  <div class="desk-hello">
     <p class="desk-kicker"><?= h($brand['name']) ?> · <?= h(default_currency()) ?> · <?= h(fx_rate_label()) ?></p>
-    <h1><?= h($hello) ?>, <?= h(explode(' ', $user['name'])[0]) ?>.</h1>
+    <p class="desk-hello-greet"><?= h($hello) ?></p>
+    <h1><?= h(explode(' ', $user['name'])[0]) ?></h1>
     <p class="lede"><?= is_desk_admin($user) ? 'What needs sending or collecting today. Colour and stationery live in Settings.' : 'What needs sending or collecting today.' ?></p>
   </div>
   <?php if ($canQuote || $canInvoice): ?>

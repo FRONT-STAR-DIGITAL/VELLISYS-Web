@@ -108,6 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             apply_fx_rate(post('fx_ugx_per_usd'));
         }
         $payload['doc_template'] = doc_template_key();
+        $letterhead = posted_letterhead();
         if ($existing) {
             update_document($editId, $payload);
             $id = $editId;
@@ -116,6 +117,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id = create_document($payload);
             flash($meta['singular'] . ' ' . load_document($id)['number'] . ' saved.');
         }
+        save_document_letterhead($id, $letterhead);
+        if (trim((string) ($letterhead['name'] ?? '')) !== '') {
+            apply_letterhead_to_branding($letterhead);
+        }
+        apply_posted_party($partyId);
         redirect('document_view.php?id=' . $id);
     } catch (Throwable $e) {
         flash($e->getMessage(), 'err');
@@ -146,6 +152,22 @@ $heading = $existing ? 'Edit ' . strtolower($meta['singular']) : $meta['verb'];
 $docCurrency = $existing ? doc_currency($existing) : default_currency();
 $docTpl = $existing ? doc_template_key($existing) : doc_template_key();
 $allocValue = $existing ? (string) ($existing['allocated_amount'] ?: ($existing['totals']['total'] ?? '')) : '';
+$fromDoc = array_merge($brand = branding(), decode_letterhead($existing['letterhead'] ?? ''));
+$toParty = $prefillParty ? db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$prefillParty, current_company_id()]) : null;
+$partyBook = [];
+foreach ($parties as $p) {
+    $partyBook[(int) $p['id']] = [
+        'name' => (string) ($p['name'] ?? ''),
+        'contact' => (string) ($p['contact_person'] ?? ''),
+        'tin' => (string) ($p['tin'] ?? ''),
+        'phone' => (string) ($p['phone'] ?? ''),
+        'phone2' => (string) ($p['phone2'] ?? ''),
+        'email' => (string) ($p['email'] ?? ''),
+        'address' => (string) ($p['address'] ?? ''),
+        'city' => (string) ($p['city'] ?? ''),
+        'country' => (string) ($p['country'] ?? ''),
+    ];
+}
 
 layout_start($heading, $user, ['kind' => $kind]);
 ?>
@@ -170,7 +192,7 @@ layout_start($heading, $user, ['kind' => $kind]);
   </div>
 </div>
 
-<form class="card form-wide document-form" method="post" <?= $kind === 'letter' ? 'data-letter-templates' : '' ?> <?= $kind === 'receipt' ? 'data-receipt-form' : '' ?> data-fx-form data-fx-home="<?= h(default_currency()) ?>">
+<form class="card form-wide document-form" method="post" <?= $kind === 'letter' ? 'data-letter-templates' : '' ?> <?= $kind === 'receipt' ? 'data-receipt-form' : '' ?> data-fx-form data-fx-home="<?= h(default_currency()) ?>" data-party-book="<?= h(json_encode($partyBook, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}') ?>">
   <?= csrf_field() ?>
   <input type="hidden" name="kind" value="<?= h($kind) ?>">
   <?php if ($existing): ?>
@@ -214,6 +236,87 @@ layout_start($heading, $user, ['kind' => $kind]);
         <?php endforeach; ?>
       </select>
       <p class="hint"><a href="<?= h(url('client_edit.php')) ?>">Add a new client</a></p>
+    </div>
+    <div class="doc-side-block" style="grid-column:1 / -1">
+      <details class="doc-side" open>
+        <summary>From - your company on this sheet</summary>
+        <div class="form-grid">
+          <div>
+            <label for="from_name">Company name</label>
+            <input id="from_name" name="from_name" value="<?= h((string) ($fromDoc['name'] ?? '')) ?>">
+          </div>
+          <div>
+            <label for="from_tagline">Tagline</label>
+            <input id="from_tagline" name="from_tagline" value="<?= h((string) ($fromDoc['tagline'] ?? '')) ?>">
+          </div>
+          <div style="grid-column:1 / -1">
+            <label for="from_address">Address</label>
+            <input id="from_address" name="from_address" value="<?= h((string) ($fromDoc['address'] ?? '')) ?>">
+          </div>
+          <div>
+            <label for="from_city">City</label>
+            <input id="from_city" name="from_city" value="<?= h((string) ($fromDoc['city'] ?? '')) ?>">
+          </div>
+          <div>
+            <label for="from_phone">Phone</label>
+            <input id="from_phone" name="from_phone" value="<?= h((string) ($fromDoc['phone'] ?? '')) ?>">
+          </div>
+          <div>
+            <label for="from_email">Email</label>
+            <input id="from_email" name="from_email" value="<?= h((string) ($fromDoc['email'] ?? '')) ?>">
+          </div>
+          <div>
+            <label for="from_website">Website</label>
+            <input id="from_website" name="from_website" value="<?= h((string) ($fromDoc['website'] ?? '')) ?>">
+          </div>
+          <div>
+            <label for="from_tin">TIN</label>
+            <input id="from_tin" name="from_tin" value="<?= h((string) ($fromDoc['tin'] ?? '')) ?>">
+          </div>
+        </div>
+      </details>
+      <details class="doc-side" open>
+        <summary>To - <?= $kind === 'expense' ? 'payee' : 'client' ?> on this sheet</summary>
+        <div class="form-grid" data-to-fields>
+          <div>
+            <label for="to_name">Name</label>
+            <input id="to_name" name="to_name" value="<?= h((string) ($toParty['name'] ?? '')) ?>">
+          </div>
+          <div>
+            <label for="to_contact">Contact person</label>
+            <input id="to_contact" name="to_contact" value="<?= h((string) ($toParty['contact_person'] ?? '')) ?>">
+          </div>
+          <div style="grid-column:1 / -1">
+            <label for="to_address">Address</label>
+            <textarea id="to_address" name="to_address" rows="3"><?= h((string) ($toParty['address'] ?? '')) ?></textarea>
+          </div>
+          <div>
+            <label for="to_city">City</label>
+            <input id="to_city" name="to_city" value="<?= h((string) ($toParty['city'] ?? '')) ?>">
+          </div>
+          <div>
+            <label for="to_country">Country</label>
+            <input id="to_country" name="to_country" value="<?= h((string) ($toParty['country'] ?? '')) ?>">
+          </div>
+          <div>
+            <label for="to_phone">Phone</label>
+            <input id="to_phone" name="to_phone" value="<?= h((string) ($toParty['phone'] ?? '')) ?>">
+          </div>
+          <div>
+            <label for="to_phone2">Phone 2</label>
+            <input id="to_phone2" name="to_phone2" value="<?= h((string) ($toParty['phone2'] ?? '')) ?>">
+          </div>
+          <div>
+            <label for="to_email">Email</label>
+            <input id="to_email" name="to_email" value="<?= h((string) ($toParty['email'] ?? '')) ?>">
+          </div>
+          <div>
+            <label for="to_tin">TIN</label>
+            <input id="to_tin" name="to_tin" value="<?= h((string) ($toParty['tin'] ?? '')) ?>">
+          </div>
+        </div>
+        <p class="hint">These print as From and Bill to / To. Saving updates the client record and the company letterhead.</p>
+      </details>
     </div>
     <div>
       <label for="date">Date</label>

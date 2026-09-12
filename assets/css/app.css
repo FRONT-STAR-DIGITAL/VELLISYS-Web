@@ -856,7 +856,7 @@ table.grid tfoot td {
   flex: 1 1 240px;
 }
 .filter-dates label { display: grid; gap: 4px; min-width: 0; }
-.filter-dates input[type=date] { width: 100%; min-width: 0; }
+.filter-dates input[type=date] { width: 100%; min-width: 0; font-weight: 400; }
 .chip {
   display: inline-flex;
   align-items: center;
@@ -1181,6 +1181,28 @@ table.grid tfoot td {
   font-weight: 700;
 }
 .desk-hero h1 { margin: 0 0 6px; font-size: 34px; }
+.desk-hello-greet {
+  margin: 0 0 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: .04em;
+}
+.doc-side {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 12px 12px;
+  margin: 8px 0 0;
+  background: #fafbff;
+}
+.doc-side summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 6px 0;
+}
+.doc-side .form-grid { margin-top: 4px; }
+input, select, textarea { font-weight: 400; }
 .desk-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(260px, .85fr);
@@ -1394,7 +1416,22 @@ table.grid tfoot td {
   .top { justify-content: flex-start; padding: 10px 16px; gap: 8px; }
   .top-meta { flex: 1 1 160px; }
   .top-clock, .top-term { font-size: 12px; padding: 5px 8px; }
-  .top-actions .btn { padding: 8px 10px; }
+  .top-actions .btn { padding: 8px 10px; font-size: 13px; }
+  .desk-hero {
+    background: #fff;
+    border: 1px solid rgba(8, 20, 58, .06);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
+    padding: 14px 16px 16px;
+    margin-bottom: 16px;
+    gap: 12px;
+    align-items: stretch;
+  }
+  .desk-hero h1 { font-size: 22px; font-weight: 700; line-height: 1.2; margin: 0 0 6px; }
+  .desk-hello-greet { font-size: 11px; text-transform: uppercase; letter-spacing: .12em; }
+  .desk-hero .lede { font-size: 13px; }
+  .desk-hero .actions { width: 100%; display: flex; gap: 8px; }
+  .desk-hero .actions .btn { flex: 1; min-height: 44px; }
   .content { padding: 18px 16px 72px; }
   .page-head { gap: 12px; margin-bottom: 18px; }
   .page-head .btn { width: auto; }
@@ -1487,7 +1524,15 @@ table.grid tfoot td {
   .filter-dates { flex: none; width: 100%; min-width: 0; }
   .filters input,
   .filters select { width: 100%; }
-  .filters input[type=date] { width: 100%; }
+  .filters input[type=date] { width: 100%; font-weight: 400; color: var(--ink); }
+  .filter-apply {
+    background: var(--brand);
+    color: var(--on-brand, #fff);
+    border-color: var(--brand);
+    width: 100%;
+    min-height: 44px;
+  }
+  .filter-apply:hover { text-decoration: none; filter: brightness(0.96); }
   .chip { min-height: 36px; }
   h1 { font-size: 22px; }
   .lede { max-width: none; }
@@ -1589,8 +1634,6 @@ table.grid tfoot td {
   .nav-toggle { min-width: 44px; min-height: 44px; }
 }
 @media (max-width: 420px) {
-  .quick-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
-  .top-actions [data-quick] { min-width: 44px; padding: 8px; }
   .page-head .actions .btn,
   .page-head .actions form { flex-basis: 100%; }
   .page-head .doc-toolbar .btn,

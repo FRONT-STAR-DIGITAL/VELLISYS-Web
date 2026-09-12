@@ -3,6 +3,11 @@ try {
 } catch (e0) {}
 
 document.addEventListener('click', function (e) {
+  if (e.target.closest('[data-print-pdf]')) {
+    e.preventDefault();
+    window.print();
+    return;
+  }
   document.querySelectorAll('details.share-pop[open]').forEach(function (el) {
     if (!el.contains(e.target)) el.removeAttribute('open');
   });
@@ -495,3 +500,37 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
   if (toggle) toggle.addEventListener('change', sync);
   sync();
 });
+
+(function () {
+  var form = document.querySelector('[data-party-book]');
+  if (!form) return;
+  var sel = form.querySelector('#party_id');
+  if (!sel) return;
+  var book = {};
+  try {
+    book = JSON.parse(form.getAttribute('data-party-book') || '{}');
+  } catch (e) {
+    return;
+  }
+  function fill(id) {
+    var row = book[id] || book[String(id)] || {};
+    var map = {
+      to_name: row.name || '',
+      to_contact: row.contact || '',
+      to_tin: row.tin || '',
+      to_phone: row.phone || '',
+      to_phone2: row.phone2 || '',
+      to_email: row.email || '',
+      to_address: row.address || '',
+      to_city: row.city || '',
+      to_country: row.country || ''
+    };
+    Object.keys(map).forEach(function (name) {
+      var el = form.querySelector('[name="' + name + '"]');
+      if (el) el.value = map[name];
+    });
+  }
+  sel.addEventListener('change', function () {
+    fill(sel.value);
+  });
+})();

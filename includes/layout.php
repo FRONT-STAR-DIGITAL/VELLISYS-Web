@@ -248,7 +248,7 @@ function layout_end(string $extra = ''): void
 <?php endif; ?>
 <script src="<?= h(asset('js/app.js')) ?>" defer></script>
 <?php
-$sheetJs = in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['document_view.php', 'document_new.php', 'document_action.php', 'share.php'], true);
+$sheetJs = in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['document_view.php', 'document_new.php', 'document_action.php', 'share.php', 'document_pdf.php'], true);
 if ($sheetJs): ?>
 <script src="<?= h(asset('js/sheet-fit.js')) ?>" defer></script>
 <?php endif; ?>

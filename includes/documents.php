@@ -91,10 +91,130 @@ function next_sequence(string $kind): int
     return (int) ($row['n'] ?? 1);
 }
 
+function default_number_format(): string
+{
+    return '{prefix}-{kind}-{yyyy}-{seq:4}';
+}
+
+function sanitize_number_format(string $raw): string
+{
+    $raw = trim($raw);
+    $raw = str_replace(['—', '–', '−'], '-', $raw);
+    if ($raw === '') {
+        return default_number_format();
+    }
+    $left = preg_replace('/\{prefix\}|\{kind\}|\{yyyy\}|\{yy\}|\{seq(?::\d+)?\}/', '', $raw) ?? $raw;
+    $left = preg_replace('/[A-Za-z0-9._\/\- ]/', '', $left) ?? $left;
+    if ($left !== '') {
+        return default_number_format();
+    }
+    if (!preg_match('/\{seq(?::\d+)?\}/', $raw)) {
+        $raw = rtrim($raw, '-/ ') . '-{seq:4}';
+    }
+    return substr($raw, 0, 80);
+}
+
+function format_document_number(string $kind, int $sequence, ?array $brand = null): string
+{
+    $brand = $brand ?? branding();
+    $fmt = sanitize_number_format((string) ($brand['number_format'] ?? ''));
+    $prefix = strtoupper((string) ($brand['prefix'] ?? 'DOC'));
+    $out = strtr($fmt, [
+        '{prefix}' => $prefix,
+        '{kind}' => kind_code($kind),
+        '{yyyy}' => date('Y'),
+        '{yy}' => date('y'),
+        '{seq}' => (string) $sequence,
+    ]);
+    $out = preg_replace_callback('/\{seq:(\d+)\}/', static function (array $m) use ($sequence): string {
+        return str_pad((string) $sequence, max(1, (int) $m[1]), '0', STR_PAD_LEFT);
+    }, $out) ?? $out;
+    return $out;
+}
+
 function next_number(string $kind, int $sequence): string
 {
-    $prefix = branding()['prefix'] ?? 'OFG';
-    return sprintf('%s-%s-%s-%04d', $prefix, kind_code($kind), date('Y'), $sequence);
+    return format_document_number($kind, $sequence);
+}
+
+function decode_letterhead($raw): array
+{
+    if (is_array($raw)) {
+        return $raw;
+    }
+    $data = json_decode((string) $raw, true);
+    return is_array($data) ? $data : [];
+}
+
+function posted_letterhead(): array
+{
+    $out = [];
+    foreach (['name', 'tagline', 'address', 'city', 'phone', 'email', 'tin', 'website'] as $key) {
+        $out[$key] = trim((string) ($_POST['from_' . $key] ?? ''));
+    }
+    return $out;
+}
+
+function save_document_letterhead(int $id, array $fields): void
+{
+    $json = json_encode($fields, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
+    db_exec('UPDATE documents SET letterhead = ? WHERE id = ? AND company_id = ?', 'sii', [$json, $id, current_company_id()]);
+}
+
+function apply_letterhead_to_branding(array $fields): void
+{
+    if (trim((string) ($fields['name'] ?? '')) === '') {
+        return;
+    }
+    db_exec(
+        'UPDATE branding SET name=?, tagline=?, address=?, city=?, phone=?, email=?, tin=?, website=? WHERE company_id=?',
+        'ssssssssi',
+        [
+            $fields['name'],
+            $fields['tagline'] ?? '',
+            $fields['address'] ?? '',
+            $fields['city'] ?? '',
+            $fields['phone'] ?? '',
+            $fields['email'] ?? '',
+            $fields['tin'] ?? '',
+            $fields['website'] ?? '',
+            current_company_id(),
+        ]
+    );
+    branding(true);
+}
+
+function apply_posted_party(int $partyId): void
+{
+    if ($partyId <= 0) {
+        return;
+    }
+    $name = trim((string) ($_POST['to_name'] ?? ''));
+    if ($name === '') {
+        return;
+    }
+    $cid = current_company_id();
+    $party = db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$partyId, $cid]);
+    if (!$party) {
+        return;
+    }
+    db_exec(
+        'UPDATE parties SET name=?, contact_person=?, tin=?, phone=?, phone2=?, email=?, address=?, city=?, country=? WHERE id=? AND company_id=?',
+        'sssssssssii',
+        [
+            $name,
+            trim((string) ($_POST['to_contact'] ?? $party['contact_person'] ?? '')),
+            trim((string) ($_POST['to_tin'] ?? $party['tin'] ?? '')) ?: null,
+            trim((string) ($_POST['to_phone'] ?? $party['phone'] ?? '')) ?: null,
+            trim((string) ($_POST['to_phone2'] ?? $party['phone2'] ?? '')) ?: null,
+            trim((string) ($_POST['to_email'] ?? $party['email'] ?? '')) ?: null,
+            trim((string) ($_POST['to_address'] ?? $party['address'] ?? '')) ?: null,
+            trim((string) ($_POST['to_city'] ?? $party['city'] ?? '')) ?: null,
+            trim((string) ($_POST['to_country'] ?? $party['country'] ?? '')) ?: null,
+            $partyId,
+            $cid,
+        ]
+    );
 }
 
 function apply_efris_mark(int $id, string $number, string $date, $grand): void
