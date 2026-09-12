@@ -433,7 +433,10 @@ function csrf_field(): string
 
 function form_honeypot_field(): string
 {
-    return '<div class="lp-hp" aria-hidden="true"><label>Website<input type="text" name="website" value="" tabindex="-1" autocomplete="off"></label></div>';
+    return '<div class="lp-hp" aria-hidden="true">'
+        . '<label>Website<input type="text" name="website" value="" tabindex="-1" autocomplete="off"></label>'
+        . '<label>Fax<input type="text" name="company_fax" value="" tabindex="-1" autocomplete="off"></label>'
+        . '</div>';
 }
 
 function form_mark_open(string $form): void
@@ -452,6 +455,9 @@ function form_is_spam(string $form, int $minSeconds = 2): bool
     if (trim((string) ($_POST['website'] ?? '')) !== '') {
         return true;
     }
+    if (trim((string) ($_POST['company_fax'] ?? '')) !== '') {
+        return true;
+    }
     if ($minSeconds <= 0) {
         return false;
     }
@@ -460,6 +466,47 @@ function form_is_spam(string $form, int $minSeconds = 2): bool
         $started = (int) ($_SESSION['ask_form_at'] ?? 0);
     }
     return $started <= 0 || (time() - $started) < $minSeconds;
+}
+
+function join_fields_look_like_spam(): bool
+{
+    $name = trim(post('contact_name', '', 80));
+    $company = trim(post('company_name', '', 160));
+    $email = strtolower(trim(post('contact_email', '', 190)));
+    $note = trim(post('join_note', '', 800));
+    $blob = $name . "\n" . $company . "\n" . $note;
+    if (preg_match('/https?:\/\/|www\.|\bbit\.ly\b|\btinyurl\b/i', $name . $company) === 1) {
+        return true;
+    }
+    if (preg_match_all('/https?:\/\//i', $blob) >= 1) {
+        return true;
+    }
+    if (preg_match('/\[url\s*=|href\s*=/i', $blob) === 1) {
+        return true;
+    }
+    if ($email === '') {
+        return false;
+    }
+    $at = strrpos($email, '@');
+    $domain = $at === false ? '' : substr($email, $at + 1);
+    if ($domain === '' || !str_contains($domain, '.') || str_starts_with($domain, '.') || str_ends_with($domain, '.')) {
+        return true;
+    }
+    $host = strtolower($domain);
+    $disposable = [
+        'mailinator.com', 'guerrillamail.com', 'guerrillamail.net', '10minutemail.com',
+        'tempmail.com', 'temp-mail.org', 'trashmail.com', 'yopmail.com', 'sharklasers.com',
+        'getnada.com', 'dispostable.com', 'moakt.com', 'throwawaymail.com',
+    ];
+    foreach ($disposable as $bad) {
+        if ($host === $bad || str_ends_with($host, '.' . $bad)) {
+            return true;
+        }
+    }
+    if (preg_match('/(.)\1{8,}/', $name . $company) === 1) {
+        return true;
+    }
+    return false;
 }
 
 function form_rate_blocked(string $bucket, int $max, int $seconds = 3600): bool
@@ -807,6 +854,10 @@ function record_website_signup(string $source, string $note = ''): array
     $note = mb_substr($note, 0, 2000);
     if ($name === '' || $company === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || $phone === '') {
         return ['ok' => false, 'error' => 'Your name, company, email and phone are enough - please fill those in.'];
+    }
+    $digits = preg_replace('/\D+/', '', $phone) ?? '';
+    if (strlen($digits) < 8 || strlen($digits) > 15) {
+        return ['ok' => false, 'error' => 'Please enter a working phone number, including the country code if you can.'];
     }
     try {
         if (db_one('SELECT id FROM users WHERE email = ?', 's', [$email])) {
@@ -1762,6 +1813,11 @@ function product_from_name(): string
 function product_email(): string
 {
     return 'info@vellisys.com';
+}
+
+function public_packages_url(): string
+{
+    return rtrim(url(''), '/') . '/#pricing';
 }
 
 function product_phones(): array
@@ -2731,7 +2787,7 @@ function product_logo_file(): string
 
 function product_email_logo_file(): string
 {
-    foreach (['assets/img/vellisys-avatar.png', 'assets/img/vellisys-email-logo.png', 'assets/img/our-logo.png', 'assets/img/vellisys-logo.png', 'assets/img/logo.png'] as $rel) {
+    foreach (['assets/img/vellisys-email-logo.png', 'assets/img/our-logo.png', 'assets/img/vellisys-logo.png', 'assets/img/logo.png'] as $rel) {
         $full = ROOT_PATH . '/' . $rel;
         if (is_file($full)) {
             return $full;
@@ -2827,7 +2883,7 @@ function product_icons(): void
 function folio_critical_css(string $surface = 'landing'): void
 {
     if ($surface === 'desk') {
-        echo '<style>html,body{margin:0;background:#f4f6fb}html{background:#f4f6fb}body{font-family:Montserrat,"Segoe UI",sans-serif;color:#10182c}.desk-body{background:#f4f3ef}.app{display:flex;min-height:100vh}.nav{width:72px;flex-shrink:0;background:#fff}</style>';
+        echo '<style>html,body{margin:0;background:#fff}html{background:#fff}body{font-family:Montserrat,"Segoe UI",sans-serif;color:#10182c}.desk-body{background:#fff}.app{display:flex;min-height:100vh}.nav{width:72px;flex-shrink:0;background:#fff}</style>';
         return;
     }
     echo '<style>html{background:#f5f7fc;scroll-behavior:smooth;overflow-x:hidden;overflow-x:clip}body{margin:0;font-family:Montserrat,"Segoe UI",sans-serif;color:#10182c;background:#f5f7fc}body.gate{background:#08143a;color:#fff}.lp-chrome{position:sticky;top:0;z-index:40}.lp-ticker{background:#08143a;color:#fff;height:34px;overflow:hidden}.lp-nav{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 5vw;background:rgba(255,255,255,.92);border-bottom:1px solid rgba(8,20,58,.08)}.lp-logo{display:block;height:38px;width:auto;background:transparent}.lp-btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 18px;border-radius:12px;font-weight:700;text-decoration:none}.lp-btn-solid{background:#1e4eff;color:#fff}.lp-btn-ghost{background:#fff;color:#08143a;border:1px solid rgba(8,20,58,.12)}.lp-floats{position:fixed;right:16px;bottom:16px;z-index:80}.lp-wa-fab{width:48px;height:48px;border:0;border-radius:50%;background:#25d366;color:#fff}</style>';

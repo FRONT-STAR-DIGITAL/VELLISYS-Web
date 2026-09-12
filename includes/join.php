@@ -49,10 +49,10 @@ function join_handle_post(string $intentKey): array
     if (!csrf_valid()) {
         return ['ok' => false, 'error' => 'Your session expired. Please submit the form again.'];
     }
-    if (form_is_spam('join-' . $source, 1)) {
+    if (form_is_spam('join-' . $source, 3) || join_fields_look_like_spam()) {
         return ['ok' => true, 'silent' => true];
     }
-    if (form_rate_blocked('join-' . $source, 6)) {
+    if (form_rate_blocked('join-' . $source, 4) || form_rate_blocked('join', 6)) {
         return ['ok' => false, 'error' => 'Please wait a bit before sending another request.'];
     }
     $plan = strtolower(trim(post('join_plan', '', 40)));
@@ -70,6 +70,7 @@ function join_handle_post(string $intentKey): array
         return ['ok' => false, 'error' => (string) ($saved['error'] ?? 'We could not save that just now.')];
     }
     form_rate_hit('join-' . $source);
+    form_rate_hit('join');
     return ['ok' => true, 'signup' => $saved['signup']];
 }
 

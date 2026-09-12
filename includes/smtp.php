@@ -284,6 +284,12 @@ function smtp_build_message(string $from, string $fromName, string $to, string $
         'MIME-Version: 1.0',
         'X-Mailer: Vellisys',
     ];
+    if (preg_match('/\burgent\b/i', $subject)) {
+        $headers[] = 'Importance: high';
+        $headers[] = 'Priority: urgent';
+        $headers[] = 'X-Priority: 1 (Highest)';
+        $headers[] = 'X-MSMail-Priority: High';
+    }
     if (!$usable) {
         $headers[] = 'Content-Type: multipart/alternative; boundary="' . $altBoundary . '"';
         $raw = implode("\r\n", $headers) . "\r\n\r\n" . $alt;

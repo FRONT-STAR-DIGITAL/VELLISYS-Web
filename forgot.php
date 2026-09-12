@@ -24,12 +24,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Please wait a bit before sending another request.';
         } else {
             form_rate_hit('forgot');
-            $sent = notify_password_reset_request($email);
-            if (empty($sent['ok'])) {
-                $error = 'We could not send that just now. Write to ' . product_email() . ' or call ' . implode(' or ', product_phones()) . '.';
-            } else {
-                redirect('forgot.php?ok=1');
-            }
+            folio_redirect_then('forgot.php?ok=1', static function () use ($email): void {
+                notify_password_reset_request($email);
+            });
         }
     }
 }

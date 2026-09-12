@@ -27,6 +27,13 @@
       var dest = el.getAttribute('data-pwa-home') || home;
       el.setAttribute('href', dest);
     });
+    document.querySelectorAll('[data-open-website]').forEach(function (el) {
+      el.setAttribute('target', '_blank');
+      el.setAttribute('rel', 'noopener noreferrer');
+      try {
+        el.setAttribute('href', new URL(el.getAttribute('href') || '/#pricing', location.origin).href);
+      } catch (err) {}
+    });
   }
 
   var swUrl = html.getAttribute('data-sw') || 'sw.js';

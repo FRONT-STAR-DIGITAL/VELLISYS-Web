@@ -20,8 +20,8 @@ function vellisys_email_wrap(string $innerHtml, string $kicker = 'Vellisys'): st
         . '<tr><td align="center" style="padding:28px 12px;">'
         . '<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background:' . $white . ';border:1px solid ' . $navy . ';">'
         . '<tr><td style="height:8px;line-height:8px;font-size:0;background:' . $blue . ';">&nbsp;</td></tr>'
-        . '<tr><td align="center" style="padding:22px 32px 16px;background:' . $white . ';text-align:center;">'
-        . '<img src="cid:vellisys-logo" alt="Vellisys" width="72" height="72" style="display:inline-block;margin:0 auto;border:0;outline:none;text-decoration:none;width:72px;height:72px;border-radius:16px;background:' . $navy . ';">'
+        . '<tr><td align="center" style="padding:24px 32px 18px;background:' . $white . ';text-align:center;">'
+        . '<img src="cid:vellisys-logo" alt="Vellisys" width="176" style="display:inline-block;margin:0 auto;border:0;outline:none;text-decoration:none;height:auto;max-width:176px;background:' . $white . ';">'
         . '</td></tr>'
         . '<tr><td align="center" style="background:' . $navy . ';padding:13px 32px;text-align:center;">'
         . '<p style="margin:0;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:' . $white . ';font-weight:700;text-align:center;">' . h($kicker) . '</p>'
@@ -416,22 +416,23 @@ function notify_password_reset_request(string $email): array
         : ($found ? 'No company on this login' : 'Unknown');
 
     $html = vellisys_email_wrap(
-        '<p style="margin:0 0 14px">Someone asked a Vellisys admin to send a reset password.</p>'
+        '<p style="margin:0 0 14px;font-weight:700;color:#b42318;letter-spacing:.08em;text-transform:uppercase;">Urgent</p>'
+        . '<p style="margin:0 0 14px">Someone requires a password reset on a Vellisys desk. Please help them today.</p>'
         . '<p style="margin:0 0 8px"><strong>Personal email:</strong> ' . h($email) . '</p>'
         . '<p style="margin:0 0 8px"><strong>Desk user:</strong> ' . $matchLine . '</p>'
         . '<p style="margin:0 0 8px"><strong>Company:</strong> ' . $companyLine . '</p>'
         . '<p style="margin:16px 0 0">Reset the password on the company page (People), then send it to this mailbox. Do not post the new password in a public place.</p>'
         . '<p style="margin:16px 0 0"><a href="' . h($deskLink) . '" style="color:#1E4EFF">Open the company</a></p>',
-        'Password reset request'
+        'Urgent password reset'
     );
-    $text = "Someone asked a Vellisys admin to send a reset password.\n\n"
+    $text = "URGENT: someone requires a password reset.\n\n"
         . "Personal email: {$email}\n"
         . 'Desk user: ' . ($found ? (($who !== '' ? $who : $email) . ' (' . $role . ')') : 'no matching desk login') . "\n"
         . 'Company: ' . strip_tags($companyLine) . "\n\n"
         . "Reset the password on the desk, then send it to this mailbox.\n"
         . $deskLink;
 
-    return notify_platform('Password reset request: ' . $email, $html, $text, $email, $uid);
+    return notify_platform('URGENT: password reset required — ' . $email, $html, $text, $email, $uid);
 }
 
 function notify_admin_order(array $order, string $event): void

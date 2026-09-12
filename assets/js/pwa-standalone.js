@@ -15,6 +15,11 @@
     return;
   }
   document.documentElement.classList.add('is-pwa');
+  var hash = (location.hash || '').toLowerCase();
+  var wantSite = hash === '#pricing' || /(?:^|[?&])website=1(?:&|$)/.test(location.search || '');
+  if (wantSite) {
+    return;
+  }
   var target = document.documentElement.getAttribute('data-pwa-login') || 'login.php';
   location.replace(target);
 })();

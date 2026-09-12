@@ -389,6 +389,7 @@
 }
 
 @media print {
+  .desk-body::before { display: none !important; }
   html, body, .print-body, .desk-body {
     background: #fff !important;
     margin: 0 !important;
