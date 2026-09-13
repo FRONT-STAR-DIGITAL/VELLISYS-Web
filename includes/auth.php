@@ -132,8 +132,8 @@ function user_can_open(string $script, string $kind = ''): bool
 {
     $script = basename($script);
     $plannerScripts = ['planner.php', 'planner_notes.php', 'planner_budget.php', 'planner_calendar.php'];
-    if (in_array($script, $plannerScripts, true) && !company_planner_enabled()) {
-        return false;
+    if (in_array($script, $plannerScripts, true)) {
+        return company_planner_enabled() && is_desk_admin();
     }
     if (is_desk_admin()) {
         return true;

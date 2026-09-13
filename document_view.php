@@ -39,9 +39,7 @@ if ($doc['kind'] === 'invoice') {
       <?= h($ledeExtra) ?>
     </p>
   </div>
-  <div class="actions">
-    <?php render_doc_actions($doc, true); ?>
-  </div>
+  <?php render_doc_actions($doc, true); ?>
 </div>
 
 <div class="sheet-wrap<?= $doc['kind'] === 'expense' ? ' expense-wrap' : '' ?>">

@@ -57,7 +57,7 @@ function layout_start(string $title, array $user, array $opts = []): void
             ['clients.php', 'Clients', 'building'],
         ]
     );
-    if (company_planner_enabled()) {
+    if (company_planner_enabled() && is_desk_admin()) {
         $nav[] = ['planner.php', 'Planner', 'calendar'];
     }
     $nav = array_merge($nav, [
@@ -77,7 +77,7 @@ function layout_start(string $title, array $user, array $opts = []): void
         }
         return user_can_open($file, $kind);
     }));
-    $notes = company_planner_enabled() ? planner_notifications(10) : [];
+    $notes = (company_planner_enabled() && is_desk_admin()) ? planner_notifications(10) : [];
     $noteCount = count($notes);
     ?>
 <!DOCTYPE html>
@@ -154,7 +154,7 @@ function layout_start(string $title, array $user, array $opts = []): void
         <?php render_top_clock(); ?>
       </div>
       <div class="top-actions">
-        <?php if ($noteCount > 0 || company_planner_enabled()): ?>
+        <?php if (company_planner_enabled() && is_desk_admin()): ?>
           <details class="top-bell">
             <summary class="header-settings<?= $noteCount ? ' has-badge' : '' ?>" title="Notifications" aria-label="Notifications">
               <?= icon('bell', 20) ?>
@@ -176,14 +176,9 @@ function layout_start(string $title, array $user, array $opts = []): void
                   <?php endforeach; ?>
                 </ul>
               <?php endif; ?>
-              <?php if (company_planner_enabled()): ?>
-                <a class="top-bell-foot" href="<?= h(url('planner.php')) ?>">Open Planner</a>
-              <?php endif; ?>
+              <a class="top-bell-foot" href="<?= h(url('planner.php')) ?>">Open Planner</a>
             </div>
           </details>
-        <?php endif; ?>
-        <?php if (user_can_open('settings.php')): ?>
-          <a class="header-settings<?= in_array($here, ['settings.php', 'branding.php'], true) ? ' is-on' : '' ?>" href="<?= h(url('settings.php')) ?>" title="Settings" aria-label="Settings"><?= icon('settings', 20) ?></a>
         <?php endif; ?>
         <button class="btn ghost" type="button" data-quick><?= icon('plus', 16) ?><span class="quick-label">Quick add</span></button>
       </div>

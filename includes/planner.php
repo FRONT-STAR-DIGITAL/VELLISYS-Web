@@ -61,7 +61,7 @@ function planner_resolve_enabled(string $plan, bool $checkboxOn, ?array $previou
 
 function require_planner(): array
 {
-    $user = require_member();
+    $user = require_desk_admin();
     if (!company_planner_enabled()) {
         flash('Planner is not on for this desk. Ask Vellisys if you need Business or Pro.', 'err');
         redirect('dashboard.php');

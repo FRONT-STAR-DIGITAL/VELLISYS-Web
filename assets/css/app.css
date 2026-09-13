@@ -732,7 +732,9 @@ table.grid td:not(.row-actions):not(.right) {
 .pill.warn { background: #f8e8d8; color: #7a3e12; }
 .pill.bad { background: #f8e1df; color: #7a1f1a; }
 .actions { display: flex; flex-direction: row; flex-wrap: nowrap; gap: 3px; align-items: center; }
-.page-head .actions { flex-wrap: wrap; }
+.page-head > .actions,
+.page-head > .page-actions { flex-wrap: wrap; gap: 8px; }
+.page-head .doc-toolbar { flex-wrap: wrap; gap: 6px; }
 .doc-toolbar { flex-wrap: wrap; }
 .welcome-pop {
   position: fixed;
@@ -1576,35 +1578,49 @@ input, select, textarea { font-weight: 400; }
     gap: 8px;
   }
   .top-meta { flex: 1 1 auto; min-width: 0; }
+  .top-clock span { max-width: 9.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .top-actions {
     width: auto;
     margin-left: auto;
     flex-shrink: 0;
+    gap: 6px;
   }
-  .top-actions .btn { flex: 0 0 auto; min-height: 44px; }
+  .top-actions .btn { flex: 0 0 auto; min-height: 40px; padding: 8px 10px; }
+  .quick-label { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+  .top-actions .btn[data-quick] { width: 40px; padding: 0; }
   .page-head { align-items: stretch; }
-  .page-head .actions,
-  .page-head .page-actions {
+  /* Page actions: 2-up so labels like "Record expense" fit without colliding */
+  .page-head > .actions,
+  .page-head > .page-actions {
     width: 100%;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
-  .page-head .actions .btn,
-  .page-head .actions form,
-  .page-head .page-actions .btn {
+  .page-head > .actions > .btn,
+  .page-head > .actions > form,
+  .page-head > .page-actions > .btn {
     flex: none;
     width: 100%;
     min-width: 0;
     min-height: 44px;
-    white-space: nowrap;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.2;
     padding: 8px 10px;
+    overflow: hidden;
   }
+  .page-head > .actions > form { display: block; margin: 0; }
+  .page-head > .actions > form > .btn { width: 100%; }
+  /* Doc toolbar is its own full-width grid (not nested inside a squeezed cell) */
+  .page-head > .doc-toolbar,
+  .page-head > .actions.doc-toolbar,
   .page-head .doc-toolbar {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     width: 100%;
     gap: 8px;
+    flex-wrap: unset;
   }
   .page-head .doc-toolbar .btn,
   .page-head .doc-toolbar form,
@@ -1613,8 +1629,42 @@ input, select, textarea { font-weight: 400; }
     width: 100%;
     min-width: 0;
   }
+  .page-head .doc-toolbar .btn {
+    white-space: normal;
+    line-height: 1.15;
+    padding: 8px 6px;
+    font-size: 12px;
+    min-height: 44px;
+    overflow: hidden;
+  }
+  .page-head .doc-toolbar form { display: block; margin: 0; }
+  .page-head .doc-toolbar form > .btn { width: 100%; }
   .page-head .doc-toolbar .share-pop > summary.btn { width: 100%; }
-  .stats, .stats.six, .action-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); display: grid; }
+  /* Money cards need room — never 3-up on phones */
+  .stats, .stats.six, .action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); display: grid; }
+  .stat, .stats .card.stat {
+    min-width: 0;
+    overflow: hidden;
+  }
+  .stat strong, .stats .card.stat strong {
+    font-size: 15px;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: normal;
+  }
+  .stat span, .stats .card.stat span {
+    overflow-wrap: anywhere;
+  }
+  .action-tile {
+    padding: 12px;
+    gap: 6px;
+  }
+  .action-tile span { font-size: 11.5px; }
+  .action-tile strong {
+    font-size: 12.5px;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
   .filter-chips {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1631,13 +1681,15 @@ input, select, textarea { font-weight: 400; }
   .filters {
     flex-direction: column;
     align-items: stretch;
+    gap: 10px;
+    padding: 12px;
   }
   .filter-dates {
     flex: none;
     width: 100%;
     min-width: 0;
-    grid-template-columns: 1fr;
-    gap: 12px;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
   }
   .filters input,
   .filters select { width: 100%; }
@@ -1659,7 +1711,20 @@ input, select, textarea { font-weight: 400; }
   }
   .chip { min-height: 36px; }
   h1 { font-size: 22px; }
-  .lede { max-width: none; }
+  .lede { max-width: none; font-size: 13.5px; }
+  .page-head .lede {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -4px;
+    padding: 0 4px;
+  }
+  .table-scroll table.grid { min-width: 560px; }
   .sheet-wrap { padding: 10px 0; border-radius: 0; }
   .share-toolbar {
     max-width: none;
@@ -1779,13 +1844,17 @@ input, select, textarea { font-weight: 400; }
   .nav-toggle { min-width: 44px; min-height: 44px; }
 }
 @media (max-width: 420px) {
-  .page-head .doc-toolbar,
-  .page-head .actions,
-  .page-head .page-actions,
+  .page-head > .actions,
+  .page-head > .page-actions,
   .filter-chips,
   .stats,
   .stats.six,
   .action-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .page-head > .doc-toolbar,
+  .page-head > .actions.doc-toolbar,
+  .page-head .doc-toolbar {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .page-head .doc-toolbar .btn,
@@ -2167,9 +2236,44 @@ input, select, textarea { font-weight: 400; }
   .planner-cal-day { min-height: 52px; padding: 6px; }
 }
 @media (max-width: 640px) {
-  .planner-tabs { display: grid; grid-template-columns: 1fr 1fr; }
-  .planner-tab { justify-content: center; min-height: 44px; }
+  .planner-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 6px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin: 0 0 14px;
+    padding-bottom: 2px;
+  }
+  .planner-tabs::-webkit-scrollbar { display: none; }
+  .planner-tab {
+    flex: 0 0 auto;
+    justify-content: center;
+    min-height: 36px;
+    padding: 6px 12px;
+    font-size: 12.5px;
+  }
   .planner-cal-grid { gap: 4px; padding: 0 10px 12px; }
   .planner-cal-day { min-height: 44px; border-radius: 8px; }
-  .top-bell-panel { right: -40px; }
+  .top-bell-panel {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    top: 58px;
+    width: auto;
+    max-width: none;
+  }
+  .quick {
+    left: 12px;
+    right: 12px;
+    top: 58px;
+    width: auto;
+    max-width: none;
+  }
+  .share-pop-list {
+    right: 0;
+    left: auto;
+    max-width: min(220px, calc(100vw - 24px));
+  }
 }
