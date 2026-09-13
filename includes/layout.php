@@ -55,11 +55,17 @@ function layout_start(string $title, array $user, array $opts = []): void
             ['debtors.php', 'Debtors', 'clients'],
             ['creditors.php', 'Creditors', 'bank'],
             ['clients.php', 'Clients', 'building'],
-            ['tutorials.php', 'Tutorials', 'book'],
-            ['reports.php', 'Reports', 'reports'],
-            ['account.php', 'Password', 'lock'],
         ]
     );
+    if (company_planner_enabled()) {
+        $nav[] = ['planner.php', 'Planner', 'calendar'];
+    }
+    $nav = array_merge($nav, [
+        ['tutorials.php', 'Tutorials', 'book'],
+        ['reports.php', 'Reports', 'reports'],
+        ['settings.php', 'Settings', 'settings'],
+        ['account.php', 'Password', 'lock'],
+    ]);
     if (function_exists('record_site_visit')) {
         record_site_visit();
     }
@@ -71,6 +77,8 @@ function layout_start(string $title, array $user, array $opts = []): void
         }
         return user_can_open($file, $kind);
     }));
+    $notes = company_planner_enabled() ? planner_notifications(10) : [];
+    $noteCount = count($notes);
     ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -106,8 +114,16 @@ function layout_start(string $title, array $user, array $opts = []): void
           if (in_array($here, ['client_view.php', 'client_edit.php'], true)) {
               $active = $file === 'clients.php';
           }
-          if ($here === 'settings.php' || $here === 'branding.php') {
-              $active = false;
+          if (str_starts_with($here, 'planner')) {
+              $active = $file === 'planner.php' || str_starts_with((string) $file, 'planner');
+              if ($file === 'planner.php') {
+                  $active = in_array($here, ['planner.php', 'planner_notes.php', 'planner_budget.php', 'planner_calendar.php'], true);
+              } else {
+                  $active = $file === $here;
+              }
+          }
+          if ($here === 'branding.php') {
+              $active = $file === 'settings.php';
           }
           ?>
         <a class="<?= $active ? 'is-on' : '' ?>" href="<?= h(url($href)) ?>" title="<?= h($label) ?>"><?= icon($iconName, 18) ?><span><?= h($label) ?></span></a>
@@ -138,6 +154,34 @@ function layout_start(string $title, array $user, array $opts = []): void
         <?php render_top_clock(); ?>
       </div>
       <div class="top-actions">
+        <?php if ($noteCount > 0 || company_planner_enabled()): ?>
+          <details class="top-bell">
+            <summary class="header-settings<?= $noteCount ? ' has-badge' : '' ?>" title="Notifications" aria-label="Notifications">
+              <?= icon('bell', 20) ?>
+              <?php if ($noteCount): ?><span class="top-bell-count"><?= $noteCount > 9 ? '9+' : $noteCount ?></span><?php endif; ?>
+            </summary>
+            <div class="top-bell-panel">
+              <strong>Coming up</strong>
+              <?php if (!$notes): ?>
+                <p class="muted">No deadlines or essentials right now.</p>
+              <?php else: ?>
+                <ul>
+                  <?php foreach ($notes as $n): ?>
+                    <li>
+                      <a href="<?= h($n['href']) ?>">
+                        <span class="top-bell-title"><?= h($n['title']) ?></span>
+                        <span class="top-bell-meta"><?= h($n['meta']) ?></span>
+                      </a>
+                    </li>
+                  <?php endforeach; ?>
+                </ul>
+              <?php endif; ?>
+              <?php if (company_planner_enabled()): ?>
+                <a class="top-bell-foot" href="<?= h(url('planner.php')) ?>">Open Planner</a>
+              <?php endif; ?>
+            </div>
+          </details>
+        <?php endif; ?>
         <?php if (user_can_open('settings.php')): ?>
           <a class="header-settings<?= in_array($here, ['settings.php', 'branding.php'], true) ? ' is-on' : '' ?>" href="<?= h(url('settings.php')) ?>" title="Settings" aria-label="Settings"><?= icon('settings', 20) ?></a>
         <?php endif; ?>

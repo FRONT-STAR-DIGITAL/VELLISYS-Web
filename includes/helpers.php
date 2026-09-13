@@ -1440,10 +1440,12 @@ function platform_create_company(?int $signupId = null): array
     $paymentNote = post('payment_note') ?: ('Make payment to ' . $name . '.');
     $comments = post('invoice_comments') ?: "1. Payment is due by the date shown above.\n2. Quote the invoice number on the transfer.";
 
+    $plan = normalize_company_plan(post('plan') ?: 'sme');
+    $plannerOn = planner_resolve_enabled($plan, !empty($_POST['planner_enabled']), null);
     $cid = db_exec(
-        'INSERT INTO companies (name, status, plan, notes, enabled_kinds, custom_doc, user_limit) VALUES (?,?,?,?,?,?,?)',
-        'ssssssi',
-        [$name, $status, 'sme', post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), $limit]
+        'INSERT INTO companies (name, status, plan, notes, enabled_kinds, custom_doc, user_limit, planner_enabled) VALUES (?,?,?,?,?,?,?,?)',
+        'ssssssii',
+        [$name, $status, $plan, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), $limit, $plannerOn]
     );
 
     $hasPaidTerm = false;

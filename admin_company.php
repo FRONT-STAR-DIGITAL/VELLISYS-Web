@@ -29,7 +29,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($limit < company_seat_count($id)) {
             $error = 'This desk already has ' . company_seat_count($id) . ' logins. Raise the seat count or remove a user first.';
         } else {
-            db_exec('UPDATE companies SET name=?, status=?, notes=?, enabled_kinds=?, custom_doc=?, user_limit=? WHERE id=?', 'sssssii', [$name, $status, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), $limit, $id]);
+            $plan = normalize_company_plan(post('plan') ?: (string) ($company['plan'] ?? 'sme'));
+            $plannerOn = planner_resolve_enabled($plan, !empty($_POST['planner_enabled']), $company);
+            db_exec('UPDATE companies SET name=?, status=?, plan=?, notes=?, enabled_kinds=?, custom_doc=?, user_limit=?, planner_enabled=? WHERE id=?', 'ssssssiii', [$name, $status, $plan, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), $limit, $plannerOn, $id]);
             db_exec('UPDATE branding SET name=? WHERE company_id=?', 'si', [$name, $id]);
             if ($status === 'live') {
                 company_mark_onboard_step($id, 'desk_live');
@@ -542,6 +544,19 @@ layout_admin_start($company['name'], $user);
           <option value="<?= $n ?>" <?= company_user_limit($company) === $n ? 'selected' : '' ?>><?= $n ?> <?= $n === 1 ? '(admin only)' : ($n === 2 ? '(admin + 1)' : '(admin + 2)') ?></option>
         <?php endfor; ?>
       </select>
+    </div>
+    <div>
+      <label for="plan">Plan</label>
+      <select id="plan" name="plan" data-planner-plan>
+        <?php foreach (company_plan_options() as $key => $label): ?>
+          <option value="<?= h($key) ?>" <?= normalize_company_plan((string) ($company['plan'] ?? 'sme')) === $key ? 'selected' : '' ?>><?= h($label) ?></option>
+        <?php endforeach; ?>
+      </select>
+      <p class="hint">Business and Pro turn Planner on automatically. You can still switch Planner off below.</p>
+    </div>
+    <div>
+      <label class="check" for="planner_enabled"><input id="planner_enabled" name="planner_enabled" type="checkbox" value="1" data-planner-toggle <?= !empty($company['planner_enabled']) ? 'checked' : '' ?>> Planner on for this desk</label>
+      <p class="hint">Notes, budget and calendar for Business and Pro subscribers. Starter stays off unless you enable it here.</p>
     </div>
   </div>
   <div style="padding:0 22px 22px">

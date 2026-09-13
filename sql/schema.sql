@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS companies (
   name VARCHAR(160) NOT NULL,
   status ENUM('onboarding','live','suspended') NOT NULL DEFAULT 'onboarding',
   plan ENUM('starter','sme','office') NOT NULL DEFAULT 'sme',
+  planner_enabled TINYINT(1) NOT NULL DEFAULT 0,
   notes TEXT,
   enabled_kinds TEXT NULL,
   custom_doc TEXT NULL,
@@ -252,4 +253,52 @@ CREATE TABLE IF NOT EXISTS website_orders (
   UNIQUE KEY merchant_ref (merchant_ref),
   KEY status_created (status, created_at),
   KEY email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS planner_notes (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  company_id INT UNSIGNED NOT NULL,
+  user_id INT UNSIGNED NOT NULL DEFAULT 0,
+  title VARCHAR(190) NOT NULL,
+  body TEXT NULL,
+  priority ENUM('low','normal','high','essential') NOT NULL DEFAULT 'normal',
+  pinned TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY company_id (company_id),
+  KEY company_priority (company_id, priority)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS planner_budget_items (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  company_id INT UNSIGNED NOT NULL,
+  user_id INT UNSIGNED NOT NULL DEFAULT 0,
+  title VARCHAR(190) NOT NULL,
+  category VARCHAR(120) NOT NULL DEFAULT 'General',
+  kind ENUM('income','expense') NOT NULL DEFAULT 'expense',
+  amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+  month_key CHAR(7) NOT NULL,
+  notes TEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY company_month (company_id, month_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS planner_events (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  company_id INT UNSIGNED NOT NULL,
+  user_id INT UNSIGNED NOT NULL DEFAULT 0,
+  title VARCHAR(190) NOT NULL,
+  body TEXT NULL,
+  event_date DATE NOT NULL,
+  event_time TIME NULL,
+  end_date DATE NULL,
+  kind ENUM('appointment','deadline','program','reminder','other') NOT NULL DEFAULT 'appointment',
+  priority ENUM('low','normal','high','essential') NOT NULL DEFAULT 'normal',
+  party_id INT UNSIGNED NULL,
+  document_id INT UNSIGNED NULL,
+  done TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY company_date (company_id, event_date),
+  KEY company_done (company_id, done)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -11,6 +11,9 @@ document.addEventListener('click', function (e) {
   document.querySelectorAll('details.share-pop[open]').forEach(function (el) {
     if (!el.contains(e.target)) el.removeAttribute('open');
   });
+  document.querySelectorAll('details.top-bell[open]').forEach(function (el) {
+    if (!el.contains(e.target)) el.removeAttribute('open');
+  });
   var q = document.querySelector('[data-quick]');
   var panel = document.querySelector('[data-quick-panel]');
   if (q && q.contains(e.target) && panel) {
@@ -639,4 +642,16 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
   sel.addEventListener('change', function () {
     fill(sel.value);
   });
+})();
+
+(function () {
+  var plan = document.querySelector('[data-planner-plan]');
+  var toggle = document.querySelector('[data-planner-toggle]');
+  if (!plan || !toggle) return;
+  function syncPlanner() {
+    if (plan.value === 'sme' || plan.value === 'office') {
+      toggle.checked = true;
+    }
+  }
+  plan.addEventListener('change', syncPlanner);
 })();
