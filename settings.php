@@ -398,7 +398,7 @@ layout_start('Settings', $user);
 
     <section class="card settings-card" id="templates">
       <h2><?= icon('palette') ?>Document designs</h2>
-      <p class="lede">Twelve layouts on white paper with black type and your brand colours. Desktop and mobile previews sit above each option. Logo watermark and Bond watermark print the company mark faintly on the paper. Atelier and Company seal are quiet, formal sheets meant to email. Every invoice, quotation, receipt, expense and headed note reprints in that design. Changing it here reprints the whole books.</p>
+      <p class="lede">Twelve layouts on white paper with black type and your brand colours. The preview is the printed sheet: the same A4 page on a phone, a tablet and a desktop. On small screens the page is scaled to fit, not redesigned. Logo watermark and Bond watermark print the company mark faintly on the paper. Atelier and Company seal are quiet, formal sheets meant to email. Every invoice, quotation, receipt, expense and headed note reprints in that design. Changing it here reprints the whole books.</p>
       <?php $letterTpls = letter_templates(true); ?>
       <label class="check">
         <input type="hidden" name="logo_bg" value="0">
@@ -413,13 +413,8 @@ layout_start('Settings', $user);
             ?>
           <label class="design-card<?= $currentDesign === $key ? ' is-selected' : '' ?>">
             <div class="design-previews" aria-hidden="true">
-              <div class="design-preview design-preview-desk">
+              <div class="design-preview">
                 <div class="design-mini mini-<?= h($key) ?>"></div>
-                <em>Desktop</em>
-              </div>
-              <div class="design-preview design-preview-phone">
-                <div class="design-mini mini-<?= h($key) ?>"></div>
-                <em>Mobile</em>
               </div>
             </div>
             <span class="design-pick">

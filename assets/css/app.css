@@ -853,11 +853,12 @@ input:focus, select:focus, textarea:focus {
   min-width: 0;
   overflow: hidden;
   display: flex;
-  justify-content: flex-start;
+  justify-content: center;
 }
 .sheet-stage .invoice-sheet { flex-shrink: 0; }
 .invoice-sheet {
   width: 210mm;
+  max-width: none;
   height: auto;
   min-height: 297mm;
   overflow: visible;
@@ -868,6 +869,8 @@ input:focus, select:focus, textarea:focus {
   font-family: "Montserrat", Arial, Helvetica, sans-serif;
   font-size: 12.5px;
   page-break-inside: auto;
+  box-sizing: border-box;
+  box-shadow: 0 12px 36px rgba(8, 20, 58, .12);
 }
 .invoice-sheet.sheet-ledger,
 .invoice-sheet.sheet-estate,

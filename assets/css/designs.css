@@ -290,48 +290,25 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 22%, transparent), 0 10px 30px rgba(8, 20, 58, .06);
 }
 .design-previews {
-  display: grid;
-  grid-template-columns: 1.2fr .78fr;
-  gap: 8px;
+  display: block;
   padding: 10px;
   background: #eef1f6;
   border-bottom: 1px solid rgba(8, 20, 58, .06);
 }
 .design-preview {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-width: 0;
-}
-.design-preview em {
   display: block;
-  margin: 0;
-  padding: 0;
-  font-size: 9px;
-  font-style: normal;
-  font-weight: 700;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: #667;
-  text-align: center;
-  line-height: 1.2;
+  min-width: 0;
 }
 .design-mini {
   display: block;
   width: 100%;
-  height: 96px;
+  height: 112px;
   position: relative;
   overflow: hidden;
   background: #fff;
   border: 1px solid rgba(8, 20, 58, .08);
   border-radius: 4px;
   box-shadow: 0 1px 0 rgba(8, 20, 58, .04);
-}
-.design-preview-phone .design-mini {
-  width: 62%;
-  height: 96px;
-  margin: 0 auto;
-  border-radius: 8px;
 }
 .design-pick {
   display: flex;
@@ -592,22 +569,10 @@
 
 @media (max-width: 960px) {
   .design-grid { grid-template-columns: 1fr 1fr; }
-  .twin-wrap, .stripe-meta, .night-pair, .atelier-head, .atelier-end, .seal-end, .seal-meta, .mark-head, .bond-head, .bond-end, .ledger-bottom, .ledger-grid, .ledger-top { grid-template-columns: 1fr; }
-  .d-split, .bill-foot, .stripe-payrow, .estate-band, .estate-end, .night-sky, .atelier-head, .atelier-end, .seal-end, .mark-head, .bond-head, .bond-end, .d-row, .corr-head { flex-direction: column; }
-  .atelier-meta, .atelier-sums, .seal-end aside, .bond-end aside, .mark-meta, .bill-sums, .stripe-fare, .estate-total, .d-sums { width: 100%; max-width: none; text-align: left; }
-  .d-title, .twin-copy h3, .mark-kind, .atelier-meta { text-align: left; }
-  .twin-perf { display: none; }
-  .twin-wrap { grid-template-columns: 1fr; min-height: 0; }
-  .sheet-stripe { flex-direction: column; }
-  .stripe-rail { width: 100%; height: 10px; }
-  .stripe-banner { margin-right: -22px; }
-  .bill-pill { max-width: 100%; box-sizing: border-box; text-align: center; }
-  .seal-meta { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 640px) {
   .design-grid { grid-template-columns: 1fr; }
-  .design-previews { grid-template-columns: 1.15fr .7fr; }
 }
 
 @page {
