@@ -105,32 +105,51 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
     $cls = $opts['class'] ?? '';
     $qtyOnly = in_array(($doc['kind'] ?? ''), ['delivery', 'return_note'], true);
     $showVat = !$qtyOnly && doc_shows_vat($doc);
+    $compact = !empty($opts['compact']);
     ?>
     <table class="d-lines <?= h($cls) ?>">
       <thead>
         <tr style="background:<?= h($color) ?>;color:#fff">
-          <?php if ($serial): ?><th class="c" style="width:44px">No.</th><?php endif; ?>
-          <th style="width:22%">Item</th>
-          <th>Description</th>
-          <th class="c" style="width:64px">Qty</th>
-          <?php if (!$qtyOnly): ?>
-            <th class="r" style="width:110px">Unit price</th>
-            <th class="r" style="width:120px">Total Amt</th>
-            <?php if ($showVat): ?><th class="c" style="width:44px">VAT</th><?php endif; ?>
+          <?php if ($compact): ?>
+            <th>Details</th>
+            <th class="c" style="width:12%">Qty</th>
+            <?php if (!$qtyOnly): ?><th class="r" style="width:28%">Amount</th><?php endif; ?>
+          <?php else: ?>
+            <?php if ($serial): ?><th class="c" style="width:44px">No.</th><?php endif; ?>
+            <th style="width:22%">Item</th>
+            <th>Description</th>
+            <th class="c" style="width:64px">Qty</th>
+            <?php if (!$qtyOnly): ?>
+              <th class="r" style="width:110px">Unit price</th>
+              <th class="r" style="width:120px">Total Amt</th>
+              <?php if ($showVat): ?><th class="c" style="width:44px">VAT</th><?php endif; ?>
+            <?php endif; ?>
           <?php endif; ?>
         </tr>
       </thead>
       <tbody>
         <?php foreach ($rows as $i => $item): ?>
           <tr style="background:<?= $i % 2 ? h($tint) : '#fff' ?>">
-            <?php if ($serial): ?><td class="c"><?= $item ? (string) ($i + 1) : '' ?></td><?php endif; ?>
-            <td class="item"><?= $item && line_item_name($item) !== '' ? h(line_item_name($item)) : ($item ? '&nbsp;' : '&nbsp;') ?></td>
-            <td class="desc"><?= $item && line_item_description($item) !== '' ? nl2br(h(line_item_description($item))) : '&nbsp;' ?></td>
-            <td class="c"><?= $item ? h(format_qty($item['qty'])) : '' ?></td>
-            <?php if (!$qtyOnly): ?>
-              <td class="r"><?= $item ? h(money($item['rate'], $cur)) : '' ?></td>
-              <td class="r"><?= $item ? h(money(line_amount($item), $cur)) : '' ?></td>
-              <?php if ($showVat): ?><td class="c"><?= $item ? (!empty($item['taxed']) ? 'Y' : 'N') : '' ?></td><?php endif; ?>
+            <?php if ($compact): ?>
+              <td class="desc">
+                <?php if ($item): ?>
+                  <?php if (line_item_name($item) !== ''): ?><span class="item"><?= h(line_item_name($item)) ?></span><?php endif; ?>
+                  <?php if (line_item_description($item) !== ''): ?><span class="twin-desc"><?= nl2br(h(line_item_description($item))) ?></span><?php endif; ?>
+                  <?php if ($showVat): ?><span class="twin-vat"><?= !empty($item['taxed']) ? 'VAT' : '' ?></span><?php endif; ?>
+                <?php else: ?>&nbsp;<?php endif; ?>
+              </td>
+              <td class="c"><?= $item ? h(format_qty($item['qty'])) : '' ?></td>
+              <?php if (!$qtyOnly): ?><td class="r"><?= $item ? h(money(line_amount($item), $cur)) : '' ?></td><?php endif; ?>
+            <?php else: ?>
+              <?php if ($serial): ?><td class="c"><?= $item ? (string) ($i + 1) : '' ?></td><?php endif; ?>
+              <td class="item"><?= $item && line_item_name($item) !== '' ? h(line_item_name($item)) : ($item ? '&nbsp;' : '&nbsp;') ?></td>
+              <td class="desc"><?= $item && line_item_description($item) !== '' ? nl2br(h(line_item_description($item))) : '&nbsp;' ?></td>
+              <td class="c"><?= $item ? h(format_qty($item['qty'])) : '' ?></td>
+              <?php if (!$qtyOnly): ?>
+                <td class="r"><?= $item ? h(money($item['rate'], $cur)) : '' ?></td>
+                <td class="r"><?= $item ? h(money(line_amount($item), $cur)) : '' ?></td>
+                <?php if ($showVat): ?><td class="c"><?= $item ? (!empty($item['taxed']) ? 'Y' : 'N') : '' ?></td><?php endif; ?>
+              <?php endif; ?>
             <?php endif; ?>
           </tr>
         <?php endforeach; ?>
@@ -543,7 +562,7 @@ function render_twin_half(array $d, string $label): void
       <?php if ($doc['kind'] === 'letter'): ?>
         <?php render_letter_body($doc); ?>
       <?php else: ?>
-        <?php render_line_table($doc, $d['deep'], $d['accent_tint'], ['min' => 3, 'class' => 'tiny']); ?>
+        <?php render_line_table($doc, $d['deep'], $d['accent_tint'], ['min' => 3, 'class' => 'tiny twin-lines', 'compact' => true]); ?>
         <?php render_settlement($d); ?>
       <?php endif; ?>
       <div class="twin-pay">
