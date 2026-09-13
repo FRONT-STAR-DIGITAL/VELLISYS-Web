@@ -49,6 +49,7 @@ if ($uri !== '/' && is_file($file) && !str_contains($uri, '..')) {
         } elseif ($ext === 'pdf') {
             header('Content-Disposition: inline; filename="' . basename($file) . '"');
             header('Cache-Control: no-store');
+            header('Content-Length: ' . (string) filesize($file));
         } else {
             header('Cache-Control: public, max-age=31536000, immutable');
         }
