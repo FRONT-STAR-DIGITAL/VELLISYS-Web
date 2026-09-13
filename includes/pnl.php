@@ -324,12 +324,42 @@ function notification_dismiss_key(array $n): string
 
 function notification_is_dismissed(string $key): bool
 {
+    if ($key === '') {
+        return false;
+    }
     $bag = $_SESSION['notif_dismissed'] ?? [];
-    return isset($bag[$key]);
+    if (isset($bag[$key])) {
+        return true;
+    }
+    $uid = (int) ($_SESSION['user_id'] ?? 0);
+    if ($uid <= 0) {
+        return false;
+    }
+    try {
+        $row = db_one(
+            'SELECT 1 AS ok FROM notification_dismissals WHERE user_id = ? AND dismiss_key = ? LIMIT 1',
+            'is',
+            [$uid, $key]
+        );
+        if ($row) {
+            if (!isset($_SESSION['notif_dismissed']) || !is_array($_SESSION['notif_dismissed'])) {
+                $_SESSION['notif_dismissed'] = [];
+            }
+            $_SESSION['notif_dismissed'][$key] = time();
+            return true;
+        }
+    } catch (Throwable $e) {
+        // Table may not exist yet on a brand-new install.
+    }
+    return false;
 }
 
 function notification_dismiss(string $key): void
 {
+    $key = trim($key);
+    if ($key === '') {
+        return;
+    }
     if (!isset($_SESSION['notif_dismissed']) || !is_array($_SESSION['notif_dismissed'])) {
         $_SESSION['notif_dismissed'] = [];
     }
@@ -338,6 +368,19 @@ function notification_dismiss(string $key): void
     if (count($_SESSION['notif_dismissed']) > 80) {
         asort($_SESSION['notif_dismissed']);
         $_SESSION['notif_dismissed'] = array_slice($_SESSION['notif_dismissed'], -60, null, true);
+    }
+    $uid = (int) ($_SESSION['user_id'] ?? 0);
+    if ($uid <= 0) {
+        return;
+    }
+    try {
+        db_exec(
+            'INSERT IGNORE INTO notification_dismissals (user_id, dismiss_key, created_at) VALUES (?,?,NOW())',
+            'is',
+            [$uid, substr($key, 0, 64)]
+        );
+    } catch (Throwable $e) {
+        // Ignore if migration has not created the table yet.
     }
 }
 

@@ -238,7 +238,10 @@ function layout_admin_start(string $title, array $user): void
         ['admin_companies.php', 'Companies', 'building'],
         ['admin_reports.php', 'Reports', 'reports'],
         ['admin_mail.php', 'Email', 'send'],
+        ['admin_admins.php', 'Admins', 'user'],
     ];
+    $notes = platform_notifications(12);
+    $noteCount = count($notes);
     ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -272,7 +275,7 @@ function layout_admin_start(string $title, array $user): void
               $count = $questionNew;
           }
           ?>
-        <a class="<?= $active ? 'is-on' : '' ?>" href="<?= h(url($href)) ?>" title="<?= h($label) ?>"<?= $count ? ' data-badge="' . (int) $count . '"' : '' ?>><?= icon($iconName, 18) ?><span><?= h($label) ?><?= $count ? ' (' . $count . ')' : '' ?></span></a>
+        <a class="<?= $active ? 'is-on' : '' ?>" href="<?= h(url($href)) ?>" title="<?= h($label) ?>"<?= $count ? ' data-badge="' . (int) $count . '"' : '' ?>><?= icon($iconName, 18) ?><span><?= h($label) ?></span></a>
       <?php endforeach; ?>
     </nav>
     <div class="nav-user">
@@ -288,6 +291,47 @@ function layout_admin_start(string $title, array $user): void
         <?php render_top_clock(); ?>
       </div>
       <div class="top-actions">
+        <details class="top-bell">
+          <summary class="header-settings<?= $noteCount ? ' has-badge' : '' ?>" title="Notifications" aria-label="Notifications">
+            <?= icon('bell', 20) ?>
+            <?php if ($noteCount): ?><span class="top-bell-count"><?= $noteCount > 9 ? '9+' : $noteCount ?></span><?php endif; ?>
+          </summary>
+          <div class="top-bell-panel">
+            <strong>Platform</strong>
+            <?php if (!$notes): ?>
+              <p class="muted">No open sign-ups, questions or renewals right now.</p>
+            <?php else: ?>
+              <ul>
+                <?php foreach ($notes as $n): ?>
+                  <li class="top-bell-item">
+                    <div class="top-bell-main">
+                      <a href="<?= h($n['href']) ?>">
+                        <span class="top-bell-title"><?= h($n['title']) ?></span>
+                        <span class="top-bell-meta"><?= h($n['meta']) ?></span>
+                      </a>
+                      <form class="top-bell-dismiss" method="post" action="<?= h(url('notify_action.php')) ?>">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="action" value="dismiss">
+                        <input type="hidden" name="key" value="<?= h((string) ($n['key'] ?? '')) ?>">
+                        <button type="submit" class="top-bell-x" title="Dismiss" aria-label="Dismiss"><?= icon('x', 14) ?></button>
+                      </form>
+                    </div>
+                    <?php if (!empty($n['actions'])): ?>
+                      <div class="top-bell-actions">
+                        <?php foreach ($n['actions'] as $act): ?>
+                          <?php if (!empty($act['href'])): ?>
+                            <a class="<?= h($act['class'] ?? 'btn ghost sm') ?>" href="<?= h($act['href']) ?>"><?= h($act['label']) ?></a>
+                          <?php endif; ?>
+                        <?php endforeach; ?>
+                      </div>
+                    <?php endif; ?>
+                  </li>
+                <?php endforeach; ?>
+              </ul>
+            <?php endif; ?>
+            <a class="top-bell-foot" href="<?= h(url('admin_signups.php')) ?>">Open sign-ups</a>
+          </div>
+        </details>
         <a class="btn" href="<?= h(url('admin_company_new.php')) ?>"><?= icon('plus', 16) ?>New company</a>
       </div>
     </header>

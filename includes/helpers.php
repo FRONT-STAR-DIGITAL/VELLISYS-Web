@@ -3105,3 +3105,102 @@ function new_question_count(): int
         return 0;
     }
 }
+
+/**
+ * Platform-admin bell items: open sign-ups, open questions, companies near expiry.
+ *
+ * @return list<array{type:string,key:string,title:string,meta:string,href:string,actions?:list<array<string,string>>}>
+ */
+function platform_notifications(int $limit = 12): array
+{
+    $out = [];
+    $push = static function (array $n) use (&$out, $limit): bool {
+        if (count($out) >= $limit) {
+            return false;
+        }
+        $key = (string) ($n['key'] ?? '');
+        if ($key === '' || notification_is_dismissed($key)) {
+            return true;
+        }
+        $out[] = $n;
+        return count($out) < $limit;
+    };
+
+    try {
+        $signups = db_all(
+            "SELECT id, company, name, email, created_at FROM signups WHERE status = 'new' ORDER BY id DESC LIMIT 12"
+        );
+        foreach ($signups as $s) {
+            $id = (int) $s['id'];
+            if (!$push([
+                'type' => 'signup',
+                'key' => 'signup:' . $id,
+                'title' => trim((string) ($s['company'] ?: $s['name'])) ?: 'New sign-up',
+                'meta' => 'Sign-up · ' . clip_text((string) ($s['email'] ?? ''), 40),
+                'href' => url('admin_signups.php'),
+                'actions' => [
+                    ['label' => 'Open', 'href' => url('admin_signups.php'), 'class' => 'btn ghost sm'],
+                ],
+            ])) {
+                return $out;
+            }
+        }
+    } catch (Throwable $e) {
+        // ignore
+    }
+
+    try {
+        $questions = db_all(
+            "SELECT id, name, email, message, created_at FROM questions WHERE status = 'new' ORDER BY id DESC LIMIT 12"
+        );
+        foreach ($questions as $q) {
+            $id = (int) $q['id'];
+            $preview = clip_text((string) ($q['message'] ?? ''), 60);
+            if (!$push([
+                'type' => 'question',
+                'key' => 'question:' . $id,
+                'title' => $preview !== '' ? $preview : ('Question from ' . ((string) ($q['name'] ?? 'visitor'))),
+                'meta' => 'Question · ' . clip_text((string) ($q['email'] ?? ''), 40),
+                'href' => url('admin_question.php?id=' . $id),
+                'actions' => [
+                    ['label' => 'Open', 'href' => url('admin_question.php?id=' . $id), 'class' => 'btn ghost sm'],
+                ],
+            ])) {
+                return $out;
+            }
+        }
+    } catch (Throwable $e) {
+        // ignore
+    }
+
+    try {
+        $companies = db_all(
+            "SELECT id, name, expires_at, status FROM companies
+             WHERE expires_at IS NOT NULL AND expires_at <> ''
+             ORDER BY expires_at ASC LIMIT 40"
+        );
+        foreach ($companies as $c) {
+            $state = company_expiry_state($c);
+            if (!in_array($state, ['soon', 'expired'], true)) {
+                continue;
+            }
+            $id = (int) $c['id'];
+            if (!$push([
+                'type' => 'expiry',
+                'key' => 'expiry:' . $id,
+                'title' => (string) $c['name'],
+                'meta' => ($state === 'expired' ? 'Expired' : 'Expiring soon') . ' · ' . company_remaining_phrase($c),
+                'href' => url('admin_company.php?id=' . $id),
+                'actions' => [
+                    ['label' => 'Open', 'href' => url('admin_company.php?id=' . $id), 'class' => 'btn ghost sm'],
+                ],
+            ])) {
+                return $out;
+            }
+        }
+    } catch (Throwable $e) {
+        // ignore
+    }
+
+    return $out;
+}

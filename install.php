@@ -36,8 +36,10 @@ if ((int) $exists['c'] === 0) {
     $cidRow = $db->query('SELECT id FROM companies ORDER BY id LIMIT 1')->fetch_assoc();
     $companyId = (int) ($cidRow['id'] ?? 0);
     if ($companyId <= 0) {
-        $db->query("INSERT INTO companies (name, status, plan) VALUES ('Ofagros Limited', 'live', 'sme')");
+        $db->query("INSERT INTO companies (name, status, plan) VALUES ('Ofagros Limited', 'live', 'office')");
         $companyId = (int) $db->insert_id;
+    } else {
+        $db->query("UPDATE companies SET plan = 'office', planner_enabled = 1, pnl_enabled = 1 WHERE id = {$companyId}");
     }
 
     $hash = password_hash('folio2026', PASSWORD_DEFAULT);
@@ -57,7 +59,7 @@ if ((int) $exists['c'] === 0) {
         'Stanbic Bank Uganda', 'Ofagros Limited', '9030008844211', '#82B440', 'assets/img/ofagros-logo.png', 'OFG',
         'Make payment to Ofagros Limited, Kampala.',
         '1. Payment is due by the date shown above.\n2. Pay through the Ofagros client portal.\n3. Farm work starts after this invoice is marked paid.',
-        'sme', 'UGX')");
+        'office', 'UGX')");
     }
 
     $parties = [

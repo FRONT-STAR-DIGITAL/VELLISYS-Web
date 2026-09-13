@@ -313,6 +313,7 @@ layout_admin_start($company['name'], $user);
       </form>
     <?php endif; ?>
   </div>
+</div>
 
 <?php if ($error): ?><p class="flash flash-err" style="margin:0 0 16px"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
 
@@ -396,6 +397,7 @@ layout_admin_start($company['name'], $user);
         <p class="hint">All <?= (int) company_user_limit($company) ?> seats are in use.</p>
       <?php endif; ?>
   </div>
+</div>
 
 <form class="card form-wide" method="post" style="margin-top:16px">
   <?= csrf_field() ?>
@@ -430,6 +432,7 @@ layout_admin_start($company['name'], $user);
       <label for="fee_currency">Fee currency</label>
       <?php currency_field('fee_currency', 'fee_currency', company_fee_currency($company)); ?>
     </div>
+  </div>
   <div style="padding:0 22px 22px">
     <p class="hint" style="margin:8px 0 12px">
       <?php if (company_expires_on($company)): ?>
@@ -515,6 +518,7 @@ layout_admin_start($company['name'], $user);
       <label for="imap_port">IMAP port</label>
       <input id="imap_port" name="imap_port" type="number" data-mail-field="imap_port" value="<?= (int) ($company['imap_port'] ?? 993) ?>">
     </div>
+  </div>
   <div style="padding:0 22px 22px">
     <p class="hint" style="margin:8px 0 12px">
       Hostinger hPanel uses smtp.hostinger.com:465 SSL, pop.hostinger.com:995, imap.hostinger.com:993. Titan uses smtp.titan.email with the same ports. The company desk sends quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors and custom mail from this address and cannot edit it.
@@ -524,6 +528,7 @@ layout_admin_start($company['name'], $user);
       <button class="btn" type="submit" name="action" value="mailbox"><?= icon('check') ?>Save mailbox</button>
       <button class="btn ghost" type="submit" name="action" value="mailbox_test"><?= icon('send', 16) ?>Send test</button>
     </div>
+  </div>
   <script type="application/json" data-mail-presets><?= json_encode(mail_provider_presets(), JSON_UNESCAPED_SLASHES) ?></script>
 </form>
 
@@ -570,6 +575,7 @@ layout_admin_start($company['name'], $user);
       <label class="check" for="pnl_enabled"><input id="pnl_enabled" name="pnl_enabled" type="checkbox" value="1" data-pnl-toggle <?= !empty($company['pnl_enabled']) ? 'checked' : '' ?>> Profit &amp; Loss on for this desk</label>
       <p class="hint">Pro gets P&amp;L automatically. You can enable bookkeeping, refunds and returns for any plan here.</p>
     </div>
+  </div>
   <div style="padding:0 22px 22px">
     <label for="notes">Internal notes</label>
     <textarea id="notes" name="notes" rows="3"><?= h((string) $company['notes']) ?></textarea>
@@ -577,6 +583,7 @@ layout_admin_start($company['name'], $user);
     <div class="actions" style="margin-top:12px">
       <button class="btn" type="submit"><?= icon('check') ?>Save company</button>
     </div>
+  </div>
 </form>
 
 <form class="card form-wide" method="post" enctype="multipart/form-data" style="margin-top:16px">

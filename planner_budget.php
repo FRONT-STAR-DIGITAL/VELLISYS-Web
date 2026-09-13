@@ -63,7 +63,7 @@ layout_start('Budget', $user);
     <h1><?= icon('bank') ?>Budget</h1>
     <p class="lede">Set income and spend targets for the month, then compare them with invoices and expenses already on the desk.</p>
   </div>
-  <div class="actions page-actions">
+  <div class="actions page-actions month-nav">
     <a class="btn ghost" href="<?= h(url('planner_budget.php?month=' . urlencode($prev))) ?>"><?= icon('arrow-left', 16) ?></a>
     <a class="btn ghost" href="<?= h(url('planner_budget.php?month=' . urlencode(date('Y-m')))) ?>">This month</a>
     <a class="btn ghost" href="<?= h(url('planner_budget.php?month=' . urlencode($next))) ?>"><?= icon('arrow-right', 16) ?></a>

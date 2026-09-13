@@ -21,7 +21,7 @@ function folio_schema_ready_file(): string
     if (!is_dir($dir)) {
         @mkdir($dir, 0700, true);
     }
-    return $dir . '/schema-38.ok';
+    return $dir . '/schema-39.ok';
 }
 
 function folio_ensure_logo_bg(mysqli $db): void
@@ -68,6 +68,39 @@ function folio_ensure_company_admins(mysqli $db): void
     }
 }
 
+function folio_ensure_notification_dismissals(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    @$db->query("CREATE TABLE IF NOT EXISTS notification_dismissals (
+      user_id INT NOT NULL,
+      dismiss_key VARCHAR(64) NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY user_dismiss (user_id, dismiss_key),
+      KEY user_id (user_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+function folio_ensure_ofagros_pro_plan(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    $email = $db->real_escape_string('accounts@ofagros.org');
+    @$db->query(
+        "UPDATE companies c
+         JOIN users u ON u.company_id = c.id
+         SET c.plan = 'office', c.planner_enabled = 1, c.pnl_enabled = 1
+         WHERE u.email = '{$email}'"
+    );
+    @$db->query("UPDATE companies SET plan = 'office', planner_enabled = 1, pnl_enabled = 1 WHERE name = 'Ofagros Limited' AND plan IN ('sme','starter')");
+}
+
 function folio_migrate(mysqli $db): void
 {
     static $done = false;
@@ -76,6 +109,8 @@ function folio_migrate(mysqli $db): void
     }
     folio_ensure_logo_bg($db);
     folio_ensure_company_admins($db);
+    folio_ensure_notification_dismissals($db);
+    folio_ensure_ofagros_pro_plan($db);
     $ready = folio_schema_ready_file();
     if (is_file($ready) && filemtime($ready) > time() - 86400) {
         $done = true;
@@ -86,7 +121,7 @@ function folio_migrate(mysqli $db): void
         return;
     }
     $verRow = @$db->query("SELECT v FROM schema_meta WHERE k='version'");
-    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 38) {
+    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 39) {
         @touch($ready);
         $done = true;
         return;
@@ -101,7 +136,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 38) {
+    if ($ver >= 39) {
         @touch($ready);
         $done = true;
         return;
@@ -172,7 +207,7 @@ function folio_migrate(mysqli $db): void
 
     $co = $db->query('SELECT COUNT(*) c FROM companies')->fetch_assoc();
     if ((int) $co['c'] === 0) {
-        $db->query("INSERT INTO companies (name, status, plan) VALUES ('Ofagros Limited', 'live', 'sme')");
+        $db->query("INSERT INTO companies (name, status, plan) VALUES ('Ofagros Limited', 'live', 'office')");
     }
     $cid = (int) $db->query('SELECT id FROM companies ORDER BY id LIMIT 1')->fetch_assoc()['id'];
     $db->query("UPDATE users SET company_id = {$cid} WHERE role = 'member' AND company_id IS NULL");
@@ -321,8 +356,12 @@ function folio_migrate(mysqli $db): void
     if ($ver < 38) {
         folio_migrate_pnl($db);
     }
+    if ($ver < 39) {
+        folio_ensure_notification_dismissals($db);
+        folio_ensure_ofagros_pro_plan($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '38')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '39')");
     @touch($ready);
     $done = true;
 }

@@ -120,6 +120,7 @@ layout_admin_start('Email', $user);
   <div class="card stat"><?= icon('globe', 20) ?><span>SMTP</span><strong><?= h($cfg['host'] . ':' . $cfg['port']) ?></strong></div>
   <div class="card stat"><?= icon('lock', 20) ?><span>SMTP security</span><strong><?= h(strtoupper((string) $cfg['secure'])) ?></strong></div>
   <div class="card stat"><?= icon('letter', 20) ?><span>POP / IMAP</span><strong><?= h($cfg['pop_host'] . ':' . $cfg['pop_port']) ?></strong></div>
+</div>
 
 <div class="card form-wide" style="margin-bottom:24px">
   <div class="card-head"><h2><?= icon('send', 16) ?>Compose</h2></div>
@@ -147,6 +148,7 @@ layout_admin_start('Email', $user);
         <label for="subject">Subject</label>
         <input id="subject" name="subject" required value="<?= h(post('subject') ?: 'A note from Vellisys') ?>">
       </div>
+    </div>
     <label for="message">Message</label>
     <textarea id="message" name="message" rows="10" required placeholder="Write as Vellisys. The letter is wrapped in our stationery."><?= h(post('message')) ?></textarea>
     <p class="hint">Hostinger SMTP <?= h($cfg['host']) ?> port <?= (int) $cfg['port'] ?> (<?= h($cfg['secure']) ?>). POP <?= h($cfg['pop_host']) ?>:<?= (int) $cfg['pop_port'] ?>. IMAP <?= h($cfg['imap_host']) ?>:<?= (int) $cfg['imap_port'] ?>.</p>
