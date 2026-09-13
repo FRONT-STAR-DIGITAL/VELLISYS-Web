@@ -23,8 +23,17 @@
   text-align: center;
   justify-content: center;
 }
-.d-logo.sm { height: 40px; max-width: 180px; }
-.d-logo.xs { height: 28px; max-width: 120px; background: #fff; padding: 2px; border-radius: 3px; }
+.d-logo {
+  display: block;
+  height: 48px;
+  width: auto;
+  max-width: 140px;
+  max-height: 48px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.d-logo.sm { height: 40px; max-width: 120px; max-height: 40px; }
+.d-logo.xs { height: 28px; max-width: 88px; max-height: 28px; background: #fff; padding: 2px; border-radius: 3px; }
 .d-logo.invert { background: #fff; padding: 6px 8px; border-radius: 4px; }
 .d-co { margin-top: 10px; font-size: 11px; line-height: 1.45; }
 .d-title { margin: 0; text-align: right; font-size: 28px; font-weight: 700; color: var(--brand); }
@@ -303,10 +312,18 @@
     padding: 12px;
   }
   .bond-head,
-  .bond-brand,
   .bond-end {
     flex-direction: column;
     align-items: stretch;
+  }
+  .bond-brand {
+    flex-direction: row;
+    align-items: center;
+  }
+  .bond-brand .d-logo {
+    height: 32px;
+    max-width: 72px;
+    max-height: 32px;
   }
   .bond-stamp {
     max-width: none;
@@ -318,7 +335,9 @@
     max-width: none;
   }
   .sheet-bond .d-watermark {
-    width: min(62%, 200px);
+    width: 88px;
+    max-width: 28%;
+    max-height: 88px;
     opacity: .06;
   }
 }
@@ -624,9 +643,12 @@
   position: absolute;
   left: 50%;
   top: 46%;
-  width: min(58%, 280px);
+  width: 160px;
+  max-width: 36%;
+  max-height: 160px;
   height: auto;
-  opacity: .09;
+  object-fit: contain;
+  opacity: .08;
   transform: translate(-50%, -50%);
   pointer-events: none;
   z-index: 0;
@@ -655,12 +677,20 @@
 .mark-who > span { display: block; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; color: var(--brand); margin-bottom: 6px; }
 .sheet-bond { background: #fff; color: #111; }
 .sheet-bond .d-watermark {
-  width: min(70%, 320px);
-  max-width: 72%;
+  width: 132px;
+  max-width: 32%;
+  max-height: 132px;
   opacity: .07;
   left: 50%;
   top: 48%;
   transform: translate(-50%, -50%) rotate(-18deg);
+}
+.bond-brand .d-logo {
+  height: 40px;
+  max-width: 88px;
+  max-height: 40px;
+  width: auto;
+  flex-shrink: 0;
 }
 .bond-head {
   display: flex;
@@ -707,6 +737,11 @@
   writing-mode: horizontal-tb;
   word-break: normal;
   overflow-wrap: anywhere;
+  white-space: normal;
+}
+.sheet-bond .d-lines .item,
+.sheet-bond .d-lines .twin-desc {
+  display: inline;
 }
 .sheet-bond .d-lines .c,
 .sheet-bond .d-lines .r { white-space: nowrap; overflow-wrap: normal; }

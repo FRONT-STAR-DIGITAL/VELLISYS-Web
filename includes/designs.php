@@ -893,7 +893,7 @@ function render_sheet_bond(array $d): void
 <article class="invoice-sheet sheet-bond" style="<?= h($d['vars']) ?>">
   <header class="bond-head">
     <div class="bond-brand">
-      <img src="<?= h($d['logo']) ?>" alt="" class="d-logo">
+      <img src="<?= h($d['logo']) ?>" alt="" class="d-logo sm">
       <div>
         <strong><?= h($brand['name']) ?></strong>
         <p><?= h($brand['address']) ?></p>
