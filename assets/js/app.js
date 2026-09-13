@@ -286,7 +286,7 @@ function refreshLinesPreview() {
     if (isNaN(rate)) rate = 0;
     var taxed = !!(row.querySelector('[data-vat-box]') || {}).checked;
     html += '<tr>';
-    html += '<td>' + escapeHtml(name || '—') + '</td>';
+    html += '<td>' + escapeHtml(name || '-') + '</td>';
     html += '<td>' + escapeHtml(desc).replace(/\n/g, '<br>') + '</td>';
     html += '<td class="center mono">' + escapeHtml(String(qty || '')) + '</td>';
     if (!delivery) {

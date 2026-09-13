@@ -10,7 +10,7 @@ layout_start('Profit & Loss', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('reports') ?>Profit &amp; Loss</h1>
-    <p class="lede">Income, expenses, refunds and returns for the dates you pick — with net profit on one desk.</p>
+    <p class="lede">Income, expenses, refunds and returns for the dates you pick, with net profit on one desk.</p>
   </div>
   <div class="actions page-actions">
     <a class="btn ghost" href="<?= h(url('pnl_entries.php')) ?>"><?= icon('bank', 16) ?>Ledger</a>

@@ -32,13 +32,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $plan = normalize_company_plan(post('plan') ?: (string) ($company['plan'] ?? 'sme'));
             $plannerOn = planner_resolve_enabled($plan, !empty($_POST['planner_enabled']), $company);
             $pnlOn = pnl_resolve_enabled($plan, !empty($_POST['pnl_enabled']), $company);
-            db_exec('UPDATE companies SET name=?, status=?, plan=?, notes=?, enabled_kinds=?, custom_doc=?, user_limit=?, planner_enabled=?, pnl_enabled=? WHERE id=?', 'ssssssiiii', [$name, $status, $plan, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), $limit, $plannerOn, $pnlOn, $id]);
-            db_exec('UPDATE branding SET name=? WHERE company_id=?', 'si', [$name, $id]);
-            if ($status === 'live') {
-                company_mark_onboard_step($id, 'desk_live');
+            try {
+                db_exec('UPDATE companies SET name=?, status=?, plan=?, notes=?, enabled_kinds=?, custom_doc=?, user_limit=?, planner_enabled=?, pnl_enabled=? WHERE id=?', 'ssssssiiii', [$name, $status, $plan, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), $limit, $plannerOn, $pnlOn, $id]);
+                db_exec('UPDATE branding SET name=? WHERE company_id=?', 'si', [$name, $id]);
+            } catch (Throwable $e) {
+                $error = 'Could not save the company profile. Check the form and try again.';
             }
-            flash('Company profile saved.');
-            redirect('admin_company.php?id=' . $id);
+            if ($error === '') {
+                if ($status === 'live') {
+                    company_mark_onboard_step($id, 'desk_live');
+                }
+                flash('Company profile saved.');
+                redirect('admin_company.php?id=' . $id);
+            }
         }
     }
     if ($action === 'branding') {
@@ -66,35 +72,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         if ($error === '') {
-            db_exec(
-                'UPDATE branding SET tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, currency=?, fx_ugx_per_usd=? WHERE company_id=?',
-                'ssssssssssssssssssdi',
-                [
-                    post('tagline'),
-                    post('tin'),
-                    post('vat_no'),
-                    post('address'),
-                    post('city'),
-                    post('phone'),
-                    post('email'),
-                    post('website'),
-                    post('bank_name'),
-                    post('account_name'),
-                    post('account_number'),
-                    $color,
-                    $accent,
-                    $deep,
-                    $logoPath,
-                    strtoupper(post('prefix') ?: prefix_from_name($company['name'])),
-                    post('payment_note'),
-                    post('invoice_comments'),
-                    posted_currency('currency', 'UGX'),
-                    parse_fx_rate(post('fx_ugx_per_usd')),
-                    $id,
-                ]
-            );
-            flash('Stationery saved for ' . $company['name'] . '.');
-            redirect('admin_company.php?id=' . $id);
+            try {
+                db_exec(
+                    'UPDATE branding SET tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, currency=?, fx_ugx_per_usd=? WHERE company_id=?',
+                    'sssssssssssssssssssdi',
+                    [
+                        post('tagline'),
+                        post('tin'),
+                        post('vat_no'),
+                        post('address'),
+                        post('city'),
+                        post('phone'),
+                        post('email'),
+                        post('website'),
+                        post('bank_name'),
+                        post('account_name'),
+                        post('account_number'),
+                        $color,
+                        $accent,
+                        $deep,
+                        $logoPath,
+                        strtoupper(post('prefix') ?: prefix_from_name($company['name'])),
+                        post('payment_note'),
+                        post('invoice_comments'),
+                        posted_currency('currency', 'UGX'),
+                        parse_fx_rate(post('fx_ugx_per_usd')),
+                        $id,
+                    ]
+                );
+                flash('Stationery saved for ' . $company['name'] . '.');
+                redirect('admin_company.php?id=' . $id);
+            } catch (Throwable $e) {
+                $error = 'Could not save stationery. Check the fields and try again.';
+            }
         }
     }
     if ($action === 'add_user') {
@@ -303,7 +313,6 @@ layout_admin_start($company['name'], $user);
       </form>
     <?php endif; ?>
   </div>
-</div>
 
 <?php if ($error): ?><p class="flash flash-err" style="margin:0 0 16px"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
 
@@ -343,6 +352,7 @@ layout_admin_start($company['name'], $user);
     <?php if (!$members): ?>
       <p class="empty">No users yet.</p>
     <?php else: ?>
+      <div class="table-scroll">
       <table class="grid">
         <thead><tr><th>Name</th><th>Title</th><th>Email</th><th>Access</th></tr></thead>
         <tbody>
@@ -356,6 +366,7 @@ layout_admin_start($company['name'], $user);
           <?php endforeach; ?>
         </tbody>
       </table>
+      </div>
     <?php endif; ?>
       <?php if (count($members) < company_user_limit($company)): ?>
     <form class="form" method="post" style="padding-bottom:18px">
@@ -385,7 +396,6 @@ layout_admin_start($company['name'], $user);
         <p class="hint">All <?= (int) company_user_limit($company) ?> seats are in use.</p>
       <?php endif; ?>
   </div>
-</div>
 
 <form class="card form-wide" method="post" style="margin-top:16px">
   <?= csrf_field() ?>
@@ -420,7 +430,6 @@ layout_admin_start($company['name'], $user);
       <label for="fee_currency">Fee currency</label>
       <?php currency_field('fee_currency', 'fee_currency', company_fee_currency($company)); ?>
     </div>
-  </div>
   <div style="padding:0 22px 22px">
     <p class="hint" style="margin:8px 0 12px">
       <?php if (company_expires_on($company)): ?>
@@ -506,7 +515,6 @@ layout_admin_start($company['name'], $user);
       <label for="imap_port">IMAP port</label>
       <input id="imap_port" name="imap_port" type="number" data-mail-field="imap_port" value="<?= (int) ($company['imap_port'] ?? 993) ?>">
     </div>
-  </div>
   <div style="padding:0 22px 22px">
     <p class="hint" style="margin:8px 0 12px">
       Hostinger hPanel uses smtp.hostinger.com:465 SSL, pop.hostinger.com:995, imap.hostinger.com:993. Titan uses smtp.titan.email with the same ports. The company desk sends quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors and custom mail from this address and cannot edit it.
@@ -516,7 +524,6 @@ layout_admin_start($company['name'], $user);
       <button class="btn" type="submit" name="action" value="mailbox"><?= icon('check') ?>Save mailbox</button>
       <button class="btn ghost" type="submit" name="action" value="mailbox_test"><?= icon('send', 16) ?>Send test</button>
     </div>
-  </div>
   <script type="application/json" data-mail-presets><?= json_encode(mail_provider_presets(), JSON_UNESCAPED_SLASHES) ?></script>
 </form>
 
@@ -563,7 +570,6 @@ layout_admin_start($company['name'], $user);
       <label class="check" for="pnl_enabled"><input id="pnl_enabled" name="pnl_enabled" type="checkbox" value="1" data-pnl-toggle <?= !empty($company['pnl_enabled']) ? 'checked' : '' ?>> Profit &amp; Loss on for this desk</label>
       <p class="hint">Pro gets P&amp;L automatically. You can enable bookkeeping, refunds and returns for any plan here.</p>
     </div>
-  </div>
   <div style="padding:0 22px 22px">
     <label for="notes">Internal notes</label>
     <textarea id="notes" name="notes" rows="3"><?= h((string) $company['notes']) ?></textarea>
@@ -571,7 +577,6 @@ layout_admin_start($company['name'], $user);
     <div class="actions" style="margin-top:12px">
       <button class="btn" type="submit"><?= icon('check') ?>Save company</button>
     </div>
-  </div>
 </form>
 
 <form class="card form-wide" method="post" enctype="multipart/form-data" style="margin-top:16px">
@@ -625,7 +630,7 @@ layout_admin_start($company['name'], $user);
       <input id="city" name="city" value="<?= h((string) ($brand['city'] ?? '')) ?>">
     </div>
   </div>
-  <div style="padding:0 22px">
+  <div style="padding:0 22px 22px">
     <label for="address">Address</label>
     <input id="address" name="address" value="<?= h((string) ($brand['address'] ?? '')) ?>">
     <div class="form-grid">
@@ -672,7 +677,7 @@ layout_admin_start($company['name'], $user);
     <textarea id="payment_note" name="payment_note" rows="3"><?= h((string) ($brand['payment_note'] ?? '')) ?></textarea>
     <label for="invoice_comments">Invoice comments</label>
     <textarea id="invoice_comments" name="invoice_comments" rows="4"><?= h((string) ($brand['invoice_comments'] ?? '')) ?></textarea>
-    <div class="actions" style="margin-top:16px;padding-bottom:22px">
+    <div class="actions" style="margin-top:16px">
       <button class="btn" type="submit"><?= icon('check') ?>Save stationery</button>
     </div>
   </div>

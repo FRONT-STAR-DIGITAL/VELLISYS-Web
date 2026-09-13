@@ -346,6 +346,14 @@ layout_admin_start('Landing', $user);
 
 <?php if ($error): ?><p class="flash flash-err" style="margin:0 0 16px"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
 
+<nav class="admin-jump" aria-label="Landing sections">
+  <a href="#top-bar"><?= icon('globe', 14) ?>Top bar</a>
+  <a href="#packages"><?= icon('bank', 14) ?>Packages</a>
+  <a href="#page-cards"><?= icon('image', 14) ?>Page cards</a>
+  <a href="#trust-clients"><?= icon('clients', 14) ?>Clients</a>
+  <a href="#testimonials"><?= icon('letter', 14) ?>Testimonials</a>
+</nav>
+<section class="landing-admin-section">
 <h2 class="landing-admin-h" id="top-bar"><?= icon('globe', 20) ?>Top bar</h2>
 <p class="lede" style="margin-top:-8px">These lines scroll above the header, separated by a blue |. White and pale blue alternate so the two statements stay distinct. Lower order numbers come first.</p>
 
@@ -382,7 +390,8 @@ layout_admin_start('Landing', $user);
     <?php endforeach; ?>
   </div>
 <?php endif; ?>
-
+</section>
+<section class="landing-admin-section">
 <h2 class="landing-admin-h" id="packages"><?= icon('bank', 20) ?>Packages</h2>
 <p class="lede" style="margin-top:-8px">Everything on the public packages block - heading, countdown, currency rates, names, prices, inclusions. Prices are stored in UGX. Header currencies convert from the rates below. Put <code>{currency}</code> in the intro where the live code should appear, and <code>{register}</code> where the register link should go.</p>
 
@@ -510,8 +519,9 @@ layout_admin_start('Landing', $user);
     <?php endforeach; ?>
   </div>
 <?php endif; ?>
-
-<h2 class="landing-admin-h">Page cards</h2>
+</section>
+<section class="landing-admin-section">
+<h2 class="landing-admin-h" id="page-cards">Page cards</h2>
 <div class="landing-admin">
   <?php foreach ($cards as $c): ?>
     <form class="card" method="post" enctype="multipart/form-data">
@@ -532,7 +542,8 @@ layout_admin_start('Landing', $user);
     </form>
   <?php endforeach; ?>
 </div>
-
+</section>
+<section class="landing-admin-section">
 <h2 class="landing-admin-h" id="trust-clients"><?= icon('clients', 20) ?>Clients who trust us</h2>
 <p class="lede" style="margin-top:-8px">These names and logos scroll on the public home page. Add a company, upload its mark, and set the order (lower numbers come first).</p>
 
@@ -578,7 +589,8 @@ layout_admin_start('Landing', $user);
     <?php endforeach; ?>
   </div>
 <?php endif; ?>
-
+</section>
+<section class="landing-admin-section">
 <h2 class="landing-admin-h" id="testimonials"><?= icon('letter', 20) ?>Testimonials</h2>
 <p class="lede" style="margin-top:-8px">These quotes scroll on the public home page. Edit the heading, then add or remove people. An empty list hides the block.</p>
 
@@ -644,4 +656,6 @@ layout_admin_start('Landing', $user);
     <?php endforeach; ?>
   </div>
 <?php endif; ?>
+</section>
+
 <?php layout_end(); ?>

@@ -50,7 +50,7 @@ layout_start($editing ? 'Edit note' : 'Notes', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('letter') ?>Notes</h1>
-    <p class="lede">Owner notes for the desk — pin the ones that must stay visible, and mark essentials.</p>
+    <p class="lede">Owner notes for the desk. Pin the ones that must stay visible, and mark essentials.</p>
   </div>
   <div class="actions page-actions">
     <a class="btn" href="<?= h(url('planner_notes.php')) ?>"><?= icon('plus', 16) ?>New note</a>

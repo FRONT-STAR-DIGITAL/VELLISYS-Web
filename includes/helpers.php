@@ -2749,7 +2749,7 @@ function desk_manage_items(): array
         ['icon' => 'invoice', 'title' => 'Invoices', 'body' => 'Issue full or part-paid invoices. Balances stay visible until they are cleared.'],
         ['icon' => 'receipt', 'title' => 'Receipts', 'body' => 'Record what came in. RECEIVED and DUE print on the sheet, in your currency.'],
         ['icon' => 'expense', 'title' => 'Expenses', 'body' => 'Log what the company spent - fuel, rent, suppliers - with VAT and currency on the same desk as the sales books.'],
-        ['icon' => 'calendar', 'title' => 'Planner', 'body' => 'Notes, budget targets and a calendar for programmes, appointments and deadlines — with priority when it matters.'],
+        ['icon' => 'calendar', 'title' => 'Planner', 'body' => 'Notes, budget targets and a calendar for programmes, appointments and deadlines, with priority when it matters.'],
         ['icon' => 'reports', 'title' => 'Profit & Loss', 'body' => 'See net profit for any date range. Record other income and costs, refunds and return notes beside invoices and expenses.'],
         ['icon' => 'truck', 'title' => 'Delivery notes', 'body' => 'List what left the store, with quantities. No prices - goods out, not a bill.'],
         ['icon' => 'file', 'title' => 'Custom documents', 'body' => 'A form you define at onboarding - fields, a body, or both - on the same branded paper.'],

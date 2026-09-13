@@ -81,13 +81,13 @@ $rowActions = static function (array $s): void {
     <h1><?= icon('letter') ?>Website sign-ups</h1>
     <p class="lede">People register, book a demo, or start checkout from the website. Incomplete forms and failed Pesapal payments land here too. Call them, then onboard the company - or create one from scratch under Companies.</p>
   </div>
-</div>
 
 <div class="card" style="margin-bottom:24px">
   <h2 style="margin:4px 0 12px">Waiting on you</h2>
   <?php if (!$open): ?>
     <p class="empty">No open sign-ups. New registrations from the website land here.</p>
   <?php else: ?>
+    <div class="table-scroll">
     <table class="grid">
       <thead>
         <tr>
@@ -122,6 +122,7 @@ $rowActions = static function (array $s): void {
         <?php endforeach; ?>
       </tbody>
     </table>
+    </div>
   <?php endif; ?>
 </div>
 
@@ -130,6 +131,7 @@ $rowActions = static function (array $s): void {
   <?php if (!$done): ?>
     <p class="empty">Onboarded and declined sign-ups will list here.</p>
   <?php else: ?>
+    <div class="table-scroll">
     <table class="grid">
       <thead>
         <tr>
@@ -156,6 +158,7 @@ $rowActions = static function (array $s): void {
         <?php endforeach; ?>
       </tbody>
     </table>
+    </div>
   <?php endif; ?>
 </div>
 
@@ -164,6 +167,7 @@ $rowActions = static function (array $s): void {
   <?php if (!$orders): ?>
     <p class="empty">Package checkouts, drafts and failed Pesapal payments will list here.</p>
   <?php else: ?>
+    <div class="table-scroll">
     <table class="grid">
       <thead>
         <tr>
@@ -221,6 +225,7 @@ $rowActions = static function (array $s): void {
         <?php endforeach; ?>
       </tbody>
     </table>
+    </div>
   <?php endif; ?>
 </div>
 <?php layout_end(); ?>

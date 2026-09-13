@@ -57,13 +57,13 @@ $rowActions = static function (array $q): void {
     <h1><?= icon('help') ?>Questions</h1>
     <p class="lede">People write from Have a Question on the landing page. Open a row for the full message. A copy is also emailed to <?= h(product_email()) ?>.</p>
   </div>
-</div>
 
 <div class="card" style="margin-bottom:24px">
   <h2 style="margin:4px 0 12px">Waiting on you</h2>
   <?php if (!$open): ?>
     <p class="empty">No open questions. New notes from the website land here.</p>
   <?php else: ?>
+    <div class="table-scroll">
     <table class="grid">
       <thead>
         <tr>
@@ -90,6 +90,7 @@ $rowActions = static function (array $q): void {
         <?php endforeach; ?>
       </tbody>
     </table>
+    </div>
   <?php endif; ?>
 </div>
 
@@ -98,6 +99,7 @@ $rowActions = static function (array $q): void {
   <?php if (!$done): ?>
     <p class="empty">Questions you mark as replied will list here.</p>
   <?php else: ?>
+    <div class="table-scroll">
     <table class="grid">
       <thead>
         <tr>
@@ -125,6 +127,7 @@ $rowActions = static function (array $q): void {
         <?php endforeach; ?>
       </tbody>
     </table>
+    </div>
   <?php endif; ?>
 </div>
 <?php layout_end(); ?>

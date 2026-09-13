@@ -191,7 +191,7 @@ layout_start($heading, $user, ['kind' => $kind]);
       } elseif ($kind === 'refund') {
           echo 'Record money refunded to a customer or received back from a supplier. Link an invoice or expense when you can.';
       } elseif ($kind === 'return_note') {
-          echo 'List goods returned by a customer or sent back to a supplier. Quantities only — pair with a refund when money moves.';
+          echo 'List goods returned by a customer or sent back to a supplier. Quantities only. Pair with a refund when money moves.';
       } else {
           echo 'Client, item, description, amount' . ($kind === 'invoice' ? ', due date' : '') . '. Numbering and branding are applied for you.';
       }
@@ -378,8 +378,8 @@ layout_start($heading, $user, ['kind' => $kind]);
         <label for="expense_category">Direction</label>
         <select id="expense_category" name="expense_category">
           <?php $dir = (string) ($existing['expense_category'] ?? 'out'); ?>
-          <option value="out" <?= in_array($dir, ['out', 'customer', 'customer_refund', 'refund_out', ''], true) ? 'selected' : '' ?>>Out — refund to customer</option>
-          <option value="in" <?= in_array($dir, ['in', 'supplier', 'supplier_refund', 'refund_in'], true) ? 'selected' : '' ?>>In — refund from supplier</option>
+          <option value="out" <?= in_array($dir, ['out', 'customer', 'customer_refund', 'refund_out', ''], true) ? 'selected' : '' ?>>Out: refund to customer</option>
+          <option value="in" <?= in_array($dir, ['in', 'supplier', 'supplier_refund', 'refund_in'], true) ? 'selected' : '' ?>>In: refund from supplier</option>
         </select>
       </div>
       <div>

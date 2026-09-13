@@ -34,7 +34,7 @@ layout_start('Planner', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('calendar') ?>Planner</h1>
-    <p class="lede">Notes, budget targets and the calendar for programmes, appointments and deadlines — with priority when it matters.</p>
+    <p class="lede">Notes, budget targets and the calendar for programmes, appointments and deadlines, with priority when it matters.</p>
   </div>
   <div class="actions page-actions">
     <a class="btn ghost" href="<?= h(url('planner_notes.php')) ?>"><?= icon('letter', 16) ?>Note</a>
