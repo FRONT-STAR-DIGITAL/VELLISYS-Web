@@ -25,6 +25,15 @@ $recent = attach_document_totals(db_all("SELECT d.*, p.name AS party_name FROM d
 $queue = $overdue ?: $open;
 $hour = (int) date('G');
 $hello = $hour < 12 ? 'Good morning' : ($hour < 17 ? 'Good afternoon' : 'Good evening');
+$firstName = explode(' ', trim((string) $user['name']))[0];
+$homeCcy = default_currency();
+$fxRate = fx_home_per_usd();
+if ($homeCcy === 'USD') {
+    $fxValue = 'Books already in USD';
+} else {
+    $prettyRate = rtrim(rtrim(number_format($fxRate, 4, '.', ','), '0'), '.');
+    $fxValue = '1 USD = ' . $prettyRate . ' ' . $homeCcy;
+}
 
 layout_start('Desk', $user);
 $deskCompany = current_company();
@@ -38,10 +47,21 @@ $canInvoice = user_can_kind('invoice');
 <?php endif; ?>
 <div class="desk-hero">
   <div class="desk-hello">
-    <p class="desk-kicker"><?= h($brand['name']) ?> · <?= h(default_currency()) ?> · <?= h(fx_rate_label()) ?></p>
-    <p class="desk-hello-greet"><?= h($hello) ?></p>
-    <h1><?= h(explode(' ', $user['name'])[0]) ?></h1>
-    <p class="lede"><?= is_desk_admin($user) ? 'What needs sending or collecting today. Colour and stationery live in Settings.' : 'What needs sending or collecting today.' ?></p>
+    <p class="desk-kicker"><?= h($brand['name']) ?></p>
+    <h1 class="desk-hello-title">
+      <span class="desk-hello-greet"><?= h($hello) ?></span>
+      <span class="desk-hello-name"><?= h($firstName) ?></span>
+    </h1>
+    <div class="desk-fx">
+      <div>
+        <span>Main currency</span>
+        <strong><?= h($homeCcy) ?></strong>
+      </div>
+      <div>
+        <span>USD conversion</span>
+        <strong><?= h($fxValue) ?></strong>
+      </div>
+    </div>
   </div>
   <?php if ($canQuote || $canInvoice): ?>
   <div class="actions">
