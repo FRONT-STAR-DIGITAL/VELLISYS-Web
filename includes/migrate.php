@@ -21,7 +21,7 @@ function folio_schema_ready_file(): string
     if (!is_dir($dir)) {
         @mkdir($dir, 0700, true);
     }
-    return $dir . '/schema-36.ok';
+    return $dir . '/schema-37.ok';
 }
 
 function folio_ensure_logo_bg(mysqli $db): void
@@ -86,7 +86,7 @@ function folio_migrate(mysqli $db): void
         return;
     }
     $verRow = @$db->query("SELECT v FROM schema_meta WHERE k='version'");
-    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 36) {
+    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 37) {
         @touch($ready);
         $done = true;
         return;
@@ -101,7 +101,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 36) {
+    if ($ver >= 37) {
         @touch($ready);
         $done = true;
         return;
@@ -315,10 +315,70 @@ function folio_migrate(mysqli $db): void
     if ($ver < 36) {
         folio_migrate_join_and_copy($db);
     }
+    if ($ver < 37) {
+        folio_migrate_planner($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '36')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '37')");
     @touch($ready);
     $done = true;
+}
+
+function folio_migrate_planner(mysqli $db): void
+{
+    if (!db_has_column($db, 'companies', 'planner_enabled')) {
+        $db->query('ALTER TABLE companies ADD COLUMN planner_enabled TINYINT(1) NOT NULL DEFAULT 0');
+        // Business (sme) and Pro (office) get Planner on by default when the flag is introduced.
+        $db->query("UPDATE companies SET planner_enabled = 1 WHERE plan IN ('sme','office')");
+    }
+
+    $db->query("CREATE TABLE IF NOT EXISTS planner_notes (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      company_id INT UNSIGNED NOT NULL,
+      user_id INT UNSIGNED NOT NULL DEFAULT 0,
+      title VARCHAR(190) NOT NULL,
+      body TEXT NULL,
+      priority ENUM('low','normal','high','essential') NOT NULL DEFAULT 'normal',
+      pinned TINYINT(1) NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY company_id (company_id),
+      KEY company_priority (company_id, priority)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $db->query("CREATE TABLE IF NOT EXISTS planner_budget_items (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      company_id INT UNSIGNED NOT NULL,
+      user_id INT UNSIGNED NOT NULL DEFAULT 0,
+      title VARCHAR(190) NOT NULL,
+      category VARCHAR(120) NOT NULL DEFAULT 'General',
+      kind ENUM('income','expense') NOT NULL DEFAULT 'expense',
+      amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+      month_key CHAR(7) NOT NULL,
+      notes TEXT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY company_month (company_id, month_key)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $db->query("CREATE TABLE IF NOT EXISTS planner_events (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      company_id INT UNSIGNED NOT NULL,
+      user_id INT UNSIGNED NOT NULL DEFAULT 0,
+      title VARCHAR(190) NOT NULL,
+      body TEXT NULL,
+      event_date DATE NOT NULL,
+      event_time TIME NULL,
+      end_date DATE NULL,
+      kind ENUM('appointment','deadline','program','reminder','other') NOT NULL DEFAULT 'appointment',
+      priority ENUM('low','normal','high','essential') NOT NULL DEFAULT 'normal',
+      party_id INT UNSIGNED NULL,
+      document_id INT UNSIGNED NULL,
+      done TINYINT(1) NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY company_date (company_id, event_date),
+      KEY company_done (company_id, done)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
 function folio_migrate_onboard_steps(mysqli $db): void
