@@ -268,7 +268,7 @@ function doc_templates(): array
         ],
         'ledger' => [
             'name' => 'Colour ledger',
-            'blurb' => 'Receipt-book layout washed in your primary and accent.',
+            'blurb' => 'Receipt-book layout with primary and accent blocks on white paper.',
         ],
         'crimson' => [
             'name' => 'Corner bill',
@@ -288,11 +288,11 @@ function doc_templates(): array
         ],
         'estate' => [
             'name' => 'Estate panel',
-            'blurb' => 'Deep header band, solid accent bar, harvest paper - no fade, no wash.',
+            'blurb' => 'Deep header band and solid accent bar on a white sheet.',
         ],
         'night' => [
             'name' => 'Harbour block',
-            'blurb' => 'Solid deep header and a flat accent rule. Built for dusk print.',
+            'blurb' => 'Solid deep header and a flat accent rule on white paper.',
         ],
         'atelier' => [
             'name' => 'Atelier',
@@ -308,14 +308,19 @@ function doc_templates(): array
         ],
         'bond' => [
             'name' => 'Bond watermark',
-            'blurb' => 'Cream bond paper with a large tilted logo mark behind the lines.',
+            'blurb' => 'White bond sheet with a large tilted logo mark behind the lines.',
         ],
     ];
 }
 
 function doc_template_key(?array $doc = null): string
 {
-    $key = strtolower((string) (branding()['doc_template'] ?? 'folio'));
+    $key = '';
+    if (is_array($doc) && array_key_exists('doc_template', $doc) && $doc['doc_template'] !== null && $doc['doc_template'] !== '') {
+        $key = strtolower((string) $doc['doc_template']);
+    } else {
+        $key = strtolower((string) (branding()['doc_template'] ?? 'folio'));
+    }
     return array_key_exists($key, doc_templates()) ? $key : 'folio';
 }
 
@@ -3001,7 +3006,7 @@ function folio_css_links(bool $critical = true, ?bool $sheet = null): void
     folio_stylesheet('css/app.css');
     if ($sheet === null) {
         $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
-        $sheet = in_array($here, ['document_view.php', 'document_new.php', 'document_action.php', 'share.php', 'document_pdf.php'], true);
+        $sheet = in_array($here, ['document_view.php', 'document_new.php', 'document_action.php', 'share.php', 'document_pdf.php', 'settings.php'], true);
     }
     if ($sheet) {
         folio_stylesheet('css/designs.css', false);

@@ -872,8 +872,15 @@ input:focus, select:focus, textarea:focus {
 .invoice-sheet.sheet-ledger,
 .invoice-sheet.sheet-estate,
 .invoice-sheet.sheet-twin,
-.invoice-sheet.sheet-night {
+.invoice-sheet.sheet-night,
+.invoice-sheet.sheet-bond,
+.invoice-sheet.sheet-atelier,
+.invoice-sheet.sheet-seal,
+.invoice-sheet.sheet-mark,
+.invoice-sheet.sheet-bill,
+.invoice-sheet.sheet-stripe {
   background: #fff;
+  color: #000;
 }
 table.grid tfoot td {
   font-weight: 700;
