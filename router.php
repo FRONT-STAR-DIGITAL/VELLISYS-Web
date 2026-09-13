@@ -23,6 +23,7 @@ if ($uri !== '/' && is_file($file) && !str_contains($uri, '..')) {
         'svg' => 'image/svg+xml',
         'webp' => 'image/webp',
         'ico' => 'image/x-icon',
+        'pdf' => 'application/pdf',
     ];
     if (isset($cached[$ext])) {
         $type = $cached[$ext];
@@ -45,6 +46,9 @@ if ($uri !== '/' && is_file($file) && !str_contains($uri, '..')) {
         header('Content-Type: ' . $type);
         if (basename($file) === 'sw.js') {
             header('Cache-Control: no-cache');
+        } elseif ($ext === 'pdf') {
+            header('Content-Disposition: inline; filename="' . basename($file) . '"');
+            header('Cache-Control: no-store');
         } else {
             header('Cache-Control: public, max-age=31536000, immutable');
         }
