@@ -21,12 +21,12 @@ $lessons = [
         'icon' => 'desk',
         'title' => 'The desk',
         'file' => 'desk.png',
-        'alt' => 'Vellisys desk home with open invoices and this month\'s totals',
-        'lead' => 'Sign in and you land on Desk. That is the morning list: who still owes you, what you invoiced this month, and a short trail of recent documents.',
+        'alt' => 'Desk home with greeting card, main currency, USD rate, open invoices and this month\'s totals',
+        'lead' => 'Sign in and you land on Desk. The greeting card names the company, you, the home currency and the USD rate. Below that is who still owes you, this month\'s totals, and a short trail of recent documents.',
         'points' => [
             'Start here every day. Overdue invoices sit at the top so you chase them first.',
             'Quick add (the plus on the top bar) opens a quotation, invoice, receipt, expense, letter, email or client without hunting the menu.',
-            'The coloured rail on the left is your company. Hover it on a computer, or use the menu button on a phone - topics sit in two columns on a small screen.',
+            'The bell (when Planner is on) lists deadlines and invoices you can Receive. The rail on the left is your company. Hover it on a computer, or use the menu button on a phone.',
         ],
     ],
     [
@@ -76,9 +76,9 @@ $lessons = [
         'alt' => 'A branded invoice with totals and payment details',
         'lead' => 'Invoices are what you are owed. Due dates feed Debtors. Part payments stay honest.',
         'points' => [
-            'Issue in your currency, or in USD. The rate lives in Settings so reports can add them up.',
-            'Print, share a link, or email the sheet. The letterhead is yours: logo, three colours, bank details, TIN.',
-            'Record a receipt against the invoice when money lands. The balance drops. Full or part - both work.',
+            'Issue in your currency, or in USD. The rate lives in Settings and on the Desk greeting card so reports can add them up.',
+            'Print, share a link, or email the sheet. The letterhead is yours: logo, two colours, bank details, TIN. On a phone the page is the same A4 sheet, scaled to fit.',
+            'Record a receipt against the invoice when money lands. The balance drops. Full or part - both work. Receive is also on the notifications bell when Planner is on.',
         ],
     ],
     [
@@ -168,7 +168,7 @@ $lessons = [
         'lead' => 'Debtors is who has not finished paying. Open invoices, aged balances, one place to chase.',
         'points' => [
             'The list groups by client and ages the unpaid balances: current, 1-30, 31-60, and so on.',
-            'Open an invoice to take a receipt, or use Remind to email the client from the company mailbox.',
+            'Open an invoice to take a receipt, or use Remind to email the client from the company mailbox. Receive on the bell does the same job from Desk.',
             'Export CSV when you need the aging in a spreadsheet. Never delete a paid invoice to clean up.',
         ],
     ],
@@ -183,6 +183,45 @@ $lessons = [
             'Each unpaid expense sits here with amount, paid so far, and balance.',
             'Pay from the row, or Message the supplier - that letter leaves from the company mailbox.',
             'Keep supplier names consistent so the same firm does not appear twice on the list.',
+        ],
+    ],
+    [
+        'id' => 'planner',
+        'icon' => 'calendar',
+        'title' => 'Planner',
+        'file' => 'planner.png',
+        'alt' => 'Planner with this week\'s events, priority notes and budget versus actuals',
+        'lead' => 'Planner is notes, a budget and a calendar for programmes, appointments and deadlines. It is on Business and Pro desks for the company admin.',
+        'points' => [
+            'Open Planner from the rail. Add a note, a budget line for the month, or an event on the calendar.',
+            'Essential and high notes, plus invoices that are due, also appear in the bell on the top bar.',
+            'If the tab is missing, this desk is on Starter, or Vellisys has not switched Planner on. Ask for Business or Pro.',
+        ],
+    ],
+    [
+        'id' => 'notify',
+        'icon' => 'bell',
+        'title' => 'Notifications',
+        'file' => 'notify.png',
+        'alt' => 'Notifications window with upcoming invoices and a Receive action',
+        'lead' => 'The bell on the top bar is the morning list from Planner: events, essential notes, and invoices that still need a receipt.',
+        'points' => [
+            'Open the bell. Each row has Dismiss, plus Open, View, Done or Receive.',
+            'Receive on an invoice opens the receipt form. The word is white on the brand button so you can read it.',
+            'Open Planner at the foot of the list when you want the full week, not only the next few items.',
+        ],
+    ],
+    [
+        'id' => 'pnl',
+        'icon' => 'reports',
+        'title' => 'Profit and loss',
+        'file' => 'pnl.png',
+        'alt' => 'Profit and loss with income, expenses, net profit and cash movement charts',
+        'lead' => 'P&L tot up income, expenses, refunds and returns for the dates you pick, with net profit on one desk. It is on Pro desks for the company admin.',
+        'points' => [
+            'Open P&L. Filter the period the same way as Reports. Ledger, Refund and Return sit next to New entry.',
+            'Refunds and returns are not on the main rail - they live here so the profit figure stays honest.',
+            'If the tab is missing, ask Vellisys to put the desk on Pro, or to switch P&L on.',
         ],
     ],
     [
@@ -208,7 +247,7 @@ $lessons = [
         'points' => [
             'This month is the usual view for a Friday meeting. Last month is for the file you already closed.',
             'Custom from/to is for a job that crossed months, or a tax quarter.',
-            'The same chips sit on Reports, so the charts match the table you just filtered.',
+            'The same chips sit on Reports and P&L, so the charts match the table you just filtered.',
         ],
     ],
     [
@@ -220,7 +259,7 @@ $lessons = [
         'lead' => 'Every sheet can leave the desk without a PDF attachment hunt. Print it, email it, or send the link on WhatsApp.',
         'points' => [
             'Open any quotation, invoice, receipt or letter. Print opens the sheet. Share offers WhatsApp and Email.',
-            'The share link is the branded page the client sees. They can print from there. No login required.',
+            'The share link is the branded page the client sees. They can print from there. No login required. On a phone the sheet is still the A4 page, scaled to the screen.',
             'WhatsApp opens with the document link already in the message. Email sends the sheet from the company mailbox.',
         ],
     ],
@@ -229,10 +268,10 @@ $lessons = [
         'icon' => 'settings',
         'title' => 'Settings and brand',
         'file' => 'settings.png',
-        'alt' => 'Settings with logo upload and three brand colours',
-        'lead' => 'Logo, three colours, TIN, bank, document prefix, and the currency you bill in. One design prints on every sheet. Only the company admin opens Settings.',
+        'alt' => 'Settings Appearance with logo upload and two brand colours',
+        'lead' => 'Logo, two colours, TIN, bank, document prefix, and the currency you bill in. One design prints on every sheet. Only the company admin opens Settings.',
         'points' => [
-            'Primary paints the desk. Accent and deep colour the document designs. Pick a template under Templates.',
+            'Primary paints the desk and the strong bars. Accent marks rails, rules and highlights. Type on those colours is black or white, whichever reads.',
             'The sending mailbox is assigned by Vellisys. You can see the address. You cannot change the password.',
             'If a colour or logo is wrong, fix it here. Old documents keep the layout you pick now when you reprint.',
         ],
@@ -242,11 +281,11 @@ $lessons = [
         'icon' => 'palette',
         'title' => 'Document designs',
         'file' => 'designs.png',
-        'alt' => 'Twelve document layouts including logo watermark and bond watermark',
+        'alt' => 'Twelve document layouts including corner bill, accent bill, logo watermark and bond watermark',
         'lead' => 'Twelve layouts live under Settings, Templates. Pick one and every quotation, invoice, receipt, expense and headed note reprints in that paper.',
         'points' => [
-            'Logo watermark puts the company mark faint in the centre of a white sheet. Bond watermark does the same on cream paper, tilted.',
-            'Estate panel and Harbour block use solid colour bands - no fades, no washes - so they print cleanly.',
+            'Corner bill and Accent bill put primary and accent triangles on the paper corners. Logo watermark and Bond watermark print the company mark faint in the middle; Bond tilts it.',
+            'Estate panel and Harbour block use solid colour bands - no fades, no washes - so they print cleanly. On a phone you see the same A4 sheet as print, scaled to fit.',
             'Changing the design here reprints the whole books. Correspondence text stays editable; only the paper around it changes.',
         ],
     ],
@@ -256,7 +295,7 @@ $lessons = [
         'title' => 'Currency and rate',
         'file' => 'currency.png',
         'alt' => 'Settings tax with home currency and USD exchange rate',
-        'lead' => 'The desk has a home currency. You can still issue a sheet in USD. Settings holds the rate: 1 USD equals n of your currency.',
+        'lead' => 'The desk has a home currency. You can still issue a sheet in USD. Settings holds the rate: 1 USD equals n of your currency. Desk shows both on the greeting card.',
         'points' => [
             'Open Settings, Tax. Pick UGX, KES, EUR or type any three-letter code. Set how many of that currency equal one US dollar.',
             'Reports convert everything back to the home currency so the month still adds up.',
@@ -273,7 +312,7 @@ $lessons = [
         'points' => [
             'Settings, People. Add a name, title, email, access and a temporary password.',
             'Books sees documents, clients, debtors, creditors and email. Sales sees quotations, invoices, receipts, clients and email. Neither opens Reports or Settings.',
-            'Reset a password from the same list. People change their own password under Password in the menu.',
+            'Reset a password from the same list. People change their own password with Change my password on that page.',
         ],
     ],
     [
@@ -284,7 +323,7 @@ $lessons = [
         'alt' => 'Password page to change the signed-in login',
         'lead' => 'Anyone on the desk can change their own password. The company admin can also reset passwords under Settings, People.',
         'points' => [
-            'Open Password in the menu. Enter the current password, then the new one twice. At least 8 characters.',
+            'Open Change my password from Settings, People. Enter the current password, then the new one twice. At least 8 characters.',
             'This is your login, not the company sending mailbox. Outgoing mail still leaves as the company.',
             'If you forget it, the company admin resets it. Super admin can also reach the desk if the company is locked out.',
         ],

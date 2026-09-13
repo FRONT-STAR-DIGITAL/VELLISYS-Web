@@ -1446,6 +1446,9 @@ table.grid tfoot td {
   align-items: center;
   padding-top: 4px;
 }
+@media (max-width: 420px) {
+  .desk-fx { grid-template-columns: 1fr; }
+}
 .doc-side {
   border: 1px solid var(--line);
   border-radius: 12px;
