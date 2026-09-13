@@ -60,58 +60,52 @@ layout_start('Profit & Loss', $user);
   </div>
 </div>
 
-<div class="desk-grid">
-  <div class="card">
+<div class="pnl-split">
+  <div class="card pnl-card">
     <div class="card-head"><h2><?= icon('invoice', 16) ?>Income</h2></div>
-    <div class="work-list">
-      <div class="work-row"><div><strong>Sales invoices</strong><span>Accrual net</span></div><b><?= h(money($summary['sales'], $ccy)) ?></b></div>
-      <div class="work-row"><div><strong>Other income</strong><span>Manual ledger</span></div><b><?= h(money($summary['manual_income'], $ccy)) ?></b></div>
-      <div class="work-row"><div><strong>Supplier refunds</strong><span>Money back in</span></div><b><?= h(money($summary['refund_in'], $ccy)) ?></b></div>
+    <div class="pnl-sheet-wrap">
+      <table class="pnl-sheet">
+        <thead>
+          <tr>
+            <th scope="col">Line</th>
+            <th scope="col" class="pnl-note">Note</th>
+            <th scope="col" class="right">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td data-label="Line"><span class="pnl-line">Sales invoices</span><span class="pnl-note-mobile">Accrual net</span></td>
+            <td class="pnl-note" data-label="Note">Accrual net</td>
+            <td class="right mono" data-label="Amount"><?= h(money($summary['sales'], $ccy)) ?></td>
+          </tr>
+          <tr>
+            <td data-label="Line"><span class="pnl-line">Other income</span><span class="pnl-note-mobile">Manual ledger</span></td>
+            <td class="pnl-note" data-label="Note">Manual ledger</td>
+            <td class="right mono" data-label="Amount"><?= h(money($summary['manual_income'], $ccy)) ?></td>
+          </tr>
+          <tr>
+            <td data-label="Line"><span class="pnl-line">Supplier refunds</span><span class="pnl-note-mobile">Money back in</span></td>
+            <td class="pnl-note" data-label="Note">Money back in</td>
+            <td class="right mono" data-label="Amount"><?= h(money($summary['refund_in'], $ccy)) ?></td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <th scope="row" colspan="2">Total income</th>
+            <th class="right mono"><?= h(money($summary['income_total'], $ccy)) ?></th>
+          </tr>
+        </tfoot>
+      </table>
     </div>
     <?php if ($summary['by_income_cat']): ?>
-      <div class="pnl-cats">
-        <?php foreach (array_slice($summary['by_income_cat'], 0, 6, true) as $cat => $amt): ?>
-          <div><span><?= h((string) $cat) ?></span><strong><?= h(money((float) $amt, $ccy)) ?></strong></div>
-        <?php endforeach; ?>
-      </div>
-    <?php endif; ?>
-  </div>
-  <div class="card">
-    <div class="card-head"><h2><?= icon('wallet', 16) ?>Costs</h2></div>
-    <div class="work-list">
-      <div class="work-row"><div><strong>Expenses</strong><span>Bills and costs</span></div><b><?= h(money($summary['costs'], $ccy)) ?></b></div>
-      <div class="work-row"><div><strong>Other costs</strong><span>Manual ledger</span></div><b><?= h(money($summary['manual_expense'], $ccy)) ?></b></div>
-      <div class="work-row"><div><strong>Customer refunds</strong><span>Money out</span></div><b><?= h(money($summary['refund_out'], $ccy)) ?></b></div>
-    </div>
-    <?php if ($summary['by_expense_cat']): ?>
-      <div class="pnl-cats">
-        <?php foreach (array_slice($summary['by_expense_cat'], 0, 6, true) as $cat => $amt): ?>
-          <div><span><?= h((string) $cat) ?></span><strong><?= h(money((float) $amt, $ccy)) ?></strong></div>
-        <?php endforeach; ?>
-      </div>
-    <?php endif; ?>
-  </div>
-</div>
-
-<div class="desk-grid" style="margin-top:16px">
-  <div class="card">
-    <div class="card-head">
-      <h2><?= icon('wallet', 16) ?>Recent refunds</h2>
-      <a class="btn ghost sm" href="<?= h(url('documents.php?kind=refund')) ?>">All</a>
-    </div>
-    <?php if (!$summary['refunds']): ?>
-      <p class="empty">No refunds in this period. <a href="<?= h(url('document_new.php?kind=refund')) ?>">Record a refund</a>.</p>
-    <?php else: ?>
-      <div class="table-wrap">
-        <table class="grid">
-          <thead><tr><th>Date</th><th>Party</th><th>Direction</th><th>Amount</th></tr></thead>
+      <div class="pnl-breakdown">
+        <h3>By category</h3>
+        <table class="pnl-sheet pnl-sheet-sub">
           <tbody>
-          <?php foreach (array_slice($summary['refunds'], 0, 8) as $d): ?>
+          <?php foreach (array_slice($summary['by_income_cat'], 0, 8, true) as $cat => $amt): ?>
             <tr>
-              <td><?= h(format_date($d['date'])) ?></td>
-              <td><a href="<?= h(url('document_view.php?id=' . (int) $d['id'])) ?>"><?= h($d['party_name']) ?> · <?= h($d['number']) ?></a></td>
-              <td><?= pnl_refund_direction($d) === 'in' ? 'In' : 'Out' ?></td>
-              <td><?= h(money(pnl_doc_amount($d), $ccy)) ?></td>
+              <td><span class="pnl-line"><?= h((string) $cat) ?></span></td>
+              <td class="right mono"><?= h(money((float) $amt, $ccy)) ?></td>
             </tr>
           <?php endforeach; ?>
           </tbody>
@@ -119,7 +113,88 @@ layout_start('Profit & Loss', $user);
       </div>
     <?php endif; ?>
   </div>
-  <div class="card">
+
+  <div class="card pnl-card">
+    <div class="card-head"><h2><?= icon('wallet', 16) ?>Costs</h2></div>
+    <div class="pnl-sheet-wrap">
+      <table class="pnl-sheet">
+        <thead>
+          <tr>
+            <th scope="col">Line</th>
+            <th scope="col" class="pnl-note">Note</th>
+            <th scope="col" class="right">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td data-label="Line"><span class="pnl-line">Expenses</span><span class="pnl-note-mobile">Bills and costs</span></td>
+            <td class="pnl-note" data-label="Note">Bills and costs</td>
+            <td class="right mono" data-label="Amount"><?= h(money($summary['costs'], $ccy)) ?></td>
+          </tr>
+          <tr>
+            <td data-label="Line"><span class="pnl-line">Other costs</span><span class="pnl-note-mobile">Manual ledger</span></td>
+            <td class="pnl-note" data-label="Note">Manual ledger</td>
+            <td class="right mono" data-label="Amount"><?= h(money($summary['manual_expense'], $ccy)) ?></td>
+          </tr>
+          <tr>
+            <td data-label="Line"><span class="pnl-line">Customer refunds</span><span class="pnl-note-mobile">Money out</span></td>
+            <td class="pnl-note" data-label="Note">Money out</td>
+            <td class="right mono" data-label="Amount"><?= h(money($summary['refund_out'], $ccy)) ?></td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <th scope="row" colspan="2">Total costs</th>
+            <th class="right mono"><?= h(money($summary['expense_total'], $ccy)) ?></th>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <?php if ($summary['by_expense_cat']): ?>
+      <div class="pnl-breakdown">
+        <h3>By category</h3>
+        <table class="pnl-sheet pnl-sheet-sub">
+          <tbody>
+          <?php foreach (array_slice($summary['by_expense_cat'], 0, 8, true) as $cat => $amt): ?>
+            <tr>
+              <td><span class="pnl-line"><?= h((string) $cat) ?></span></td>
+              <td class="right mono"><?= h(money((float) $amt, $ccy)) ?></td>
+            </tr>
+          <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    <?php endif; ?>
+  </div>
+</div>
+
+<div class="pnl-split" style="margin-top:16px">
+  <div class="card pnl-card">
+    <div class="card-head">
+      <h2><?= icon('wallet', 16) ?>Recent refunds</h2>
+      <a class="btn ghost sm" href="<?= h(url('documents.php?kind=refund')) ?>">All</a>
+    </div>
+    <?php if (!$summary['refunds']): ?>
+      <p class="empty">No refunds in this period. <a href="<?= h(url('document_new.php?kind=refund')) ?>">Record a refund</a>.</p>
+    <?php else: ?>
+      <div class="pnl-sheet-wrap">
+        <table class="pnl-sheet pnl-ledger">
+          <thead><tr><th>Date</th><th>Party</th><th>Direction</th><th class="right">Amount</th></tr></thead>
+          <tbody>
+          <?php foreach (array_slice($summary['refunds'], 0, 8) as $d): ?>
+            <tr>
+              <td data-label="Date" class="mono"><?= h(format_date($d['date'])) ?></td>
+              <td data-label="Party"><a href="<?= h(url('document_view.php?id=' . (int) $d['id'])) ?>"><?= h($d['party_name']) ?> · <?= h($d['number']) ?></a></td>
+              <td data-label="Direction"><?= pnl_refund_direction($d) === 'in' ? 'In' : 'Out' ?></td>
+              <td data-label="Amount" class="right mono"><?= h(money(pnl_doc_amount($d), $ccy)) ?></td>
+            </tr>
+          <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    <?php endif; ?>
+  </div>
+  <div class="card pnl-card">
     <div class="card-head">
       <h2><?= icon('truck', 16) ?>Return notes</h2>
       <a class="btn ghost sm" href="<?= h(url('documents.php?kind=return_note')) ?>">All</a>
@@ -127,16 +202,16 @@ layout_start('Profit & Loss', $user);
     <?php if (!$summary['returns']): ?>
       <p class="empty">No return notes in this period. <a href="<?= h(url('document_new.php?kind=return_note')) ?>">Add a return note</a>.</p>
     <?php else: ?>
-      <div class="table-wrap">
-        <table class="grid">
-          <thead><tr><th>Date</th><th>Party</th><th>Direction</th><th>No.</th></tr></thead>
+      <div class="pnl-sheet-wrap">
+        <table class="pnl-sheet pnl-ledger">
+          <thead><tr><th>Date</th><th>Party</th><th>Direction</th><th class="right">No.</th></tr></thead>
           <tbody>
           <?php foreach (array_slice($summary['returns'], 0, 8) as $d): ?>
             <tr>
-              <td><?= h(format_date($d['date'])) ?></td>
-              <td><a href="<?= h(url('document_view.php?id=' . (int) $d['id'])) ?>"><?= h($d['party_name']) ?></a></td>
-              <td><?= pnl_return_direction($d) === 'in' ? 'To supplier' : 'From customer' ?></td>
-              <td><?= h($d['number']) ?></td>
+              <td data-label="Date" class="mono"><?= h(format_date($d['date'])) ?></td>
+              <td data-label="Party"><a href="<?= h(url('document_view.php?id=' . (int) $d['id'])) ?>"><?= h($d['party_name']) ?></a></td>
+              <td data-label="Direction"><?= pnl_return_direction($d) === 'in' ? 'To supplier' : 'From customer' ?></td>
+              <td data-label="No." class="right mono"><?= h($d['number']) ?></td>
             </tr>
           <?php endforeach; ?>
           </tbody>
