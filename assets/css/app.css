@@ -2664,6 +2664,19 @@ input, select, textarea { font-weight: 400; }
   padding: 6px 12px;
   font-size: 12.5px;
 }
+.top-bell-panel a.btn {
+  display: inline-flex;
+}
+.top-bell-actions .btn:not(.ghost),
+.top-bell-actions .btn:not(.ghost):hover,
+.top-bell-panel a.btn:not(.ghost),
+.top-bell-panel a.btn:not(.ghost):hover {
+  color: #fff;
+}
+.top-bell-panel a.btn:not(.ghost):hover {
+  background: var(--brand);
+  filter: brightness(.96);
+}
 .top-bell-actions form { margin: 0; }
 
 /* P&L */
