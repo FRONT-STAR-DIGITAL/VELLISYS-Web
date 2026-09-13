@@ -71,6 +71,8 @@ CREATE TABLE IF NOT EXISTS branding (
   fx_ugx_per_usd DECIMAL(12,4) NOT NULL DEFAULT 3700,
   letter_templates TEXT NULL,
   doc_template VARCHAR(40) NOT NULL DEFAULT 'folio',
+  tax_name VARCHAR(40) NOT NULL DEFAULT 'VAT',
+  tax_rate DECIMAL(8,4) NOT NULL DEFAULT 0.1800,
   UNIQUE KEY company_id (company_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

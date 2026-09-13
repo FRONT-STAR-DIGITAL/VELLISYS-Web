@@ -26,7 +26,11 @@ $customDef = company_custom_doc();
 $prefillParty = (int) ($existing['party_id'] ?? ($_GET['party'] ?? 0));
 $related = (int) ($existing['related_id'] ?? ($_GET['related'] ?? 0));
 $parties = parties_for($kind);
-$vatDefault = 0.18;
+$vatDefault = company_tax_rate();
+if ($existing && (float) ($existing['vat_rate'] ?? 0) > 0) {
+    $vatDefault = (float) $existing['vat_rate'];
+}
+$taxName = company_tax_name();
 $openInvoices = $kind === 'receipt' ? outstanding_invoices(null, $related ?: null) : [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -199,7 +203,7 @@ layout_start($heading, $user, ['kind' => $kind]);
   </div>
 </div>
 
-<form class="card form-wide document-form" method="post" <?= $kind === 'letter' ? 'data-letter-templates' : '' ?> <?= $kind === 'receipt' ? 'data-receipt-form' : '' ?> data-fx-form data-fx-home="<?= h(default_currency()) ?>" data-party-book="<?= h(json_encode($partyBook, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}') ?>">
+<form class="card form-wide document-form" method="post" <?= $kind === 'letter' ? 'data-letter-templates' : '' ?> <?= $kind === 'receipt' ? 'data-receipt-form' : '' ?> data-fx-form data-fx-home="<?= h(default_currency()) ?>" data-tax-rate="<?= h((string) $vatDefault) ?>" data-party-book="<?= h(json_encode($partyBook, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}') ?>">
   <?= csrf_field() ?>
   <input type="hidden" name="kind" value="<?= h($kind) ?>">
   <?php if ($existing): ?>
@@ -466,7 +470,7 @@ layout_start($heading, $user, ['kind' => $kind]);
             <?php if ($kind !== 'delivery'): ?>
               <th class="right">Unit price</th>
               <th class="right">Total Amt</th>
-              <th class="center">VAT</th>
+              <th class="center"><?= h($taxName) ?></th>
             <?php endif; ?>
             <th class="center lines-del-col"> </th>
           </tr>
@@ -517,7 +521,7 @@ layout_start($heading, $user, ['kind' => $kind]);
         <?php elseif ($kind === 'expense'): ?>
           <span class="hint">What was bought or paid for. Expenses open as a detail card, not stationery.</span>
         <?php else: ?>
-          <span class="hint">Item is the short name. Tick VAT for Y. Preview below shows how lines print.</span>
+          <span class="hint">Item is the short name. Tick <?= h($taxName) ?> for Y. Preview below shows how lines print.</span>
         <?php endif; ?>
       </p>
       <?php if ($kind !== 'expense'): ?>
@@ -536,7 +540,7 @@ layout_start($heading, $user, ['kind' => $kind]);
                 <?php if ($kind !== 'delivery'): ?>
                   <th class="right">Unit price</th>
                   <th class="right">Total Amt</th>
-                  <th class="center">VAT</th>
+                  <th class="center"><?= h($taxName) ?></th>
                 <?php endif; ?>
               </tr>
             </thead>

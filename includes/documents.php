@@ -233,7 +233,7 @@ function create_document(array $data): int
     $due = $data['due_date'] ?? null;
     $due = $due === '' ? null : $due;
     $party = (int) $data['party_id'];
-    $rate = (float) ($data['vat_rate'] ?? 0.18);
+    $rate = (float) ($data['vat_rate'] ?? company_tax_rate());
     $notes = $data['notes'] ?? null;
     $subject = $data['subject'] ?? null;
     $body = $data['body'] ?? null;

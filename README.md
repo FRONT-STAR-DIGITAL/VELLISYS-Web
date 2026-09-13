@@ -51,7 +51,7 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - Quotations convert to invoices; invoices take full or **part receipts**; unpaid balances stay on Debtors
 - Every document can be edited after it is saved
 - Print and share a clean sheet - no desk chrome, dates or page URLs around the paper
-- Line items are **Item**, **Description** (paragraph), **Qty**, **Unit price**, **Total Amt**, and **VAT** as Y or N. If every line is N, VAT is left off the printed sheet
+- Line items are **Item**, **Description** (paragraph), **Qty**, **Unit price**, **Total Amt**, and **tax** as Y or N. If every line is N, tax is left off the printed sheet
 - Receipts show **RECEIVED** and **DUE**. The Receipts tab lists cleared and partially cleared payments
 - Static navigation; desk portals use the same pale wash as the public site, a faint blue V, and soft card shadows
 - **Correspondence** stays fully editable. Settings → Templates picks a document design (ledger, bills, twin copy, stripe, plus Estate cream and Lake night)
@@ -60,7 +60,7 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - Company reports with a time series, expense pie, debtors aging, collections vs outstanding, quote conversion, top clients billed, and documents issued over time
 - Super admin top bar stays on screen on a phone so the menu stays in reach
 - Company desk and every document template scale to fit a phone; line items stack so they stay easy to fill
-- VAT 18% on taxed lines for every company
+- Each company sets its **own tax name and rate** in Settings (VAT 18%, GST 16%, SST 8%…). New taxed lines use that rate; older sheets keep the rate they were saved with
 - Email sends **From** the signed-in account
 - No stock module, no EFRIS box on documents
 

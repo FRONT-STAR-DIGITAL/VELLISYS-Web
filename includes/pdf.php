@@ -209,7 +209,7 @@ function document_pdf_bytes(array $brand, array $doc): string
         $text($w - $m - 90, $y, money((float) ($totals['net'] ?? 0), $ccy), 10, 'F2');
         $y -= 14;
         if ((float) ($totals['vat'] ?? 0) > 0) {
-            $text($w - $m - 200, $y, 'VAT', 10);
+            $text($w - $m - 200, $y, tax_rate_label((float) ($doc['vat_rate'] ?? 0), $brand), 10);
             $text($w - $m - 90, $y, money((float) $totals['vat'], $ccy), 10, 'F2');
             $y -= 14;
         }

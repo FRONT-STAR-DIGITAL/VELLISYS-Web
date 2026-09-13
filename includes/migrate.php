@@ -21,7 +21,7 @@ function folio_schema_ready_file(): string
     if (!is_dir($dir)) {
         @mkdir($dir, 0700, true);
     }
-    return $dir . '/schema-39.ok';
+    return $dir . '/schema-40.ok';
 }
 
 function folio_ensure_logo_bg(mysqli $db): void
@@ -39,6 +39,16 @@ function folio_ensure_logo_bg(mysqli $db): void
     }
     if (!db_has_column($db, 'documents', 'letterhead')) {
         @$db->query('ALTER TABLE documents ADD COLUMN letterhead TEXT NULL');
+    }
+}
+
+function folio_ensure_company_tax(mysqli $db): void
+{
+    if (!db_has_column($db, 'branding', 'tax_name')) {
+        @$db->query("ALTER TABLE branding ADD COLUMN tax_name VARCHAR(40) NOT NULL DEFAULT 'VAT'");
+    }
+    if (!db_has_column($db, 'branding', 'tax_rate')) {
+        @$db->query('ALTER TABLE branding ADD COLUMN tax_rate DECIMAL(8,4) NOT NULL DEFAULT 0.1800');
     }
 }
 
@@ -108,6 +118,7 @@ function folio_migrate(mysqli $db): void
         return;
     }
     folio_ensure_logo_bg($db);
+    folio_ensure_company_tax($db);
     folio_ensure_company_admins($db);
     folio_ensure_notification_dismissals($db);
     folio_ensure_ofagros_pro_plan($db);
@@ -121,7 +132,7 @@ function folio_migrate(mysqli $db): void
         return;
     }
     $verRow = @$db->query("SELECT v FROM schema_meta WHERE k='version'");
-    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 39) {
+    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 40) {
         @touch($ready);
         $done = true;
         return;
@@ -136,7 +147,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 39) {
+    if ($ver >= 40) {
         @touch($ready);
         $done = true;
         return;
@@ -360,8 +371,11 @@ function folio_migrate(mysqli $db): void
         folio_ensure_notification_dismissals($db);
         folio_ensure_ofagros_pro_plan($db);
     }
+    if ($ver < 40) {
+        folio_ensure_company_tax($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '39')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '40')");
     @touch($ready);
     $done = true;
 }

@@ -50,7 +50,7 @@ $lessons = [
         'alt' => 'A branded quotation ready to share',
         'lead' => 'A quotation is the offer. Write it in your logo and colours, send it, then convert it when they say yes.',
         'points' => [
-            'New quotation, pick the client, add lines: item, description, qty, unit price, VAT Y or N.',
+            'New quotation, pick the client, add lines: item, description, qty, unit price, tax Y or N.',
             'Share the branded sheet, or Email it in one click. Mail leaves from the company mailbox Vellisys assigned, not your personal inbox.',
             'When they accept, convert the quotation to an invoice. The lines copy across so you do not retype them.',
         ],
@@ -61,7 +61,7 @@ $lessons = [
         'title' => 'Convert a quotation',
         'file' => 'convert.png',
         'alt' => 'Quotation actions including convert to invoice',
-        'lead' => 'Do not retype an accepted quote. Open it and press Invoice. Vellisys copies the client, the lines, the VAT and the currency onto a new invoice.',
+        'lead' => 'Do not retype an accepted quote. Open it and press Invoice. Vellisys copies the client, the lines, the tax and the currency onto a new invoice.',
         'points' => [
             'The quotation stays on file. The new invoice gets its own number so you can still show the original offer.',
             'Edit the invoice if the job changed - extra lines, a due date, or a different currency - then share or email it.',
@@ -113,7 +113,7 @@ $lessons = [
         'title' => 'Expenses',
         'file' => 'expenses.png',
         'alt' => 'Expense list with suppliers, categories and amounts',
-        'lead' => 'Money out is an expense. Log the supplier, the category, the VAT and the date so Reports can tot it up.',
+        'lead' => 'Money out is an expense. Log the supplier, the category, the tax and the date so Reports can tot it up.',
         'points' => [
             'Record expense from the menu or Quick add. Pick or add the supplier, then the lines.',
             'Category is what the pie chart uses. Keep personal spend off this desk - Vellisys is the company books.',
@@ -232,7 +232,7 @@ $lessons = [
         'alt' => 'Reports with income, expenses, a time series and debtors aging',
         'lead' => 'Reports tot up the period you pick: today, this month, last month, or a from/to range. Only the company admin opens this tab.',
         'points' => [
-            'Income is invoiced net. Expenses are spent net. VAT due is output minus input.',
+            'Income is invoiced net. Expenses are spent net. Tax due is output minus input.',
             'Export CSV when you need the numbers in a spreadsheet. The charts are for the meeting; the CSV is for the file.',
             'Filter before you export so you are not sending the whole year by accident.',
         ],
@@ -269,7 +269,7 @@ $lessons = [
         'title' => 'Settings and brand',
         'file' => 'settings.png',
         'alt' => 'Settings Appearance with logo upload and two brand colours',
-        'lead' => 'Logo, two colours, TIN, bank, document prefix, and the currency you bill in. One design prints on every sheet. Only the company admin opens Settings.',
+        'lead' => 'Logo, two colours, TIN, bank, document prefix, your tax name and rate, and the currency you bill in. One design prints on every sheet. Only the company admin opens Settings.',
         'points' => [
             'Primary paints the desk and the strong bars. Accent marks rails, rules and highlights. Type on those colours is black or white, whichever reads.',
             'The sending mailbox is assigned by Vellisys. You can see the address. You cannot change the password.',
@@ -297,7 +297,7 @@ $lessons = [
         'alt' => 'Settings tax with home currency and USD exchange rate',
         'lead' => 'The desk has a home currency. You can still issue a sheet in USD. Settings holds the rate: 1 USD equals n of your currency. Desk shows both on the greeting card.',
         'points' => [
-            'Open Settings, Tax. Pick UGX, KES, EUR or type any three-letter code. Set how many of that currency equal one US dollar.',
+            'Open Settings, Tax. Name the tax (VAT, GST, SST…) and the percent. Pick UGX, KES, EUR or type any three-letter code. Set how many of that currency equal one US dollar.',
             'Reports convert everything back to the home currency so the month still adds up.',
             'Printed sheets show the other currency underneath the total when a rate is set.',
         ],

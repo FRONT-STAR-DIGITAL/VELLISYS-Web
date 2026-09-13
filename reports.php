@@ -206,7 +206,7 @@ layout_start('Reports', $user);
 </div>
 <div class="stats">
   <div class="card stat"><?= icon('expense', 20) ?><span>Expenses (net)</span><strong><?= h(ugx($costs)) ?></strong></div>
-  <div class="card stat"><?= icon('hash', 20) ?><span>VAT due (output - input)</span><strong><?= h(ugx($outputVat - $inputVat)) ?></strong></div>
+  <div class="card stat"><?= icon('hash', 20) ?><span><?= h(company_tax_name()) ?> due (output - input)</span><strong><?= h(ugx($outputVat - $inputVat)) ?></strong></div>
   <div class="card stat"><?= icon('quotation', 20) ?><span>Quotes converted</span><strong><?= (int) $quoteConverted ?> / <?= count($quotes) ?></strong></div>
   <div class="card stat"><?= icon('bank', 20) ?><span>Supplier payments</span><strong><?= h(ugx($cashOut)) ?></strong></div>
 </div>

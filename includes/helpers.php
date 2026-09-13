@@ -137,6 +137,65 @@ function default_currency(): string
     return normalize_currency((string) (branding()['currency'] ?? ''), 'UGX');
 }
 
+function sanitize_tax_name(?string $raw): string
+{
+    $name = trim((string) $raw);
+    $name = preg_replace('/\s+/', ' ', $name) ?? $name;
+    $name = preg_replace('/[^\p{L}\p{N} \/&.+-]/u', '', $name) ?? $name;
+    $name = substr($name, 0, 40);
+    return $name !== '' ? $name : 'VAT';
+}
+
+/** Accept a percent from Settings (18, not 0.18). Values above 100 are capped. */
+function parse_tax_rate_percent(?string $raw, float $fallbackPercent = 18.0): float
+{
+    $trimmed = str_replace([',', ' ', '%'], '', trim((string) $raw));
+    if ($trimmed === '' || !is_numeric($trimmed)) {
+        $n = $fallbackPercent;
+    } else {
+        $n = (float) $trimmed;
+    }
+    $n = max(0.0, min(100.0, $n));
+    return round($n / 100, 4);
+}
+
+function company_tax_name(?array $brand = null): string
+{
+    $brand = $brand ?? branding();
+    return sanitize_tax_name($brand['tax_name'] ?? 'VAT');
+}
+
+/** Fraction 0–1 stored on branding. Default 18%. */
+function company_tax_rate(?array $brand = null): float
+{
+    $brand = $brand ?? branding();
+    $rate = (float) ($brand['tax_rate'] ?? 0.18);
+    if ($rate < 0) {
+        $rate = 0.0;
+    }
+    if ($rate > 1) {
+        $rate = min(1.0, $rate / 100);
+    }
+    return round($rate, 4);
+}
+
+function company_tax_percent(?array $brand = null): float
+{
+    return round(company_tax_rate($brand) * 100, 4);
+}
+
+function format_tax_percent(float $rate): string
+{
+    $pct = $rate > 1 ? $rate : $rate * 100;
+    $s = rtrim(rtrim(number_format($pct, 2, '.', ''), '0'), '.');
+    return ($s === '' ? '0' : $s) . '%';
+}
+
+function tax_rate_label(float $rate, ?array $brand = null): string
+{
+    return company_tax_name($brand) . ' ' . format_tax_percent($rate);
+}
+
 function doc_currency(?array $doc = null): string
 {
     if ($doc && !empty($doc['currency'])) {
@@ -658,6 +717,8 @@ function folio_defaults(): array
         'logo_bg' => 0,
         'number_format' => '{prefix}-{kind}-{yyyy}-{seq:4}',
         'fx_ugx_per_usd' => 3700,
+        'tax_name' => 'VAT',
+        'tax_rate' => 0.18,
     ];
 }
 
@@ -2747,7 +2808,7 @@ function desk_manage_items(): array
         ['icon' => 'quotation', 'title' => 'Quotations', 'body' => 'Raise a quote, share it branded, convert it to an invoice when they say yes.'],
         ['icon' => 'invoice', 'title' => 'Invoices', 'body' => 'Issue full or part-paid invoices. Balances stay visible until they are cleared.'],
         ['icon' => 'receipt', 'title' => 'Receipts', 'body' => 'Record what came in. RECEIVED and DUE print on the sheet, in your currency.'],
-        ['icon' => 'expense', 'title' => 'Expenses', 'body' => 'Log what the company spent - fuel, rent, suppliers - with VAT and currency on the same desk as the sales books.'],
+        ['icon' => 'expense', 'title' => 'Expenses', 'body' => 'Log what the company spent - fuel, rent, suppliers - with your tax and currency on the same desk as the sales books.'],
         ['icon' => 'calendar', 'title' => 'Planner', 'body' => 'Notes, budget targets and a calendar for programmes, appointments and deadlines, with priority when it matters.'],
         ['icon' => 'reports', 'title' => 'Profit & Loss', 'body' => 'See net profit for any date range. Record other income and costs, refunds and return notes beside invoices and expenses.'],
         ['icon' => 'truck', 'title' => 'Delivery notes', 'body' => 'List what left the store, with quantities. No prices - goods out, not a bill.'],
@@ -2779,6 +2840,10 @@ function landing_faqs(): array
         [
             'q' => 'Can we work in our own currency?',
             'a' => 'Yes. In Settings you enter the currency you bill in - UGX, KES, EUR, USD or any other three-letter code. Documents can also be in USD; set how many of your currency equal one dollar so reports can add them up.',
+        ],
+        [
+            'q' => 'Can we set our own tax?',
+            'a' => 'Yes. Each desk names the tax (VAT, GST, SST, IVA…) and the percent it charges. Taxed lines use that rate. Sheets already issued keep the rate they were saved with.',
         ],
         [
             'q' => 'How do I pay for a package?',

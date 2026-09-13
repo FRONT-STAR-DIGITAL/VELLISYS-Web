@@ -375,6 +375,13 @@ function fxRate(form) {
   return n > 0 ? n : 1;
 }
 
+function fxTaxRate(form) {
+  var n = parseFloat(String((form && form.getAttribute('data-tax-rate')) || '0.18'));
+  if (isNaN(n) || n < 0) n = 0.18;
+  if (n > 1) n = n / 100;
+  return n;
+}
+
 function convertAmount(n, from, to, rate, home) {
   from = String(from || '').toUpperCase();
   to = String(to || '').toUpperCase();
@@ -432,7 +439,7 @@ function updateFxPreview(form) {
     var line = Math.round(qty * unit * 100) / 100;
     net += line;
     var box = row.querySelector('[data-vat-box]');
-    if (box && box.checked) vat += Math.round(line * 0.18 * 100) / 100;
+    if (box && box.checked) vat += Math.round(line * fxTaxRate(form) * 100) / 100;
   });
   var alloc = form.querySelector('#allocated_amount');
   if (alloc && alloc.value) {

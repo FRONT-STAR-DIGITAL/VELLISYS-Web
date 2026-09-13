@@ -40,6 +40,8 @@ function sheet_data(array $brand, array $doc): array
         'paid' => $paid,
         'balance' => $balance,
         'show_vat' => doc_shows_vat($doc),
+        'tax_name' => company_tax_name($brand),
+        'tax_label' => tax_rate_label((float) ($doc['vat_rate'] ?? 0), $brand),
         'settlement' => $settlement,
         'comments' => $doc['notes'] ?: ($brand['invoice_comments'] ?? ''),
         'logo' => logo_url($brand),
@@ -105,6 +107,10 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
     $cls = $opts['class'] ?? '';
     $qtyOnly = in_array(($doc['kind'] ?? ''), ['delivery', 'return_note'], true);
     $showVat = !$qtyOnly && doc_shows_vat($doc);
+    $taxName = trim((string) ($opts['tax_name'] ?? ''));
+    if ($taxName === '') {
+        $taxName = company_tax_name();
+    }
     $compact = !empty($opts['compact']);
     ?>
     <table class="d-lines <?= h($cls) ?>">
@@ -122,7 +128,7 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
             <?php if (!$qtyOnly): ?>
               <th class="r" style="width:110px">Unit price</th>
               <th class="r" style="width:120px">Total Amt</th>
-              <?php if ($showVat): ?><th class="c" style="width:44px">VAT</th><?php endif; ?>
+              <?php if ($showVat): ?><th class="c" style="width:44px"><?= h($taxName) ?></th><?php endif; ?>
             <?php endif; ?>
           <?php endif; ?>
         </tr>
@@ -135,7 +141,7 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
                 <?php if ($item): ?>
                   <?php if (line_item_name($item) !== ''): ?><span class="item"><?= h(line_item_name($item)) ?></span><?php endif; ?>
                   <?php if (line_item_description($item) !== ''): ?><span class="twin-desc"><?= nl2br(h(line_item_description($item))) ?></span><?php endif; ?>
-                  <?php if ($showVat): ?><span class="twin-vat"><?= !empty($item['taxed']) ? 'VAT' : '' ?></span><?php endif; ?>
+                  <?php if ($showVat): ?><span class="twin-vat"><?= !empty($item['taxed']) ? h($taxName) : '' ?></span><?php endif; ?>
                 <?php else: ?>&nbsp;<?php endif; ?>
               </td>
               <td class="c"><?= $item ? h(format_qty($item['qty'])) : '' ?></td>
@@ -402,7 +408,7 @@ function render_sheet_folio(array $d): void
       <div class="d-sums">
         <div class="d-sum"><span>Subtotal</span><span><?= h(money($d['net'], $d['cur'])) ?></span></div>
         <?php if (!empty($d['show_vat'])): ?>
-          <div class="d-sum"><span>VAT 18%</span><span><?= h(money($d['vat'], $d['cur'])) ?></span></div>
+          <div class="d-sum"><span><?= h($d['tax_label']) ?></span><span><?= h(money($d['vat'], $d['cur'])) ?></span></div>
         <?php endif; ?>
         <div class="d-total"><span>Total</span><span><?= h(money($d['total'], $d['cur'])) ?></span></div>
         <?php render_fx_equiv($d); ?>
@@ -523,7 +529,7 @@ function render_sheet_bill(array $d, string $variant): void
       <div class="bill-words"><span>In words</span><b><?= h(amount_in_words($d['total'], $d['cur'])) ?></b></div>
       <div class="bill-sums">
         <div><span>Sub total</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
-        <?php if (!empty($d['show_vat'])): ?><div><span>VAT 18%</span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
+        <?php if (!empty($d['show_vat'])): ?><div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
         <div class="due"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
         <?php render_fx_equiv($d); ?>
         <?php render_settlement($d); ?>
@@ -643,7 +649,7 @@ function render_sheet_stripe(array $d): void
         </div>
         <div class="stripe-fare">
           <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
-          <?php if (!empty($d['show_vat'])): ?><div><span>VAT</span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
+          <?php if (!empty($d['show_vat'])): ?><div><span><?= h($d['tax_name']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
           <div class="stripe-total"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
           <?php render_fx_equiv($d); ?>
         </div>
@@ -797,7 +803,7 @@ function render_sheet_atelier(array $d): void
       </div>
       <div class="atelier-sums">
         <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
-        <?php if (!empty($d['show_vat'])): ?><div><span>VAT 18%</span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
+        <?php if (!empty($d['show_vat'])): ?><div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
         <div class="atelier-total"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
         <?php render_fx_equiv($d); ?>
         <?php render_settlement($d); ?>
@@ -843,7 +849,7 @@ function render_sheet_seal(array $d): void
       <p><?= h($d['comments'] ?: ($brand['payment_note'] ?? '')) ?></p>
       <aside>
         <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
-        <?php if (!empty($d['show_vat'])): ?><div><span>VAT 18%</span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
+        <?php if (!empty($d['show_vat'])): ?><div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
         <div class="seal-due"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
         <?php render_fx_equiv($d); ?>
         <?php render_settlement($d); ?>
@@ -897,7 +903,7 @@ function render_sheet_mark(array $d): void
       </div>
       <div class="d-sums">
         <div class="d-sum"><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
-        <?php if (!empty($d['show_vat'])): ?><div class="d-sum"><span>VAT 18%</span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
+        <?php if (!empty($d['show_vat'])): ?><div class="d-sum"><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
         <div class="d-total"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
         <?php render_fx_equiv($d); ?>
         <?php render_settlement($d); ?>
@@ -943,7 +949,7 @@ function render_sheet_bond(array $d): void
       <p><?= h($d['comments'] ?: ($brand['payment_note'] ?? '')) ?></p>
       <aside>
         <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
-        <?php if (!empty($d['show_vat'])): ?><div><span>VAT 18%</span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
+        <?php if (!empty($d['show_vat'])): ?><div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
         <div class="bond-due"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
         <?php render_fx_equiv($d); ?>
         <?php render_settlement($d); ?>
