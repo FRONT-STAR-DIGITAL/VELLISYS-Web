@@ -112,30 +112,22 @@ function vellisys_pitch_deck_bytes(): string
     $logo = vellisys_pdf_load_png($logoPath, 720);
     $patDarkIm = vellisys_pdf_flatten_on($mark, '#0A1744', 0.16, 48);
     $patLightIm = vellisys_pdf_flatten_on($mark, '#F7F8FC', 0.11, 48);
-    $wmDarkIm = vellisys_pdf_flatten_on($mark, '#0A1744', 0.22, 8);
-    $wmLightIm = vellisys_pdf_flatten_on($mark, '#FFFFFF', 0.14, 8);
     $logoDarkIm = vellisys_pdf_flatten_on($logo, '#08143A', 1.0, 4);
     $logoLightIm = vellisys_pdf_flatten_on($logo, '#FFFFFF', 1.0, 4);
     [$patDarkJpeg, $pdw, $pdh] = vellisys_pdf_jpeg($patDarkIm, 80);
     [$patLightJpeg, $plw, $plh] = vellisys_pdf_jpeg($patLightIm, 80);
-    [$wmDarkJpeg, $wdw, $wdh] = vellisys_pdf_jpeg($wmDarkIm, 86);
-    [$wmLightJpeg, $wlw, $wlh] = vellisys_pdf_jpeg($wmLightIm, 86);
     [$logoDarkJpeg, $ldw, $ldh] = vellisys_pdf_jpeg($logoDarkIm, 90);
     [$logoLightJpeg, $llw, $llh] = vellisys_pdf_jpeg($logoLightIm, 90);
     imagedestroy($mark);
     imagedestroy($logo);
     imagedestroy($patDarkIm);
     imagedestroy($patLightIm);
-    imagedestroy($wmDarkIm);
-    imagedestroy($wmLightIm);
     imagedestroy($logoDarkIm);
     imagedestroy($logoLightIm);
 
     $images = [
         'PDk' => [$patDarkJpeg, $pdw, $pdh],
         'PLt' => [$patLightJpeg, $plw, $plh],
-        'WDk' => [$wmDarkJpeg, $wdw, $wdh],
-        'WLt' => [$wmLightJpeg, $wlw, $wlh],
         'LDk' => [$logoDarkJpeg, $ldw, $ldh],
         'LLt' => [$logoLightJpeg, $llw, $llh],
     ];
@@ -179,6 +171,96 @@ function vellisys_pitch_deck_bytes(): string
         }
     };
 
+    $circleFill = static function (float $cx, float $cy, float $r) use (&$add): void {
+        $k = 0.55228475 * $r;
+        $add(sprintf("%.2f %.2f m\n", $cx + $r, $cy));
+        $add(sprintf("%.2f %.2f %.2f %.2f %.2f %.2f c\n", $cx + $r, $cy + $k, $cx + $k, $cy + $r, $cx, $cy + $r));
+        $add(sprintf("%.2f %.2f %.2f %.2f %.2f %.2f c\n", $cx - $k, $cy + $r, $cx - $r, $cy + $k, $cx - $r, $cy));
+        $add(sprintf("%.2f %.2f %.2f %.2f %.2f %.2f c\n", $cx - $r, $cy - $k, $cx - $k, $cy - $r, $cx, $cy - $r));
+        $add(sprintf("%.2f %.2f %.2f %.2f %.2f %.2f c\n", $cx + $k, $cy - $r, $cx + $r, $cy - $k, $cx + $r, $cy));
+        $add("f\n");
+    };
+
+    $icon = static function (float $x, float $y, string $kind, float $size = 22.0) use (&$add, $fillRgb, $circleFill, $blue): void {
+        $r = $size / 2;
+        $cx = $x + $r;
+        $cy = $y + $r;
+        $fillRgb($blue);
+        $circleFill($cx, $cy, $r);
+        $fillRgb('#FFFFFF');
+        $s = $size / 22.0;
+        if ($kind === 'file') {
+            $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $cx - 5 * $s, $cy - 6.5 * $s, 9 * $s, 12 * $s));
+            $fillRgb($blue);
+            $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $cx + 0.5 * $s, $cy + 1.5 * $s, 3.5 * $s, 4 * $s));
+        } elseif ($kind === 'people') {
+            $circleFill($cx - 2.2 * $s, $cy + 3.2 * $s, 2.5 * $s);
+            $circleFill($cx + 3.4 * $s, $cy + 2.4 * $s, 1.9 * $s);
+            $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $cx - 6.2 * $s, $cy - 6.2 * $s, 7.4 * $s, 5.2 * $s));
+            $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $cx + 1.4 * $s, $cy - 5.4 * $s, 5.4 * $s, 4.2 * $s));
+        } elseif ($kind === 'mail') {
+            $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $cx - 6.2 * $s, $cy - 4.2 * $s, 12.4 * $s, 8.4 * $s));
+            $add("1 1 1 RG 1.2 w\n");
+            $add(sprintf("%.2f %.2f m %.2f %.2f l %.2f %.2f l S\n", $cx - 6.2 * $s, $cy + 4.2 * $s, $cx, $cy - 0.6 * $s, $cx + 6.2 * $s, $cy + 4.2 * $s));
+        } elseif ($kind === 'tax') {
+            $circleFill($cx - 3.2 * $s, $cy + 3.2 * $s, 2.1 * $s);
+            $circleFill($cx + 3.2 * $s, $cy - 3.2 * $s, 2.1 * $s);
+            $add("1 1 1 RG 1.6 w 1 J\n");
+            $add(sprintf("%.2f %.2f m %.2f %.2f l S\n", $cx + 4.2 * $s, $cy + 4.6 * $s, $cx - 4.2 * $s, $cy - 4.6 * $s));
+        } elseif ($kind === 'money') {
+            $add("1 1 1 RG 1.5 w\n");
+            $rr = 6.2 * $s;
+            $k = 0.55228475 * $rr;
+            $add(sprintf("%.2f %.2f m\n", $cx + $rr, $cy));
+            $add(sprintf("%.2f %.2f %.2f %.2f %.2f %.2f c\n", $cx + $rr, $cy + $k, $cx + $k, $cy + $rr, $cx, $cy + $rr));
+            $add(sprintf("%.2f %.2f %.2f %.2f %.2f %.2f c\n", $cx - $k, $cy + $rr, $cx - $rr, $cy + $k, $cx - $rr, $cy));
+            $add(sprintf("%.2f %.2f %.2f %.2f %.2f %.2f c\n", $cx - $rr, $cy - $k, $cx - $k, $cy - $rr, $cx, $cy - $rr));
+            $add(sprintf("%.2f %.2f %.2f %.2f %.2f %.2f c\n", $cx + $k, $cy - $rr, $cx + $rr, $cy - $k, $cx + $rr, $cy));
+            $add("S\n");
+            $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $cx - 1.1 * $s, $cy - 4.4 * $s, 2.2 * $s, 8.8 * $s));
+        } elseif ($kind === 'chart') {
+            $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $cx - 6 * $s, $cy - 6 * $s, 3.2 * $s, 7 * $s));
+            $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $cx - 1.6 * $s, $cy - 6 * $s, 3.2 * $s, 10.5 * $s));
+            $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $cx + 2.8 * $s, $cy - 6 * $s, 3.2 * $s, 5.2 * $s));
+        } elseif ($kind === 'calendar') {
+            $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $cx - 6.2 * $s, $cy - 5.5 * $s, 12.4 * $s, 11 * $s));
+            $fillRgb($blue);
+            $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $cx - 6.2 * $s, $cy + 2.6 * $s, 12.4 * $s, 2.9 * $s));
+            $fillRgb('#FFFFFF');
+            $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $cx - 3.6 * $s, $cy - 3.2 * $s, 2.2 * $s, 2.2 * $s));
+            $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $cx + 1.4 * $s, $cy - 3.2 * $s, 2.2 * $s, 2.2 * $s));
+        } elseif ($kind === 'send') {
+            $add(sprintf("%.2f %.2f m %.2f %.2f l %.2f %.2f l %.2f %.2f l f\n", $cx - 6.5 * $s, $cy - 4.5 * $s, $cx + 6.5 * $s, $cy, $cx - 6.5 * $s, $cy + 4.5 * $s, $cx - 3.2 * $s, $cy));
+        } elseif ($kind === 'truck') {
+            $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $cx - 6.5 * $s, $cy - 2.2 * $s, 9.2 * $s, 6.4 * $s));
+            $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $cx + 2.4 * $s, $cy - 2.2 * $s, 4.2 * $s, 4.2 * $s));
+            $fillRgb($blue);
+            $circleFill($cx - 3.4 * $s, $cy - 4.4 * $s, 1.7 * $s);
+            $circleFill($cx + 3.6 * $s, $cy - 4.4 * $s, 1.7 * $s);
+        } elseif ($kind === 'check') {
+            $add("1 1 1 RG 2.1 w 1 J 1 j\n");
+            $add(sprintf("%.2f %.2f m %.2f %.2f l %.2f %.2f l S\n", $cx - 5.2 * $s, $cy, $cx - 1.4 * $s, $cy - 4.2 * $s, $cx + 5.6 * $s, $cy + 4.4 * $s));
+        } elseif ($kind === 'globe') {
+            $add("1 1 1 RG 1.35 w\n");
+            $rr = 6.4 * $s;
+            $k = 0.55228475 * $rr;
+            $add(sprintf("%.2f %.2f m\n", $cx + $rr, $cy));
+            $add(sprintf("%.2f %.2f %.2f %.2f %.2f %.2f c\n", $cx + $rr, $cy + $k, $cx + $k, $cy + $rr, $cx, $cy + $rr));
+            $add(sprintf("%.2f %.2f %.2f %.2f %.2f %.2f c\n", $cx - $k, $cy + $rr, $cx - $rr, $cy + $k, $cx - $rr, $cy));
+            $add(sprintf("%.2f %.2f %.2f %.2f %.2f %.2f c\n", $cx - $rr, $cy - $k, $cx - $k, $cy - $rr, $cx, $cy - $rr));
+            $add(sprintf("%.2f %.2f %.2f %.2f %.2f %.2f c\n", $cx + $k, $cy - $rr, $cx + $rr, $cy - $k, $cx + $rr, $cy));
+            $add("S\n");
+            $add(sprintf("%.2f %.2f m %.2f %.2f l S\n", $cx, $cy - $rr, $cx, $cy + $rr));
+            $add(sprintf("%.2f %.2f m %.2f %.2f l S\n", $cx - $rr, $cy, $cx + $rr, $cy));
+        } elseif ($kind === 'pack') {
+            $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $cx - 6 * $s, $cy - 5.5 * $s, 12 * $s, 11 * $s));
+            $fillRgb($blue);
+            $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $cx - 1 * $s, $cy - 5.5 * $s, 2 * $s, 11 * $s));
+        } else {
+            $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $cx - 4 * $s, $cy - 4 * $s, 8 * $s, 8 * $s));
+        }
+    };
+
     $newPage = static function (string $mode = 'light') use (
         &$content,
         &$pages,
@@ -207,8 +289,6 @@ function vellisys_pitch_deck_bytes(): string
         $rect(0, $h - 8, $w, 8);
         $rect(0, 0, $w, 8);
         if ($mode === 'dark') {
-            $wm = 340.0;
-            $drawImg('WDk', ($w - $wm) / 2, ($h - $wm) / 2 - 8, $wm, $wm);
             $lh = 38.0;
             $lw = $lh * ($ldw / max($ldh, 1));
             $drawImg('LDk', 56, $h - 62, $lw, $lh);
@@ -217,8 +297,6 @@ function vellisys_pitch_deck_bytes(): string
             $rect(36, 28, $w - 72, $h - 56);
             $content .= "q\n36.00 28.00 " . sprintf('%.2f %.2f', $w - 72, $h - 56) . " re W n\n";
             $tileV('PLt', 64, 92);
-            $wm = 300.0;
-            $drawImg('WLt', ($w - $wm) / 2, ($h - $wm) / 2 - 6, $wm, $wm);
             $content .= "Q\n";
             $lh = 26.0;
             $lw = $lh * ($llw / max($llh, 1));
@@ -246,10 +324,11 @@ function vellisys_pitch_deck_bytes(): string
     $fillRgb($gold);
     $rect(18, 70, 6, $h - 78);
     $fillRgb($gold);
-    $text(56, 478, 'CLIENT PITCH DECK', 11, 'F2');
+    $text(56, 492, 'CLIENT PITCH DECK', 11, 'F2');
     $fillRgb('#FFFFFF');
-    $text(56, 430, 'Branded books for companies', 28, 'F2');
-    $text(56, 396, 'that cannot lose the paper.', 28, 'F2');
+    $text(56, 462, 'Business Made Effortless', 16, 'F2');
+    $text(56, 418, 'Branded books for companies', 26, 'F2');
+    $text(56, 388, 'that cannot lose the paper.', 26, 'F2');
     $fillRgb('#C9D2EE');
     $para(56, 'Quotations, invoices, receipts, expenses, delivery notes, headed letters and reports in your logo, colours, currency and tax. One desk. Yearly packages. Built for East Africa and used anywhere a company still sends paper that must look like it left their office.', 12, '#C9D2EE', 78, 16);
     $y = 210;
@@ -271,16 +350,16 @@ function vellisys_pitch_deck_bytes(): string
     $text(56, 508, 'Common pains Vellisys is built to close', 12);
     $cols = [
         [
-            'Quotes live in Word. Invoices in Excel. Receipts in a pad. Nobody can show the same story twice.',
-            'The sheet that leaves the office does not look like the company. Logo missing, colours wrong, tax guessed.',
-            'Part payments are rewritten on the invoice. Debtors become a rumour.',
-            'Staff email from personal Gmail. Clients never know if the bill is real.',
+            ['file', 'Quotes live in Word. Invoices in Excel. Receipts in a pad. Nobody can show the same story twice.'],
+            ['globe', 'The sheet that leaves the office does not look like the company. Logo missing, colours wrong, tax guessed.'],
+            ['money', 'Part payments are rewritten on the invoice. Debtors become a rumour.'],
+            ['mail', 'Staff email from personal Gmail. Clients never know if the bill is real.'],
         ],
         [
-            'QuickBooks and Xero assume a monthly SaaS seat, US or UK payroll, and a bookkeeper who already lives in that product.',
-            'Spreadsheets do not age, do not remind, and do not convert a quote to an invoice.',
-            'Tax is hardcoded in the owner\'s head: 18% here, 16% there, until a sheet is wrong.',
-            'Onboarding a new country means a new tool, a new login culture, and another invoice from Silicon Valley.',
+            ['people', 'You need a desk that fits how you already sell: branded paper, your tax, your currency, without a long implementation.'],
+            ['file', 'Spreadsheets do not age, do not remind, and do not convert a quote to an invoice.'],
+            ['tax', 'Tax is hardcoded in the owner\'s head: 18% here, 16% there, until a sheet is wrong.'],
+            ['globe', 'Opening in another country should not mean a new stack and a new way of working.'],
         ],
     ];
     $x0 = 56;
@@ -288,14 +367,16 @@ function vellisys_pitch_deck_bytes(): string
         $x = $x0 + $ci * 380;
         $yy = 468;
         foreach ($list as $item) {
+            [$kind, $copy] = $item;
             $fillRgb($paper);
             $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $x, $yy - 78, 360, 88));
             $fillRgb($blue);
             $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $x, $yy - 78, 6, 88));
+            $icon($x + 16, $yy - 36, $kind, 22);
             $fillRgb($navy);
             $ty = $yy - 18;
-            foreach ($wrap($item, 52) as $line) {
-                $text($x + 18, $ty, $line, 10);
+            foreach ($wrap($copy, 46) as $line) {
+                $text($x + 44, $ty, $line, 10);
                 $ty -= 13;
             }
             $yy -= 100;
@@ -310,71 +391,62 @@ function vellisys_pitch_deck_bytes(): string
     $para(56, 'Vellisys is branded books software. A company desk: the people who raise quotes, issue invoices, take receipts, log expenses, chase debtors and write headed letters. Super admin at Vellisys onboard the company, assign a sending mailbox, and keep the paid term honest.', 12, $ink, 110, 16);
     $y -= 8;
     $bits = [
-        'Your paper' => 'Logo, two brand colours, one document design for the whole desk. Print, PDF, WhatsApp link or email from the company mailbox.',
-        'Your money' => 'Any three-letter currency. USD on a sheet if you need it. You set the rate. Reports add it back to home currency.',
-        'Your tax' => 'Name it VAT, GST, SST, IVA. Set the percent. Taxed lines use that rate. Old sheets keep the rate they were saved with.',
-        'Your seats' => 'One, two or three logins. Company admin plus Books or Sales access. Not an unlimited cloud that bills per extra user forever.',
+        ['file', 'Your paper', 'Logo, two brand colours, one document design for the whole desk. Print, PDF, WhatsApp link or email from the company mailbox.'],
+        ['money', 'Your money', 'Any three-letter currency. USD on a sheet if you need it. You set the rate. Reports add it back to home currency.'],
+        ['tax', 'Your tax', 'Name it VAT, GST, SST, IVA. Set the percent. Taxed lines use that rate. Old sheets keep the rate they were saved with.'],
+        ['people', 'Your seats', 'One, two or three logins. Company admin plus Books or Sales access, so the people who quote are not the only ones who can open Settings.'],
     ];
     $i = 0;
-    foreach ($bits as $title => $body) {
+    foreach ($bits as $bit) {
+        [$kind, $title, $body] = $bit;
         $bx = 56 + ($i % 2) * 380;
         $by = $i < 2 ? 300 : 140;
         $fillRgb($paper);
         $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $bx, $by, 360, 130));
+        $icon($bx + 16, $by + 94, $kind, 22);
         $fillRgb($blue);
-        $text($bx + 16, $by + 102, strtoupper($title), 11, 'F2');
+        $text($bx + 46, $by + 102, strtoupper($title), 11, 'F2');
         $fillRgb($ink);
         $ty = $by + 82;
-        foreach ($wrap($body, 50) as $line) {
+        foreach ($wrap($body, 48) as $line) {
             $text($bx + 16, $ty, $line, 10);
             $ty -= 13;
         }
         $i++;
     }
 
-    // --- 4 Compare ---
+    // --- 4 How the desk works ---
     $newPage();
     $fillRgb($navy);
-    $text(56, 530, 'Beside QuickBooks, Xero and Sage', 22, 'F2');
+    $text(56, 530, 'Business Made Effortless', 22, 'F2');
     $fillRgb($muted);
-    $text(56, 508, 'Different job. Different price. Different paper.', 12);
-    $headers = ['', 'Vellisys', 'QuickBooks', 'Xero', 'Sage'];
-    $rows = [
-        ['What it is', 'Branded books desk', 'Full SME accounting', 'Cloud ledgers + apps', 'Accounting suites'],
-        ['Paper that leaves', 'Your logo, colours, tax', 'Generic / templates', 'Generic / add-ons', 'Forms, not stationery'],
-        ['Billing', 'Per year, 3 packages', 'Monthly SaaS seats', 'Monthly + payroll', 'Licence + partners'],
-        ['East Africa pay', 'Pesapal, mobile money', 'Cards, region limits', 'Cards, region limits', 'Partner billing'],
-        ['Tax', 'You name it and set %', 'Tax codes / setups', 'Tax rates / GST', 'Tax engines'],
-        ['Onboarding', 'Vellisys walks you in', 'Self-serve + partners', 'Self-serve + advisors', 'Implementers'],
-        ['Mailbox', 'Company Hostinger/Titan', 'Your own SMTP / none', 'Your own SMTP', 'Desktop / add-ins'],
-        ['Best when', 'You sell on paper', 'You need US payroll', 'You have an accountant', 'You already run Sage'],
+    $text(56, 508, 'What changes when the books live in one branded desk', 12);
+    $why = [
+        ['file', 'One paper trail', 'Quote, invoice, receipt and letter share the same logo, colours and numbering.'],
+        ['check', 'Honest balances', 'Part payments are receipts. Debtors drop by themselves. Nothing is rewritten.'],
+        ['tax', 'Your tax, your rate', 'Name the tax and set the percent. New sheets follow. Old sheets keep what they were saved with.'],
+        ['money', 'Your currency', 'Bill in UGX, KES, EUR, USD or any code. Reports convert back to home currency.'],
+        ['mail', 'Mail from the company', 'Sheets leave from the mailbox Vellisys assigns, with your mark on a white band.'],
+        ['people', 'The right seats', 'Up to three logins. Admin, Books or Sales, so a salesperson cannot open the whole ledger.'],
+        ['globe', 'Ready for another country', 'Change currency and tax in Settings. You do not wait for a vendor to add your rate.'],
+        ['pack', 'Yearly, not a surprise', 'Quill, Ledger or Crest. One invoice a year. Pesapal, a register request, or a demo.'],
     ];
-    $colW = [118, 132, 132, 132, 132];
-    $yy = 478;
-    $fillRgb($navy);
-    $add(sprintf("%.2f %.2f %.2f %.2f re f\n", 48, $yy - 8, 746, 22));
-    $fillRgb('#FFFFFF');
-    $cx = 56;
-    foreach ($headers as $i => $lab) {
-        $text($cx, $yy, $lab, 9, 'F2');
-        $cx += $colW[$i];
-    }
-    $yy -= 28;
-    foreach ($rows as $ri => $row) {
-        if ($ri % 2 === 0) {
-            $fillRgb($paper);
-            $add(sprintf("%.2f %.2f %.2f %.2f re f\n", 48, $yy - 8, 746, 22));
+    foreach ($why as $i => $row) {
+        [$kind, $title, $body] = $row;
+        $bx = 48 + ($i % 4) * 190;
+        $by = $i < 4 ? 268 : 88;
+        $fillRgb($paper);
+        $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $bx, $by, 180, 168));
+        $icon($bx + 16, $by + 130, $kind, 26);
+        $fillRgb($navy);
+        $text($bx + 16, $by + 112, $title, 11, 'F2');
+        $fillRgb($ink);
+        $ty = $by + 92;
+        foreach ($wrap($body, 24) as $line) {
+            $text($bx + 16, $ty, $line, 9);
+            $ty -= 12;
         }
-        $cx = 56;
-        foreach ($row as $ci => $cell) {
-            $fillRgb($ci === 1 ? $blue : $ink);
-            $text($cx, $yy, $cell, 8, $ci <= 1 ? 'F2' : 'F1');
-            $cx += $colW[$ci];
-        }
-        $yy -= 22;
     }
-    $fillRgb($muted);
-    $text(56, 70, 'We do not replace a Big Four audit pack. We replace the lost quote, the unbranded invoice, and the spreadsheet that only one person understands.', 9);
 
     // --- 5 Features books ---
     $newPage();
@@ -383,30 +455,30 @@ function vellisys_pitch_deck_bytes(): string
     $fillRgb($muted);
     $text(56, 508, 'Everything that used to live in five folders', 12);
     $feats = [
-        'Quotations that convert to invoices without retyping lines, tax or currency.',
-        'Invoices with due dates, part receipts, and balances that stay visible until they are cleared.',
-        'Receipts that print RECEIVED and DUE, in the same stationery as the invoice.',
-        'Expenses against suppliers, with categories that feed reports.',
-        'Delivery notes: quantities out, no prices. Return notes when goods come back.',
-        'Refunds in and out, linked when you can, so Profit & Loss stays honest.',
-        'Debtors list with branded reminders from the company mailbox.',
-        'Creditors list with a note or a letter when you need to write to a supplier.',
-        'Headed letters and custom documents on the same paper as the books.',
-        'Reports: income, collections, outstanding, tax due, aging, quote conversion, CSV export.',
-        'Profit & Loss on Crest: other income and costs beside invoices and expenses.',
-        'Edit a saved sheet. Void when it is dead. Number formats you control.',
+        ['file', 'Quotations that convert to invoices without retyping lines, tax or currency.'],
+        ['file', 'Invoices with due dates, part receipts, and balances that stay visible until they are cleared.'],
+        ['check', 'Receipts that print RECEIVED and DUE, in the same stationery as the invoice.'],
+        ['money', 'Expenses against suppliers, with categories that feed reports.'],
+        ['truck', 'Delivery notes: quantities out, no prices. Return notes when goods come back.'],
+        ['money', 'Refunds in and out, linked when you can, so Profit & Loss stays honest.'],
+        ['mail', 'Debtors list with branded reminders from the company mailbox.'],
+        ['people', 'Creditors list with a note or a letter when you need to write to a supplier.'],
+        ['file', 'Headed letters and custom documents on the same paper as the books.'],
+        ['chart', 'Reports: income, collections, outstanding, tax due, aging, quote conversion, CSV export.'],
+        ['chart', 'Profit & Loss on Crest: other income and costs beside invoices and expenses.'],
+        ['check', 'Edit a saved sheet. Void when it is dead. Number formats you control.'],
     ];
     foreach ($feats as $i => $f) {
+        [$kind, $copy] = $f;
         $x = ($i % 2 === 0) ? 56 : 430;
         $rowY = 470 - (int) floor($i / 2) * 58;
         $fillRgb($paper);
         $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $x, $rowY - 38, 350, 50));
-        $fillRgb($blue);
-        $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $x, $rowY - 38, 5, 50));
+        $icon($x + 12, $rowY - 28, $kind, 20);
         $fillRgb($ink);
         $ty = $rowY - 8;
-        foreach ($wrap($f, 50) as $line) {
-            $text($x + 16, $ty, $line, 9);
+        foreach ($wrap($copy, 44) as $line) {
+            $text($x + 40, $ty, $line, 9);
             $ty -= 12;
         }
     }
@@ -416,21 +488,23 @@ function vellisys_pitch_deck_bytes(): string
     $fillRgb($navy);
     $text(56, 530, 'The desk around the books', 22, 'F2');
     $desk = [
-        ['Brand', 'Primary and accent colours. Logo with optional white plate. Twelve layouts: Folio bar, Colour ledger, Corner bill, Accent bill, Twin copy, Accent stripe, Estate panel, Harbour block, watermarks and more. One choice reprints every sheet.'],
-        ['People', 'Up to three seats. Company admin opens Settings, Reports and the people list. Extra seats are Books or Sales so a salesperson cannot open the whole ledger.'],
-        ['Mail', 'Vellisys assigns a Hostinger or Titan mailbox. Quotes, invoices, receipts, letters and debtor reminders leave from that address with the logo on a white band. Personal Gmail stays out of the books.'],
-        ['Planner', 'On Ledger and Crest: notes, budget targets, calendar, notifications. Receive on the bell when money should be logged.'],
-        ['Share', 'Print the A4 sheet. Save PDF. WhatsApp the link. Email the sheet. The client sees paper, not the desk. On a phone the page is still A4, scaled to fit.'],
-        ['Pay us', 'Pesapal in the same tab: mobile money, cards, bank. Or register without paying. Or book a demo. Super admin still walks the company in.'],
+        ['file', 'Brand', 'Primary and accent colours. Logo with optional white plate. Twelve layouts: Folio bar, Colour ledger, Corner bill, Accent bill, Twin copy, Accent stripe, Estate panel, Harbour block, watermarks and more. One choice reprints every sheet.'],
+        ['people', 'People', 'Up to three seats. Company admin opens Settings, Reports and the people list. Extra seats are Books or Sales so a salesperson cannot open the whole ledger.'],
+        ['mail', 'Mail', 'Vellisys assigns a Hostinger or Titan mailbox. Quotes, invoices, receipts, letters and debtor reminders leave from that address with the logo on a white band. Personal Gmail stays out of the books.'],
+        ['calendar', 'Planner', 'On Ledger and Crest: notes, budget targets, calendar, notifications. Receive on the bell when money should be logged.'],
+        ['send', 'Share', 'Print the A4 sheet. Save PDF. WhatsApp the link. Email the sheet. The client sees paper, not the desk. On a phone the page is still A4, scaled to fit.'],
+        ['pack', 'Pay us', 'Pesapal in the same tab: mobile money, cards, bank. Or register without paying. Or book a demo. Super admin still walks the company in.'],
     ];
     $yy = 455;
     foreach ($desk as $row) {
+        [$kind, $title, $body] = $row;
+        $icon(56, $yy - 4, $kind, 18);
         $fillRgb($blue);
-        $text(56, $yy, strtoupper($row[0]), 10, 'F2');
+        $text(82, $yy, strtoupper($title), 10, 'F2');
         $fillRgb($ink);
         $ty = $yy - 16;
-        foreach ($wrap($row[1], 108) as $line) {
-            $text(56, $ty, $line, 10);
+        foreach ($wrap($body, 104) as $line) {
+            $text(82, $ty, $line, 10);
             $ty -= 13;
         }
         $yy = $ty - 10;
@@ -471,8 +545,9 @@ function vellisys_pitch_deck_bytes(): string
         $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $x, 78, 246, 410));
         $titleC = $i === 1 ? '#FFFFFF' : $navy;
         $bodyC = $i === 1 ? '#D5DCF0' : $ink;
+        $icon($x + 16, 456, 'pack', 20);
         $fillRgb($i === 1 ? $gold : $blue);
-        $text($x + 16, 460, $p[1], 9, 'F2');
+        $text($x + 42, 460, $p[1], 9, 'F2');
         $fillRgb($titleC);
         $text($x + 16, 438, $p[0], 18, 'F2');
         $fillRgb($i === 1 ? $gold : $blue);
@@ -505,14 +580,13 @@ function vellisys_pitch_deck_bytes(): string
         'When someone is late: open Debtors, send a reminder from the company mailbox. It looks like the rest of your stationery.',
         'When you hire a second person: give them Sales so they can quote without opening Settings or the full reports.',
         'When you open in another country: set currency, tax name and tax percent. You do not wait for a global vendor to add your rate.',
-        'When the year turns: one invoice from Vellisys, not a surprise monthly SaaS that grew with seats you forgot.',
+        'When the year turns: one invoice from Vellisys for the year you paid.',
     ];
     foreach ($ease as $item) {
-        $fillRgb($blue);
-        $add(sprintf("%.2f %.2f %.2f %.2f re f\n", 56, $y + 1, 6, 6));
+        $icon(56, $y - 3, 'check', 16);
         $fillRgb($ink);
-        foreach ($wrap($item, 108) as $line) {
-            $text(72, $y, $line, 11);
+        foreach ($wrap($item, 104) as $line) {
+            $text(80, $y, $line, 11);
             $y -= 14;
         }
         $y -= 8;
@@ -525,7 +599,7 @@ function vellisys_pitch_deck_bytes(): string
     $y = 498;
     $letter = [
         'Welcome to Vellisys.',
-        'You are not buying another login to a foreign accounts cloud. You are opening a desk that prints like your office and keeps the books in one place.',
+        'You are opening a desk that prints like your office and keeps the books in one place.',
         'This is how we start, together:',
         '1. You pick Quill, Ledger or Crest, or you ask us to recommend one from how many people will sign in and whether you need Planner and Profit & Loss.',
         '2. You pay on Pesapal, or we invoice you, or you register and we call. There is no password until the desk is opened on purpose.',
@@ -555,7 +629,10 @@ function vellisys_pitch_deck_bytes(): string
     $rect(18, 70, 6, $h - 78);
     $fillRgb('#FFFFFF');
     $text(56, 500, 'Next step', 14, 'F2');
-    $text(56, 460, 'Open the desk with us.', 26, 'F2');
+    $fillRgb($gold);
+    $text(56, 476, 'Business Made Effortless', 14, 'F2');
+    $fillRgb('#FFFFFF');
+    $text(56, 440, 'Open the desk with us.', 26, 'F2');
     $y = 420;
     $para(56, 'Pay at www.vellisys.com, register without paying, or book a demo. Tell us the company name, how many people will sign in, the currency you bill in, and the tax you charge. We will match a package and open the books.', 12, '#C9D2EE', 90, 16);
     $y = 300;
