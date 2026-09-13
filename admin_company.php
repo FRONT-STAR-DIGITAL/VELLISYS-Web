@@ -31,7 +31,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $plan = normalize_company_plan(post('plan') ?: (string) ($company['plan'] ?? 'sme'));
             $plannerOn = planner_resolve_enabled($plan, !empty($_POST['planner_enabled']), $company);
-            db_exec('UPDATE companies SET name=?, status=?, plan=?, notes=?, enabled_kinds=?, custom_doc=?, user_limit=?, planner_enabled=? WHERE id=?', 'ssssssiii', [$name, $status, $plan, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), $limit, $plannerOn, $id]);
+            $pnlOn = pnl_resolve_enabled($plan, !empty($_POST['pnl_enabled']), $company);
+            db_exec('UPDATE companies SET name=?, status=?, plan=?, notes=?, enabled_kinds=?, custom_doc=?, user_limit=?, planner_enabled=?, pnl_enabled=? WHERE id=?', 'ssssssiiii', [$name, $status, $plan, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), $limit, $plannerOn, $pnlOn, $id]);
             db_exec('UPDATE branding SET name=? WHERE company_id=?', 'si', [$name, $id]);
             if ($status === 'live') {
                 company_mark_onboard_step($id, 'desk_live');
@@ -557,6 +558,10 @@ layout_admin_start($company['name'], $user);
     <div>
       <label class="check" for="planner_enabled"><input id="planner_enabled" name="planner_enabled" type="checkbox" value="1" data-planner-toggle <?= !empty($company['planner_enabled']) ? 'checked' : '' ?>> Planner on for this desk</label>
       <p class="hint">Notes, budget and calendar for Business and Pro subscribers. Starter stays off unless you enable it here.</p>
+    </div>
+    <div>
+      <label class="check" for="pnl_enabled"><input id="pnl_enabled" name="pnl_enabled" type="checkbox" value="1" data-pnl-toggle <?= !empty($company['pnl_enabled']) ? 'checked' : '' ?>> Profit &amp; Loss on for this desk</label>
+      <p class="hint">Pro gets P&amp;L automatically. You can enable bookkeeping, refunds and returns for any plan here.</p>
     </div>
   </div>
   <div style="padding:0 22px 22px">

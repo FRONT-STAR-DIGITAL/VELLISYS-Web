@@ -60,6 +60,9 @@ function layout_start(string $title, array $user, array $opts = []): void
     if (company_planner_enabled() && is_desk_admin()) {
         $nav[] = ['planner.php', 'Planner', 'calendar'];
     }
+    if (company_pnl_enabled() && is_desk_admin()) {
+        $nav[] = ['pnl.php', 'P&L', 'reports'];
+    }
     $nav = array_merge($nav, [
         ['tutorials.php', 'Tutorials', 'book'],
         ['reports.php', 'Reports', 'reports'],
@@ -77,7 +80,7 @@ function layout_start(string $title, array $user, array $opts = []): void
         }
         return user_can_open($file, $kind);
     }));
-    $notes = (company_planner_enabled() && is_desk_admin()) ? planner_notifications(10) : [];
+    $notes = (company_planner_enabled() && is_desk_admin()) ? enrich_planner_notifications(planner_notifications(10)) : [];
     $noteCount = count($notes);
     ?>
 <!DOCTYPE html>
@@ -121,6 +124,9 @@ function layout_start(string $title, array $user, array $opts = []): void
               } else {
                   $active = $file === $here;
               }
+          }
+          if (str_starts_with($here, 'pnl')) {
+              $active = $file === 'pnl.php' || str_starts_with((string) $file, 'pnl');
           }
           if ($here === 'branding.php') {
               $active = $file === 'settings.php';
@@ -167,11 +173,38 @@ function layout_start(string $title, array $user, array $opts = []): void
               <?php else: ?>
                 <ul>
                   <?php foreach ($notes as $n): ?>
-                    <li>
-                      <a href="<?= h($n['href']) ?>">
-                        <span class="top-bell-title"><?= h($n['title']) ?></span>
-                        <span class="top-bell-meta"><?= h($n['meta']) ?></span>
-                      </a>
+                    <li class="top-bell-item">
+                      <div class="top-bell-main">
+                        <a href="<?= h($n['href']) ?>">
+                          <span class="top-bell-title"><?= h($n['title']) ?></span>
+                          <span class="top-bell-meta"><?= h($n['meta']) ?></span>
+                        </a>
+                        <form class="top-bell-dismiss" method="post" action="<?= h(url('notify_action.php')) ?>">
+                          <?= csrf_field() ?>
+                          <input type="hidden" name="action" value="dismiss">
+                          <input type="hidden" name="key" value="<?= h((string) ($n['key'] ?? '')) ?>">
+                          <button type="submit" class="top-bell-x" title="Dismiss" aria-label="Dismiss"><?= icon('x', 14) ?></button>
+                        </form>
+                      </div>
+                      <?php if (!empty($n['actions'])): ?>
+                        <div class="top-bell-actions">
+                          <?php foreach ($n['actions'] as $act): ?>
+                            <?php if (!empty($act['href'])): ?>
+                              <a class="<?= h($act['class'] ?? 'btn ghost sm') ?>" href="<?= h($act['href']) ?>"><?= h($act['label']) ?></a>
+                            <?php else: ?>
+                              <form method="post" action="<?= h(url('notify_action.php')) ?>">
+                                <?= csrf_field() ?>
+                                <input type="hidden" name="action" value="<?= h((string) ($act['action'] ?? '')) ?>">
+                                <input type="hidden" name="key" value="<?= h((string) ($n['key'] ?? '')) ?>">
+                                <?php if (!empty($n['event_id'])): ?>
+                                  <input type="hidden" name="event_id" value="<?= (int) $n['event_id'] ?>">
+                                <?php endif; ?>
+                                <button class="<?= h($act['class'] ?? 'btn sm') ?>" type="submit"><?= h($act['label']) ?></button>
+                              </form>
+                            <?php endif; ?>
+                          <?php endforeach; ?>
+                        </div>
+                      <?php endif; ?>
                     </li>
                   <?php endforeach; ?>
                 </ul>

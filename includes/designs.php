@@ -97,7 +97,7 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
     $cur = doc_currency($doc);
     $serial = !empty($opts['serial']);
     $cls = $opts['class'] ?? '';
-    $qtyOnly = ($doc['kind'] ?? '') === 'delivery';
+    $qtyOnly = in_array(($doc['kind'] ?? ''), ['delivery', 'return_note'], true);
     $showVat = !$qtyOnly && doc_shows_vat($doc);
     ?>
     <table class="d-lines <?= h($cls) ?>">

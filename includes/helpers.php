@@ -799,6 +799,9 @@ function parties_for(string $kind = 'customer'): array
     if ($kind === 'expense') {
         return db_all("SELECT * FROM parties WHERE company_id = ? AND kind IN ('supplier','both') ORDER BY name", 'i', [$cid]);
     }
+    if ($kind === 'refund' || $kind === 'return_note') {
+        return db_all("SELECT * FROM parties WHERE company_id = ? AND kind IN ('customer','supplier','both') ORDER BY name", 'i', [$cid]);
+    }
     return db_all("SELECT * FROM parties WHERE company_id = ? AND kind IN ('customer','both') ORDER BY name", 'i', [$cid]);
 }
 
@@ -988,6 +991,9 @@ function company_allows_kind(string $kind, ?array $company = null): bool
     if ($kind === 'expense') {
         return true;
     }
+    if (in_array($kind, ['refund', 'return_note'], true)) {
+        return function_exists('company_pnl_enabled') && company_pnl_enabled($company);
+    }
     return in_array($kind, company_enabled_kinds($company), true);
 }
 
@@ -1067,7 +1073,7 @@ function posted_custom_doc(): string
 
 function desk_kind_list(): array
 {
-    return ['quotation', 'invoice', 'receipt', 'expense', 'letter', 'delivery', 'custom'];
+    return ['quotation', 'invoice', 'receipt', 'expense', 'letter', 'delivery', 'custom', 'refund', 'return_note'];
 }
 
 function kind_meta(string $kind): array
@@ -1083,6 +1089,8 @@ function kind_meta(string $kind): array
         'delivery' => ['title' => 'Delivery notes', 'singular' => 'Delivery note', 'heading' => 'DELIVERY NOTE', 'verb' => 'New delivery note'],
         'expense' => ['title' => 'Expenses', 'singular' => 'Expense', 'heading' => 'EXPENSE', 'verb' => 'Record expense'],
         'letter' => ['title' => 'Correspondence', 'singular' => 'Letter', 'heading' => '', 'verb' => 'New letter'],
+        'refund' => ['title' => 'Refunds', 'singular' => 'Refund', 'heading' => 'REFUND', 'verb' => 'Record refund'],
+        'return_note' => ['title' => 'Return notes', 'singular' => 'Return note', 'heading' => 'RETURN NOTE', 'verb' => 'New return note'],
         default => ['title' => 'Documents', 'singular' => 'Document', 'heading' => 'DOCUMENT', 'verb' => 'New'],
     };
 }
@@ -1090,15 +1098,16 @@ function kind_meta(string $kind): array
 function document_kind_icon(string $kind): string
 {
     return match ($kind) {
-        'delivery' => 'truck',
+        'delivery', 'return_note' => 'truck',
         'custom' => 'file',
+        'refund' => 'wallet',
         default => $kind,
     };
 }
 
 function kind_shows_money(string $kind): bool
 {
-    return !in_array($kind, ['letter', 'custom', 'delivery'], true);
+    return !in_array($kind, ['letter', 'custom', 'delivery', 'return_note'], true);
 }
 
 function kind_is_stationery(string $kind): bool
@@ -1122,6 +1131,12 @@ function kind_nav_label(string $kind): string
     if ($kind === 'letter') {
         return 'Correspondence';
     }
+    if ($kind === 'refund') {
+        return 'Refunds';
+    }
+    if ($kind === 'return_note') {
+        return 'Returns';
+    }
     return selectable_document_kinds()[$kind] ?? kind_meta($kind)['title'];
 }
 
@@ -1138,7 +1153,7 @@ function desk_primary_kind(?array $company = null): string
 
 function require_desk_kind(string $kind): void
 {
-    if (!company_allows_kind($kind) && $kind !== 'expense') {
+    if (!company_allows_kind($kind) && !in_array($kind, ['expense', 'refund', 'return_note'], true)) {
         flash('This desk does not use that document.', 'err');
         redirect('dashboard.php');
     }
@@ -1151,10 +1166,16 @@ function require_desk_kind(string $kind): void
 function desk_kind_nav_items(): array
 {
     $enabled = company_enabled_kinds();
-    $order = ['quotation', 'invoice', 'receipt', 'delivery', 'expense', 'letter', 'custom'];
+    $order = ['quotation', 'invoice', 'receipt', 'delivery', 'expense', 'refund', 'return_note', 'letter', 'custom'];
     $out = [];
     foreach ($order as $kind) {
-        if ($kind !== 'expense' && !in_array($kind, $enabled, true)) {
+        if ($kind === 'expense') {
+            // always available
+        } elseif (in_array($kind, ['refund', 'return_note'], true)) {
+            if (!function_exists('company_pnl_enabled') || !company_pnl_enabled()) {
+                continue;
+            }
+        } elseif (!in_array($kind, $enabled, true)) {
             continue;
         }
         if (function_exists('user_can_kind') && !user_can_kind($kind)) {
@@ -1442,10 +1463,11 @@ function platform_create_company(?int $signupId = null): array
 
     $plan = normalize_company_plan(post('plan') ?: 'sme');
     $plannerOn = planner_resolve_enabled($plan, !empty($_POST['planner_enabled']), null);
+    $pnlOn = pnl_resolve_enabled($plan, !empty($_POST['pnl_enabled']), null);
     $cid = db_exec(
-        'INSERT INTO companies (name, status, plan, notes, enabled_kinds, custom_doc, user_limit, planner_enabled) VALUES (?,?,?,?,?,?,?,?)',
-        'ssssssii',
-        [$name, $status, $plan, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), $limit, $plannerOn]
+        'INSERT INTO companies (name, status, plan, notes, enabled_kinds, custom_doc, user_limit, planner_enabled, pnl_enabled) VALUES (?,?,?,?,?,?,?,?,?)',
+        'ssssssiii',
+        [$name, $status, $plan, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), $limit, $plannerOn, $pnlOn]
     );
 
     $hasPaidTerm = false;
@@ -2727,6 +2749,8 @@ function desk_manage_items(): array
         ['icon' => 'invoice', 'title' => 'Invoices', 'body' => 'Issue full or part-paid invoices. Balances stay visible until they are cleared.'],
         ['icon' => 'receipt', 'title' => 'Receipts', 'body' => 'Record what came in. RECEIVED and DUE print on the sheet, in your currency.'],
         ['icon' => 'expense', 'title' => 'Expenses', 'body' => 'Log what the company spent - fuel, rent, suppliers - with VAT and currency on the same desk as the sales books.'],
+        ['icon' => 'calendar', 'title' => 'Planner', 'body' => 'Notes, budget targets and a calendar for programmes, appointments and deadlines — with priority when it matters.'],
+        ['icon' => 'reports', 'title' => 'Profit & Loss', 'body' => 'See net profit for any date range. Record other income and costs, refunds and return notes beside invoices and expenses.'],
         ['icon' => 'truck', 'title' => 'Delivery notes', 'body' => 'List what left the store, with quantities. No prices - goods out, not a bill.'],
         ['icon' => 'file', 'title' => 'Custom documents', 'body' => 'A form you define at onboarding - fields, a body, or both - on the same branded paper.'],
         ['icon' => 'clients', 'title' => 'Debtors', 'body' => 'See who still owes you. Send a reminder from the row, from the company mailbox.'],

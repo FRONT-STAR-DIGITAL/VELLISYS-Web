@@ -58,7 +58,7 @@ function icon(string $name, int $size = 18): string
         'star' => '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
         'wallet' => '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2.25"/><path d="M3 5v14a2 2 0 0 0 2 2h15"/>',
     ];
-    $aliases = ['delivery' => 'truck', 'custom' => 'file', 'expense' => 'wallet'];
+    $aliases = ['delivery' => 'truck', 'return_note' => 'truck', 'custom' => 'file', 'expense' => 'wallet', 'refund' => 'wallet'];
     $name = $aliases[$name] ?? $name;
     $inner = $paths[$name] ?? $paths['invoice'];
     return '<svg class="icon" width="' . $size . '" height="' . $size . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $inner . '</svg>';

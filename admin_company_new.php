@@ -121,6 +121,10 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
       <p class="hint">Business and Pro select Planner automatically. Uncheck to leave it off.</p>
     </div>
     <div>
+      <label class="check" for="pnl_enabled"><input id="pnl_enabled" name="pnl_enabled" type="checkbox" value="1" data-pnl-toggle <?= !empty($_POST['pnl_enabled']) || (empty($_POST) && plan_includes_pnl($planPick)) ? 'checked' : '' ?>> Profit &amp; Loss on for this desk</label>
+      <p class="hint">Pro selects P&amp;L automatically. Uncheck to leave bookkeeping off.</p>
+    </div>
+    <div>
       <label for="currency-pick">Currency</label>
       <?php currency_field('currency', 'currency', post('currency') ?: 'USD'); ?>
       <p class="hint">The company admin can change this later in Settings.</p>

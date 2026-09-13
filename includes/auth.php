@@ -118,7 +118,7 @@ function user_can_kind(string $kind, ?array $user = null): bool
     if (!company_allows_kind($kind) && $kind !== 'expense') {
         return false;
     }
-    if ($kind === 'expense' && user_access($user) === 'sales') {
+    if (in_array($kind, ['expense', 'refund', 'return_note'], true) && user_access($user) === 'sales') {
         return false;
     }
     $allowed = user_allowed_kinds($user);
@@ -134,6 +134,13 @@ function user_can_open(string $script, string $kind = ''): bool
     $plannerScripts = ['planner.php', 'planner_notes.php', 'planner_budget.php', 'planner_calendar.php'];
     if (in_array($script, $plannerScripts, true)) {
         return company_planner_enabled() && is_desk_admin();
+    }
+    if ($script === 'notify_action.php') {
+        return is_desk_admin();
+    }
+    $pnlScripts = ['pnl.php', 'pnl_entries.php'];
+    if (in_array($script, $pnlScripts, true)) {
+        return company_pnl_enabled() && is_desk_admin();
     }
     if (is_desk_admin()) {
         return true;

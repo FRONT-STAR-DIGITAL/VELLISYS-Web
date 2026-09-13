@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'taxed' => $isTaxed,
         ];
     }
-    $allocPosted = $kind === 'receipt' ? money_parse(post('allocated_amount')) : 0.0;
+    $allocPosted = in_array($kind, ['receipt', 'refund'], true) ? money_parse(post('allocated_amount')) : 0.0;
     $relatedPosted = (int) post('related_id') ?: null;
     if (kind_uses_lines($kind) && !$items && !($kind === 'receipt' && ($allocPosted > 0 || $relatedPosted))) {
         flash('Add at least one line.', 'err');
@@ -93,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'related_id' => $relatedPosted,
         'payment_method' => post('payment_method') ?: null,
         'payment_ref' => post('payment_ref') ?: null,
-        'allocated_amount' => $kind === 'receipt' ? $allocPosted : null,
+        'allocated_amount' => in_array($kind, ['receipt', 'refund'], true) ? $allocPosted : null,
         'expense_category' => post('expense_category') ?: null,
         'letter_template' => post('letter_template') ?: null,
         'doc_template' => doc_template_key(),
@@ -188,6 +188,10 @@ layout_start($heading, $user, ['kind' => $kind]);
           echo 'Link an open invoice to record a part payment. Anything still unpaid stays on Debtors.';
       } elseif ($kind === 'expense') {
           echo 'Record what the company spent. This is an expense for your books - not a bill sent to a client.';
+      } elseif ($kind === 'refund') {
+          echo 'Record money refunded to a customer or received back from a supplier. Link an invoice or expense when you can.';
+      } elseif ($kind === 'return_note') {
+          echo 'List goods returned by a customer or sent back to a supplier. Quantities only — pair with a refund when money moves.';
       } else {
           echo 'Client, item, description, amount' . ($kind === 'invoice' ? ', due date' : '') . '. Numbering and branding are applied for you.';
       }
@@ -231,7 +235,7 @@ layout_start($heading, $user, ['kind' => $kind]);
       </div>
     <?php endif; ?>
     <div>
-      <label for="party_id"><?= $kind === 'expense' ? 'Payee' : 'Client' ?></label>
+      <label for="party_id"><?= in_array($kind, ['expense', 'refund', 'return_note'], true) ? 'Party' : 'Client' ?></label>
       <select id="party_id" name="party_id" required>
         <option value="">Choose…</option>
         <?php foreach ($parties as $p): ?>
@@ -369,7 +373,31 @@ layout_start($heading, $user, ['kind' => $kind]);
         </select>
       </div>
     <?php endif; ?>
-    <?php if (in_array($kind, ['receipt', 'expense'], true)): ?>
+    <?php if ($kind === 'refund'): ?>
+      <div>
+        <label for="expense_category">Direction</label>
+        <select id="expense_category" name="expense_category">
+          <?php $dir = (string) ($existing['expense_category'] ?? 'out'); ?>
+          <option value="out" <?= in_array($dir, ['out', 'customer', 'customer_refund', 'refund_out', ''], true) ? 'selected' : '' ?>>Out — refund to customer</option>
+          <option value="in" <?= in_array($dir, ['in', 'supplier', 'supplier_refund', 'refund_in'], true) ? 'selected' : '' ?>>In — refund from supplier</option>
+        </select>
+      </div>
+      <div>
+        <label for="allocated_amount">Refund amount</label>
+        <input id="allocated_amount" name="allocated_amount" inputmode="decimal" value="<?= h($allocValue) ?>" placeholder="Leave blank to use the line total">
+      </div>
+    <?php endif; ?>
+    <?php if ($kind === 'return_note'): ?>
+      <div>
+        <label for="expense_category">Direction</label>
+        <select id="expense_category" name="expense_category">
+          <?php $dir = (string) ($existing['expense_category'] ?? 'out'); ?>
+          <option value="out" <?= in_array($dir, ['out', 'customer', 'customer_return', ''], true) ? 'selected' : '' ?>>From customer</option>
+          <option value="in" <?= in_array($dir, ['in', 'supplier', 'supplier_return'], true) ? 'selected' : '' ?>>To supplier</option>
+        </select>
+      </div>
+    <?php endif; ?>
+    <?php if (in_array($kind, ['receipt', 'expense', 'refund'], true)): ?>
       <?php if ($kind === 'receipt'): ?>
         <div>
           <label for="allocated_amount">Amount received</label>
@@ -427,7 +455,7 @@ layout_start($heading, $user, ['kind' => $kind]);
     <label for="notes">Internal note (not printed)</label>
     <textarea id="notes" name="notes" rows="3"><?= h((string) ($existing['notes'] ?? '')) ?></textarea>
   <?php else: ?>
-    <div class="lines-panel" data-lines-panel data-delivery="<?= $kind === 'delivery' ? '1' : '0' ?>">
+    <div class="lines-panel" data-lines-panel data-delivery="<?= in_array($kind, ['delivery', 'return_note'], true) ? '1' : '0' ?>">
       <div class="lines-wrap">
       <table class="grid lines" id="lines" data-lines>
         <thead>

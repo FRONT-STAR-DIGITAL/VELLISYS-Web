@@ -207,7 +207,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
     <section class="lp-manage" id="what-you-manage" data-reveal>
       <p class="lp-kicker">The desk</p>
       <h2>What you get to manage</h2>
-      <p class="lp-manage-lead">Quotations, invoices, receipts and expenses on one desk, in the company's branding. Delivery notes, letters, debtors and creditors sit beside them.</p>
+      <p class="lp-manage-lead">Quotations, invoices, receipts and expenses on one desk, in the company's branding. Planner, Profit &amp; Loss, delivery notes, letters, debtors and creditors sit beside them.</p>
       <div class="lp-manage-grid">
         <?php foreach ($manage as $item): ?>
           <article>

@@ -81,6 +81,8 @@ function kind_code(string $kind): string
         'letter' => 'LTR',
         'delivery' => 'DEL',
         'custom' => 'CUS',
+        'refund' => 'REF',
+        'return_note' => 'RET',
         default => 'DOC',
     };
 }

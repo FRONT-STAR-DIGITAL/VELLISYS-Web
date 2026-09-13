@@ -21,7 +21,7 @@ function folio_schema_ready_file(): string
     if (!is_dir($dir)) {
         @mkdir($dir, 0700, true);
     }
-    return $dir . '/schema-37.ok';
+    return $dir . '/schema-38.ok';
 }
 
 function folio_ensure_logo_bg(mysqli $db): void
@@ -86,7 +86,7 @@ function folio_migrate(mysqli $db): void
         return;
     }
     $verRow = @$db->query("SELECT v FROM schema_meta WHERE k='version'");
-    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 37) {
+    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 38) {
         @touch($ready);
         $done = true;
         return;
@@ -101,7 +101,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 37) {
+    if ($ver >= 38) {
         @touch($ready);
         $done = true;
         return;
@@ -318,8 +318,11 @@ function folio_migrate(mysqli $db): void
     if ($ver < 37) {
         folio_migrate_planner($db);
     }
+    if ($ver < 38) {
+        folio_migrate_pnl($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '37')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '38')");
     @touch($ready);
     $done = true;
 }
@@ -988,5 +991,61 @@ function folio_migrate_positioning_ticker(mysqli $db): void
         }
         $ins->bind_param('si', $c['body'], $c['sort']);
         $ins->execute();
+    }
+}
+
+
+function folio_migrate_pnl(mysqli $db): void
+{
+    if (!db_has_column($db, 'companies', 'pnl_enabled')) {
+        $db->query('ALTER TABLE companies ADD COLUMN pnl_enabled TINYINT(1) NOT NULL DEFAULT 0');
+        $db->query("UPDATE companies SET pnl_enabled = 1 WHERE plan = 'office'");
+    }
+
+    $db->query("ALTER TABLE documents MODIFY kind ENUM('quotation','invoice','receipt','expense','letter','delivery','custom','refund','return_note') NOT NULL");
+
+    $db->query("CREATE TABLE IF NOT EXISTS pnl_entries (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      company_id INT UNSIGNED NOT NULL,
+      user_id INT UNSIGNED NOT NULL DEFAULT 0,
+      entry_date DATE NOT NULL,
+      kind ENUM('income','expense') NOT NULL DEFAULT 'expense',
+      category VARCHAR(120) NOT NULL DEFAULT 'General',
+      title VARCHAR(190) NOT NULL,
+      amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+      notes TEXT NULL,
+      document_id INT UNSIGNED NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY company_date (company_id, entry_date),
+      KEY company_kind (company_id, kind)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // Keep marketing packages in step with Pro bookkeeping.
+    $res = $db->query("SELECT id, pkg_key, points FROM landing_packages");
+    if ($res) {
+        while ($row = $res->fetch_assoc()) {
+            $key = (string) ($row['pkg_key'] ?? '');
+            $points = (string) ($row['points'] ?? '');
+            $next = $points;
+            if ($key === 'studio' && stripos($points, 'Planner') === false) {
+                $next = trim($points . "\nPlanner notes, budget and calendar");
+            }
+            if ($key === 'practice') {
+                if (stripos($points, 'Planner') === false) {
+                    $next = trim($next . "\nPlanner notes, budget and calendar");
+                }
+                if (stripos($next, 'Profit') === false && stripos($next, 'P&L') === false) {
+                    $next = trim($next . "\nProfit & Loss bookkeeping with refunds and returns");
+                }
+            }
+            if ($next !== $points) {
+                $stmt = $db->prepare('UPDATE landing_packages SET points=? WHERE id=?');
+                if ($stmt) {
+                    $id = (int) $row['id'];
+                    $stmt->bind_param('si', $next, $id);
+                    $stmt->execute();
+                }
+            }
+        }
     }
 }

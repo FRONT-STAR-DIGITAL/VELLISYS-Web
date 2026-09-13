@@ -78,9 +78,10 @@ function create_company_from_paid_order(array $order): int
         . ' · ' . trim((string) ($order['email'] ?? ''));
     $companyPlan = normalize_company_plan((string) ($order['plan'] ?? ($plan['key'] ?? 'sme')));
     $plannerOn = planner_resolve_enabled($companyPlan, plan_includes_planner($companyPlan), null);
+    $pnlOn = pnl_resolve_enabled($companyPlan, plan_includes_pnl($companyPlan), null);
     $cid = (int) db_exec(
-        'INSERT INTO companies (name, status, plan, notes, enabled_kinds, custom_doc, user_limit, planner_enabled, paid_term, paid_unit, paid_from, expires_at, fee_amount, fee_paid, fee_currency) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        'ssssssiiisssdds',
+        'INSERT INTO companies (name, status, plan, notes, enabled_kinds, custom_doc, user_limit, planner_enabled, pnl_enabled, paid_term, paid_unit, paid_from, expires_at, fee_amount, fee_paid, fee_currency) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'ssssssiiiisssdds',
         [
             $name,
             'onboarding',
@@ -90,6 +91,7 @@ function create_company_from_paid_order(array $order): int
             json_encode(default_custom_doc(), JSON_UNESCAPED_UNICODE),
             $seats,
             $plannerOn,
+            $pnlOn,
             1,
             'years',
             $from,

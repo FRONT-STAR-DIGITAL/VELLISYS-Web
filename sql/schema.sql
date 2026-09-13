@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS companies (
   status ENUM('onboarding','live','suspended') NOT NULL DEFAULT 'onboarding',
   plan ENUM('starter','sme','office') NOT NULL DEFAULT 'sme',
   planner_enabled TINYINT(1) NOT NULL DEFAULT 0,
+  pnl_enabled TINYINT(1) NOT NULL DEFAULT 0,
   notes TEXT,
   enabled_kinds TEXT NULL,
   custom_doc TEXT NULL,
@@ -94,7 +95,7 @@ CREATE TABLE IF NOT EXISTS parties (
 CREATE TABLE IF NOT EXISTS documents (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   company_id INT UNSIGNED NOT NULL,
-  kind ENUM('quotation','invoice','receipt','expense','letter','delivery','custom') NOT NULL,
+  kind ENUM('quotation','invoice','receipt','expense','letter','delivery','custom','refund','return_note') NOT NULL,
   sequence INT UNSIGNED NOT NULL,
   number VARCHAR(64) NOT NULL,
   date DATE NOT NULL,
@@ -301,4 +302,21 @@ CREATE TABLE IF NOT EXISTS planner_events (
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   KEY company_date (company_id, event_date),
   KEY company_done (company_id, done)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+CREATE TABLE IF NOT EXISTS pnl_entries (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  company_id INT UNSIGNED NOT NULL,
+  user_id INT UNSIGNED NOT NULL DEFAULT 0,
+  entry_date DATE NOT NULL,
+  kind ENUM('income','expense') NOT NULL DEFAULT 'expense',
+  category VARCHAR(120) NOT NULL DEFAULT 'General',
+  title VARCHAR(190) NOT NULL,
+  amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+  notes TEXT NULL,
+  document_id INT UNSIGNED NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY company_date (company_id, entry_date),
+  KEY company_kind (company_id, kind)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

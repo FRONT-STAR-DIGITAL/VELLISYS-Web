@@ -1586,8 +1586,16 @@ input, select, textarea { font-weight: 400; }
     gap: 6px;
   }
   .top-actions .btn { flex: 0 0 auto; min-height: 40px; padding: 8px 10px; }
-  .quick-label { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
-  .top-actions .btn[data-quick] { width: 40px; padding: 0; }
+  .top-actions .btn[data-quick] {
+    gap: 6px;
+    padding: 8px 10px;
+    min-height: 40px;
+  }
+  .quick-label {
+    display: inline;
+    font-size: 13px;
+    font-weight: 600;
+  }
   .page-head { align-items: stretch; }
   /* Page actions: 2-up so labels like "Record expense" fit without colliding */
   .page-head > .actions,
@@ -2276,4 +2284,88 @@ input, select, textarea { font-weight: 400; }
     left: auto;
     max-width: min(220px, calc(100vw - 24px));
   }
+}
+
+
+/* Notification actions + dismiss */
+.top-bell-item { padding: 0; }
+.top-bell-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.top-bell-main > a { flex: 1; min-width: 0; }
+.top-bell-dismiss { margin: 8px 8px 0 0; }
+.top-bell-x {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.top-bell-x:hover { background: #f3f1ea; color: var(--ink); }
+.top-bell-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 12px 10px;
+}
+.top-bell-actions .btn { min-height: 32px; padding: 4px 10px; font-size: 12px; }
+.top-bell-actions form { margin: 0; }
+
+/* P&L */
+.pnl-cats { display: grid; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.pnl-cats > div { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.pnl-cats span { color: var(--muted); }
+.pnl-tabs { margin-bottom: 14px; }
+.pos { color: #1f7a3f; }
+.neg { color: #b42318; }
+.row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.row-actions form { margin: 0; }
+
+@media (max-width: 720px) {
+  /* Staff + admin desk polish */
+  .desk-body .nav-user { padding: 12px; }
+  .desk-body .content .card { border-radius: 14px; }
+  .desk-body .table-wrap,
+  .desk-body .card:has(table.grid) { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .desk-body table.grid { min-width: 520px; }
+  .desk-body .filters {
+    display: grid;
+    gap: 10px;
+  }
+  .desk-body .filter-chips {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .desk-body .filter-chips::-webkit-scrollbar { display: none; }
+  .desk-body .filter-dates {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .admin-body .page-head,
+  .admin-body .content .card { min-width: 0; }
+  .admin-body .form-grid,
+  .admin-body .form-grid.two {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .admin-body .top-actions .btn {
+    min-height: 40px;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+  .admin-body table.grid { min-width: 560px; }
+  .admin-body .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pnl-cats > div { font-size: 12.5px; }
 }

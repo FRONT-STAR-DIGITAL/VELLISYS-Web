@@ -655,3 +655,16 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
   }
   plan.addEventListener('change', syncPlanner);
 })();
+
+
+(function () {
+  var plan = document.querySelector('[data-planner-plan]');
+  var pnl = document.querySelector('[data-pnl-toggle]');
+  if (!plan || !pnl) return;
+  function syncPnl() {
+    if (plan.value === 'office') {
+      pnl.checked = true;
+    }
+  }
+  plan.addEventListener('change', syncPnl);
+})();
