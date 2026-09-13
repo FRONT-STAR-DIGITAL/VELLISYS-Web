@@ -1,6 +1,96 @@
 <?php
 declare(strict_types=1);
 
+function vellisys_pdf_hex_rgb(string $hex): array
+{
+    $hex = ltrim($hex, '#');
+    return [
+        hexdec(substr($hex, 0, 2)),
+        hexdec(substr($hex, 2, 2)),
+        hexdec(substr($hex, 4, 2)),
+    ];
+}
+
+function vellisys_pdf_load_png(string $path, int $maxEdge): GdImage
+{
+    $src = imagecreatefrompng($path);
+    if ($src === false) {
+        throw new RuntimeException('Could not read ' . $path);
+    }
+    $sw = imagesx($src);
+    $sh = imagesy($src);
+    $scale = min($maxEdge / max($sw, 1), $maxEdge / max($sh, 1), 1.0);
+    $dw = max(1, (int) round($sw * $scale));
+    $dh = max(1, (int) round($sh * $scale));
+    $out = imagecreatetruecolor($dw, $dh);
+    imagealphablending($out, false);
+    imagesavealpha($out, true);
+    $clear = imagecolorallocatealpha($out, 0, 0, 0, 127);
+    imagefill($out, 0, 0, $clear);
+    imagealphablending($out, true);
+    imagecopyresampled($out, $src, 0, 0, 0, 0, $dw, $dh, $sw, $sh);
+    imagedestroy($src);
+    for ($y = 0; $y < $dh; $y++) {
+        for ($x = 0; $x < $dw; $x++) {
+            $c = imagecolorat($out, $x, $y);
+            $a = ($c >> 24) & 0x7F;
+            $r = ($c >> 16) & 0xFF;
+            $g = ($c >> 8) & 0xFF;
+            $b = $c & 0xFF;
+            if ($a >= 120 || ($r < 26 && $g < 26 && $b < 30)) {
+                imagesetpixel($out, $x, $y, $clear);
+            }
+        }
+    }
+    return $out;
+}
+
+function vellisys_pdf_flatten_on(GdImage $src, string $bgHex, float $opacity, ?int $pad = null): GdImage
+{
+    [$br, $bg, $bb] = vellisys_pdf_hex_rgb($bgHex);
+    $sw = imagesx($src);
+    $sh = imagesy($src);
+    $pad = $pad ?? 0;
+    $dw = $sw + $pad * 2;
+    $dh = $sh + $pad * 2;
+    $dst = imagecreatetruecolor($dw, $dh);
+    imagefill($dst, 0, 0, imagecolorallocate($dst, $br, $bg, $bb));
+    for ($y = 0; $y < $sh; $y++) {
+        for ($x = 0; $x < $sw; $x++) {
+            $c = imagecolorat($src, $x, $y);
+            $a = ($c >> 24) & 0x7F;
+            if ($a >= 120) {
+                continue;
+            }
+            $o = $opacity * (1 - $a / 127);
+            if ($o <= 0.002) {
+                continue;
+            }
+            $r = (int) round($br + ((($c >> 16) & 0xFF) - $br) * $o);
+            $g = (int) round($bg + ((($c >> 8) & 0xFF) - $bg) * $o);
+            $b = (int) round($bb + (($c & 0xFF) - $bb) * $o);
+            imagesetpixel($dst, $x + $pad, $y + $pad, imagecolorallocate($dst, $r, $g, $b));
+        }
+    }
+    return $dst;
+}
+
+function vellisys_pdf_jpeg(GdImage $im, int $quality = 84): array
+{
+    ob_start();
+    imagejpeg($im, null, $quality);
+    $bytes = (string) ob_get_clean();
+    return [$bytes, imagesx($im), imagesy($im)];
+}
+
+function vellisys_pdf_image_object(string $jpeg, int $w, int $h): string
+{
+    return '<< /Type /XObject /Subtype /Image /Width ' . $w
+        . ' /Height ' . $h
+        . ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '
+        . strlen($jpeg) . " >>\nstream\n" . $jpeg . "\nendstream";
+}
+
 /**
  * Landscape A4 client pitch deck (navy / Vellisys blue, Helvetica).
  */
@@ -14,6 +104,41 @@ function vellisys_pitch_deck_bytes(): string
     $ink = '#141712';
     $muted = '#5A6172';
     $paper = '#F4F6FB';
+    $root = defined('ROOT_PATH') ? ROOT_PATH : dirname(__DIR__);
+    $markPath = $root . '/assets/img/vellisys-mark.png';
+    $logoPath = $root . '/assets/img/vellisys-wordmark.png';
+
+    $mark = vellisys_pdf_load_png($markPath, 420);
+    $logo = vellisys_pdf_load_png($logoPath, 720);
+    $patDarkIm = vellisys_pdf_flatten_on($mark, '#0A1744', 0.16, 48);
+    $patLightIm = vellisys_pdf_flatten_on($mark, '#F7F8FC', 0.11, 48);
+    $wmDarkIm = vellisys_pdf_flatten_on($mark, '#0A1744', 0.22, 8);
+    $wmLightIm = vellisys_pdf_flatten_on($mark, '#FFFFFF', 0.14, 8);
+    $logoDarkIm = vellisys_pdf_flatten_on($logo, '#08143A', 1.0, 4);
+    $logoLightIm = vellisys_pdf_flatten_on($logo, '#FFFFFF', 1.0, 4);
+    [$patDarkJpeg, $pdw, $pdh] = vellisys_pdf_jpeg($patDarkIm, 80);
+    [$patLightJpeg, $plw, $plh] = vellisys_pdf_jpeg($patLightIm, 80);
+    [$wmDarkJpeg, $wdw, $wdh] = vellisys_pdf_jpeg($wmDarkIm, 86);
+    [$wmLightJpeg, $wlw, $wlh] = vellisys_pdf_jpeg($wmLightIm, 86);
+    [$logoDarkJpeg, $ldw, $ldh] = vellisys_pdf_jpeg($logoDarkIm, 90);
+    [$logoLightJpeg, $llw, $llh] = vellisys_pdf_jpeg($logoLightIm, 90);
+    imagedestroy($mark);
+    imagedestroy($logo);
+    imagedestroy($patDarkIm);
+    imagedestroy($patLightIm);
+    imagedestroy($wmDarkIm);
+    imagedestroy($wmLightIm);
+    imagedestroy($logoDarkIm);
+    imagedestroy($logoLightIm);
+
+    $images = [
+        'PDk' => [$patDarkJpeg, $pdw, $pdh],
+        'PLt' => [$patLightJpeg, $plw, $plh],
+        'WDk' => [$wmDarkJpeg, $wdw, $wdh],
+        'WLt' => [$wmLightJpeg, $wlw, $wlh],
+        'LDk' => [$logoDarkJpeg, $ldw, $ldh],
+        'LLt' => [$logoLightJpeg, $llw, $llh],
+    ];
 
     $pages = [];
     $content = '';
@@ -34,27 +159,71 @@ function vellisys_pitch_deck_bytes(): string
         [$r, $g, $b] = $hex($c);
         $add(sprintf("%.3f %.3f %.3f rg\n", $r, $g, $b));
     };
-    $strokeRgb = static function (string $c) use (&$add, $hex): void {
-        [$r, $g, $b] = $hex($c);
-        $add(sprintf("%.3f %.3f %.3f RG\n", $r, $g, $b));
-    };
     $rect = static function (float $x, float $yy, float $rw, float $rh) use (&$add): void {
         $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $x, $yy, $rw, $rh));
     };
     $text = static function (float $x, float $yy, string $s, float $size, string $font = 'F1') use (&$add): void {
         $add(sprintf("BT /%s %.2f Tf 1 0 0 1 %.2f %.2f Tm (%s) Tj ET\n", $font, $size, $x, $yy, vellisys_pdf_escape($s)));
     };
+    $drawImg = static function (string $name, float $x, float $yy, float $dw, float $dh) use (&$add): void {
+        $add(sprintf("q %.2f 0 0 %.2f %.2f %.2f cm /%s Do Q\n", $dw, $dh, $x, $yy, $name));
+    };
+    $tileV = static function (string $name, float $size, float $step) use (&$drawImg, $w, $h): void {
+        $row = 0;
+        for ($py = -24.0; $py < $h + $size; $py += $step * 0.84) {
+            $shift = ($row % 2) ? $step * 0.5 : 0.0;
+            for ($px = -40.0 + $shift; $px < $w + $size; $px += $step) {
+                $drawImg($name, $px, $py, $size, $size);
+            }
+            $row++;
+        }
+    };
 
-    $newPage = static function () use (&$content, &$pages, &$y, $h, $fillRgb, $rect, $navy, $blue, $w): void {
+    $newPage = static function (string $mode = 'light') use (
+        &$content,
+        &$pages,
+        &$y,
+        $h,
+        $w,
+        $fillRgb,
+        $rect,
+        $navy,
+        $blue,
+        $tileV,
+        $drawImg,
+        $ldw,
+        $ldh,
+        $llw,
+        $llh
+    ): void {
         if ($content !== '') {
             $pages[] = $content;
         }
         $content = '';
         $fillRgb($navy);
         $rect(0, 0, $w, $h);
+        $tileV('PDk', 58, 86);
         $fillRgb($blue);
         $rect(0, $h - 8, $w, 8);
         $rect(0, 0, $w, 8);
+        if ($mode === 'dark') {
+            $wm = 340.0;
+            $drawImg('WDk', ($w - $wm) / 2, ($h - $wm) / 2 - 8, $wm, $wm);
+            $lh = 38.0;
+            $lw = $lh * ($ldw / max($ldh, 1));
+            $drawImg('LDk', 56, $h - 62, $lw, $lh);
+        } else {
+            $fillRgb('#FFFFFF');
+            $rect(36, 28, $w - 72, $h - 56);
+            $content .= "q\n36.00 28.00 " . sprintf('%.2f %.2f', $w - 72, $h - 56) . " re W n\n";
+            $tileV('PLt', 64, 92);
+            $wm = 300.0;
+            $drawImg('WLt', ($w - $wm) / 2, ($h - $wm) / 2 - 6, $wm, $wm);
+            $content .= "Q\n";
+            $lh = 26.0;
+            $lw = $lh * ($llw / max($llh, 1));
+            $drawImg('LLt', $w - 48 - $lw, $h - 62, $lw, $lh);
+        }
         $y = $h - 48;
     };
 
@@ -71,15 +240,11 @@ function vellisys_pitch_deck_bytes(): string
     };
 
     // --- 1 Cover ---
-    $newPage();
-    $fillRgb('#0C1C52');
-    $rect(0, 70, $w, $h - 78);
+    $newPage('dark');
     $fillRgb($blue);
     $rect(0, 70, 18, $h - 78);
     $fillRgb($gold);
     $rect(18, 70, 6, $h - 78);
-    $fillRgb('#FFFFFF');
-    $text(56, 500, 'VELLISYS', 14, 'F2');
     $fillRgb($gold);
     $text(56, 478, 'CLIENT PITCH DECK', 11, 'F2');
     $fillRgb('#FFFFFF');
@@ -100,13 +265,10 @@ function vellisys_pitch_deck_bytes(): string
 
     // --- 2 Pain ---
     $newPage();
-    $fillRgb('#FFFFFF');
-    $rect(36, 28, $w - 72, $h - 56);
     $fillRgb($navy);
     $text(56, 530, 'The books are leaking.', 22, 'F2');
     $fillRgb($muted);
     $text(56, 508, 'Common pains Vellisys is built to close', 12);
-    $y = 478;
     $cols = [
         [
             'Quotes live in Word. Invoices in Excel. Receipts in a pad. Nobody can show the same story twice.',
@@ -142,8 +304,6 @@ function vellisys_pitch_deck_bytes(): string
 
     // --- 3 What it is ---
     $newPage();
-    $fillRgb('#FFFFFF');
-    $rect(36, 28, $w - 72, $h - 56);
     $fillRgb($navy);
     $text(56, 530, 'What Vellisys is', 22, 'F2');
     $y = 500;
@@ -174,8 +334,6 @@ function vellisys_pitch_deck_bytes(): string
 
     // --- 4 Compare ---
     $newPage();
-    $fillRgb('#FFFFFF');
-    $rect(36, 28, $w - 72, $h - 56);
     $fillRgb($navy);
     $text(56, 530, 'Beside QuickBooks, Xero and Sage', 22, 'F2');
     $fillRgb($muted);
@@ -192,7 +350,6 @@ function vellisys_pitch_deck_bytes(): string
         ['Best when', 'You sell on paper', 'You need US payroll', 'You have an accountant', 'You already run Sage'],
     ];
     $colW = [118, 132, 132, 132, 132];
-    $x = 52;
     $yy = 478;
     $fillRgb($navy);
     $add(sprintf("%.2f %.2f %.2f %.2f re f\n", 48, $yy - 8, 746, 22));
@@ -221,13 +378,10 @@ function vellisys_pitch_deck_bytes(): string
 
     // --- 5 Features books ---
     $newPage();
-    $fillRgb('#FFFFFF');
-    $rect(36, 28, $w - 72, $h - 56);
     $fillRgb($navy);
     $text(56, 530, 'The books', 22, 'F2');
     $fillRgb($muted);
     $text(56, 508, 'Everything that used to live in five folders', 12);
-    $y = 478;
     $feats = [
         'Quotations that convert to invoices without retyping lines, tax or currency.',
         'Invoices with due dates, part receipts, and balances that stay visible until they are cleared.',
@@ -242,15 +396,8 @@ function vellisys_pitch_deck_bytes(): string
         'Profit & Loss on Crest: other income and costs beside invoices and expenses.',
         'Edit a saved sheet. Void when it is dead. Number formats you control.',
     ];
-    $left = true;
     foreach ($feats as $i => $f) {
-        $x = $left ? 56 : 430;
-        if ($left && $i > 0) {
-            // keep y
-        }
-        if ($i > 0 && $i % 2 === 0) {
-            $y -= 4;
-        }
+        $x = ($i % 2 === 0) ? 56 : 430;
         $rowY = 470 - (int) floor($i / 2) * 58;
         $fillRgb($paper);
         $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $x, $rowY - 38, 350, 50));
@@ -262,16 +409,12 @@ function vellisys_pitch_deck_bytes(): string
             $text($x + 16, $ty, $line, 9);
             $ty -= 12;
         }
-        $left = !$left;
     }
 
     // --- 6 Features desk ---
     $newPage();
-    $fillRgb('#FFFFFF');
-    $rect(36, 28, $w - 72, $h - 56);
     $fillRgb($navy);
     $text(56, 530, 'The desk around the books', 22, 'F2');
-    $y = 492;
     $desk = [
         ['Brand', 'Primary and accent colours. Logo with optional white plate. Twelve layouts: Folio bar, Colour ledger, Corner bill, Accent bill, Twin copy, Accent stripe, Estate panel, Harbour block, watermarks and more. One choice reprints every sheet.'],
         ['People', 'Up to three seats. Company admin opens Settings, Reports and the people list. Extra seats are Books or Sales so a salesperson cannot open the whole ledger.'],
@@ -295,8 +438,6 @@ function vellisys_pitch_deck_bytes(): string
 
     // --- 7 Packages ---
     $newPage();
-    $fillRgb('#FFFFFF');
-    $rect(36, 28, $w - 72, $h - 56);
     $fillRgb($navy);
     $text(56, 530, 'Packages, billed per year', 22, 'F2');
     $fillRgb($muted);
@@ -343,7 +484,7 @@ function vellisys_pitch_deck_bytes(): string
             $fillRgb($i === 1 ? $gold : $blue);
             $add(sprintf("%.2f %.2f %.2f %.2f re f\n", $x + 16, $ty + 1, 5, 5));
             $fillRgb($bodyC);
-            foreach ($wrap($pt, 32) as $j => $line) {
+            foreach ($wrap($pt, 32) as $line) {
                 $text($x + 28, $ty, $line, 9);
                 $ty -= 13;
             }
@@ -353,8 +494,6 @@ function vellisys_pitch_deck_bytes(): string
 
     // --- 8 Ease ---
     $newPage();
-    $fillRgb('#FFFFFF');
-    $rect(36, 28, $w - 72, $h - 56);
     $fillRgb($navy);
     $text(56, 530, 'How Vellisys eases the work', 22, 'F2');
     $y = 490;
@@ -372,7 +511,7 @@ function vellisys_pitch_deck_bytes(): string
         $fillRgb($blue);
         $add(sprintf("%.2f %.2f %.2f %.2f re f\n", 56, $y + 1, 6, 6));
         $fillRgb($ink);
-        foreach ($wrap($item, 108) as $j => $line) {
+        foreach ($wrap($item, 108) as $line) {
             $text(72, $y, $line, 11);
             $y -= 14;
         }
@@ -381,8 +520,6 @@ function vellisys_pitch_deck_bytes(): string
 
     // --- 9 Onboarding ---
     $newPage();
-    $fillRgb('#FFFFFF');
-    $rect(36, 28, $w - 72, $h - 56);
     $fillRgb($navy);
     $text(56, 530, 'A note as you start', 22, 'F2');
     $y = 498;
@@ -411,9 +548,7 @@ function vellisys_pitch_deck_bytes(): string
     }
 
     // --- 10 Close ---
-    $newPage();
-    $fillRgb('#0C1C52');
-    $rect(0, 70, $w, $h - 78);
+    $newPage('dark');
     $fillRgb($blue);
     $rect(0, 70, 18, $h - 78);
     $fillRgb($gold);
@@ -443,6 +578,21 @@ function vellisys_pitch_deck_bytes(): string
 
     $pages[] = $content;
     $nPages = count($pages);
+    $imgNames = array_keys($images);
+    $font1 = 3 + 2 * $nPages;
+    $font2 = $font1 + 1;
+    $imgIds = [];
+    $imgObj = $font2 + 1;
+    foreach ($imgNames as $name) {
+        $imgIds[$name] = $imgObj;
+        $imgObj++;
+    }
+    $xObj = [];
+    foreach ($imgIds as $name => $id) {
+        $xObj[] = '/' . $name . ' ' . $id . ' 0 R';
+    }
+    $xObjStr = implode(' ', $xObj);
+
     $objs = [];
     $objs[] = '<< /Type /Catalog /Pages 2 0 R >>';
     $kids = [];
@@ -456,17 +606,22 @@ function vellisys_pitch_deck_bytes(): string
     $objs[] = '<< /Type /Pages /Count ' . $nPages . ' /Kids [' . implode(' ', $kids) . '] >>';
     foreach ($pages as $i => $body) {
         $objs[] = sprintf(
-            '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %.2f %.2f] /Contents %d 0 R /Resources << /Font << /F1 %d 0 R /F2 %d 0 R >> >> >>',
+            '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %.2f %.2f] /Contents %d 0 R /Resources << /Font << /F1 %d 0 R /F2 %d 0 R >> /XObject << %s >> >> >>',
             $w,
             $h,
             $contentIds[$i],
-            $objN,
-            $objN + 1
+            $font1,
+            $font2,
+            $xObjStr
         );
         $objs[] = '<< /Length ' . strlen($body) . " >>\nstream\n" . $body . 'endstream';
     }
     $objs[] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
     $objs[] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>';
+    foreach ($imgNames as $name) {
+        [$jpeg, $iw, $ih] = $images[$name];
+        $objs[] = vellisys_pdf_image_object($jpeg, $iw, $ih);
+    }
 
     $out = "%PDF-1.4\n";
     $xref = [0];
