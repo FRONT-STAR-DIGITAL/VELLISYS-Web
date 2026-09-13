@@ -599,19 +599,40 @@ function render_sheet_stripe(array $d): void
   <div class="stripe-rail"></div>
   <div class="stripe-inner">
     <div class="stripe-banner"><span><?= h($d['heading']) ?></span></div>
-    <p class="stripe-co"><?= h($brand['address']) ?> · <?= h($brand['phone']) ?> · <?= h($brand['email']) ?></p>
+    <div class="stripe-parties">
+      <div>
+        <span>From</span>
+        <b><?= h($brand['name']) ?></b>
+        <p>
+          <?= h($brand['address']) ?>
+          <?php if (!empty($brand['city'])): ?><br><?= h($brand['city']) ?><?php endif; ?>
+          <br><?= h($brand['phone']) ?>
+          <?php if (!empty($brand['email'])): ?><br><?= h($brand['email']) ?><?php endif; ?>
+          <?php if (!empty($brand['tin'])): ?><br>TIN <?= h($brand['tin']) ?><?php endif; ?>
+        </p>
+      </div>
+      <div>
+        <span>To</span>
+        <b><?= h($doc['party_name'] ?? '') ?></b>
+        <p>
+          <?= h($doc['party_address'] ?? '') ?>
+          <?php if (!empty($doc['party_phone'])): ?><br><?= h($doc['party_phone']) ?><?php endif; ?>
+          <?php if (!empty($doc['party_email'])): ?><br><?= h($doc['party_email']) ?><?php endif; ?>
+        </p>
+      </div>
+    </div>
     <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
     <div class="stripe-meta">
-      <div><span>Issued for</span><b><?= h($doc['party_name'] ?? '') ?></b></div>
       <div><span>Number</span><b><?= h($doc['number']) ?></b></div>
       <div><span>Date</span><b><?= h(format_date($doc['date'])) ?></b></div>
+      <?php if (!empty($doc['due_date'])): ?><div><span>Due</span><b><?= h(format_date($doc['due_date'])) ?></b></div><?php endif; ?>
       <div><span>Currency</span><b><?= h($d['cur']) ?></b></div>
     </div>
     <?php if ($doc['kind'] === 'letter'): ?>
       <?php render_letter_body($doc); ?>
     <?php else: ?>
       <p class="stripe-h">Line details</p>
-      <?php render_line_table($doc, $d['deep'], $d['accent_tint']); ?>
+      <?php render_line_table($doc, $d['color'], $d['accent_tint']); ?>
       <div class="stripe-payrow">
         <div>
           <span>Payment method</span>
@@ -666,7 +687,7 @@ function render_sheet_estate(array $d): void
   <?php if ($doc['kind'] === 'letter'): ?>
     <?php render_letter_body($doc); ?>
   <?php else: ?>
-    <?php render_line_table($doc, $d['deep'], $d['tint']); ?>
+    <?php render_line_table($doc, $d['color'], $d['tint']); ?>
     <div class="estate-end">
       <div>
         <p><?= h($d['comments'] ?: ($brand['payment_note'] ?? '')) ?></p>
@@ -717,7 +738,7 @@ function render_sheet_night(array $d): void
     <?php if ($doc['kind'] === 'letter'): ?>
       <?php render_letter_body($doc); ?>
     <?php else: ?>
-      <?php render_line_table($doc, $d['deep'], '#ffffff', ['serial' => true]); ?>
+      <?php render_line_table($doc, $d['color'], '#ffffff', ['serial' => true]); ?>
       <div class="night-total">
         <div>
           <span>In words</span>

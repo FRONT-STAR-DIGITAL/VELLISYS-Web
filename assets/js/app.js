@@ -70,7 +70,7 @@ document.addEventListener('click', function (e) {
   }
 
   function applyBrandVars() {
-    var map = { primary: '--brand', accent: '--brand-2', deep: '--brand-3' };
+    var map = { primary: '--brand', accent: '--brand-2' };
     pairs.forEach(function (row) {
       var role = row.getAttribute('data-color-role') || 'primary';
       var picker = row.querySelector('[data-color-picker]');

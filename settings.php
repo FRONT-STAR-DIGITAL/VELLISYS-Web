@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === '' || $action === 'save_brand') {
     $color = parse_hex_color(post('brand_color'), '#82B440');
     $accent = parse_hex_color(post('brand_accent'), '#C6A15B');
-    $deep = parse_hex_color(post('brand_deep'), '#1F3A12');
+    $deep = hex_shade($color, 0.52);
     $logoPath = $brand['logo_path'] ?? 'assets/img/ofagros-logo.png';
     if (!empty($_FILES['logo']['tmp_name']) && is_uploaded_file($_FILES['logo']['tmp_name'])) {
         $ext = strtolower(pathinfo($_FILES['logo']['name'], PATHINFO_EXTENSION));
@@ -255,7 +255,7 @@ layout_start('Settings', $user);
     <input type="hidden" name="action" value="save_brand">
     <section class="card settings-card" id="appearance">
       <h2><?= icon('palette') ?>Appearance</h2>
-      <p class="lede">Logo and three brand colours. Primary paints the desk. Accent and deep colour the document designs - bars, corners, rails and totals.</p>
+      <p class="lede">Logo and two brand colours. Primary paints the desk and the strong bars on documents. Accent marks rails, rules and highlights. Type on those colours is black or white, whichever reads clearly.</p>
       <div class="form-grid">
         <div>
           <label for="brand_color">Primary</label>
@@ -272,13 +272,6 @@ layout_start('Settings', $user);
           </div>
         </div>
         <div>
-          <label for="brand_deep">Deep</label>
-          <div class="color-row" data-color-pair data-color-role="deep">
-            <input id="brand_deep" name="brand_deep" type="color" value="<?= h(parse_hex_color($b['brand_deep'] ?? '', '#1F3A12')) ?>" data-color-picker>
-            <input id="brand_deep_hex" type="text" maxlength="7" value="<?= h(parse_hex_color($b['brand_deep'] ?? '', '#1F3A12')) ?>" data-color-hex aria-label="Deep hex">
-          </div>
-        </div>
-        <div>
           <label for="logo">Logo</label>
           <input id="logo" name="logo" type="file" accept="image/*,.svg">
           <?php if (!empty($b['logo_path'])): ?>
@@ -289,7 +282,6 @@ layout_start('Settings', $user);
       <div class="palette-swatches" aria-hidden="true">
         <span style="background:var(--brand)"></span>
         <span style="background:var(--brand-2)"></span>
-        <span style="background:var(--brand-3)"></span>
       </div>
       <div class="preview-nav" data-color-preview>
         <span>Navigation preview</span>

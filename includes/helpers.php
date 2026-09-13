@@ -284,15 +284,15 @@ function doc_templates(): array
         ],
         'stripe' => [
             'name' => 'Accent stripe',
-            'blurb' => 'Deep title bar, accent rail, and a boxed total.',
+            'blurb' => 'Primary title bar, accent rail, From and To, and a boxed total.',
         ],
         'estate' => [
             'name' => 'Estate panel',
-            'blurb' => 'Deep header band and solid accent bar on a white sheet.',
+            'blurb' => 'Primary header band, accent gold rule, black type on white paper.',
         ],
         'night' => [
             'name' => 'Harbour block',
-            'blurb' => 'Solid deep header and a flat accent rule on white paper.',
+            'blurb' => 'Primary harbour bar, accent waterline, black totals on white paper.',
         ],
         'atelier' => [
             'name' => 'Atelier',
@@ -734,13 +734,10 @@ function brand_palette(?array $brand = null): array
     $brand = $brand ?? branding();
     $primary = parse_hex_color($brand['brand_color'] ?? '', '#82B440');
     $accent = parse_hex_color($brand['brand_accent'] ?? '', '');
-    $deep = parse_hex_color($brand['brand_deep'] ?? '', '');
     if ($accent === '') {
         $accent = hex_mix($primary, '#C6A15B', 0.62);
     }
-    if ($deep === '') {
-        $deep = hex_shade($primary, 0.58);
-    }
+    $deep = hex_shade($primary, 0.52);
     return [
         'primary' => $primary,
         'accent' => $accent,

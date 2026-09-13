@@ -305,6 +305,7 @@
     opacity: .55;
   }
   .twin-copy h3 { text-align: left; font-size: 16px; }
+  .stripe-parties { grid-template-columns: 1fr; }
   .invoice-sheet.sheet-bond {
     width: 100%;
     max-width: 100%;
@@ -346,17 +347,34 @@
 .sheet-stripe { padding: 0; overflow: hidden; display: flex; }
 .stripe-rail { width: 14px; background: var(--brand-2); flex-shrink: 0; }
 .stripe-inner { flex: 1; padding: 16px 22px 28px; }
-.stripe-banner { background: var(--brand-3); color: var(--on-brand-3); margin: -16px -22px 16px 0; padding: 16px 20px; font-size: 22px; font-weight: 800; letter-spacing: .08em; }
-.stripe-co { font-size: 11px; color: #777; margin: 0 0 16px; }
+.stripe-banner { background: var(--brand); color: var(--on-brand); margin: -16px -22px 16px 0; padding: 16px 20px; font-size: 22px; font-weight: 800; letter-spacing: .08em; }
+.stripe-parties {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 24px;
+  margin: 0 0 16px;
+  min-width: 0;
+}
+.stripe-parties span {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--brand);
+  margin-bottom: 4px;
+}
+.stripe-parties b { display: block; font-size: 15px; margin: 0 0 4px; overflow-wrap: anywhere; }
+.stripe-parties p { margin: 0; font-size: 12px; color: #444; line-height: 1.45; overflow-wrap: anywhere; }
 .stripe-meta { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid #ddd; margin-bottom: 14px; }
-.stripe-meta span, .stripe-h { display: block; font-size: 11px; font-weight: 700; color: var(--brand-3); }
+.stripe-meta span, .stripe-h { display: block; font-size: 11px; font-weight: 700; color: var(--brand); }
 .stripe-h { margin: 0 0 8px; }
 .stripe-payrow { display: flex; justify-content: space-between; gap: 16px; margin-top: 16px; align-items: end; }
 .stripe-payrow em { display: inline-block; background: var(--brand-2-tint); padding: 6px 10px; border-radius: 8px; font-style: normal; font-weight: 700; }
 .stripe-fare { min-width: 0; width: min(220px, 100%); max-width: 100%; box-sizing: border-box; }
 .stripe-fare > div { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; min-width: 0; }
 .stripe-fare > div > * { min-width: 0; overflow-wrap: anywhere; }
-.stripe-total { background: var(--brand-3); color: var(--on-brand-3); padding: 8px 12px !important; font-weight: 800; margin-top: 6px; }
+.stripe-total { background: var(--brand); color: var(--on-brand); padding: 8px 12px !important; font-weight: 800; margin-top: 6px; }
 .stripe-payrow > div { min-width: 0; max-width: 100%; }
 .stripe-payrow .d-rd { max-width: 100%; }
 
@@ -364,44 +382,45 @@
 .sheet-estate {
   background: #fff;
   color: #111;
-  box-shadow: inset 0 0 0 8px #fff, inset 0 0 0 10px var(--brand-3);
+  box-shadow: inset 0 0 0 8px #fff, inset 0 0 0 10px var(--brand);
 }
 .estate-gold { height: 8px; background: var(--brand-2); margin: 0 -16mm 18px; }
-.estate-band { display: flex; gap: 16px; align-items: center; background: var(--brand-3); color: var(--on-brand-3); margin: -14mm -16mm 0; padding: 18px 16mm 16px; }
+.estate-band { display: flex; gap: 16px; align-items: center; background: var(--brand); color: var(--on-brand); margin: -14mm -16mm 0; padding: 18px 16mm 16px; }
+.estate-band .d-logo { background: #fff; padding: 4px 6px; border-radius: 2px; }
 .estate-band em { display: block; letter-spacing: .18em; text-transform: uppercase; font-size: 10px; font-style: normal; color: var(--brand-2); }
 .estate-band h1 { margin: 4px 0 0; font-size: 22px; font-weight: 600; color: inherit; }
-.estate-band p { margin: 4px 0 0; font-size: 11px; opacity: .85; }
+.estate-band p { margin: 4px 0 0; font-size: 11px; opacity: .92; }
 .estate-no { margin-left: auto; text-align: right; }
-.estate-no span { display: block; font-size: 11px; letter-spacing: .14em; }
-.estate-no b { font-size: 16px; }
-.estate-gold { height: 8px; background: var(--brand-2); margin: 0 -16mm 18px; }
+.estate-no span { display: block; font-size: 11px; letter-spacing: .14em; color: var(--brand-2); }
+.estate-no b { font-size: 16px; color: inherit; }
 .estate-who { display: flex; justify-content: space-between; gap: 24px; margin-bottom: 16px; }
-.estate-who span { display: block; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: color-mix(in srgb, var(--brand-3) 70%, #888); font-weight: 700; }
+.estate-who span { display: block; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--brand); font-weight: 700; }
 .estate-end { display: flex; justify-content: space-between; gap: 20px; margin-top: 16px; align-items: end; }
-.estate-end p { flex: 1; font-size: 12px; white-space: pre-wrap; }
-.estate-total { background: var(--brand-3); color: var(--on-brand-3); padding: 14px 16px; min-width: 0; width: min(240px, 100%); max-width: 100%; box-sizing: border-box; }
+.estate-end p { flex: 1; font-size: 12px; white-space: pre-wrap; color: #111; }
+.estate-total { background: #111; color: #fff; padding: 14px 16px; min-width: 0; width: min(240px, 100%); max-width: 100%; box-sizing: border-box; border-top: 5px solid var(--brand-2); }
 .estate-total span { display: block; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--brand-2); }
-.estate-total b { display: block; font-size: 22px; margin: 4px 0; overflow-wrap: anywhere; word-break: break-word; }
-.estate-total small { font-size: 10px; opacity: .85; }
+.estate-total b { display: block; font-size: 22px; margin: 4px 0; overflow-wrap: anywhere; word-break: break-word; color: #fff; }
+.estate-total small { font-size: 10px; opacity: .9; color: #fff; }
 .estate-end > div { min-width: 0; max-width: 100%; }
 
 /* Harbour block */
-.sheet-night { padding: 0; background: #fff; }
-.night-sky { background: var(--brand-3); color: var(--on-brand-3); padding: 22px 16mm 18px; margin: 0; display: flex; justify-content: space-between; align-items: end; }
-.night-sky p { margin: 8px 0 0; font-size: 13px; letter-spacing: .08em; }
-.night-sky h1 { margin: 0; font-size: 28px; font-weight: 600; color: var(--brand-2); }
+.sheet-night { padding: 0; background: #fff; color: #111; }
+.night-sky { background: var(--brand); color: var(--on-brand); padding: 22px 16mm 18px; margin: 0; display: flex; justify-content: space-between; align-items: end; }
+.night-sky .d-logo { background: #fff; padding: 4px 6px; border-radius: 2px; }
+.night-sky p { margin: 8px 0 0; font-size: 13px; letter-spacing: .08em; color: inherit; }
+.night-sky h1 { margin: 0; font-size: 28px; font-weight: 600; color: inherit; }
 .night-copper { height: 6px; background: var(--brand-2); }
 .night-body { padding: 18px 16mm 22px; }
 .night-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 16px; }
-.night-pair span { display: block; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--brand-2); font-weight: 700; }
-.night-pair strong { display: block; font-size: 16px; margin: 4px 0; }
-.night-total { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; background: var(--brand-3); color: var(--on-brand-3); padding: 14px 16px; margin-top: 12px; min-width: 0; }
+.night-pair span { display: block; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--brand); font-weight: 700; }
+.night-pair strong { display: block; font-size: 16px; margin: 4px 0; color: #111; }
+.night-total { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; background: #fff; color: #111; border: 1px solid #111; border-top: 6px solid var(--brand-2); padding: 14px 16px; margin-top: 12px; min-width: 0; }
 .night-total > div { min-width: 0; max-width: 100%; }
-.night-total span { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--brand-2); }
-.night-total b { font-size: 22px; color: var(--brand-2); overflow-wrap: anywhere; word-break: break-word; }
+.night-total span { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--brand); }
+.night-total b { font-size: 22px; color: #111; overflow-wrap: anywhere; word-break: break-word; }
 .night-total .d-rd { color: inherit; }
-.night-total .d-rd-row.is-open { color: #f3c4be; }
-.night-total .d-fx, .night-total .d-fx em { color: inherit; }
+.night-total .d-rd-row.is-open { color: #7a1f1a; }
+.night-total .d-fx, .night-total .d-fx em { color: #444; }
 .night-foot { margin-top: 22px; font-size: 11px; color: #555; }
 
 .design-grid {
@@ -515,13 +534,13 @@
 .mini-twin::before { left: 8px; box-shadow: inset 0 16px 0 var(--brand-2); }
 .mini-twin::after { right: 8px; box-shadow: inset 0 16px 0 var(--brand-2); }
 .mini-stripe { background: #fff; border-left: 10px solid var(--brand-2); }
-.mini-stripe::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 24px; background: var(--brand-3); }
-.mini-stripe::after { content: ""; position: absolute; right: 10px; bottom: 14px; width: 36%; height: 14px; background: var(--brand-3); }
-.mini-estate { background: #fff; box-shadow: inset 0 0 0 3px var(--brand-3); }
-.mini-estate::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 40px; background: var(--brand-3); }
+.mini-stripe::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 24px; background: var(--brand); }
+.mini-stripe::after { content: ""; position: absolute; right: 10px; bottom: 14px; width: 36%; height: 14px; background: var(--brand); }
+.mini-estate { background: #fff; box-shadow: inset 0 0 0 3px var(--brand); }
+.mini-estate::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 40px; background: var(--brand); }
 .mini-estate::after { content: ""; position: absolute; left: 0; right: 0; top: 40px; height: 7px; background: var(--brand-2); }
 .mini-night { background: #fff; }
-.mini-night::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 42px; background: var(--brand-3); }
+.mini-night::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 42px; background: var(--brand); }
 .mini-night::after { content: ""; position: absolute; left: 0; right: 0; top: 42px; height: 6px; background: var(--brand-2); }
 .mini-mark { background: #fff; }
 .mini-mark::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 8px; background: var(--brand); }
