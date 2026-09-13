@@ -915,7 +915,7 @@ function render_sheet_bond(array $d): void
   <?php if ($doc['kind'] === 'letter'): ?>
     <?php render_letter_body($doc); ?>
   <?php else: ?>
-    <?php render_line_table($doc, $d['deep'], '#ffffff'); ?>
+    <?php render_line_table($doc, $d['deep'], '#ffffff', ['class' => 'bond-lines', 'compact' => true]); ?>
     <div class="bond-end">
       <p><?= h($d['comments'] ?: ($brand['payment_note'] ?? '')) ?></p>
       <aside>
