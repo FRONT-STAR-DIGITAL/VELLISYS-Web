@@ -91,8 +91,10 @@ function vellisys_pdf_image_object(string $jpeg, int $w, int $h): string
         . strlen($jpeg) . " >>\nstream\n" . $jpeg . "\nendstream";
 }
 
+require_once __DIR__ . '/ttf.php';
+
 /**
- * Landscape A4 client pitch deck (navy / Vellisys blue, Helvetica).
+ * Landscape A4 client pitch deck (navy / Vellisys blue, Montserrat).
  */
 function vellisys_pitch_deck_bytes(): string
 {
@@ -324,13 +326,13 @@ function vellisys_pitch_deck_bytes(): string
     $fillRgb($gold);
     $rect(18, 70, 6, $h - 78);
     $fillRgb($gold);
-    $text(56, 492, 'CLIENT PITCH DECK', 11, 'F2');
+    $text(56, 492, 'FOR YOUR COMPANY', 11, 'F2');
     $fillRgb('#FFFFFF');
-    $text(56, 462, 'Business Made Effortless', 16, 'F2');
-    $text(56, 418, 'Branded books for companies', 26, 'F2');
-    $text(56, 388, 'that cannot lose the paper.', 26, 'F2');
+    $text(56, 462, 'Business Made Effortless', 18, 'F2');
+    $text(56, 412, 'You already know what it costs', 24, 'F2');
+    $text(56, 384, 'when a quote goes missing.', 24, 'F2');
     $fillRgb('#C9D2EE');
-    $para(56, 'Quotations, invoices, receipts, expenses, delivery notes, headed letters and reports in your logo, colours, currency and tax. One desk. Yearly packages. Built for East Africa and used anywhere a company still sends paper that must look like it left their office.', 12, '#C9D2EE', 78, 16);
+    $para(56, 'Vellisys is the desk you open in the morning: quotations, invoices, receipts, expenses, letters and reports in your logo, your colours, your currency and your tax. One place. One year. We stay with you until it feels like your office, because it is.', 13, '#C9D2EE', 76, 17);
     $y = 210;
     $fillRgb($gold);
     $text(56, $y, 'www.vellisys.com  ·  info@vellisys.com', 12, 'F2');
@@ -338,28 +340,28 @@ function vellisys_pitch_deck_bytes(): string
     $fillRgb('#FFFFFF');
     $text(56, $y, '+256 779 971 024  ·  +256 756 524 451', 12);
     $y -= 20;
-    $text(56, $y, 'Front Star Digital  ·  Confidential to the company you are visiting', 10);
+    $text(56, $y, 'Front Star Digital  ·  Written for the company you are sitting with', 10);
     $fillRgb('#FFFFFF');
-    $text(56, 96, 'Send this pack before a demo. It is the whole system, the packages, and how we start together.', 10);
+    $text(56, 96, 'Read this through. By the last page the next step should feel obvious.', 11, 'F2');
 
     // --- 2 Pain ---
     $newPage();
     $fillRgb($navy);
-    $text(56, 530, 'The books are leaking.', 22, 'F2');
+    $text(56, 530, 'You have already paid for this.', 22, 'F2');
     $fillRgb($muted);
-    $text(56, 508, 'Common pains Vellisys is built to close', 12);
+    $text(56, 508, 'Not in cash. In time, in awkward follow-ups, in money you were not sure had landed.', 12);
     $cols = [
         [
-            ['file', 'Quotes live in Word. Invoices in Excel. Receipts in a pad. Nobody can show the same story twice.'],
-            ['globe', 'The sheet that leaves the office does not look like the company. Logo missing, colours wrong, tax guessed.'],
-            ['money', 'Part payments are rewritten on the invoice. Debtors become a rumour.'],
-            ['mail', 'Staff email from personal Gmail. Clients never know if the bill is real.'],
+            ['file', 'The quote was in Word. The invoice in a spreadsheet. The receipt in a pad. When a client calls, three people tell three stories.'],
+            ['globe', 'The paper that leaves the office does not look like you. Wrong colour. Missing logo. Tax guessed. They notice.'],
+            ['money', 'Someone rewrites the invoice when a part payment comes in. Debtors become a feeling, not a list.'],
+            ['mail', 'Bills go out from a personal Gmail. The client wonders if it is real. You wonder if it arrived.'],
         ],
         [
-            ['people', 'You need a desk that fits how you already sell: branded paper, your tax, your currency, without a long implementation.'],
-            ['file', 'Spreadsheets do not age, do not remind, and do not convert a quote to an invoice.'],
-            ['tax', 'Tax is hardcoded in the owner\'s head: 18% here, 16% there, until a sheet is wrong.'],
-            ['globe', 'Opening in another country should not mean a new stack and a new way of working.'],
+            ['people', 'You do not need a six-month project. You need a desk that already works the way you sell.'],
+            ['file', 'A spreadsheet does not remind anyone. It does not turn a yes into an invoice. It waits until Friday panic.'],
+            ['tax', 'The rate lives in someone\'s head. Eighteen here, sixteen there, until a sheet is wrong and you find out late.'],
+            ['globe', 'The next country, the next currency, should be a setting. Not a new way of working.'],
         ],
     ];
     $x0 = 56;
@@ -386,15 +388,15 @@ function vellisys_pitch_deck_bytes(): string
     // --- 3 What it is ---
     $newPage();
     $fillRgb($navy);
-    $text(56, 530, 'What Vellisys is', 22, 'F2');
+    $text(56, 530, 'This is the desk.', 22, 'F2');
     $y = 500;
-    $para(56, 'Vellisys is branded books software. A company desk: the people who raise quotes, issue invoices, take receipts, log expenses, chase debtors and write headed letters. Super admin at Vellisys onboard the company, assign a sending mailbox, and keep the paid term honest.', 12, $ink, 110, 16);
+    $para(56, 'Vellisys is simply the place your company keeps the books and the paper. You raise a quote, they say yes, you press Invoice. Money comes in, you write a receipt. Someone is late, you send a reminder that still looks like you. We onboard you. We give you a sending mailbox. You get back to selling.', 12, $ink, 108, 16);
     $y -= 8;
     $bits = [
-        ['file', 'Your paper', 'Logo, two brand colours, one document design for the whole desk. Print, PDF, WhatsApp link or email from the company mailbox.'],
-        ['money', 'Your money', 'Any three-letter currency. USD on a sheet if you need it. You set the rate. Reports add it back to home currency.'],
-        ['tax', 'Your tax', 'Name it VAT, GST, SST, IVA. Set the percent. Taxed lines use that rate. Old sheets keep the rate they were saved with.'],
-        ['people', 'Your seats', 'One, two or three logins. Company admin plus Books or Sales access, so the people who quote are not the only ones who can open Settings.'],
+        ['file', 'Your paper', 'Your logo. Two colours. One design for every sheet. Print it, send a link, WhatsApp it, or email it from the company mailbox. It looks like it left your office because it did.'],
+        ['money', 'Your money', 'Bill in the currency you actually use. Put a USD sheet out when you need to. Set the rate once. The month still adds up.'],
+        ['tax', 'Your tax', 'Call it VAT, GST, SST, IVA. Set the percent. New lines follow that rate. Old sheets keep what you already issued. No arguing with a default from somewhere else.'],
+        ['people', 'Your people', 'One, two or three logins. You stay the admin. Give someone Books or Sales so they can work without seeing everything. That is enough for most companies.'],
     ];
     $i = 0;
     foreach ($bits as $bit) {
@@ -418,18 +420,18 @@ function vellisys_pitch_deck_bytes(): string
     // --- 4 How the desk works ---
     $newPage();
     $fillRgb($navy);
-    $text(56, 530, 'Business Made Effortless', 22, 'F2');
+    $text(56, 530, 'What Monday feels like', 22, 'F2');
     $fillRgb($muted);
-    $text(56, 508, 'What changes when the books live in one branded desk', 12);
+    $text(56, 508, 'After the desk is open, these stop being problems. They become the morning.', 12);
     $why = [
-        ['file', 'One paper trail', 'Quote, invoice, receipt and letter share the same logo, colours and numbering.'],
-        ['check', 'Honest balances', 'Part payments are receipts. Debtors drop by themselves. Nothing is rewritten.'],
-        ['tax', 'Your tax, your rate', 'Name the tax and set the percent. New sheets follow. Old sheets keep what they were saved with.'],
-        ['money', 'Your currency', 'Bill in UGX, KES, EUR, USD or any code. Reports convert back to home currency.'],
-        ['mail', 'Mail from the company', 'Sheets leave from the mailbox Vellisys assigns, with your mark on a white band.'],
-        ['people', 'The right seats', 'Up to three logins. Admin, Books or Sales, so a salesperson cannot open the whole ledger.'],
-        ['globe', 'Ready for another country', 'Change currency and tax in Settings. You do not wait for a vendor to add your rate.'],
-        ['pack', 'Yearly, not a surprise', 'Quill, Ledger or Crest. One invoice a year. Pesapal, a register request, or a demo.'],
+        ['file', 'One trail', 'Quote, invoice, receipt and letter wear the same face. Your client never has to wonder who sent it.'],
+        ['check', 'Money that matches', 'A part payment is a receipt, not a rewrite. Debtors drop on their own. You can trust the number in the meeting.'],
+        ['tax', 'Tax you chose', 'You name it. You set the percent. New work follows. Yesterday\'s sheets stay honest.'],
+        ['money', 'Your currency', 'UGX, KES, EUR, USD, or whatever you type. Reports come home to the currency on the books.'],
+        ['mail', 'Mail that belongs', 'It leaves from the mailbox we assign you. Logo on a white band. Not a personal inbox. Not a maybe.'],
+        ['people', 'The right hands', 'Up to three people. Admin, Books or Sales. The person who quotes is not wandering through Settings.'],
+        ['globe', 'Another country', 'Change the currency and the tax in Settings. You do not wait on anyone to "add your market".'],
+        ['pack', 'One year, done', 'Quill, Ledger or Crest. Pay once for the year. Mobile money, card, or we invoice you. Then we open the desk.'],
     ];
     foreach ($why as $i => $row) {
         [$kind, $title, $body] = $row;
@@ -451,22 +453,22 @@ function vellisys_pitch_deck_bytes(): string
     // --- 5 Features books ---
     $newPage();
     $fillRgb($navy);
-    $text(56, 530, 'The books', 22, 'F2');
+    $text(56, 530, 'What you can do before lunch', 22, 'F2');
     $fillRgb($muted);
-    $text(56, 508, 'Everything that used to live in five folders', 12);
+    $text(56, 508, 'This is the work that used to live in five folders and one person\'s laptop.', 12);
     $feats = [
-        ['file', 'Quotations that convert to invoices without retyping lines, tax or currency.'],
-        ['file', 'Invoices with due dates, part receipts, and balances that stay visible until they are cleared.'],
-        ['check', 'Receipts that print RECEIVED and DUE, in the same stationery as the invoice.'],
-        ['money', 'Expenses against suppliers, with categories that feed reports.'],
-        ['truck', 'Delivery notes: quantities out, no prices. Return notes when goods come back.'],
-        ['money', 'Refunds in and out, linked when you can, so Profit & Loss stays honest.'],
-        ['mail', 'Debtors list with branded reminders from the company mailbox.'],
-        ['people', 'Creditors list with a note or a letter when you need to write to a supplier.'],
-        ['file', 'Headed letters and custom documents on the same paper as the books.'],
-        ['chart', 'Reports: income, collections, outstanding, tax due, aging, quote conversion, CSV export.'],
-        ['chart', 'Profit & Loss on Crest: other income and costs beside invoices and expenses.'],
-        ['check', 'Edit a saved sheet. Void when it is dead. Number formats you control.'],
+        ['file', 'Write a quotation that still looks like you when they open it on their phone.'],
+        ['file', 'When they say yes, turn it into an invoice without typing the lines again.'],
+        ['check', 'Take a full payment or a part. The receipt says RECEIVED and DUE. The balance is true.'],
+        ['money', 'Log what you spent. Fuel, rent, a supplier. Reports tot it without a Friday scramble.'],
+        ['truck', 'Send a delivery note with quantities, not prices. The invoice stays the bill.'],
+        ['money', 'Record a refund or a return so profit is not a guess.'],
+        ['mail', 'See who still owes you. Send a reminder that looks like the rest of your paper.'],
+        ['people', 'See who you still need to pay. Write to them from the same desk.'],
+        ['file', 'Send a headed letter or a custom form on the same stationery as the books.'],
+        ['chart', 'Ask the month a question: collected, outstanding, tax due, who converted.'],
+        ['chart', 'On Crest, read profit with the other income and costs beside the invoices.'],
+        ['check', 'Fix a saved sheet. Void one that is dead. Number it the way your office numbers things.'],
     ];
     foreach ($feats as $i => $f) {
         [$kind, $copy] = $f;
@@ -486,14 +488,14 @@ function vellisys_pitch_deck_bytes(): string
     // --- 6 Features desk ---
     $newPage();
     $fillRgb($navy);
-    $text(56, 530, 'The desk around the books', 22, 'F2');
+    $text(56, 530, 'The rest of the office, in the same place', 20, 'F2');
     $desk = [
-        ['file', 'Brand', 'Primary and accent colours. Logo with optional white plate. Twelve layouts: Folio bar, Colour ledger, Corner bill, Accent bill, Twin copy, Accent stripe, Estate panel, Harbour block, watermarks and more. One choice reprints every sheet.'],
-        ['people', 'People', 'Up to three seats. Company admin opens Settings, Reports and the people list. Extra seats are Books or Sales so a salesperson cannot open the whole ledger.'],
-        ['mail', 'Mail', 'Vellisys assigns a Hostinger or Titan mailbox. Quotes, invoices, receipts, letters and debtor reminders leave from that address with the logo on a white band. Personal Gmail stays out of the books.'],
-        ['calendar', 'Planner', 'On Ledger and Crest: notes, budget targets, calendar, notifications. Receive on the bell when money should be logged.'],
-        ['send', 'Share', 'Print the A4 sheet. Save PDF. WhatsApp the link. Email the sheet. The client sees paper, not the desk. On a phone the page is still A4, scaled to fit.'],
-        ['pack', 'Pay us', 'Pesapal in the same tab: mobile money, cards, bank. Or register without paying. Or book a demo. Super admin still walks the company in.'],
+        ['file', 'Look', 'You pick two colours and a logo. Twelve papers to choose from. Change it once and every sheet reprints. Clients stop asking if you "have a letterhead".'],
+        ['people', 'People', 'Three seats at most. You keep Settings and Reports. Give Sales to the person who quotes. They cannot wander. You sleep.'],
+        ['mail', 'Mail', 'We assign the company mailbox. Quotes, invoices, letters and reminders leave from there. Personal Gmail stays personal.'],
+        ['calendar', 'Planner', 'On Ledger and Crest: notes, a budget, a calendar, a bell when money should be logged. The desk remembers so you do not have to.'],
+        ['send', 'Share', 'Print. Save a PDF. WhatsApp the link. Email the sheet. They see paper. They never see your books. On a phone it is still the A4 page, just smaller.'],
+        ['pack', 'Pay', 'Pay in the same tab: mobile money, card, bank. Or ask us to invoice you. Or book a morning and we walk you through it. You are not left with a login and a shrug.'],
     ];
     $yy = 455;
     foreach ($desk as $row) {
@@ -513,30 +515,30 @@ function vellisys_pitch_deck_bytes(): string
     // --- 7 Packages ---
     $newPage();
     $fillRgb($navy);
-    $text(56, 530, 'Packages, billed per year', 22, 'F2');
+    $text(56, 530, 'One year. One decision.', 22, 'F2');
     $fillRgb($muted);
-    $text(56, 508, 'List prices in Uganda shillings. Change currency on www.vellisys.com. Discount shown as was / now.', 11);
+    $text(56, 508, 'Prices in Uganda shillings. Change currency on the site. The crossed-out figure is what it was. Most companies take Ledger and get on with work.', 11);
     $pkgs = [
-        ['QUILL', 'Starting', 'UGX 150,000', 'was 200,000', '1 seat', [
-            'Company admin login',
-            'Branded quotations, invoices, receipts',
-            'Clients, debtors, email and WhatsApp share',
-            'Print and PDF',
+        ['QUILL', 'If it is just you', 'UGX 150,000', 'was 200,000', '1 seat', [
+            'You, the company admin',
+            'Quotes, invoices and receipts that look like you',
+            'Clients, debtors, email and WhatsApp',
+            'Print and PDF, no hunt',
             'Reports for the person who signs in',
         ]],
-        ['LEDGER', 'Most companies', 'UGX 200,000', 'was 280,000', '2 seats', [
-            'Admin plus one login (Books or Sales)',
+        ['LEDGER', 'Where most of us land', 'UGX 200,000', 'was 280,000', '2 seats', [
+            'You, plus one (Books or Sales)',
             'Everything in Quill',
             'Expenses, creditors, delivery notes',
-            'Planner notes, budget, calendar',
-            'Headed letters from the company mailbox',
+            'Planner: notes, budget, calendar',
+            'Letters from the company mailbox',
         ]],
-        ['CREST', 'Full house', 'UGX 250,000', 'was 350,000', '3 seats', [
-            'Admin plus two logins',
+        ['CREST', 'The full house', 'UGX 250,000', 'was 350,000', '3 seats', [
+            'You, plus two',
             'Everything in Ledger',
             'Custom documents and every layout',
-            'Profit & Loss, refunds, return notes',
-            'Priority onboarding from Vellisys',
+            'Profit, refunds, return notes',
+            'We onboard you first, properly',
         ]],
     ];
     foreach ($pkgs as $i => $p) {
@@ -570,17 +572,17 @@ function vellisys_pitch_deck_bytes(): string
     // --- 8 Ease ---
     $newPage();
     $fillRgb($navy);
-    $text(56, 530, 'How Vellisys eases the work', 22, 'F2');
+    $text(56, 530, 'A week that does not fight you', 22, 'F2');
     $y = 490;
     $ease = [
-        'Monday: raise a quote in the company colours. Share the link. When they accept, press Invoice. Lines, tax and currency copy.',
-        'When money lands: record a receipt against the invoice. Part payment is a receipt, not a rewritten bill. Debtors drop by themselves.',
-        'When goods leave: a delivery note with quantities. The invoice stays the bill. The driver carries paper that matches the office.',
-        'When you spend: log the supplier and the tax. Reports tot income, expenses and tax due for the period you pick.',
-        'When someone is late: open Debtors, send a reminder from the company mailbox. It looks like the rest of your stationery.',
-        'When you hire a second person: give them Sales so they can quote without opening Settings or the full reports.',
-        'When you open in another country: set currency, tax name and tax percent. You do not wait for a global vendor to add your rate.',
-        'When the year turns: one invoice from Vellisys for the year you paid.',
+        'Monday. You write the quote in your colours and send the link. They accept. You press Invoice. The lines are already there.',
+        'Money lands. You write a receipt against that invoice. If they paid part, you do not rewrite the bill. Debtors quietly gets smaller.',
+        'Goods go out. The driver takes a delivery note. Quantities, not prices. The invoice is still the invoice.',
+        'You spend. You log the supplier and the tax. Friday\'s report is not a reconstruction. It is a button.',
+        'Someone is late. You open Debtors and send a reminder that looks like you. They take it seriously because it looks serious.',
+        'You hire a second person. You give them Sales. They can quote. They cannot open the whole ledger. You stay in charge.',
+        'You take a job in another currency. You set the tax and the rate in Settings. The desk does not need a committee.',
+        'The year turns. One invoice from us. The desk you already know. That is the whole relationship.',
     ];
     foreach ($ease as $item) {
         $icon(56, $y - 3, 'check', 16);
@@ -595,19 +597,20 @@ function vellisys_pitch_deck_bytes(): string
     // --- 9 Onboarding ---
     $newPage();
     $fillRgb($navy);
-    $text(56, 530, 'A note as you start', 22, 'F2');
+    $text(56, 530, 'If you are still with us, you already know.', 20, 'F2');
     $y = 498;
     $letter = [
-        'Welcome to Vellisys.',
-        'You are opening a desk that prints like your office and keeps the books in one place.',
-        'This is how we start, together:',
-        '1. You pick Quill, Ledger or Crest, or you ask us to recommend one from how many people will sign in and whether you need Planner and Profit & Loss.',
-        '2. You pay on Pesapal, or we invoice you, or you register and we call. There is no password until the desk is opened on purpose.',
-        '3. We create the company, assign the sending mailbox, and send a welcome from info@vellisys.com with a short tutorial.',
-        '4. You sign in. Settings opens first: logo, colours, TIN, tax name and rate, currency, bank, document prefix. Save once. Every sheet follows.',
-        '5. Add the people who will work the desk. Add the first clients. Raise the first quotation. Convert it when they say yes.',
-        'We stay on the line for branding, the first documents, and the mailbox. If something is unclear, write to info@vellisys.com or call the numbers on the last page. You should never have to invent a workaround in Excel to make Vellisys look true.',
-        'We are glad you are here.',
+        'Welcome. We are glad you read this far.',
+        'You are not buying another password. You are opening a desk that prints like your office and keeps the books where you can find them.',
+        'Here is how we start. It is short on purpose.',
+        '1. Tell us how many people will sign in. We will say Quill, Ledger or Crest. Most companies take Ledger. If you need Planner and profit, take Crest.',
+        '2. Pay on the site (mobile money or card), or we invoice you, or you book a morning and we sit together. There is no password until the desk is opened on purpose. That is how we keep it clean.',
+        '3. We create the company, assign the mailbox, and write to you from info@vellisys.com with a short tutorial. You are not dumped at a blank screen.',
+        '4. You sign in. Settings is first: logo, colours, TIN, tax name and rate, currency, bank. Save once. Every sheet from then on is you.',
+        '5. Add the people. Add the first clients. Raise the first quotation. Convert it when they say yes. That first yes is the moment it clicks.',
+        'We stay for the branding, the first documents, and the mailbox. If something is unclear, write or call. You should never have to invent a workaround in a spreadsheet to make this look true.',
+        'The cost of waiting is another week of the same leak. The cost of starting is one year, at the rate on the last-but-one page.',
+        'We would like to open the desk this week.',
         'The Vellisys desk  ·  Front Star Digital',
     ];
     foreach ($letter as $p) {
@@ -628,38 +631,42 @@ function vellisys_pitch_deck_bytes(): string
     $fillRgb($gold);
     $rect(18, 70, 6, $h - 78);
     $fillRgb('#FFFFFF');
-    $text(56, 500, 'Next step', 14, 'F2');
+    $text(56, 500, 'Pay. We open the desk.', 14, 'F2');
     $fillRgb($gold);
-    $text(56, 476, 'Business Made Effortless', 14, 'F2');
+    $text(56, 472, 'Business Made Effortless', 16, 'F2');
     $fillRgb('#FFFFFF');
-    $text(56, 440, 'Open the desk with us.', 26, 'F2');
-    $y = 420;
-    $para(56, 'Pay at www.vellisys.com, register without paying, or book a demo. Tell us the company name, how many people will sign in, the currency you bill in, and the tax you charge. We will match a package and open the books.', 12, '#C9D2EE', 90, 16);
-    $y = 300;
+    $text(56, 430, 'This week is better than next month.', 22, 'F2');
+    $y = 392;
+    $para(56, 'Go to www.vellisys.com and take Ledger if you are unsure. Most people are. Tell us the company name, how many will sign in, the currency you bill in, and the tax you charge. We match the package and we open the books. If you would rather talk first, call. If you are ready, pay. Either way, the leak stops.', 13, '#C9D2EE', 88, 17);
+    $y = 268;
     $fillRgb($gold);
-    $text(56, $y, 'www.vellisys.com', 14, 'F2');
+    $text(56, $y, 'www.vellisys.com', 16, 'F2');
     $y -= 22;
     $fillRgb('#FFFFFF');
-    $text(56, $y, 'info@vellisys.com', 14, 'F2');
+    $text(56, $y, 'info@vellisys.com', 16, 'F2');
     $y -= 22;
-    $text(56, $y, '+256 779 971 024', 14, 'F2');
+    $text(56, $y, '+256 779 971 024', 16, 'F2');
     $y -= 20;
-    $text(56, $y, '+256 756 524 451', 14, 'F2');
-    $y -= 36;
+    $text(56, $y, '+256 756 524 451', 16, 'F2');
+    $y -= 32;
     $fillRgb('#C9D2EE');
-    $text(56, $y, 'Front Star Digital  ·  Vellisys branded books', 11);
-    $y -= 18;
-    $text(56, $y, 'This deck is for the company named in your email or meeting. Figures are yearly list prices in UGX as published on the site.', 9);
+    $text(56, $y, 'Front Star Digital  ·  Vellisys', 11);
+    $y -= 16;
+    $text(56, $y, 'Yearly prices in UGX as published on the site. Pay, and we treat it as the start of the work, not the end of a pitch.', 9);
     $fillRgb('#FFFFFF');
-    $text(56, 96, 'Thank you for reading. We will make the paper look like you.', 11, 'F2');
+    $text(56, 96, 'Thank you for reading. Come. Let us make the paper look like you.', 12, 'F2');
 
     $pages[] = $content;
     $nPages = count($pages);
     $imgNames = array_keys($images);
     $font1 = 3 + 2 * $nPages;
-    $font2 = $font1 + 1;
+    $font1Desc = $font1 + 1;
+    $font1File = $font1 + 2;
+    $font2 = $font1 + 3;
+    $font2Desc = $font1 + 4;
+    $font2File = $font1 + 5;
     $imgIds = [];
-    $imgObj = $font2 + 1;
+    $imgObj = $font2File + 1;
     foreach ($imgNames as $name) {
         $imgIds[$name] = $imgObj;
         $imgObj++;
@@ -693,8 +700,16 @@ function vellisys_pitch_deck_bytes(): string
         );
         $objs[] = '<< /Length ' . strlen($body) . " >>\nstream\n" . $body . 'endstream';
     }
-    $objs[] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
-    $objs[] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>';
+    $ttfReg = vellisys_ttf_for_pdf($root . '/assets/fonts/Montserrat-Regular.ttf');
+    $ttfBold = vellisys_ttf_for_pdf($root . '/assets/fonts/Montserrat-Bold.ttf');
+    [$f1, $d1, $file1] = vellisys_pdf_ttf_objects($ttfReg, 'Montserrat-Regular', $font1Desc, $font1File);
+    [$f2, $d2, $file2] = vellisys_pdf_ttf_objects($ttfBold, 'Montserrat-Bold', $font2Desc, $font2File);
+    $objs[] = $f1;
+    $objs[] = $d1;
+    $objs[] = $file1;
+    $objs[] = $f2;
+    $objs[] = $d2;
+    $objs[] = $file2;
     foreach ($imgNames as $name) {
         [$jpeg, $iw, $ih] = $images[$name];
         $objs[] = vellisys_pdf_image_object($jpeg, $iw, $ih);
