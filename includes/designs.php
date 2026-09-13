@@ -63,8 +63,14 @@ function render_settlement(array $d): void
     $open = $due > 0.009;
     ?>
     <div class="d-rd">
-      <div class="d-rd-row"><span>RECEIVED:</span><b><?= h(money($received, $d['cur'])) ?></b></div>
-      <div class="d-rd-row<?= $open ? ' is-open' : '' ?>"><span>DUE:</span><b><?= h(money($due, $d['cur'])) ?></b></div>
+      <div class="d-rd-row">
+        <span>Amount received</span>
+        <b><?= h(money($received, $d['cur'])) ?></b>
+      </div>
+      <div class="d-rd-row<?= $open ? ' is-open' : '' ?>">
+        <span>Amount due</span>
+        <b><?= h(money($due, $d['cur'])) ?></b>
+      </div>
     </div>
     <?php
 }
@@ -643,7 +649,7 @@ function render_sheet_estate(array $d): void
         <?php render_settlement($d); ?>
       </div>
       <div class="estate-total">
-        <span>Harvest total</span>
+        <span>Total</span>
         <b><?= h(money($d['total'], $d['cur'])) ?></b>
         <?php render_fx_equiv($d); ?>
         <small><?= h(amount_in_words($d['total'], $d['cur'])) ?></small>
@@ -687,7 +693,7 @@ function render_sheet_night(array $d): void
     <?php if ($doc['kind'] === 'letter'): ?>
       <?php render_letter_body($doc); ?>
     <?php else: ?>
-      <?php render_line_table($doc, $d['deep'], '#f7f4ee', ['serial' => true]); ?>
+      <?php render_line_table($doc, $d['deep'], '#ffffff', ['serial' => true]); ?>
       <div class="night-total">
         <div>
           <span>In words</span>
@@ -745,7 +751,7 @@ function render_sheet_atelier(array $d): void
       <div class="atelier-sums">
         <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
         <?php if (!empty($d['show_vat'])): ?><div><span>VAT 18%</span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
-        <div class="atelier-total"><span>Amount due</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
+        <div class="atelier-total"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
         <?php render_fx_equiv($d); ?>
         <?php render_settlement($d); ?>
       </div>
@@ -885,13 +891,13 @@ function render_sheet_bond(array $d): void
   <?php if ($doc['kind'] === 'letter'): ?>
     <?php render_letter_body($doc); ?>
   <?php else: ?>
-    <?php render_line_table($doc, $d['deep'], '#fff8ee'); ?>
+    <?php render_line_table($doc, $d['deep'], '#ffffff'); ?>
     <div class="bond-end">
       <p><?= h($d['comments'] ?: ($brand['payment_note'] ?? '')) ?></p>
       <aside>
         <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
         <?php if (!empty($d['show_vat'])): ?><div><span>VAT 18%</span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
-        <div class="bond-due"><span>Amount due</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
+        <div class="bond-due"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
         <?php render_fx_equiv($d); ?>
         <?php render_settlement($d); ?>
       </aside>

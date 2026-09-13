@@ -398,7 +398,7 @@ layout_start('Settings', $user);
 
     <section class="card settings-card" id="templates">
       <h2><?= icon('palette') ?>Document designs</h2>
-      <p class="lede">Twelve layouts. Pick the one that matches the company. Logo watermark and Bond watermark print the company mark faintly on the paper. Atelier and Company seal are quiet, formal sheets meant to email. Every invoice, quotation, receipt, expense and headed note reprints in that design, in the client's logo and colours. Changing it here reprints the whole books. Correspondence text stays editable - only the paper around it changes.</p>
+      <p class="lede">Twelve layouts on white paper with black type and your brand colours. Desktop and mobile previews sit above each option. Logo watermark and Bond watermark print the company mark faintly on the paper. Atelier and Company seal are quiet, formal sheets meant to email. Every invoice, quotation, receipt, expense and headed note reprints in that design. Changing it here reprints the whole books.</p>
       <?php $letterTpls = letter_templates(true); ?>
       <label class="check">
         <input type="hidden" name="logo_bg" value="0">
@@ -411,11 +411,22 @@ layout_start('Settings', $user);
         $currentDesign = doc_template_key(['doc_template' => $b['doc_template'] ?? 'folio']);
         foreach (doc_templates() as $key => $info):
             ?>
-          <label class="design-card">
-            <input type="radio" name="doc_template" value="<?= h($key) ?>" <?= $currentDesign === $key ? 'checked' : '' ?>>
-            <div class="design-mini mini-<?= h($key) ?>" aria-hidden="true"></div>
-            <strong><?= h($info['name']) ?></strong>
-            <span><?= h($info['blurb']) ?></span>
+          <label class="design-card<?= $currentDesign === $key ? ' is-selected' : '' ?>">
+            <div class="design-previews" aria-hidden="true">
+              <div class="design-preview design-preview-desk">
+                <div class="design-mini mini-<?= h($key) ?>"></div>
+                <em>Desktop</em>
+              </div>
+              <div class="design-preview design-preview-phone">
+                <div class="design-mini mini-<?= h($key) ?>"></div>
+                <em>Mobile</em>
+              </div>
+            </div>
+            <span class="design-pick">
+              <input type="radio" name="doc_template" value="<?= h($key) ?>" <?= $currentDesign === $key ? 'checked' : '' ?>>
+              <strong><?= h($info['name']) ?></strong>
+            </span>
+            <span class="design-blurb"><?= h($info['blurb']) ?></span>
           </label>
         <?php endforeach; ?>
       </div>
