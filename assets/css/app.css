@@ -2640,10 +2640,144 @@ input, select, textarea { font-weight: 400; }
 .top-bell-actions form { margin: 0; }
 
 /* P&L */
-.pnl-cats { display: grid; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
-.pnl-cats > div { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
-.pnl-cats span { color: var(--muted); }
 .pnl-tabs { margin-bottom: 14px; }
+.pnl-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.pnl-card {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.pnl-card > .empty {
+  margin: 0;
+  padding: 18px 16px 20px;
+}
+.pnl-sheet-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.pnl-sheet {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 13px;
+}
+.pnl-sheet th,
+.pnl-sheet td {
+  padding: 12px 16px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--line);
+}
+.pnl-sheet thead th {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+  font-weight: 600;
+  background: color-mix(in srgb, var(--brand-tint, #f3f6ef) 80%, #fff);
+  white-space: nowrap;
+}
+.pnl-sheet tbody tr:last-child td { border-bottom: 0; }
+.pnl-sheet tbody tr:hover { background: color-mix(in srgb, var(--brand-tint, #f3f6ef) 55%, #fff); }
+.pnl-sheet .pnl-note {
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  width: 34%;
+}
+.pnl-sheet .pnl-line {
+  display: block;
+  font-weight: 600;
+  color: var(--ink, #1a1f16);
+  overflow-wrap: anywhere;
+}
+.pnl-note-mobile { display: none; }
+.pnl-sheet tfoot th {
+  padding: 13px 16px;
+  border-top: 1px solid var(--line);
+  border-bottom: 0;
+  background: color-mix(in srgb, var(--brand-tint, #f3f6ef) 70%, #fff);
+  font-size: 13px;
+  font-weight: 700;
+}
+.pnl-sheet tfoot .mono,
+.pnl-sheet td.mono,
+.pnl-sheet th.mono {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.pnl-sheet col.amount,
+.pnl-sheet th.right,
+.pnl-sheet td.right {
+  width: 38%;
+}
+.pnl-breakdown {
+  margin: 0;
+  padding: 12px 0 4px;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--brand-tint, #f3f6ef) 35%, #fff);
+}
+.pnl-breakdown h3 {
+  margin: 0;
+  padding: 2px 16px 8px;
+  font-size: 10.5px;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 650;
+}
+.pnl-sheet-sub th,
+.pnl-sheet-sub td {
+  padding: 8px 16px;
+  border-bottom: 1px dashed color-mix(in srgb, var(--line) 80%, transparent);
+  background: transparent;
+}
+.pnl-sheet-sub tbody tr:last-child td { border-bottom: 0; }
+.pnl-sheet-sub .pnl-line {
+  font-weight: 550;
+  font-size: 12.5px;
+  padding-left: 8px;
+  position: relative;
+}
+.pnl-sheet-sub .pnl-line::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: .55em;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--brand, #82B440) 70%, #999);
+}
+.pnl-ledger th:first-child,
+.pnl-ledger td:first-child { width: 7.5rem; }
+.pnl-ledger th:nth-child(3),
+.pnl-ledger td:nth-child(3) { width: 7rem; }
+.pnl-ledger a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: none;
+}
+.pnl-ledger a:hover { color: var(--brand); text-decoration: underline; }
+
+@media (max-width: 1100px) {
+  .pnl-sheet .pnl-note { width: 28%; font-size: 12px; }
+  .pnl-sheet th,
+  .pnl-sheet td { padding: 11px 14px; }
+  .pnl-sheet tbody td.right,
+  .pnl-sheet tfoot th.right { font-size: 12.5px; }
+}
+@media (max-width: 900px) {
+  .pnl-split { gap: 12px; }
+  .pnl-sheet .pnl-note { display: none; }
+  .pnl-note-mobile { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; font-weight: 500; }
+}
 .pos { color: #1f7a3f; }
 .neg { color: #b42318; }
 /* Never set display:flex on td.row-actions; it collapses table columns on mobile */
@@ -2702,5 +2836,88 @@ input, select, textarea { font-weight: 400; }
     grid-template-columns: 1fr;
     gap: 12px;
   }
-  .pnl-cats > div { font-size: 12.5px; }
+  .pnl-split {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .pnl-sheet th,
+  .pnl-sheet td {
+    padding: 11px 14px;
+  }
+  .pnl-sheet .pnl-note { display: none; }
+  .pnl-note-mobile {
+    display: block;
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .pnl-sheet col.amount,
+  .pnl-sheet th.right,
+  .pnl-sheet td.right { width: auto; }
+  .pnl-sheet thead { display: none; }
+  .pnl-ledger,
+  .pnl-ledger tbody,
+  .pnl-ledger tr,
+  .pnl-ledger td {
+    display: block;
+    width: 100%;
+  }
+  .pnl-ledger tr {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .pnl-ledger tbody tr:last-child { border-bottom: 0; }
+  .pnl-ledger td {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 3px 0;
+    border: 0;
+    max-width: none;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+  }
+  .pnl-ledger td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .pnl-ledger td[data-label="Party"] {
+    display: block;
+    padding-bottom: 6px;
+  }
+  .pnl-ledger td[data-label="Party"]::before { display: none; }
+  .pnl-ledger td[data-label="Party"] a {
+    display: block;
+    font-size: 14px;
+    line-height: 1.35;
+  }
+  .pnl-ledger td.right { text-align: right; }
+  .pnl-sheet:not(.pnl-ledger) tfoot th[colspan] {
+    /* keep total label + amount on one row on phones */
+  }
+  .pnl-sheet:not(.pnl-ledger) tfoot tr {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+  .pnl-sheet:not(.pnl-ledger) tfoot th {
+    display: block;
+    width: auto;
+    border: 0;
+    padding: 12px 14px;
+  }
+  .pnl-sheet:not(.pnl-ledger) tfoot th[colspan] { flex: 1; }
+  .pnl-sheet:not(.pnl-ledger) tbody td.right {
+    white-space: nowrap;
+    font-size: 12.5px;
+  }
 }
