@@ -142,7 +142,7 @@ layout_start('Settings', $user);
   <div class="settings-stack">
     <section class="card settings-card" id="account">
       <h2><?= icon('lock') ?>Signed-in account</h2>
-      <p class="lede">This is who is using the desk. Change your own password on Password. Outgoing mail leaves from the company mailbox Vellisys assigned. Only a Vellisys admin can change that mailbox.</p>
+      <p class="lede">This is who is using the desk. Change your own password below. Outgoing mail leaves from the company mailbox Vellisys assigned. Only a Vellisys admin can change that mailbox.</p>
       <div class="account-chip">
         <?= icon('user', 22) ?>
         <div>
@@ -150,7 +150,9 @@ layout_start('Settings', $user);
           <span><?= h($user['email']) ?><?= !empty($user['job_title']) ? ' · ' . h((string) $user['job_title']) : '' ?></span>
         </div>
       </div>
-      <p style="margin:12px 0 0"><a class="btn ghost sm" href="<?= h(url('account.php')) ?>"><?= icon('lock', 14) ?>Change my password</a></p>
+      <div class="settings-account-actions">
+        <a class="btn sm" href="<?= h(url('account.php')) ?>"><?= icon('lock', 14) ?>Change my password</a>
+      </div>
       <?php
         $deskCompany = db_one('SELECT * FROM companies WHERE id = ?', 'i', [current_company_id()]);
         $sendAcct = $deskCompany ? company_mail_account($deskCompany) : null;

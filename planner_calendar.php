@@ -88,10 +88,10 @@ layout_start('Calendar', $user);
     <h1><?= icon('calendar') ?>Calendar</h1>
     <p class="lede">Pick a day, set programmes, appointments and deadlines, and mark what is essential.</p>
   </div>
-  <div class="actions page-actions">
-    <a class="btn ghost" href="<?= h(url('planner_calendar.php?date=' . urlencode($prevMonth))) ?>"><?= icon('arrow-left', 16) ?></a>
+  <div class="actions page-actions month-nav" role="group" aria-label="Month">
+    <a class="btn ghost" href="<?= h(url('planner_calendar.php?date=' . urlencode($prevMonth))) ?>" aria-label="Previous month"><?= icon('arrow-left', 16) ?></a>
     <a class="btn ghost" href="<?= h(url('planner_calendar.php?date=' . urlencode(today()))) ?>">Today</a>
-    <a class="btn ghost" href="<?= h(url('planner_calendar.php?date=' . urlencode($nextMonth))) ?>"><?= icon('arrow-right', 16) ?></a>
+    <a class="btn ghost" href="<?= h(url('planner_calendar.php?date=' . urlencode($nextMonth))) ?>" aria-label="Next month"><?= icon('arrow-right', 16) ?></a>
   </div>
 </div>
 <?php render_planner_subnav('planner_calendar.php'); ?>

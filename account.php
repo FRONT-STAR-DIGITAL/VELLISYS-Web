@@ -35,11 +35,29 @@ layout_start('Password', $user);
 <form class="card form" method="post" style="max-width:28rem" autocomplete="off">
   <?= csrf_field() ?>
   <label for="current_password">Current password</label>
-  <input id="current_password" name="current_password" type="password" required autocomplete="current-password">
+  <div class="pw-field">
+    <input id="current_password" name="current_password" type="password" required autocomplete="current-password">
+    <button class="pw-toggle" type="button" data-toggle-password aria-label="Show password" title="Show password" aria-pressed="false">
+      <span data-eye><?= icon('eye', 16) ?></span>
+      <span data-eye-off hidden><?= icon('eye-off', 16) ?></span>
+    </button>
+  </div>
   <label for="new_password">New password</label>
-  <input id="new_password" name="new_password" type="password" required minlength="8" autocomplete="new-password">
+  <div class="pw-field">
+    <input id="new_password" name="new_password" type="password" required minlength="8" autocomplete="new-password">
+    <button class="pw-toggle" type="button" data-toggle-password aria-label="Show password" title="Show password" aria-pressed="false">
+      <span data-eye><?= icon('eye', 16) ?></span>
+      <span data-eye-off hidden><?= icon('eye-off', 16) ?></span>
+    </button>
+  </div>
   <label for="new_password2">Confirm new password</label>
-  <input id="new_password2" name="new_password2" type="password" required minlength="8" autocomplete="new-password">
+  <div class="pw-field">
+    <input id="new_password2" name="new_password2" type="password" required minlength="8" autocomplete="new-password">
+    <button class="pw-toggle" type="button" data-toggle-password aria-label="Show password" title="Show password" aria-pressed="false">
+      <span data-eye><?= icon('eye', 16) ?></span>
+      <span data-eye-off hidden><?= icon('eye-off', 16) ?></span>
+    </button>
+  </div>
   <div class="actions" style="margin-top:14px">
     <button class="btn" type="submit"><?= icon('check') ?>Save password</button>
   </div>

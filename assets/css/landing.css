@@ -1852,7 +1852,7 @@ body.gate-register .gate-art h1 em {
   border-radius: 12px;
   padding: 0 12px;
   background: #fff;
-  overflow: hidden;
+  overflow: visible;
 }
 .gate-control .icon { color: #9aa3b5; flex-shrink: 0; }
 .gate-control input {
@@ -1896,11 +1896,48 @@ body.gate-register .gate-art h1 em {
   border: 0;
   background: transparent;
   color: #9aa3b5;
-  padding: 6px;
+  padding: 8px;
+  margin-right: -4px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 8px;
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
 }
+.gate-pw .pw-toggle:hover { color: var(--ink, #0b1220); background: rgba(8,20,58,.04); }
+.gate-pw .pw-toggle svg { pointer-events: none; display: block; }
+.pw-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.pw-field input { width: 100%; padding-right: 48px; }
+.pw-field .pw-toggle {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: var(--muted, #6b7280);
+  min-width: 40px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 8px;
+  z-index: 2;
+}
+.pw-field .pw-toggle:hover { color: var(--ink, #0b1220); background: rgba(8,20,58,.04); }
+.pw-field .pw-toggle svg { pointer-events: none; }
+
 .gate-row {
   display: flex;
   align-items: center;

@@ -117,20 +117,31 @@ document.querySelectorAll('[data-fill-login]').forEach(function (btn) {
   });
 });
 
-document.querySelectorAll('[data-toggle-password]').forEach(function (btn) {
-  btn.addEventListener('click', function () {
-    var wrap = btn.closest('.field-control, .gate-pw');
-    var input = wrap ? wrap.querySelector('input') : null;
-    if (!input) return;
-    var show = input.type === 'password';
-    input.type = show ? 'text' : 'password';
-    var on = btn.querySelector('[data-eye]');
-    var off = btn.querySelector('[data-eye-off]');
-    if (on) on.hidden = show;
-    if (off) off.hidden = !show;
-    btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
-    btn.setAttribute('title', show ? 'Hide password' : 'Show password');
-  });
+function togglePasswordButton(btn) {
+  if (!btn) return;
+  var wrap = btn.closest('.field-control, .gate-pw, .pw-field');
+  var input = wrap ? wrap.querySelector('input[type="password"], input[type="text"]') : null;
+  if (!input && btn.parentElement) input = btn.parentElement.querySelector('input');
+  if (!input) return;
+  var show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  var on = btn.querySelector('[data-eye]');
+  var off = btn.querySelector('[data-eye-off]');
+  if (on) on.hidden = show;
+  if (off) off.hidden = !show;
+  btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+  btn.setAttribute('title', show ? 'Hide password' : 'Show password');
+  btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+}
+
+document.addEventListener('click', function (e) {
+  var el = e.target;
+  if (el && el.nodeType === 3) el = el.parentElement;
+  var btn = el && el.closest ? el.closest('[data-toggle-password]') : null;
+  if (!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  togglePasswordButton(btn);
 });
 
 document.addEventListener('click', function (e) {

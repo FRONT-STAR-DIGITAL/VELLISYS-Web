@@ -112,12 +112,22 @@ $pkg = $order ? pricing_package((string) $order['plan']) : null;
         <label class="gate-field" for="contact_email">Sign-in email
           <input id="contact_email" name="contact_email" type="email" required maxlength="190" autocomplete="username" value="<?= h(post('contact_email') ?: (string) ($order['email'] ?? '')) ?>" placeholder="accounts@company.com">
         </label>
-        <label class="gate-field" for="password">Password
+        <label class="gate-field" for="password">Password</label>
+        <div class="gate-control gate-pw">
           <input id="password" name="password" type="password" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters">
-        </label>
-        <label class="gate-field" for="password_confirm">Confirm password
+          <button class="pw-toggle" type="button" data-toggle-password aria-label="Show password" title="Show password" aria-pressed="false">
+            <span data-eye><?= icon('eye', 16) ?></span>
+            <span data-eye-off hidden><?= icon('eye-off', 16) ?></span>
+          </button>
+        </div>
+        <label class="gate-field" for="password_confirm">Confirm password</label>
+        <div class="gate-control gate-pw">
           <input id="password_confirm" name="password_confirm" type="password" required minlength="8" autocomplete="new-password" placeholder="Type it again">
-        </label>
+          <button class="pw-toggle" type="button" data-toggle-password aria-label="Show password" title="Show password" aria-pressed="false">
+            <span data-eye><?= icon('eye', 16) ?></span>
+            <span data-eye-off hidden><?= icon('eye-off', 16) ?></span>
+          </button>
+        </div>
         <button class="gate-submit" type="submit">Save and go to sign in <?= icon('arrow-right', 18) ?></button>
         <?php render_gate_legal(); ?>
       </form>

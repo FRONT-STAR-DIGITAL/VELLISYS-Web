@@ -79,7 +79,7 @@ $showDemoKeys = !folio_is_live_host();
       <div class="gate-control gate-pw">
         <?= icon('lock', 18) ?>
         <input id="password" name="password" type="password" required autocomplete="current-password" placeholder="Enter your password">
-        <button class="pw-toggle" type="button" data-toggle-password aria-label="Show password" title="Show password">
+        <button class="pw-toggle" type="button" data-toggle-password aria-label="Show password" title="Show password" aria-pressed="false">
           <span data-eye><?= icon('eye', 16) ?></span>
           <span data-eye-off hidden><?= icon('eye-off', 16) ?></span>
         </button>

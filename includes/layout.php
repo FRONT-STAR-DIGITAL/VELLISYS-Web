@@ -67,7 +67,6 @@ function layout_start(string $title, array $user, array $opts = []): void
         ['tutorials.php', 'Tutorials', 'book'],
         ['reports.php', 'Reports', 'reports'],
         ['settings.php', 'Settings', 'settings'],
-        ['account.php', 'Password', 'lock'],
     ]);
     if (function_exists('record_site_visit')) {
         record_site_visit();
