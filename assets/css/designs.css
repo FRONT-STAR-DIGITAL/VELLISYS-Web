@@ -350,41 +350,6 @@
   }
   .twin-copy h3 { text-align: left; font-size: 16px; }
   .stripe-parties { grid-template-columns: 1fr; }
-  .invoice-sheet.sheet-bond {
-    width: 100%;
-    max-width: 100%;
-    min-height: 0;
-    padding: 12px;
-  }
-  .bond-head,
-  .bond-end {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .bond-brand {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .bond-brand .d-logo {
-    height: 32px;
-    max-width: 72px;
-    max-height: 32px;
-  }
-  .bond-stamp {
-    max-width: none;
-    width: 100%;
-    text-align: left;
-  }
-  .bond-end aside {
-    width: 100%;
-    max-width: none;
-  }
-  .sheet-bond .d-watermark {
-    width: 88px;
-    max-width: 28%;
-    max-height: 88px;
-    opacity: .06;
-  }
 }
 
 /* Accent stripe */
