@@ -16,6 +16,10 @@
     function sync() {
       stack.setAttribute('aria-expanded', stack.classList.contains('is-open') ? 'true' : 'false');
     }
+    function openStack() {
+      stack.classList.add('is-open');
+      sync();
+    }
     stack.addEventListener('click', function () {
       stack.classList.toggle('is-open');
       sync();
@@ -27,16 +31,26 @@
         sync();
       }
     });
-    var fine = window.matchMedia('(hover: hover) and (pointer: fine)');
-    if (fine.matches) {
-      stack.addEventListener('mouseenter', function () {
-        stack.classList.add('is-open');
-        sync();
-      });
-      stack.addEventListener('mouseleave', function () {
-        stack.classList.remove('is-open');
-        sync();
-      });
+    // Auto-spread when the old-way section scrolls into view (desktop + mobile).
+    // Tap/click still toggles stack ↔ spread for play.
+    var target = stack.closest('#old-way, .lp-compare-old, section') || stack;
+    if ('IntersectionObserver' in window) {
+      var seen = false;
+      var stackIo = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) {
+            seen = false;
+            return;
+          }
+          if (!seen) {
+            seen = true;
+            openStack();
+          }
+        });
+      }, { threshold: 0.28, rootMargin: '0px 0px -8% 0px' });
+      stackIo.observe(target);
+    } else {
+      openStack();
     }
     sync();
   });
