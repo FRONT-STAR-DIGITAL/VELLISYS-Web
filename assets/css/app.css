@@ -846,6 +846,10 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 22%, transparent);
 }
 
+.content:has(.sheet-stage) {
+  overflow-x: hidden;
+  overflow-y: visible;
+}
 .sheet-wrap {
   background: #fff;
   padding: 28px 16px;
@@ -856,6 +860,7 @@ input:focus, select:focus, textarea:focus {
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
+  contain: inline-size;
 }
 .sheet-stage {
   display: block;
@@ -868,10 +873,11 @@ input:focus, select:focus, textarea:focus {
 .sheet-stage .invoice-sheet { flex-shrink: 0; }
 .invoice-sheet {
   width: 210mm;
-  max-width: none;
+  max-width: 210mm;
   height: auto;
   min-height: 297mm;
-  overflow: visible;
+  overflow-x: hidden;
+  overflow-y: visible;
   margin: 0 auto;
   background: #fff;
   color: #000;

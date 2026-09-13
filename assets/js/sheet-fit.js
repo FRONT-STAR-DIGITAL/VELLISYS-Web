@@ -1,17 +1,23 @@
 (function () {
-  var useZoom = typeof CSS !== 'undefined' && CSS.supports && CSS.supports('zoom', '0.5');
-
-  function stageWidth(stage) {
-    var wrap = stage.parentElement;
-    var box = wrap || stage;
-    var w = box.clientWidth;
+  function availableWidth(stage) {
+    var wrap = stage.closest('.sheet-wrap') || stage.parentElement;
+    var content = stage.closest('.content');
+    var w = stage.clientWidth;
+    if (wrap && wrap.clientWidth > 8) {
+      w = wrap.clientWidth;
+      var cs = window.getComputedStyle(wrap);
+      w -= parseFloat(cs.paddingLeft || '0') + parseFloat(cs.paddingRight || '0');
+    }
+    if (content && content.clientWidth > 8 && content.clientWidth < w + 32) {
+      w = Math.min(w, content.clientWidth);
+    }
     var view = (window.visualViewport && window.visualViewport.width)
       || document.documentElement.clientWidth
       || window.innerWidth;
-    if (view > 8 && w > view) {
-      w = view;
+    if (view > 8) {
+      w = Math.min(w, view);
     }
-    return w;
+    return Math.max(0, w);
   }
 
   function fitSheets() {
@@ -22,27 +28,25 @@
       var sheet = stage.querySelector('.invoice-sheet');
       if (!sheet) return;
       sheet.style.zoom = '';
-      sheet.style.transform = '';
-      sheet.style.marginLeft = '';
+      sheet.style.transform = 'none';
+      sheet.style.marginLeft = '0';
       stage.style.height = '';
       stage.style.overflow = 'hidden';
-      var avail = stageWidth(stage);
-      var w = sheet.offsetWidth;
-      var h = sheet.offsetHeight;
+      var avail = availableWidth(stage);
+      var w = Math.max(sheet.offsetWidth, sheet.scrollWidth);
+      var h = Math.max(sheet.offsetHeight, sheet.scrollHeight);
       if (!w || avail <= 0) return;
       var scale = Math.min(1, avail / w);
-      if (scale >= 0.999) return;
-      if (useZoom) {
-        sheet.style.zoom = String(scale);
-        sheet.style.marginLeft = '0';
-        stage.style.height = '';
-      } else {
-        sheet.style.transformOrigin = 'top left';
-        sheet.style.transform = 'scale(' + scale + ')';
-        var leftover = avail - w * scale;
-        sheet.style.marginLeft = leftover > 0.5 ? leftover / 2 + 'px' : '';
-        stage.style.height = Math.ceil(h * scale) + 'px';
+      sheet.style.transformOrigin = 'top left';
+      if (scale >= 0.999) {
+        return;
       }
+      sheet.style.transform = 'scale(' + scale + ')';
+      var leftover = avail - w * scale;
+      if (leftover > 0.5) {
+        sheet.style.marginLeft = leftover / 2 + 'px';
+      }
+      stage.style.height = Math.ceil(h * scale) + 'px';
     });
   }
 
@@ -52,14 +56,6 @@
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', fitSheets);
   }
-  if (typeof ResizeObserver !== 'undefined') {
-    var ro = new ResizeObserver(function () {
-      fitSheets();
-    });
-    document.querySelectorAll('.sheet-wrap, .sheet-stage').forEach(function (el) {
-      ro.observe(el);
-    });
-  }
   document.querySelectorAll('.invoice-sheet img').forEach(function (img) {
     if (!img.complete) {
       img.addEventListener('load', fitSheets);
@@ -68,8 +64,10 @@
   if (document.readyState === 'complete') {
     fitSheets();
   } else {
+    document.addEventListener('DOMContentLoaded', fitSheets);
     window.addEventListener('load', fitSheets);
   }
-  setTimeout(fitSheets, 60);
-  setTimeout(fitSheets, 400);
+  setTimeout(fitSheets, 50);
+  setTimeout(fitSheets, 250);
+  setTimeout(fitSheets, 800);
 })();
