@@ -185,18 +185,62 @@
 .ledger-sign > div { margin-bottom: 8px; font-size: 11px; }
 .ledger-sign span { display: block; color: var(--brand); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
 
-/* Corner / accent bills */
-.sheet-bill { position: relative; overflow: hidden; padding-top: 18mm; padding-bottom: 18mm; }
-.bill-corner { position: absolute; width: 0; height: 0; z-index: 1; pointer-events: none; }
-.bill-corner.tl { top: 0; left: 0; border-top: 72px solid var(--a); border-right: 72px solid transparent; }
-.bill-corner.tl::after { content: ""; position: absolute; top: -72px; left: 0; border-top: 42px solid var(--b); border-right: 42px solid transparent; }
-.bill-corner.br { right: 0; bottom: 0; border-bottom: 72px solid var(--a); border-left: 72px solid transparent; }
-.bill-corner.br::after { content: ""; position: absolute; bottom: -72px; right: 0; border-bottom: 42px solid var(--b); border-left: 42px solid transparent; }
-.bill-head { display: flex; gap: 14px; align-items: center; justify-content: center; text-align: center; flex-direction: column; }
+/* Corner / accent bills — triangles sit on the paper corners, not in the padded content box */
+.sheet-bill {
+  position: relative;
+  overflow: hidden;
+  padding: 0 !important;
+}
+.bill-pad {
+  position: relative;
+  z-index: 1;
+  padding: 22mm 16mm;
+  box-sizing: border-box;
+}
+.bill-corner {
+  position: absolute !important;
+  width: 110px;
+  height: 110px;
+  z-index: 2;
+  pointer-events: none;
+}
+.bill-corner.tl {
+  top: 0;
+  left: 0;
+  background: var(--a);
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+.bill-corner.tl::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 64px;
+  height: 64px;
+  background: var(--b);
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+.bill-corner.br {
+  right: 0;
+  bottom: 0;
+  background: var(--a);
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+.bill-corner.br::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 64px;
+  height: 64px;
+  background: var(--b);
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+.bill-head { position: relative; z-index: 1; display: flex; gap: 14px; align-items: center; justify-content: center; text-align: center; flex-direction: column; }
 .bill-head h2 { margin: 8px 0 0; font-size: 26px; letter-spacing: .04em; }
 .bill-head p { margin: 4px 0 0; font-size: 11px; color: #555; }
-.bill-pill { margin: 16px auto 18px; color: var(--on-brand-3); background: var(--brand-3); font-weight: 700; letter-spacing: .14em; text-transform: uppercase; padding: 8px 28px; border-radius: 999px; width: max-content; }
-.sheet-amber .bill-pill { background: var(--brand-3); color: var(--on-brand-3); }
+.bill-pill { position: relative; z-index: 1; margin: 16px auto 18px; color: var(--on-brand); background: var(--brand); font-weight: 700; letter-spacing: .14em; text-transform: uppercase; padding: 8px 28px; border-radius: 999px; width: max-content; }
+.sheet-amber .bill-pill { background: var(--brand-2); color: var(--on-brand-2); }
 .bill-who { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; margin-bottom: 14px; font-size: 12px; }
 .bill-who .dot { padding: 4px 0; border-bottom: 1px dotted #999; }
 .bill-foot { display: flex; justify-content: space-between; gap: 16px; margin-top: 12px; align-items: end; }
@@ -523,12 +567,46 @@
 .mini-ledger { background: #fff; }
 .mini-ledger::before { content: ""; position: absolute; left: 14%; right: 14%; top: 14px; height: 12px; background: var(--brand); border-radius: 3px; }
 .mini-ledger::after { content: ""; position: absolute; left: 10%; right: 10%; top: 40px; bottom: 14px; border: 1px solid color-mix(in srgb, var(--brand) 35%, #fff); background: color-mix(in srgb, var(--brand) 12%, #fff); border-radius: 4px; }
-.mini-crimson { background: #fff; }
-.mini-crimson::before { content: ""; position: absolute; top: 0; left: 0; border-top: 40px solid var(--brand); border-right: 40px solid transparent; }
-.mini-crimson::after { content: ""; position: absolute; bottom: 0; right: 0; border-bottom: 40px solid var(--brand-3); border-left: 40px solid transparent; }
-.mini-amber { background: #fff; }
-.mini-amber::before { content: ""; position: absolute; top: 0; left: 0; border-top: 40px solid var(--brand-2); border-right: 40px solid transparent; }
-.mini-amber::after { content: ""; position: absolute; bottom: 0; right: 0; border-bottom: 40px solid var(--brand-3); border-left: 40px solid transparent; }
+.mini-crimson { background: #fff; overflow: hidden; }
+.mini-crimson::before,
+.mini-crimson::after {
+  content: "";
+  position: absolute;
+  width: 36px;
+  height: 36px;
+}
+.mini-crimson::before {
+  top: 0;
+  left: 0;
+  background: var(--brand);
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+.mini-crimson::after {
+  right: 0;
+  bottom: 0;
+  background: var(--brand-2);
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+.mini-amber { background: #fff; overflow: hidden; }
+.mini-amber::before,
+.mini-amber::after {
+  content: "";
+  position: absolute;
+  width: 36px;
+  height: 36px;
+}
+.mini-amber::before {
+  top: 0;
+  left: 0;
+  background: var(--brand-2);
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+.mini-amber::after {
+  right: 0;
+  bottom: 0;
+  background: var(--brand);
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
 .mini-twin { background: #fff; }
 .mini-twin::before, .mini-twin::after { content: ""; position: absolute; top: 10px; bottom: 10px; width: 40%; background: #fff; border: 1px solid color-mix(in srgb, var(--brand-3) 30%, #fff); }
 .mini-twin::before { left: 8px; box-shadow: inset 0 16px 0 var(--brand-2); }
@@ -657,7 +735,7 @@
 .seal-sign div { width: 42%; border-top: 1px solid var(--brand-3); padding-top: 8px; text-align: center; }
 
 .invoice-sheet.has-wm { position: relative; overflow: hidden; }
-.invoice-sheet.has-wm > *:not(.d-watermark) { position: relative; z-index: 1; }
+.invoice-sheet.has-wm > *:not(.d-watermark):not(.bill-corner) { position: relative; z-index: 1; }
 .d-watermark {
   position: absolute;
   left: 50%;

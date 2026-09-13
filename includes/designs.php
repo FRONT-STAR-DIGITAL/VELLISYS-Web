@@ -486,11 +486,12 @@ function render_sheet_bill(array $d, string $variant): void
     $brand = $d['brand'];
     $doc = $d['doc'];
     $primary = $variant === 'amber' ? $d['accent'] : $d['color'];
-    $deep = $d['deep'];
+    $second = $variant === 'amber' ? $d['color'] : $d['accent'];
     ?>
-<article class="invoice-sheet sheet-bill sheet-<?= h($variant) ?>" style="<?= h($d['vars']) ?>">
-  <div class="bill-corner tl" style="--a:<?= h($primary) ?>;--b:<?= h($deep) ?>"></div>
-  <div class="bill-corner br" style="--a:<?= h($deep) ?>;--b:<?= h($primary) ?>"></div>
+<article class="invoice-sheet sheet-bill sheet-<?= h($variant) ?>" style="<?= h($d['vars']) ?>;--a:<?= h($primary) ?>;--b:<?= h($second) ?>">
+  <div class="bill-corner tl" aria-hidden="true"></div>
+  <div class="bill-corner br" aria-hidden="true"></div>
+  <div class="bill-pad">
   <header class="bill-head">
     <img src="<?= h($d['logo']) ?>" alt="" class="d-logo sm">
     <div>
@@ -498,7 +499,7 @@ function render_sheet_bill(array $d, string $variant): void
       <p><?= h($brand['address']) ?> · <?= h($brand['phone']) ?> · <?= h($brand['email']) ?></p>
     </div>
   </header>
-  <div class="bill-pill" style="background:<?= h($primary) ?>"><?= h($d['heading']) ?></div>
+  <div class="bill-pill" style="background:<?= h($primary) ?>;color:<?= h(contrast_on($primary)) ?>"><?= h($d['heading']) ?></div>
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
   <div class="bill-who">
     <div>
@@ -533,6 +534,7 @@ function render_sheet_bill(array $d, string $variant): void
       <div>Authorized by</div>
     </div>
   <?php endif; ?>
+  </div>
 </article>
 <?php
 }

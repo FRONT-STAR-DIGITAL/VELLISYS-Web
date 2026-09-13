@@ -272,11 +272,11 @@ function doc_templates(): array
         ],
         'crimson' => [
             'name' => 'Corner bill',
-            'blurb' => 'Primary and deep geometric corners on a challan sheet.',
+            'blurb' => 'Primary and accent triangles on the sheet corners.',
         ],
         'amber' => [
             'name' => 'Accent bill',
-            'blurb' => 'Accent and deep corner blocks with a bold title pill.',
+            'blurb' => 'Accent and primary triangles on the sheet corners, with a bold title pill.',
         ],
         'twin' => [
             'name' => 'Twin copy',
