@@ -846,14 +846,24 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 22%, transparent);
 }
 
-.sheet-wrap { background: #fff; padding: 28px 16px; overflow: hidden; border-radius: var(--card-radius); box-shadow: var(--card-shadow); min-width: 0; max-width: 100%; }
+.sheet-wrap {
+  background: #fff;
+  padding: 28px 16px;
+  overflow: hidden;
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
 .sheet-stage {
+  display: block;
   width: 100%;
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
-  display: flex;
-  justify-content: center;
+  box-sizing: border-box;
 }
 .sheet-stage .invoice-sheet { flex-shrink: 0; }
 .invoice-sheet {
@@ -871,6 +881,7 @@ input:focus, select:focus, textarea:focus {
   page-break-inside: auto;
   box-sizing: border-box;
   box-shadow: 0 12px 36px rgba(8, 20, 58, .12);
+  transform-origin: top left;
 }
 .invoice-sheet.sheet-ledger,
 .invoice-sheet.sheet-estate,
@@ -996,7 +1007,7 @@ table.grid tfoot td {
 .lines-preview-table td, .lines-preview-table th { font-size: 12px; }
 .doc-side-to { margin-top: 14px; border-color: color-mix(in srgb, var(--brand) 28%, var(--line)); background: #fff; }
 .expense-wrap { background: transparent; box-shadow: none; padding: 8px 0; }
-.expense-wrap .sheet-stage { overflow: visible; }
+.expense-wrap .sheet-stage { overflow: hidden; }
 .chart-grid {
   display: grid;
   grid-template-columns: 1.35fr 1fr;
@@ -1144,7 +1155,12 @@ table.grid tfoot td {
 .bar { background: var(--brand); color: #fff; font-weight: 700; letter-spacing: .4px; padding: 6px 10px; }
 .meta td { border: 1px solid #ddd; padding: 4px 8px; }
 .meta td.k { background: #f3f3f3; font-weight: 700; width: 42%; }
-.print-body { background: #fff; }
+.print-body { background: #fff; overflow-x: hidden; max-width: 100%; }
+.print-body .sheet-wrap {
+  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+}
 
 .quick {
   position: fixed;
@@ -2016,7 +2032,7 @@ input, select, textarea { font-weight: 400; }
   .row-actions .actions {
     flex-wrap: nowrap;
   }
-  .sheet-wrap { padding: 10px 0; border-radius: 0; }
+  .sheet-wrap { padding: 8px; border-radius: 0; }
   .share-toolbar {
     max-width: none;
     padding: 12px;
@@ -2365,6 +2381,8 @@ input, select, textarea { font-weight: 400; }
   .invoice-sheet {
     box-shadow: none;
     transform: none !important;
+    zoom: 1 !important;
+    margin-left: 0 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
     height: auto !important;

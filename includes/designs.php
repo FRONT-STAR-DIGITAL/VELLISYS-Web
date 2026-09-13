@@ -253,7 +253,12 @@ function render_print_document_page(array $doc, bool $pdf = false): void
       <button class="btn sm" type="button" onclick="window.print()"><?= icon('file', 15) ?> Save PDF</button>
     </div>
   <?php endif; ?>
-  <?php render_sheet($brand, $doc); ?>
+  <div class="sheet-wrap">
+    <div class="sheet-stage">
+      <?php render_sheet($brand, $doc); ?>
+    </div>
+  </div>
+  <script src="<?= h(asset('js/sheet-fit.js')) ?>"></script>
   <script src="<?= h(asset('js/print-sheet.js')) ?>"></script>
 </body>
 </html>

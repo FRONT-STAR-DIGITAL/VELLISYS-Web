@@ -13,8 +13,14 @@
     }
   }
   function go() {
+    if (typeof window.fitDocumentSheets === 'function') {
+      window.fitDocumentSheets();
+    }
     markPages();
     window.setTimeout(function () {
+      if (typeof window.fitDocumentSheets === 'function') {
+        window.fitDocumentSheets();
+      }
       markPages();
       window.print();
     }, 280);

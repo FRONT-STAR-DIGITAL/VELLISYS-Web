@@ -63,7 +63,7 @@ require ROOT_PATH . '/includes/sheet.php';
     @media (max-width: 720px) {
       .share-toolbar { max-width: none; padding: 12px; }
       .share-toolbar .btn { flex: 1; min-height: 44px; }
-      .sheet-wrap { padding: 10px 0; }
+      .sheet-wrap { padding: 8px; }
     }
     @media print {
       .share-toolbar { display: none !important; }
@@ -81,10 +81,9 @@ require ROOT_PATH . '/includes/sheet.php';
       <?php render_sheet($brand, $doc); ?>
     </div>
   </div>
+  <script src="<?= h(asset('js/sheet-fit.js')) ?>"></script>
   <?php if ($print): ?>
     <script src="<?= h(asset('js/print-sheet.js')) ?>"></script>
-  <?php else: ?>
-    <script src="<?= h(asset('js/sheet-fit.js')) ?>"></script>
   <?php endif; ?>
 </body>
 </html>
