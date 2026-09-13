@@ -288,6 +288,117 @@ function pnl_summary(): array
     ];
 }
 
+/**
+ * Monthly performance series for the last 12 calendar months (company home currency).
+ */
+function pnl_chart_data(?array $summary = null): array
+{
+    $cid = current_company_id();
+    $base = default_currency();
+    $months = [];
+    $income = [];
+    $expense = [];
+    $cash = [];
+    $anchor = new DateTimeImmutable('first day of this month 00:00:00');
+    for ($i = 11; $i >= 0; $i--) {
+        $m = $anchor->modify("-{$i} months");
+        $key = $m->format('Y-m');
+        $months[] = $m->format('M Y');
+        $income[$key] = 0.0;
+        $expense[$key] = 0.0;
+        $cash[$key] = 0.0;
+    }
+    $from = $anchor->modify('-11 months')->format('Y-m-01');
+    $to = $anchor->modify('last day of this month')->format('Y-m-d');
+
+    $docs = attach_document_totals(db_all(
+        "SELECT d.*, r.kind AS related_kind
+         FROM documents d
+         LEFT JOIN documents r ON r.id = d.related_id
+         WHERE d.company_id = ? AND d.status = 'issued'
+           AND d.date >= ? AND d.date <= ?
+           AND d.kind IN ('invoice','expense','receipt','refund')",
+        'iss',
+        [$cid, $from, $to]
+    ));
+    foreach ($docs as $d) {
+        $key = substr((string) $d['date'], 0, 7);
+        if (!isset($income[$key])) {
+            continue;
+        }
+        $amt = pnl_doc_amount($d);
+        $kind = (string) ($d['kind'] ?? '');
+        if ($kind === 'invoice') {
+            $income[$key] += $amt;
+        } elseif ($kind === 'expense') {
+            $expense[$key] += $amt;
+        } elseif ($kind === 'refund') {
+            if (pnl_refund_direction($d) === 'in') {
+                $income[$key] += $amt;
+                $cash[$key] += $amt;
+            } else {
+                $expense[$key] += $amt;
+                $cash[$key] -= $amt;
+            }
+        } elseif ($kind === 'receipt') {
+            if (($d['related_kind'] ?? '') === 'expense') {
+                $cash[$key] -= $amt;
+            } else {
+                $cash[$key] += $amt;
+            }
+        }
+    }
+
+    $ledger = db_all(
+        'SELECT entry_date, kind, amount FROM pnl_entries
+         WHERE company_id = ? AND entry_date >= ? AND entry_date <= ?',
+        'iss',
+        [$cid, $from, $to]
+    );
+    foreach ($ledger as $row) {
+        $key = substr((string) ($row['entry_date'] ?? ''), 0, 7);
+        if (!isset($income[$key])) {
+            continue;
+        }
+        $amt = (float) $row['amount'];
+        if (($row['kind'] ?? '') === 'income') {
+            $income[$key] += $amt;
+            $cash[$key] += $amt;
+        } else {
+            $expense[$key] += $amt;
+            $cash[$key] -= $amt;
+        }
+    }
+
+    $incomeVals = [];
+    $expenseVals = [];
+    $netVals = [];
+    $cashVals = [];
+    foreach (array_keys($income) as $key) {
+        $incomeVals[] = round($income[$key], 2);
+        $expenseVals[] = round($expense[$key], 2);
+        $netVals[] = round($income[$key] - $expense[$key], 2);
+        $cashVals[] = round($cash[$key], 2);
+    }
+
+    $summary = $summary ?? pnl_summary();
+    $incomeCats = $summary['by_income_cat'] ?? [];
+    $expenseCats = $summary['by_expense_cat'] ?? [];
+
+    return [
+        'months' => $months,
+        'income' => $incomeVals,
+        'expense' => $expenseVals,
+        'net' => $netVals,
+        'cash' => $cashVals,
+        'incomeCatLabels' => array_map('strval', array_keys($incomeCats)),
+        'incomeCatValues' => array_map(static fn ($v) => round((float) $v, 2), array_values($incomeCats)),
+        'expenseCatLabels' => array_map('strval', array_keys($expenseCats)),
+        'expenseCatValues' => array_map(static fn ($v) => round((float) $v, 2), array_values($expenseCats)),
+        'currency' => $base,
+    ];
+}
+
 function render_pnl_subnav(string $active): void
 {
     $tabs = [

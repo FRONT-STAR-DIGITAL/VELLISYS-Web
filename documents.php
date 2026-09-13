@@ -43,6 +43,9 @@ $receiptQs = static function (string $clear) use ($kind, $period): string {
 
 layout_start($meta['title'], $user, ['kind' => $kind]);
 ?>
+<?php if (in_array($kind, ['refund', 'return_note'], true) && function_exists('render_pnl_subnav')): ?>
+  <?php render_pnl_subnav($kind); ?>
+<?php endif; ?>
 <div class="page-head">
   <div>
     <h1><?= icon(document_kind_icon($kind)) ?><?= h($meta['title']) ?></h1>

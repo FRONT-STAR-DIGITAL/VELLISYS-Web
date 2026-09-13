@@ -135,13 +135,13 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       <div class="lp-compare-old">
         <p class="lp-kicker">Leave this behind</p>
         <h2>The old way</h2>
-        <div class="lp-stack" data-lp-stack role="button" tabindex="0" aria-expanded="false" aria-label="Paper pile. Tap to spread, tap again to stack.">
+        <div class="lp-stack" data-lp-stack role="button" tabindex="0" aria-expanded="false" aria-label="Paper pile. Spreads when you scroll here. Tap to stack or spread again.">
           <?php foreach ($oldPhotos as $i => $photo): ?>
             <img src="<?= h(asset(substr($photo, strlen('assets/')))) ?>" alt="Paper receipts from the old way of keeping books" style="--i:<?= (int) $i ?>" loading="lazy" decoding="async">
           <?php endforeach; ?>
           <span class="lp-x" aria-hidden="true">×</span>
         </div>
-        <p class="lp-stack-hint">Tap the pile to spread it. Tap again to stack it. That drawer is why the books go missing.</p>
+        <p class="lp-stack-hint">Scroll here and the pile spreads on its own. Tap to stack it, tap again to spread. That drawer is why the books go missing.</p>
       </div>
 
       <div class="lp-compare-arrow" aria-hidden="true">

@@ -310,17 +310,20 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
     <a class="btn ghost" href="<?= h(url('admin_reports.php?export=books')) ?>"><?= icon('download', 16) ?>Desk books CSV</a>
     <a class="btn ghost" href="<?= h(url('admin_reports.php?export=visits')) ?>"><?= icon('globe', 16) ?>Visits CSV</a>
   </div>
+</div>
 
 <div class="stats">
   <div class="card stat"><?= icon('building', 20) ?><span>Companies</span><strong><?= count($companies) ?></strong></div>
   <div class="card stat"><?= icon('check', 20) ?><span>Live</span><strong><?= $live ?></strong></div>
   <div class="card stat"><?= icon('alert', 20) ?><span>Due within a month</span><strong><?= count($soon) ?></strong></div>
   <div class="card stat"><?= icon('ban', 20) ?><span>Expired</span><strong><?= count($expired) ?></strong></div>
+</div>
 <div class="stats">
   <div class="card stat"><?= icon('bank', 20) ?><span>Fees collected</span><strong><?= h(money($totalPaid, 'USD')) ?></strong></div>
   <div class="card stat"><?= icon('invoice', 20) ?><span>Fee balances</span><strong><?= h(money($totalBalance, 'USD')) ?></strong></div>
   <div class="card stat"><?= icon('receipt', 20) ?><span>Desk collections</span><strong><?= h(money($deskCollected, 'USD')) ?></strong></div>
   <div class="card stat"><?= icon('clients', 20) ?><span>Desk outstanding</span><strong><?= h(money($deskOutstanding, 'USD')) ?></strong></div>
+</div>
 <p class="hint" style="margin:-12px 0 20px"><?= $withTerm ?> of <?= count($companies) ?> <?= count($companies) === 1 ? 'company has' : 'companies have' ?> a paid term on file. Remaining unused term value <?= h(money($totalRemaining, 'USD')) ?>. Desk invoiced <?= h(money($deskInvoiced, 'USD')) ?> · expenses <?= h(money($deskExpenses, 'USD')) ?>. Combined totals are USD equivalents.</p>
 
 <div class="page-head" style="margin-top:8px">
@@ -328,11 +331,13 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
     <h2 style="margin:0;font-size:18px"><?= icon('globe', 18) ?>Site visits and app use</h2>
     <p class="lede">Landing page, checkout, desk and installed-app traffic for the last <?= (int) $traffic['days'] ?> days, grouped by country when the network or timezone tells us.</p>
   </div>
+</div>
 <div class="stats">
   <div class="card stat"><?= icon('globe', 20) ?><span>Landing visits</span><strong><?= (int) $traffic['landing'] ?></strong></div>
   <div class="card stat"><?= icon('desk', 20) ?><span>Desk and sign-in</span><strong><?= (int) $traffic['desk'] ?></strong></div>
   <div class="card stat"><?= icon('download', 20) ?><span>Installed app</span><strong><?= (int) $traffic['app'] ?></strong></div>
   <div class="card stat"><?= icon('pin', 20) ?><span>Countries</span><strong><?= count($traffic['countries']) ?></strong></div>
+</div>
 <div class="chart-grid equal">
   <div class="card chart-box">
     <div class="card-head"><h2><?= icon('reports', 16) ?>Traffic over time</h2></div>
@@ -350,6 +355,7 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
       <canvas id="chart-visit-countries"></canvas>
     <?php endif; ?>
   </div>
+</div>
 <?php if ($traffic['countries']): ?>
 <div class="card" style="margin-bottom:24px">
   <div class="card-head"><h2><?= icon('globe', 16) ?>Countries this month</h2></div>
@@ -366,6 +372,7 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
       </tbody>
     </table>
   </div>
+</div>
 <?php endif; ?>
 
 <div class="chart-grid equal">
@@ -377,6 +384,7 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
     <div class="card-head"><h2><?= icon('check', 16) ?>Company status</h2></div>
     <canvas id="chart-status"></canvas>
   </div>
+</div>
 <div class="chart-grid equal">
   <div class="card chart-box">
     <div class="card-head"><h2><?= icon('calendar', 16) ?>Expiry mix</h2></div>
@@ -390,6 +398,7 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
       <canvas id="chart-funnel"></canvas>
     <?php endif; ?>
   </div>
+</div>
 <div class="chart-grid equal">
   <div class="card chart-box">
     <div class="card-head"><h2><?= icon('bank', 16) ?>Fees paid vs balance</h2></div>
@@ -403,6 +412,7 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
     <div class="card-head"><h2><?= icon('reports', 16) ?>Desk books over time</h2></div>
     <canvas id="chart-books"></canvas>
   </div>
+</div>
 
 <div class="card" style="margin-bottom:24px">
   <div class="card-head"><h2><?= icon('bank', 16) ?>What each client paid</h2></div>

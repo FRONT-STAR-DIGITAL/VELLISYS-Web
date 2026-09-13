@@ -79,7 +79,7 @@ function layout_start(string $title, array $user, array $opts = []): void
         }
         return user_can_open($file, $kind);
     }));
-    $notes = (company_planner_enabled() && is_desk_admin()) ? enrich_planner_notifications(planner_notifications(10)) : [];
+    $notes = (company_planner_enabled() && is_desk_admin()) ? enrich_planner_notifications(planner_notifications(40)) : [];
     $noteCount = count($notes);
     ?>
 <!DOCTYPE html>
@@ -126,6 +126,10 @@ function layout_start(string $title, array $user, array $opts = []): void
           }
           if (str_starts_with($here, 'pnl')) {
               $active = $file === 'pnl.php' || str_starts_with((string) $file, 'pnl');
+          }
+          // Refunds and returns live under P&L, not the main kind nav.
+          if (in_array($kind, ['refund', 'return_note'], true) && in_array($here, ['documents.php', 'document_view.php', 'document_new.php', 'document_email.php', 'document_action.php'], true)) {
+              $active = $file === 'pnl.php';
           }
           if ($here === 'branding.php') {
               $active = $file === 'settings.php';
@@ -240,7 +244,7 @@ function layout_admin_start(string $title, array $user): void
         ['admin_mail.php', 'Email', 'send'],
         ['admin_admins.php', 'Admins', 'user'],
     ];
-    $notes = platform_notifications(12);
+    $notes = platform_notifications(40);
     $noteCount = count($notes);
     ?>
 <!DOCTYPE html>

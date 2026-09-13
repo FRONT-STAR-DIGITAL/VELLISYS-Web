@@ -1171,15 +1171,12 @@ function require_desk_kind(string $kind): void
 function desk_kind_nav_items(): array
 {
     $enabled = company_enabled_kinds();
-    $order = ['quotation', 'invoice', 'receipt', 'delivery', 'expense', 'refund', 'return_note', 'letter', 'custom'];
+    // Refunds and returns stay inside P&L — not on the main desk nav.
+    $order = ['quotation', 'invoice', 'receipt', 'delivery', 'expense', 'letter', 'custom'];
     $out = [];
     foreach ($order as $kind) {
         if ($kind === 'expense') {
             // always available
-        } elseif (in_array($kind, ['refund', 'return_note'], true)) {
-            if (!function_exists('company_pnl_enabled') || !company_pnl_enabled()) {
-                continue;
-            }
         } elseif (!in_array($kind, $enabled, true)) {
             continue;
         }
