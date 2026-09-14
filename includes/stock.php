@@ -647,8 +647,7 @@ function stock_complete_sale(array $input): array
     if ($partyId < 1) {
         $partyId = stock_find_or_create_party($name !== '' ? $name : 'Walk-in', 'customer');
     }
-    $paid = round((float) ($input['paid'] ?? 0), 2);
-    $method = mb_substr(trim((string) ($input['method'] ?? 'Cash')), 0, 80) ?: 'Cash';
+    $method = stock_payment_key((string) ($input['method'] ?? 'cash'));
     $vatRate = $anyTaxed ? company_tax_rate() : 0.0;
     $invoiceId = create_document([
         'kind' => 'invoice',
@@ -663,6 +662,11 @@ function stock_complete_sale(array $input): array
     $inv = load_document($invoiceId);
     $grand = (float) ($inv['totals']['total'] ?? 0);
     $receiptId = 0;
+    if (!empty($input['pay_all'])) {
+        $paid = $grand;
+    } else {
+        $paid = round((float) ($input['paid'] ?? 0), 2);
+    }
     if ($paid > 0) {
         $give = min($paid, $grand);
         $receiptId = create_document([
@@ -693,10 +697,13 @@ function stock_complete_purchase(array $input): array
     $lines = $input['lines'] ?? [];
     $clean = [];
     foreach ($lines as $line) {
-        $sid = (int) ($line['stock_item_id'] ?? 0);
         $qty = round((float) ($line['qty'] ?? 0), 2);
         $price = round((float) ($line['price'] ?? 0), 2);
-        if ($sid < 1 || $qty <= 0) {
+        if ($qty <= 0) {
+            continue;
+        }
+        $sid = stock_ensure_item_id($line, $price);
+        if ($sid < 1) {
             continue;
         }
         $item = stock_item($sid);
@@ -729,7 +736,7 @@ function stock_complete_purchase(array $input): array
         }
     }
     $paid = round((float) ($input['paid'] ?? 0), 2);
-    $method = mb_substr(trim((string) ($input['method'] ?? 'Cash')), 0, 80) ?: 'Cash';
+    $method = stock_payment_key((string) ($input['method'] ?? 'cash'));
     $expenseId = create_document([
         'kind' => 'expense',
         'party_id' => $partyId,
@@ -761,3 +768,285 @@ function stock_complete_purchase(array $input): array
     }
     return ['ok' => true, 'expense_id' => $expenseId, 'receipt_id' => $receiptId, 'balance' => max(0, round($grand - min($paid, $grand), 2))];
 }
+
+function stock_payment_key(string $raw): string
+{
+    $raw = trim($raw);
+    $methods = payment_methods();
+    if (isset($methods[$raw])) {
+        return $raw;
+    }
+    foreach ($methods as $key => $label) {
+        if (strcasecmp($label, $raw) === 0) {
+            return $key;
+        }
+    }
+    return 'cash';
+}
+
+function stock_qty_label(float $n): string
+{
+    return rtrim(rtrim(number_format($n, 2, '.', ''), '0'), '.') ?: '0';
+}
+
+function stock_ensure_item_id(array $line, float $price): int
+{
+    $sid = (int) ($line['stock_item_id'] ?? 0);
+    if ($sid > 0 && stock_item($sid)) {
+        return $sid;
+    }
+    $name = trim((string) ($line['name'] ?? ''));
+    if ($name === '') {
+        return 0;
+    }
+    $found = db_one('SELECT id FROM stock_items WHERE company_id = ? AND name = ? ORDER BY id DESC LIMIT 1', 'is', [current_company_id(), $name]);
+    if ($found) {
+        return (int) $found['id'];
+    }
+    $saved = stock_save_item([
+        'name' => $name,
+        'sku' => (string) ($line['sku'] ?? ''),
+        'description' => (string) ($line['description'] ?? ''),
+        'unit' => (string) ($line['unit'] ?? 'pc'),
+        'buy_price' => $price,
+        'sell_price' => $price,
+        'qty_on_hand' => 0,
+        'taxed' => !empty($line['taxed']) ? 1 : 0,
+    ]);
+    return !empty($saved['ok']) ? (int) $saved['id'] : 0;
+}
+
+function stock_page_key(string $key): int
+{
+    return max(1, (int) ($_GET[$key] ?? 1));
+}
+
+function stock_q(): string
+{
+    return trim((string) ($_GET['q'] ?? ''));
+}
+
+function stock_pager(string $base, int $page, int $pages, string $pageKey = 'p'): void
+{
+    if ($pages <= 1) {
+        return;
+    }
+    $q = stock_q();
+    $mk = static function (int $n) use ($base, $pageKey, $q): string {
+        $sep = str_contains($base, '?') ? '&' : '?';
+        $url = $base . $sep . $pageKey . '=' . $n;
+        if ($q !== '') {
+            $url .= '&q=' . rawurlencode($q);
+        }
+        return $url;
+    };
+    ?>
+  <p class="stock-pager">
+    <?php if ($page > 1): ?>
+      <a class="btn ghost sm" href="<?= h(url($mk($page - 1))) ?>">Previous</a>
+    <?php endif; ?>
+    <span>Page <?= (int) $page ?> of <?= (int) $pages ?></span>
+    <?php if ($page < $pages): ?>
+      <a class="btn sm" href="<?= h(url($mk($page + 1))) ?>">Next page</a>
+    <?php endif; ?>
+  </p>
+    <?php
+}
+
+function stock_search_bar(string $script, array $hidden = [], string $placeholder = 'Search'): void
+{
+    ?>
+  <form class="stock-search" method="get" action="<?= h(url($script)) ?>">
+    <?php foreach ($hidden as $k => $v): ?>
+      <input type="hidden" name="<?= h((string) $k) ?>" value="<?= h((string) $v) ?>">
+    <?php endforeach; ?>
+    <input type="search" name="q" value="<?= h(stock_q()) ?>" placeholder="<?= h($placeholder) ?>" autocomplete="off">
+    <button class="btn ghost sm" type="submit"><?= icon('eye', 14) ?>Search</button>
+  </form>
+    <?php
+}
+
+function stock_slice(array $rows, int $page, int $per = 20): array
+{
+    $total = count($rows);
+    $pages = max(1, (int) ceil($total / $per));
+    $page = min(max(1, $page), $pages);
+    return [
+        'rows' => array_slice($rows, ($page - 1) * $per, $per),
+        'page' => $page,
+        'pages' => $pages,
+        'total' => $total,
+        'from' => $total ? (($page - 1) * $per) + 1 : 0,
+    ];
+}
+
+function stock_filter_items(array $items, string $q): array
+{
+    $q = mb_strtolower(trim($q));
+    if ($q === '') {
+        return $items;
+    }
+    return array_values(array_filter($items, static function (array $row) use ($q): bool {
+        $hay = mb_strtolower(($row['name'] ?? '') . ' ' . ($row['sku'] ?? '') . ' ' . ($row['description'] ?? ''));
+        return str_contains($hay, $q);
+    }));
+}
+
+function stock_search_docs(string $kind, string $q, int $page, int $per = 20, ?string $date = null, ?string $category = null): array
+{
+    $cid = current_company_id();
+    $where = 'd.company_id = ? AND d.kind = ?';
+    $types = 'is';
+    $params = [$cid, $kind];
+    if ($date) {
+        $where .= ' AND d.date = ?';
+        $types .= 's';
+        $params[] = $date;
+    }
+    if ($category !== null && $category !== '') {
+        $where .= ' AND d.expense_category = ?';
+        $types .= 's';
+        $params[] = $category;
+    }
+    if ($q !== '') {
+        $like = '%' . $q . '%';
+        $where .= ' AND (d.number LIKE ? OR p.name LIKE ?)';
+        $types .= 'ss';
+        $params[] = $like;
+        $params[] = $like;
+    }
+    $join = ' FROM documents d JOIN parties p ON p.id = d.party_id WHERE ' . $where;
+    $count = db_one('SELECT COUNT(*) AS n' . $join, $types, $params);
+    $total = (int) ($count['n'] ?? 0);
+    $pages = max(1, (int) ceil($total / max(1, $per)));
+    $page = min(max(1, $page), $pages);
+    $off = ($page - 1) * $per;
+    $rows = db_all(
+        'SELECT d.*, p.name AS party_name' . $join . ' ORDER BY d.id DESC LIMIT ' . (int) $per . ' OFFSET ' . (int) $off,
+        $types,
+        $params
+    );
+    if (function_exists('attach_document_totals')) {
+        $rows = attach_document_totals($rows);
+    }
+    return ['rows' => $rows, 'page' => $page, 'pages' => $pages, 'total' => $total, 'from' => $total ? $off + 1 : 0];
+}
+
+function stock_performance_range(string $from, string $to): array
+{
+    $cid = current_company_id();
+    $docs = db_all(
+        "SELECT d.id, d.date, d.kind, d.vat_rate, d.currency,
+                (SELECT COALESCE(SUM(ROUND(qty * rate, 2)), 0) FROM document_items i WHERE i.document_id = d.id) AS net,
+                (SELECT COALESCE(SUM(CASE WHEN taxed = 1 THEN ROUND(qty * rate, 2) ELSE 0 END), 0) FROM document_items i WHERE i.document_id = d.id) AS taxed_net
+         FROM documents d
+         WHERE d.company_id = ? AND d.status = 'issued' AND d.kind IN ('invoice','expense') AND d.date >= ? AND d.date <= ?",
+        'iss',
+        [$cid, $from, $to]
+    );
+    $by = [];
+    $base = default_currency();
+    foreach ($docs as $d) {
+        $day = (string) $d['date'];
+        if (!isset($by[$day])) {
+            $by[$day] = ['income' => 0.0, 'expense' => 0.0, 'tax' => 0.0, 'profit' => 0.0];
+        }
+        $net = convert_money((float) $d['net'], doc_currency($d), $base);
+        $vat = convert_money(round((float) $d['taxed_net'] * (float) $d['vat_rate'], 2), doc_currency($d), $base);
+        if ($d['kind'] === 'invoice') {
+            $by[$day]['income'] += $net;
+            $by[$day]['tax'] += $vat;
+        } else {
+            $by[$day]['expense'] += $net;
+            $by[$day]['tax'] -= $vat;
+        }
+    }
+    ksort($by);
+    foreach ($by as $day => $row) {
+        $by[$day]['income'] = round($row['income'], 2);
+        $by[$day]['expense'] = round($row['expense'], 2);
+        $by[$day]['tax'] = round($row['tax'], 2);
+        $by[$day]['profit'] = round($row['income'] - $row['expense'], 2);
+    }
+    return $by;
+}
+
+function stock_month_roll(array $byDay): array
+{
+    $out = [];
+    foreach ($byDay as $day => $row) {
+        $m = substr($day, 0, 7);
+        if (!isset($out[$m])) {
+            $out[$m] = ['income' => 0.0, 'expense' => 0.0, 'tax' => 0.0, 'profit' => 0.0];
+        }
+        $out[$m]['income'] += $row['income'];
+        $out[$m]['expense'] += $row['expense'];
+        $out[$m]['tax'] += $row['tax'];
+        $out[$m]['profit'] += $row['profit'];
+    }
+    ksort($out);
+    foreach ($out as $m => $row) {
+        $out[$m]['income'] = round($row['income'], 2);
+        $out[$m]['expense'] = round($row['expense'], 2);
+        $out[$m]['tax'] = round($row['tax'], 2);
+        $out[$m]['profit'] = round($row['profit'], 2);
+    }
+    return $out;
+}
+
+function render_stock_payment_select(string $name, bool $disabled = false, string $selected = 'cash'): void
+{
+    $selected = stock_payment_key($selected);
+    ?>
+    <select id="<?= h($name) ?>" name="<?= h($name) ?>" <?= $disabled ? 'disabled' : '' ?>>
+      <?php foreach (payment_methods() as $k => $label): ?>
+        <option value="<?= h($k) ?>" <?= $selected === $k ? 'selected' : '' ?>><?= h($label) ?></option>
+      <?php endforeach; ?>
+    </select>
+    <?php
+}
+
+function render_stock_docs_table(array $page, string $base, string $pageKey, string $empty): void
+{
+    $rows = $page['rows'];
+    $n = (int) ($page['from'] ?? 1);
+    if (!$rows): ?>
+      <p class="empty"><?= h($empty) ?></p>
+    <?php else: ?>
+      <div class="table-scroll">
+        <table class="grid">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Number</th>
+              <th>Name</th>
+              <th>Date</th>
+              <th class="right">Amount</th>
+              <th class="right">Paid</th>
+              <th class="right">Balance</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($rows as $doc): ?>
+              <tr>
+                <td class="mono"><?= (int) $n ?></td>
+                <td class="mono"><a href="<?= h(url('document_view.php?id=' . (int) $doc['id'])) ?>"><?= h($doc['number']) ?></a></td>
+                <td><?= h((string) ($doc['party_name'] ?? '')) ?></td>
+                <td class="date-cell"><?= h(format_date($doc['date'])) ?></td>
+                <td class="right mono"><?= h(money((float) ($doc['totals']['total'] ?? 0), doc_currency($doc))) ?></td>
+                <td class="right mono"><?= h(money((float) ($doc['paid'] ?? 0), doc_currency($doc))) ?></td>
+                <td class="right mono"><?= h(money((float) ($doc['balance'] ?? 0), doc_currency($doc))) ?></td>
+                <td><span class="pill"><?= h(invoice_status_label($doc)) ?></span></td>
+                <td class="row-actions"><?php render_doc_actions($doc); ?></td>
+              </tr>
+              <?php $n++; ?>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+      <?php stock_pager($base, (int) $page['page'], (int) $page['pages'], $pageKey); ?>
+    <?php endif;
+}
+

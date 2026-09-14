@@ -82,23 +82,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             stock_require_open_day();
             $ids = $_POST['p_item'] ?? [];
+            $names = $_POST['p_name'] ?? [];
             $qtys = $_POST['p_qty'] ?? [];
             $prices = $_POST['p_price'] ?? [];
             $taxed = $_POST['p_taxed'] ?? [];
             $lines = [];
-            foreach ((array) $ids as $i => $sid) {
+            foreach (array_keys((array) $ids + (array) $names) as $i) {
                 $lines[] = [
-                    'stock_item_id' => (int) $sid,
+                    'stock_item_id' => (int) ($ids[$i] ?? 0),
+                    'name' => (string) ($names[$i] ?? ''),
                     'qty' => money_parse((string) ($qtys[$i] ?? 0)),
                     'price' => money_parse((string) ($prices[$i] ?? 0)),
                     'taxed' => !empty($taxed[$i]),
                 ];
             }
+            $paidRaw = post('paid');
             $done = stock_complete_purchase([
                 'supplier' => post('supplier'),
                 'party_id' => (int) post('party_id'),
-                'paid' => money_parse(post('paid')),
-                'method' => post('method') ?: 'Cash',
+                'paid' => $paidRaw === '' ? 0 : money_parse($paidRaw),
+                'method' => post('method') ?: 'cash',
                 'lines' => $lines,
             ]);
             if (empty($done['ok'])) {
@@ -143,7 +146,9 @@ $dayOpen = stock_day_is_open();
 $dayLive = stock_day_totals(today());
 $taxName = company_tax_name();
 $catalog = stock_catalog_payload();
-$suppliers = db_all("SELECT id, name FROM parties WHERE company_id = ? AND kind = 'supplier' ORDER BY name", 'i', [current_company_id()]);
+$suppliers = db_all("SELECT id, name FROM parties WHERE company_id = ? AND kind = 'supplier' ORDER BY name LIMIT 250", 'i', [current_company_id()]);
+$q = stock_q();
+$extraJs = '';
 
 layout_start('Stock', $user);
 ?>
@@ -164,7 +169,11 @@ layout_start('Stock', $user);
   <p class="flash" style="margin:0 0 16px"><?= icon('clock', 16) ?>Open the day before selling or buying. <a href="<?= h(url('stock.php?tab=day')) ?>">Open day</a></p>
 <?php endif; ?>
 
-<?php if ($tab === 'items'): ?>
+<?php if ($tab === 'items'):
+    $filtered = stock_filter_items($items, $q);
+    $page = stock_slice($filtered, stock_page_key('p'));
+    $n = (int) $page['from'];
+    ?>
 <div class="stats">
   <div class="card stat"><?= icon('package', 20) ?><span>Products</span><strong><?= (int) $stats['items'] ?></strong></div>
   <div class="card stat"><?= icon('bank', 20) ?><span>Stock at cost</span><strong><?= h(money($stats['cost'])) ?></strong></div>
@@ -176,13 +185,15 @@ layout_start('Stock', $user);
   <div class="card-head"><h2><?= icon('alert', 16) ?>Low stock</h2></div>
   <div class="table-scroll">
     <table class="grid">
-      <thead><tr><th>Item</th><th class="right">On hand</th><th class="right">Reorder at</th></tr></thead>
+      <thead><tr><th>#</th><th>Item</th><th class="right">On hand</th><th class="right">Reorder at</th><th>Actions</th></tr></thead>
       <tbody>
-        <?php foreach ($low as $row): ?>
+        <?php $ln = 1; foreach ($low as $row): ?>
           <tr>
-            <td><a href="<?= h(url('stock.php?tab=items&edit=' . (int) $row['id'])) ?>"><?= h($row['name']) ?></a></td>
-            <td class="right mono"><?= h(rtrim(rtrim(number_format((float) $row['qty_on_hand'], 2, '.', ''), '0'), '.')) ?></td>
-            <td class="right mono"><?= h(rtrim(rtrim(number_format((float) $row['reorder_level'], 2, '.', ''), '0'), '.')) ?></td>
+            <td class="mono"><?= $ln++ ?></td>
+            <td><?= h($row['name']) ?></td>
+            <td class="right mono"><?= h(stock_qty_label((float) $row['qty_on_hand'])) ?></td>
+            <td class="right mono"><?= h(stock_qty_label((float) $row['reorder_level'])) ?></td>
+            <td class="row-actions"><a class="btn ghost sm" href="<?= h(url('stock.php?tab=items&edit=' . (int) $row['id'])) ?>"><?= icon('pencil', 14) ?>Edit</a></td>
           </tr>
         <?php endforeach; ?>
       </tbody>
@@ -262,37 +273,50 @@ layout_start('Stock', $user);
 </div>
 <div class="card" style="margin-top:16px">
   <div class="card-head"><h2><?= icon('package', 16) ?>All products</h2></div>
-  <?php if (!$items): ?>
-    <p class="empty">No products yet. Add one, or upload the Excel sheet.</p>
+  <div class="pad-form"><?php stock_search_bar('stock.php', ['tab' => 'items'], 'Search products'); ?></div>
+  <?php if (!$page['rows']): ?>
+    <p class="empty">No products match. Add one, or upload the Excel sheet.</p>
   <?php else: ?>
     <div class="table-scroll">
       <table class="grid">
         <thead>
           <tr>
-            <th>Item</th><th>Code</th><th>Unit</th><th class="right">On hand</th><th class="right">Buy</th><th class="right">Sell</th><th class="right">Reorder</th><th><?= h($taxName) ?></th><th></th>
+            <th>#</th><th>Item</th><th>Code</th><th>Unit</th><th class="right">On hand</th><th class="right">Buy</th><th class="right">Sell</th><th class="right">Reorder</th><th><?= h($taxName) ?></th><th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          <?php foreach ($items as $row):
+          <?php foreach ($page['rows'] as $row):
               $isLow = (float) $row['reorder_level'] > 0 && (float) $row['qty_on_hand'] <= (float) $row['reorder_level']; ?>
             <tr>
+              <td class="mono"><?= $n++ ?></td>
               <td><?= h($row['name']) ?><?= empty($row['active']) ? ' <span class="pill">Hidden</span>' : '' ?><?= $isLow ? ' <span class="pill">Low</span>' : '' ?></td>
               <td class="mono"><?= h($row['sku']) ?></td>
               <td><?= h($row['unit']) ?></td>
-              <td class="right mono"><?= h(rtrim(rtrim(number_format((float) $row['qty_on_hand'], 2, '.', ''), '0'), '.')) ?></td>
+              <td class="right mono"><?= h(stock_qty_label((float) $row['qty_on_hand'])) ?></td>
               <td class="right mono"><?= h(money((float) $row['buy_price'])) ?></td>
               <td class="right mono"><?= h(money((float) $row['sell_price'])) ?></td>
-              <td class="right mono"><?= h(rtrim(rtrim(number_format((float) $row['reorder_level'], 2, '.', ''), '0'), '.')) ?></td>
+              <td class="right mono"><?= h(stock_qty_label((float) $row['reorder_level'])) ?></td>
               <td><?= !empty($row['taxed']) ? 'Y' : 'N' ?></td>
-              <td><a class="btn ghost sm" href="<?= h(url('stock.php?tab=items&edit=' . (int) $row['id'])) ?>">Edit</a></td>
+              <td class="row-actions">
+                <a class="btn ghost sm" href="<?= h(url('stock.php?tab=items&edit=' . (int) $row['id'])) ?>"><?= icon('pencil', 14) ?>Edit</a>
+                <a class="btn ghost sm" href="<?= h(url('sale.php')) ?>"><?= icon('cart', 14) ?>Sell</a>
+              </td>
             </tr>
           <?php endforeach; ?>
         </tbody>
       </table>
     </div>
+    <?php stock_pager('stock.php?tab=items', (int) $page['page'], (int) $page['pages'], 'p'); ?>
   <?php endif; ?>
 </div>
-<?php elseif ($tab === 'counts'): ?>
+
+<?php elseif ($tab === 'counts'):
+    $activeItems = array_values(array_filter($items, static fn ($r) => !empty($r['active'])));
+    $filtered = stock_filter_items($activeItems, $q);
+    $page = stock_slice($filtered, stock_page_key('p'));
+    $n = (int) $page['from'];
+    $countPage = stock_slice(stock_recent_counts(40), stock_page_key('cp'));
+    ?>
 <div class="card">
   <div class="card-head"><h2><?= icon('hash', 16) ?>Count stock</h2></div>
   <?php if (!$items): ?>
@@ -301,40 +325,68 @@ layout_start('Stock', $user);
     <form method="post">
       <?= csrf_field() ?>
       <input type="hidden" name="action" value="count">
-      <p class="lede" style="padding:0 18px 8px">Walk the shelf. Type what you see. Saving sets on-hand to that number.</p>
+      <div class="pad-form"><?php stock_search_bar('stock.php', ['tab' => 'counts'], 'Search products'); ?></div>
+      <p class="lede" style="padding:0 18px 8px">Walk the shelf. Type what you see on this page. Saving sets those products to the counted number.</p>
       <div class="table-scroll">
         <table class="grid">
-          <thead><tr><th>Item</th><th class="right">System</th><th class="right">Counted</th></tr></thead>
+          <thead><tr><th>#</th><th>Item</th><th class="right">System</th><th class="right">Counted</th></tr></thead>
           <tbody>
-            <?php foreach ($items as $row): if (empty($row['active'])) { continue; } ?>
+            <?php foreach ($page['rows'] as $row): ?>
               <tr>
+                <td class="mono"><?= $n++ ?></td>
                 <td><?= h($row['name']) ?></td>
-                <td class="right mono"><?= h(rtrim(rtrim(number_format((float) $row['qty_on_hand'], 2, '.', ''), '0'), '.')) ?></td>
+                <td class="right mono"><?= h(stock_qty_label((float) $row['qty_on_hand'])) ?></td>
                 <td class="line-qty"><input name="count[<?= (int) $row['id'] ?>]" inputmode="decimal" value="<?= h((string) $row['qty_on_hand']) ?>"></td>
               </tr>
             <?php endforeach; ?>
           </tbody>
         </table>
       </div>
+      <?php stock_pager('stock.php?tab=counts', (int) $page['page'], (int) $page['pages'], 'p'); ?>
       <div class="actions" style="padding:12px 18px 18px">
-        <button class="btn" type="submit"><?= icon('check') ?>Save count</button>
+        <button class="btn" type="submit"><?= icon('check') ?>Save this page</button>
       </div>
     </form>
   <?php endif; ?>
 </div>
-<?php elseif ($tab === 'purchases'): ?>
+<div class="card" style="margin-top:16px">
+  <div class="card-head"><h2><?= icon('clock', 16) ?>Count history</h2></div>
+  <?php if (!$countPage['rows']): ?>
+    <p class="empty">No counts posted yet.</p>
+  <?php else: ?>
+    <div class="table-scroll">
+      <table class="grid">
+        <thead><tr><th>#</th><th>Date</th><th>Status</th></tr></thead>
+        <tbody>
+          <?php $cn = (int) $countPage['from']; foreach ($countPage['rows'] as $c): ?>
+            <tr>
+              <td class="mono"><?= $cn++ ?></td>
+              <td><?= h(format_date($c['counted_on'])) ?></td>
+              <td><?= h((string) $c['status']) ?></td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+    <?php stock_pager('stock.php?tab=counts', (int) $countPage['page'], (int) $countPage['pages'], 'cp'); ?>
+  <?php endif; ?>
+</div>
+
+<?php elseif ($tab === 'purchases'):
+    $buyPage = stock_search_docs('expense', $q, stock_page_key('p'), 20, null, 'Stock');
+    ?>
 <?php if (!$dayOpen): ?>
   <p class="flash flash-err">Open the day on the Day tab before buying stock.</p>
 <?php endif; ?>
 <div class="card">
   <div class="card-head"><h2><?= icon('expense', 16) ?>Buy stock</h2></div>
-  <form method="post" class="pad-form" data-stock-buy>
+  <form method="post" class="pad-form pos-sale" data-pos-till data-pos-prefix="p" data-pos-mode="buy">
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="purchase">
     <div class="form-grid">
       <div>
         <label for="supplier">Supplier name</label>
-        <input id="supplier" name="supplier" list="supplier-list" placeholder="Type or pick" <?= $dayOpen ? 'required' : 'disabled' ?>>
+        <input id="supplier" name="supplier" list="supplier-list" placeholder="Type or pick" autocomplete="off" <?= $dayOpen ? 'required' : 'disabled' ?>>
         <datalist id="supplier-list">
           <?php foreach ($suppliers as $s): ?>
             <option value="<?= h($s['name']) ?>"></option>
@@ -343,52 +395,103 @@ layout_start('Stock', $user);
       </div>
       <div>
         <label for="method">Paid how</label>
-        <input id="method" name="method" value="Cash" <?= $dayOpen ? '' : 'disabled' ?>>
+        <?php render_stock_payment_select('method', !$dayOpen, 'cash'); ?>
       </div>
     </div>
+    <div class="pos-find">
+      <label for="pos-q">Find product</label>
+      <input id="pos-q" class="pos-q" autocomplete="off" placeholder="Type name or code. New names can be added." <?= $dayOpen ? '' : 'disabled' ?> data-pos-q>
+      <div class="pos-suggest" hidden data-pos-suggest></div>
+    </div>
     <div class="table-scroll">
-      <table class="grid lines" id="buy-lines">
-        <thead><tr><th>Item</th><th>Qty</th><th class="right">Unit price</th><th class="right">Total</th><th class="center"><?= h($taxName) ?></th></tr></thead>
-        <tbody>
-          <?php for ($i = 0; $i < 4; $i++): ?>
-            <tr>
-              <td>
-                <input type="hidden" name="p_item[<?= $i ?>]" value="" data-buy-id>
-                <input name="p_name[<?= $i ?>]" list="stock-list" data-buy-item placeholder="Type product">
-              </td>
-              <td><input name="p_qty[<?= $i ?>]" inputmode="decimal" data-buy-qty></td>
-              <td><input name="p_price[<?= $i ?>]" inputmode="decimal" data-buy-price></td>
-              <td class="right mono" data-buy-total>0</td>
-              <td class="center"><label class="vat-yn"><input type="checkbox" name="p_taxed[<?= $i ?>]" value="1" data-buy-tax><span>Y</span></label></td>
-            </tr>
-          <?php endfor; ?>
+      <table class="grid lines">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Qty</th>
+            <th class="right">Unit price</th>
+            <th class="right">Total</th>
+            <th class="center"><?= h($taxName) ?></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody data-pos-body>
+          <tr data-pos-empty>
+            <td colspan="6" class="empty">Type a product. If it is new, tap Add new.</td>
+          </tr>
         </tbody>
       </table>
     </div>
-    <datalist id="stock-list">
-      <?php foreach ($catalog as $p): ?>
-        <option value="<?= h($p['name']) ?>"></option>
-      <?php endforeach; ?>
-    </datalist>
-    <script type="application/json" id="stock-buy-catalog"><?= json_encode($catalog, JSON_UNESCAPED_UNICODE) ?></script>
+    <script type="application/json" id="pos-catalog"><?= json_encode($catalog, JSON_UNESCAPED_UNICODE) ?></script>
+    <script type="application/json" id="pos-tax"><?= json_encode(['rate' => company_tax_rate()]) ?></script>
     <div class="form-grid" style="margin-top:12px">
       <div>
         <label for="paid">Amount paid now</label>
-        <input id="paid" name="paid" inputmode="decimal" placeholder="0 = full credit" <?= $dayOpen ? '' : 'disabled' ?>>
-        <p class="hint">Pay half, or leave 0 if you will pay later. Unpaid sits on Creditors.</p>
+        <input id="paid" name="paid" inputmode="decimal" data-pos-paid placeholder="0 = full credit" <?= $dayOpen ? '' : 'disabled' ?>>
+        <p class="hint">Pay half, or type 0 if you will pay later. Unpaid sits on Creditors.</p>
+      </div>
+      <div class="pos-sum">
+        <span>Total <strong data-pos-grand>0</strong></span>
+        <span>Due <strong data-pos-due>0</strong></span>
       </div>
     </div>
     <div class="actions">
-      <button class="btn" type="submit" <?= $dayOpen ? '' : 'disabled' ?>><?= icon('check') ?>Save purchase</button>
+      <button class="btn pos-save" type="submit" <?= $dayOpen ? '' : 'disabled' ?>><?= icon('check') ?>Save purchase</button>
     </div>
   </form>
+  <span hidden data-pos-x><?= icon('x', 14) ?></span>
 </div>
-<?php else: ?>
+<div class="card" style="margin-top:16px">
+  <div class="card-head"><h2><?= icon('expense', 16) ?>Purchases</h2></div>
+  <div class="pad-form"><?php stock_search_bar('stock.php', ['tab' => 'purchases'], 'Search bill or supplier'); ?></div>
+  <?php render_stock_docs_table($buyPage, 'stock.php?tab=purchases', 'p', 'No stock purchases yet.'); ?>
+</div>
+<?php $extraJs = '<script src="' . h(asset('js/stock-pos.js')) . '"></script>'; ?>
+
+<?php else:
+    $from = date('Y-m-d', strtotime('-365 days'));
+    $byDay = stock_performance_range($from, today());
+    $byMonth = stock_month_roll($byDay);
+    $last30 = [];
+    for ($i = 29; $i >= 0; $i--) {
+        $d = date('Y-m-d', strtotime('-' . $i . ' days'));
+        $last30[$d] = $byDay[$d] ?? ['income' => 0, 'expense' => 0, 'tax' => 0, 'profit' => 0];
+    }
+    $daySales = stock_search_docs('invoice', $q, stock_page_key('sp'), 20, today());
+    $daySpend = stock_search_docs('expense', $q, stock_page_key('ep'), 20, today());
+    $dayRows = [];
+    foreach (array_reverse($last30, true) as $d => $row) {
+        $dayRows[] = ['date' => $d] + $row;
+    }
+    $daysPage = stock_slice($dayRows, stock_page_key('dp'));
+    $monthRows = [];
+    foreach (array_reverse($byMonth, true) as $m => $row) {
+        $monthRows[] = ['date' => $m] + $row;
+    }
+    $stockSnap = stock_slice(stock_filter_items($items, $q), stock_page_key('ip'));
+    $chartDays = [
+        'labels' => array_map(static fn ($d) => date('j M', strtotime($d)), array_keys($last30)),
+        'income' => array_column(array_values($last30), 'income'),
+        'expense' => array_column(array_values($last30), 'expense'),
+        'profit' => array_column(array_values($last30), 'profit'),
+    ];
+    $chartMonths = [
+        'labels' => array_keys($byMonth),
+        'income' => array_column(array_values($byMonth), 'income'),
+        'expense' => array_column(array_values($byMonth), 'expense'),
+        'profit' => array_column(array_values($byMonth), 'profit'),
+    ];
+    ?>
 <div class="stats">
   <div class="card stat"><?= icon('clock', 20) ?><span>Today</span><strong><?= $dayOpen ? 'Open' : ($todayDay ? 'Closed' : 'Not opened') ?></strong></div>
-  <div class="card stat"><?= icon('invoice', 20) ?><span>Income</span><strong><?= h(money($dayLive['income'])) ?></strong></div>
-  <div class="card stat"><?= icon('expense', 20) ?><span>Expenditure</span><strong><?= h(money($dayLive['expense'])) ?></strong></div>
+  <a class="card stat" href="#day-income"><?= icon('invoice', 20) ?><span>Income</span><strong><?= h(money($dayLive['income'])) ?></strong></a>
+  <a class="card stat" href="#day-spend"><?= icon('expense', 20) ?><span>Expenditure</span><strong><?= h(money($dayLive['expense'])) ?></strong></a>
   <div class="card stat"><?= icon('wallet', 20) ?><span>Net profit</span><strong><?= h(money($dayLive['profit'])) ?></strong><em>Tax <?= h(money($dayLive['tax'])) ?></em></div>
+</div>
+<div class="stats">
+  <div class="card stat"><?= icon('package', 20) ?><span>Products</span><strong><?= (int) $stats['items'] ?></strong></div>
+  <div class="card stat"><?= icon('bank', 20) ?><span>Stock at cost</span><strong><?= h(money($stats['cost'])) ?></strong></div>
+  <div class="card stat"><?= icon('alert', 20) ?><span>Low stock</span><strong><?= (int) $stats['low'] ?></strong></div>
 </div>
 <div class="desk-grid stock-split">
   <div class="card">
@@ -416,37 +519,92 @@ layout_start('Stock', $user);
         </form>
       <?php else: ?>
         <p class="lede">Closed with <?= h(money((float) ($todayDay['close_cash'] ?? 0))) ?>.</p>
-        <p>Income <?= h(money((float) $todayDay['income'])) ?> · Spend <?= h(money((float) $todayDay['expense'])) ?> · Tax <?= h(money((float) $todayDay['tax'])) ?> · Net <?= h(money((float) $todayDay['income'] - (float) $todayDay['expense'])) ?></p>
       <?php endif; ?>
     </div>
   </div>
   <div class="card">
-    <div class="card-head"><h2><?= icon('reports', 16) ?>Recent days</h2></div>
-    <?php $days = stock_recent_days(); ?>
-    <?php if (!$days): ?>
-      <p class="empty">No days recorded yet.</p>
-    <?php else: ?>
-      <div class="table-scroll">
-        <table class="grid">
-          <thead><tr><th>Date</th><th>Status</th><th class="right">Income</th><th class="right">Spend</th><th class="right">Net</th><th class="right">Tax</th></tr></thead>
-          <tbody>
-            <?php foreach ($days as $d): ?>
-              <tr>
-                <td><?= h(format_date($d['day_date'])) ?></td>
-                <td><?= $d['closed_at'] ? 'Closed' : 'Open' ?></td>
-                <td class="right mono"><?= h(money((float) $d['income'])) ?></td>
-                <td class="right mono"><?= h(money((float) $d['expense'])) ?></td>
-                <td class="right mono"><?= h(money((float) $d['income'] - (float) $d['expense'])) ?></td>
-                <td class="right mono"><?= h(money((float) $d['tax'])) ?></td>
-              </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
-      </div>
-    <?php endif; ?>
+    <div class="card-head"><h2><?= icon('reports', 16) ?>Last 30 days</h2></div>
+    <div class="pad-form"><canvas id="chart-stock-days" height="180"></canvas></div>
   </div>
 </div>
-<?php endif; ?>
+<div class="card" style="margin-top:16px">
+  <div class="card-head"><h2><?= icon('reports', 16) ?>Months</h2></div>
+  <div class="pad-form"><canvas id="chart-stock-months" height="180"></canvas></div>
+</div>
+<div class="card" id="day-income" style="margin-top:16px">
+  <div class="card-head"><h2><?= icon('invoice', 16) ?>Today's sales</h2></div>
+  <div class="pad-form"><?php stock_search_bar('stock.php', ['tab' => 'day'], 'Search today'); ?></div>
+  <?php render_stock_docs_table($daySales, 'stock.php?tab=day', 'sp', 'No sales today.'); ?>
+</div>
+<div class="card" id="day-spend" style="margin-top:16px">
+  <div class="card-head"><h2><?= icon('expense', 16) ?>Today's expenses</h2></div>
+  <?php render_stock_docs_table($daySpend, 'stock.php?tab=day', 'ep', 'No expenses today.'); ?>
+</div>
+<div class="card" style="margin-top:16px">
+  <div class="card-head"><h2><?= icon('clock', 16) ?>Daily performance</h2></div>
+  <div class="table-scroll">
+    <table class="grid">
+      <thead><tr><th>#</th><th>Date</th><th class="right">Income</th><th class="right">Spend</th><th class="right">Net</th><th class="right">Tax</th></tr></thead>
+      <tbody>
+        <?php $dn = (int) $daysPage['from']; foreach ($daysPage['rows'] as $d): ?>
+          <tr>
+            <td class="mono"><?= $dn++ ?></td>
+            <td><?= h(format_date($d['date'])) ?></td>
+            <td class="right mono"><?= h(money((float) $d['income'])) ?></td>
+            <td class="right mono"><?= h(money((float) $d['expense'])) ?></td>
+            <td class="right mono"><?= h(money((float) $d['profit'])) ?></td>
+            <td class="right mono"><?= h(money((float) $d['tax'])) ?></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+  <?php stock_pager('stock.php?tab=day', (int) $daysPage['page'], (int) $daysPage['pages'], 'dp'); ?>
+</div>
+<div class="card" style="margin-top:16px">
+  <div class="card-head"><h2><?= icon('calendar', 16) ?>Monthly performance</h2></div>
+  <div class="table-scroll">
+    <table class="grid">
+      <thead><tr><th>#</th><th>Month</th><th class="right">Income</th><th class="right">Spend</th><th class="right">Net</th><th class="right">Tax</th></tr></thead>
+      <tbody>
+        <?php $mn = 1; foreach ($monthRows as $d): ?>
+          <tr>
+            <td class="mono"><?= $mn++ ?></td>
+            <td><?= h($d['date']) ?></td>
+            <td class="right mono"><?= h(money((float) $d['income'])) ?></td>
+            <td class="right mono"><?= h(money((float) $d['expense'])) ?></td>
+            <td class="right mono"><?= h(money((float) $d['profit'])) ?></td>
+            <td class="right mono"><?= h(money((float) $d['tax'])) ?></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+</div>
+<div class="card" style="margin-top:16px">
+  <div class="card-head"><h2><?= icon('package', 16) ?>Stock now</h2></div>
+  <div class="table-scroll">
+    <table class="grid">
+      <thead><tr><th>#</th><th>Item</th><th class="right">On hand</th><th class="right">At cost</th><th class="right">At sell</th><th>Actions</th></tr></thead>
+      <tbody>
+        <?php $sn = (int) $stockSnap['from']; foreach ($stockSnap['rows'] as $row): ?>
+          <tr>
+            <td class="mono"><?= $sn++ ?></td>
+            <td><?= h($row['name']) ?></td>
+            <td class="right mono"><?= h(stock_qty_label((float) $row['qty_on_hand'])) ?></td>
+            <td class="right mono"><?= h(money((float) $row['qty_on_hand'] * (float) $row['buy_price'])) ?></td>
+            <td class="right mono"><?= h(money((float) $row['qty_on_hand'] * (float) $row['sell_price'])) ?></td>
+            <td class="row-actions"><a class="btn ghost sm" href="<?= h(url('stock.php?tab=items&edit=' . (int) $row['id'])) ?>"><?= icon('pencil', 14) ?>Edit</a></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+  <?php stock_pager('stock.php?tab=day', (int) $stockSnap['page'], (int) $stockSnap['pages'], 'ip'); ?>
+</div>
 <?php
-$buyJs = '<script>(function(){var form=document.querySelector("[data-stock-buy]");if(!form)return;var cat=[];try{cat=JSON.parse(document.getElementById("stock-buy-catalog").textContent||"[]");}catch(e){}function find(n){n=(n||"").trim().toLowerCase();if(!n)return null;return cat.find(function(p){return String(p.name).toLowerCase()===n||String(p.sku).toLowerCase()===n;})||null;}form.addEventListener("input",function(e){var row=e.target.closest("tr");if(!row)return;if(e.target.matches("[data-buy-item]")){var p=find(e.target.value);if(p){var hid=row.querySelector("[data-buy-id]");if(hid)hid.value=p.id;var price=row.querySelector("[data-buy-price]");if(price&&!price.value)price.value=p.buy;var tax=row.querySelector("[data-buy-tax]");if(tax)tax.checked=!!p.taxed;}}var q=parseFloat((row.querySelector("[data-buy-qty]")||{}).value||"0")||0;var r=parseFloat((row.querySelector("[data-buy-price]")||{}).value||"0")||0;var tot=row.querySelector("[data-buy-total]");if(tot)tot.textContent=(q*r).toFixed(2);});})();</script>';
-layout_end($tab === 'purchases' ? $buyJs : '');
+    $payload = json_encode(['days' => $chartDays, 'months' => $chartMonths, 'currency' => default_currency(), 'color' => branding()['brand_color'] ?? '#82B440'], JSON_UNESCAPED_UNICODE);
+    $extraJs = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script>(function(){var d=' . $payload . ';function money(v){return window.vellisysChartMoney?window.vellisysChartMoney(d.currency)(v):v;}function line(id,labels,sets){var el=document.getElementById(id);if(!el||!window.Chart)return;new Chart(el,{type:"line",data:{labels:labels,datasets:sets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom"}},scales:{y:{ticks:{callback:money}}}}});}line("chart-stock-days",d.days.labels,[{label:"Income",data:d.days.income,borderColor:d.color,tension:.25,fill:false},{label:"Spend",data:d.days.expense,borderColor:"#b42318",tension:.25,fill:false},{label:"Profit",data:d.days.profit,borderColor:"#1f3a12",tension:.25,fill:false}]);line("chart-stock-months",d.months.labels,[{label:"Income",data:d.months.income,borderColor:d.color,tension:.25,fill:false},{label:"Spend",data:d.months.expense,borderColor:"#b42318",tension:.25,fill:false},{label:"Profit",data:d.months.profit,borderColor:"#1f3a12",tension:.25,fill:false}]);})();</script>';
+endif;
+
+layout_end($extraJs);

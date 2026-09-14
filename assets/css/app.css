@@ -4230,10 +4230,35 @@ a.branch-activity-row:hover { text-decoration: none; }
 .pos-sum strong { font-variant-numeric: tabular-nums; }
 .pos-save { min-height: 48px; font-size: 16px; }
 .stock-line-suggest { max-height: 240px; overflow: auto; }
+.stock-search {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0 0 12px;
+}
+.stock-search input[type="search"] {
+  flex: 1;
+  min-width: 160px;
+  min-height: 40px;
+}
+.stock-pager {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 10px 18px 16px;
+}
+a.card.stat { text-decoration: none; color: inherit; }
+a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--line)); }
+#chart-stock-days, #chart-stock-months { width: 100%; max-height: 220px; }
 @media (max-width: 640px) {
   .stock-split { grid-template-columns: 1fr; }
   .pos-totals { grid-template-columns: 1fr; }
   .pos-q { font-size: 16px; }
   .pos-opt { min-height: 48px; }
+  .stock-search { flex-direction: column; align-items: stretch; }
+  .stock-pager { justify-content: space-between; }
+  .pos-save { width: 100%; }
 }
 

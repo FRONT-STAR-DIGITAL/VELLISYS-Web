@@ -79,10 +79,15 @@ function layout_start(string $title, array $user, array $opts = []): void
         flash('Your login cannot open that page.', 'err');
         redirect('dashboard.php');
     }
+    $nav = [
+        ['dashboard.php', 'Desk', 'desk'],
+    ];
+    if (function_exists('company_stock_enabled') && company_stock_enabled()) {
+        $nav[] = ['sale.php', 'Sale', 'cart'];
+        $nav[] = ['stock.php', 'Stock', 'package'];
+    }
     $nav = array_merge(
-        [
-            ['dashboard.php', 'Desk', 'desk'],
-        ],
+        $nav,
         desk_kind_nav_items(),
         [
             ['desk_mail.php', 'Email', 'send'],
@@ -96,10 +101,6 @@ function layout_start(string $title, array $user, array $opts = []): void
     }
     if (company_planner_enabled() && is_desk_admin()) {
         $nav[] = ['planner.php', 'Planner', 'calendar'];
-    }
-    if (function_exists('company_stock_enabled') && company_stock_enabled()) {
-        $nav[] = ['stock.php', 'Stock', 'package'];
-        $nav[] = ['sale.php', 'Sale', 'cart'];
     }
     if (company_pnl_enabled() && is_desk_admin()) {
         $nav[] = ['pnl.php', 'P&L', 'reports'];
