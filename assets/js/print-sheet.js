@@ -13,6 +13,7 @@
     }
   }
   function go() {
+    document.title = '\u200b';
     if (typeof window.fitDocumentSheets === 'function') {
       window.fitDocumentSheets();
     }

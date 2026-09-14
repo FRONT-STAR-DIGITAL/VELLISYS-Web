@@ -1104,6 +1104,14 @@
     display: none !important;
   }
   a[href]::after, a[href]::before { content: none !important; }
+  a[x-apple-data-detectors],
+  span[x-apple-data-detectors],
+  a[x-apple-data-detectors]:hover,
+  a[x-apple-data-detectors]:active {
+    color: inherit !important;
+    text-decoration: none !important;
+    background: transparent !important;
+  }
   .desk-body .main { margin-left: 0 !important; }
   .content, .sheet-wrap {
     padding: 0 !important;

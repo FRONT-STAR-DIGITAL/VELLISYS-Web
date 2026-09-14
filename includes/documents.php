@@ -587,7 +587,8 @@ function document_sheet_print_html(array $doc): string
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title><?= h((string) ($doc['number'] ?? 'document')) ?></title>
+  <title></title>
+  <meta name="format-detection" content="telephone=no,email=no,address=no,date=no">
   <style><?= $appCss ?></style>
   <style><?= $designCss ?></style>
   <style>
@@ -710,10 +711,23 @@ function document_sheet_pdf_bytes(array $doc): string
     throw new RuntimeException('Could not print the current document. Use Print instead.');
 }
 
+function send_document_pdf(array $doc, string $disposition = 'attachment'): void
+{
+    $bytes = document_sheet_pdf_bytes($doc);
+    $name = document_download_filename($doc);
+    $mode = $disposition === 'inline' ? 'inline' : 'attachment';
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: ' . $mode . '; filename="' . $name . '"');
+    header('Content-Length: ' . (string) strlen($bytes));
+    header('Cache-Control: private, no-store');
+    echo $bytes;
+    exit;
+}
+
 function send_document_download(array $doc): void
 {
     try {
-        $bytes = document_sheet_pdf_bytes($doc);
+        send_document_pdf($doc, 'attachment');
     } catch (Throwable $e) {
         http_response_code(503);
         header('Content-Type: text/html; charset=utf-8');
@@ -722,13 +736,16 @@ function send_document_download(array $doc): void
         echo '</body></html>';
         exit;
     }
-    $name = document_download_filename($doc);
-    header('Content-Type: application/pdf');
-    header('Content-Disposition: attachment; filename="' . $name . '"');
-    header('Content-Length: ' . (string) strlen($bytes));
-    header('Cache-Control: private, no-store');
-    echo $bytes;
-    exit;
+}
+
+function send_document_print_pdf(array $doc): bool
+{
+    try {
+        send_document_pdf($doc, 'inline');
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
 }
 
 function document_share_message(array $doc): string
@@ -1133,8 +1150,9 @@ function render_doc_actions(array $doc, bool $labeled = false): void
       <?php if ($doc['kind'] === 'letter'): ?>
         <a class="<?= $cls ?>" href="<?= h(url('letter_docx.php?id=' . $id)) ?>" title="Download Word" aria-label="Download Word"><?= icon('download', 15) ?><?php if ($labeled): ?> Word<?php endif; ?></a>
       <?php endif; ?>
-      <a class="<?= $cls ?>" href="<?= h(url('document_download.php?id=' . $id)) ?>" title="Download" aria-label="Download"><?= icon('download', 15) ?><?php if ($labeled): ?> Download<?php endif; ?></a>
-      <a class="<?= $cls ?>" href="<?= h(url('document_view.php?id=' . $id)) ?>" title="View" aria-label="View"><?= icon('eye', 15) ?><?php if ($labeled): ?> View<?php endif; ?></a>
+      <?php if (!$labeled): ?>
+        <a class="<?= $cls ?>" href="<?= h(url('document_view.php?id=' . $id)) ?>" title="View" aria-label="View"><?= icon('eye', 15) ?></a>
+      <?php endif; ?>
       <?php if (!$void): ?>
         <a class="<?= $cls ?>" href="<?= h(url('document_new.php?id=' . $id)) ?>" title="Edit" aria-label="Edit"><?= icon('pencil', 15) ?><?php if ($labeled): ?> Edit<?php endif; ?></a>
       <?php endif; ?>

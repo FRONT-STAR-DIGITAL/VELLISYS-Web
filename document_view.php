@@ -13,6 +13,9 @@ $print = isset($_GET['print']);
 $emails = db_all('SELECT * FROM emails WHERE document_id = ? ORDER BY id DESC LIMIT 8', 'i', [$id]);
 
 if ($print) {
+    if (send_document_print_pdf($doc)) {
+        exit;
+    }
     require_once ROOT_PATH . '/includes/designs.php';
     render_print_document_page($doc, false);
     exit;

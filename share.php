@@ -42,6 +42,9 @@ $asDownload = isset($_GET['download']);
 if ($asDownload) {
     send_document_download($doc);
 }
+if ($print && send_document_print_pdf($doc)) {
+    exit;
+}
 require ROOT_PATH . '/includes/sheet.php';
 ?>
 <!DOCTYPE html>
@@ -51,6 +54,7 @@ require ROOT_PATH . '/includes/sheet.php';
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
   <title><?= h($doc['number']) ?> · <?= h($brand['name']) ?></title>
+  <meta name="format-detection" content="telephone=no,email=no,address=no,date=no">
   <?php product_icons(); ?>
   <?php folio_css_links(); ?>
   <?php folio_font_links(); ?>
@@ -79,7 +83,6 @@ require ROOT_PATH . '/includes/sheet.php';
   <?php if (!$print && !$asSheet): ?>
     <div class="share-toolbar">
       <a class="btn ghost sm" href="<?= h(url('share.php?id=' . $id . '&t=' . $token . '&print=1')) ?>"><?= icon('printer', 15) ?>Print</a>
-      <a class="btn ghost sm" href="<?= h(url('share.php?id=' . $id . '&t=' . $token . '&download=1')) ?>"><?= icon('download', 15) ?>Download</a>
     </div>
   <?php endif; ?>
   <div class="sheet-wrap">

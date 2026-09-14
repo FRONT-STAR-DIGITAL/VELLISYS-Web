@@ -3045,6 +3045,11 @@ input, select, textarea { font-weight: 400; }
   .pdf-bar { display: none !important; }
   .content > .card { display: none !important; }
   a[href]::after, a[href]::before { content: none !important; }
+  a[x-apple-data-detectors],
+  span[x-apple-data-detectors] {
+    color: inherit !important;
+    text-decoration: none !important;
+  }
   .nav, .nav-toggle, .nav-scrim { display: none !important; }
   .desk-body .main { margin-left: 0; width: 100%; max-width: 100%; }
   .content, .sheet-wrap { padding: 0; background: #fff; max-width: none; overflow: visible; }

@@ -303,6 +303,7 @@ function render_print_document_page(array $doc, bool $pdf = false): void
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
   <title><?= h((string) $doc['number']) ?></title>
+  <meta name="format-detection" content="telephone=no,email=no,address=no,date=no">
   <?php product_icons(); ?>
   <?php folio_css_links(true, true); ?>
   <?php folio_font_links(); ?>

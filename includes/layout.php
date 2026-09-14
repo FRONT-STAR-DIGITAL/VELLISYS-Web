@@ -123,6 +123,9 @@ function layout_start(string $title, array $user, array $opts = []): void
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title><?= h($title) ?> · <?= h(product_name()) ?></title>
+  <?php if (basename($_SERVER['SCRIPT_NAME'] ?? '') === 'document_view.php'): ?>
+  <meta name="format-detection" content="telephone=no,email=no,address=no,date=no">
+  <?php endif; ?>
   <?php product_icons(); ?>
   <?php folio_css_links(); ?>
   <?php folio_font_links(); ?>
