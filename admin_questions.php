@@ -18,6 +18,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'replied') {
         db_exec("UPDATE questions SET status = 'replied' WHERE id = ?", 'i', [$id]);
         flash('Marked as replied.');
+    } elseif ($action === 'open') {
+        db_exec("UPDATE questions SET status = 'read' WHERE id = ?", 'i', [$id]);
+        flash('Moved back to the inbox.');
+    } elseif ($action === 'delete') {
+        db_exec('DELETE FROM questions WHERE id = ?', 'i', [$id]);
+        flash('Question from ' . $row['name'] . ' deleted.');
+        redirect('admin_questions.php');
     }
     redirect('admin_questions.php');
 }
@@ -38,7 +45,7 @@ $pill = static function (string $status): string {
 
 $rowActions = static function (array $q): void {
     ?>
-    <div class="actions">
+    <div class="actions row-action-stack">
       <a class="btn sm" href="<?= h(url('admin_question.php?id=' . $q['id'])) ?>"><?= icon('eye', 14) ?>Open</a>
       <a class="btn ghost sm" href="mailto:<?= h($q['email']) ?>?subject=<?= h(rawurlencode('Re: your question to Vellisys')) ?>"><?= icon('letter', 14) ?>Reply</a>
       <?php if ($q['status'] !== 'replied'): ?>
@@ -47,7 +54,18 @@ $rowActions = static function (array $q): void {
         <input type="hidden" name="id" value="<?= (int) $q['id'] ?>">
         <button class="btn ghost sm" name="action" value="replied"><?= icon('send', 14) ?>Replied</button>
       </form>
+      <?php else: ?>
+      <form method="post">
+        <?= csrf_field() ?>
+        <input type="hidden" name="id" value="<?= (int) $q['id'] ?>">
+        <button class="btn ghost sm" name="action" value="open"><?= icon('convert', 14) ?>Reopen</button>
+      </form>
       <?php endif; ?>
+      <form method="post" onsubmit="return confirm('Delete this question?');">
+        <?= csrf_field() ?>
+        <input type="hidden" name="id" value="<?= (int) $q['id'] ?>">
+        <button class="btn ghost sm" name="action" value="delete"><?= icon('trash', 14) ?>Delete</button>
+      </form>
     </div>
     <?php
 };
@@ -120,9 +138,7 @@ $rowActions = static function (array $q): void {
             </td>
             <td><a href="<?= h(url('admin_question.php?id=' . $q['id'])) ?>"><?= h(clip_text((string) $q['message'], 110)) ?></a></td>
             <td><?= $pill($q['status']) ?></td>
-            <td class="row-actions">
-              <a class="btn sm" href="<?= h(url('admin_question.php?id=' . $q['id'])) ?>"><?= icon('eye', 14) ?>Open</a>
-            </td>
+            <td class="row-actions"><?php $rowActions($q); ?></td>
           </tr>
         <?php endforeach; ?>
       </tbody>

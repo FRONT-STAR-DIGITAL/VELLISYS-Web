@@ -5,13 +5,27 @@ $user = require_platform();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
+    $action = post('action');
+    $target = post('target') ?: 'signup';
+    if ($target === 'order') {
+        $oid = (int) post('id');
+        $order = $oid ? db_one('SELECT * FROM website_orders WHERE id = ?', 'i', [$oid]) : null;
+        if (!$order) {
+            flash('That checkout was not found.', 'err');
+            redirect('admin_signups.php');
+        }
+        if ($action === 'delete') {
+            db_exec('DELETE FROM website_orders WHERE id = ?', 'i', [$oid]);
+            flash('Checkout for ' . $order['company'] . ' deleted.');
+        }
+        redirect('admin_signups.php');
+    }
     $id = (int) post('id');
     $signup = $id ? db_one('SELECT * FROM signups WHERE id = ?', 'i', [$id]) : null;
     if (!$signup) {
         flash('That sign-up was not found.', 'err');
         redirect('admin_signups.php');
     }
-    $action = post('action');
     if ($action === 'onboard') {
         redirect('admin_company_new.php?signup=' . $id);
     }
@@ -21,6 +35,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'declined') {
         db_exec("UPDATE signups SET status = 'declined' WHERE id = ?", 'i', [$id]);
         flash($signup['company'] . ' declined.');
+    } elseif ($action === 'reopen') {
+        db_exec("UPDATE signups SET status = 'new' WHERE id = ?", 'i', [$id]);
+        flash($signup['company'] . ' moved back to waiting.');
+    } elseif ($action === 'delete') {
+        db_exec('DELETE FROM signups WHERE id = ?', 'i', [$id]);
+        flash($signup['company'] . ' removed from sign-ups.');
     }
     redirect('admin_signups.php');
 }
@@ -47,14 +67,9 @@ $pill = static function (string $status): string {
 };
 
 $rowActions = static function (array $s): void {
-    if (in_array($s['status'], ['onboarded', 'declined'], true)) {
-        if (!empty($s['company_id'])) {
-            echo '<a class="btn sm" href="' . h(url('admin_company.php?id=' . (int) $s['company_id'])) . '">Company</a>';
-        }
-        return;
-    }
     ?>
-    <div class="actions">
+    <div class="actions row-action-stack">
+      <?php if (!in_array($s['status'], ['onboarded', 'declined'], true)): ?>
       <form method="post">
         <?= csrf_field() ?>
         <input type="hidden" name="id" value="<?= (int) $s['id'] ?>">
@@ -71,6 +86,22 @@ $rowActions = static function (array $s): void {
         <?= csrf_field() ?>
         <input type="hidden" name="id" value="<?= (int) $s['id'] ?>">
         <button class="btn ghost sm" name="action" value="declined"><?= icon('ban', 14) ?>Decline</button>
+      </form>
+      <?php endif; ?>
+      <?php if (!empty($s['company_id'])): ?>
+        <a class="btn sm" href="<?= h(url('admin_company.php?id=' . (int) $s['company_id'])) ?>">Company</a>
+      <?php endif; ?>
+      <?php if (in_array($s['status'], ['onboarded', 'declined'], true)): ?>
+      <form method="post">
+        <?= csrf_field() ?>
+        <input type="hidden" name="id" value="<?= (int) $s['id'] ?>">
+        <button class="btn ghost sm" name="action" value="reopen"><?= icon('convert', 14) ?>Reopen</button>
+      </form>
+      <?php endif; ?>
+      <form method="post" onsubmit="return confirm('Delete this sign-up from the list? An onboarded company desk is not removed.');">
+        <?= csrf_field() ?>
+        <input type="hidden" name="id" value="<?= (int) $s['id'] ?>">
+        <button class="btn ghost sm" name="action" value="delete"><?= icon('trash', 14) ?>Delete</button>
       </form>
     </div>
     <?php
@@ -141,7 +172,7 @@ $rowActions = static function (array $s): void {
           <th>Company</th>
           <th>Email</th>
           <th>Status</th>
-          <th></th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -177,7 +208,7 @@ $rowActions = static function (array $s): void {
           <th>Company</th>
           <th>Amount</th>
           <th>Status</th>
-          <th></th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -217,9 +248,20 @@ $rowActions = static function (array $s): void {
             <td class="mono"><?= h((string) $o['currency']) ?> <?= h((string) $o['amount']) ?></td>
             <td><span class="pill<?= $stClass ?>"><?= h($st) ?></span></td>
             <td class="row-actions">
-              <?php if (!empty($o['signup_id'])): ?>
-                <a class="btn sm" href="<?= h(url('admin_company_new.php?signup=' . (int) $o['signup_id'])) ?>">Onboard</a>
-              <?php endif; ?>
+              <div class="actions row-action-stack">
+                <?php if (!empty($o['signup_id'])): ?>
+                  <a class="btn sm" href="<?= h(url('admin_company_new.php?signup=' . (int) $o['signup_id'])) ?>">Onboard</a>
+                <?php endif; ?>
+                <?php if (trim((string) ($o['email'] ?? '')) !== ''): ?>
+                  <a class="btn ghost sm" href="mailto:<?= h((string) $o['email']) ?>"><?= icon('letter', 14) ?>Email</a>
+                <?php endif; ?>
+                <form method="post" onsubmit="return confirm('Delete this checkout form?');">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="target" value="order">
+                  <input type="hidden" name="id" value="<?= (int) $o['id'] ?>">
+                  <button class="btn ghost sm" name="action" value="delete"><?= icon('trash', 14) ?>Delete</button>
+                </form>
+              </div>
             </td>
           </tr>
         <?php endforeach; ?>

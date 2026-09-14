@@ -186,6 +186,38 @@ function apply_letterhead_to_branding(array $fields): void
     branding(true);
 }
 
+function ensure_document_party(string $kind): int
+{
+    $cid = current_company_id();
+    $partyId = (int) post('party_id');
+    $name = trim((string) ($_POST['to_name'] ?? ''));
+    if ($partyId > 0) {
+        $row = db_one('SELECT id FROM parties WHERE id = ? AND company_id = ?', 'ii', [$partyId, $cid]);
+        if ($row) {
+            return (int) $row['id'];
+        }
+    }
+    if ($name === '') {
+        throw new RuntimeException('Choose an existing client or type a new name.');
+    }
+    $found = db_one('SELECT id FROM parties WHERE company_id = ? AND name = ? ORDER BY id DESC LIMIT 1', 'is', [$cid, $name]);
+    if ($found) {
+        return (int) $found['id'];
+    }
+    $partyKind = $kind === 'expense' ? 'supplier' : 'customer';
+    if (in_array($kind, ['refund', 'return_note'], true)) {
+        $partyKind = 'both';
+    }
+    $phone = trim((string) ($_POST['to_phone'] ?? '')) ?: null;
+    $email = trim((string) ($_POST['to_email'] ?? '')) ?: null;
+    $address = trim((string) ($_POST['to_address'] ?? '')) ?: null;
+    return db_exec(
+        'INSERT INTO parties (company_id, name, kind, tin, contact_person, phone, phone2, email, address, city, country, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+        'isssssssssss',
+        [$cid, $name, $partyKind, null, null, $phone, null, $email, $address, null, null, null]
+    );
+}
+
 function apply_posted_party(int $partyId): void
 {
     if ($partyId <= 0) {

@@ -286,18 +286,18 @@ function refreshLinesPreview() {
     if (isNaN(rate)) rate = 0;
     var taxed = !!(row.querySelector('[data-vat-box]') || {}).checked;
     html += '<tr>';
-    html += '<td>' + escapeHtml(name || '-') + '</td>';
-    html += '<td>' + escapeHtml(desc).replace(/\n/g, '<br>') + '</td>';
-    html += '<td class="center mono">' + escapeHtml(String(qty || '')) + '</td>';
+    html += '<td data-label="Item">' + escapeHtml(name || '-') + '</td>';
+    html += '<td data-label="Description">' + escapeHtml(desc).replace(/\n/g, '<br>') + '</td>';
+    html += '<td class="center mono" data-label="Qty">' + escapeHtml(String(qty || '')) + '</td>';
     if (!delivery) {
-      html += '<td class="right mono">' + escapeHtml(formatPreviewMoney(rate)) + '</td>';
-      html += '<td class="right mono">' + escapeHtml(formatPreviewMoney(Math.round(qty * rate * 100) / 100)) + '</td>';
-      html += '<td class="center">' + (taxed ? 'Y' : 'N') + '</td>';
+      html += '<td class="right mono" data-label="Unit price">' + escapeHtml(formatPreviewMoney(rate)) + '</td>';
+      html += '<td class="right mono" data-label="Total Amt">' + escapeHtml(formatPreviewMoney(Math.round(qty * rate * 100) / 100)) + '</td>';
+      html += '<td class="center" data-label="VAT">' + (taxed ? 'Y' : 'N') + '</td>';
     }
     html += '</tr>';
   });
   if (!shown) {
-    html = '<tr><td colspan="' + (delivery ? '3' : '6') + '" class="muted">Add an item above to preview the document table.</td></tr>';
+    html = '<tr class="lines-preview-empty"><td colspan="' + (delivery ? '3' : '6') + '" class="muted">Add an item above to preview the document table.</td></tr>';
   }
   body.innerHTML = html;
 }
@@ -352,7 +352,10 @@ document.querySelectorAll('[data-receipt-form]').forEach(function (form) {
     var party = form.querySelector('#party_id');
     var currency = form.querySelector('#currency');
     var amount = form.querySelector('#allocated_amount');
-    if (party && opt.getAttribute('data-party')) party.value = opt.getAttribute('data-party');
+    if (party && opt.getAttribute('data-party')) {
+      party.value = opt.getAttribute('data-party');
+      party.dispatchEvent(new Event('change', { bubbles: true }));
+    }
     if (amount && opt.getAttribute('data-balance')) amount.value = opt.getAttribute('data-balance');
     if (currency && opt.getAttribute('data-currency')) {
       var from = currency.value;
@@ -631,18 +634,22 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
 (function () {
   var form = document.querySelector('[data-party-book]');
   if (!form) return;
-  var sel = form.querySelector('#party_id');
-  if (!sel) return;
   var book = {};
   try {
     book = JSON.parse(form.getAttribute('data-party-book') || '{}');
   } catch (e) {
     return;
   }
-  function fill(id) {
+  var combo = form.querySelector('[data-client-combo]');
+  var search = form.querySelector('[data-client-search]');
+  var list = form.querySelector('[data-client-list]');
+  var party = form.querySelector('#party_id');
+  if (!search || !party) return;
+
+  function fillFromId(id) {
     var row = book[id] || book[String(id)] || {};
     var map = {
-      to_name: row.name || '',
+      to_name: row.name || search.value,
       to_phone: row.phone || '',
       to_email: row.email || '',
       to_address: row.address || ''
@@ -651,13 +658,77 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
       var el = form.querySelector('[name="' + name + '"]');
       if (el) el.value = map[name];
     });
+    party.value = id ? String(id) : '';
   }
-  sel.addEventListener('change', function () {
-    fill(sel.value);
-    var nameEl = form.querySelector('#to_name');
-    if (nameEl && sel.selectedOptions[0] && sel.value) {
-      var bookName = (book[sel.value] || book[String(sel.value)] || {}).name;
-      nameEl.value = bookName || sel.selectedOptions[0].textContent.trim();
+
+  function entries() {
+    return Object.keys(book).map(function (id) {
+      return { id: id, row: book[id] || {} };
+    }).filter(function (item) {
+      return (item.row.name || '').trim() !== '';
+    });
+  }
+
+  function renderList(q) {
+    if (!list) return;
+    q = String(q || '').trim().toLowerCase();
+    var items = entries().filter(function (item) {
+      if (!q) return true;
+      var blob = [item.row.name, item.row.phone, item.row.email, item.row.address].join(' ').toLowerCase();
+      return blob.indexOf(q) !== -1;
+    }).slice(0, 8);
+    if (!items.length) {
+      list.innerHTML = '<li class="client-combo-empty">No saved match — keep typing to add a new client</li>';
+      list.hidden = false;
+      return;
+    }
+    list.innerHTML = items.map(function (item) {
+      var extra = [item.row.phone, item.row.email].filter(Boolean).join(' · ');
+      return '<li><button type="button" data-client-pick="' + item.id + '"><strong>' +
+        String(item.row.name || '').replace(/</g, '&lt;') + '</strong>' +
+        (extra ? '<span>' + String(extra).replace(/</g, '&lt;') + '</span>' : '') +
+        '</button></li>';
+    }).join('');
+    list.hidden = false;
+  }
+
+  function matchExact(name) {
+    name = String(name || '').trim().toLowerCase();
+    if (!name) return '';
+    var found = '';
+    entries().forEach(function (item) {
+      if ((item.row.name || '').trim().toLowerCase() === name) found = item.id;
+    });
+    return found;
+  }
+
+  search.addEventListener('focus', function () {
+    renderList(search.value);
+  });
+  search.addEventListener('input', function () {
+    var id = matchExact(search.value);
+    party.value = id;
+    if (!id) {
+      // typing a new name — don't wipe address until they pick someone
+    }
+    renderList(search.value);
+  });
+  if (list) {
+    list.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-client-pick]');
+      if (!btn) return;
+      e.preventDefault();
+      fillFromId(btn.getAttribute('data-client-pick'));
+      list.hidden = true;
+    });
+  }
+  party.addEventListener('change', function () {
+    if (party.value) fillFromId(party.value);
+  });
+  document.addEventListener('click', function (e) {
+    if (!combo) return;
+    if (!combo.contains(e.target)) {
+      if (list) list.hidden = true;
     }
   });
 })();

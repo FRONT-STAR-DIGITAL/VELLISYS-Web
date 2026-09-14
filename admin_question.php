@@ -24,6 +24,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'replied') {
         db_exec("UPDATE questions SET status = 'replied' WHERE id = ?", 'i', [$id]);
         flash('Marked as replied.');
+    } elseif ($action === 'delete') {
+        db_exec('DELETE FROM questions WHERE id = ?', 'i', [$id]);
+        flash('Question deleted.');
+        redirect('admin_questions.php');
     }
     redirect('admin_question.php?id=' . $id);
 }
@@ -72,6 +76,11 @@ layout_admin_start($q['name'], $user);
       <button class="btn ghost" name="action" value="read"><?= icon('check', 16) ?>Mark read</button>
     </form>
     <?php endif; ?>
+    <form method="post" onsubmit="return confirm('Delete this question?');">
+      <?= csrf_field() ?>
+      <input type="hidden" name="id" value="<?= $id ?>">
+      <button class="btn ghost" name="action" value="delete"><?= icon('trash', 16) ?>Delete</button>
+    </form>
   </div>
 </div>
 <?php layout_end(); ?>

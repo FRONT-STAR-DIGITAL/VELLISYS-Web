@@ -35,9 +35,10 @@ $openInvoices = $kind === 'receipt' ? outstanding_invoices(null, $related ?: nul
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
-    $partyId = (int) post('party_id');
-    if ($partyId <= 0) {
-        flash('Choose a client or payee.', 'err');
+    try {
+        $partyId = ensure_document_party($kind);
+    } catch (Throwable $e) {
+        flash($e->getMessage(), 'err');
         redirect($editId ? 'document_new.php?id=' . $editId : 'document_new.php?kind=' . $kind);
     }
     $items = [];
@@ -259,29 +260,26 @@ layout_start($heading, $user, ['kind' => $kind]);
     <?php endif; ?>
     <?php if ($kind === 'expense'): ?>
     <div>
-      <label for="party_id">Party</label>
-      <select id="party_id" name="party_id" required>
-        <option value="">Choose…</option>
-        <?php foreach ($parties as $p): ?>
-          <option value="<?= (int) $p['id'] ?>" <?= (int) $p['id'] === $prefillParty ? 'selected' : '' ?>><?= h($p['name']) ?></option>
-        <?php endforeach; ?>
-      </select>
-      <p class="hint"><a href="<?= h(url('client_edit.php')) ?>">Add a payee or supplier</a></p>
+      <label for="to_name">Party</label>
+      <div class="client-combo" data-client-combo>
+        <input type="hidden" id="party_id" name="party_id" value="<?= $prefillParty ?: '' ?>">
+        <input id="to_name" name="to_name" required autocomplete="off" placeholder="Choose or type a payee…" value="<?= h((string) ($toParty['name'] ?? '')) ?>" data-client-search>
+        <ul class="client-combo-list" data-client-list hidden></ul>
+      </div>
+      <p class="hint">Pick a saved payee or type a new name. <a href="<?= h(url('client_edit.php')) ?>">Open the full client form</a></p>
     </div>
     <?php else: ?>
     <div class="doc-client-block doc-span">
       <h2 class="doc-client-title">Customer information</h2>
-      <input type="hidden" id="to_name" name="to_name" value="<?= h((string) ($toParty['name'] ?? '')) ?>">
       <div class="form-grid doc-client-grid" data-to-fields>
         <div>
-          <label for="party_id">Customer name</label>
-          <select id="party_id" name="party_id" required>
-            <option value="">Start typing customer name…</option>
-            <?php foreach ($parties as $p): ?>
-              <option value="<?= (int) $p['id'] ?>" <?= (int) $p['id'] === $prefillParty ? 'selected' : '' ?>><?= h($p['name']) ?></option>
-            <?php endforeach; ?>
-          </select>
-          <p class="hint"><a href="<?= h(url('client_edit.php')) ?>">Add a new client</a></p>
+          <label for="to_name">Customer name</label>
+          <div class="client-combo" data-client-combo>
+            <input type="hidden" id="party_id" name="party_id" value="<?= $prefillParty ?: '' ?>">
+            <input id="to_name" name="to_name" required autocomplete="off" placeholder="Start typing customer name…" value="<?= h((string) ($toParty['name'] ?? '')) ?>" data-client-search>
+            <ul class="client-combo-list" data-client-list hidden></ul>
+          </div>
+          <p class="hint">Choose a saved client or type a new one. They are added when you save.</p>
         </div>
         <div>
           <label for="to_address">Customer address</label>
