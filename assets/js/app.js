@@ -643,14 +643,9 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
     var row = book[id] || book[String(id)] || {};
     var map = {
       to_name: row.name || '',
-      to_contact: row.contact || '',
-      to_tin: row.tin || '',
       to_phone: row.phone || '',
-      to_phone2: row.phone2 || '',
       to_email: row.email || '',
-      to_address: row.address || '',
-      to_city: row.city || '',
-      to_country: row.country || ''
+      to_address: row.address || ''
     };
     Object.keys(map).forEach(function (name) {
       var el = form.querySelector('[name="' + name + '"]');
@@ -659,6 +654,11 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
   }
   sel.addEventListener('change', function () {
     fill(sel.value);
+    var nameEl = form.querySelector('#to_name');
+    if (nameEl && sel.selectedOptions[0] && sel.value) {
+      var bookName = (book[sel.value] || book[String(sel.value)] || {}).name;
+      nameEl.value = bookName || sel.selectedOptions[0].textContent.trim();
+    }
   });
 })();
 
@@ -685,4 +685,149 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
     }
   }
   plan.addEventListener('change', syncPnl);
+})();
+
+(function () {
+  function prettyDate(iso) {
+    if (!iso) return 'Choose a date';
+    var parts = String(iso).split('-');
+    if (parts.length !== 3) return iso;
+    var y = parseInt(parts[0], 10);
+    var m = parseInt(parts[1], 10) - 1;
+    var d = parseInt(parts[2], 10);
+    var months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    var suf = 'th';
+    if (d % 10 === 1 && d % 100 !== 11) suf = 'st';
+    else if (d % 10 === 2 && d % 100 !== 12) suf = 'nd';
+    else if (d % 10 === 3 && d % 100 !== 13) suf = 'rd';
+    return months[m] + ' ' + d + suf + ', ' + y;
+  }
+  document.querySelectorAll('.doc-date-control').forEach(function (wrap) {
+    var input = wrap.querySelector('[data-date-input]');
+    var out = wrap.querySelector('[data-date-pretty]');
+    if (!input || !out) return;
+    function sync() {
+      out.textContent = prettyDate(input.value);
+    }
+    input.addEventListener('input', sync);
+    input.addEventListener('change', sync);
+    sync();
+  });
+})();
+
+(function () {
+  var root = document.querySelector('[data-desk-calc]');
+  if (!root) return;
+  var pad = root.querySelector('[data-calc-pad]');
+  var screen = root.querySelector('[data-calc-screen]');
+  var histEl = root.querySelector('[data-calc-history]');
+  var toggle = root.querySelector('[data-calc-toggle]');
+  if (!pad || !screen || !toggle) return;
+  var cur = '0';
+  var acc = null;
+  var op = null;
+  var fresh = true;
+  var history = [];
+  function shown(n) {
+    if (!isFinite(n)) return 'Error';
+    var s = String(Math.round(n * 1e10) / 1e10);
+    return s;
+  }
+  function render() {
+    screen.textContent = cur;
+  }
+  function compute() {
+    var b = parseFloat(cur);
+    if (acc === null || !op || isNaN(b)) return b;
+    if (op === '+') return acc + b;
+    if (op === '-') return acc - b;
+    if (op === '*') return acc * b;
+    if (op === '/') return b === 0 ? NaN : acc / b;
+    return b;
+  }
+  function pushHistory(expr) {
+    history.unshift(expr);
+    history = history.slice(0, 8);
+    if (!histEl) return;
+    histEl.innerHTML = history.map(function (row) {
+      return '<li>' + row.replace(/</g, '&lt;') + '</li>';
+    }).join('');
+  }
+  root.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-calc]');
+    if (!btn) return;
+    e.preventDefault();
+    var act = btn.getAttribute('data-calc');
+    if (act === 'digit') {
+      var d = btn.getAttribute('data-digit') || '';
+      cur = fresh || cur === '0' ? d : cur + d;
+      fresh = false;
+      render();
+      return;
+    }
+    if (act === 'dot') {
+      if (fresh) {
+        cur = '0.';
+        fresh = false;
+      } else if (cur.indexOf('.') === -1) {
+        cur += '.';
+      }
+      render();
+      return;
+    }
+    if (act === 'clear') {
+      cur = '0';
+      acc = null;
+      op = null;
+      fresh = true;
+      render();
+      return;
+    }
+    if (act === 'back') {
+      if (fresh) return;
+      cur = cur.length <= 1 ? '0' : cur.slice(0, -1);
+      if (cur === '-') cur = '0';
+      render();
+      return;
+    }
+    if (act === 'op') {
+      var next = btn.getAttribute('data-op');
+      if (!fresh && acc !== null && op) {
+        var res = compute();
+        pushHistory(shown(acc) + ' ' + op + ' ' + cur + ' = ' + shown(res));
+        acc = res;
+        cur = shown(res);
+      } else {
+        acc = parseFloat(cur);
+      }
+      op = next;
+      fresh = true;
+      render();
+      return;
+    }
+    if (act === 'eq') {
+      if (acc === null || !op) return;
+      var result = compute();
+      pushHistory(shown(acc) + ' ' + op + ' ' + cur + ' = ' + shown(result));
+      cur = shown(result);
+      acc = null;
+      op = null;
+      fresh = true;
+      render();
+      return;
+    }
+    if (act === 'copy') {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(cur);
+      }
+      return;
+    }
+    if (act === 'history' && histEl) {
+      histEl.hidden = !histEl.hidden;
+    }
+  });
+  toggle.addEventListener('click', function () {
+    pad.hidden = !pad.hidden;
+    toggle.setAttribute('aria-label', pad.hidden ? 'Open calculator' : 'Close calculator');
+  });
 })();

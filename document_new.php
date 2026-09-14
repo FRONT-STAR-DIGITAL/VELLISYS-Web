@@ -112,7 +112,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             apply_fx_rate(post('fx_ugx_per_usd'));
         }
         $payload['doc_template'] = doc_template_key();
-        $letterhead = posted_letterhead();
         if ($existing) {
             update_document($editId, $payload);
             $id = $editId;
@@ -121,9 +120,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id = create_document($payload);
             flash($meta['singular'] . ' ' . load_document($id)['number'] . ' saved.');
         }
-        save_document_letterhead($id, $letterhead);
-        if (trim((string) ($letterhead['name'] ?? '')) !== '') {
-            apply_letterhead_to_branding($letterhead);
+        if (isset($_POST['from_name'])) {
+            $letterhead = posted_letterhead();
+            save_document_letterhead($id, $letterhead);
+            if (trim((string) ($letterhead['name'] ?? '')) !== '') {
+                apply_letterhead_to_branding($letterhead);
+            }
         }
         apply_posted_party($partyId);
         redirect('document_view.php?id=' . $id);
@@ -157,7 +159,6 @@ $heading = $existing ? 'Edit ' . strtolower($meta['singular']) : $meta['verb'];
 $docCurrency = $existing ? doc_currency($existing) : default_currency();
 $docTpl = $existing ? doc_template_key($existing) : doc_template_key();
 $allocValue = $existing ? (string) ($existing['allocated_amount'] ?: ($existing['totals']['total'] ?? '')) : '';
-$fromDoc = array_merge($brand = branding(), decode_letterhead($existing['letterhead'] ?? ''));
 $toParty = $prefillParty ? db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$prefillParty, current_company_id()]) : null;
 $partyBook = [];
 foreach ($parties as $p) {
@@ -215,7 +216,7 @@ layout_start($heading, $user, ['kind' => $kind]);
 
   <div class="form-grid">
     <?php if ($kind === 'receipt'): ?>
-      <div style="grid-column:1 / -1">
+      <div class="doc-span">
         <label for="related_id">Against invoice</label>
         <select id="related_id" name="related_id" data-against-invoice>
           <option value="">No invoice - standalone receipt</option>
@@ -238,108 +239,64 @@ layout_start($heading, $user, ['kind' => $kind]);
         <p class="hint">Enter less than the remaining balance to record a part payment. The rest stays on the client in Debtors.</p>
       </div>
     <?php endif; ?>
+    <div<?= in_array($kind, ['invoice', 'quotation'], true) ? '' : ' class="doc-span"' ?>>
+      <label for="date">Date</label>
+      <div class="doc-date-control">
+        <?= icon('calendar', 18) ?>
+        <span class="doc-date-pretty" data-date-pretty></span>
+        <input id="date" name="date" type="date" value="<?= h((string) ($existing['date'] ?? today())) ?>" required data-date-input>
+      </div>
+    </div>
+    <?php if (in_array($kind, ['invoice', 'quotation'], true)): ?>
+      <div>
+        <label for="due_date">Due date</label>
+        <div class="doc-date-control">
+          <?= icon('calendar', 18) ?>
+          <span class="doc-date-pretty" data-date-pretty></span>
+          <input id="due_date" name="due_date" type="date" value="<?= h((string) ($existing['due_date'] ?? date('Y-m-d', strtotime('+14 days')))) ?>" data-date-input>
+        </div>
+      </div>
+    <?php endif; ?>
+    <?php if ($kind === 'expense'): ?>
     <div>
-      <label for="party_id"><?= in_array($kind, ['expense', 'refund', 'return_note'], true) ? 'Party' : 'Client' ?></label>
+      <label for="party_id">Party</label>
       <select id="party_id" name="party_id" required>
         <option value="">Choose…</option>
         <?php foreach ($parties as $p): ?>
           <option value="<?= (int) $p['id'] ?>" <?= (int) $p['id'] === $prefillParty ? 'selected' : '' ?>><?= h($p['name']) ?></option>
         <?php endforeach; ?>
       </select>
-      <p class="hint"><a href="<?= h(url('client_edit.php')) ?>"><?= $kind === 'expense' ? 'Add a payee or supplier' : 'Add a new client' ?></a></p>
+      <p class="hint"><a href="<?= h(url('client_edit.php')) ?>">Add a payee or supplier</a></p>
     </div>
-    <?php if ($kind !== 'expense'): ?>
-    <div class="doc-side-block" style="grid-column:1 / -1">
-      <details class="doc-side" open>
-        <summary>From - your company on this sheet</summary>
-        <div class="form-grid">
-          <div>
-            <label for="from_name">Company name</label>
-            <input id="from_name" name="from_name" value="<?= h((string) ($fromDoc['name'] ?? '')) ?>">
-          </div>
-          <div>
-            <label for="from_tagline">Tagline</label>
-            <input id="from_tagline" name="from_tagline" value="<?= h((string) ($fromDoc['tagline'] ?? '')) ?>">
-          </div>
-          <div style="grid-column:1 / -1">
-            <label for="from_address">Address</label>
-            <input id="from_address" name="from_address" value="<?= h((string) ($fromDoc['address'] ?? '')) ?>">
-          </div>
-          <div>
-            <label for="from_city">City</label>
-            <input id="from_city" name="from_city" value="<?= h((string) ($fromDoc['city'] ?? '')) ?>">
-          </div>
-          <div>
-            <label for="from_phone">Phone</label>
-            <input id="from_phone" name="from_phone" value="<?= h((string) ($fromDoc['phone'] ?? '')) ?>">
-          </div>
-          <div>
-            <label for="from_email">Email</label>
-            <input id="from_email" name="from_email" value="<?= h((string) ($fromDoc['email'] ?? '')) ?>">
-          </div>
-          <div>
-            <label for="from_website">Website</label>
-            <input id="from_website" name="from_website" value="<?= h((string) ($fromDoc['website'] ?? '')) ?>">
-          </div>
-          <div>
-            <label for="from_tin">TIN</label>
-            <input id="from_tin" name="from_tin" value="<?= h((string) ($fromDoc['tin'] ?? '')) ?>">
-          </div>
+    <?php else: ?>
+    <div class="doc-client-block doc-span">
+      <h2 class="doc-client-title">Customer information</h2>
+      <input type="hidden" id="to_name" name="to_name" value="<?= h((string) ($toParty['name'] ?? '')) ?>">
+      <div class="form-grid doc-client-grid" data-to-fields>
+        <div>
+          <label for="party_id">Customer name</label>
+          <select id="party_id" name="party_id" required>
+            <option value="">Start typing customer name…</option>
+            <?php foreach ($parties as $p): ?>
+              <option value="<?= (int) $p['id'] ?>" <?= (int) $p['id'] === $prefillParty ? 'selected' : '' ?>><?= h($p['name']) ?></option>
+            <?php endforeach; ?>
+          </select>
+          <p class="hint"><a href="<?= h(url('client_edit.php')) ?>">Add a new client</a></p>
         </div>
-      </details>
-      <details class="doc-side doc-side-to" open>
-        <summary>To - client on this sheet</summary>
-        <div class="form-grid" data-to-fields>
-          <div>
-            <label for="to_name">Name</label>
-            <input id="to_name" name="to_name" value="<?= h((string) ($toParty['name'] ?? '')) ?>">
-          </div>
-          <div>
-            <label for="to_contact">Contact person</label>
-            <input id="to_contact" name="to_contact" value="<?= h((string) ($toParty['contact_person'] ?? '')) ?>">
-          </div>
-          <div style="grid-column:1 / -1">
-            <label for="to_address">Address</label>
-            <textarea id="to_address" name="to_address" rows="3"><?= h((string) ($toParty['address'] ?? '')) ?></textarea>
-          </div>
-          <div>
-            <label for="to_city">City</label>
-            <input id="to_city" name="to_city" value="<?= h((string) ($toParty['city'] ?? '')) ?>">
-          </div>
-          <div>
-            <label for="to_country">Country</label>
-            <input id="to_country" name="to_country" value="<?= h((string) ($toParty['country'] ?? '')) ?>">
-          </div>
-          <div>
-            <label for="to_phone">Phone</label>
-            <input id="to_phone" name="to_phone" value="<?= h((string) ($toParty['phone'] ?? '')) ?>">
-          </div>
-          <div>
-            <label for="to_phone2">Phone 2</label>
-            <input id="to_phone2" name="to_phone2" value="<?= h((string) ($toParty['phone2'] ?? '')) ?>">
-          </div>
-          <div>
-            <label for="to_email">Email</label>
-            <input id="to_email" name="to_email" value="<?= h((string) ($toParty['email'] ?? '')) ?>">
-          </div>
-          <div>
-            <label for="to_tin">TIN</label>
-            <input id="to_tin" name="to_tin" value="<?= h((string) ($toParty['tin'] ?? '')) ?>">
-          </div>
+        <div>
+          <label for="to_address">Customer address</label>
+          <input id="to_address" name="to_address" value="<?= h((string) ($toParty['address'] ?? '')) ?>">
         </div>
-        <p class="hint">These print as From and Bill to / To. Saving updates the client record and the company letterhead.</p>
-      </details>
-    </div>
-    <?php endif; ?>
-    <div>
-      <label for="date">Date</label>
-      <input id="date" name="date" type="date" value="<?= h((string) ($existing['date'] ?? today())) ?>" required>
-    </div>
-    <?php if (in_array($kind, ['invoice', 'quotation'], true)): ?>
-      <div>
-        <label for="due_date">Due date</label>
-        <input id="due_date" name="due_date" type="date" value="<?= h((string) ($existing['due_date'] ?? date('Y-m-d', strtotime('+14 days')))) ?>">
+        <div>
+          <label for="to_phone">Customer contact</label>
+          <input id="to_phone" name="to_phone" value="<?= h((string) ($toParty['phone'] ?? '')) ?>">
+        </div>
+        <div>
+          <label for="to_email">Email</label>
+          <input id="to_email" name="to_email" type="email" value="<?= h((string) ($toParty['email'] ?? '')) ?>">
+        </div>
       </div>
+    </div>
     <?php endif; ?>
     <?php if (kind_shows_money($kind)): ?>
       <div>
@@ -482,9 +439,9 @@ layout_start($heading, $user, ['kind' => $kind]);
               $lineTotal = $qty * $rate;
               ?>
             <tr>
-              <td><input name="item_name[<?= $i ?>]" placeholder="Item" value="<?= h((string) ($line['item_name'] ?? '')) ?>"></td>
-              <td><textarea name="item_desc[<?= $i ?>]" rows="2" placeholder="Description"><?= h((string) ($line['description'] ?? '')) ?></textarea></td>
-              <td>
+              <td class="line-item"><input name="item_name[<?= $i ?>]" placeholder="Item" value="<?= h((string) ($line['item_name'] ?? '')) ?>"></td>
+              <td class="line-desc"><textarea name="item_desc[<?= $i ?>]" rows="2" placeholder="Description"><?= h((string) ($line['description'] ?? '')) ?></textarea></td>
+              <td class="line-qty">
                 <div class="qty-wrap">
                   <button type="button" class="qty-btn" data-qty-delta="-1" aria-label="Decrease quantity">-</button>
                   <input name="item_qty[<?= $i ?>]" type="number" min="0" step="any" inputmode="decimal" value="<?= h((string) ($line['qty'] ?? 1)) ?>" data-line-qty>
@@ -492,9 +449,9 @@ layout_start($heading, $user, ['kind' => $kind]);
                 </div>
               </td>
               <?php if ($kind !== 'delivery'): ?>
-                <td><input name="item_rate[<?= $i ?>]" type="number" min="0" step="any" inputmode="decimal" placeholder="0" value="<?= h((string) ($line['rate'] ?? '')) ?>" data-line-rate></td>
-                <td class="right mono"><span data-line-total><?= $lineTotal ? h(number_format($lineTotal, 2, '.', ',')) : '0' ?></span></td>
-                <td class="center">
+                <td class="line-rate"><input name="item_rate[<?= $i ?>]" type="number" min="0" step="any" inputmode="decimal" placeholder="0" value="<?= h((string) ($line['rate'] ?? '')) ?>" data-line-rate></td>
+                <td class="line-total right mono"><span data-line-total><?= $lineTotal ? h(number_format($lineTotal, 2, '.', ',')) : '0' ?></span></td>
+                <td class="line-vat center">
                   <label class="vat-yn">
                     <input type="checkbox" name="item_taxed[<?= $i ?>]" value="1" <?= !empty($line['taxed']) ? 'checked' : '' ?> data-vat-box>
                     <span data-vat-yn><?= !empty($line['taxed']) ? 'Y' : 'N' ?></span>
@@ -559,4 +516,35 @@ layout_start($heading, $user, ['kind' => $kind]);
     <a class="btn ghost" href="<?= h(url($existing ? 'document_view.php?id=' . $existing['id'] : 'documents.php?kind=' . $kind)) ?>">Cancel</a>
   </div>
 </form>
+<div class="desk-calc" data-desk-calc>
+  <div class="desk-calc-pad" data-calc-pad hidden>
+    <div class="desk-calc-tools">
+      <button type="button" class="desk-calc-tool" data-calc="history"><?= icon('clock', 16) ?> History</button>
+      <button type="button" class="desk-calc-tool" data-calc="copy"><?= icon('copy', 16) ?> Copy</button>
+    </div>
+    <ol class="desk-calc-history" data-calc-history hidden></ol>
+    <div class="desk-calc-screen" data-calc-screen>0</div>
+    <div class="desk-calc-keys">
+      <button type="button" class="desk-calc-key op" data-calc="clear">C</button>
+      <button type="button" class="desk-calc-key op" data-calc="back" aria-label="Backspace"><?= icon('backspace', 16) ?></button>
+      <button type="button" class="desk-calc-key op" data-calc="op" data-op="/">÷</button>
+      <button type="button" class="desk-calc-key op" data-calc="op" data-op="*">×</button>
+      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="7">7</button>
+      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="8">8</button>
+      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="9">9</button>
+      <button type="button" class="desk-calc-key op" data-calc="op" data-op="-">−</button>
+      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="4">4</button>
+      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="5">5</button>
+      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="6">6</button>
+      <button type="button" class="desk-calc-key op" data-calc="op" data-op="+">+</button>
+      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="1">1</button>
+      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="2">2</button>
+      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="3">3</button>
+      <button type="button" class="desk-calc-key eq" data-calc="eq">=</button>
+      <button type="button" class="desk-calc-key num zero" data-calc="digit" data-digit="0">0</button>
+      <button type="button" class="desk-calc-key num" data-calc="dot">.</button>
+    </div>
+  </div>
+  <button type="button" class="desk-calc-fab" data-calc-toggle aria-label="Open calculator"><?= icon('calculator', 22) ?></button>
+</div>
 <?php layout_end(); ?>

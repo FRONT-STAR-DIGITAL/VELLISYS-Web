@@ -530,6 +530,48 @@ form.actions, td form { display: inline; margin: 0; }
 .content:has(.form-wide) { max-width: none; }
 .form-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 20px; }
 .form-grid > div { min-width: 0; }
+.doc-span { grid-column: 1 / -1; }
+.doc-client-block { margin: 4px 0 8px; }
+.doc-client-title {
+  margin: 4px 0 12px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.doc-date-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--brand) 18%, var(--line));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--brand-tint, #eef6f8) 70%, #fff);
+  color: var(--ink);
+}
+.doc-date-control .icon { flex: 0 0 auto; color: var(--muted); }
+.doc-date-pretty {
+  font-size: 15px;
+  font-weight: 500;
+  pointer-events: none;
+}
+.doc-date-control input[type="date"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border: 0;
+  background: transparent;
+}
+.document-form .doc-client-grid input,
+.document-form .doc-client-grid select {
+  background: color-mix(in srgb, var(--brand-tint, #eef6f8) 55%, #fff);
+  border-radius: 12px;
+}
 .kinds-pick {
   margin: 16px 0 8px;
   padding: 16px 0 4px;
@@ -1846,6 +1888,12 @@ input, select, textarea { font-weight: 400; }
   .page-head { gap: 12px; margin-bottom: 18px; }
   .page-head .btn { width: auto; }
   .desk-hero, .page-head, .desk-grid, .form-grid, .login { grid-template-columns: 1fr; display: flex; flex-direction: column; }
+  .document-form > .form-grid,
+  .document-form .doc-client-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 12px 18px;
+  }
   .action-grid { display: grid; grid-template-columns: 1fr 1fr; }
   .stats, .stats.six { grid-template-columns: 1fr 1fr; }
   .login-art { min-height: 240px; padding: 28px; }
@@ -2116,93 +2164,8 @@ input, select, textarea { font-weight: 400; }
   }
   input, select, textarea, .btn { font-size: 16px; }
   .qty-btn { min-width: 40px; min-height: 40px; }
-  .lines .qty-wrap {
-    display: grid;
-    grid-template-columns: 40px minmax(0, 1fr) 40px;
-    width: 100%;
-    max-width: none;
-    gap: 6px;
-  }
-  .lines .qty-wrap input {
-    width: 100%;
-    min-width: 0;
-    flex: none;
-  }
   .desk-body, .print-body { overflow-x: hidden; }
   .content { min-width: 0; }
-  .lines thead { display: none; }
-  .lines, .lines tbody, .lines tr, .lines td { display: block; width: 100%; }
-  .lines { border: 0; min-width: 0 !important; table-layout: auto; }
-  .lines-wrap { overflow: visible; }
-  .lines tr {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0 10px;
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    margin: 0 0 12px;
-    padding: 8px 12px 10px;
-    background: #fff;
-  }
-  .lines th,
-  .lines td {
-    width: auto !important;
-    min-width: 0 !important;
-    max-width: 100%;
-  }
-  .lines td {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 4px;
-    padding: 6px 0;
-    border: 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .lines td:nth-child(1),
-  .lines td:nth-child(2) { grid-column: 1 / -1; }
-  .lines td.lines-del-col {
-    grid-column: 1 / -1;
-    border-bottom: 0;
-    align-items: flex-end;
-    padding-top: 4px;
-  }
-  .lines td.lines-del-col .btn {
-    min-width: 44px;
-    min-height: 44px;
-    width: 44px;
-    height: 44px;
-  }
-  .lines td:last-child { border-bottom: 0; }
-  .lines td::before {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-  .lines td:nth-child(1)::before { content: "Item"; }
-  .lines td:nth-child(2)::before { content: "Description"; }
-  .lines td:nth-child(3)::before { content: "Qty"; }
-  .lines td:nth-child(4)::before { content: "Unit price"; }
-  .lines td:nth-child(5)::before { content: "Total Amt"; }
-  .lines td:nth-child(6)::before { content: "VAT"; }
-  .lines td.lines-del-col::before { content: none; }
-  .lines td.right, .lines td.center { text-align: left; }
-  .lines textarea,
-  .lines input {
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-    box-sizing: border-box;
-    word-break: normal;
-    overflow-wrap: anywhere;
-  }
-  .lines textarea { min-height: 64px; }
-  .lines-preview { padding: 10px; }
-  .lines-preview-table { min-width: 520px; }
-  .document-form .form-grid,
-  .document-form .form-grid.two { grid-template-columns: 1fr; }
   .document-form input,
   .document-form select,
   .document-form textarea { width: 100%; max-width: 100%; }
@@ -2431,6 +2394,7 @@ input, select, textarea { font-weight: 400; }
 }
 @page { size: A4; margin: 0; }
 @media print {
+  .desk-calc { display: none !important; }
   .desk-body::before { display: none !important; }
   html, body, .desk-body, .print-body {
     background: #fff !important;
@@ -3023,4 +2987,244 @@ input, select, textarea { font-weight: 400; }
     white-space: nowrap;
     font-size: 12.5px;
   }
+}
+
+.desk-calc {
+  display: none;
+}
+@media (min-width: 821px) {
+  .desk-calc {
+    display: block;
+    position: fixed;
+    right: 22px;
+    bottom: 22px;
+    z-index: 40;
+  }
+}
+.desk-calc-fab {
+  width: 56px;
+  height: 56px;
+  border: 0;
+  border-radius: 50%;
+  background: #2563eb;
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, .35);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+}
+.desk-calc-fab:hover { filter: brightness(1.05); }
+.desk-calc-pad {
+  width: 280px;
+  margin: 0 0 12px auto;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(8, 20, 58, .16);
+}
+.desk-calc-tools {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.desk-calc-tool {
+  border: 0;
+  background: transparent;
+  color: #8a93a8;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 4px 0;
+}
+.desk-calc-history {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 8px;
+  max-height: 88px;
+  overflow: auto;
+  background: #f6f7fb;
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.desk-calc-history li { padding: 2px 0; }
+.desk-calc-screen {
+  min-height: 72px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  background: #f4f6fa;
+  border-radius: 12px;
+  font-size: 28px;
+  font-weight: 600;
+  font-family: var(--mono);
+  word-break: break-all;
+}
+.desk-calc-keys {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.desk-calc-key {
+  min-height: 48px;
+  border: 0;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.desk-calc-key.num {
+  background: #ff6a2b;
+  color: #fff;
+}
+.desk-calc-key.op {
+  background: #eef3f8;
+  color: #445;
+}
+.desk-calc-key.eq {
+  background: #2563eb;
+  color: #fff;
+  grid-row: span 2;
+}
+.desk-calc-key.zero { grid-column: span 2; }
+.desk-calc-key.op[data-calc="clear"] { color: #e11d48; }
+.desk-calc-key.op[data-calc="back"] { color: #f59e0b; }
+
+@media (max-width: 640px) {
+  .document-form > .form-grid,
+  .document-form .doc-client-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px 12px;
+  }
+  .document-form .doc-client-grid .hint { display: none; }
+  .lines-preview { display: none; }
+  .lines thead { display: none; }
+  .lines, .lines tbody, .lines tr, .lines td { display: block; width: 100%; }
+  .lines { border: 0; min-width: 0 !important; table-layout: auto; }
+  .lines-wrap { overflow: visible; margin: 8px 0; }
+  .lines tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .lines tr {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 12px;
+    margin: 0;
+    padding: 14px 14px 12px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 1px 0 rgba(8, 20, 58, .03);
+  }
+  .lines th,
+  .lines td {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: 100%;
+    padding: 0;
+    border: 0;
+  }
+  .lines td {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .lines td::before {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .lines .line-item { grid-column: 1 / -1; padding-right: 44px; }
+  .lines .line-desc { grid-column: 1 / -1; }
+  .lines .line-item::before { content: "Item"; }
+  .lines .line-desc::before { content: "Description"; }
+  .lines .line-qty::before { content: "Qty"; }
+  .lines .line-rate::before { content: "Unit price"; }
+  .lines .line-total::before { content: "Total"; }
+  .lines .line-vat::before { content: "VAT"; }
+  .lines td.lines-del-col {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: auto !important;
+    border: 0;
+    padding: 0;
+  }
+  .lines td.lines-del-col::before { content: none; }
+  .lines td.lines-del-col .btn {
+    min-width: 40px;
+    min-height: 40px;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+  }
+  .lines .qty-wrap {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    max-width: none;
+    gap: 0;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .lines .qty-wrap input {
+    width: auto;
+    min-width: 0;
+    flex: 1 1 auto;
+    border: 0;
+    border-radius: 0;
+    height: 42px;
+    box-shadow: none;
+  }
+  .lines .qty-btn {
+    flex: 0 0 42px;
+    width: 42px;
+    min-width: 42px;
+    height: 42px;
+    border: 0;
+    border-radius: 0;
+    background: #f4f6fb;
+  }
+  .lines .qty-btn + input { border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+  .lines .line-rate input,
+  .lines .line-item input,
+  .lines .line-desc textarea {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .lines .line-desc textarea { min-height: 52px; resize: vertical; }
+  .lines .line-total {
+    justify-content: flex-end;
+    font-size: 15px;
+  }
+  .lines .line-vat { align-items: flex-start; }
+  .lines .vat-yn {
+    min-height: 42px;
+    padding: 0 10px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .lines td.right, .lines td.center { text-align: left; }
 }

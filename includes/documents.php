@@ -191,31 +191,31 @@ function apply_posted_party(int $partyId): void
     if ($partyId <= 0) {
         return;
     }
-    $name = trim((string) ($_POST['to_name'] ?? ''));
-    if ($name === '') {
-        return;
-    }
     $cid = current_company_id();
     $party = db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$partyId, $cid]);
     if (!$party) {
         return;
     }
+    $name = trim((string) ($_POST['to_name'] ?? ''));
+    if ($name === '') {
+        $name = (string) ($party['name'] ?? '');
+    }
+    if ($name === '') {
+        return;
+    }
+    $phone = array_key_exists('to_phone', $_POST)
+        ? (trim((string) $_POST['to_phone']) ?: null)
+        : ($party['phone'] ?? null);
+    $email = array_key_exists('to_email', $_POST)
+        ? (trim((string) $_POST['to_email']) ?: null)
+        : ($party['email'] ?? null);
+    $address = array_key_exists('to_address', $_POST)
+        ? (trim((string) $_POST['to_address']) ?: null)
+        : ($party['address'] ?? null);
     db_exec(
-        'UPDATE parties SET name=?, contact_person=?, tin=?, phone=?, phone2=?, email=?, address=?, city=?, country=? WHERE id=? AND company_id=?',
-        'sssssssssii',
-        [
-            $name,
-            trim((string) ($_POST['to_contact'] ?? $party['contact_person'] ?? '')),
-            trim((string) ($_POST['to_tin'] ?? $party['tin'] ?? '')) ?: null,
-            trim((string) ($_POST['to_phone'] ?? $party['phone'] ?? '')) ?: null,
-            trim((string) ($_POST['to_phone2'] ?? $party['phone2'] ?? '')) ?: null,
-            trim((string) ($_POST['to_email'] ?? $party['email'] ?? '')) ?: null,
-            trim((string) ($_POST['to_address'] ?? $party['address'] ?? '')) ?: null,
-            trim((string) ($_POST['to_city'] ?? $party['city'] ?? '')) ?: null,
-            trim((string) ($_POST['to_country'] ?? $party['country'] ?? '')) ?: null,
-            $partyId,
-            $cid,
-        ]
+        'UPDATE parties SET name=?, phone=?, email=?, address=? WHERE id=? AND company_id=?',
+        'ssssii',
+        [$name, $phone, $email, $address, $partyId, $cid]
     );
 }
 
