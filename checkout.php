@@ -302,7 +302,7 @@ $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'
             <option value="United Kingdom">
             <option value="United States">
           </datalist>
-          <label class="lp-stock-addon check" for="stock_addon">
+          <label class="lp-stock-addon" for="stock_addon">
             <input id="stock_addon" name="stock_addon" type="checkbox" value="1" <?= $stockOn ? 'checked' : '' ?> data-stock-addon data-package-ugx="<?= (int) $pkg['price_ugx'] ?>" data-stock-ugx="<?= (int) $addonUgx ?>">
             <span>Add stock management for <strong data-ugx="<?= (int) $addonUgx ?>"><?= h($addonNow) ?></strong> a year. Single-branch packages add <?= h(pricing_format(50000, $ccy)) ?> worth; more than one branch adds <?= h(pricing_format(100000, $ccy)) ?> worth, converted to the currency you picked.</span>
           </label>

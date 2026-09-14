@@ -2767,8 +2767,17 @@ html.is-pwa body.gate .lp-floats { display: none !important; }
   margin: 16px 0;
   font-size: 14.5px;
   line-height: 1.45;
+  font-weight: 600;
 }
-.lp-stock-addon input { margin-top: 3px; }
+.lp-checkout-form .lp-stock-addon input[type="checkbox"] {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  margin: 3px 0 0;
+  flex: 0 0 18px;
+  accent-color: var(--blue);
+}
 .lp-pricing-register a { color: var(--blue); font-weight: 700; }
 
 .lp-checkout-page .lp-floats { display: none; }
