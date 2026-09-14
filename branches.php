@@ -77,24 +77,36 @@ $activityByBranch = [];
 if ($admin) {
     foreach ($branches as $b) {
         $bid = (int) ($b['id'] ?? 0);
-        $activityByBranch[$bid] = company_activities([
-            'branch_id' => $bid,
-            'limit' => 5,
-        ]);
+        $raw = company_activities(['branch_id' => $bid, 'limit' => 12]);
+        $seen = [];
+        $compact = [];
+        foreach ($raw as $row) {
+            $key = strtolower(trim((string) ($row['title'] ?? '')));
+            if ($key === '' || isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $compact[] = $row;
+            if (count($compact) >= 3) {
+                break;
+            }
+        }
+        $activityByBranch[$bid] = $compact;
     }
 }
 
 layout_start('Branches', $user);
 ?>
+<div class="branch-page">
 <div class="page-head">
   <div>
     <h1><?= icon('pin') ?>Branches</h1>
-    <p class="lede">Head office is the company address in Settings. Named branches print their own address on sheets issued from there. Assign staff so their work lands on that branch.</p>
+    <p class="lede">Head office uses the company address in Settings. Named branches print their own address. Assign staff so their work is recorded there.</p>
   </div>
   <?php if ($admin): ?>
     <div class="actions">
       <a class="btn ghost" href="<?= h(url('activities.php')) ?>"><?= icon('clock', 16) ?>All activity</a>
-      <a class="btn ghost" href="<?= h(url('settings.php#company')) ?>"><?= icon('building', 16) ?>Head office address</a>
+      <a class="btn ghost" href="<?= h(url('settings.php#company')) ?>"><?= icon('building', 16) ?>Company address</a>
     </div>
   <?php endif; ?>
 </div>
@@ -107,34 +119,55 @@ layout_start('Branches', $user);
       $staff = branch_staff($bid);
       $isHead = !empty($b['is_head']);
       $recent = $activityByBranch[$bid] ?? [];
+      $addr = trim((string) ($b['address'] ?? ''));
+      $city = trim((string) ($b['city'] ?? ''));
+      $phone = trim((string) ($b['phone'] ?? ''));
+      $email = trim((string) ($b['email'] ?? ''));
+      $place = trim($addr . ($addr !== '' && $city !== '' ? ', ' : '') . $city);
       ?>
     <article class="card branch-card">
-      <div class="card-head">
-        <h2><?= icon($isHead ? 'building' : 'pin', 16) ?><?= h((string) $b['name']) ?></h2>
-        <?php if ($isHead): ?><span class="pill">Head office</span><?php endif; ?>
-      </div>
-      <p class="lede" style="margin:0 0 10px">
-        <?= h(trim((string) ($b['address'] ?? '')) !== '' ? (string) $b['address'] : 'No street yet') ?>
-        <?php if (trim((string) ($b['city'] ?? '')) !== ''): ?> · <?= h((string) $b['city']) ?><?php endif; ?>
-      </p>
-      <p class="hint" style="margin:0 0 12px">
-        <?= h(trim((string) ($b['phone'] ?? '')) !== '' ? (string) $b['phone'] : 'No phone') ?>
-        · <?= h(trim((string) ($b['email'] ?? '')) !== '' ? (string) $b['email'] : 'No email') ?>
-      </p>
-      <p class="hint"><strong>Staff</strong>
+      <header class="branch-card-top">
+        <div class="branch-card-title">
+          <?= icon($isHead ? 'building' : 'pin', 18) ?>
+          <div>
+            <h2><?= h((string) $b['name']) ?></h2>
+            <?php if ($isHead): ?><p>Company address from Settings</p><?php endif; ?>
+          </div>
+        </div>
+      </header>
+      <dl class="branch-meta">
+        <div>
+          <dt>Address</dt>
+          <dd><?= h($place !== '' ? $place : 'No address yet') ?></dd>
+        </div>
+        <div>
+          <dt>Phone</dt>
+          <dd><?= h($phone !== '' ? $phone : 'No phone') ?></dd>
+        </div>
+        <div>
+          <dt>Email</dt>
+          <dd class="branch-meta-email"><?= h($email !== '' ? $email : 'No email') ?></dd>
+        </div>
+      </dl>
+      <div class="branch-staff">
+        <span>Staff</span>
         <?php if (!$staff): ?>
-          — none assigned<?= $isHead ? ' (unassigned logins sit here)' : '' ?>.
+          <p><?= $isHead ? 'Unassigned logins sit here.' : 'Nobody assigned yet.' ?></p>
         <?php else: ?>
-          — <?= h(implode(', ', array_map(static fn ($m) => (string) $m['name'], $staff))) ?>
+          <ul>
+            <?php foreach ($staff as $m): ?>
+              <li><?= h((string) $m['name']) ?></li>
+            <?php endforeach; ?>
+          </ul>
         <?php endif; ?>
-      </p>
+      </div>
       <?php if ($admin): ?>
-        <div class="actions" style="margin:12px 0 0;flex-wrap:wrap">
+        <div class="branch-card-actions">
           <a class="btn ghost sm" href="<?= h(url('activities.php?branch=' . $bid)) ?>"><?= icon('clock', 14) ?>Activity</a>
           <?php if ($isHead): ?>
             <a class="btn ghost sm" href="<?= h(url('settings.php#company')) ?>"><?= icon('pencil', 14) ?>Edit address</a>
           <?php else: ?>
-            <a class="btn ghost sm" href="<?= h(url('branches.php?edit=' . $bid)) ?>"><?= icon('pencil', 14) ?>Edit</a>
+            <a class="btn ghost sm" href="<?= h(url('branches.php?edit=' . $bid . '#branch-form')) ?>"><?= icon('pencil', 14) ?>Edit</a>
             <form method="post" onsubmit="return confirm('Remove this branch? Staff move to Head office.');">
               <?= csrf_field() ?>
               <input type="hidden" name="action" value="delete_branch">
@@ -145,11 +178,15 @@ layout_start('Branches', $user);
         </div>
         <?php if ($recent): ?>
           <div class="branch-activity">
-            <?php foreach ($recent as $row): ?>
-              <div class="branch-activity-row">
+            <h3>Recent</h3>
+            <?php foreach ($recent as $row):
+                $href = trim((string) ($row['href'] ?? ''));
+                $tag = $href !== '' ? 'a' : 'div';
+                ?>
+              <<?= $tag ?><?= $href !== '' ? ' href="' . h(url($href)) . '"' : '' ?> class="branch-activity-row">
                 <strong><?= h((string) $row['title']) ?></strong>
-                <span><?= h((string) ($row['actor_name'] ?? '')) ?> · <?= h(format_date(substr((string) $row['occurred_at'], 0, 10))) ?></span>
-              </div>
+                <span><?= h(trim((string) ($row['actor_name'] ?? ''))) ?><?= !empty($row['actor_name']) ? ' - ' : '' ?><?= h(format_date(substr((string) $row['occurred_at'], 0, 10))) ?></span>
+              </<?= $tag ?>>
             <?php endforeach; ?>
           </div>
         <?php endif; ?>
@@ -159,19 +196,19 @@ layout_start('Branches', $user);
 </div>
 
 <?php if ($admin): ?>
-  <div class="card" style="margin-top:16px">
-    <div class="card-head"><h2><?= icon('user', 16) ?>Assign staff</h2></div>
+  <div class="card branch-assign-card">
+    <h2><?= icon('user', 16) ?>Assign staff</h2>
     <?php if (!$members): ?>
-      <p class="empty" style="padding:0 22px 18px">Add logins in Settings, then assign them here.</p>
+      <p class="empty">Add logins in Settings, then assign them here.</p>
     <?php else: ?>
-      <form method="post" class="form-grid" style="padding:0 22px 18px">
+      <form method="post" class="branch-assign">
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="assign_staff">
         <div>
           <label for="user_id">Person</label>
           <select id="user_id" name="user_id" required>
             <?php foreach ($members as $m): ?>
-              <option value="<?= (int) $m['id'] ?>"><?= h($m['name']) ?> · <?= h(company_branch_label((int) ($m['branch_id'] ?? 0))) ?></option>
+              <option value="<?= (int) $m['id'] ?>"><?= h($m['name']) ?> - <?= h(company_branch_label((int) ($m['branch_id'] ?? 0))) ?></option>
             <?php endforeach; ?>
           </select>
         </div>
@@ -181,24 +218,20 @@ layout_start('Branches', $user);
             <?php render_branch_options(); ?>
           </select>
         </div>
-        <div class="actions" style="align-self:end">
-          <button class="btn sm" type="submit">Save assignment</button>
-        </div>
+        <button class="btn" type="submit">Save</button>
       </form>
     <?php endif; ?>
   </div>
 
-  <form class="card form-wide" method="post" style="margin-top:16px">
+  <form class="card branch-form" method="post" id="branch-form">
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="save_branch">
     <?php if ($edit): ?>
       <input type="hidden" name="branch_id" value="<?= (int) $edit['id'] ?>">
     <?php endif; ?>
-    <div class="card-head">
-      <h2><?= icon('plus', 16) ?><?= $edit ? 'Edit ' . h((string) $edit['name']) : 'Add a named branch' ?></h2>
-    </div>
-    <p class="lede" style="padding:0 22px">Use the city or a shop name. This address prints on documents issued from the branch.</p>
-    <div class="form-grid" style="padding:0 22px 18px">
+    <h2><?= icon($edit ? 'pencil' : 'plus', 16) ?><?= $edit ? 'Edit ' . h((string) $edit['name']) : 'Add a named branch' ?></h2>
+    <p class="lede">Use a city or shop name. That address prints on documents issued from the branch.</p>
+    <div class="branch-form-grid">
       <div>
         <label for="name">Branch name</label>
         <input id="name" name="name" required value="<?= h((string) ($edit['name'] ?? post('name'))) ?>" placeholder="Kampala shop">
@@ -207,7 +240,7 @@ layout_start('Branches', $user);
         <label for="city">City</label>
         <input id="city" name="city" value="<?= h((string) ($edit['city'] ?? post('city'))) ?>">
       </div>
-      <div style="grid-column:1 / -1">
+      <div class="branch-form-wide">
         <label for="address">Address</label>
         <input id="address" name="address" value="<?= h((string) ($edit['address'] ?? post('address'))) ?>">
       </div>
@@ -220,7 +253,7 @@ layout_start('Branches', $user);
         <input id="email" name="email" type="email" value="<?= h((string) ($edit['email'] ?? post('email'))) ?>">
       </div>
     </div>
-    <div class="actions" style="padding:0 22px 18px">
+    <div class="branch-form-actions">
       <button class="btn" type="submit"><?= icon('check') ?><?= $edit ? 'Save branch' : 'Add branch' ?></button>
       <?php if ($edit): ?>
         <a class="btn ghost" href="<?= h(url('branches.php')) ?>">Cancel</a>
@@ -228,4 +261,5 @@ layout_start('Branches', $user);
     </div>
   </form>
 <?php endif; ?>
+</div>
 <?php layout_end(); ?>

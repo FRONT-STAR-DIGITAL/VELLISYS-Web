@@ -208,7 +208,7 @@ layout_start($heading, $user, ['kind' => $kind]);
       if ($existing) {
           echo 'Number stays the same. Change the client, lines, dates or design, then save.';
       } elseif ($kind === 'letter') {
-          echo 'Start blank or pick a starting text for the body. The printed letter has no template title — the subject is the heading. Download Word to get the letter as it stands now, including the starting text you have selected.';
+          echo 'Start blank or pick a starting text for the body. The printed letter has no template title - the subject is the heading. Download Word to get the letter as it stands now, including the starting text you have selected.';
       } elseif ($kind === 'custom') {
           echo h($customDef['title']) . ' - fill the fields this company uses' . (!empty($customDef['has_body']) ? ', then the body if you need it' : '') . '.';
       } elseif ($kind === 'delivery') {
