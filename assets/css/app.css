@@ -677,6 +677,26 @@ form.actions, td form { display: inline; margin: 0; }
 }
 .kinds-opt { display: flex; align-items: center; gap: 8px; font-weight: 600; }
 .kinds-opt input { width: auto; margin: 0; }
+.document-form .kinds-opt[data-sign-box] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 12px 0 4px;
+  padding: 10px 12px;
+  min-width: 0;
+}
+.document-form .kinds-opt[data-sign-box] span { min-width: 0; }
+.document-form input[type="checkbox"],
+.document-form input[type="radio"] {
+  width: auto;
+  max-width: none;
+  height: auto;
+  flex: 0 0 auto;
+  margin: 0;
+}
 .custom-doc-box {
   padding: 14px 16px 16px;
   border: 1px solid var(--line);
@@ -2535,6 +2555,19 @@ input, select, textarea { font-weight: 400; }
   .document-form input,
   .document-form select,
   .document-form textarea { width: 100%; max-width: 100%; }
+  .document-form input[type="checkbox"],
+  .document-form input[type="radio"] {
+    width: auto;
+    max-width: none;
+    height: 1.15em;
+    flex: 0 0 auto;
+  }
+  .document-form .kinds-opt[data-sign-box] {
+    width: 100%;
+    max-width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+  }
   .header-settings { min-width: 44px; min-height: 44px; width: 44px; height: 44px; }
   .sticky-save .btn { min-height: 44px; }
   .card:has(table.grid:not(.lines)) {

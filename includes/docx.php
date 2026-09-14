@@ -77,9 +77,13 @@ function docx_p(string $text, array $opts = []): string
     return docx_p_wrap(docx_text_run($text, $opts), $opts);
 }
 
-function docx_inline_image(int $cx, int $cy, string $rid, string $name, int $docPrId): string
+function docx_inline_image(int $cx, int $cy, string $rid, string $name, int $docPrId, bool $underline = false): string
 {
-    return '<w:p><w:pPr><w:jc w:val="left"/><w:spacing w:after="80"/></w:pPr><w:r>'
+    $bdr = $underline
+        ? '<w:pBdr><w:bottom w:val="single" w:sz="8" w:space="1" w:color="222222"/></w:pBdr>'
+        : '';
+    $before = $underline ? 0 : 80;
+    return '<w:p><w:pPr><w:jc w:val="left"/>' . $bdr . '<w:spacing w:before="' . $before . '" w:after="80"/></w:pPr><w:r>'
         . '<w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">'
         . '<wp:extent cx="' . $cx . '" cy="' . $cy . '"/>'
         . '<wp:docPr id="' . $docPrId . '" name="' . docx_xml($name) . '"/>'
@@ -318,14 +322,14 @@ function letter_docx_bytes(?array $doc = null): string
 
     $signPath = ($stampSign && company_signature_path($brand) !== '') ? (ROOT_PATH . '/' . company_signature_path($brand)) : '';
     $signXml = '';
-    $signCx = 2286000;
-    $signCy = 914400;
+    $signCx = 1645920;
+    $signCy = 658368;
     if ($signPath && is_file($signPath) && is_readable($signPath)) {
         $info = @getimagesize($signPath);
         if (is_array($info) && ($info[0] ?? 0) > 0) {
             $signCy = (int) round($signCx * ((int) $info[1] / max(1, (int) $info[0])));
         }
-        $signXml = docx_inline_image($signCx, $signCy, 'rId4', 'Signature', 2);
+        $signXml = docx_inline_image($signCx, $signCy, 'rId4', 'Signature', 2, true);
     } else {
         $signPath = '';
     }

@@ -206,13 +206,20 @@
   font-weight: 400;
   color: inherit;
 }
-.d-sign { margin-top: 18px; }
+.d-sign {
+  margin-top: -6px;
+  margin-bottom: 6px;
+  display: inline-block;
+  max-width: 148px;
+}
 .d-sign img {
   display: block;
-  height: 54px;
+  height: 38px;
   width: auto;
-  max-width: 220px;
+  max-width: 148px;
   object-fit: contain;
+  padding: 0 4px 3px 0;
+  border-bottom: 1px solid #1a1a1a;
 }
 .d-lines td.desc { white-space: pre-wrap; word-break: break-word; line-height: 1.45; }
 /* Receipt settlement: amount due always below amount received, never side-by-side */
