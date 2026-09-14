@@ -234,6 +234,10 @@ function letter_docx_apply_request(?array $doc): array
     if (array_key_exists('add_signature', $_REQUEST)) {
         $out['add_signature'] = (string) $_REQUEST['add_signature'] === '1' ? 1 : 0;
     }
+    $dateIn = trim((string) ($_REQUEST['date'] ?? ''));
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateIn)) {
+        $out['date'] = $dateIn;
+    }
     if ($partyId > 0) {
         $party = db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$partyId, current_company_id()]);
         if ($party) {
@@ -253,18 +257,9 @@ function letter_docx_bytes(?array $doc = null): string
     }
     $doc = letter_docx_apply_request($doc);
     $brand = branding();
-    if ($doc) {
-        $lh = decode_letterhead($doc['letterhead'] ?? '');
-        if ($lh) {
-            foreach ($lh as $k => $v) {
-                if (is_string($v) && trim($v) !== '') {
-                    $brand[$k] = $v;
-                }
-            }
-        }
-    }
     $color = docx_color((string) ($brand['brand_color'] ?? brand_color()));
     $name = (string) ($brand['name'] ?? 'Company');
+    $tagline = trim((string) ($brand['tagline'] ?? ''));
     $date = $doc ? format_date($doc['date'] ?? today()) : format_date(today());
     $ref = $doc ? (string) ($doc['number'] ?? '') : '';
     $subject = $doc ? trim((string) ($doc['subject'] ?? '')) : '';
@@ -292,7 +287,7 @@ function letter_docx_bytes(?array $doc = null): string
             $mime = (string) ($info['mime'] ?? 'image/png');
             $logoExt = str_contains($mime, 'jpeg') ? 'jpeg' : (str_contains($mime, 'gif') ? 'gif' : 'png');
         }
-        $logoXml = docx_inline_image($cx, $cy, 'rId1', 'Logo', 1);
+        $logoXml = docx_inline_image($cx, $cy, 'rId6', 'Logo', 1);
     } else {
         $logoPath = null;
     }
@@ -306,28 +301,22 @@ function letter_docx_bytes(?array $doc = null): string
         !empty($brand['tin']) ? 'TIN ' . $brand['tin'] : '',
     ]);
 
-    $nsHdr = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+    $nsDoc = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
         . 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" '
         . 'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" '
         . 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
         . 'xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"';
 
-    $header = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        . '<w:hdr ' . $nsHdr . '>'
-        . $logoXml
-        . docx_p($name, ['size' => 22, 'bold' => true, 'color' => $color, 'after' => 40])
-        . docx_p(implode("\n", $addrBits), ['size' => 22, 'color' => '444444', 'after' => 80])
+    $muted = ['size' => 20, 'color' => '6B7280', 'after' => 20];
+    $bodySize = ['size' => 22, 'after' => 80];
+    $letterhead = $logoXml
+        . docx_p($name, ['size' => 24, 'bold' => true, 'color' => $color, 'after' => 40])
+        . ($tagline !== '' ? docx_p($tagline, array_merge($muted, ['after' => 40])) : '')
+        . ($addrBits ? docx_p(implode("\n", $addrBits), array_merge($muted, ['after' => 80])) : '')
         . '<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="18" w:space="1" w:color="' . $color . '"/></w:pBdr>'
-        . '<w:spacing w:after="280"/></w:pPr></w:p></w:hdr>';
+        . '<w:spacing w:before="80" w:after="280"/></w:pPr></w:p>';
 
-    $footLine = trim(implode(' · ', array_filter([(string) ($brand['phone'] ?? ''), (string) ($brand['email'] ?? ''), (string) ($brand['website'] ?? '')])));
-    $footer = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        . '<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-        . '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="80"/></w:pPr><w:r>'
-        . docx_rpr(['size' => 18, 'color' => '666666'])
-        . '<w:t>' . docx_xml($footLine) . '</w:t></w:r></w:p></w:ftr>';
-
-    $signPath = ($stampSign && company_signature_path() !== '') ? (ROOT_PATH . '/' . company_signature_path()) : '';
+    $signPath = ($stampSign && company_signature_path($brand) !== '') ? (ROOT_PATH . '/' . company_signature_path($brand)) : '';
     $signXml = '';
     $signCx = 2286000;
     $signCy = 914400;
@@ -341,32 +330,31 @@ function letter_docx_bytes(?array $doc = null): string
         $signPath = '';
     }
 
-    $bodySize = ['size' => 22, 'after' => 160];
+    $dateLine = $date . ($ref !== '' ? '    Ref: ' . $ref : '');
     $toXml = docx_p('To', ['size' => 22, 'bold' => true, 'after' => 40])
-        . ($toName !== '' ? docx_p($toName, array_merge($bodySize, ['after' => 40])) : '')
+        . ($toName !== '' ? docx_p($toName, array_merge($bodySize, ['after' => 40])) : docx_p('', ['after' => 40]))
         . ($toAddr !== '' ? docx_p($toAddr, array_merge($bodySize, ['after' => 40])) : '')
         . ($toContact !== '' ? docx_p($toContact, array_merge($bodySize, ['after' => 200])) : docx_p('', ['after' => 200]));
     $subjectXml = $subject === ''
-        ? ''
+        ? docx_p_wrap(docx_text_run('Subject: ', ['size' => 28, 'bold' => true]), ['after' => 240])
         : docx_p_wrap(
             docx_text_run('Subject: ', ['size' => 28, 'bold' => true])
             . docx_text_run($subject, ['size' => 28, 'bold' => true]),
             ['size' => 28, 'after' => 240]
         );
-    $bodyXmlInner = docx_from_html($body, $bodySize);
+    $bodyXmlInner = $body !== '' ? docx_from_html($body, $bodySize) : docx_p('', ['after' => 400]) . docx_p('', ['after' => 400]);
 
     $document = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        . '<w:document ' . $nsHdr . '><w:body>'
-        . docx_p($date . ($ref !== '' ? '    Ref: ' . $ref : ''), array_merge($bodySize, ['after' => 240]))
+        . '<w:document ' . $nsDoc . '><w:body>'
+        . $letterhead
+        . docx_p($dateLine, array_merge($bodySize, ['after' => 240]))
         . $toXml
         . $subjectXml
         . $bodyXmlInner
         . $signXml
         . '<w:sectPr>'
-        . '<w:headerReference w:type="default" r:id="rId1"/>'
-        . '<w:footerReference w:type="default" r:id="rId2"/>'
         . '<w:pgSz w:w="11906" w:h="16838"/>'
-        . '<w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720"/>'
+        . '<w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="0" w:footer="0"/>'
         . '</w:sectPr></w:body></w:document>';
 
     $styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -393,8 +381,6 @@ function letter_docx_bytes(?array $doc = null): string
         . '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
         . '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>'
         . '<Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/>'
-        . '<Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>'
-        . '<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>'
         . '</Types>';
 
     $rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -404,16 +390,10 @@ function letter_docx_bytes(?array $doc = null): string
 
     $docRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-        . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>'
-        . '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>'
         . '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
         . '<Relationship Id="rId5" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>'
+        . ($logoPath ? '<Relationship Id="rId6" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/logo.' . $logoExt . '"/>' : '')
         . ($signXml !== '' ? '<Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/sign.png"/>' : '')
-        . '</Relationships>';
-
-    $headRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-        . ($logoPath ? '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/logo.' . $logoExt . '"/>' : '')
         . '</Relationships>';
 
     $tmp = sys_get_temp_dir() . '/vellisys-' . bin2hex(random_bytes(8)) . '.docx';
@@ -427,10 +407,7 @@ function letter_docx_bytes(?array $doc = null): string
     $zip->addFromString('word/styles.xml', $styles);
     $zip->addFromString('word/settings.xml', $settings);
     $zip->addFromString('word/_rels/document.xml.rels', $docRels);
-    $zip->addFromString('word/header1.xml', $header);
-    $zip->addFromString('word/footer1.xml', $footer);
     if ($logoPath) {
-        $zip->addFromString('word/_rels/header1.xml.rels', $headRels);
         $bytesLogo = (string) file_get_contents($logoPath);
         if ($bytesLogo !== '') {
             $zip->addFromString('word/media/logo.' . $logoExt, $bytesLogo);

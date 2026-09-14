@@ -376,6 +376,8 @@ document.addEventListener('click', function (e) {
   add('template', tpl ? tpl.value : 'none');
   add('subject', subjectValue(form));
   add('body', bodyValue(form));
+  var date = form.querySelector('#date');
+  if (date && date.value) add('date', date.value);
   var sig = form.querySelector('[data-sign-box] input[name="add_signature"]');
   add('add_signature', sig && !sig.closest('[hidden]') && sig.checked ? '1' : '0');
   var party = form.querySelector('#party_id');
