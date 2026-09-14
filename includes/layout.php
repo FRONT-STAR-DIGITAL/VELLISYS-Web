@@ -305,6 +305,7 @@ function layout_admin_start(string $title, array $user): void
         ['admin_companies.php', 'Companies', 'building'],
         ['admin_reports.php', 'Reports', 'reports'],
         ['admin_mail.php', 'Email', 'send'],
+        ['admin_settings.php', 'Settings', 'settings'],
         ['admin_admins.php', 'Admins', 'user'],
     ];
     $notes = platform_notifications(40);
@@ -362,6 +363,7 @@ function layout_admin_start(string $title, array $user): void
         <?php render_top_clock(); ?>
       </div>
       <div class="top-actions">
+        <a class="header-settings<?= $here === 'admin_settings.php' ? ' is-on' : '' ?>" href="<?= h(url('admin_settings.php')) ?>" title="Settings" aria-label="Settings"><?= icon('settings', 20) ?></a>
         <details class="top-bell">
           <summary class="header-settings<?= $noteCount ? ' has-badge' : '' ?>" title="Notifications" aria-label="Notifications">
             <?= icon('bell', 20) ?>

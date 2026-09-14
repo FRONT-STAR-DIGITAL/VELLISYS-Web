@@ -13,6 +13,10 @@ if ($existing && $existing['status'] === 'void') {
     flash('Voided documents cannot be edited.', 'err');
     redirect('document_view.php?id=' . $editId);
 }
+if ($existing && !user_can_edit_documents()) {
+    flash('Your login cannot edit documents.', 'err');
+    redirect('document_view.php?id=' . $editId);
+}
 
 $kind = $existing['kind'] ?? ($_GET['kind'] ?? post('kind') ?: 'invoice');
 if (!in_array($kind, desk_kind_list(), true)) {
@@ -117,6 +121,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             apply_fx_rate(post('fx_ugx_per_usd'));
         }
         $payload['doc_template'] = doc_template_key();
+        $postedDate = (string) ($payload['date'] ?? today());
+        $today = today();
+        if (!user_can_backdate_documents()) {
+            if ($existing) {
+                $orig = (string) ($existing['date'] ?? $today);
+                if ($postedDate < $today && $postedDate !== $orig) {
+                    $payload['date'] = $orig < $today ? $orig : $today;
+                }
+            } elseif ($postedDate < $today) {
+                $payload['date'] = $today;
+            }
+        }
         if ($existing) {
             update_document($editId, $payload);
             $id = $editId;
@@ -272,12 +288,20 @@ layout_start($heading, $user, ['kind' => $kind]);
     <?php endif; ?>
     <div<?= in_array($kind, ['invoice', 'quotation'], true) ? '' : ' class="doc-span"' ?>>
       <label for="date">Date</label>
+      <?php
+        $canBackdate = user_can_backdate_documents();
+        $dateVal = (string) ($existing['date'] ?? today());
+        $dateMin = $canBackdate ? '1990-01-01' : today();
+        if (!$canBackdate && $existing && $dateVal < today()) {
+            $dateMin = $dateVal;
+        }
+      ?>
       <div class="doc-date-control">
         <?= icon('calendar', 18) ?>
-        <input id="date" name="date" type="date" min="1990-01-01" max="2100-12-31" value="<?= h((string) ($existing['date'] ?? today())) ?>" required data-date-input>
+        <input id="date" name="date" type="date" min="<?= h($dateMin) ?>" max="2100-12-31" value="<?= h($dateVal) ?>" required data-date-input<?= (!$canBackdate && $existing && $dateVal < today()) ? ' readonly' : '' ?>>
         <span class="doc-date-pretty" data-date-pretty></span>
       </div>
-      <p class="hint">Type or pick any date, including a past date if you need to backdate the sheet.</p>
+      <p class="hint"><?= $canBackdate ? 'Type or pick any date, including a past date if you need to backdate the sheet.' : 'This login can date new sheets today or later. Ask the company admin for backdating.' ?></p>
     </div>
     <?php if (in_array($kind, ['invoice', 'quotation'], true)): ?>
       <div>

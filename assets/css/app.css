@@ -467,13 +467,14 @@ img { max-width: 100%; display: block; }
 .date-cell { white-space: nowrap; }
 .desk-term-wrap { margin: 0 0 18px; }
 .desk-term-wrap .top-term { display: inline-flex; }
-.people-reset {
-  display: flex;
-  gap: 6px;
+.people-user-actions {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 4px;
   align-items: center;
-  margin: 0;
-  flex-wrap: wrap;
+  margin: 0 0 6px;
 }
+.people-user-actions form { margin: 0; }
 .people-reset input { width: 9.5rem; margin: 0; }
 .feature-checks {
   display: grid;

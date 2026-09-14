@@ -82,7 +82,9 @@ function join_boot(string $intentKey): never
     $intent = join_intent($intentKey);
     $error = '';
     form_mark_open('join-' . $intent['source']);
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!platform_signups_open()) {
+        $error = 'New registrations are paused. Call ' . implode(' or ', product_phones()) . ' or sign in if you already have a desk.';
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = join_handle_post($intentKey);
         if (!empty($result['silent'])) {
             redirect(($intent['source'] === 'demo' ? 'demo.php' : 'register.php') . '?ok=1');
@@ -137,6 +139,14 @@ function join_render_page(array $intent, string $error, bool $ok): void
         <div class="lp-cta">
           <a class="lp-btn lp-btn-solid" href="<?= h(url()) ?>">Back to Vellisys</a>
           <a class="lp-btn lp-btn-ghost" href="<?= h($source === 'demo' ? url('register.php') : url('demo.php')) ?>"><?= $source === 'demo' ? 'Register instead' : 'Book a demo' ?></a>
+        </div>
+      </div>
+    <?php elseif (!platform_signups_open()): ?>
+      <div class="lp-ask-form lp-join-form">
+        <p class="lp-err"><?= h($error !== '' ? $error : 'New registrations are paused.') ?></p>
+        <div class="lp-cta">
+          <a class="lp-btn lp-btn-solid" href="<?= h(url('login.php')) ?>">Sign in</a>
+          <a class="lp-btn lp-btn-ghost" href="<?= h(url()) ?>">Back to Vellisys</a>
         </div>
       </div>
     <?php else: ?>

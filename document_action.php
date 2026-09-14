@@ -98,6 +98,9 @@ if (!$doc) {
 
 try {
     if ($action === 'void') {
+        if (!user_can_delete_documents()) {
+            throw new RuntimeException('Your login cannot delete documents.');
+        }
         void_document($id, post('reason') ?: 'Voided from desk');
         flash($doc['number'] . ' was voided.');
         redirect('document_view.php?id=' . $id);

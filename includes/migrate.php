@@ -242,9 +242,17 @@ function folio_ensure_access_addons(mysqli $db): void
     if (!db_has_column($db, 'users', 'features')) {
         @$db->query("ALTER TABLE users ADD COLUMN features TEXT NULL AFTER access");
     }
+    if (!db_has_column($db, 'users', 'status')) {
+        @$db->query("ALTER TABLE users ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'live' AFTER role");
+    }
     if (db_has_column($db, 'website_orders', 'plan') && !db_has_column($db, 'website_orders', 'stock_addon')) {
         @$db->query('ALTER TABLE website_orders ADD COLUMN stock_addon TINYINT(1) NOT NULL DEFAULT 0 AFTER plan');
     }
+    $db->query("CREATE TABLE IF NOT EXISTS platform_settings (
+      setting_key VARCHAR(80) NOT NULL PRIMARY KEY,
+      setting_value TEXT NOT NULL,
+      updated_at DATETIME NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     $db->query("CREATE TABLE IF NOT EXISTS pnl_savings (
       company_id INT UNSIGNED NOT NULL PRIMARY KEY,
       target_amount DECIMAL(14,2) NOT NULL DEFAULT 0,

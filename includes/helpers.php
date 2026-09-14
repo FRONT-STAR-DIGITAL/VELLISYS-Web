@@ -38,6 +38,51 @@ function money_display_decimals(float $amount, string $currency): int
     return max(2, $max);
 }
 
+function platform_setting(string $key, string $default = ''): string
+{
+    static $cache = [];
+    if (array_key_exists($key, $cache)) {
+        return $cache[$key];
+    }
+    try {
+        $row = db_one('SELECT setting_value FROM platform_settings WHERE setting_key = ?', 's', [$key]);
+        $cache[$key] = $row ? (string) $row['setting_value'] : $default;
+    } catch (Throwable $e) {
+        $cache[$key] = $default;
+    }
+    return $cache[$key];
+}
+
+function platform_setting_int(string $key, int $default): int
+{
+    $raw = trim(platform_setting($key, (string) $default));
+    if ($raw === '' || !is_numeric($raw)) {
+        return $default;
+    }
+    return (int) $raw;
+}
+
+function save_platform_setting(string $key, string $value): void
+{
+    db_exec(
+        'INSERT INTO platform_settings (setting_key, setting_value, updated_at) VALUES (?,?,NOW())
+         ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value), updated_at=NOW()',
+        'ss',
+        [$key, $value]
+    );
+}
+
+function default_desk_password(): string
+{
+    $pass = trim(platform_setting('default_desk_password', 'folio2026'));
+    return strlen($pass) >= 8 ? $pass : 'folio2026';
+}
+
+function platform_signups_open(): bool
+{
+    return platform_setting('signups_open', '1') !== '0';
+}
+
 function money($amount, ?string $currency = null): string
 {
     $currency = normalize_currency((string) ($currency ?: default_currency()), default_currency());
@@ -1669,7 +1714,7 @@ function create_desk_user(int $companyId, array $fields): array
         return ['ok' => false, 'error' => 'Name and a valid email are required.'];
     }
     if ($password === '') {
-        $password = 'folio2026';
+        $password = default_desk_password();
     }
     if (strlen($password) < 8) {
         return ['ok' => false, 'error' => 'Password must be at least 8 characters.'];
@@ -1707,6 +1752,117 @@ function create_desk_user(int $companyId, array $fields): array
         [$name, $title, $email, $hash, $role, $access, $featJson, $companyId, $branchId]
     );
     return ['ok' => true, 'email' => $email, 'password' => $password, 'role' => $role];
+}
+
+function company_admin_count(int $companyId, ?int $exceptUserId = null): int
+{
+    if ($exceptUserId) {
+        $row = db_one("SELECT COUNT(*) AS c FROM users WHERE company_id = ? AND role = 'admin' AND id <> ?", 'ii', [$companyId, $exceptUserId]);
+    } else {
+        $row = db_one("SELECT COUNT(*) AS c FROM users WHERE company_id = ? AND role = 'admin'", 'i', [$companyId]);
+    }
+    return (int) ($row['c'] ?? 0);
+}
+
+function load_desk_user(int $companyId, int $userId): ?array
+{
+    if ($companyId < 1 || $userId < 1) {
+        return null;
+    }
+    return db_one('SELECT * FROM users WHERE id = ? AND company_id = ?', 'ii', [$userId, $companyId]);
+}
+
+function update_desk_user(int $companyId, int $userId, array $fields): array
+{
+    $member = load_desk_user($companyId, $userId);
+    if (!$member) {
+        return ['ok' => false, 'error' => 'That user is not on this desk.'];
+    }
+    $name = trim((string) ($fields['name'] ?? $member['name']));
+    $email = strtolower(trim((string) ($fields['email'] ?? $member['email'])));
+    $title = mb_substr(trim((string) ($fields['job_title'] ?? ($member['job_title'] ?? ''))), 0, 80);
+    $password = (string) ($fields['password'] ?? '');
+    if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return ['ok' => false, 'error' => 'Name and a valid email are required.'];
+    }
+    $taken = db_one('SELECT id FROM users WHERE email = ? AND id <> ?', 'si', [$email, $userId]);
+    if ($taken) {
+        return ['ok' => false, 'error' => 'That email already has a Vellisys login.'];
+    }
+    $isAdmin = ($member['role'] ?? '') === 'admin';
+    $access = $isAdmin ? 'admin' : (((string) ($fields['access'] ?? $member['access'] ?? 'books')) === 'sales' ? 'sales' : 'books');
+    $features = $isAdmin
+        ? parse_user_features(array_keys(desk_feature_catalog()), 'books')
+        : parse_user_features($fields['features'] ?? ($member['features'] ?? []), $access);
+    $branchId = $member['branch_id'] ?? null;
+    $company = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$companyId]);
+    if ($company && company_branches_enabled($company) && array_key_exists('branch_id', $fields)) {
+        $branchId = normalize_branch_id($fields['branch_id'] ?? null, $companyId);
+    }
+    $featJson = json_encode($features, JSON_UNESCAPED_UNICODE);
+    if ($password !== '') {
+        if (strlen($password) < 8) {
+            return ['ok' => false, 'error' => 'Password must be at least 8 characters.'];
+        }
+        db_exec(
+            'UPDATE users SET name=?, job_title=?, email=?, password_hash=?, access=?, features=?, branch_id=? WHERE id=? AND company_id=?',
+            'ssssssiii',
+            [$name, $title, $email, password_hash($password, PASSWORD_DEFAULT), $access, $featJson, $branchId, $userId, $companyId]
+        );
+    } else {
+        db_exec(
+            'UPDATE users SET name=?, job_title=?, email=?, access=?, features=?, branch_id=? WHERE id=? AND company_id=?',
+            'sssssiii',
+            [$name, $title, $email, $access, $featJson, $branchId, $userId, $companyId]
+        );
+    }
+    return ['ok' => true, 'email' => $email];
+}
+
+function reset_desk_user_password(int $companyId, int $userId, string $password = ''): array
+{
+    $member = load_desk_user($companyId, $userId);
+    if (!$member) {
+        return ['ok' => false, 'error' => 'That user is not on this desk.'];
+    }
+    if ($password === '') {
+        $password = generate_desk_password();
+    }
+    if (strlen($password) < 8) {
+        return ['ok' => false, 'error' => 'Password must be at least 8 characters.'];
+    }
+    db_exec('UPDATE users SET password_hash = ? WHERE id = ? AND company_id = ?', 'sii', [password_hash($password, PASSWORD_DEFAULT), $userId, $companyId]);
+    return ['ok' => true, 'email' => (string) $member['email'], 'password' => $password];
+}
+
+function set_desk_user_suspended(int $companyId, int $userId, bool $suspended): array
+{
+    $member = load_desk_user($companyId, $userId);
+    if (!$member) {
+        return ['ok' => false, 'error' => 'That user is not on this desk.'];
+    }
+    if ($suspended && ($member['role'] ?? '') === 'admin' && company_admin_count($companyId, $userId) < 1) {
+        return ['ok' => false, 'error' => 'You cannot suspend the last company admin.'];
+    }
+    $status = $suspended ? 'suspended' : 'live';
+    db_exec('UPDATE users SET status = ? WHERE id = ? AND company_id = ?', 'sii', [$status, $userId, $companyId]);
+    return ['ok' => true, 'email' => (string) $member['email'], 'status' => $status];
+}
+
+function delete_desk_user(int $companyId, int $userId, ?int $actorId = null): array
+{
+    $member = load_desk_user($companyId, $userId);
+    if (!$member) {
+        return ['ok' => false, 'error' => 'That user is not on this desk.'];
+    }
+    if ($actorId && $actorId === $userId) {
+        return ['ok' => false, 'error' => 'You cannot delete your own login.'];
+    }
+    if (($member['role'] ?? '') === 'admin' && company_admin_count($companyId, $userId) < 1) {
+        return ['ok' => false, 'error' => 'You cannot delete the last company admin.'];
+    }
+    db_exec('DELETE FROM users WHERE id = ? AND company_id = ?', 'ii', [$userId, $companyId]);
+    return ['ok' => true, 'email' => (string) $member['email']];
 }
 
 function generate_desk_password(): string

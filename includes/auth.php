@@ -17,7 +17,12 @@ function current_user(): ?array
     $user['job_title'] = (string) ($user['job_title'] ?? '');
     $user['access'] = (string) ($user['access'] ?? (($user['role'] ?? '') === 'admin' ? 'admin' : 'books'));
     $user['role'] = (string) ($user['role'] ?? 'member');
+    $user['status'] = (string) ($user['status'] ?? 'live');
     $user['branch_id'] = isset($user['branch_id']) && (int) $user['branch_id'] > 0 ? (int) $user['branch_id'] : null;
+    if (($user['role'] ?? '') !== 'platform' && ($user['status'] ?? 'live') === 'suspended') {
+        unset($_SESSION['user_id'], $_SESSION['company_id'], $_SESSION['role'], $_SESSION['acting_company_id']);
+        return null;
+    }
     return $user;
 }
 
@@ -123,6 +128,9 @@ function desk_feature_catalog(): array
         'debtors' => 'Debtors',
         'creditors' => 'Creditors',
         'email' => 'Email',
+        'edit_documents' => 'Editing documents',
+        'delete_documents' => 'Deleting documents',
+        'backdate_documents' => 'Creating backdated documents',
     ];
 }
 
@@ -137,12 +145,24 @@ function desk_feature_defaults(string $access): array
 function parse_user_features(mixed $raw, string $access = 'books'): array
 {
     $allowed = array_keys(desk_feature_catalog());
+    $fromStore = is_string($raw);
     $decoded = $raw;
-    if (is_string($raw) && trim($raw) !== '') {
+    if ($fromStore && trim($raw) !== '') {
         $decoded = json_decode($raw, true);
     }
     if (!is_array($decoded)) {
         return desk_feature_defaults($access === 'sales' ? 'sales' : 'books');
+    }
+    $docPowers = ['edit_documents', 'delete_documents', 'backdate_documents'];
+    $hasPowerTick = false;
+    foreach ($decoded as $rawKey) {
+        if (in_array((string) $rawKey, $docPowers, true)) {
+            $hasPowerTick = true;
+            break;
+        }
+    }
+    if ($fromStore && !$hasPowerTick && $access !== 'sales') {
+        $decoded = array_merge($decoded, $docPowers);
     }
     $out = [];
     foreach ($decoded as $key) {
@@ -189,9 +209,39 @@ function user_can_see_profit(?array $user = null): bool
     return is_desk_admin($user);
 }
 
-function render_desk_feature_checks(array $selected, string $name = 'features[]'): void
+function user_can_edit_documents(?array $user = null): bool
 {
-    $stockOn = function_exists('company_stock_enabled') && company_stock_enabled();
+    return is_desk_admin($user) || user_can_feature('edit_documents', $user);
+}
+
+function user_can_delete_documents(?array $user = null): bool
+{
+    return is_desk_admin($user) || user_can_feature('delete_documents', $user);
+}
+
+function user_can_backdate_documents(?array $user = null): bool
+{
+    return is_desk_admin($user) || user_can_feature('backdate_documents', $user);
+}
+
+function login_fail_reason(?string $set = null): string
+{
+    static $reason = '';
+    if ($set !== null) {
+        $reason = $set;
+    }
+    return $reason;
+}
+
+function user_is_suspended(?array $user = null): bool
+{
+    $user = $user ?? current_user();
+    return $user && (($user['status'] ?? 'live') === 'suspended');
+}
+
+function render_desk_feature_checks(array $selected, string $name = 'features[]', ?array $company = null): void
+{
+    $stockOn = function_exists('company_stock_enabled') && company_stock_enabled($company);
     ?>
     <div class="feature-checks">
       <?php foreach (desk_feature_catalog() as $key => $label): ?>
@@ -299,12 +349,25 @@ function user_can_open(string $script, string $kind = ''): bool
 
 function attempt_login(string $email, string $password): bool
 {
+    login_fail_reason('');
     $user = db_one('SELECT * FROM users WHERE email = ?', 's', [strtolower($email)]);
     if (!$user || !password_verify($password, $user['password_hash'])) {
         return false;
     }
+    if (($user['role'] ?? '') !== 'platform' && (($user['status'] ?? 'live') === 'suspended')) {
+        login_fail_reason('This login is suspended. Ask your company admin to restore it.');
+        return false;
+    }
+    $cid = (int) ($user['company_id'] ?? 0);
+    if (($user['role'] ?? '') !== 'platform' && $cid > 0) {
+        $co = db_one('SELECT status FROM companies WHERE id = ?', 'i', [$cid]);
+        if ($co && (($co['status'] ?? '') === 'suspended')) {
+            login_fail_reason('This company desk is suspended. Contact Vellisys.');
+            return false;
+        }
+    }
     $_SESSION['user_id'] = (int) $user['id'];
-    $_SESSION['company_id'] = (int) ($user['company_id'] ?? 0);
+    $_SESSION['company_id'] = $cid;
     $_SESSION['role'] = $user['role'] ?? 'member';
     return true;
 }

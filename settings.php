@@ -7,9 +7,11 @@ $brand = branding();
 $error = '';
 $cid = current_company_id();
 $deskCompany = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$cid]);
-$members = db_all('SELECT id, name, job_title, email, role, access, features, branch_id, created_at FROM users WHERE company_id = ? ORDER BY role = \'admin\' DESC, id', 'i', [$cid]);
+$members = db_all('SELECT id, name, job_title, email, role, access, features, status, branch_id, created_at FROM users WHERE company_id = ? ORDER BY role = \'admin\' DESC, id', 'i', [$cid]);
 $seats = company_user_limit($deskCompany ?: null);
 $used = company_seat_count($cid);
+$editUserId = (int) ($_GET['edit'] ?? 0);
+$editMember = $editUserId ? load_desk_user($cid, $editUserId) : null;
 
 if (isset($_GET['backup'])) {
     company_backup_send((string) $_GET['backup']);
@@ -34,7 +36,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('Login created for ' . $made['email'] . '. Temporary password: ' . $made['password']);
             redirect('settings.php#people');
         }
-        } elseif ($action === 'save_user_access') {
+    } elseif ($action === 'edit_user') {
+        $uid = (int) post('user_id');
+        $member = load_desk_user($cid, $uid);
+        if (!$member) {
+            $error = 'That user is not on this desk.';
+        } else {
+            $access = post('user_access') === 'sales' ? 'sales' : 'books';
+            $saved = update_desk_user($cid, $uid, [
+                'name' => post('user_name'),
+                'email' => post('user_email'),
+                'password' => post('user_password'),
+                'job_title' => post('user_title'),
+                'access' => $access,
+                'features' => posted_user_features($access),
+                'branch_id' => post('user_branch'),
+            ]);
+            if (empty($saved['ok'])) {
+                $error = (string) ($saved['error'] ?? 'Could not save that user.');
+            } else {
+                flash('User updated: ' . $saved['email'] . '.');
+                redirect('settings.php#people');
+            }
+        }
+    } elseif ($action === 'suspend_user' || $action === 'restore_user') {
+        $uid = (int) post('user_id');
+        $saved = set_desk_user_suspended($cid, $uid, $action === 'suspend_user');
+        if (empty($saved['ok'])) {
+            $error = (string) ($saved['error'] ?? 'Could not change that login.');
+        } else {
+            flash($saved['status'] === 'suspended' ? ($saved['email'] . ' is suspended and cannot sign in.') : ($saved['email'] . ' can sign in again.'));
+            redirect('settings.php#people');
+        }
+    } elseif ($action === 'delete_user') {
+        $uid = (int) post('user_id');
+        $saved = delete_desk_user($cid, $uid, (int) $user['id']);
+        if (empty($saved['ok'])) {
+            $error = (string) ($saved['error'] ?? 'Could not delete that user.');
+        } else {
+            flash('Deleted login ' . $saved['email'] . '.');
+            redirect('settings.php#people');
+        }
+    } elseif ($action === 'save_user_access') {
         $uid = (int) post('user_id');
         $member = db_one('SELECT * FROM users WHERE id = ? AND company_id = ?', 'ii', [$uid, $cid]);
         $access = post('user_access') === 'sales' ? 'sales' : 'books';
@@ -252,7 +295,66 @@ layout_start('Settings', $user);
 
     <section class="card settings-card" id="people">
       <h2><?= icon('user') ?>People</h2>
-      <p class="lede">This desk has <?= (int) $used ?> of <?= (int) $seats ?> login<?= $seats === 1 ? '' : 's' ?>. Vellisys sets the number. <?= h(company_plan_label()) ?> allows up to <?= (int) plan_user_limit_max($deskCompany ?: null) ?> users. Only the company admin sees profit, net profit, reports, settings, branches and activities. Assign Desk or Sales, then tick the pages that user may open.</p>
+      <p class="lede">This desk has <?= (int) $used ?> of <?= (int) $seats ?> login<?= $seats === 1 ? '' : 's' ?>. Vellisys sets the number. <?= h(company_plan_label()) ?> allows up to <?= (int) plan_user_limit_max($deskCompany ?: null) ?> users. Only the company admin sees profit, net profit, reports, settings, branches and activities. Assign Desk or Sales, then tick the pages that user may open. You can edit, suspend or delete a login.</p>
+      <?php if ($editMember): ?>
+        <?php
+          $eAccess = ((string) ($editMember['access'] ?? 'books')) === 'sales' ? 'sales' : 'books';
+          $eFeat = parse_user_features($editMember['features'] ?? '', $eAccess);
+          $eIsAdmin = ($editMember['role'] ?? '') === 'admin';
+        ?>
+        <form method="post" class="people-add" autocomplete="off" data-access-features>
+          <?= csrf_field() ?>
+          <input type="hidden" name="action" value="edit_user">
+          <input type="hidden" name="user_id" value="<?= (int) $editMember['id'] ?>">
+          <h3>Edit <?= h($editMember['name']) ?></h3>
+          <div class="form-grid">
+            <div>
+              <label for="edit_user_name">Name</label>
+              <input id="edit_user_name" name="user_name" required value="<?= h(post('user_name') !== '' ? post('user_name') : (string) $editMember['name']) ?>">
+            </div>
+            <div>
+              <label for="edit_user_title">Title</label>
+              <input id="edit_user_title" name="user_title" value="<?= h(post('user_title') !== '' ? post('user_title') : (string) ($editMember['job_title'] ?? '')) ?>">
+            </div>
+            <div>
+              <label for="edit_user_email">Email</label>
+              <input id="edit_user_email" name="user_email" type="email" required value="<?= h(post('user_email') !== '' ? post('user_email') : (string) $editMember['email']) ?>">
+            </div>
+            <?php if (!$eIsAdmin): ?>
+            <div>
+              <label for="edit_user_access">Access</label>
+              <select id="edit_user_access" name="user_access" data-access-select>
+                <?php foreach (desk_staff_access_levels() as $key => $info): ?>
+                  <option value="<?= h($key) ?>" <?= $eAccess === $key ? 'selected' : '' ?>><?= h($info['label']) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <?php endif; ?>
+            <div>
+              <label for="edit_user_password">New password (optional)</label>
+              <input id="edit_user_password" name="user_password" type="password" minlength="8" autocomplete="new-password">
+            </div>
+            <?php if (company_branches_enabled()): ?>
+            <div>
+              <label for="edit_user_branch">Branch</label>
+              <select id="edit_user_branch" name="user_branch">
+                <?php render_branch_options((int) ($editMember['branch_id'] ?? 0)); ?>
+              </select>
+            </div>
+            <?php endif; ?>
+          </div>
+          <?php if ($eIsAdmin): ?>
+            <p class="hint">The company admin keeps every desk page. Leave the password blank to keep the current one.</p>
+          <?php else: ?>
+            <p class="hint">Leave the password blank to keep the current one. Tick editing, deleting and backdating documents if this person should change issued sheets.</p>
+            <?php render_desk_feature_checks($eFeat); ?>
+          <?php endif; ?>
+          <div class="actions" style="margin-top:12px">
+            <button class="btn sm" type="submit"><?= icon('check', 14) ?>Save user</button>
+            <a class="btn ghost sm" href="<?= h(url('settings.php#people')) ?>">Cancel</a>
+          </div>
+        </form>
+      <?php endif; ?>
       <?php if (!$members): ?>
         <p class="empty">No logins yet.</p>
       <?php else: ?>
@@ -264,6 +366,7 @@ layout_start('Settings', $user);
               <th>Title</th>
               <th>Email</th>
               <th>Access</th>
+              <th>Status</th>
               <?php if (company_branches_enabled()): ?><th>Branch</th><?php endif; ?>
               <th></th>
             </tr>
@@ -275,6 +378,7 @@ layout_start('Settings', $user);
                 <td><?= h((string) ($m['job_title'] ?? '')) ?></td>
                 <td class="mono"><?= h($m['email']) ?></td>
                 <td><?= h(desk_access_label((string) $m['role'], (string) ($m['access'] ?? 'books'))) ?></td>
+                <td><?= (($m['status'] ?? 'live') === 'suspended') ? 'Suspended' : 'Live' ?></td>
                 <?php if (company_branches_enabled()): ?>
                   <td>
                     <form method="post" class="people-reset">
@@ -288,7 +392,31 @@ layout_start('Settings', $user);
                     </form>
                   </td>
                 <?php endif; ?>
-                <td>
+                <td class="row-actions">
+                  <div class="actions people-user-actions">
+                    <a class="btn ghost sm" href="<?= h(url('settings.php?edit=' . (int) $m['id'] . '#people')) ?>">Edit</a>
+                    <?php if (($m['status'] ?? 'live') === 'suspended'): ?>
+                      <form method="post">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="action" value="restore_user">
+                        <input type="hidden" name="user_id" value="<?= (int) $m['id'] ?>">
+                        <button class="btn ghost sm" type="submit">Restore</button>
+                      </form>
+                    <?php else: ?>
+                      <form method="post" onsubmit="return confirm('Suspend this login? They will not be able to sign in.');">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="action" value="suspend_user">
+                        <input type="hidden" name="user_id" value="<?= (int) $m['id'] ?>">
+                        <button class="btn ghost sm" type="submit">Suspend</button>
+                      </form>
+                    <?php endif; ?>
+                    <form method="post" onsubmit="return confirm('Delete this login? This cannot be undone.');">
+                      <?= csrf_field() ?>
+                      <input type="hidden" name="action" value="delete_user">
+                      <input type="hidden" name="user_id" value="<?= (int) $m['id'] ?>">
+                      <button class="btn danger sm" type="submit">Delete</button>
+                    </form>
+                  </div>
                   <form method="post" class="people-reset">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="reset_password">
@@ -304,7 +432,7 @@ layout_start('Settings', $user);
                 $mFeat = parse_user_features($m['features'] ?? '', $mAccess);
               ?>
               <tr class="people-access-row">
-                <td colspan="<?= company_branches_enabled() ? 6 : 5 ?>">
+                <td colspan="<?= company_branches_enabled() ? 7 : 6 ?>">
                   <form method="post" class="people-access" data-access-features>
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="save_user_access">
@@ -330,7 +458,7 @@ layout_start('Settings', $user);
         </table>
         </div>
       <?php endif; ?>
-      <?php if ($used < $seats): ?>
+      <?php if (!$editMember && $used < $seats): ?>
         <form method="post" class="people-add" autocomplete="off" data-access-features>
           <?= csrf_field() ?>
           <input type="hidden" name="action" value="add_user">
@@ -359,7 +487,7 @@ layout_start('Settings', $user);
             </div>
             <div>
               <label for="user_password">Temporary password</label>
-              <input id="user_password" name="user_password" value="<?= h(post('user_password') !== '' ? post('user_password') : 'folio2026') ?>" minlength="8">
+              <input id="user_password" name="user_password" value="<?= h(post('user_password') !== '' ? post('user_password') : default_desk_password()) ?>" minlength="8">
             </div>
             <?php if (company_branches_enabled()): ?>
             <div>
@@ -370,14 +498,15 @@ layout_start('Settings', $user);
             </div>
             <?php endif; ?>
           </div>
-          <p class="hint">Tick the pages this login may open. Profit, reports, settings, branches and activities stay with the admin.</p>
+          <p class="hint">Tick the pages this login may open. Profit, reports, settings, branches and activities stay with the admin. Tick editing, deleting and backdating documents if this person should change issued sheets.</p>
           <?php render_desk_feature_checks(posted_user_features(post('user_access') === 'sales' ? 'sales' : 'books')); ?>
           <div class="actions" style="margin-top:12px">
             <button class="btn sm" type="submit"><?= icon('plus', 14) ?>Create login</button>
           </div>
         </form>
-      <?php else: ?>
-        <p class="hint">All <?= (int) $seats ?> seats are in use. Ask Vellisys if you need to replace a login.</p>
+      <?php endif; ?>
+      <?php if (!$editMember && $used >= $seats): ?>
+        <p class="hint">All <?= (int) $seats ?> seats are in use. Delete a login to free a seat, or ask Vellisys to raise the limit.</p>
       <?php endif; ?>
     </section>
 

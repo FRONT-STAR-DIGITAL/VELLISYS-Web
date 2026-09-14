@@ -31,15 +31,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (($user['role'] ?? '') === 'platform') {
             redirect('admin_signups.php');
         }
-        $first = finish_member_first_login($user);
+        $first = finish_member_first_login($user ?: []);
         $next = desk_safe_next(post('next') ?: (string) ($_GET['next'] ?? ''));
-        if ($first) {
+        if ($first && $user && is_desk_admin($user)) {
             redirect('settings.php?welcome=1');
         }
         redirect($next);
     } else {
         form_rate_hit('login', 900);
-        $error = 'Those details did not match an account.';
+        $error = login_fail_reason() ?: 'Those details did not match an account.';
     }
 }
 

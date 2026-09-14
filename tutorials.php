@@ -353,7 +353,7 @@ $lessons = [
         'alt' => 'Settings People with logins, titles and access',
         'lead' => 'Vellisys Start allows up to 2 users, Business up to 3, Pro up to 4. Vellisys sets how many this desk actually gets. Only the admin adds people.',
         'points' => [
-            'Settings, People. Add a name, title, email, access and a temporary password.',
+            'Settings, People. Add a name, title, email, access and a temporary password. Edit, suspend or delete a login. Tick pages plus editing, deleting and backdating documents.',
             'Books sees documents, clients, debtors, creditors and email. Sales sees quotations, invoices, receipts, clients and email. Neither opens Reports or Settings.',
             'Reset a password from the same list. People change their own password with Change my password on that page.',
         ],

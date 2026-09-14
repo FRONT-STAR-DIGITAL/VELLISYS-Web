@@ -1203,7 +1203,7 @@ function render_doc_actions(array $doc, bool $labeled = false): void
       <?php if (!$labeled): ?>
         <a class="<?= $cls ?>" href="<?= h(url('document_view.php?id=' . $id)) ?>" title="View" aria-label="View"><?= icon('eye', 15) ?></a>
       <?php endif; ?>
-      <?php if (!$void): ?>
+      <?php if (!$void && user_can_edit_documents()): ?>
         <a class="<?= $cls ?>" href="<?= h(url('document_new.php?id=' . $id)) ?>" title="Edit" aria-label="Edit"><?= icon('pencil', 15) ?><?php if ($labeled): ?> Edit<?php endif; ?></a>
       <?php endif; ?>
       <a class="<?= $cls ?>" href="<?= h(url('document_view.php?id=' . $id . '&print=1')) ?>" title="Print" aria-label="Print"><?= icon('printer', 15) ?><?php if ($labeled): ?> Print<?php endif; ?></a>
@@ -1231,6 +1231,7 @@ function render_doc_actions(array $doc, bool $labeled = false): void
           <a class="<?= $pri ?>" href="<?= h(url('document_action.php?pay=' . $id)) ?>" title="Pay" aria-label="Pay"><?= icon('bank', 15) ?><?php if ($labeled): ?> Pay<?php endif; ?></a>
           <a class="<?= $cls ?>" href="<?= h(url('desk_mail.php?type=creditor&id=' . $id)) ?>" title="Message supplier" aria-label="Message supplier"><?= icon('letter', 15) ?><?php if ($labeled): ?> Message<?php endif; ?></a>
         <?php endif; ?>
+        <?php if (user_can_delete_documents()): ?>
         <form method="post" action="<?= h(url('document_action.php')) ?>" onsubmit="return confirm('Delete this document? It will be voided and kept in the books.');">
             <?= csrf_field() ?>
             <input type="hidden" name="id" value="<?= $id ?>">
@@ -1238,6 +1239,7 @@ function render_doc_actions(array $doc, bool $labeled = false): void
             <input type="hidden" name="reason" value="Deleted from desk">
             <button class="<?= $dang ?>" type="submit" title="Delete" aria-label="Delete"><?= icon('trash', 15) ?><?php if ($labeled): ?> Delete<?php endif; ?></button>
           </form>
+        <?php endif; ?>
       <?php endif; ?>
     </div>
     <?php

@@ -306,13 +306,23 @@ function pricing_ugx_rates(): array
     return pricing_section()['rates'];
 }
 
+function pricing_stock_addon_solo_ugx(): int
+{
+    return max(0, platform_setting_int('stock_addon_solo_ugx', 50000));
+}
+
+function pricing_stock_addon_multi_ugx(): int
+{
+    return max(0, platform_setting_int('stock_addon_multi_ugx', 100000));
+}
+
 function pricing_stock_addon_ugx(string $planKey = ''): int
 {
     $pkg = $planKey !== '' ? pricing_package($planKey) : null;
     if (!$pkg) {
-        return 100000;
+        return pricing_stock_addon_multi_ugx();
     }
-    return ($pkg['key'] ?? '') === 'solo' ? 50000 : 100000;
+    return ($pkg['key'] ?? '') === 'solo' ? pricing_stock_addon_solo_ugx() : pricing_stock_addon_multi_ugx();
 }
 
 function pricing_package(string $key): ?array
@@ -573,7 +583,7 @@ function render_landing_pricing(): void
           </article>
         <?php endforeach; ?>
       </div>
-      <p class="lp-pricing-stock">Need stock management in the package? It is an add-on of <strong data-ugx="50000"><?= h(pricing_format(50000, $ccy)) ?></strong> on a single-branch package and <strong data-ugx="100000"><?= h(pricing_format(100000, $ccy)) ?></strong> where the package has more than one branch, on any package you pick. Tick it when you proceed to checkout.</p>
+      <p class="lp-pricing-stock">Need stock management in the package? It is an add-on of <strong data-ugx="<?= (int) pricing_stock_addon_solo_ugx() ?>"><?= h(pricing_format(pricing_stock_addon_solo_ugx(), $ccy)) ?></strong> on a single-branch package and <strong data-ugx="<?= (int) pricing_stock_addon_multi_ugx() ?>"><?= h(pricing_format(pricing_stock_addon_multi_ugx(), $ccy)) ?></strong> where the package has more than one branch, on any package you pick. Tick it when you proceed to checkout.</p>
       <?php if (trim((string) $section['register_copy']) !== ''): ?>
         <p class="lp-pricing-register"><?= $register ?></p>
       <?php endif; ?>

@@ -63,7 +63,9 @@ $beginHostedPay = static function (array $order, string $action) use ($pkg): arr
     return ['ok' => true, 'order' => $fresh, 'redirect' => (string) $pay['redirect']];
 };
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !platform_signups_open()) {
+    $error = 'Checkout is paused. Call ' . implode(' or ', product_phones()) . ' or sign in if you already have a desk.';
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = post('action', 'pay', 20) ?: 'pay';
     if (!csrf_valid()) {
         if ($action === 'draft') {
@@ -304,7 +306,7 @@ $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'
           </datalist>
           <label class="lp-stock-addon" for="stock_addon">
             <input id="stock_addon" name="stock_addon" type="checkbox" value="1" <?= $stockOn ? 'checked' : '' ?> data-stock-addon data-package-ugx="<?= (int) $pkg['price_ugx'] ?>" data-stock-ugx="<?= (int) $addonUgx ?>">
-            <span>Add stock management for <strong data-ugx="<?= (int) $addonUgx ?>"><?= h($addonNow) ?></strong> a year. Single-branch packages add <?= h(pricing_format(50000, $ccy)) ?> worth; more than one branch adds <?= h(pricing_format(100000, $ccy)) ?> worth, converted to the currency you picked.</span>
+            <span>Add stock management for <strong data-ugx="<?= (int) $addonUgx ?>"><?= h($addonNow) ?></strong> a year. Single-branch packages add <?= h(pricing_format(pricing_stock_addon_solo_ugx(), $ccy)) ?> worth; more than one branch adds <?= h(pricing_format(pricing_stock_addon_multi_ugx(), $ccy)) ?> worth, converted to the currency you picked.</span>
           </label>
           <button class="lp-btn lp-btn-solid lp-btn-lg" type="submit" data-pay-btn data-pay-prefix="Continue to pay " data-stock-total data-ugx="<?= (int) $totalUgx ?>">Continue to pay <?= h($payNow) ?></button>
           <p class="lp-checkout-note">Prefer we onboard you? <a href="<?= h(url('register.php')) ?>">Register without paying</a>. Or <a href="<?= h(url('demo.php')) ?>">book a demo</a>.</p>
