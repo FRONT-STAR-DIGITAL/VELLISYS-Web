@@ -642,6 +642,7 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
   }
   var combo = form.querySelector('[data-client-combo]');
   var search = form.querySelector('[data-client-search]');
+  var panel = form.querySelector('[data-client-panel]');
   var list = form.querySelector('[data-client-list]');
   var party = form.querySelector('#party_id');
   if (!search || !party) return;
@@ -676,20 +677,20 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
       if (!q) return true;
       var blob = [item.row.name, item.row.phone, item.row.email, item.row.address].join(' ').toLowerCase();
       return blob.indexOf(q) !== -1;
-    }).slice(0, 8);
+    }).slice(0, 40);
     if (!items.length) {
-      list.innerHTML = '<li class="client-combo-empty">No saved match — keep typing to add a new client</li>';
-      list.hidden = false;
-      return;
+      list.innerHTML = '<li class="client-combo-empty">No saved match. Keep typing to add a new client</li>';
+    } else {
+      list.innerHTML = items.map(function (item) {
+        var extra = [item.row.phone, item.row.email].filter(Boolean).join(', ');
+        return '<li><button type="button" data-client-pick="' + item.id + '"><strong>' +
+          String(item.row.name || '').replace(/</g, '&lt;') + '</strong>' +
+          (extra ? '<span>' + String(extra).replace(/</g, '&lt;') + '</span>' : '') +
+          '</button></li>';
+      }).join('');
     }
-    list.innerHTML = items.map(function (item) {
-      var extra = [item.row.phone, item.row.email].filter(Boolean).join(' · ');
-      return '<li><button type="button" data-client-pick="' + item.id + '"><strong>' +
-        String(item.row.name || '').replace(/</g, '&lt;') + '</strong>' +
-        (extra ? '<span>' + String(extra).replace(/</g, '&lt;') + '</span>' : '') +
-        '</button></li>';
-    }).join('');
-    list.hidden = false;
+    if (panel) panel.hidden = false;
+    list.scrollTop = 0;
   }
 
   function matchExact(name) {
@@ -713,13 +714,20 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
     }
     renderList(search.value);
   });
-  if (list) {
-    list.addEventListener('click', function (e) {
-      var btn = e.target.closest('[data-client-pick]');
-      if (!btn) return;
+  if (combo) {
+    combo.addEventListener('click', function (e) {
+      var sc = e.target.closest('[data-client-scroll]');
+      if (sc) {
+        e.preventDefault();
+        var dir = parseInt(sc.getAttribute('data-client-scroll'), 10) || 0;
+        if (list) list.scrollTop += dir * 80;
+        return;
+      }
+      var pick = e.target.closest('[data-client-pick]');
+      if (!pick) return;
       e.preventDefault();
-      fillFromId(btn.getAttribute('data-client-pick'));
-      list.hidden = true;
+      fillFromId(pick.getAttribute('data-client-pick'));
+      if (panel) panel.hidden = true;
     });
   }
   party.addEventListener('change', function () {
@@ -728,7 +736,7 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
   document.addEventListener('click', function (e) {
     if (!combo) return;
     if (!combo.contains(e.target)) {
-      if (list) list.hidden = true;
+      if (panel) panel.hidden = true;
     }
   });
 })();

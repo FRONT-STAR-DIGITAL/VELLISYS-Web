@@ -48,6 +48,7 @@ function icon(string $name, int $size = 18): string
         'book' => '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
         'trash' => '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>',
         'chevron-up' => '<path d="m18 15-6-6-6 6"/>',
+        'chevron-down' => '<path d="m6 9 6 6 6-6"/>',
         'x' => '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
         'arrow-right' => '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
         'arrow-left' => '<path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>',

@@ -264,7 +264,11 @@ layout_start($heading, $user, ['kind' => $kind]);
       <div class="client-combo" data-client-combo>
         <input type="hidden" id="party_id" name="party_id" value="<?= $prefillParty ?: '' ?>">
         <input id="to_name" name="to_name" required autocomplete="off" placeholder="Choose or type a payee…" value="<?= h((string) ($toParty['name'] ?? '')) ?>" data-client-search>
-        <ul class="client-combo-list" data-client-list hidden></ul>
+        <div class="client-combo-panel" data-client-panel hidden>
+          <button type="button" class="client-combo-scroll" data-client-scroll="-1" aria-label="Scroll client list up"><?= icon('chevron-up', 16) ?></button>
+          <ul class="client-combo-list" data-client-list></ul>
+          <button type="button" class="client-combo-scroll" data-client-scroll="1" aria-label="Scroll client list down"><?= icon('chevron-down', 16) ?></button>
+        </div>
       </div>
       <p class="hint">Pick a saved payee or type a new name. <a href="<?= h(url('client_edit.php')) ?>">Open the full client form</a></p>
     </div>
@@ -277,7 +281,11 @@ layout_start($heading, $user, ['kind' => $kind]);
           <div class="client-combo" data-client-combo>
             <input type="hidden" id="party_id" name="party_id" value="<?= $prefillParty ?: '' ?>">
             <input id="to_name" name="to_name" required autocomplete="off" placeholder="Start typing customer name…" value="<?= h((string) ($toParty['name'] ?? '')) ?>" data-client-search>
-            <ul class="client-combo-list" data-client-list hidden></ul>
+            <div class="client-combo-panel" data-client-panel hidden>
+              <button type="button" class="client-combo-scroll" data-client-scroll="-1" aria-label="Scroll client list up"><?= icon('chevron-up', 16) ?></button>
+              <ul class="client-combo-list" data-client-list></ul>
+              <button type="button" class="client-combo-scroll" data-client-scroll="1" aria-label="Scroll client list down"><?= icon('chevron-down', 16) ?></button>
+            </div>
           </div>
           <p class="hint">Choose a saved client or type a new one. They are added when you save.</p>
         </div>

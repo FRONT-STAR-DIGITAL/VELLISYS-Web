@@ -1,4 +1,31 @@
 (function () {
+  function togglePassword(btn) {
+    if (!btn) return;
+    var wrap = btn.closest('.gate-pw, .field-control, .pw-field');
+    var input = wrap ? wrap.querySelector('input[type="password"], input[type="text"]') : null;
+    if (!input && btn.parentElement) {
+      input = btn.parentElement.querySelector('input');
+    }
+    if (!input) return;
+    var show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    var on = btn.querySelector('[data-eye]');
+    var off = btn.querySelector('[data-eye-off]');
+    if (on) on.hidden = show;
+    if (off) off.hidden = !show;
+    btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    btn.setAttribute('title', show ? 'Hide password' : 'Show password');
+    btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+  }
+  document.addEventListener('click', function (e) {
+    var el = e.target;
+    if (el && el.nodeType === 3) el = el.parentElement;
+    var btn = el && el.closest ? el.closest('[data-toggle-password]') : null;
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    togglePassword(btn);
+  });
   try {
     document.cookie = 'vellisys_tz=' + encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone || '') + ';path=/;max-age=31536000;samesite=lax';
   } catch (e) {}
@@ -448,7 +475,7 @@
     }, 9000);
   }
 
-    $checkout = document.querySelector('[data-checkout-form]');
+  var checkout = document.querySelector('[data-checkout-form]');
   if (checkout) {
     var timer = 0;
     var publicInput = checkout.querySelector('[data-order-public]');
@@ -482,33 +509,4 @@
     });
     window.addEventListener('pagehide', saveDraft);
   }
-
-  function togglePassword(btn) {
-    if (!btn) return;
-    var wrap = btn.closest('.gate-pw, .field-control, .pw-field');
-    var input = wrap ? wrap.querySelector('input[type="password"], input[type="text"]') : null;
-    if (!input) {
-      input = btn.parentElement ? btn.parentElement.querySelector('input') : null;
-    }
-    if (!input) return;
-    var show = input.type === 'password';
-    input.type = show ? 'text' : 'password';
-    var on = btn.querySelector('[data-eye]');
-    var off = btn.querySelector('[data-eye-off]');
-    if (on) on.hidden = show;
-    if (off) off.hidden = !show;
-    btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
-    btn.setAttribute('title', show ? 'Hide password' : 'Show password');
-    btn.setAttribute('aria-pressed', show ? 'true' : 'false');
-  }
-
-  document.addEventListener('click', function (e) {
-    var el = e.target;
-    if (el && el.nodeType === 3) el = el.parentElement;
-    var btn = el && el.closest ? el.closest('[data-toggle-password]') : null;
-    if (!btn) return;
-    e.preventDefault();
-    e.stopPropagation();
-    togglePassword(btn);
-  });
 })();
