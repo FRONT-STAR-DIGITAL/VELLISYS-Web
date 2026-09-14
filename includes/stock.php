@@ -149,7 +149,7 @@ function stock_save_item(array $fields, ?int $id = null): array
     $newId = db_exec(
         'INSERT INTO stock_items (company_id, sku, name, description, unit, buy_price, sell_price, reorder_level, qty_on_hand, taxed, active) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
         'issssddddii',
-        [$cid, $sku, $name, $desc, $unit, $buy, $sell, $reorder, max(0, $qty), $taxed, $active]
+        [$cid, $sku, $name, $desc, $unit, $buy, $sell, $reorder, 0, $taxed, $active]
     );
     if ($qty > 0) {
         stock_move((int) $newId, 'in', $qty, $buy, null, 'Opening quantity');
