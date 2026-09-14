@@ -146,13 +146,25 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
         <?php foreach ($rows as $i => $item): ?>
           <tr style="background:<?= $i % 2 ? h($tint) : '#fff' ?>">
             <?php if ($compact): ?>
-              <td class="desc">
-                <?php if ($item): ?>
-                  <?php if (line_item_name($item) !== ''): ?><span class="item"><?= h(line_item_name($item)) ?></span><?php endif; ?>
-                  <?php if (line_item_description($item) !== ''): ?><span class="twin-desc"><?= nl2br(h(line_item_description($item))) ?></span><?php endif; ?>
-                  <?php if ($showVat): ?><span class="twin-vat"><?= !empty($item['taxed']) ? h($taxName) : '' ?></span><?php endif; ?>
-                <?php else: ?>&nbsp;<?php endif; ?>
-              </td>
+              <td class="desc"><?php
+                if (!$item) {
+                    echo '&nbsp;';
+                } else {
+                    $name = line_item_name($item);
+                    $desc = line_item_description($item);
+                    $parts = [];
+                    if ($name !== '') {
+                        $parts[] = '<span class="item">' . h($name) . '</span>';
+                    }
+                    if ($desc !== '') {
+                        $parts[] = '<span class="twin-desc">' . nl2br(h($desc), false) . '</span>';
+                    }
+                    echo implode(' ', $parts);
+                    if ($showVat && !empty($item['taxed'])) {
+                        echo '<span class="twin-vat">' . h($taxName) . '</span>';
+                    }
+                }
+              ?></td>
               <td class="c"><?= $item ? h(format_qty($item['qty'])) : '' ?></td>
               <?php if (!$qtyOnly): ?><td class="r"><?= $item ? h(money(line_amount($item), $cur)) : '' ?></td><?php endif; ?>
             <?php else: ?>
