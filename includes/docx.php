@@ -54,7 +54,7 @@ function docx_p(string $text, array $opts = []): string
         . '<w:r>' . $rPr . $runs . '</w:r></w:p>';
 }
 
-function docx_logo_drawing(int $cx, int $cy): string
+function docx_inline_image(int $cx, int $cy, string $rid, string $name): string
 {
     return '<w:p><w:pPr><w:jc w:val="left"/><w:spacing w:after="80"/></w:pPr><w:r>'
         . '<w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" '
@@ -63,13 +63,70 @@ function docx_logo_drawing(int $cx, int $cy): string
         . 'xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" '
         . 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
         . '<wp:extent cx="' . $cx . '" cy="' . $cy . '"/>'
-        . '<wp:docPr id="1" name="Logo"/>'
+        . '<wp:docPr id="' . h($rid) . '" name="' . docx_xml($name) . '"/>'
         . '<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">'
-        . '<pic:pic><pic:nvPicPr><pic:cNvPr id="0" name="logo"/><pic:cNvPicPr/></pic:nvPicPr>'
-        . '<pic:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>'
+        . '<pic:pic><pic:nvPicPr><pic:cNvPr id="0" name="' . docx_xml($name) . '"/><pic:cNvPicPr/></pic:nvPicPr>'
+        . '<pic:blipFill><a:blip r:embed="' . docx_xml($rid) . '"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>'
         . '<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="' . $cx . '" cy="' . $cy . '"/></a:xfrm>'
         . '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic>'
         . '</a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>';
+}
+
+function docx_logo_drawing(int $cx, int $cy): string
+{
+    return docx_inline_image($cx, $cy, 'rId1', 'Logo');
+}
+
+function letter_docx_apply_request(?array $doc): array
+{
+    $tplKey = trim((string) ($_REQUEST['template'] ?? ''));
+    $subjectIn = trim((string) ($_REQUEST['subject'] ?? ''));
+    $bodyPosted = array_key_exists('body', $_REQUEST);
+    $bodyIn = (string) ($_REQUEST['body'] ?? '');
+    $partyId = (int) ($_REQUEST['party_id'] ?? 0);
+    $out = $doc ?: [
+        'kind' => 'letter',
+        'number' => '',
+        'date' => today(),
+        'subject' => '',
+        'body' => '',
+        'letter_template' => null,
+        'add_signature' => 0,
+        'party_name' => '',
+        'party_address' => '',
+        'party_phone' => '',
+        'party_email' => '',
+    ];
+    if ($tplKey !== '') {
+        $out['letter_template'] = ($tplKey === 'none') ? null : $tplKey;
+        $templates = letter_templates();
+        if ($tplKey === 'none' && $subjectIn === '' && !$bodyPosted) {
+            $out['subject'] = '';
+            $out['body'] = '';
+        } elseif ($tplKey !== 'none' && isset($templates[$tplKey]) && $subjectIn === '' && !$bodyPosted) {
+            $out['subject'] = $templates[$tplKey]['subject'];
+            $out['body'] = $templates[$tplKey]['body'];
+        }
+    }
+    if ($subjectIn !== '' || (array_key_exists('subject', $_REQUEST) && $tplKey === 'none')) {
+        $out['subject'] = $subjectIn;
+    }
+    if ($bodyPosted) {
+        $out['body'] = $bodyIn;
+    }
+    if (array_key_exists('add_signature', $_REQUEST)) {
+        $out['add_signature'] = (string) $_REQUEST['add_signature'] === '1' ? 1 : 0;
+    }
+    if ($partyId > 0) {
+        $party = db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$partyId, current_company_id()]);
+        if ($party) {
+            $out['party_name'] = (string) $party['name'];
+            $out['party_address'] = (string) ($party['address'] ?? '');
+            $out['party_phone'] = (string) ($party['phone'] ?? '');
+            $out['party_email'] = (string) ($party['email'] ?? '');
+        }
+    }
+    return $out;
 }
 
 function letter_docx_bytes(?array $doc = null): string
@@ -77,6 +134,7 @@ function letter_docx_bytes(?array $doc = null): string
     if (!class_exists('ZipArchive')) {
         throw new RuntimeException('This server cannot build a Word file (ZipArchive is missing).');
     }
+    $doc = letter_docx_apply_request($doc);
     $brand = branding();
     if ($doc) {
         $lh = decode_letterhead($doc['letterhead'] ?? '');
@@ -92,21 +150,15 @@ function letter_docx_bytes(?array $doc = null): string
     $name = (string) ($brand['name'] ?? 'Company');
     $date = $doc ? format_date($doc['date'] ?? today()) : format_date(today());
     $ref = $doc ? (string) ($doc['number'] ?? '') : '';
-    $subject = $doc ? trim((string) ($doc['subject'] ?? '')) : '[Subject]';
-    if ($subject === '') {
-        $subject = '[Subject]';
-    }
+    $subject = $doc ? trim((string) ($doc['subject'] ?? '')) : '';
     $body = $doc ? trim((string) ($doc['body'] ?? '')) : '';
-    if ($body === '') {
-        $body = "Dear Sir / Madam,\n\n[Write the letter here.]\n\nYours faithfully,\n" . $name;
-    }
-    $toName = $doc ? (string) ($doc['party_name'] ?? '') : '[Recipient name]';
-    $toAddr = $doc ? trim((string) ($doc['party_address'] ?? '')) : '[Recipient address]';
+    $toName = $doc ? trim((string) ($doc['party_name'] ?? '')) : '';
+    $toAddr = $doc ? trim((string) ($doc['party_address'] ?? '')) : '';
     $toContact = $doc ? trim(implode("\n", array_filter([
         (string) ($doc['party_phone'] ?? ''),
         (string) ($doc['party_email'] ?? ''),
     ]))) : '';
-    $heading = $doc ? letter_heading($doc) : 'LETTER';
+    $stampSign = $doc && !empty($doc['add_signature']);
 
     $logoPath = logo_file($brand);
     $logoExt = 'png';
@@ -150,17 +202,33 @@ function letter_docx_bytes(?array $doc = null): string
         . '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="80"/></w:pPr><w:r><w:rPr>'
         . '<w:sz w:val="16"/><w:color w:val="666666"/></w:rPr><w:t>' . docx_xml($footLine) . '</w:t></w:r></w:p></w:ftr>';
 
+    $signPath = ($stampSign && company_signature_path() !== '') ? (ROOT_PATH . '/' . company_signature_path()) : '';
+    $signXml = '';
+    $signCx = 2286000;
+    $signCy = 914400;
+    if ($signPath && is_file($signPath)) {
+        $info = @getimagesize($signPath);
+        if (is_array($info) && ($info[0] ?? 0) > 0) {
+            $signCy = (int) round($signCx * ((int) $info[1] / max(1, (int) $info[0])));
+        }
+        $signXml = docx_inline_image($signCx, $signCy, 'rId3', 'Signature');
+    }
+
+    $toXml = docx_p('To', ['size' => 16, 'bold' => true, 'color' => '666666', 'after' => 40])
+        . ($toName !== '' ? docx_p($toName, ['size' => 22, 'bold' => true, 'after' => 40]) : '')
+        . ($toAddr !== '' ? docx_p($toAddr, ['size' => 20, 'after' => 40]) : '')
+        . ($toContact !== '' ? docx_p($toContact, ['size' => 20, 'after' => 200]) : docx_p('', ['after' => 200]));
+    $subjectXml = $subject === ''
+        ? ''
+        : docx_p('Subject', ['size' => 16, 'bold' => true, 'color' => '555555', 'after' => 20])
+            . docx_p($subject, ['size' => 28, 'bold' => true, 'color' => $color, 'after' => 240]);
     $bodyXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         . '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>'
-        . docx_p($heading, ['size' => 28, 'bold' => true, 'color' => $color, 'after' => 200])
         . docx_p($date . ($ref !== '' ? '    Ref: ' . $ref : ''), ['size' => 22, 'after' => 240])
-        . docx_p('Subject', ['size' => 16, 'bold' => true, 'color' => '555555', 'after' => 20])
-        . docx_p($subject, ['size' => 28, 'bold' => true, 'color' => $color, 'after' => 240])
-        . docx_p('To', ['size' => 16, 'bold' => true, 'color' => '666666', 'after' => 40])
-        . docx_p($toName, ['size' => 22, 'bold' => true, 'after' => 40])
-        . ($toAddr !== '' ? docx_p($toAddr, ['size' => 20, 'after' => 40]) : '')
-        . ($toContact !== '' ? docx_p($toContact, ['size' => 20, 'after' => 280]) : docx_p('', ['after' => 280]))
+        . $toXml
+        . $subjectXml
         . docx_p($body, ['size' => 22, 'after' => 200])
+        . $signXml
         . '<w:sectPr>'
         . '<w:headerReference w:type="default" r:id="rId1"/>'
         . '<w:footerReference w:type="default" r:id="rId2"/>'
@@ -189,6 +257,7 @@ function letter_docx_bytes(?array $doc = null): string
         . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
         . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>'
         . '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>'
+        . ($signXml !== '' ? '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/sign.png"/>' : '')
         . '</Relationships>';
 
     $headRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -214,6 +283,9 @@ function letter_docx_bytes(?array $doc = null): string
     $zip->addFromString('word/_rels/header1.xml.rels', $headRels);
     if ($logoPath) {
         $zip->addFile($logoPath, 'word/media/logo.' . $logoExt);
+    }
+    if ($signXml !== '' && $signPath) {
+        $zip->addFile($signPath, 'word/media/sign.png');
     }
     $zip->close();
     $bytes = (string) file_get_contents($tmp);

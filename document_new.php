@@ -101,6 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'allocated_amount' => in_array($kind, ['receipt', 'refund'], true) ? $allocPosted : null,
         'expense_category' => post('expense_category') ?: null,
         'letter_template' => (post('letter_template') === '' || post('letter_template') === 'none') ? null : (post('letter_template') ?: null),
+        'add_signature' => post('add_signature') === '1' ? 1 : 0,
         'doc_template' => doc_template_key(),
         'items' => $items,
         'custom_values' => $customValues,
@@ -194,7 +195,7 @@ layout_start($heading, $user, ['kind' => $kind]);
       if ($existing) {
           echo 'Number stays the same. Change the client, lines, dates or design, then save.';
       } elseif ($kind === 'letter') {
-          echo 'Pick a headed starting text, then write a subject and body. The letter prints on the same document design as invoices. Download the Word letterhead if you need to finish it in Microsoft Word.';
+          echo 'Start blank or pick a starting text for the body. The printed letter has no template title — the subject is the heading. Download Word to get the letter as it stands now, including the starting text you have selected.';
       } elseif ($kind === 'custom') {
           echo h($customDef['title']) . ' - fill the fields this company uses' . (!empty($customDef['has_body']) ? ', then the body if you need it' : '') . '.';
       } elseif ($kind === 'delivery') {
@@ -214,7 +215,7 @@ layout_start($heading, $user, ['kind' => $kind]);
   </div>
   <?php if ($kind === 'letter'): ?>
   <div class="actions page-actions">
-    <a class="btn ghost" href="<?= h(url('letter_docx.php' . ($existing ? '?id=' . (int) $existing['id'] : ''))) ?>"><?= icon('download', 16) ?>Word template</a>
+    <a class="btn ghost" href="<?= h(url('letter_docx.php' . ($existing ? '?id=' . (int) $existing['id'] : ''))) ?>" data-letter-docx><?= icon('download', 16) ?>Word template</a>
   </div>
   <?php endif; ?>
 </div>
@@ -404,13 +405,13 @@ layout_start($heading, $user, ['kind' => $kind]);
     <label>Starting text</label>
     <p class="hint">Leave blank, or pick a starting text. Subject and body stay required either way.</p>
     <div class="template-grid">
-      <label class="template-card" data-subject="" data-body="">
+        <label class="template-card" data-subject="" data-body="" data-sign="0">
         <input type="radio" name="letter_template" value="none" <?= $tplKey === 'none' ? 'checked' : '' ?>>
         <strong>No template</strong>
         <em>Blank letter</em>
       </label>
       <?php foreach ($templates as $key => $tpl): ?>
-        <label class="template-card" data-subject="<?= h($tpl['subject']) ?>" data-body="<?= h($tpl['body']) ?>">
+        <label class="template-card" data-subject="<?= h($tpl['subject']) ?>" data-body="<?= h($tpl['body']) ?>" data-sign="1">
           <input type="radio" name="letter_template" value="<?= h($key) ?>" <?= $tplKey === $key ? 'checked' : '' ?>>
           <strong><?= h($tpl['title']) ?></strong>
           <em><?= h($tpl['heading']) ?></em>
@@ -421,6 +422,16 @@ layout_start($heading, $user, ['kind' => $kind]);
     <input id="subject" name="subject" required value="<?= h($prefillTpl['subject']) ?>">
     <label for="body">Body</label>
     <textarea id="body" name="body" class="letter-body-field" rows="18" required><?= h($prefillTpl['body']) ?></textarea>
+    <?php $hasSig = company_signature_path() !== ''; ?>
+    <?php if ($hasSig): ?>
+      <label class="kinds-opt" data-sign-box <?= $tplKey === 'none' && empty($existing['add_signature']) ? 'hidden' : '' ?>>
+        <input type="checkbox" name="add_signature" value="1" <?= !empty($existing['add_signature']) || ($tplKey !== 'none' && $hasSig && !$existing) ? 'checked' : '' ?>>
+        <span>Add signature</span>
+      </label>
+      <p class="hint" data-sign-hint <?= $tplKey === 'none' && empty($existing['add_signature']) ? '' : 'hidden' ?>>Starting texts that close with a sign-off can stamp the approved signature from Settings.</p>
+    <?php else: ?>
+      <p class="hint">To stamp letters, capture a signature under Settings → Appearance.</p>
+    <?php endif; ?>
   <?php elseif ($kind === 'custom'): ?>
     <?php $savedCustom = is_array($existing['custom_values'] ?? null) ? $existing['custom_values'] : []; ?>
     <?php if ($customDef['fields']): ?>

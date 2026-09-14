@@ -37,6 +37,19 @@
 .d-logo.invert { background: #fff; padding: 6px 8px; border-radius: 4px; }
 .d-co { margin-top: 10px; font-size: 11px; line-height: 1.45; }
 .d-title { margin: 0; text-align: right; font-size: 28px; font-weight: 700; color: var(--brand); }
+.invoice-sheet.is-letter .d-title,
+.invoice-sheet.is-letter .bill-pill,
+.invoice-sheet.is-letter .stripe-banner,
+.invoice-sheet.is-letter .ledger-top h1,
+.invoice-sheet.is-letter .night-sky h1,
+.invoice-sheet.is-letter .atelier-meta em,
+.invoice-sheet.is-letter .seal-title,
+.invoice-sheet.is-letter .mark-kind,
+.invoice-sheet.is-letter .bond-stamp em,
+.invoice-sheet.is-letter .thermal-kind,
+.invoice-sheet.is-letter .twin-copy h3,
+.invoice-sheet.is-letter .corr-kind,
+.invoice-sheet.is-letter .estate-no span { display: none; }
 .d-meta-box { min-width: 220px; }
 .d-void { color: #b42318; font-weight: 700; }
 .d-party { padding: 14px 8px 20px; line-height: 1.55; }
@@ -127,6 +140,14 @@
   color: #666;
 }
 .d-letter-body { line-height: 1.45; font-size: 13px; }
+.d-sign { margin-top: 18px; }
+.d-sign img {
+  display: block;
+  height: 54px;
+  width: auto;
+  max-width: 220px;
+  object-fit: contain;
+}
 .d-lines td.desc { white-space: pre-wrap; word-break: break-word; line-height: 1.45; }
 /* Receipt settlement: amount due always below amount received, never side-by-side */
 .d-rd {

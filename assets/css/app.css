@@ -1428,6 +1428,33 @@ table.grid tfoot td {
 .preview-nav span { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--brand); }
 .logo-preview { margin-top: 10px; border: 1px solid var(--line); border-radius: 5px; padding: 10px; display: inline-block; background: #fff; }
 .logo-preview img { height: 40px; width: auto; }
+.sig-block { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); }
+.sig-block h3 { margin: 0 0 6px; font-size: 15px; }
+.sig-canvas {
+  display: block;
+  width: 100%;
+  max-width: 560px;
+  height: 180px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: #fff;
+  touch-action: none;
+  cursor: crosshair;
+}
+.sig-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  max-width: 560px;
+}
+.sig-preview img { height: 56px; width: auto; max-width: 240px; object-fit: contain; }
+.sig-preview span { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.sig-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .account-chip {
   display: flex;
   gap: 12px;

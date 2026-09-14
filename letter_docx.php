@@ -4,7 +4,11 @@ require __DIR__ . '/includes/bootstrap.php';
 $user = require_member();
 require_desk_kind('letter');
 
-$id = (int) ($_GET['id'] ?? 0);
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_check();
+}
+
+$id = (int) ($_POST['id'] ?? $_GET['id'] ?? 0);
 $doc = null;
 if ($id > 0) {
     $doc = load_document($id);

@@ -233,6 +233,9 @@ function sheet_uses_watermark(?array $doc = null): bool
 
 function inject_sheet_watermark(string $html, array $d, array $doc): string
 {
+    if (($doc['kind'] ?? '') === 'letter') {
+        $html = preg_replace('/class="([^"]*invoice-sheet[^"]*)"/', 'class="$1 is-letter"', $html, 1) ?? $html;
+    }
     if (!sheet_uses_watermark($doc)) {
         return $html;
     }
@@ -264,11 +267,28 @@ function render_letter_to_label(string $label = 'To'): void
     <?php
 }
 
+function render_letter_signature(array $doc): void
+{
+    if (empty($doc['add_signature'])) {
+        return;
+    }
+    $src = company_signature_url();
+    if ($src === '') {
+        return;
+    }
+    ?>
+    <div class="d-sign">
+      <img src="<?= h($src) ?>" alt="Signature">
+    </div>
+    <?php
+}
+
 function render_letter_body(array $doc): void
 {
     ?>
     <div class="d-letter">
       <div class="d-letter-body"><?= format_letter_html((string) $doc['body']) ?></div>
+      <?php render_letter_signature($doc); ?>
     </div>
     <?php
 }
@@ -348,13 +368,13 @@ function render_sheet_correspondence(array $d): void
   </header>
   <hr class="corr-rule" style="border-color:<?= h($d['color']) ?>">
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
-  <?php if ($subject !== ''): ?>
-    <p class="corr-subject"><span>Subject</span><?= h($subject) ?></p>
-  <?php endif; ?>
   <div class="corr-to">
     <span>To</span>
     <?php render_party_contact($doc); ?>
   </div>
+  <?php if ($subject !== ''): ?>
+    <p class="corr-subject"><span>Subject</span><?= h($subject) ?></p>
+  <?php endif; ?>
   <?php if ($isCustom && $custom['fields']): ?>
     <dl class="corr-fields">
       <?php foreach ($custom['fields'] as $field):
@@ -373,6 +393,7 @@ function render_sheet_correspondence(array $d): void
   <?php if ($showBody): ?>
     <div class="corr-body"><?= format_letter_html($body) ?></div>
   <?php endif; ?>
+  <?php render_letter_signature($doc); ?>
   <footer class="corr-sign">
     <p>Yours faithfully,</p>
     <p><strong><?= h($brand['name']) ?></strong></p>
@@ -414,9 +435,9 @@ function render_sheet_folio(array $d): void
   </header>
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
   <?php if (($doc['kind'] ?? '') === 'letter'): ?>
-    <?php render_letter_subject($doc); ?>
     <?php render_letter_to_label(); ?>
     <div class="d-party"><?php render_party_contact($doc); ?></div>
+    <?php render_letter_subject($doc); ?>
     <?php render_letter_body($doc); ?>
   <?php else: ?>
   <div class="bar" style="background:<?= h($d['color']) ?>"><?= kind_shows_money($doc['kind'] ?? '') ? 'BILL TO' : 'TO' ?></div>
@@ -471,9 +492,6 @@ function render_sheet_ledger(array $d): void
     <div class="ledger-no">No. <?= h($doc['number']) ?></div>
   </div>
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
-  <?php if (($doc['kind'] ?? '') === 'letter'): ?>
-    <?php render_letter_subject($doc); ?>
-  <?php endif; ?>
   <div class="ledger-grid">
     <label>Date <b><?= h(format_date($doc['date'])) ?></b></label>
     <label class="wide"><?= ($doc['kind'] ?? '') === 'letter' ? 'To' : 'From' ?> <b><?php render_party_contact($doc); ?></b></label>
@@ -481,6 +499,9 @@ function render_sheet_ledger(array $d): void
     <div class="ledger-amt"><span><?= h($d['cur']) ?></span><strong><?= h(number_format($d['total'], currency_decimals($d['cur']))) ?></strong></div>
     <?php endif; ?>
   </div>
+  <?php if (($doc['kind'] ?? '') === 'letter'): ?>
+    <?php render_letter_subject($doc); ?>
+  <?php endif; ?>
   <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
     <div style="text-align:right;margin:-4px 0 10px"><?php render_fx_equiv($d); ?></div>
   <?php endif; ?>
@@ -540,7 +561,6 @@ function render_sheet_bill(array $d, string $variant): void
   <div class="bill-pill" style="background:<?= h($primary) ?>;color:<?= h(contrast_on($primary)) ?>"><?= h($d['heading']) ?></div>
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
   <?php if (($doc['kind'] ?? '') === 'letter'): ?>
-    <?php render_letter_subject($doc); ?>
     <?php render_letter_to_label(); ?>
   <?php endif; ?>
   <div class="bill-who">
@@ -558,6 +578,7 @@ function render_sheet_bill(array $d, string $variant): void
     </div>
   </div>
   <?php if ($doc['kind'] === 'letter'): ?>
+    <?php render_letter_subject($doc); ?>
     <?php render_letter_body($doc); ?>
   <?php else: ?>
     <?php render_line_table($doc, $primary, $variant === 'amber' ? $d['accent_tint'] : $d['tint'], ['serial' => true, 'class' => 'bill-lines']); ?>
@@ -597,10 +618,6 @@ function render_twin_half(array $d, string $label): void
       </div>
       <h3><?= h($d['heading']) ?></h3>
       <div class="twin-meta">Receipt No. <b><?= h($doc['number']) ?></b> · Date <b><?= h(format_date($doc['date'])) ?></b></div>
-      <?php if (($doc['kind'] ?? '') === 'letter'): ?>
-        <?php render_letter_subject($doc); ?>
-        <?php render_letter_to_label(); ?>
-      <?php endif; ?>
       <div class="twin-fields">
         <div><span>Name</span><b><?= h($doc['party_name'] ?? '') ?></b></div>
         <div><span>Amount</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
@@ -608,6 +625,7 @@ function render_twin_half(array $d, string $label): void
         <div><span>Paid how</span><b><?= h($d['methods'][$d['method']] ?? ($d['method'] ?: '-')) ?></b></div>
       </div>
       <?php if ($doc['kind'] === 'letter'): ?>
+        <?php render_letter_subject($doc); ?>
         <?php render_letter_body($doc); ?>
       <?php else: ?>
         <?php render_line_table($doc, $d['deep'], $d['accent_tint'], ['min' => 3, 'class' => 'tiny twin-lines', 'compact' => true]); ?>
@@ -647,9 +665,6 @@ function render_sheet_stripe(array $d): void
   <div class="stripe-rail"></div>
   <div class="stripe-inner">
     <div class="stripe-banner"><span><?= h($d['heading']) ?></span></div>
-    <?php if (($doc['kind'] ?? '') === 'letter'): ?>
-      <?php render_letter_subject($doc); ?>
-    <?php endif; ?>
     <div class="stripe-parties">
       <div>
         <span>From</span>
@@ -680,6 +695,7 @@ function render_sheet_stripe(array $d): void
       <div><span>Currency</span><b><?= h($d['cur']) ?></b></div>
     </div>
     <?php if ($doc['kind'] === 'letter'): ?>
+      <?php render_letter_subject($doc); ?>
       <?php render_letter_body($doc); ?>
     <?php else: ?>
       <p class="stripe-h">Line details</p>
@@ -723,10 +739,6 @@ function render_sheet_estate(array $d): void
   </div>
   <div class="estate-gold"></div>
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
-  <?php if (($doc['kind'] ?? '') === 'letter'): ?>
-    <?php render_letter_subject($doc); ?>
-    <?php render_letter_to_label(); ?>
-  <?php endif; ?>
   <div class="estate-who">
     <div>
       <span>Prepared for</span>
@@ -740,6 +752,7 @@ function render_sheet_estate(array $d): void
     </div>
   </div>
   <?php if ($doc['kind'] === 'letter'): ?>
+    <?php render_letter_subject($doc); ?>
     <?php render_letter_body($doc); ?>
   <?php else: ?>
     <?php render_line_table($doc, $d['color'], $d['tint']); ?>
@@ -776,9 +789,6 @@ function render_sheet_night(array $d): void
   <div class="night-copper"></div>
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
   <div class="night-body">
-    <?php if (($doc['kind'] ?? '') === 'letter'): ?>
-      <?php render_letter_subject($doc); ?>
-    <?php endif; ?>
     <div class="night-pair">
       <div>
         <span><?= ($doc['kind'] ?? '') === 'letter' ? 'To' : 'Client' ?></span>
@@ -794,6 +804,7 @@ function render_sheet_night(array $d): void
       </div>
     </div>
     <?php if ($doc['kind'] === 'letter'): ?>
+      <?php render_letter_subject($doc); ?>
       <?php render_letter_body($doc); ?>
     <?php else: ?>
       <?php render_line_table($doc, $d['color'], '#ffffff', ['serial' => true]); ?>
@@ -837,15 +848,13 @@ function render_sheet_atelier(array $d): void
   </header>
   <hr class="atelier-rule">
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
-  <?php if (($doc['kind'] ?? '') === 'letter'): ?>
-    <?php render_letter_subject($doc); ?>
-  <?php endif; ?>
   <div class="atelier-party">
     <span><?= $doc['kind'] === 'letter' ? 'To' : 'Prepared for' ?></span>
     <strong><?= h($doc['party_name'] ?? '') ?></strong>
     <p><?= h($doc['party_address'] ?? '') ?><?= !empty($doc['party_email']) ? ' · ' . h($doc['party_email']) : '' ?></p>
   </div>
   <?php if ($doc['kind'] === 'letter'): ?>
+    <?php render_letter_subject($doc); ?>
     <?php render_letter_body($doc); ?>
   <?php else: ?>
     <?php render_line_table($doc, $d['deep'], $d['tint']); ?>
@@ -893,11 +902,9 @@ function render_sheet_seal(array $d): void
     <?php if (!empty($doc['due_date'])): ?><div><span>Due</span><b><?= h(format_date($doc['due_date'])) ?></b></div><?php endif; ?>
     <div><span>Currency</span><b><?= h($d['cur']) ?></b></div>
   </div>
-  <?php if (($doc['kind'] ?? '') === 'letter'): ?>
-    <?php render_letter_subject($doc); ?>
-  <?php endif; ?>
   <p class="seal-for"><span><?= $doc['kind'] === 'letter' ? 'To' : 'In account with' ?></span> <strong><?= h($doc['party_name'] ?? '') ?></strong></p>
   <?php if ($doc['kind'] === 'letter'): ?>
+    <?php render_letter_subject($doc); ?>
     <?php render_letter_body($doc); ?>
   <?php else: ?>
     <?php render_line_table($doc, $d['deep'], $d['tint']); ?>
@@ -945,14 +952,12 @@ function render_sheet_mark(array $d): void
   </header>
   <hr class="mark-rule">
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
-  <?php if (($doc['kind'] ?? '') === 'letter'): ?>
-    <?php render_letter_subject($doc); ?>
-  <?php endif; ?>
   <div class="mark-who">
     <span>To</span>
     <?php render_party_contact($doc); ?>
   </div>
   <?php if ($doc['kind'] === 'letter'): ?>
+    <?php render_letter_subject($doc); ?>
     <?php render_letter_body($doc); ?>
   <?php else: ?>
     <?php render_line_table($doc, $d['color'], $d['tint']); ?>
@@ -995,16 +1000,13 @@ function render_sheet_bond(array $d): void
     </div>
   </header>
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
-  <?php if (($doc['kind'] ?? '') === 'letter'): ?>
-    <?php render_letter_subject($doc); ?>
-    <?php render_letter_to_label(); ?>
-  <?php endif; ?>
   <div class="bond-who">
     <span>In account with</span>
     <strong><?= h($doc['party_name'] ?? '') ?></strong>
     <p><?= h($doc['party_address'] ?? '') ?></p>
   </div>
   <?php if ($doc['kind'] === 'letter'): ?>
+    <?php render_letter_subject($doc); ?>
     <?php render_letter_body($doc); ?>
   <?php else: ?>
     <?php render_line_table($doc, $d['deep'], '#ffffff', ['class' => 'bond-lines', 'compact' => true]); ?>
@@ -1058,9 +1060,9 @@ function render_sheet_frame(array $d): void
       </header>
       <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
       <?php if (($doc['kind'] ?? '') === 'letter'): ?>
-        <?php render_letter_subject($doc); ?>
         <?php render_letter_to_label(); ?>
         <div class="d-party"><?php render_party_contact($doc); ?></div>
+        <?php render_letter_subject($doc); ?>
         <?php render_letter_body($doc); ?>
       <?php else: ?>
       <div class="bar" style="background:<?= h($d['color']) ?>"><?= kind_shows_money($doc['kind'] ?? '') ? 'BILL TO' : 'TO' ?></div>
@@ -1123,14 +1125,12 @@ function render_sheet_inset(array $d): void
       </div>
     </header>
     <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
-    <?php if (($doc['kind'] ?? '') === 'letter'): ?>
-      <?php render_letter_subject($doc); ?>
-    <?php endif; ?>
     <div class="inset-to">
       <span><?= kind_shows_money($doc['kind'] ?? '') ? 'Bill to' : 'To' ?></span>
       <?php render_party_contact($doc); ?>
     </div>
     <?php if (($doc['kind'] ?? '') === 'letter'): ?>
+      <?php render_letter_subject($doc); ?>
       <?php render_letter_body($doc); ?>
     <?php else: ?>
       <?php render_line_table($doc, $d['deep'], $d['tint']); ?>
@@ -1173,11 +1173,9 @@ function render_sheet_thermal(array $d): void
   <p class="thermal-kind"><?= h($d['heading']) ?></p>
   <p class="thermal-meta"><?= h($doc['number']) ?><br><?= h(format_date($doc['date'])) ?><?php if (!empty($doc['due_date'])): ?><br>Due <?= h(format_date($doc['due_date'])) ?><?php endif; ?></p>
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID</p><?php endif; ?>
-  <?php if (($doc['kind'] ?? '') === 'letter'): ?>
-    <?php render_letter_subject($doc); ?>
-  <?php endif; ?>
   <p class="thermal-to"><span>To</span> <?= h($doc['party_name'] ?? '') ?></p>
   <?php if (($doc['kind'] ?? '') === 'letter'): ?>
+    <?php render_letter_subject($doc); ?>
     <?php render_letter_body($doc); ?>
   <?php else: ?>
     <?php render_line_table($doc, '#111', '#f4f4f4', ['compact' => true, 'min' => 1, 'class' => 'thermal-lines']); ?>

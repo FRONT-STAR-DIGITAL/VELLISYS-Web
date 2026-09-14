@@ -731,6 +731,7 @@ function folio_defaults(): array
         'fx_ugx_per_usd' => 3700,
         'tax_name' => 'VAT',
         'tax_rate' => 0.18,
+        'signature_path' => '',
     ];
 }
 
@@ -1782,13 +1783,78 @@ function encode_letter_templates(?array $posted): string
 
 function letter_heading(array $doc): string
 {
-    $key = $doc['letter_template'] ?? '';
-    $templates = letter_templates();
-    if ($key && isset($templates[$key])) {
-        return $templates[$key]['heading'];
+    return '';
+}
+
+function company_signature_path(?array $brand = null): string
+{
+    $rel = ltrim((string) (($brand ?? branding())['signature_path'] ?? ''), '/');
+    if ($rel !== '' && is_file(ROOT_PATH . '/' . $rel)) {
+        return $rel;
     }
-    $subject = trim((string) ($doc['subject'] ?? ''));
-    return $subject !== '' ? $subject : 'LETTER';
+    return '';
+}
+
+function company_signature_url(?array $brand = null): string
+{
+    $rel = company_signature_path($brand);
+    if ($rel === '') {
+        return '';
+    }
+    return url($rel) . '?v=' . filemtime(ROOT_PATH . '/' . $rel);
+}
+
+function letter_template_needs_signature(?string $key): bool
+{
+    $key = trim((string) $key);
+    return $key !== '' && $key !== 'none';
+}
+
+function doc_template_has_signoff(?array $doc = null): bool
+{
+    return in_array(doc_template_key($doc), ['ledger', 'crimson', 'amber', 'twin', 'seal', 'bond'], true);
+}
+
+function save_company_signature_png(string $dataUrl): string
+{
+    if (!preg_match('#^data:image/png;base64,([A-Za-z0-9+/=\s]+)$#', trim($dataUrl), $m)) {
+        throw new RuntimeException('Draw the signature on the pad first.');
+    }
+    $bin = base64_decode(preg_replace('/\s+/', '', $m[1]), true);
+    if ($bin === false || strlen($bin) < 80 || strlen($bin) > 800000) {
+        throw new RuntimeException('That signature could not be saved.');
+    }
+    if (!str_starts_with($bin, "\x89PNG")) {
+        throw new RuntimeException('That signature could not be saved.');
+    }
+    $dir = ROOT_PATH . '/uploads/signatures';
+    if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
+        throw new RuntimeException('Could not save the signature.');
+    }
+    $rel = 'uploads/signatures/sig-' . current_company_id() . '-' . date('YmdHis') . '.png';
+    if (file_put_contents(ROOT_PATH . '/' . $rel, $bin) === false) {
+        throw new RuntimeException('Could not save the signature.');
+    }
+    $old = company_signature_path();
+    db_exec('UPDATE branding SET signature_path=? WHERE company_id=?', 'si', [$rel, current_company_id()]);
+    if ($old !== '' && $old !== $rel && str_contains($old, 'uploads/signatures/')) {
+        $full = ROOT_PATH . '/' . $old;
+        if (is_file($full)) {
+            @unlink($full);
+        }
+    }
+    branding(true);
+    return $rel;
+}
+
+function clear_company_signature(): void
+{
+    $old = company_signature_path();
+    db_exec('UPDATE branding SET signature_path=NULL WHERE company_id=?', 'i', [current_company_id()]);
+    if ($old !== '' && str_contains($old, 'uploads/signatures/') && is_file(ROOT_PATH . '/' . $old)) {
+        @unlink($old);
+    }
+    branding(true);
 }
 
 function period_range(): array

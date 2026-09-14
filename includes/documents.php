@@ -276,6 +276,10 @@ function create_document(array $data): int
     $alloc = isset($data['allocated_amount']) ? (float) $data['allocated_amount'] : null;
     $cat = $data['expense_category'] ?? null;
     $tpl = $data['letter_template'] ?? null;
+    if ($tpl === 'none' || $tpl === '') {
+        $tpl = null;
+    }
+    $addSig = !empty($data['add_signature']) ? 1 : 0;
     $currency = normalize_currency((string) ($data['currency'] ?? default_currency()), default_currency());
     $docTpl = trim((string) ($data['doc_template'] ?? ''));
     if ($docTpl === '' || !array_key_exists($docTpl, doc_templates())) {
@@ -311,10 +315,10 @@ function create_document(array $data): int
     }
 
     $id = db_exec(
-        'INSERT INTO documents (company_id, kind, sequence, number, date, due_date, party_id, vat_rate, notes, subject, body, custom_values, status, related_id, payment_method, payment_ref, allocated_amount, expense_category, letter_template, created_by, currency, doc_template)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        'isisssidsssssissdssiss',
-        [$cid, $kind, $seq, $number, $date, $due, $party, $rate, $notes, $subject, $body, $customValues, $status, $related, $method, $ref, $alloc, $cat, $tpl, $userId, $currency, $docTpl]
+        'INSERT INTO documents (company_id, kind, sequence, number, date, due_date, party_id, vat_rate, notes, subject, body, custom_values, status, related_id, payment_method, payment_ref, allocated_amount, expense_category, letter_template, created_by, currency, doc_template, add_signature)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'isisssidsssssissdssissi',
+        [$cid, $kind, $seq, $number, $date, $due, $party, $rate, $notes, $subject, $body, $customValues, $status, $related, $method, $ref, $alloc, $cat, $tpl, $userId, $currency, $docTpl, $addSig]
     );
 
     insert_document_items($id, $items);
@@ -397,7 +401,17 @@ function update_document(int $id, array $data): void
     $ref = $data['payment_ref'] ?? $doc['payment_ref'];
     $alloc = isset($data['allocated_amount']) ? (float) $data['allocated_amount'] : (float) ($doc['allocated_amount'] ?? 0);
     $cat = $data['expense_category'] ?? $doc['expense_category'];
-    $tpl = $data['letter_template'] ?? $doc['letter_template'];
+    if (array_key_exists('letter_template', $data)) {
+        $tpl = $data['letter_template'];
+        if ($tpl === 'none' || $tpl === '') {
+            $tpl = null;
+        }
+    } else {
+        $tpl = $doc['letter_template'];
+    }
+    $addSig = array_key_exists('add_signature', $data)
+        ? (!empty($data['add_signature']) ? 1 : 0)
+        : (int) ($doc['add_signature'] ?? 0);
     $currency = normalize_currency((string) ($data['currency'] ?? doc_currency($doc)), doc_currency($doc));
     $docTpl = trim((string) ($data['doc_template'] ?? doc_template_key($doc)));
     if ($docTpl === '' || !array_key_exists($docTpl, doc_templates())) {
@@ -427,9 +441,9 @@ function update_document(int $id, array $data): void
     }
 
     db_exec(
-        'UPDATE documents SET party_id=?, date=?, due_date=?, vat_rate=?, notes=?, subject=?, body=?, custom_values=?, related_id=?, payment_method=?, payment_ref=?, allocated_amount=?, expense_category=?, letter_template=?, currency=?, doc_template=? WHERE id=? AND company_id=?',
-        'issdssssissdssssii',
-        [$party, $date, $due, $rate, $notes, $subject, $body, $customValues, $related, $method, $ref, $alloc, $cat, $tpl, $currency, $docTpl, $id, current_company_id()]
+        'UPDATE documents SET party_id=?, date=?, due_date=?, vat_rate=?, notes=?, subject=?, body=?, custom_values=?, related_id=?, payment_method=?, payment_ref=?, allocated_amount=?, expense_category=?, letter_template=?, currency=?, doc_template=?, add_signature=? WHERE id=? AND company_id=?',
+        'issdssssissdssssiii',
+        [$party, $date, $due, $rate, $notes, $subject, $body, $customValues, $related, $method, $ref, $alloc, $cat, $tpl, $currency, $docTpl, $addSig, $id, current_company_id()]
     );
     db_exec('DELETE FROM document_items WHERE document_id = ?', 'i', [$id]);
     insert_document_items($id, $items);

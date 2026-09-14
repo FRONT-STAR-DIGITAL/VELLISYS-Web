@@ -41,6 +41,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('Password updated for ' . $member['email'] . '.');
             redirect('settings.php#people');
         }
+    } elseif ($action === 'save_signature') {
+        $wantsJson = str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json')
+            || post('ajax') === '1';
+        try {
+            save_company_signature_png(post('signature_data', '', 900000));
+            if ($wantsJson) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok' => true, 'url' => company_signature_url()], JSON_UNESCAPED_SLASHES);
+                exit;
+            }
+            flash('Signature approved.');
+            redirect('settings.php#appearance');
+        } catch (Throwable $e) {
+            if ($wantsJson) {
+                header('Content-Type: application/json; charset=utf-8');
+                http_response_code(400);
+                echo json_encode(['ok' => false, 'error' => $e->getMessage()]);
+                exit;
+            }
+            $error = $e->getMessage();
+        }
+    } elseif ($action === 'clear_signature') {
+        $wantsJson = str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json')
+            || post('ajax') === '1';
+        clear_company_signature();
+        if ($wantsJson) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => true]);
+            exit;
+        }
+        flash('Signature cleared. Draw it again to approve.');
+        redirect('settings.php#appearance');
     } elseif ($action === '' || $action === 'save_brand') {
     $color = parse_hex_color(post('brand_color'), '#82B440');
     $accent = parse_hex_color(post('brand_accent'), '#C6A15B');
@@ -286,6 +318,24 @@ layout_start('Settings', $user);
             <div class="logo-preview"><img src="<?= h(logo_url()) ?>" alt=""></div>
           <?php endif; ?>
         </div>
+      </div>
+      <div class="sig-block" data-signature-pad>
+        <h3>Signature</h3>
+        <p class="hint">Write with a finger or mouse. Cancel clears the pad. Retake removes an approved mark so you can draw again. Approve stores it for letters that need a sign-off.</p>
+        <?php $sigUrl = company_signature_url($b); ?>
+        <div class="sig-preview" data-sig-preview <?= $sigUrl === '' ? 'hidden' : '' ?>>
+          <?php if ($sigUrl !== ''): ?>
+            <img src="<?= h($sigUrl) ?>" alt="Approved signature">
+          <?php endif; ?>
+          <span>Approved</span>
+        </div>
+        <canvas class="sig-canvas" width="560" height="180" data-sig-canvas <?= $sigUrl !== '' ? 'hidden' : '' ?>></canvas>
+        <div class="sig-actions">
+          <button class="btn ghost sm" type="button" data-sig-cancel>Cancel</button>
+          <button class="btn ghost sm" type="button" data-sig-retake>Retake</button>
+          <button class="btn sm" type="button" data-sig-approve>Approve signature</button>
+        </div>
+        <p class="hint" data-sig-status></p>
       </div>
       <div class="palette-swatches" aria-hidden="true">
         <span style="background:var(--brand)"></span>

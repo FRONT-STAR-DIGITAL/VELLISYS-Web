@@ -333,14 +333,180 @@ if (document.querySelector('[data-lines-preview-body]')) {
 document.querySelectorAll('[data-letter-templates]').forEach(function (form) {
   var subject = form.querySelector('#subject');
   var body = form.querySelector('#body');
+  var signBox = form.querySelector('[data-sign-box]');
+  var signHint = form.querySelector('[data-sign-hint]');
+  function applySign(needsSign) {
+    if (signBox) signBox.hidden = !needsSign;
+    if (signHint) signHint.hidden = !!needsSign;
+    var cb = signBox && signBox.querySelector('input[name="add_signature"]');
+    if (cb) cb.checked = !!needsSign;
+  }
   form.querySelectorAll('input[name="letter_template"]').forEach(function (radio) {
     radio.addEventListener('change', function () {
       var card = radio.closest('.template-card');
       if (!card) return;
       if (subject) subject.value = card.getAttribute('data-subject') || '';
       if (body) body.value = card.getAttribute('data-body') || '';
+      applySign(card.getAttribute('data-sign') === '1');
     });
   });
+});
+
+document.addEventListener('click', function (e) {
+  var a = e.target.closest('[data-letter-docx]');
+  if (!a) return;
+  var form = document.querySelector('[data-letter-templates]');
+  if (!form) return;
+  e.preventDefault();
+  var post = document.createElement('form');
+  post.method = 'post';
+  post.action = (a.getAttribute('href') || '').split('?')[0];
+  function add(name, value) {
+    var input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = name;
+    input.value = value;
+    post.appendChild(input);
+  }
+  var csrf = form.querySelector('[name="csrf"]');
+  if (csrf) add('csrf', csrf.value);
+  var id = form.querySelector('[name="document_id"]');
+  if (id && id.value) add('id', id.value);
+  var tpl = form.querySelector('input[name="letter_template"]:checked');
+  add('template', tpl ? tpl.value : 'none');
+  add('subject', subjectValue(form));
+  add('body', bodyValue(form));
+  var sig = form.querySelector('[data-sign-box] input[name="add_signature"]');
+  add('add_signature', sig && !sig.closest('[hidden]') && sig.checked ? '1' : '0');
+  var party = form.querySelector('#party_id');
+  if (party) add('party_id', party.value);
+  document.body.appendChild(post);
+  post.submit();
+});
+
+function subjectValue(form) {
+  var el = form.querySelector('#subject');
+  return el ? el.value : '';
+}
+function bodyValue(form) {
+  var el = form.querySelector('#body');
+  return el ? el.value : '';
+}
+
+document.querySelectorAll('[data-signature-pad]').forEach(function (root) {
+  var canvas = root.querySelector('[data-sig-canvas]');
+  var preview = root.querySelector('[data-sig-preview]');
+  var status = root.querySelector('[data-sig-status]');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var drawing = false;
+  var last = null;
+  function sizeCanvas() {
+    var ratio = window.devicePixelRatio || 1;
+    var w = canvas.clientWidth || 560;
+    var h = canvas.clientHeight || 180;
+    canvas.width = Math.round(w * ratio);
+    canvas.height = Math.round(h * ratio);
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.lineWidth = 2.2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#111';
+  }
+  sizeCanvas();
+  window.addEventListener('resize', sizeCanvas);
+  function pos(ev) {
+    var r = canvas.getBoundingClientRect();
+    var pt = ev.touches ? ev.touches[0] : ev;
+    return { x: pt.clientX - r.left, y: pt.clientY - r.top };
+  }
+  function start(ev) {
+    ev.preventDefault();
+    drawing = true;
+    last = pos(ev);
+  }
+  function move(ev) {
+    if (!drawing) return;
+    ev.preventDefault();
+    var p = pos(ev);
+    ctx.beginPath();
+    ctx.moveTo(last.x, last.y);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    last = p;
+  }
+  function end() { drawing = false; }
+  canvas.addEventListener('pointerdown', start);
+  canvas.addEventListener('pointermove', move);
+  canvas.addEventListener('pointerup', end);
+  canvas.addEventListener('pointerleave', end);
+  canvas.addEventListener('touchstart', start, { passive: false });
+  canvas.addEventListener('touchmove', move, { passive: false });
+  canvas.addEventListener('touchend', end);
+  function csrf() {
+    var field = document.querySelector('input[name="csrf"]');
+    return field ? field.value : '';
+  }
+    var formEl = root.closest('form');
+    var postUrl = formEl && formEl.action ? formEl.action : 'settings.php';
+    function postAction(action, extra) {
+      var data = new FormData();
+      data.append('csrf', csrf());
+      data.append('action', action);
+      data.append('ajax', '1');
+      Object.keys(extra || {}).forEach(function (k) { data.append(k, extra[k]); });
+      return fetch(postUrl, { method: 'POST', body: data, headers: { Accept: 'application/json' } }).then(function (res) {
+        return res.json().then(function (json) {
+          if (!res.ok || !json.ok) throw new Error((json && json.error) || 'Could not save.');
+          return json;
+        });
+      });
+    }
+  function setStatus(msg) { if (status) status.textContent = msg || ''; }
+  var cancel = root.querySelector('[data-sig-cancel]');
+  var retake = root.querySelector('[data-sig-retake]');
+  var approve = root.querySelector('[data-sig-approve]');
+  if (cancel) {
+    cancel.addEventListener('click', function () {
+      sizeCanvas();
+      setStatus('Pad cleared.');
+    });
+  }
+  if (retake) {
+    retake.addEventListener('click', function () {
+      postAction('clear_signature').then(function () {
+        if (preview) {
+          preview.hidden = true;
+          preview.querySelectorAll('img').forEach(function (img) { img.remove(); });
+        }
+        canvas.hidden = false;
+        sizeCanvas();
+        setStatus('Draw a new signature, then approve.');
+      }).catch(function (err) { setStatus(err.message); });
+    });
+  }
+  if (approve) {
+    approve.addEventListener('click', function () {
+      var blank = document.createElement('canvas');
+      blank.width = canvas.width;
+      blank.height = canvas.height;
+      if (canvas.toDataURL() === blank.toDataURL()) {
+        setStatus('Draw the signature first.');
+        return;
+      }
+      postAction('save_signature', { signature_data: canvas.toDataURL('image/png') }).then(function (json) {
+        if (preview) {
+          var img = preview.querySelector('img') || document.createElement('img');
+          img.alt = 'Approved signature';
+          img.src = json.url;
+          if (!img.parentNode) preview.insertBefore(img, preview.firstChild);
+          preview.hidden = false;
+        }
+        canvas.hidden = true;
+        setStatus('Signature approved.');
+      }).catch(function (err) { setStatus(err.message); });
+    });
+  }
 });
 
 document.querySelectorAll('[data-receipt-form]').forEach(function (form) {

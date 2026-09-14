@@ -42,6 +42,21 @@ function folio_ensure_logo_bg(mysqli $db): void
     }
 }
 
+function folio_ensure_signature(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    if (!db_has_column($db, 'branding', 'signature_path')) {
+        @$db->query('ALTER TABLE branding ADD COLUMN signature_path VARCHAR(255) NULL');
+    }
+    if (!db_has_column($db, 'documents', 'add_signature')) {
+        @$db->query('ALTER TABLE documents ADD COLUMN add_signature TINYINT(1) NOT NULL DEFAULT 0');
+    }
+}
+
 function folio_ensure_company_tax(mysqli $db): void
 {
     if (!db_has_column($db, 'branding', 'tax_name')) {
@@ -118,6 +133,7 @@ function folio_migrate(mysqli $db): void
         return;
     }
     folio_ensure_logo_bg($db);
+    folio_ensure_signature($db);
     folio_ensure_company_tax($db);
     folio_ensure_company_admins($db);
     folio_ensure_notification_dismissals($db);
