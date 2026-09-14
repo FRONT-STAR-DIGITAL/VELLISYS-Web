@@ -87,7 +87,7 @@ function layout_start(string $title, array $user, array $opts = []): void
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title><?= h($title) ?> · <?= h(product_name()) ?></title>
   <?php product_icons(); ?>
   <?php folio_css_links(); ?>
@@ -347,6 +347,85 @@ function layout_admin_start(string $title, array $user): void
 <?php
 }
 
+function render_desk_calculator(): void
+{
+    ?>
+<div class="desk-calc" data-desk-calc>
+  <div class="desk-calc-pad" data-calc-pad hidden>
+    <div class="desk-calc-tools">
+      <button type="button" class="desk-calc-tool" data-calc="history"><?= icon('clock', 16) ?> History</button>
+      <button type="button" class="desk-calc-tool" data-calc="copy"><?= icon('copy', 16) ?> Copy</button>
+    </div>
+    <ol class="desk-calc-history" data-calc-history hidden></ol>
+    <div class="desk-calc-screen" data-calc-screen>0</div>
+    <div class="desk-calc-keys">
+      <button type="button" class="desk-calc-key op" data-calc="clear">C</button>
+      <button type="button" class="desk-calc-key op" data-calc="back" aria-label="Backspace"><?= icon('backspace', 16) ?></button>
+      <button type="button" class="desk-calc-key op" data-calc="op" data-op="/">÷</button>
+      <button type="button" class="desk-calc-key op" data-calc="op" data-op="*">×</button>
+      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="7">7</button>
+      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="8">8</button>
+      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="9">9</button>
+      <button type="button" class="desk-calc-key op" data-calc="op" data-op="-">−</button>
+      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="4">4</button>
+      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="5">5</button>
+      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="6">6</button>
+      <button type="button" class="desk-calc-key op" data-calc="op" data-op="+">+</button>
+      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="1">1</button>
+      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="2">2</button>
+      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="3">3</button>
+      <button type="button" class="desk-calc-key eq" data-calc="eq">=</button>
+      <button type="button" class="desk-calc-key num zero" data-calc="digit" data-digit="0">0</button>
+      <button type="button" class="desk-calc-key num" data-calc="dot">.</button>
+    </div>
+  </div>
+  <button type="button" class="desk-calc-fab" data-calc-toggle aria-label="Open calculator"><?= icon('calculator', 22) ?></button>
+</div>
+    <?php
+}
+
+function render_app_tabbar(): void
+{
+    $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
+    $kind = (string) ($_GET['kind'] ?? '');
+    $kinds = desk_kind_nav_items();
+    $docKind = 'invoice';
+    foreach ($kinds as $item) {
+        if (($item[3] ?? '') === 'invoice') {
+            $docKind = 'invoice';
+            break;
+        }
+        $docKind = (string) ($item[3] ?? $docKind);
+    }
+    $docsHref = 'documents.php?kind=' . $docKind;
+    $reportsHref = function_exists('user_can_open') && user_can_open('reports.php') ? 'reports.php' : 'debtors.php';
+    $homeOn = $here === 'dashboard.php';
+    $docsOn = in_array($here, ['documents.php', 'document_view.php', 'document_new.php', 'document_email.php', 'document_action.php'], true)
+        && !in_array($kind, ['refund', 'return_note'], true);
+    $repOn = in_array($here, ['reports.php', 'pnl.php', 'pnl_entries.php', 'debtors.php', 'creditors.php'], true)
+        || in_array($kind, ['refund', 'return_note'], true);
+    ?>
+<nav class="app-tabbar" aria-label="App">
+  <a class="app-tab<?= $homeOn ? ' is-on' : '' ?>" href="<?= h(url('dashboard.php')) ?>">
+    <?= icon('home', 22) ?><span>Home</span>
+  </a>
+  <a class="app-tab<?= $docsOn ? ' is-on' : '' ?>" href="<?= h(url($docsHref)) ?>">
+    <?= icon('file', 22) ?><span>Documents</span>
+  </a>
+  <button type="button" class="app-tab app-tab-create" data-quick aria-label="Create a document">
+    <span class="app-tab-plus"><?= icon('plus', 26) ?></span>
+    <span>Create</span>
+  </button>
+  <a class="app-tab<?= $repOn ? ' is-on' : '' ?>" href="<?= h(url($reportsHref)) ?>">
+    <?= icon('reports', 22) ?><span>Reports</span>
+  </a>
+  <button type="button" class="app-tab" data-calc-toggle aria-label="Calculator">
+    <?= icon('calculator', 22) ?><span>Calculator</span>
+  </button>
+</nav>
+    <?php
+}
+
 function layout_end(string $extra = ''): void
 {
     $admin = str_starts_with(basename($_SERVER['SCRIPT_NAME'] ?? ''), 'admin_');
@@ -357,13 +436,15 @@ function layout_end(string $extra = ''): void
 
 <?php if (!$admin): ?>
 <div class="quick" hidden data-quick-panel>
-  <p>Quick add</p>
+  <p>Create</p>
   <?php foreach (desk_kind_nav_items() as [$href, $label, $iconName, $qKind]): ?>
     <a href="<?= h(url('document_new.php?kind=' . $qKind)) ?>"><?= icon($iconName) ?><?= h($qKind === 'expense' ? 'Expense' : kind_meta($qKind)['singular']) ?></a>
   <?php endforeach; ?>
   <a href="<?= h(url('desk_mail.php')) ?>"><?= icon('send') ?>Email</a>
   <a href="<?= h(url('client_edit.php')) ?>"><?= icon('clients') ?>Client</a>
 </div>
+<?php render_desk_calculator(); ?>
+<?php render_app_tabbar(); ?>
 <?php endif; ?>
 <script src="<?= h(asset('js/app.js')) ?>" defer></script>
 <?php

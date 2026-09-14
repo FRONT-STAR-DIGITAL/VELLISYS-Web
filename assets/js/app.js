@@ -14,11 +14,14 @@ document.addEventListener('click', function (e) {
   document.querySelectorAll('details.top-bell[open]').forEach(function (el) {
     if (!el.contains(e.target)) el.removeAttribute('open');
   });
-  var q = document.querySelector('[data-quick]');
+  var q = e.target.closest('[data-quick]');
   var panel = document.querySelector('[data-quick-panel]');
-  if (q && q.contains(e.target) && panel) {
-    panel.hidden = !panel.hidden;
-  } else if (panel && !panel.contains(e.target)) {
+  if (q) {
+    e.preventDefault();
+    if (panel) panel.hidden = !panel.hidden;
+    return;
+  }
+  if (panel && !panel.contains(e.target)) {
     panel.hidden = true;
   }
 
@@ -1040,8 +1043,7 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
   var pad = root.querySelector('[data-calc-pad]');
   var screen = root.querySelector('[data-calc-screen]');
   var histEl = root.querySelector('[data-calc-history]');
-  var toggle = root.querySelector('[data-calc-toggle]');
-  if (!pad || !screen || !toggle) return;
+  if (!pad || !screen) return;
   var cur = '0';
   var acc = null;
   var op = null;
@@ -1145,8 +1147,17 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
       histEl.hidden = !histEl.hidden;
     }
   });
-  toggle.addEventListener('click', function () {
-    pad.hidden = !pad.hidden;
-    toggle.setAttribute('aria-label', pad.hidden ? 'Open calculator' : 'Close calculator');
+  function setOpen(open) {
+    pad.hidden = !open;
+    document.querySelectorAll('[data-calc-toggle]').forEach(function (el) {
+      el.setAttribute('aria-label', pad.hidden ? 'Open calculator' : 'Close calculator');
+      el.classList.toggle('is-on', !pad.hidden);
+    });
+  }
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-calc-toggle]');
+    if (!t) return;
+    e.preventDefault();
+    setOpen(pad.hidden);
   });
 })();

@@ -554,35 +554,4 @@ layout_start($heading, $user, ['kind' => $kind]);
     <a class="btn ghost" href="<?= h(url($existing ? 'document_view.php?id=' . $existing['id'] : 'documents.php?kind=' . $kind)) ?>">Cancel</a>
   </div>
 </form>
-<div class="desk-calc" data-desk-calc>
-  <div class="desk-calc-pad" data-calc-pad hidden>
-    <div class="desk-calc-tools">
-      <button type="button" class="desk-calc-tool" data-calc="history"><?= icon('clock', 16) ?> History</button>
-      <button type="button" class="desk-calc-tool" data-calc="copy"><?= icon('copy', 16) ?> Copy</button>
-    </div>
-    <ol class="desk-calc-history" data-calc-history hidden></ol>
-    <div class="desk-calc-screen" data-calc-screen>0</div>
-    <div class="desk-calc-keys">
-      <button type="button" class="desk-calc-key op" data-calc="clear">C</button>
-      <button type="button" class="desk-calc-key op" data-calc="back" aria-label="Backspace"><?= icon('backspace', 16) ?></button>
-      <button type="button" class="desk-calc-key op" data-calc="op" data-op="/">÷</button>
-      <button type="button" class="desk-calc-key op" data-calc="op" data-op="*">×</button>
-      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="7">7</button>
-      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="8">8</button>
-      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="9">9</button>
-      <button type="button" class="desk-calc-key op" data-calc="op" data-op="-">−</button>
-      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="4">4</button>
-      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="5">5</button>
-      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="6">6</button>
-      <button type="button" class="desk-calc-key op" data-calc="op" data-op="+">+</button>
-      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="1">1</button>
-      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="2">2</button>
-      <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="3">3</button>
-      <button type="button" class="desk-calc-key eq" data-calc="eq">=</button>
-      <button type="button" class="desk-calc-key num zero" data-calc="digit" data-digit="0">0</button>
-      <button type="button" class="desk-calc-key num" data-calc="dot">.</button>
-    </div>
-  </div>
-  <button type="button" class="desk-calc-fab" data-calc-toggle aria-label="Open calculator"><?= icon('calculator', 22) ?></button>
-</div>
 <?php layout_end(); ?>
