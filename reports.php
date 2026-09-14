@@ -168,9 +168,12 @@ if (count($series) > 45) {
     $series = $monthly;
 }
 
+$period = period_range();
+$from = $period['from'] !== '' ? $period['from'] : '1970-01-01';
+$to = $period['to'] !== '' ? $period['to'] : today();
+$margin = function_exists('stock_range_totals') ? stock_range_totals($from, $to) : ['profit' => $income - $costs, 'net' => $income - $costs, 'cogs' => 0.0];
 $taxReport = report_tax_payable();
 $taxName = company_tax_name();
-$period = period_range();
 $chartLabels = array_keys($series);
 $chartInvoiced = array_column($series, 'invoiced');
 $chartExpenses = array_column($series, 'expenses');
@@ -200,7 +203,8 @@ layout_start('Reports', $user);
   <div class="card stat"><?= icon('invoice', 20) ?><span>Income (invoiced, net)</span><strong><?= h(ugx($income)) ?></strong></div>
   <div class="card stat"><?= icon('receipt', 20) ?><span>Collected</span><strong><?= h(ugx($cashIn)) ?></strong></div>
   <div class="card stat"><?= icon('clients', 20) ?><span>Outstanding</span><strong><?= h(ugx($outstanding)) ?></strong></div>
-  <div class="card stat"><?= icon('reports', 20) ?><span>Profit</span><strong><?= h(ugx($income - $costs)) ?></strong></div>
+  <div class="card stat"><?= icon('package', 20) ?><span>Profit</span><strong><?= h(ugx($margin['profit'])) ?></strong><em>Sell minus buy</em></div>
+  <div class="card stat"><?= icon('reports', 20) ?><span>Net profit</span><strong><?= h(ugx($margin['net'])) ?></strong></div>
 </div>
 <div class="stats">
   <div class="card stat"><?= icon('expense', 20) ?><span>Expenses (net)</span><strong><?= h(ugx($costs)) ?></strong></div>

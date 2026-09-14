@@ -237,7 +237,8 @@
         var ugx = Number(el.getAttribute('data-ugx') || 0);
         var text = formatFromUgx(ugx, code, rates, currencies);
         if (el.getAttribute('data-pay-btn') !== null || el.hasAttribute('data-pay-btn')) {
-          el.textContent = 'Pay ' + text;
+          var prefix = el.getAttribute('data-pay-prefix') || 'Pay ';
+          el.textContent = prefix + text;
         } else {
           el.textContent = text;
         }
@@ -263,6 +264,22 @@
   if (fromCookie) {
     applyCurrency(fromCookie);
   }
+
+  document.querySelectorAll('[data-stock-addon]').forEach(function (box) {
+    function syncStock() {
+      var root = box.closest('[data-pricing]') || document;
+      var pack = Number(box.getAttribute('data-package-ugx') || 0);
+      var add = Number(box.getAttribute('data-stock-ugx') || 0);
+      var total = pack + (box.checked ? add : 0);
+      root.querySelectorAll('[data-stock-total]').forEach(function (el) {
+        el.setAttribute('data-ugx', String(total));
+      });
+      var code = (root.getAttribute('data-ccy') || cookieCcy() || 'UGX').toUpperCase();
+      applyCurrency(code);
+    }
+    box.addEventListener('change', syncStock);
+    syncStock();
+  });
 
   function kampalaDeadline() {
     var parts = new Intl.DateTimeFormat('en-CA', {

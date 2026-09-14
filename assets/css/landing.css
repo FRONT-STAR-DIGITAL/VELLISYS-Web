@@ -2752,6 +2752,23 @@ html.is-pwa body.gate .lp-floats { display: none !important; }
   color: var(--muted);
   font-size: 14.5px;
 }
+.lp-pricing-stock {
+  margin: 28px auto 0;
+  max-width: 720px;
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.55;
+  text-align: center;
+}
+.lp-stock-addon {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 16px 0;
+  font-size: 14.5px;
+  line-height: 1.45;
+}
+.lp-stock-addon input { margin-top: 3px; }
 .lp-pricing-register a { color: var(--blue); font-weight: 700; }
 
 .lp-checkout-page .lp-floats { display: none; }

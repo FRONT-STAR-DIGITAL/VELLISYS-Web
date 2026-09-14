@@ -7,7 +7,7 @@ $brand = branding();
 $error = '';
 $cid = current_company_id();
 $deskCompany = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$cid]);
-$members = db_all('SELECT id, name, job_title, email, role, access, created_at FROM users WHERE company_id = ? ORDER BY role = \'admin\' DESC, id', 'i', [$cid]);
+$members = db_all('SELECT id, name, job_title, email, role, access, features, branch_id, created_at FROM users WHERE company_id = ? ORDER BY role = \'admin\' DESC, id', 'i', [$cid]);
 $seats = company_user_limit($deskCompany ?: null);
 $used = company_seat_count($cid);
 
@@ -25,12 +25,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'password' => post('user_password'),
             'job_title' => post('user_title'),
             'access' => post('user_access'),
+            'features' => posted_user_features(post('user_access') === 'sales' ? 'sales' : 'books'),
             'branch_id' => post('user_branch'),
         ]);
         if (empty($made['ok'])) {
             $error = (string) ($made['error'] ?? 'Could not add that user.');
         } else {
             flash('Login created for ' . $made['email'] . '. Temporary password: ' . $made['password']);
+            redirect('settings.php#people');
+        }
+        } elseif ($action === 'save_user_access') {
+        $uid = (int) post('user_id');
+        $member = db_one('SELECT * FROM users WHERE id = ? AND company_id = ?', 'ii', [$uid, $cid]);
+        $access = post('user_access') === 'sales' ? 'sales' : 'books';
+        if (!$member) {
+            $error = 'That user is not on this desk.';
+        } elseif (($member['role'] ?? '') === 'admin') {
+            $error = 'The company admin already has every desk page.';
+        } else {
+            $feat = posted_user_features($access);
+            db_exec('UPDATE users SET access=?, features=? WHERE id=? AND company_id=?', 'ssii', [$access, json_encode($feat, JSON_UNESCAPED_UNICODE), $uid, $cid]);
+            flash('Access updated for ' . $member['email'] . '.');
             redirect('settings.php#people');
         }
     } elseif ($action === 'reset_password') {
@@ -237,7 +252,7 @@ layout_start('Settings', $user);
 
     <section class="card settings-card" id="people">
       <h2><?= icon('user') ?>People</h2>
-      <p class="lede">This desk has <?= (int) $used ?> of <?= (int) $seats ?> login<?= $seats === 1 ? '' : 's' ?>. Vellisys sets the number. <?= h(company_plan_label()) ?> allows up to <?= (int) plan_user_limit_max($deskCompany ?: null) ?> users. Only the company admin can open Reports, Settings and this list.</p>
+      <p class="lede">This desk has <?= (int) $used ?> of <?= (int) $seats ?> login<?= $seats === 1 ? '' : 's' ?>. Vellisys sets the number. <?= h(company_plan_label()) ?> allows up to <?= (int) plan_user_limit_max($deskCompany ?: null) ?> users. Only the company admin sees profit, net profit, reports, settings, branches and activities. Assign Desk or Sales, then tick the pages that user may open.</p>
       <?php if (!$members): ?>
         <p class="empty">No logins yet.</p>
       <?php else: ?>
@@ -283,13 +298,40 @@ layout_start('Settings', $user);
                   </form>
                 </td>
               </tr>
+              <?php if (($m['role'] ?? '') !== 'admin'): ?>
+              <?php
+                $mAccess = ((string) ($m['access'] ?? 'books')) === 'sales' ? 'sales' : 'books';
+                $mFeat = parse_user_features($m['features'] ?? '', $mAccess);
+              ?>
+              <tr class="people-access-row">
+                <td colspan="<?= company_branches_enabled() ? 6 : 5 ?>">
+                  <form method="post" class="people-access" data-access-features>
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="save_user_access">
+                    <input type="hidden" name="user_id" value="<?= (int) $m['id'] ?>">
+                    <div class="people-access-head">
+                      <label>
+                        <span>Access</span>
+                        <select name="user_access" data-access-select>
+                          <?php foreach (desk_staff_access_levels() as $key => $info): ?>
+                            <option value="<?= h($key) ?>" <?= $mAccess === $key ? 'selected' : '' ?>><?= h($info['label']) ?></option>
+                          <?php endforeach; ?>
+                        </select>
+                      </label>
+                      <button class="btn sm" type="submit">Save access</button>
+                    </div>
+                    <?php render_desk_feature_checks($mFeat); ?>
+                  </form>
+                </td>
+              </tr>
+              <?php endif; ?>
             <?php endforeach; ?>
           </tbody>
         </table>
         </div>
       <?php endif; ?>
       <?php if ($used < $seats): ?>
-        <form method="post" class="people-add" autocomplete="off">
+        <form method="post" class="people-add" autocomplete="off" data-access-features>
           <?= csrf_field() ?>
           <input type="hidden" name="action" value="add_user">
           <h3>Add a user</h3>
@@ -308,12 +350,12 @@ layout_start('Settings', $user);
             </div>
             <div>
               <label for="user_access">Access</label>
-              <select id="user_access" name="user_access">
+              <select id="user_access" name="user_access" data-access-select>
                 <?php foreach (desk_staff_access_levels() as $key => $info): ?>
                   <option value="<?= h($key) ?>" <?= post('user_access') === $key ? 'selected' : '' ?>><?= h($info['label']) ?></option>
                 <?php endforeach; ?>
               </select>
-              <p class="hint"><?= h(desk_staff_access_levels()['books']['hint']) ?> Sales: <?= h(desk_staff_access_levels()['sales']['hint']) ?></p>
+              <p class="hint"><?= h(desk_staff_access_levels()['books']['hint']) ?> <?= h(desk_staff_access_levels()['sales']['hint']) ?></p>
             </div>
             <div>
               <label for="user_password">Temporary password</label>
@@ -328,6 +370,8 @@ layout_start('Settings', $user);
             </div>
             <?php endif; ?>
           </div>
+          <p class="hint">Tick the pages this login may open. Profit, reports, settings, branches and activities stay with the admin.</p>
+          <?php render_desk_feature_checks(posted_user_features(post('user_access') === 'sales' ? 'sales' : 'books')); ?>
           <div class="actions" style="margin-top:12px">
             <button class="btn sm" type="submit"><?= icon('plus', 14) ?>Create login</button>
           </div>
@@ -656,4 +700,10 @@ Accounts
     </div>
   </div>
 <?php endif; ?>
-<?php layout_end(); ?>
+<?php
+$featDefaults = json_encode([
+    'books' => desk_feature_defaults('books'),
+    'sales' => desk_feature_defaults('sales'),
+], JSON_UNESCAPED_UNICODE);
+layout_end('<script>window.vellisysFeatureDefaults=' . $featDefaults . ';</script><script src="' . h(asset('js/people-access.js')) . '"></script>');
+?>

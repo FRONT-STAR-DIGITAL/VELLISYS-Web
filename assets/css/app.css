@@ -475,8 +475,55 @@ img { max-width: 100%; display: block; }
   flex-wrap: wrap;
 }
 .people-reset input { width: 9.5rem; margin: 0; }
-.people-add { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
-.people-add h3 { margin: 0 0 10px; font-size: 15px; }
+.feature-checks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 4px 12px;
+  margin: 10px 0 0;
+}
+.feature-checks .check {
+  margin: 0;
+  font-weight: 500;
+  font-size: 13px;
+  min-height: 40px;
+}
+.people-access {
+  padding: 10px 0 4px;
+}
+.people-access-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+  margin-bottom: 8px;
+}
+.people-access-head label {
+  margin: 0;
+  display: grid;
+  gap: 4px;
+}
+.people-access-row td {
+  background: #f7f8fb;
+}
+.savings-bar {
+  height: 10px;
+  background: #e8ebf2;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.savings-bar span {
+  display: block;
+  height: 100%;
+  background: var(--brand, #82B440);
+}
+.savings-bar.is-saved span {
+  background: var(--brand-2, #C6A15B);
+}
+@media (max-width: 720px) {
+  .people-access-head { width: 100%; }
+  .people-access-head .btn { width: 100%; }
+  .lp-stock-addon { align-items: flex-start; }
+}
 .content { padding: 24px 22px 72px; max-width: none; width: 100%; min-width: 0; overflow-x: clip; }
 .flash {
   margin: 16px 22px 0;

@@ -27,6 +27,7 @@ layout_start('Profit & Loss', $user);
 <div class="stats">
   <div class="card stat"><?= icon('invoice', 20) ?><span>Income</span><strong><?= h(money($summary['income_total'], $ccy)) ?></strong></div>
   <div class="card stat"><?= icon('wallet', 20) ?><span>Expenses</span><strong><?= h(money($summary['expense_total'], $ccy)) ?></strong></div>
+  <div class="card stat"><?= icon('package', 20) ?><span>Profit</span><strong><?= h(money($summary['profit'] ?? ($summary['sales'] - ($summary['cogs'] ?? 0)), $ccy)) ?></strong><em>Sell minus buy</em></div>
   <div class="card stat"><?= icon('reports', 20) ?><span>Net profit</span><strong class="<?= $summary['net'] < 0 ? 'neg' : 'pos' ?>"><?= h(money($summary['net'], $ccy)) ?></strong></div>
   <div class="card stat"><?= icon('bank', 20) ?><span>Cash net</span><strong><?= h(money($summary['cash_net'], $ccy)) ?></strong><em>in <?= h(money($summary['cash_in'], $ccy)) ?> · out <?= h(money($summary['cash_out'], $ccy)) ?></em></div>
 </div>
@@ -127,9 +128,19 @@ layout_start('Profit & Loss', $user);
         </thead>
         <tbody>
           <tr>
-            <td data-label="Line"><span class="pnl-line">Expenses</span><span class="pnl-note-mobile">Bills and costs</span></td>
-            <td class="pnl-note" data-label="Note">Bills and costs</td>
-            <td class="right mono" data-label="Amount"><?= h(money($summary['costs'], $ccy)) ?></td>
+            <td data-label="Line"><span class="pnl-line">Cost of goods</span><span class="pnl-note-mobile">Buying price of items sold</span></td>
+            <td class="pnl-note" data-label="Note">Buying price of items sold</td>
+            <td class="right mono" data-label="Amount"><?= h(money($summary['cogs'] ?? 0, $ccy)) ?></td>
+          </tr>
+          <tr>
+            <td data-label="Line"><span class="pnl-line">Profit</span><span class="pnl-note-mobile">Selling minus buying</span></td>
+            <td class="pnl-note" data-label="Note">Selling minus buying</td>
+            <td class="right mono" data-label="Amount"><?= h(money($summary['profit'] ?? 0, $ccy)) ?></td>
+          </tr>
+          <tr>
+            <td data-label="Line"><span class="pnl-line">Expenses</span><span class="pnl-note-mobile">Bills, not stock purchases</span></td>
+            <td class="pnl-note" data-label="Note">Bills, not stock purchases</td>
+            <td class="right mono" data-label="Amount"><?= h(money($summary['operating_costs'] ?? $summary['costs'], $ccy)) ?></td>
           </tr>
           <tr>
             <td data-label="Line"><span class="pnl-line">Other costs</span><span class="pnl-note-mobile">Manual ledger</span></td>

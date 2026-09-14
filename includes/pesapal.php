@@ -293,6 +293,10 @@ function save_website_order(array $data, ?int $id = null): array
         $status = 'draft';
     }
     $amountUgx = (float) $plan['price_ugx'];
+    $stockOn = !empty($data['stock_addon']);
+    if ($stockOn) {
+        $amountUgx += pricing_stock_addon_ugx($plan['key']);
+    }
     $amount = pricing_convert_ugx($amountUgx, $currency);
     $now = desk_now()->format('Y-m-d H:i:s');
     if ($id) {
@@ -301,9 +305,9 @@ function save_website_order(array $data, ?int $id = null): array
             return ['ok' => true, 'order' => $row];
         }
         db_exec(
-            'UPDATE website_orders SET plan=?, currency=?, amount=?, amount_ugx=?, name=?, company=?, email=?, phone=?, city=?, country=?, status=?, updated_at=? WHERE id=?',
-            'ssddssssssssi',
-            [$plan['key'], $currency, $amount, $amountUgx, $name, $company, $email, $phone, $city, $country, $status, $now, $id]
+            'UPDATE website_orders SET plan=?, stock_addon=?, currency=?, amount=?, amount_ugx=?, name=?, company=?, email=?, phone=?, city=?, country=?, status=?, updated_at=? WHERE id=?',
+            'sisddssssssssi',
+            [$plan['key'], $stockOn ? 1 : 0, $currency, $amount, $amountUgx, $name, $company, $email, $phone, $city, $country, $status, $now, $id]
         );
         $row = db_one('SELECT * FROM website_orders WHERE id = ?', 'i', [$id]);
         return ['ok' => true, 'order' => $row];
@@ -311,10 +315,10 @@ function save_website_order(array $data, ?int $id = null): array
     $publicId = order_public_id();
     $ref = order_merchant_ref();
     $newId = db_exec(
-        'INSERT INTO website_orders (public_id, merchant_ref, plan, currency, amount, amount_ugx, name, company, email, phone, city, country, status, created_at, updated_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        'ssssddsssssssss',
-        [$publicId, $ref, $plan['key'], $currency, $amount, $amountUgx, $name, $company, $email, $phone, $city, $country, $status, $now, $now]
+        'INSERT INTO website_orders (public_id, merchant_ref, plan, stock_addon, currency, amount, amount_ugx, name, company, email, phone, city, country, status, created_at, updated_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'sssisddsssssssss',
+        [$publicId, $ref, $plan['key'], $stockOn ? 1 : 0, $currency, $amount, $amountUgx, $name, $company, $email, $phone, $city, $country, $status, $now, $now]
     );
     $row = db_one('SELECT * FROM website_orders WHERE id = ?', 'i', [$newId]);
     return ['ok' => true, 'order' => $row];

@@ -104,6 +104,9 @@ function create_company_from_paid_order(array $order): int
     if ($cid < 1) {
         return 0;
     }
+    if (!empty($order['stock_addon'])) {
+        db_exec('UPDATE companies SET stock_enabled = 1 WHERE id = ?', 'i', [$cid]);
+    }
     $email = strtolower(trim((string) ($order['email'] ?? '')));
     $phone = trim((string) ($order['phone'] ?? ''));
     $city = trim((string) ($order['city'] ?? ''));

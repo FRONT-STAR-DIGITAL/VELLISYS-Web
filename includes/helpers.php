@@ -1664,6 +1664,7 @@ function create_desk_user(int $companyId, array $fields): array
     $password = (string) ($fields['password'] ?? '');
     $title = mb_substr(trim((string) ($fields['job_title'] ?? '')), 0, 80);
     $access = (string) ($fields['access'] ?? 'books');
+    $features = parse_user_features($fields['features'] ?? desk_feature_defaults($access === 'sales' ? 'sales' : 'books'), $access === 'sales' ? 'sales' : 'books');
     if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         return ['ok' => false, 'error' => 'Name and a valid email are required.'];
     }
@@ -1692,16 +1693,18 @@ function create_desk_user(int $companyId, array $fields): array
         if ($access !== 'sales') {
             $access = 'books';
         }
+        $features = parse_user_features($fields['features'] ?? $features, $access);
     }
     $hash = password_hash($password, PASSWORD_DEFAULT);
     $branchId = null;
     if (company_branches_enabled($company)) {
         $branchId = normalize_branch_id($fields['branch_id'] ?? null, $companyId);
     }
+    $featJson = json_encode($features, JSON_UNESCAPED_UNICODE);
     db_exec(
-        'INSERT INTO users (name, job_title, email, password_hash, role, access, company_id, branch_id) VALUES (?,?,?,?,?,?,?,?)',
-        'ssssssii',
-        [$name, $title, $email, $hash, $role, $access, $companyId, $branchId]
+        'INSERT INTO users (name, job_title, email, password_hash, role, access, features, company_id, branch_id) VALUES (?,?,?,?,?,?,?,?,?)',
+        'sssssssii',
+        [$name, $title, $email, $hash, $role, $access, $featJson, $companyId, $branchId]
     );
     return ['ok' => true, 'email' => $email, 'password' => $password, 'role' => $role];
 }
@@ -2295,7 +2298,7 @@ function period_sql(string $column = 'd.date'): array
     return [" AND {$column} >= ? AND {$column} <= ?", 'ss', [$p['from'], $p['to']]];
 }
 
-function render_filters(string $action, array $keep = []): void
+function render_filters(string $action, array $keep = [], array $opts = []): void
 {
     $p = period_range();
     $qs = static function (array $extra) use ($keep): string {
@@ -2309,8 +2312,12 @@ function render_filters(string $action, array $keep = []): void
         'this_month' => 'This month',
         'last_month' => 'Last month',
     ];
+    if (!empty($opts['no_all'])) {
+        unset($chips['all']);
+    }
+    $live = !empty($opts['live']);
     ?>
-    <form class="filters" method="get" action="<?= h(url($action)) ?>">
+    <form class="filters<?= $live ? ' is-live' : '' ?>" method="get" action="<?= h(url($action)) ?>"<?= $live ? ' data-live-filters' : '' ?>>
       <?php foreach ($keep as $k => $v): ?>
         <input type="hidden" name="<?= h((string) $k) ?>" value="<?= h((string) $v) ?>">
       <?php endforeach; ?>
@@ -2324,14 +2331,14 @@ function render_filters(string $action, array $keep = []): void
           <span>From</span>
           <span class="date-input-wrap">
             <?= icon('calendar', 16) ?>
-            <input type="date" name="from" value="<?= h($p['from']) ?>" aria-label="From date">
+            <input type="date" name="from" value="<?= h($p['from']) ?>" aria-label="From date"<?= $live ? ' data-live-date' : '' ?>>
           </span>
         </label>
         <label class="date-field">
           <span>To</span>
           <span class="date-input-wrap">
             <?= icon('calendar', 16) ?>
-            <input type="date" name="to" value="<?= h($p['to']) ?>" aria-label="To date">
+            <input type="date" name="to" value="<?= h($p['to']) ?>" aria-label="To date"<?= $live ? ' data-live-date' : '' ?>>
           </span>
         </label>
       </div>

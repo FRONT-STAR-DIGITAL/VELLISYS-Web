@@ -132,9 +132,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $tab = 'day';
         } else {
             $t = $closed['totals'];
-            flash('Day closed. Income ' . money($t['income']) . ' · Spend ' . money($t['expense']) . ' · Net ' . money($t['profit']) . ' · Tax ' . money($t['tax']));
+            flash('Day closed. Income ' . money($t['income']) . ' · Profit ' . money($t['profit']) . ' · Net ' . money($t['net']) . ' · Tax ' . money($t['tax']));
             redirect('stock.php?tab=day');
         }
+    }
+}
+
+if ($tab === 'day') {
+    if (!isset($_GET['range']) && trim((string) ($_GET['from'] ?? '')) === '') {
+        $_GET['range'] = 'today';
     }
 }
 
@@ -149,6 +155,53 @@ $catalog = stock_catalog_payload();
 $suppliers = db_all("SELECT id, name FROM parties WHERE company_id = ? AND kind = 'supplier' ORDER BY name LIMIT 250", 'i', [current_company_id()]);
 $q = stock_q();
 $extraJs = '';
+
+if ($tab === 'day' && isset($_GET['ajax'])) {
+    $period = period_range();
+    $from = $period['from'] !== '' ? $period['from'] : today();
+    $to = $period['to'] !== '' ? $period['to'] : today();
+    $dash = stock_day_dashboard($from, $to);
+    $show = !empty($dash['show_profit']);
+    $dayRows = [];
+    foreach (array_reverse($dash['days'], true) as $d => $row) {
+        $dayRows[] = ['date' => $d] + $row;
+    }
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+        'ok' => true,
+        'from' => $from,
+        'to' => $to,
+        'label' => format_date($from) . ($from === $to ? '' : ' – ' . format_date($to)),
+        'totals' => $dash['totals'],
+        'show_profit' => $show,
+        'currency' => default_currency(),
+        'money' => [
+            'income' => money($dash['totals']['income']),
+            'expense' => money($dash['totals']['expense']),
+            'cogs' => money($dash['totals']['cogs']),
+            'profit' => money($dash['totals']['profit']),
+            'net' => money($dash['totals']['net']),
+            'tax' => money($dash['totals']['tax']),
+        ],
+        'charts' => [
+            'days' => [
+                'labels' => array_map(static fn ($d) => date('j M', strtotime((string) $d)), array_keys($dash['days'])),
+                'income' => array_column(array_values($dash['days']), 'income'),
+                'expense' => array_column(array_values($dash['days']), 'expense'),
+                'profit' => $show ? array_column(array_values($dash['days']), 'profit') : [],
+                'net' => $show ? array_column(array_values($dash['days']), 'net') : [],
+            ],
+            'months' => [
+                'labels' => array_keys($dash['months']),
+                'income' => array_column(array_values($dash['months']), 'income'),
+                'expense' => array_column(array_values($dash['months']), 'expense'),
+                'profit' => $show ? array_column(array_values($dash['months']), 'profit') : [],
+                'net' => $show ? array_column(array_values($dash['months']), 'net') : [],
+            ],
+        ],
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
 layout_start('Stock', $user);
 ?>
@@ -449,44 +502,50 @@ layout_start('Stock', $user);
 <?php $extraJs = '<script src="' . h(asset('js/stock-pos.js')) . '"></script>'; ?>
 
 <?php else:
-    $from = date('Y-m-d', strtotime('-365 days'));
-    $byDay = stock_performance_range($from, today());
-    $byMonth = stock_month_roll($byDay);
-    $last30 = [];
-    for ($i = 29; $i >= 0; $i--) {
-        $d = date('Y-m-d', strtotime('-' . $i . ' days'));
-        $last30[$d] = $byDay[$d] ?? ['income' => 0, 'expense' => 0, 'tax' => 0, 'profit' => 0];
-    }
-    $daySales = stock_search_docs('invoice', $q, stock_page_key('sp'), 20, today());
-    $daySpend = stock_search_docs('expense', $q, stock_page_key('ep'), 20, today());
+    $period = period_range();
+    $from = $period['from'] !== '' ? $period['from'] : today();
+    $to = $period['to'] !== '' ? $period['to'] : today();
+    $dash = stock_day_dashboard($from, $to);
+    $rangeLive = $dash['totals'];
+    $showProfit = !empty($dash['show_profit']);
+    $daySales = $dash['sales'];
+    $daySpend = $dash['spend'];
     $dayRows = [];
-    foreach (array_reverse($last30, true) as $d => $row) {
+    foreach (array_reverse($dash['days'], true) as $d => $row) {
         $dayRows[] = ['date' => $d] + $row;
     }
     $daysPage = stock_slice($dayRows, stock_page_key('dp'));
     $monthRows = [];
-    foreach (array_reverse($byMonth, true) as $m => $row) {
+    foreach (array_reverse($dash['months'], true) as $m => $row) {
         $monthRows[] = ['date' => $m] + $row;
     }
     $stockSnap = stock_slice(stock_filter_items($items, $q), stock_page_key('ip'));
+    $rangeLabel = $from === $to ? format_date($from) : (format_date($from) . ' – ' . format_date($to));
     $chartDays = [
-        'labels' => array_map(static fn ($d) => date('j M', strtotime($d)), array_keys($last30)),
-        'income' => array_column(array_values($last30), 'income'),
-        'expense' => array_column(array_values($last30), 'expense'),
-        'profit' => array_column(array_values($last30), 'profit'),
+        'labels' => array_map(static fn ($d) => date('j M', strtotime((string) $d)), array_keys($dash['days'])),
+        'income' => array_column(array_values($dash['days']), 'income'),
+        'expense' => array_column(array_values($dash['days']), 'expense'),
+        'profit' => array_column(array_values($dash['days']), 'profit'),
+        'net' => array_column(array_values($dash['days']), 'net'),
     ];
     $chartMonths = [
-        'labels' => array_keys($byMonth),
-        'income' => array_column(array_values($byMonth), 'income'),
-        'expense' => array_column(array_values($byMonth), 'expense'),
-        'profit' => array_column(array_values($byMonth), 'profit'),
+        'labels' => array_keys($dash['months']),
+        'income' => array_column(array_values($dash['months']), 'income'),
+        'expense' => array_column(array_values($dash['months']), 'expense'),
+        'profit' => array_column(array_values($dash['months']), 'profit'),
+        'net' => array_column(array_values($dash['months']), 'net'),
     ];
     ?>
-<div class="stats">
+<?php render_filters('stock.php', ['tab' => 'day'], ['no_all' => true, 'live' => true]); ?>
+<p class="hint" style="margin:-8px 0 16px">Showing <?= h($rangeLabel) ?>. Profit is selling price minus buying price on goods sold. Net profit is that profit minus expenses (stock purchases are not counted twice).</p>
+<div class="stats" id="day-stats" data-day-stats>
   <div class="card stat"><?= icon('clock', 20) ?><span>Today</span><strong><?= $dayOpen ? 'Open' : ($todayDay ? 'Closed' : 'Not opened') ?></strong></div>
-  <a class="card stat" href="#day-income"><?= icon('invoice', 20) ?><span>Income</span><strong><?= h(money($dayLive['income'])) ?></strong></a>
-  <a class="card stat" href="#day-spend"><?= icon('expense', 20) ?><span>Expenditure</span><strong><?= h(money($dayLive['expense'])) ?></strong></a>
-  <div class="card stat"><?= icon('wallet', 20) ?><span>Net profit</span><strong><?= h(money($dayLive['profit'])) ?></strong><em>Tax <?= h(money($dayLive['tax'])) ?></em></div>
+  <a class="card stat" href="#day-income"><?= icon('invoice', 20) ?><span>Income</span><strong data-stat="income"><?= h(money($rangeLive['income'])) ?></strong></a>
+  <a class="card stat" href="#day-spend"><?= icon('expense', 20) ?><span>Expenditure</span><strong data-stat="expense"><?= h(money($rangeLive['expense'])) ?></strong></a>
+  <?php if ($showProfit): ?>
+  <div class="card stat"><?= icon('package', 20) ?><span>Profit</span><strong data-stat="profit"><?= h(money($rangeLive['profit'])) ?></strong><em>Sell minus buy</em></div>
+  <div class="card stat"><?= icon('wallet', 20) ?><span>Net profit</span><strong data-stat="net"><?= h(money($rangeLive['net'])) ?></strong><em>Tax <?= h(money($rangeLive['tax'])) ?></em></div>
+  <?php endif; ?>
 </div>
 <div class="stats">
   <div class="card stat"><?= icon('package', 20) ?><span>Products</span><strong><?= (int) $stats['items'] ?></strong></div>
@@ -523,7 +582,7 @@ layout_start('Stock', $user);
     </div>
   </div>
   <div class="card">
-    <div class="card-head"><h2><?= icon('reports', 16) ?>Last 30 days</h2></div>
+    <div class="card-head"><h2><?= icon('reports', 16) ?>In this period</h2></div>
     <div class="pad-form"><canvas id="chart-stock-days" height="180"></canvas></div>
   </div>
 </div>
@@ -532,19 +591,28 @@ layout_start('Stock', $user);
   <div class="pad-form"><canvas id="chart-stock-months" height="180"></canvas></div>
 </div>
 <div class="card" id="day-income" style="margin-top:16px">
-  <div class="card-head"><h2><?= icon('invoice', 16) ?>Today's sales</h2></div>
-  <div class="pad-form"><?php stock_search_bar('stock.php', ['tab' => 'day'], 'Search today'); ?></div>
-  <?php render_stock_docs_table($daySales, 'stock.php?tab=day', 'sp', 'No sales today.'); ?>
+  <div class="card-head"><h2><?= icon('invoice', 16) ?>Sales</h2></div>
+  <div class="pad-form"><?php stock_search_bar('stock.php', ['tab' => 'day', 'range' => $period['preset'], 'from' => $from, 'to' => $to], 'Search sales'); ?></div>
+  <?php render_stock_docs_table($daySales, 'stock.php?tab=day', 'sp', 'No sales in this period.'); ?>
 </div>
 <div class="card" id="day-spend" style="margin-top:16px">
-  <div class="card-head"><h2><?= icon('expense', 16) ?>Today's expenses</h2></div>
-  <?php render_stock_docs_table($daySpend, 'stock.php?tab=day', 'ep', 'No expenses today.'); ?>
+  <div class="card-head"><h2><?= icon('expense', 16) ?>Expenses</h2></div>
+  <?php render_stock_docs_table($daySpend, 'stock.php?tab=day', 'ep', 'No expenses in this period.'); ?>
 </div>
 <div class="card" style="margin-top:16px">
   <div class="card-head"><h2><?= icon('clock', 16) ?>Daily performance</h2></div>
   <div class="table-scroll">
     <table class="grid">
-      <thead><tr><th>#</th><th>Date</th><th class="right">Income</th><th class="right">Spend</th><th class="right">Net</th><th class="right">Tax</th></tr></thead>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Date</th>
+          <th class="right">Income</th>
+          <th class="right">Spend</th>
+          <?php if ($showProfit): ?><th class="right">Profit</th><th class="right">Net</th><?php endif; ?>
+          <th class="right">Tax</th>
+        </tr>
+      </thead>
       <tbody>
         <?php $dn = (int) $daysPage['from']; foreach ($daysPage['rows'] as $d): ?>
           <tr>
@@ -552,7 +620,10 @@ layout_start('Stock', $user);
             <td><?= h(format_date($d['date'])) ?></td>
             <td class="right mono"><?= h(money((float) $d['income'])) ?></td>
             <td class="right mono"><?= h(money((float) $d['expense'])) ?></td>
-            <td class="right mono"><?= h(money((float) $d['profit'])) ?></td>
+            <?php if ($showProfit): ?>
+              <td class="right mono"><?= h(money((float) $d['profit'])) ?></td>
+              <td class="right mono"><?= h(money((float) ($d['net'] ?? 0))) ?></td>
+            <?php endif; ?>
             <td class="right mono"><?= h(money((float) $d['tax'])) ?></td>
           </tr>
         <?php endforeach; ?>
@@ -565,7 +636,16 @@ layout_start('Stock', $user);
   <div class="card-head"><h2><?= icon('calendar', 16) ?>Monthly performance</h2></div>
   <div class="table-scroll">
     <table class="grid">
-      <thead><tr><th>#</th><th>Month</th><th class="right">Income</th><th class="right">Spend</th><th class="right">Net</th><th class="right">Tax</th></tr></thead>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Month</th>
+          <th class="right">Income</th>
+          <th class="right">Spend</th>
+          <?php if ($showProfit): ?><th class="right">Profit</th><th class="right">Net</th><?php endif; ?>
+          <th class="right">Tax</th>
+        </tr>
+      </thead>
       <tbody>
         <?php $mn = 1; foreach ($monthRows as $d): ?>
           <tr>
@@ -573,7 +653,10 @@ layout_start('Stock', $user);
             <td><?= h($d['date']) ?></td>
             <td class="right mono"><?= h(money((float) $d['income'])) ?></td>
             <td class="right mono"><?= h(money((float) $d['expense'])) ?></td>
-            <td class="right mono"><?= h(money((float) $d['profit'])) ?></td>
+            <?php if ($showProfit): ?>
+              <td class="right mono"><?= h(money((float) $d['profit'])) ?></td>
+              <td class="right mono"><?= h(money((float) ($d['net'] ?? 0))) ?></td>
+            <?php endif; ?>
             <td class="right mono"><?= h(money((float) $d['tax'])) ?></td>
           </tr>
         <?php endforeach; ?>
@@ -603,8 +686,14 @@ layout_start('Stock', $user);
   <?php stock_pager('stock.php?tab=day', (int) $stockSnap['page'], (int) $stockSnap['pages'], 'ip'); ?>
 </div>
 <?php
-    $payload = json_encode(['days' => $chartDays, 'months' => $chartMonths, 'currency' => default_currency(), 'color' => branding()['brand_color'] ?? '#82B440'], JSON_UNESCAPED_UNICODE);
-    $extraJs = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script>(function(){var d=' . $payload . ';function money(v){return window.vellisysChartMoney?window.vellisysChartMoney(d.currency)(v):v;}function line(id,labels,sets){var el=document.getElementById(id);if(!el||!window.Chart)return;new Chart(el,{type:"line",data:{labels:labels,datasets:sets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom"}},scales:{y:{ticks:{callback:money}}}}});}line("chart-stock-days",d.days.labels,[{label:"Income",data:d.days.income,borderColor:d.color,tension:.25,fill:false},{label:"Spend",data:d.days.expense,borderColor:"#b42318",tension:.25,fill:false},{label:"Profit",data:d.days.profit,borderColor:"#1f3a12",tension:.25,fill:false}]);line("chart-stock-months",d.months.labels,[{label:"Income",data:d.months.income,borderColor:d.color,tension:.25,fill:false},{label:"Spend",data:d.months.expense,borderColor:"#b42318",tension:.25,fill:false},{label:"Profit",data:d.months.profit,borderColor:"#1f3a12",tension:.25,fill:false}]);})();</script>';
+    $payload = json_encode([
+        'days' => $chartDays,
+        'months' => $chartMonths,
+        'currency' => default_currency(),
+        'color' => branding()['brand_color'] ?? '#82B440',
+        'showProfit' => $showProfit,
+    ], JSON_UNESCAPED_UNICODE);
+    $extraJs = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script src="' . h(asset('js/stock-day.js')) . '"></script><script>window.vellisysDayCharts=' . $payload . ';</script>';
 endif;
 
 layout_end($extraJs);

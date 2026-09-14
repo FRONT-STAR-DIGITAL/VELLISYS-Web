@@ -14,6 +14,16 @@ function require_stock(): array
         flash('Stock is not on for this desk. Ask Vellisys to switch it on.', 'err');
         redirect('dashboard.php');
     }
+    $script = basename((string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+    if ($script === 'sale.php') {
+        if (function_exists('user_can_feature') && !user_can_feature('sale')) {
+            flash('Your login cannot open sales.', 'err');
+            redirect('dashboard.php');
+        }
+    } elseif (function_exists('user_can_feature') && !user_can_feature('stock')) {
+        flash('Your login cannot open stock.', 'err');
+        redirect('dashboard.php');
+    }
     return $user;
 }
 
@@ -27,7 +37,7 @@ function stock_require_open_day(): void
 
 function stock_can_buy(): bool
 {
-    return user_access() !== 'sales';
+    return !function_exists('user_can_feature') || user_can_feature('purchases');
 }
 
 function stock_tabs(): array
@@ -208,7 +218,10 @@ function stock_apply_document(int $documentId, string $kind, array $items): void
         if ($qty == 0.0) {
             continue;
         }
-        $cost = (float) ($item['rate'] ?? 0);
+        $row = stock_item($sid) ?: [];
+        $cost = $moveKind === 'sale'
+            ? (float) ($row['buy_price'] ?? 0)
+            : (float) ($item['rate'] ?? ($row['buy_price'] ?? 0));
         stock_move($sid, $moveKind, $qty, $cost, $documentId, $kind);
     }
 }
@@ -254,48 +267,51 @@ function stock_day_open(float $cash): array
     return ['ok' => true, 'id' => (int) $id];
 }
 
+function stock_blank_totals(): array
+{
+    return [
+        'income' => 0.0,
+        'cogs' => 0.0,
+        'expense' => 0.0,
+        'tax' => 0.0,
+        'profit' => 0.0,
+        'net' => 0.0,
+    ];
+}
+
+function stock_finish_totals(array $row): array
+{
+    $row['income'] = round((float) ($row['income'] ?? 0), 2);
+    $row['cogs'] = round((float) ($row['cogs'] ?? 0), 2);
+    $row['expense'] = round((float) ($row['expense'] ?? 0), 2);
+    $row['tax'] = round((float) ($row['tax'] ?? 0), 2);
+    $row['profit'] = round($row['income'] - $row['cogs'], 2);
+    $row['net'] = round($row['profit'] - $row['expense'], 2);
+    return $row;
+}
+
+function stock_is_stock_expense(array $doc): bool
+{
+    $cat = strtolower(trim((string) ($doc['expense_category'] ?? '')));
+    return $cat === 'stock';
+}
+
 function stock_day_totals(string $date): array
 {
-    $cid = current_company_id();
-    $inv = db_all(
-        "SELECT d.vat_rate, d.currency,
-                (SELECT COALESCE(SUM(ROUND(qty * rate, 2)), 0) FROM document_items i WHERE i.document_id = d.id) AS net,
-                (SELECT COALESCE(SUM(CASE WHEN taxed = 1 THEN ROUND(qty * rate, 2) ELSE 0 END), 0) FROM document_items i WHERE i.document_id = d.id) AS taxed_net
-         FROM documents d WHERE d.company_id = ? AND d.status = 'issued' AND d.kind = 'invoice' AND d.date = ?",
-        'is',
-        [$cid, $date]
-    );
-    $exps = db_all(
-        "SELECT d.vat_rate, d.currency,
-                (SELECT COALESCE(SUM(ROUND(qty * rate, 2)), 0) FROM document_items i WHERE i.document_id = d.id) AS net,
-                (SELECT COALESCE(SUM(CASE WHEN taxed = 1 THEN ROUND(qty * rate, 2) ELSE 0 END), 0) FROM document_items i WHERE i.document_id = d.id) AS taxed_net
-         FROM documents d WHERE d.company_id = ? AND d.status = 'issued' AND d.kind = 'expense' AND d.date = ?",
-        'is',
-        [$cid, $date]
-    );
-    $base = default_currency();
-    $income = 0.0;
-    $outTax = 0.0;
-    foreach ($inv as $d) {
-        $net = (float) $d['net'];
-        $vat = round((float) $d['taxed_net'] * (float) $d['vat_rate'], 2);
-        $income += convert_money($net, doc_currency($d), $base);
-        $outTax += convert_money($vat, doc_currency($d), $base);
+    $by = stock_performance_range($date, $date);
+    return $by[$date] ?? stock_finish_totals(stock_blank_totals());
+}
+
+function stock_range_totals(string $from, string $to): array
+{
+    $sum = stock_blank_totals();
+    foreach (stock_performance_range($from, $to) as $row) {
+        $sum['income'] += $row['income'];
+        $sum['cogs'] += $row['cogs'];
+        $sum['expense'] += $row['expense'];
+        $sum['tax'] += $row['tax'];
     }
-    $expense = 0.0;
-    $inTax = 0.0;
-    foreach ($exps as $d) {
-        $net = (float) $d['net'];
-        $vat = round((float) $d['taxed_net'] * (float) $d['vat_rate'], 2);
-        $expense += convert_money($net, doc_currency($d), $base);
-        $inTax += convert_money($vat, doc_currency($d), $base);
-    }
-    return [
-        'income' => round($income, 2),
-        'expense' => round($expense, 2),
-        'tax' => round($outTax - $inTax, 2),
-        'profit' => round($income - $expense, 2),
-    ];
+    return stock_finish_totals($sum);
 }
 
 function stock_day_close(float $cash, string $notes = ''): array
@@ -864,6 +880,12 @@ function stock_pager(string $base, int $page, int $pages, string $pageKey = 'p')
         if ($q !== '') {
             $url .= '&q=' . rawurlencode($q);
         }
+        foreach (['range', 'from', 'to'] as $k) {
+            $v = trim((string) ($_GET[$k] ?? ''));
+            if ($v !== '' && !str_contains($url, $k . '=')) {
+                $url .= '&' . $k . '=' . rawurlencode($v);
+            }
+        }
         return $url;
     };
     ?>
@@ -918,16 +940,23 @@ function stock_filter_items(array $items, string $q): array
     }));
 }
 
-function stock_search_docs(string $kind, string $q, int $page, int $per = 20, ?string $date = null, ?string $category = null): array
+function stock_search_docs(string $kind, string $q, int $page, int $per = 20, ?string $date = null, ?string $category = null, ?string $dateTo = null): array
 {
     $cid = current_company_id();
     $where = 'd.company_id = ? AND d.kind = ?';
     $types = 'is';
     $params = [$cid, $kind];
     if ($date) {
-        $where .= ' AND d.date = ?';
-        $types .= 's';
-        $params[] = $date;
+        if ($dateTo) {
+            $where .= ' AND d.date >= ? AND d.date <= ?';
+            $types .= 'ss';
+            $params[] = $date;
+            $params[] = $dateTo;
+        } else {
+            $where .= ' AND d.date = ?';
+            $types .= 's';
+            $params[] = $date;
+        }
     }
     if ($category !== null && $category !== '') {
         $where .= ' AND d.expense_category = ?';
@@ -962,11 +991,23 @@ function stock_performance_range(string $from, string $to): array
 {
     $cid = current_company_id();
     $docs = db_all(
-        "SELECT d.id, d.date, d.kind, d.vat_rate, d.currency,
+        "SELECT d.id, d.date, d.kind, d.vat_rate, d.currency, d.expense_category,
                 (SELECT COALESCE(SUM(ROUND(qty * rate, 2)), 0) FROM document_items i WHERE i.document_id = d.id) AS net,
                 (SELECT COALESCE(SUM(CASE WHEN taxed = 1 THEN ROUND(qty * rate, 2) ELSE 0 END), 0) FROM document_items i WHERE i.document_id = d.id) AS taxed_net
          FROM documents d
          WHERE d.company_id = ? AND d.status = 'issued' AND d.kind IN ('invoice','expense') AND d.date >= ? AND d.date <= ?",
+        'iss',
+        [$cid, $from, $to]
+    );
+    $cogsRows = db_all(
+        "SELECT d.id, d.date, d.currency,
+                COALESCE(SUM(ROUND(i.qty * COALESCE(s.buy_price, 0), 2)), 0) AS cogs
+         FROM documents d
+         JOIN document_items i ON i.document_id = d.id
+         LEFT JOIN stock_items s ON s.id = i.stock_item_id AND s.company_id = d.company_id
+         WHERE d.company_id = ? AND d.status = 'issued' AND d.kind = 'invoice'
+           AND d.date >= ? AND d.date <= ? AND i.stock_item_id IS NOT NULL AND i.stock_item_id > 0
+         GROUP BY d.id, d.date, d.currency",
         'iss',
         [$cid, $from, $to]
     );
@@ -975,24 +1016,28 @@ function stock_performance_range(string $from, string $to): array
     foreach ($docs as $d) {
         $day = (string) $d['date'];
         if (!isset($by[$day])) {
-            $by[$day] = ['income' => 0.0, 'expense' => 0.0, 'tax' => 0.0, 'profit' => 0.0];
+            $by[$day] = stock_blank_totals();
         }
         $net = convert_money((float) $d['net'], doc_currency($d), $base);
         $vat = convert_money(round((float) $d['taxed_net'] * (float) $d['vat_rate'], 2), doc_currency($d), $base);
         if ($d['kind'] === 'invoice') {
             $by[$day]['income'] += $net;
             $by[$day]['tax'] += $vat;
-        } else {
+        } elseif (!stock_is_stock_expense($d)) {
             $by[$day]['expense'] += $net;
             $by[$day]['tax'] -= $vat;
         }
     }
+    foreach ($cogsRows as $d) {
+        $day = (string) $d['date'];
+        if (!isset($by[$day])) {
+            $by[$day] = stock_blank_totals();
+        }
+        $by[$day]['cogs'] += convert_money((float) $d['cogs'], doc_currency($d), $base);
+    }
     ksort($by);
     foreach ($by as $day => $row) {
-        $by[$day]['income'] = round($row['income'], 2);
-        $by[$day]['expense'] = round($row['expense'], 2);
-        $by[$day]['tax'] = round($row['tax'], 2);
-        $by[$day]['profit'] = round($row['income'] - $row['expense'], 2);
+        $by[$day] = stock_finish_totals($row);
     }
     return $by;
 }
@@ -1001,23 +1046,53 @@ function stock_month_roll(array $byDay): array
 {
     $out = [];
     foreach ($byDay as $day => $row) {
-        $m = substr($day, 0, 7);
+        $m = substr((string) $day, 0, 7);
         if (!isset($out[$m])) {
-            $out[$m] = ['income' => 0.0, 'expense' => 0.0, 'tax' => 0.0, 'profit' => 0.0];
+            $out[$m] = stock_blank_totals();
         }
         $out[$m]['income'] += $row['income'];
+        $out[$m]['cogs'] += $row['cogs'] ?? 0;
         $out[$m]['expense'] += $row['expense'];
         $out[$m]['tax'] += $row['tax'];
-        $out[$m]['profit'] += $row['profit'];
     }
     ksort($out);
     foreach ($out as $m => $row) {
-        $out[$m]['income'] = round($row['income'], 2);
-        $out[$m]['expense'] = round($row['expense'], 2);
-        $out[$m]['tax'] = round($row['tax'], 2);
-        $out[$m]['profit'] = round($row['profit'], 2);
+        $out[$m] = stock_finish_totals($row);
     }
     return $out;
+}
+
+function stock_day_dashboard(string $from, string $to): array
+{
+    $byDay = stock_performance_range($from, $to);
+    $totals = stock_range_totals($from, $to);
+    $months = stock_month_roll($byDay);
+    $days = [];
+    $start = strtotime($from);
+    $end = strtotime($to);
+    $span = ($start && $end) ? (int) round(($end - $start) / 86400) : 0;
+    if ($start && $end && $span >= 0 && $span <= 62) {
+        for ($t = $start; $t <= $end; $t += 86400) {
+            $d = date('Y-m-d', $t);
+            $days[$d] = $byDay[$d] ?? stock_finish_totals(stock_blank_totals());
+        }
+    } else {
+        $days = $byDay;
+    }
+    $q = stock_q();
+    $showProfit = !function_exists('user_can_see_profit') || user_can_see_profit();
+    $sales = stock_search_docs('invoice', $q, stock_page_key('sp'), 20, $from, null, $to);
+    $spend = stock_search_docs('expense', $q, stock_page_key('ep'), 20, $from, null, $to);
+    return [
+        'from' => $from,
+        'to' => $to,
+        'totals' => $totals,
+        'days' => $days,
+        'months' => $months,
+        'sales' => $sales,
+        'spend' => $spend,
+        'show_profit' => $showProfit,
+    ];
 }
 
 function render_stock_payment_select(string $name, bool $disabled = false, string $selected = 'cash'): void

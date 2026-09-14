@@ -96,22 +96,127 @@ function desk_staff_access_levels(): array
 {
     return [
         'books' => [
-            'label' => 'Books',
-            'hint' => 'Documents, clients, debtors, creditors and email. No reports, settings or people.',
+            'label' => 'Desk',
+            'hint' => 'Documents, stock, clients and email. No reports, profit, settings, branches or activities.',
         ],
         'sales' => [
             'label' => 'Sales',
-            'hint' => 'Quotations, invoices, receipts, clients and email. No expenses, reports, settings or people.',
+            'hint' => 'Sale till, quotations, invoices, receipts, purchases, clients and email. No reports or admin pages.',
         ],
     ];
 }
 
+function desk_feature_catalog(): array
+{
+    return [
+        'sale' => 'Sale till',
+        'stock' => 'Stock',
+        'purchases' => 'Purchases',
+        'quotation' => 'Quotations',
+        'invoice' => 'Invoices',
+        'receipt' => 'Receipts',
+        'expense' => 'Expenses',
+        'delivery' => 'Delivery notes',
+        'letter' => 'Letters',
+        'custom' => 'Custom documents',
+        'clients' => 'Clients',
+        'debtors' => 'Debtors',
+        'creditors' => 'Creditors',
+        'email' => 'Email',
+    ];
+}
+
+function desk_feature_defaults(string $access): array
+{
+    if ($access === 'sales') {
+        return ['sale', 'stock', 'purchases', 'quotation', 'invoice', 'receipt', 'clients', 'debtors', 'email'];
+    }
+    return array_keys(desk_feature_catalog());
+}
+
+function parse_user_features(mixed $raw, string $access = 'books'): array
+{
+    $allowed = array_keys(desk_feature_catalog());
+    $decoded = $raw;
+    if (is_string($raw) && trim($raw) !== '') {
+        $decoded = json_decode($raw, true);
+    }
+    if (!is_array($decoded)) {
+        return desk_feature_defaults($access === 'sales' ? 'sales' : 'books');
+    }
+    $out = [];
+    foreach ($decoded as $key) {
+        $key = (string) $key;
+        if (in_array($key, $allowed, true)) {
+            $out[] = $key;
+        }
+    }
+    return array_values(array_unique($out));
+}
+
+function posted_user_features(string $access): array
+{
+    $posted = $_POST['features'] ?? null;
+    if (!is_array($posted)) {
+        return desk_feature_defaults($access);
+    }
+    return parse_user_features($posted, $access);
+}
+
+function user_features(?array $user = null): array
+{
+    $user = $user ?? current_user();
+    if (!$user) {
+        return [];
+    }
+    if (is_desk_admin($user)) {
+        return array_keys(desk_feature_catalog());
+    }
+    $access = ((string) ($user['access'] ?? 'books')) === 'sales' ? 'sales' : 'books';
+    return parse_user_features($user['features'] ?? '', $access);
+}
+
+function user_can_feature(string $key, ?array $user = null): bool
+{
+    if (is_desk_admin($user)) {
+        return true;
+    }
+    return in_array($key, user_features($user), true);
+}
+
+function user_can_see_profit(?array $user = null): bool
+{
+    return is_desk_admin($user);
+}
+
+function render_desk_feature_checks(array $selected, string $name = 'features[]'): void
+{
+    $stockOn = function_exists('company_stock_enabled') && company_stock_enabled();
+    ?>
+    <div class="feature-checks">
+      <?php foreach (desk_feature_catalog() as $key => $label): ?>
+        <?php if (in_array($key, ['sale', 'stock', 'purchases'], true) && !$stockOn) { continue; } ?>
+        <label class="check">
+          <input type="checkbox" name="<?= h($name) ?>" value="<?= h($key) ?>" <?= in_array($key, $selected, true) ? 'checked' : '' ?>>
+          <?= h($label) ?>
+        </label>
+      <?php endforeach; ?>
+    </div>
+    <?php
+}
+
 function user_allowed_kinds(?array $user = null): ?array
 {
-    if (is_desk_admin($user) || user_access($user) === 'books') {
+    if (is_desk_admin($user)) {
         return null;
     }
-    return ['quotation', 'invoice', 'receipt'];
+    $kinds = [];
+    foreach (['quotation', 'invoice', 'receipt', 'expense', 'delivery', 'letter', 'custom', 'refund', 'return_note'] as $kind) {
+        if (user_can_kind($kind, $user)) {
+            $kinds[] = $kind;
+        }
+    }
+    return $kinds;
 }
 
 function user_can_kind(string $kind, ?array $user = null): bool
@@ -119,14 +224,16 @@ function user_can_kind(string $kind, ?array $user = null): bool
     if (!company_allows_kind($kind) && $kind !== 'expense') {
         return false;
     }
-    if (in_array($kind, ['expense', 'refund', 'return_note'], true) && user_access($user) === 'sales') {
-        return false;
-    }
-    $allowed = user_allowed_kinds($user);
-    if ($allowed === null) {
+    if (is_desk_admin($user)) {
         return true;
     }
-    return in_array($kind, $allowed, true);
+    if (in_array($kind, ['refund', 'return_note'], true)) {
+        return false;
+    }
+    if (isset(desk_feature_catalog()[$kind])) {
+        return user_can_feature($kind, $user);
+    }
+    return user_access($user) === 'books';
 }
 
 function user_can_open(string $script, string $kind = ''): bool
@@ -137,12 +244,12 @@ function user_can_open(string $script, string $kind = ''): bool
         return company_planner_enabled() && is_desk_admin();
     }
     if ($script === 'branches.php') {
-        return company_branches_enabled();
+        return company_branches_enabled() && is_desk_admin();
     }
-    if ($script === 'notify_action.php') {
+    if ($script === 'notify_action.php' || $script === 'activities.php') {
         return is_desk_admin();
     }
-    $pnlScripts = ['pnl.php', 'pnl_entries.php'];
+    $pnlScripts = ['pnl.php', 'pnl_entries.php', 'pnl_savings.php'];
     if (in_array($script, $pnlScripts, true)) {
         return company_pnl_enabled() && is_desk_admin();
     }
@@ -151,14 +258,13 @@ function user_can_open(string $script, string $kind = ''): bool
             return false;
         }
         if ($script === 'sale.php') {
-            return user_can_kind('invoice');
+            return user_can_feature('sale') && user_can_kind('invoice');
         }
-        return true;
+        return user_can_feature('stock');
     }
     if (is_desk_admin()) {
         return true;
     }
-    $access = user_access();
     $adminOnly = ['settings.php', 'reports.php', 'branding.php'];
     if (in_array($script, $adminOnly, true)) {
         return false;
@@ -176,8 +282,17 @@ function user_can_open(string $script, string $kind = ''): bool
     if ($script === 'export.php') {
         return $kind === '' || user_can_kind($kind);
     }
-    if ($script === 'creditors.php' && $access === 'sales') {
-        return false;
+    if ($script === 'clients.php') {
+        return user_can_feature('clients');
+    }
+    if ($script === 'debtors.php') {
+        return user_can_feature('debtors');
+    }
+    if ($script === 'creditors.php') {
+        return user_can_feature('creditors');
+    }
+    if ($script === 'desk_mail.php') {
+        return user_can_feature('email');
     }
     return true;
 }

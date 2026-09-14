@@ -260,11 +260,23 @@ function pnl_summary(): array
     $cashOut += $refundOut;
 
     $incomeTotal = $sales + $manualIncome + $refundIn;
-    $expenseTotal = $costs + $manualExpense + $refundOut;
-    $net = $incomeTotal - $expenseTotal;
+    $stockPurchases = (float) ($byExpenseCat['Stock'] ?? 0);
+    $operatingCosts = max(0, $costs - $stockPurchases);
+    $p = period_range();
+    $from = $p['from'] !== '' ? $p['from'] : '1970-01-01';
+    $to = $p['to'] !== '' ? $p['to'] : today();
+    $margin = function_exists('stock_range_totals') ? stock_range_totals($from, $to) : ['cogs' => 0.0, 'profit' => $sales, 'expense' => $operatingCosts];
+    $cogs = (float) ($margin['cogs'] ?? 0);
+    $profit = round($sales - $cogs, 2);
+    $expenseTotal = $operatingCosts + $manualExpense + $refundOut;
+    $net = round($profit + $manualIncome + $refundIn - $expenseTotal, 2);
 
     return [
         'sales' => $sales,
+        'cogs' => $cogs,
+        'profit' => $profit,
+        'stock_purchases' => $stockPurchases,
+        'operating_costs' => $operatingCosts,
         'manual_income' => $manualIncome,
         'refund_in' => $refundIn,
         'refund_out' => $refundOut,
@@ -399,11 +411,38 @@ function pnl_chart_data(?array $summary = null): array
     ];
 }
 
+function pnl_savings_get(): array
+{
+    $cid = current_company_id();
+    $row = db_one('SELECT * FROM pnl_savings WHERE company_id = ?', 'i', [$cid]);
+    return [
+        'target_amount' => (float) ($row['target_amount'] ?? 0),
+        'saved_amount' => (float) ($row['saved_amount'] ?? 0),
+        'note' => (string) ($row['note'] ?? ''),
+    ];
+}
+
+function pnl_savings_save(array $data): void
+{
+    $cid = current_company_id();
+    $target = max(0, round((float) ($data['target_amount'] ?? 0), 2));
+    $saved = max(0, round((float) ($data['saved_amount'] ?? 0), 2));
+    $note = mb_substr(trim((string) ($data['note'] ?? '')), 0, 500);
+    $now = desk_now()->format('Y-m-d H:i:s');
+    db_exec(
+        'INSERT INTO pnl_savings (company_id, target_amount, saved_amount, note, updated_at) VALUES (?,?,?,?,?)
+         ON DUPLICATE KEY UPDATE target_amount=VALUES(target_amount), saved_amount=VALUES(saved_amount), note=VALUES(note), updated_at=VALUES(updated_at)',
+        'iddss',
+        [$cid, $target, $saved, $note, $now]
+    );
+}
+
 function render_pnl_subnav(string $active): void
 {
     $tabs = [
         ['pnl.php', 'Overview', 'reports'],
         ['pnl_entries.php', 'Ledger', 'bank'],
+        ['pnl_savings.php', 'Savings', 'wallet'],
         ['documents.php?kind=refund', 'Refunds', 'wallet'],
         ['documents.php?kind=return_note', 'Returns', 'truck'],
     ];

@@ -232,6 +232,28 @@ function folio_ensure_stock(mysqli $db): void
     );
 }
 
+function folio_ensure_access_addons(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    if (!db_has_column($db, 'users', 'features')) {
+        @$db->query("ALTER TABLE users ADD COLUMN features TEXT NULL AFTER access");
+    }
+    if (db_has_column($db, 'website_orders', 'plan') && !db_has_column($db, 'website_orders', 'stock_addon')) {
+        @$db->query('ALTER TABLE website_orders ADD COLUMN stock_addon TINYINT(1) NOT NULL DEFAULT 0 AFTER plan');
+    }
+    $db->query("CREATE TABLE IF NOT EXISTS pnl_savings (
+      company_id INT UNSIGNED NOT NULL PRIMARY KEY,
+      target_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+      saved_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+      note VARCHAR(500) NOT NULL DEFAULT '',
+      updated_at DATETIME NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
 function folio_ensure_branches(mysqli $db): void
 {
     static $ready = false;
@@ -433,6 +455,7 @@ function folio_migrate(mysqli $db): void
     }
     folio_ensure_ofagros_pro_plan($db);
     folio_ensure_stock($db);
+    folio_ensure_access_addons($db);
     $ready = folio_schema_ready_file();
     if (is_file($ready) && filemtime($ready) > time() - 86400) {
         $done = true;

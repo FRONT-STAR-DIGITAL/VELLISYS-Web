@@ -97,6 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'phone' => post('contact_phone', '', 40),
             'city' => post('city', '', 80),
             'country' => post('country', '', 80),
+            'stock_addon' => !empty($_POST['stock_addon']) ? 1 : 0,
             'status' => $action === 'draft' ? 'draft' : 'pending',
         ];
         $id = $existing ? (int) $existing['id'] : 0;
@@ -185,10 +186,14 @@ if ($existing && ($existing['status'] ?? '') === 'paid') {
     }
 }
 
+$addonUgx = pricing_stock_addon_ugx($pkg['key']);
+$stockOn = (int) ($existing['stock_addon'] ?? 0) === 1;
+$totalUgx = (int) $pkg['price_ugx'] + ($stockOn ? $addonUgx : 0);
 $priceNow = pricing_format((float) $pkg['price_ugx'], $ccy);
 $priceWas = pricing_format((float) $pkg['was_ugx'], $ccy);
 $payCcy = pricing_pay_currency($ccy);
-$payNow = pricing_format((float) $pkg['price_ugx'], $payCcy);
+$payNow = pricing_format($totalUgx, $payCcy);
+$addonNow = pricing_format($addonUgx, $ccy);
 $termLabel = pricing_section()['term_label'];
 $seats = (int) $pkg['seats'];
 $seatLabel = pricing_staff_label($seats);
@@ -261,7 +266,7 @@ $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'
           <input type="hidden" name="action" value="pay">
           <input type="hidden" name="public_id" value="<?= h((string) ($existing['public_id'] ?? '')) ?>" data-order-public>
           <h2>Company details</h2>
-          <p class="lp-checkout-hint">Then continue to Pesapal to pay <span data-ugx="<?= (int) $pkg['price_ugx'] ?>"><?= h($payNow) ?></span><?= $payCcy !== $ccy ? ' (charged in ' . h($payCcy) . ')' : '' ?> in this tab. We email you that payment awaits. <?= h(product_email()) ?> is copied, and is notified if payment fails.</p>
+          <p class="lp-checkout-hint">Then continue to Pesapal to pay <span data-stock-total data-ugx="<?= (int) $totalUgx ?>"><?= h($payNow) ?></span><?= $payCcy !== $ccy ? ' (charged in ' . h($payCcy) . ')' : '' ?> in this tab. We email you that payment awaits. <?= h(product_email()) ?> is copied, and is notified if payment fails.</p>
           <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
           <div class="lp-check-fields">
             <label for="contact_name">Your name
@@ -297,7 +302,11 @@ $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'
             <option value="United Kingdom">
             <option value="United States">
           </datalist>
-          <button class="lp-btn lp-btn-solid lp-btn-lg" type="submit" data-pay-btn data-ugx="<?= (int) $pkg['price_ugx'] ?>">Continue to pay <?= h($payNow) ?></button>
+          <label class="lp-stock-addon check" for="stock_addon">
+            <input id="stock_addon" name="stock_addon" type="checkbox" value="1" <?= $stockOn ? 'checked' : '' ?> data-stock-addon data-package-ugx="<?= (int) $pkg['price_ugx'] ?>" data-stock-ugx="<?= (int) $addonUgx ?>">
+            <span>Add stock management for <strong data-ugx="<?= (int) $addonUgx ?>"><?= h($addonNow) ?></strong> a year. Single-branch packages add <?= h(pricing_format(50000, $ccy)) ?> worth; more than one branch adds <?= h(pricing_format(100000, $ccy)) ?> worth, converted to the currency you picked.</span>
+          </label>
+          <button class="lp-btn lp-btn-solid lp-btn-lg" type="submit" data-pay-btn data-pay-prefix="Continue to pay " data-stock-total data-ugx="<?= (int) $totalUgx ?>">Continue to pay <?= h($payNow) ?></button>
           <p class="lp-checkout-note">Prefer we onboard you? <a href="<?= h(url('register.php')) ?>">Register without paying</a>. Or <a href="<?= h(url('demo.php')) ?>">book a demo</a>.</p>
         </form>
     <?php endif; ?>
