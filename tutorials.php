@@ -259,7 +259,8 @@ $lessons = [
         'alt' => 'Reports with income, expenses, a time series and debtors aging',
         'lead' => 'Reports tot up the period you pick: today, this month, last month, or a from/to range. Only the company admin opens this tab.',
         'points' => [
-            'Income is invoiced net. Expenses are spent net. Tax due is output minus input.',
+            'Income is invoiced net. Expenses are spent net.',
+            'The tax table lists each taxed item, the sheet it sat on, and the receipt that collected it. Tax payable is output less input.',
             'Export CSV when you need the numbers in a spreadsheet. The charts are for the meeting; the CSV is for the file.',
             'Filter before you export so you are not sending the whole year by accident.',
         ],

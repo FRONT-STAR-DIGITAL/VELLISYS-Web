@@ -21,13 +21,11 @@ $receipts = attach_document_totals(db_all(
 ));
 
 $income = 0;
-$outputVat = 0;
 $debtors = [];
 $aging = ['Current' => 0, '1-30' => 0, '31-60' => 0, '61-90' => 0, '90+' => 0];
 $base = default_currency();
 foreach ($invoices as $d) {
     $income += convert_money($d['totals']['net'], doc_currency($d), $base);
-    $outputVat += convert_money($d['totals']['vat'], doc_currency($d), $base);
     if ($d['balance'] > 0) {
         $age = $d['due_date'] ? (int) floor((time() - strtotime($d['due_date'])) / 86400) : 0;
         $bucket = 'Current';
@@ -46,11 +44,9 @@ foreach ($invoices as $d) {
 }
 
 $costs = 0;
-$inputVat = 0;
 $byCat = [];
 foreach ($expenses as $d) {
     $costs += convert_money($d['totals']['net'], doc_currency($d), $base);
-    $inputVat += convert_money($d['totals']['vat'], doc_currency($d), $base);
     $cat = $d['expense_category'] ?: 'Other';
     $byCat[$cat] = ($byCat[$cat] ?? 0) + convert_money($d['totals']['total'], doc_currency($d), $base);
 }
@@ -172,6 +168,8 @@ if (count($series) > 45) {
     $series = $monthly;
 }
 
+$taxReport = report_tax_payable();
+$taxName = company_tax_name();
 $period = period_range();
 $chartLabels = array_keys($series);
 $chartInvoiced = array_column($series, 'invoiced');
@@ -188,7 +186,7 @@ layout_start('Reports', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('reports') ?>Reports</h1>
-    <p class="lede">Time series, collections, clients, quotes and aging - for the dates you pick. Mixed currencies convert at <?= h(fx_rate_label()) ?>.</p>
+    <p class="lede">Time series, collections, clients, quotes, aging and <?= h($taxName) ?> payable - for the dates you pick. Mixed currencies convert at <?= h(fx_rate_label()) ?>.</p>
   </div>
   <a class="btn ghost" href="<?= h(export_query('reports')) ?>"><?= icon('download', 16) ?>Export CSV</a>
 </div>
@@ -206,7 +204,7 @@ layout_start('Reports', $user);
 </div>
 <div class="stats">
   <div class="card stat"><?= icon('expense', 20) ?><span>Expenses (net)</span><strong><?= h(ugx($costs)) ?></strong></div>
-  <div class="card stat"><?= icon('hash', 20) ?><span><?= h(company_tax_name()) ?> due (output - input)</span><strong><?= h(ugx($outputVat - $inputVat)) ?></strong></div>
+  <div class="card stat"><?= icon('hash', 20) ?><span><?= h($taxName) ?> payable</span><strong><?= h(ugx($taxReport['payable'])) ?></strong></div>
   <div class="card stat"><?= icon('quotation', 20) ?><span>Quotes converted</span><strong><?= (int) $quoteConverted ?> / <?= count($quotes) ?></strong></div>
   <div class="card stat"><?= icon('bank', 20) ?><span>Supplier payments</span><strong><?= h(ugx($cashOut)) ?></strong></div>
 </div>
@@ -317,6 +315,78 @@ layout_start('Reports', $user);
           <td colspan="4">Totals</td>
           <td class="right mono"><?= h(ugx(array_sum(array_column($debtors, 'balance')))) ?></td>
           <td></td>
+        </tr>
+      </tfoot>
+    </table>
+    </div>
+  <?php endif; ?>
+</div>
+
+<div class="card" style="margin-bottom:16px">
+  <div class="card-head"><h2><?= icon('hash', 16) ?><?= h($taxName) ?> payable</h2></div>
+  <p class="hint" style="margin:0 22px 12px">Tax on issued sales, less tax on expenses. Receipt is the collection against that sheet.</p>
+  <?php if (!$taxReport['lines']): ?>
+    <p class="empty">No taxed lines in this period.</p>
+  <?php else: ?>
+    <div class="table-scroll">
+    <table class="grid">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Sheet</th>
+          <th>Receipt</th>
+          <th>Client</th>
+          <th>Item</th>
+          <th class="right">Taxable</th>
+          <th class="right"><?= h($taxName) ?></th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($taxReport['lines'] as $line):
+            $kindLabel = match ($line['kind']) {
+                'expense' => 'Expense',
+                'receipt' => 'Receipt',
+                default => 'Invoice',
+            };
+            $receipts = $line['receipts'];
+            ?>
+          <tr>
+            <td><?= h(format_date($line['date'])) ?></td>
+            <td class="mono"><a href="<?= h(url('document_view.php?id=' . $line['id'])) ?>"><?= h($line['number']) ?></a><span class="hint"> <?= h($kindLabel) ?></span></td>
+            <td class="mono">
+              <?php if (!$receipts): ?>
+                <span class="hint">Not collected</span>
+              <?php else: ?>
+                <?php foreach ($receipts as $i => $rcpt): ?>
+                  <?= $i > 0 ? ', ' : '' ?><a href="<?= h(url('document_view.php?id=' . $rcpt['id'])) ?>"><?= h($rcpt['number']) ?></a>
+                <?php endforeach; ?>
+              <?php endif; ?>
+            </td>
+            <td>
+              <?php if ($line['party_id'] > 0): ?>
+                <a href="<?= h(url('client_view.php?id=' . $line['party_id'])) ?>"><?= h($line['party_name']) ?></a>
+              <?php else: ?>
+                <?= h($line['party_name']) ?>
+              <?php endif; ?>
+            </td>
+            <td><?= h($line['item']) ?></td>
+            <td class="right mono"><?= h(ugx($line['taxable'])) ?></td>
+            <td class="right mono"><?= $line['side'] === 'input' ? '(' . h(ugx($line['tax'])) . ')' : h(ugx($line['tax'])) ?></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="6">Output <?= h($taxName) ?></td>
+          <td class="right mono"><?= h(ugx($taxReport['output'])) ?></td>
+        </tr>
+        <tr>
+          <td colspan="6">Input <?= h($taxName) ?> on expenses</td>
+          <td class="right mono"><?= h(ugx($taxReport['input'])) ?></td>
+        </tr>
+        <tr>
+          <td colspan="6"><strong><?= h($taxName) ?> payable</strong></td>
+          <td class="right mono"><strong><?= h(ugx($taxReport['payable'])) ?></strong></td>
         </tr>
       </tfoot>
     </table>

@@ -1236,3 +1236,110 @@ function invoice_status_label(array $doc): string
     }
     return 'Issued';
 }
+
+/** Taxed lines in the current report period, with collecting receipt numbers. */
+function report_tax_payable(?int $companyId = null): array
+{
+    $cid = $companyId ?? current_company_id();
+    $base = default_currency();
+    $empty = ['lines' => [], 'output' => 0.0, 'input' => 0.0, 'payable' => 0.0];
+    if ($cid < 1) {
+        return $empty;
+    }
+    [$extra, $types, $params] = period_sql('d.date');
+    $raw = db_all(
+        "SELECT d.id, d.kind, d.number, d.date, d.vat_rate, d.currency, d.related_id, d.party_id,
+                p.name AS party_name,
+                i.item_name, i.description, ROUND(i.qty * i.rate, 2) AS taxable
+         FROM documents d
+         INNER JOIN parties p ON p.id = d.party_id
+         INNER JOIN document_items i ON i.document_id = d.id
+         WHERE d.company_id = ? AND d.status = 'issued' AND i.taxed = 1
+           AND d.kind IN ('invoice','receipt','expense')
+           AND d.vat_rate > 0
+           {$extra}
+         ORDER BY d.date DESC, d.id DESC, i.id ASC",
+        'i' . $types,
+        array_merge([$cid], $params)
+    );
+    $sheetIds = [];
+    foreach ($raw as $row) {
+        $kind = (string) ($row['kind'] ?? '');
+        if ($kind === 'receipt' && (int) ($row['related_id'] ?? 0) > 0) {
+            continue;
+        }
+        $sheetIds[(int) $row['id']] = true;
+    }
+    $receiptsBySheet = [];
+    if ($sheetIds) {
+        $ids = array_keys($sheetIds);
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $pays = db_all(
+            "SELECT id, number, related_id FROM documents
+             WHERE company_id = ? AND kind = 'receipt' AND status = 'issued' AND related_id IN ($ph)
+             ORDER BY date, id",
+            'i' . str_repeat('i', count($ids)),
+            array_merge([$cid], $ids)
+        );
+        foreach ($pays as $pay) {
+            $rid = (int) ($pay['related_id'] ?? 0);
+            $receiptsBySheet[$rid][] = [
+                'id' => (int) $pay['id'],
+                'number' => (string) $pay['number'],
+            ];
+        }
+    }
+    $lines = [];
+    $output = 0.0;
+    $input = 0.0;
+    foreach ($raw as $row) {
+        $kind = (string) ($row['kind'] ?? '');
+        $related = (int) ($row['related_id'] ?? 0);
+        if ($kind === 'receipt' && $related > 0) {
+            continue;
+        }
+        $rate = (float) ($row['vat_rate'] ?? 0);
+        $taxable = (float) ($row['taxable'] ?? 0);
+        $tax = round($taxable * $rate, 2);
+        if ($tax <= 0 && $taxable <= 0) {
+            continue;
+        }
+        $from = doc_currency($row);
+        $taxableHome = convert_money($taxable, $from, $base);
+        $taxHome = convert_money($tax, $from, $base);
+        $name = trim((string) ($row['item_name'] ?? ''));
+        $desc = trim((string) ($row['description'] ?? ''));
+        $item = $name !== '' ? $name : ($desc !== '' ? $desc : 'Item');
+        $sheetId = (int) $row['id'];
+        $receipts = $receiptsBySheet[$sheetId] ?? [];
+        if ($kind === 'receipt') {
+            $receipts = [['id' => $sheetId, 'number' => (string) $row['number']]];
+        }
+        $side = $kind === 'expense' ? 'input' : 'output';
+        if ($side === 'input') {
+            $input += $taxHome;
+        } else {
+            $output += $taxHome;
+        }
+        $lines[] = [
+            'id' => $sheetId,
+            'kind' => $kind,
+            'side' => $side,
+            'number' => (string) $row['number'],
+            'date' => (string) $row['date'],
+            'party_id' => (int) ($row['party_id'] ?? 0),
+            'party_name' => (string) ($row['party_name'] ?? ''),
+            'item' => $item,
+            'taxable' => $taxableHome,
+            'tax' => $taxHome,
+            'receipts' => $receipts,
+            'rate' => $rate,
+        ];
+    }
+    return [
+        'lines' => $lines,
+        'output' => round($output, 2),
+        'input' => round($input, 2),
+        'payable' => round($output - $input, 2),
+    ];
+}

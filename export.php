@@ -148,6 +148,28 @@ if ($type === 'reports') {
     foreach (list_documents('receipt') as $d) {
         $rows[] = ['Receipt', $d['number'], $d['party_name'], format_date($d['date']), $d['totals']['net'], $d['totals']['vat'], $d['allocated_amount'] ?: $d['totals']['total'], 0, invoice_status_label($d), doc_currency($d)];
     }
+    $tax = report_tax_payable();
+    foreach ($tax['lines'] as $line) {
+        $rcpt = [];
+        foreach ($line['receipts'] as $r) {
+            $rcpt[] = $r['number'];
+        }
+        $rows[] = [
+            ($line['side'] === 'input' ? 'Tax input' : 'Tax output'),
+            $line['number'],
+            $line['party_name'],
+            format_date($line['date']),
+            $line['taxable'],
+            $line['tax'],
+            $line['item'],
+            0,
+            $rcpt ? implode(', ', $rcpt) : 'Not collected',
+            default_currency(),
+        ];
+    }
+    if ($tax['lines']) {
+        $rows[] = ['Tax payable', '', '', '', '', $tax['payable'], '', 0, '', default_currency()];
+    }
     csv_download('reports.csv', ['Kind', 'Number', 'Party', 'Date', 'Net', 'VAT', 'Total', 'Balance', 'Status', 'Currency'], $rows);
 }
 

@@ -33,7 +33,7 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - Super admin **Reports**: fees collected and balances per client, unused term value, desk collections vs outstanding, onboarding and expiry charts, sign-up funnel, time series of platform books, plus paid terms, desks due within a month, lapsed desks, one-click renewal letters, and **site visits** (landing page, desk, installed app, traffic by country)
 - On each company, super admin sets how many **months or years** the client has paid for, the **fee** and **amount paid**, and expiry is calculated from the start date. When a desk is one month from expiry, Reports prepares a professional notice to send
 - Company desk **top bar** shows live date and time, how much of the paid term is left (days and months), and the expiry date
-- Company reports with a time series, expense pie, debtors aging, collections vs outstanding, quote conversion, top clients, and documents issued over time
+- Company reports with a time series, expense pie, debtors aging, collections vs outstanding, quote conversion, top clients, documents issued over time, and a tax payable table (items, receipts, output less input)
 - Super admin assigns each company a **Hostinger (or Titan) sending mailbox**. SMTP and POP/IMAP are prefilled. The company desk sends quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors, and custom mail from that address, with its logo on a white band, and cannot edit the password
 - Desk **Email** tab for custom letters; **Remind** on Debtors and **Message** on Creditors use the same mailbox
 - Super admin **Create company**: type a desk in by hand (login, stationery, documents, paid term, mailbox) without a website sign-up. Tick **Send a payment receipt** to email thanks, the amount paid, and the subscribed period from `info@vellisys.com`
@@ -60,7 +60,7 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - **Letters** print on the same document design as invoices. Download a Microsoft Word letterhead from Letters. Letter and email bodies use a formatting toolbar (bold, italic, underline, lists, alignment). Document dates can be typed or picked, including past dates for backdating
 - Expenses as cards; debtors and creditors as tables with totals
 - Date filters: today, this week, last week, this month, last month, plus from/to
-- Company reports with a time series, expense pie, debtors aging, collections vs outstanding, quote conversion, top clients billed, and documents issued over time
+- Company reports with a time series, expense pie, debtors aging, collections vs outstanding, quote conversion, top clients billed, documents issued over time, and tax payable
 - Super admin top bar stays on screen on a phone so the menu stays in reach
 - Company desk and every document template scale to fit a phone; line editors stack on a phone; the document table preview stays full width and scrolls sideways
 - **Activities** on every package: a log of major desk events (issued sheets, payments, mail, clients, settings). Open it from the rail or the Activities button on each public package
