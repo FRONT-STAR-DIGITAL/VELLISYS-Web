@@ -236,7 +236,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $max = db_one('SELECT MAX(sort) AS s FROM trust_clients');
                         $sort = (int) ($max['s'] ?? 0) + 10;
                     }
-                    db_exec('INSERT INTO trust_clients (name, logo_path, sort) VALUES (?,?,?)', 'ssi', [$name, $up['path'], $sort]);
+                    $newId = db_exec('INSERT INTO trust_clients (name, logo_path, sort) VALUES (?,?,?)', 'ssi', [$name, $up['path'], $sort]);
+                    persist_trust_client_logo($newId, $up['path']);
                     flash('Added ' . $name . ' to Clients who trust us.');
                     redirect('admin_landing.php#trust-clients');
                 }
@@ -263,6 +264,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $logoPath = $up['path'];
                     }
                     db_exec('UPDATE trust_clients SET name=?, logo_path=?, sort=? WHERE id=?', 'ssii', [$name, $logoPath, $sort, $id]);
+                    persist_trust_client_logo($id, $logoPath);
                     flash('Saved ' . $name . '.');
                     redirect('admin_landing.php#trust-clients');
                 }
@@ -311,7 +313,11 @@ $trust = [];
 $reviews = [];
 $ticker = [];
 try {
-    $trust = db_all('SELECT * FROM trust_clients ORDER BY sort, id');
+    $trust = db_all('SELECT id, name, logo_path, sort FROM trust_clients ORDER BY sort, id');
+    foreach ($trust as &$t) {
+        $t['logo_path'] = restore_trust_client_logo($t);
+    }
+    unset($t);
 } catch (Throwable $e) {
     $trust = [];
 }

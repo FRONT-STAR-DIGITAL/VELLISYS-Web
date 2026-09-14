@@ -73,6 +73,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $branches = company_all_branches();
 $members = db_all("SELECT id, name, job_title, email, role, access, branch_id FROM users WHERE company_id = ? AND role <> 'platform' ORDER BY role = 'admin' DESC, name", 'i', [$cid]);
+$seats = company_user_limit();
+$locations = company_location_count($cid);
+$canAddBranch = $admin && company_can_add_named_branch();
 $activityByBranch = [];
 if ($admin) {
     foreach ($branches as $b) {
@@ -101,7 +104,7 @@ layout_start('Branches', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('pin') ?>Branches</h1>
-    <p class="lede">Head office uses the company address in Settings. Named branches print their own address. Assign staff so their work is recorded there.</p>
+    <p class="lede">Head office uses the company address in Settings. Named branches print their own address. You may have as many locations as logins (<?= (int) $seats ?>), including Head office. Several people can share one branch.</p>
   </div>
   <?php if ($admin): ?>
     <div class="actions">
@@ -223,6 +226,7 @@ layout_start('Branches', $user);
     <?php endif; ?>
   </div>
 
+  <?php if ($edit || $canAddBranch): ?>
   <form class="card branch-form" method="post" id="branch-form">
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="save_branch">
@@ -230,7 +234,7 @@ layout_start('Branches', $user);
       <input type="hidden" name="branch_id" value="<?= (int) $edit['id'] ?>">
     <?php endif; ?>
     <h2><?= icon($edit ? 'pencil' : 'plus', 16) ?><?= $edit ? 'Edit ' . h((string) $edit['name']) : 'Add a named branch' ?></h2>
-    <p class="lede">Use a city or shop name. That address prints on documents issued from the branch.</p>
+    <p class="lede">Use a city or shop name. That address prints on documents issued from the branch. <?= (int) $locations ?> of <?= (int) $seats ?> location slots in use.</p>
     <div class="branch-form-grid">
       <div>
         <label for="name">Branch name</label>
@@ -260,6 +264,9 @@ layout_start('Branches', $user);
       <?php endif; ?>
     </div>
   </form>
+  <?php else: ?>
+  <p class="lede">All <?= (int) $seats ?> location slots are in use. Remove a named branch, or add a login in Settings, before adding another shop.</p>
+  <?php endif; ?>
 <?php endif; ?>
 </div>
 <?php layout_end(); ?>

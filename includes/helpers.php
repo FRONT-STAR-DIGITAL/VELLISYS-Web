@@ -2506,12 +2506,87 @@ function trust_client_defaults(): array
     return $rows;
 }
 
+function persist_trust_client_logo(int $id, string $rel): void
+{
+    if ($id < 1) {
+        return;
+    }
+    $rel = ltrim($rel, '/');
+    $full = $rel !== '' ? ROOT_PATH . '/' . $rel : '';
+    if ($full === '' || !is_file($full)) {
+        return;
+    }
+    $bin = (string) file_get_contents($full);
+    if ($bin === '') {
+        return;
+    }
+    $mime = branding_asset_mime($rel);
+    try {
+        db_exec('UPDATE trust_clients SET logo_bin=?, logo_mime=? WHERE id=?', 'ssi', [$bin, $mime, $id]);
+    } catch (Throwable $e) {
+        error_log('Vellisys trust logo: ' . $e->getMessage());
+    }
+}
+
+function restore_trust_client_logo(array $row): string
+{
+    $id = (int) ($row['id'] ?? 0);
+    $rel = ltrim((string) ($row['logo_path'] ?? ''), '/');
+    if ($rel !== '' && is_file(ROOT_PATH . '/' . $rel)) {
+        return $rel;
+    }
+    if ($id < 1) {
+        return $rel;
+    }
+    try {
+        $asset = db_one('SELECT logo_bin, logo_mime, logo_path FROM trust_clients WHERE id = ?', 'i', [$id]);
+    } catch (Throwable $e) {
+        return $rel;
+    }
+    $bin = is_string($asset['logo_bin'] ?? null) ? (string) $asset['logo_bin'] : '';
+    if ($bin === '') {
+        return $rel;
+    }
+    $storedRel = ltrim((string) ($asset['logo_path'] ?? $rel), '/');
+    if ($storedRel === '' || str_contains($storedRel, '..')) {
+        $ext = match ((string) ($asset['logo_mime'] ?? '')) {
+            'image/png' => 'png',
+            'image/jpeg' => 'jpg',
+            'image/gif' => 'gif',
+            'image/webp' => 'webp',
+            'image/svg+xml' => 'svg',
+            default => 'png',
+        };
+        $storedRel = 'uploads/trust/client-' . $id . '-restored.' . $ext;
+    }
+    $full = ROOT_PATH . '/' . $storedRel;
+    $dir = dirname($full);
+    if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
+        return $rel;
+    }
+    if (@file_put_contents($full, $bin) === false) {
+        return $rel;
+    }
+    if ($storedRel !== $rel) {
+        try {
+            db_exec('UPDATE trust_clients SET logo_path=? WHERE id=?', 'si', [$storedRel, $id]);
+        } catch (Throwable $e) {
+            // Path in memory is enough for this request.
+        }
+    }
+    return $storedRel;
+}
+
 function trust_clients(): array
 {
     return folio_remember('trust_clients', static function (): array {
         try {
-            $rows = db_all('SELECT * FROM trust_clients ORDER BY sort, id');
+            $rows = db_all('SELECT id, name, logo_path, sort FROM trust_clients ORDER BY sort, id');
             if ($rows) {
+                foreach ($rows as &$row) {
+                    $row['logo_path'] = restore_trust_client_logo($row);
+                }
+                unset($row);
                 return $rows;
             }
         } catch (Throwable $e) {
@@ -2533,17 +2608,30 @@ function public_file_url(string $rel): string
 
 function trust_client_logo_url(array $client): string
 {
-    return public_file_url((string) ($client['logo_path'] ?? ''));
+    $rel = restore_trust_client_logo($client);
+    $rel = ltrim($rel, '/');
+    $full = $rel !== '' ? ROOT_PATH . '/' . $rel : '';
+    if ($full && is_file($full)) {
+        return url($rel) . '?v=' . filemtime($full);
+    }
+    if ($rel !== '') {
+        return url($rel);
+    }
+    return 'data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=';
 }
 
 function save_uploaded_image(string $field, string $destDir, string $prefix, int $maxBytes = 2_000_000): array
 {
-    if (empty($_FILES[$field]['tmp_name']) || !is_uploaded_file($_FILES[$field]['tmp_name'])) {
+    $err = (int) ($_FILES[$field]['error'] ?? UPLOAD_ERR_NO_FILE);
+    if ($err === UPLOAD_ERR_NO_FILE || empty($_FILES[$field]['tmp_name'])) {
+        return ['ok' => true, 'path' => null];
+    }
+    if ($err !== UPLOAD_ERR_OK || !is_uploaded_file($_FILES[$field]['tmp_name'])) {
         return ['ok' => true, 'path' => null];
     }
     $file = $_FILES[$field];
-    if ((int) ($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
-        return ['ok' => false, 'error' => 'That file did not upload. Try again.'];
+    if ((int) ($file['size'] ?? 0) < 32) {
+        return ['ok' => true, 'path' => null];
     }
     if ((int) ($file['size'] ?? 0) > $maxBytes) {
         return ['ok' => false, 'error' => 'Keep the picture under 2 MB.'];
@@ -3277,7 +3365,7 @@ function desk_manage_items(): array
         ['icon' => 'letter', 'title' => 'Letters', 'body' => 'Headed letters on the same document design as the books. Print, email, or download a Word letterhead and type your own content.'],
         ['icon' => 'send', 'title' => 'Send emails', 'body' => 'Quotations, invoices, receipts, letters and reminders leave from your assigned mailbox.'],
         ['icon' => 'palette', 'title' => '15 layouts', 'body' => 'Pick Folio, page borders, an 80mm thermal roll, Twin copy, watermarks and more. The whole books follow that layout.'],
-        ['icon' => 'image', 'title' => 'Your company branding', 'body' => 'Logo, three colours, letterhead. Every document looks like it left your office.'],
+        ['icon' => 'image', 'title' => 'Your company branding', 'body' => 'Logo, three colours, letterhead. Business and Pro desks add named branches up to the number of logins; several people can share a shop, and documents print that address.'],
     ];
 }
 
@@ -3325,6 +3413,10 @@ function landing_faqs(): array
         [
             'q' => 'Who sees the books?',
             'a' => 'Only users on that company desk. Platform admin can open a desk to help onboard. Clients who receive a share link see that one sheet, not the rest of the books.',
+        ],
+        [
+            'q' => 'Can we run more than one shop?',
+            'a' => 'Business (Ledger) and Pro (Crest) desks include Branches. Head office is always the company address. You may add named shops up to the number of logins on the package. Several people can sit on one branch; you cannot have more locations than logins.',
         ],
         [
             'q' => 'How do I ask something the list does not cover?',

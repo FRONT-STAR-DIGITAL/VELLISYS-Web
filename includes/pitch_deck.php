@@ -530,14 +530,16 @@ function vellisys_pitch_deck_bytes(): string
             'You, plus one (Books or Sales)',
             'Everything in Quill',
             'Expenses, creditors, delivery notes',
-            'Planner: notes, budget, calendar',
+            'Planner: notes, budget, calendar, tasks',
             'Letters from the company mailbox',
+            'Branches up to your logins; several people per shop',
         ]],
         ['CREST', 'The full house', 'UGX 250,000', 'was 350,000', '3 seats', [
             'You, plus two',
             'Everything in Ledger',
             'Custom documents and every layout',
             'Profit, refunds, return notes',
+            'Branches up to your logins; several people per shop',
             'We onboard you first, properly',
         ]],
     ];

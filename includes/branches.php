@@ -34,6 +34,27 @@ function company_head_office(?array $brand = null): array
     ];
 }
 
+function company_location_limit(?array $company = null): int
+{
+    return company_user_limit($company);
+}
+
+function company_named_branch_limit(?array $company = null): int
+{
+    return max(0, company_location_limit($company) - 1);
+}
+
+function company_location_count(?int $companyId = null): int
+{
+    return 1 + count(company_named_branches($companyId));
+}
+
+function company_can_add_named_branch(?array $company = null, ?int $companyId = null): bool
+{
+    $cid = $companyId ?? (int) ($company['id'] ?? current_company_id());
+    return company_location_count($cid) < company_location_limit($company);
+}
+
 function company_named_branches(?int $companyId = null): array
 {
     $cid = $companyId ?? current_company_id();
@@ -183,6 +204,16 @@ function save_named_branch(array $fields, ?int $id = null): array
             [$name, $address, $city, $phone, $email, $id, $cid]
         );
         return ['ok' => true, 'id' => $id];
+    }
+    $seats = company_location_limit();
+    $used = company_location_count($cid);
+    if ($used >= $seats) {
+        return [
+            'ok' => false,
+            'error' => 'Locations cannot outnumber logins. You have ' . $seats . ' login' . ($seats === 1 ? '' : 's')
+                . ' and already use ' . $used . ' location' . ($used === 1 ? '' : 's')
+                . ' (Head office plus named branches). Several people can share one branch.',
+        ];
     }
     $newId = db_exec(
         'INSERT INTO branches (company_id, name, address, city, phone, email) VALUES (?,?,?,?,?,?)',

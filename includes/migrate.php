@@ -184,6 +184,118 @@ function folio_ensure_branches(mysqli $db): void
     }
 }
 
+function folio_ensure_trust_logos(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    folio_migrate_trust_clients($db);
+    if (!db_has_column($db, 'trust_clients', 'logo_bin')) {
+        @$db->query('ALTER TABLE trust_clients ADD COLUMN logo_bin MEDIUMBLOB NULL');
+    }
+    if (!db_has_column($db, 'trust_clients', 'logo_mime')) {
+        @$db->query("ALTER TABLE trust_clients ADD COLUMN logo_mime VARCHAR(80) NOT NULL DEFAULT ''");
+    }
+    $res = @$db->query("SELECT id, name, logo_path FROM trust_clients WHERE logo_bin IS NULL OR LENGTH(logo_bin) = 0");
+    if (!$res) {
+        return;
+    }
+    while ($row = $res->fetch_assoc()) {
+        $rel = ltrim((string) ($row['logo_path'] ?? ''), '/');
+        $full = $rel !== '' ? dirname(__DIR__) . '/' . $rel : '';
+        if ($full === '' || !is_file($full)) {
+            continue;
+        }
+        $bin = (string) file_get_contents($full);
+        if ($bin === '') {
+            continue;
+        }
+        $ext = strtolower(pathinfo($rel, PATHINFO_EXTENSION));
+        $mime = match ($ext) {
+            'png' => 'image/png',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+            'svg' => 'image/svg+xml',
+            default => 'application/octet-stream',
+        };
+        $stmt = $db->prepare('UPDATE trust_clients SET logo_bin=?, logo_mime=? WHERE id=?');
+        if (!$stmt) {
+            continue;
+        }
+        $id = (int) $row['id'];
+        $stmt->bind_param('ssi', $bin, $mime, $id);
+        $stmt->execute();
+        $stmt->close();
+    }
+}
+
+function folio_ensure_package_branch_copy(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    $branchLine = 'Branches: as many locations as logins (Head office plus named shops). Several logins can sit on one branch';
+    $leads = [
+        'solo' => 'One login, one location. The books in your colours. Enough for a founder who writes every sheet.',
+        'studio' => 'The common desk: two seats, access levels, and the full sales loop. Locations cannot outnumber those logins; several people can share a branch.',
+        'practice' => 'Three seats, access levels, and every document the desk can print. Locations cannot outnumber those logins; several people can share a branch.',
+    ];
+    $res = @$db->query('SELECT id, pkg_key, points, lead FROM landing_packages');
+    if (!$res) {
+        return;
+    }
+    $changed = false;
+    while ($row = $res->fetch_assoc()) {
+        $key = (string) ($row['pkg_key'] ?? '');
+        $points = (string) ($row['points'] ?? '');
+        $lead = (string) ($row['lead'] ?? '');
+        $nextPoints = $points;
+        $nextLead = $lead;
+        $oldLeads = [
+            'solo' => 'One login. The books in your colours. Enough for a founder who writes every sheet.',
+            'studio' => 'The common desk: two seats, access levels, and the full sales loop.',
+            'practice' => 'Three seats, access levels, and every document the desk can print.',
+        ];
+        if (isset($leads[$key]) && ($lead === '' || $lead === ($oldLeads[$key] ?? '') || $lead === $leads[$key])) {
+            $nextLead = $leads[$key];
+        }
+        if ($key === 'solo') {
+            if (stripos($nextPoints, 'One location') === false && stripos($nextPoints, 'Head office') === false) {
+                $nextPoints = preg_replace('/^1 company admin login\s*$/mi', "1 company admin login\nOne location: Head office", $nextPoints) ?? $nextPoints;
+                if (stripos($nextPoints, 'One location') === false) {
+                    $nextPoints = trim($nextPoints) . "\nOne location: Head office";
+                }
+            }
+        } else {
+            $replaced = preg_replace('/^Branches:.*$/mi', $branchLine, $nextPoints);
+            $nextPoints = is_string($replaced) ? $replaced : $nextPoints;
+            if (stripos($nextPoints, 'Branches:') === false && stripos($nextPoints, 'named shop') === false) {
+                $nextPoints = trim($nextPoints) . "\n" . $branchLine;
+            }
+        }
+        if ($nextPoints === $points && $nextLead === $lead) {
+            continue;
+        }
+        $stmt = $db->prepare('UPDATE landing_packages SET points=?, lead=? WHERE id=?');
+        if (!$stmt) {
+            continue;
+        }
+        $id = (int) $row['id'];
+        $stmt->bind_param('ssi', $nextPoints, $nextLead, $id);
+        $stmt->execute();
+        $stmt->close();
+        $changed = true;
+    }
+    if ($changed && function_exists('folio_cache_bust')) {
+        folio_cache_bust();
+    }
+}
+
 function folio_ensure_party_status(mysqli $db): void
 {
     static $ready = false;
@@ -206,6 +318,8 @@ function folio_migrate(mysqli $db): void
     folio_ensure_logo_bg($db);
     folio_ensure_party_status($db);
     folio_ensure_branches($db);
+    folio_ensure_trust_logos($db);
+    folio_ensure_package_branch_copy($db);
     folio_ensure_signature($db);
     folio_ensure_brand_assets($db);
     folio_ensure_company_tax($db);

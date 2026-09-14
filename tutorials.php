@@ -217,10 +217,11 @@ $lessons = [
         'title' => 'Branches',
         'file' => '',
         'alt' => '',
-        'lead' => 'Business and Pro desks can run more than one address. Head office is the company address in Settings. Other locations are named branches, and each login can sit at one of them.',
+        'lead' => 'Business and Pro desks can run more than one address. Head office is the company address in Settings. You may have as many locations as logins; several people can share one branch.',
         'points' => [
-            'Open Branches on the rail. Add a shop or city name, its address, and who works there.',
+            'Open Branches on the rail. Add a shop or city name and its address. You cannot add more locations than the logins on the package.',
             'Sheets issued from a branch print that address. Head office keeps using the Settings address.',
+            'Assign staff so their work is recorded there. Several logins can sit on one branch.',
             'The company admin opens Activities and chips for every branch, Head office, or the whole desk.',
         ],
     ],

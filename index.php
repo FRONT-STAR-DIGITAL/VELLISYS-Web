@@ -107,7 +107,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
           <?php foreach ([$clients, $clients] as $setIndex => $set): ?>
             <div class="lp-marquee-set" data-marquee-set <?= $setIndex === 1 ? 'aria-hidden="true"' : '' ?>>
               <?php foreach ($set as $client): ?>
-                <img src="<?= h(trust_client_logo_url($client)) ?>" alt="<?= $setIndex === 0 ? h($client['name']) : '' ?>" <?= $setIndex === 1 ? 'aria-hidden="true"' : '' ?> loading="lazy" decoding="async">
+                <img src="<?= h(trust_client_logo_url($client)) ?>" alt="<?= $setIndex === 0 ? h($client['name']) : '' ?>" <?= $setIndex === 1 ? 'aria-hidden="true"' : '' ?> loading="eager" decoding="async" draggable="false">
               <?php endforeach; ?>
             </div>
           <?php endforeach; ?>
@@ -207,7 +207,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
     <section class="lp-manage" id="what-you-manage" data-reveal>
       <p class="lp-kicker">The desk</p>
       <h2>What you get to manage</h2>
-      <p class="lp-manage-lead">Quotations, invoices, receipts and expenses on one desk, in the company's branding. Planner, Profit &amp; Loss, delivery notes, letters, debtors and creditors sit beside them.</p>
+      <p class="lp-manage-lead">Quotations, invoices, receipts and expenses on one desk, in the company's branding. Planner, Profit &amp; Loss, delivery notes, letters, debtors, creditors, and branches on Business and Pro sit beside them.</p>
       <div class="lp-manage-grid">
         <?php foreach ($manage as $item): ?>
           <article>

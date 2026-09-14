@@ -352,9 +352,12 @@
     function wrap() {
       var width = set.offsetWidth;
       if (width < 8) return;
-      if (scroller.scrollLeft >= width) {
+      while (scroller.scrollLeft >= width) {
         state.ignoreUntil = performance.now() + 80;
         scroller.scrollLeft -= width;
+      }
+      while (scroller.scrollLeft < 0) {
+        scroller.scrollLeft += width;
       }
     }
     function pause() {
@@ -423,6 +426,11 @@
       io.observe(scroller);
     }
     measure();
+    scroller.querySelectorAll('img').forEach(function (img) {
+      if (img.complete) return;
+      img.addEventListener('load', measure, { once: true });
+      img.addEventListener('error', measure, { once: true });
+    });
     strips.push(state);
     return measure;
   }
@@ -453,7 +461,7 @@
       if (!width) return;
       state.ignoreUntil = now + 80;
       state.el.scrollLeft += state.pxPerMs * dt;
-      if (state.el.scrollLeft >= width) state.el.scrollLeft -= width;
+      while (state.el.scrollLeft >= width) state.el.scrollLeft -= width;
     });
   }
   if (strips.length) window.requestAnimationFrame(tickStrips);
