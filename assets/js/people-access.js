@@ -6,7 +6,7 @@
       box.checked = allowed.indexOf(box.value) !== -1;
     });
   }
-  document.querySelectorAll('[data-access-features]').forEach(function (root) {
+  document.querySelectorAll('[data-access-features="new"]').forEach(function (root) {
     var sel = root.querySelector('[data-access-select]');
     if (!sel) return;
     sel.addEventListener('change', function () {

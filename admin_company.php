@@ -452,7 +452,7 @@ layout_admin_start($company['name'], $user);
         $eFeat = parse_user_features($editMember['features'] ?? '', $eAccess);
         $eIsAdmin = ($editMember['role'] ?? '') === 'admin';
       ?>
-    <form class="form" method="post" style="padding-bottom:18px" data-access-features>
+    <form class="form" method="post" style="padding-bottom:18px">
       <?= csrf_field() ?>
       <input type="hidden" name="id" value="<?= $id ?>">
       <input type="hidden" name="action" value="edit_user">
@@ -488,7 +488,7 @@ layout_admin_start($company['name'], $user);
     </form>
     <?php endif; ?>
       <?php if (!$editMember && count($members) < company_user_limit($company)): ?>
-    <form class="form" method="post" style="padding-bottom:18px" data-access-features>
+    <form class="form" method="post" style="padding-bottom:18px" data-access-features="new">
       <?= csrf_field() ?>
       <input type="hidden" name="id" value="<?= $id ?>">
       <input type="hidden" name="action" value="add_user">

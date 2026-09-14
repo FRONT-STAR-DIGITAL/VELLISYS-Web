@@ -153,17 +153,6 @@ function parse_user_features(mixed $raw, string $access = 'books'): array
     if (!is_array($decoded)) {
         return desk_feature_defaults($access === 'sales' ? 'sales' : 'books');
     }
-    $docPowers = ['edit_documents', 'delete_documents', 'backdate_documents'];
-    $hasPowerTick = false;
-    foreach ($decoded as $rawKey) {
-        if (in_array((string) $rawKey, $docPowers, true)) {
-            $hasPowerTick = true;
-            break;
-        }
-    }
-    if ($fromStore && !$hasPowerTick && $access !== 'sales') {
-        $decoded = array_merge($decoded, $docPowers);
-    }
     $out = [];
     foreach ($decoded as $key) {
         $key = (string) $key;
@@ -178,6 +167,9 @@ function posted_user_features(string $access): array
 {
     $posted = $_POST['features'] ?? null;
     if (!is_array($posted)) {
+        if (isset($_POST['features_posted'])) {
+            return [];
+        }
         return desk_feature_defaults($access);
     }
     return parse_user_features($posted, $access);
@@ -243,6 +235,7 @@ function render_desk_feature_checks(array $selected, string $name = 'features[]'
 {
     $stockOn = function_exists('company_stock_enabled') && company_stock_enabled($company);
     ?>
+    <input type="hidden" name="features_posted" value="1">
     <div class="feature-checks">
       <?php foreach (desk_feature_catalog() as $key => $label): ?>
         <?php if (in_array($key, ['sale', 'stock', 'purchases'], true) && !$stockOn) { continue; } ?>

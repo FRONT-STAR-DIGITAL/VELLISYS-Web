@@ -302,7 +302,7 @@ layout_start('Settings', $user);
           $eFeat = parse_user_features($editMember['features'] ?? '', $eAccess);
           $eIsAdmin = ($editMember['role'] ?? '') === 'admin';
         ?>
-        <form method="post" class="people-add" autocomplete="off" data-access-features>
+        <form method="post" class="people-add" autocomplete="off">
           <?= csrf_field() ?>
           <input type="hidden" name="action" value="edit_user">
           <input type="hidden" name="user_id" value="<?= (int) $editMember['id'] ?>">
@@ -433,7 +433,7 @@ layout_start('Settings', $user);
               ?>
               <tr class="people-access-row">
                 <td colspan="<?= company_branches_enabled() ? 7 : 6 ?>">
-                  <form method="post" class="people-access" data-access-features>
+                  <form method="post" class="people-access">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="save_user_access">
                     <input type="hidden" name="user_id" value="<?= (int) $m['id'] ?>">
@@ -459,7 +459,7 @@ layout_start('Settings', $user);
         </div>
       <?php endif; ?>
       <?php if (!$editMember && $used < $seats): ?>
-        <form method="post" class="people-add" autocomplete="off" data-access-features>
+        <form method="post" class="people-add" autocomplete="off" data-access-features="new">
           <?= csrf_field() ?>
           <input type="hidden" name="action" value="add_user">
           <h3>Add a user</h3>
