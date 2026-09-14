@@ -47,6 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $qtys = $_POST['item_qty'] ?? [];
     $rates = $_POST['item_rate'] ?? [];
     $taxed = $_POST['item_taxed'] ?? [];
+    $stockIds = $_POST['item_stock_id'] ?? [];
     $anyTaxed = false;
     $keys = array_unique(array_merge(array_keys((array) $names), array_keys((array) $descs)));
     sort($keys, SORT_NUMERIC);
@@ -67,6 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'unit' => 'lot',
             'rate' => money_parse((string) ($rates[$i] ?? '0')),
             'taxed' => $isTaxed,
+            'stock_item_id' => (int) ($stockIds[$i] ?? 0),
         ];
     }
     $allocPosted = in_array($kind, ['receipt', 'refund'], true) ? money_parse(post('allocated_amount')) : 0.0;
@@ -489,7 +491,7 @@ layout_start($heading, $user, ['kind' => $kind]);
   <?php else: ?>
     <div class="lines-panel" data-lines-panel data-delivery="<?= in_array($kind, ['delivery', 'return_note'], true) ? '1' : '0' ?>">
       <div class="lines-wrap">
-      <table class="grid lines" id="lines" data-lines>
+      <table class="grid lines" id="lines" data-lines<?= (function_exists('company_stock_enabled') && company_stock_enabled() && in_array($kind, ['quotation', 'invoice'], true)) ? ' data-stock-catalog="1"' : '' ?>>
         <thead>
           <tr>
             <th>Item</th>
@@ -510,7 +512,10 @@ layout_start($heading, $user, ['kind' => $kind]);
               $lineTotal = $qty * $rate;
               ?>
             <tr>
-              <td class="line-item"><input name="item_name[<?= $i ?>]" placeholder="Item" value="<?= h((string) ($line['item_name'] ?? '')) ?>"></td>
+              <td class="line-item">
+                <input type="hidden" name="item_stock_id[<?= $i ?>]" value="<?= (int) ($line['stock_item_id'] ?? 0) ?>">
+                <input name="item_name[<?= $i ?>]" placeholder="Item" value="<?= h((string) ($line['item_name'] ?? '')) ?>" autocomplete="off">
+              </td>
               <td class="line-desc"><textarea name="item_desc[<?= $i ?>]" rows="2" placeholder="Description"><?= h((string) ($line['description'] ?? '')) ?></textarea></td>
               <td class="line-qty">
                 <div class="qty-wrap">
@@ -587,4 +592,10 @@ layout_start($heading, $user, ['kind' => $kind]);
     <a class="btn ghost" href="<?= h(url($existing ? 'document_view.php?id=' . $existing['id'] : 'documents.php?kind=' . $kind)) ?>">Cancel</a>
   </div>
 </form>
-<?php layout_end(); ?>
+<?php
+$stockJs = '';
+if (function_exists('company_stock_enabled') && company_stock_enabled() && in_array($kind, ['quotation', 'invoice'], true)) {
+    $stockJs = '<script type="application/json" id="desk-stock-catalog">' . json_encode(stock_catalog_payload(), JSON_UNESCAPED_UNICODE) . '</script>';
+}
+layout_end($stockJs);
+

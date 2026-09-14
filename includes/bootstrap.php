@@ -50,6 +50,8 @@ require_once ROOT_PATH . '/includes/pricing.php';
 require_once ROOT_PATH . '/includes/auth.php';
 require_once ROOT_PATH . '/includes/icons.php';
 require_once ROOT_PATH . '/includes/documents.php';
+require_once ROOT_PATH . '/includes/stock.php';
+require_once ROOT_PATH . '/includes/backup.php';
 require_once ROOT_PATH . '/includes/planner.php';
 require_once ROOT_PATH . '/includes/branches.php';
 require_once ROOT_PATH . '/includes/pnl.php';

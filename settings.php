@@ -11,6 +11,10 @@ $members = db_all('SELECT id, name, job_title, email, role, access, created_at F
 $seats = company_user_limit($deskCompany ?: null);
 $used = company_seat_count($cid);
 
+if (isset($_GET['backup'])) {
+    company_backup_send((string) $_GET['backup']);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
     $action = post('action');
@@ -146,6 +150,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'dismiss_welcome') {
         unset($_SESSION['branding_welcome']);
         redirect('settings.php');
+    } elseif ($action === 'backup_now') {
+        $path = company_backup_write(true);
+        flash($path ? 'Backup saved. You can download it below.' : 'Could not write a backup.', $path ? 'ok' : 'err');
+        redirect('settings.php#backup');
+    } elseif ($action === 'restore_backup') {
+        $file = $_FILES['backup'] ?? [];
+        if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+            $error = 'Choose a backup file to restore.';
+        } else {
+            $payload = company_backup_read_file($file['tmp_name']);
+            if (!$payload) {
+                $error = 'That file is not a Vellisys backup.';
+            } else {
+                $res = company_backup_restore_payload($payload);
+                if (empty($res['ok'])) {
+                    $error = (string) ($res['error'] ?? 'Could not restore.');
+                } else {
+                    flash('Desk restored from backup.');
+                    redirect('settings.php#backup');
+                }
+            }
+        }
     }
 }
 
@@ -173,6 +199,7 @@ layout_start('Settings', $user);
     <a href="#bank"><?= icon('bank', 16) ?>Bank</a>
     <a href="#documents"><?= icon('invoice', 16) ?>Documents</a>
     <a href="#templates"><?= icon('palette', 16) ?>Templates</a>
+    <a href="#backup"><?= icon('download', 16) ?>Backup</a>
   </aside>
 
   <div class="settings-stack">
@@ -547,6 +574,46 @@ layout_start('Settings', $user);
       </div>
     </section>
     </form>
+    <section class="card settings-card" id="backup">
+      <h2><?= icon('download') ?>Backup</h2>
+      <p class="lede">A copy of this desk is saved each day. Download it, or upload a copy to restore products, sales, purchases and documents. Logins are not replaced.</p>
+      <?php $backs = company_backup_list(); ?>
+      <div class="actions" style="margin-bottom:12px">
+        <form method="post">
+          <?= csrf_field() ?>
+          <input type="hidden" name="action" value="backup_now">
+          <button class="btn ghost" type="submit"><?= icon('download', 16) ?>Save backup now</button>
+        </form>
+      </div>
+      <?php if (!$backs): ?>
+        <p class="empty">No backups yet. Open the desk or tap Save backup now.</p>
+      <?php else: ?>
+        <div class="table-scroll">
+          <table class="grid">
+            <thead><tr><th>File</th><th>When</th><th></th></tr></thead>
+            <tbody>
+              <?php foreach ($backs as $bfile): ?>
+                <tr>
+                  <td class="mono"><?= h($bfile['file']) ?></td>
+                  <td><?= h(date('j M Y H:i', $bfile['mtime'])) ?></td>
+                  <td><a class="btn ghost sm" href="<?= h(url('settings.php?backup=' . urlencode($bfile['file']))) ?>">Download</a></td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+      <?php endif; ?>
+      <form method="post" enctype="multipart/form-data" style="margin-top:16px">
+        <?= csrf_field() ?>
+        <input type="hidden" name="action" value="restore_backup">
+        <label for="backup">Restore from a file</label>
+        <input id="backup" name="backup" type="file" accept=".gz,.json,application/gzip" required>
+        <p class="hint">This replaces products, parties and documents on this desk with the file. It cannot be undone except by another backup.</p>
+        <div class="actions" style="margin-top:12px">
+          <button class="btn" type="submit"><?= icon('check') ?>Restore backup</button>
+        </div>
+      </form>
+    </section>
   </div>
 </div>
 <template id="tpl-proto">

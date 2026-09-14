@@ -97,6 +97,10 @@ function layout_start(string $title, array $user, array $opts = []): void
     if (company_planner_enabled() && is_desk_admin()) {
         $nav[] = ['planner.php', 'Planner', 'calendar'];
     }
+    if (function_exists('company_stock_enabled') && company_stock_enabled()) {
+        $nav[] = ['stock.php', 'Stock', 'package'];
+        $nav[] = ['sale.php', 'Sale', 'cart'];
+    }
     if (company_pnl_enabled() && is_desk_admin()) {
         $nav[] = ['pnl.php', 'P&L', 'reports'];
     }
@@ -121,6 +125,9 @@ function layout_start(string $title, array $user, array $opts = []): void
     $noteCount = count($notes);
     if ($noteCount && function_exists('push_schedule_sync')) {
         push_schedule_sync();
+    }
+    if (function_exists('company_backup_maybe')) {
+        company_backup_maybe();
     }
     ?>
 <!DOCTYPE html>
@@ -171,6 +178,9 @@ function layout_start(string $title, array $user, array $opts = []): void
           }
           if (str_starts_with($here, 'pnl')) {
               $active = $file === 'pnl.php' || str_starts_with((string) $file, 'pnl');
+          }
+          if (in_array($here, ['stock.php', 'sale.php'], true)) {
+              $active = $file === $here;
           }
           // Refunds and returns live under P&L, not the main kind nav.
           if (in_array($kind, ['refund', 'return_note'], true) && in_array($here, ['documents.php', 'document_view.php', 'document_new.php', 'document_email.php', 'document_action.php'], true)) {
@@ -519,6 +529,11 @@ function layout_end(string $extra = ''): void
   <?php foreach ($createMore as [$href, $label, $iconName, $qKind]): ?>
     <a href="<?= h(url('document_new.php?kind=' . $qKind)) ?>"><?= icon($iconName) ?><?= h($qKind === 'expense' ? 'Expense' : kind_meta($qKind)['singular']) ?></a>
   <?php endforeach; ?>
+  <?php endif; ?>
+  <?php if (function_exists('company_stock_enabled') && company_stock_enabled() && user_can_open('sale.php')): ?>
+  <p>Stock</p>
+  <a href="<?= h(url('sale.php')) ?>"><?= icon('cart') ?>Sale</a>
+  <a href="<?= h(url('stock.php')) ?>"><?= icon('package') ?>Stock</a>
   <?php endif; ?>
   <p>Workspace</p>
   <a href="<?= h(url('desk_mail.php')) ?>"><?= icon('send') ?>Email</a>

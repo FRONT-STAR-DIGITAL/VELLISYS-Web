@@ -226,6 +226,21 @@ $lessons = [
         ],
     ],
     [
+        'id' => 'stock',
+        'icon' => 'package',
+        'title' => 'Stock and Sale',
+        'file' => '',
+        'alt' => '',
+        'lead' => 'When Vellisys switches stock on, the rail gets Stock and Sale. Purchases sit as a tab inside Stock. The Ofagros demo already has this on.',
+        'points' => [
+            'Open the day: type the cash in the till, then sell. Close with the cash at the end. Today\'s income, spend, net and tax sit on Day.',
+            'Add products, or download the Excel, fill it and upload. Low stock shows when quantity hits the reorder level.',
+            'Sale: type a product, it fills. Discount and part pay sit under the list. Save prints a receipt. Unpaid sales sit on Debtors.',
+            'Purchases become expenses. Unpaid purchases sit on Creditors. Quotes and invoices type from the same products.',
+            'Settings has a daily backup you can download or restore.',
+        ],
+    ],
+    [
         'id' => 'notify',
         'icon' => 'bell',
         'title' => 'Notifications',

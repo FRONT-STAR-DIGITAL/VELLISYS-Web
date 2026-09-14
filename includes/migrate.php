@@ -144,6 +144,94 @@ function folio_ensure_ofagros_pro_plan(mysqli $db): void
     @$db->query("UPDATE companies SET plan = 'office', planner_enabled = 1, pnl_enabled = 1 WHERE name = 'Ofagros Limited' AND plan IN ('sme','starter')");
 }
 
+function folio_ensure_stock(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    if (!db_has_column($db, 'companies', 'stock_enabled')) {
+        @$db->query('ALTER TABLE companies ADD COLUMN stock_enabled TINYINT(1) NOT NULL DEFAULT 0');
+    }
+    if (!db_has_column($db, 'document_items', 'stock_item_id')) {
+        @$db->query('ALTER TABLE document_items ADD COLUMN stock_item_id INT UNSIGNED NULL AFTER document_id');
+        @$db->query('ALTER TABLE document_items ADD KEY stock_item_id (stock_item_id)');
+    }
+    $db->query("CREATE TABLE IF NOT EXISTS stock_items (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      company_id INT UNSIGNED NOT NULL,
+      sku VARCHAR(80) NOT NULL DEFAULT '',
+      name VARCHAR(190) NOT NULL,
+      description VARCHAR(500) NOT NULL DEFAULT '',
+      unit VARCHAR(40) NOT NULL DEFAULT 'pc',
+      buy_price DECIMAL(14,2) NOT NULL DEFAULT 0,
+      sell_price DECIMAL(14,2) NOT NULL DEFAULT 0,
+      reorder_level DECIMAL(14,2) NOT NULL DEFAULT 0,
+      qty_on_hand DECIMAL(14,2) NOT NULL DEFAULT 0,
+      taxed TINYINT(1) NOT NULL DEFAULT 1,
+      active TINYINT(1) NOT NULL DEFAULT 1,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY company_name (company_id, name),
+      KEY company_sku (company_id, sku)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $db->query("CREATE TABLE IF NOT EXISTS stock_moves (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      company_id INT UNSIGNED NOT NULL,
+      item_id INT UNSIGNED NOT NULL,
+      kind VARCHAR(20) NOT NULL DEFAULT 'adjust',
+      qty DECIMAL(14,2) NOT NULL DEFAULT 0,
+      unit_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
+      document_id INT UNSIGNED NULL,
+      note VARCHAR(190) NULL,
+      user_id INT UNSIGNED NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY company_item (company_id, item_id),
+      KEY document_id (document_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $db->query("CREATE TABLE IF NOT EXISTS stock_counts (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      company_id INT UNSIGNED NOT NULL,
+      counted_on DATE NOT NULL,
+      status ENUM('draft','posted') NOT NULL DEFAULT 'draft',
+      notes VARCHAR(500) NOT NULL DEFAULT '',
+      user_id INT UNSIGNED NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY company_date (company_id, counted_on)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $db->query("CREATE TABLE IF NOT EXISTS stock_count_lines (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      count_id INT UNSIGNED NOT NULL,
+      item_id INT UNSIGNED NOT NULL,
+      system_qty DECIMAL(14,2) NOT NULL DEFAULT 0,
+      counted_qty DECIMAL(14,2) NOT NULL DEFAULT 0,
+      KEY count_id (count_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $db->query("CREATE TABLE IF NOT EXISTS stock_days (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      company_id INT UNSIGNED NOT NULL,
+      day_date DATE NOT NULL,
+      open_cash DECIMAL(14,2) NOT NULL DEFAULT 0,
+      close_cash DECIMAL(14,2) NULL,
+      opened_by INT UNSIGNED NOT NULL DEFAULT 0,
+      closed_by INT UNSIGNED NOT NULL DEFAULT 0,
+      opened_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      closed_at DATETIME NULL,
+      income DECIMAL(14,2) NOT NULL DEFAULT 0,
+      expense DECIMAL(14,2) NOT NULL DEFAULT 0,
+      tax DECIMAL(14,2) NOT NULL DEFAULT 0,
+      notes VARCHAR(500) NOT NULL DEFAULT '',
+      UNIQUE KEY company_day (company_id, day_date)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $email = $db->real_escape_string('accounts@ofagros.org');
+    @$db->query(
+        "UPDATE companies c
+         JOIN users u ON u.company_id = c.id
+         SET c.stock_enabled = 1
+         WHERE u.email = '{$email}'"
+    );
+}
+
 function folio_ensure_branches(mysqli $db): void
 {
     static $ready = false;
@@ -344,6 +432,7 @@ function folio_migrate(mysqli $db): void
         vapid_ensure_tables();
     }
     folio_ensure_ofagros_pro_plan($db);
+    folio_ensure_stock($db);
     $ready = folio_schema_ready_file();
     if (is_file($ready) && filemtime($ready) > time() - 86400) {
         $done = true;

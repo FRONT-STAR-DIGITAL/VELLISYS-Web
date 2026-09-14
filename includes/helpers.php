@@ -1926,6 +1926,7 @@ function platform_create_company(?int $signupId = null): array
         'ssssssiii',
         [$name, $status, $plan, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), $limit, $plannerOn, $pnlOn]
     );
+    db_exec('UPDATE companies SET stock_enabled = ? WHERE id = ?', 'ii', [!empty($_POST['stock_enabled']) ? 1 : 0, $cid]);
 
     $hasPaidTerm = false;
     $term = (int) post('paid_term');

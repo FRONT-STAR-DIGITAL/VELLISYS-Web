@@ -10,6 +10,7 @@ function company_activity_kinds(): array
         'client' => 'Clients',
         'settings' => 'Settings',
         'planner' => 'Planner',
+        'stock' => 'Stock',
         'branch' => 'Branches',
     ];
 }

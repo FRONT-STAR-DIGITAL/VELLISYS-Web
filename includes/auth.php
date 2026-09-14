@@ -146,6 +146,15 @@ function user_can_open(string $script, string $kind = ''): bool
     if (in_array($script, $pnlScripts, true)) {
         return company_pnl_enabled() && is_desk_admin();
     }
+    if (in_array($script, ['stock.php', 'sale.php', 'stock_search.php'], true)) {
+        if (!company_stock_enabled()) {
+            return false;
+        }
+        if ($script === 'sale.php') {
+            return user_can_kind('invoice');
+        }
+        return true;
+    }
     if (is_desk_admin()) {
         return true;
     }

@@ -325,6 +325,9 @@ function create_document(array $data): int
     );
 
     insert_document_items($id, $items);
+    if (function_exists('stock_apply_document')) {
+        stock_apply_document($id, $kind, $items);
+    }
 
     if (function_exists('record_company_activity')) {
         $partyName = '';
@@ -369,10 +372,14 @@ function insert_document_items(int $id, array $items): void
         $unit = (string) ($item['unit'] ?? 'lot');
         $itemRate = (float) ($item['rate'] ?? 0);
         $taxed = empty($item['taxed']) ? 0 : 1;
+        $stockId = (int) ($item['stock_item_id'] ?? 0);
+        if ($stockId < 1) {
+            $stockId = 0;
+        }
         db_exec(
-            'INSERT INTO document_items (document_id, item_name, description, qty, unit, rate, taxed) VALUES (?,?,?,?,?,?,?)',
-            'issdsdi',
-            [$id, $name, $desc, $qty, $unit, $itemRate, $taxed]
+            'INSERT INTO document_items (document_id, stock_item_id, item_name, description, qty, unit, rate, taxed) VALUES (?,?,?,?,?,?,?,?)',
+            'iissdsdi',
+            [$id, $stockId > 0 ? $stockId : 0, $name, $desc, $qty, $unit, $itemRate, $taxed]
         );
     }
 }
@@ -462,7 +469,13 @@ function update_document(int $id, array $data): void
         [$party, $date, $due, $rate, $notes, $subject, $body, $customValues, $related, $method, $ref, $alloc, $cat, $tpl, $currency, $docTpl, $addSig, $branchId, $id, current_company_id()]
     );
     db_exec('DELETE FROM document_items WHERE document_id = ?', 'i', [$id]);
+    if (function_exists('stock_reverse_document')) {
+        stock_reverse_document($id);
+    }
     insert_document_items($id, $items);
+    if (function_exists('stock_apply_document')) {
+        stock_apply_document($id, (string) $doc['kind'], $items);
+    }
 }
 
 function hydrate_document(array $doc): array
@@ -960,6 +973,9 @@ function void_document(int $id, string $reason): void
         'sii',
         [$reason, $id, $cid]
     );
+    if (function_exists('stock_reverse_document')) {
+        stock_reverse_document($id);
+    }
     if ($doc && function_exists('record_company_activity')) {
         $meta = kind_meta((string) $doc['kind']);
         record_company_activity('document', $meta['singular'] . ' ' . $doc['number'] . ' voided', [
@@ -987,6 +1003,7 @@ function convert_quotation_to_invoice(int $quoteId): int
             'unit' => $item['unit'],
             'rate' => $item['rate'],
             'taxed' => $item['taxed'],
+            'stock_item_id' => (int) ($item['stock_item_id'] ?? 0),
         ];
     }
     return create_document([

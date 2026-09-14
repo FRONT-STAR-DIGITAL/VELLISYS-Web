@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $plannerOn = planner_resolve_enabled($plan, !empty($_POST['planner_enabled']), $company);
             $pnlOn = pnl_resolve_enabled($plan, !empty($_POST['pnl_enabled']), $company);
             try {
-                db_exec('UPDATE companies SET name=?, status=?, plan=?, notes=?, enabled_kinds=?, custom_doc=?, user_limit=?, planner_enabled=?, pnl_enabled=? WHERE id=?', 'ssssssiiii', [$name, $status, $plan, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), $limit, $plannerOn, $pnlOn, $id]);
+                db_exec('UPDATE companies SET name=?, status=?, plan=?, notes=?, enabled_kinds=?, custom_doc=?, user_limit=?, planner_enabled=?, pnl_enabled=?, stock_enabled=? WHERE id=?', 'ssssssiiiii', [$name, $status, $plan, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), $limit, $plannerOn, $pnlOn, !empty($_POST['stock_enabled']) ? 1 : 0, $id]);
                 db_exec('UPDATE branding SET name=? WHERE company_id=?', 'si', [$name, $id]);
             } catch (Throwable $e) {
                 $error = 'Could not save the company profile. Check the form and try again.';
@@ -570,6 +570,10 @@ layout_admin_start($company['name'], $user);
     <div>
       <label class="check" for="pnl_enabled"><input id="pnl_enabled" name="pnl_enabled" type="checkbox" value="1" data-pnl-toggle <?= !empty($company['pnl_enabled']) ? 'checked' : '' ?>> Profit &amp; Loss on for this desk</label>
       <p class="hint">Pro gets P&amp;L automatically. You can enable bookkeeping, refunds and returns for any plan here.</p>
+    </div>
+    <div>
+      <label class="check" for="stock_enabled"><input id="stock_enabled" name="stock_enabled" type="checkbox" value="1" <?= !empty($company['stock_enabled']) ? 'checked' : '' ?>> Stock management on for this desk</label>
+      <p class="hint">Adds Stock and Sale. Purchases sit under Stock. Works on any package.</p>
     </div>
   </div>
   <div style="padding:0 22px 22px">

@@ -68,8 +68,8 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - **Branches** (Vellisys Business and Pro): Head office is the company address; Business allows up to 2 branches, Pro up to 3; several people can share a branch; Vellisys sets how many users the desk has (Start 2, Business 3, Pro 4)
 - **Push notifications** on the installed app: allow them in Settings → Notifications. The same prompt appears after you install the app. Desk alerts then pop up on the device, including notices already in the bell.
 - Each company sets its **own tax name and rate** in Settings (VAT 18%, GST 16%, SST 8%…). New taxed lines use that rate; older sheets keep the rate they were saved with
+- **Stock management** (switched on per desk by Vellisys, any package): Stock (items, counts, purchases, open/close day) and Sale. Quotes pick products from stock. Daily backup and restore live in Settings. The Ofagros demo (`accounts@ofagros.org`) has stock on
 - Email sends **From** the signed-in account
-- No stock module, no EFRIS box on documents
 
 ## Install on XAMPP (Windows)
 

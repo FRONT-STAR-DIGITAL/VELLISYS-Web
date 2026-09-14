@@ -125,6 +125,10 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
       <p class="hint">Pro selects P&amp;L automatically. Uncheck to leave bookkeeping off.</p>
     </div>
     <div>
+      <label class="check" for="stock_enabled"><input id="stock_enabled" name="stock_enabled" type="checkbox" value="1" <?= !empty($_POST['stock_enabled']) ? 'checked' : '' ?>> Stock management on for this desk</label>
+      <p class="hint">Stock, Sale and purchases. You can switch this on for any package.</p>
+    </div>
+    <div>
       <label for="currency-pick">Currency</label>
       <?php currency_field('currency', 'currency', post('currency') ?: 'USD'); ?>
       <p class="hint">The company admin can change this later in Settings.</p>

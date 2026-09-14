@@ -1258,3 +1258,69 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
     setOpen(pad.hidden);
   });
 })();
+
+(function () {
+  var table = document.querySelector('#lines[data-stock-catalog]');
+  var raw = document.getElementById('desk-stock-catalog');
+  if (!table || !raw) return;
+  var cat = [];
+  try { cat = JSON.parse(raw.textContent || '[]'); } catch (e) { return; }
+  var box = document.createElement('div');
+  box.className = 'pos-suggest stock-line-suggest';
+  box.hidden = true;
+  document.body.appendChild(box);
+  var currentInp = null;
+  function place(inp) {
+    var r = inp.getBoundingClientRect();
+    box.style.position = 'fixed';
+    box.style.left = r.left + 'px';
+    box.style.top = (r.bottom + 4) + 'px';
+    box.style.width = Math.max(r.width, 220) + 'px';
+    box.style.zIndex = '80';
+  }
+  function fill(inp, p) {
+    var row = inp.closest('tr');
+    if (!row) return;
+    inp.value = p.name;
+    var hid = row.querySelector('input[name^="item_stock_id"]');
+    if (hid) hid.value = p.id;
+    var desc = row.querySelector('textarea[name^="item_desc"]');
+    if (desc && !desc.value) desc.value = p.description || '';
+    var rate = row.querySelector('[data-line-rate]');
+    if (rate) rate.value = p.sell;
+    var tax = row.querySelector('[data-vat-box]');
+    if (tax) {
+      tax.checked = !!p.taxed;
+      var yn = row.querySelector('[data-vat-yn]');
+      if (yn) yn.textContent = p.taxed ? 'Y' : 'N';
+    }
+    box.hidden = true;
+    inp.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  table.addEventListener('input', function (e) {
+    if (!e.target.matches('input[name^="item_name"]')) return;
+    currentInp = e.target;
+    var hid = e.target.closest('tr') && e.target.closest('tr').querySelector('input[name^="item_stock_id"]');
+    if (hid) hid.value = '';
+    var s = e.target.value.trim().toLowerCase();
+    if (!s) { box.hidden = true; return; }
+    var list = cat.filter(function (p) {
+      return String(p.name).toLowerCase().indexOf(s) !== -1 || String(p.sku).toLowerCase().indexOf(s) !== -1;
+    }).slice(0, 8);
+    if (!list.length) { box.hidden = true; return; }
+    place(e.target);
+    box.innerHTML = list.map(function (p) {
+      return '<button type="button" class="pos-opt" data-id="' + p.id + '"><strong>' + String(p.name).replace(/</g, '') + '</strong><span>' + (p.sku || '') + ' · ' + p.qty + ' · ' + p.sell + '</span></button>';
+    }).join('');
+    box.hidden = false;
+  });
+  box.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-id]');
+    if (!btn || !currentInp) return;
+    var p = cat.find(function (x) { return String(x.id) === String(btn.getAttribute('data-id')); });
+    if (p) fill(currentInp, p);
+  });
+  document.addEventListener('click', function (e) {
+    if (!box.contains(e.target) && !(currentInp && currentInp.contains(e.target))) box.hidden = true;
+  });
+})();
