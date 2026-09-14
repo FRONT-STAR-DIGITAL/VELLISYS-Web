@@ -355,6 +355,7 @@ function letter_docx_bytes(?array $doc = null): string
         . $toXml
         . $subjectXml
         . $bodyXmlInner
+        . docx_p('', ['after' => 280])
         . $signXml
         . '<w:sectPr>'
         . '<w:pgSz w:w="11906" w:h="16838"/>'

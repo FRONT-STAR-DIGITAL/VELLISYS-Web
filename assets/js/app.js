@@ -2,6 +2,29 @@ try {
   document.cookie = 'vellisys_tz=' + encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone || '') + ';path=/;max-age=31536000;samesite=lax';
 } catch (e0) {}
 
+window.vellisysChartMoney = function (currency) {
+  currency = currency || '';
+  return function (v) {
+    var n = Number(v);
+    if (!isFinite(n)) return '';
+    var sign = n < 0 ? '-' : '';
+    var a = Math.abs(n);
+    var unit = '';
+    var x = a;
+    if (a >= 1e12) { x = a / 1e12; unit = 'T'; }
+    else if (a >= 1e9) { x = a / 1e9; unit = 'B'; }
+    else if (a >= 1e6) { x = a / 1e6; unit = 'M'; }
+    var num;
+    if (unit) {
+      if (x >= 100) num = String(Math.round(x));
+      else num = (Math.round(x * 10) / 10).toFixed(1).replace(/\.0$/, '');
+    } else {
+      num = Math.round(a).toLocaleString('en-US');
+    }
+    return (currency ? currency + ' ' : '') + sign + num + unit;
+  };
+};
+
 document.addEventListener('click', function (e) {
   if (e.target.closest('[data-print-pdf]')) {
     e.preventDefault();
@@ -494,6 +517,7 @@ document.querySelectorAll('[data-signature-pad]').forEach(function (root) {
   var drawing = false;
   var last = null;
   function sizeCanvas() {
+    if (canvas.hidden) return;
     var ratio = window.devicePixelRatio || 1;
     var w = canvas.clientWidth || 560;
     var h = canvas.clientHeight || 180;
@@ -560,6 +584,7 @@ document.querySelectorAll('[data-signature-pad]').forEach(function (root) {
   function setStatus(msg) { if (status) status.textContent = msg || ''; }
   var cancel = root.querySelector('[data-sig-cancel]');
   var retake = root.querySelector('[data-sig-retake]');
+  var remove = root.querySelector('[data-sig-remove]');
   var approve = root.querySelector('[data-sig-approve]');
   if (cancel) {
     cancel.addEventListener('click', function () {
@@ -567,16 +592,26 @@ document.querySelectorAll('[data-signature-pad]').forEach(function (root) {
       setStatus('Pad cleared.');
     });
   }
+  function showPad() {
+    if (preview) preview.hidden = true;
+    canvas.hidden = false;
+    sizeCanvas();
+  }
   if (retake) {
     retake.addEventListener('click', function () {
+      showPad();
+      setStatus('Draw a new signature, then approve. The saved mark stays until you approve or remove it.');
+    });
+  }
+  if (remove) {
+    remove.addEventListener('click', function () {
       postAction('clear_signature').then(function () {
         if (preview) {
           preview.hidden = true;
           preview.querySelectorAll('img').forEach(function (img) { img.remove(); });
         }
-        canvas.hidden = false;
-        sizeCanvas();
-        setStatus('Draw a new signature, then approve.');
+        showPad();
+        setStatus('Saved signature removed.');
       }).catch(function (err) { setStatus(err.message); });
     });
   }

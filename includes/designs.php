@@ -315,7 +315,7 @@ function render_print_document_page(array $doc, bool $pdf = false): void
   <?php if ($pdf): ?>
     <div class="pdf-bar">
       <p>This is the branded sheet. In the print dialog choose <strong>Save as PDF</strong> (or Microsoft Print to PDF).</p>
-      <button class="btn sm" type="button" onclick="window.print()"><?= icon('file', 15) ?> Save PDF</button>
+      <button class="btn sm" type="button" onclick="window.print()"><?= icon('pdf', 15) ?> Save PDF</button>
     </div>
   <?php endif; ?>
   <div class="sheet-wrap">

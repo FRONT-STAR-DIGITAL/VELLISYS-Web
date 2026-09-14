@@ -488,7 +488,7 @@ layout_start($heading, $user, ['kind' => $kind]);
               </td>
               <?php if ($kind !== 'delivery'): ?>
                 <td class="line-rate"><input name="item_rate[<?= $i ?>]" type="number" min="0" step="any" inputmode="decimal" placeholder="0" value="<?= h((string) ($line['rate'] ?? '')) ?>" data-line-rate></td>
-                <td class="line-total right mono"><span data-line-total><?= $lineTotal ? h(number_format($lineTotal, 2, '.', ',')) : '0' ?></span></td>
+                <td class="line-total right mono"><span data-line-total><?= $lineTotal ? h(number_format($lineTotal, money_display_decimals($lineTotal, 'USD'), '.', ',')) : '0' ?></span></td>
                 <td class="line-vat center">
                   <label class="vat-yn">
                     <input type="checkbox" name="item_taxed[<?= $i ?>]" value="1" <?= !empty($line['taxed']) ? 'checked' : '' ?> data-vat-box>

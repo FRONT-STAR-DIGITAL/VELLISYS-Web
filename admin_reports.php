@@ -683,7 +683,20 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
   Chart.defaults.font.family = "Montserrat, sans-serif";
   Chart.defaults.color = "#66705f";
   var palette = ["#82B440","#1f3a12","#c4a35a","#4a6fa5","#b42318","#6b7c5e"];
-  function money(v){ return (d.currency || "USD") + " " + Number(v).toLocaleString("en-US"); }
+  function money(v){
+    var n = Number(v);
+    if (!isFinite(n)) return "";
+    var cur = d.currency || "USD";
+    var sign = n < 0 ? "-" : "";
+    var a = Math.abs(n);
+    var unit = "";
+    var x = a;
+    if (a >= 1e12) { x = a / 1e12; unit = "T"; }
+    else if (a >= 1e9) { x = a / 1e9; unit = "B"; }
+    else if (a >= 1e6) { x = a / 1e6; unit = "M"; }
+    var num = unit ? (x >= 100 ? String(Math.round(x)) : (Math.round(x * 10) / 10).toFixed(1).replace(/\\.0$/, "")) : Math.round(a).toLocaleString("en-US");
+    return cur + " " + sign + num + unit;
+  }
   var onboard = document.getElementById("chart-onboard");
   if (onboard) {
     new Chart(onboard, {

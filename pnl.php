@@ -231,7 +231,20 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
   var deep = getComputedStyle(document.documentElement).getPropertyValue("--brand-3").trim() || "#1f3a12";
   var accent = getComputedStyle(document.documentElement).getPropertyValue("--brand-2").trim() || "#c4a35a";
   var palette = [brand, deep, accent, "#4a6fa5", "#b42318", "#6b7c5e", "#8d6e63", "#546e7a"];
-  function money(v){ return (d.currency || "") + " " + Number(v).toLocaleString("en-US"); }
+  function money(v){
+    var n = Number(v);
+    if (!isFinite(n)) return "";
+    var cur = d.currency || "";
+    var sign = n < 0 ? "-" : "";
+    var a = Math.abs(n);
+    var unit = "";
+    var x = a;
+    if (a >= 1e12) { x = a / 1e12; unit = "T"; }
+    else if (a >= 1e9) { x = a / 1e9; unit = "B"; }
+    else if (a >= 1e6) { x = a / 1e6; unit = "M"; }
+    var num = unit ? (x >= 100 ? String(Math.round(x)) : (Math.round(x * 10) / 10).toFixed(1).replace(/\\.0$/, "")) : Math.round(a).toLocaleString("en-US");
+    return (cur ? cur + " " : "") + sign + num + unit;
+  }
   var trend = document.getElementById("pnl-chart-trend");
   if (trend) {
     new Chart(trend, {

@@ -36,7 +36,8 @@ if (!$doc) {
     exit('This document is not available.');
 }
 $brand = branding_for((int) $probe['company_id']);
-$print = isset($_GET['print']);
+$print = isset($_GET['print']) || isset($_GET['pdf']);
+$asPdf = isset($_GET['pdf']);
 require ROOT_PATH . '/includes/sheet.php';
 ?>
 <!DOCTYPE html>
@@ -66,14 +67,20 @@ require ROOT_PATH . '/includes/sheet.php';
       .sheet-wrap { padding: 8px; }
     }
     @media print {
-      .share-toolbar { display: none !important; }
+      .share-toolbar, .pdf-bar { display: none !important; }
     }
   </style>
 </head>
-<body class="print-body">
-  <?php if (!$print): ?>
+<body class="print-body<?= $asPdf ? ' print-pdf' : '' ?>">
+  <?php if ($asPdf): ?>
+    <div class="pdf-bar">
+      <p>This is the branded sheet. In the print dialog choose <strong>Save as PDF</strong> (or Microsoft Print to PDF).</p>
+      <button class="btn sm" type="button" onclick="window.print()"><?= icon('pdf', 15) ?> Save PDF</button>
+    </div>
+  <?php elseif (!$print): ?>
     <div class="share-toolbar">
       <a class="btn ghost sm" href="<?= h(url('share.php?id=' . $id . '&t=' . $token . '&print=1')) ?>"><?= icon('printer', 15) ?>Print</a>
+      <a class="btn ghost sm" href="<?= h(url('share.php?id=' . $id . '&t=' . $token . '&pdf=1')) ?>"><?= icon('pdf', 15) ?>PDF</a>
     </div>
   <?php endif; ?>
   <div class="sheet-wrap">

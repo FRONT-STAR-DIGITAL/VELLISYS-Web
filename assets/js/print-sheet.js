@@ -25,9 +25,21 @@
       window.print();
     }, 280);
   }
+  function waitImages(fn) {
+    var imgs = Array.prototype.slice.call(document.images || []);
+    var left = imgs.filter(function (img) { return !img.complete; }).length;
+    if (!left) { fn(); return; }
+    function done() { left -= 1; if (left <= 0) fn(); }
+    imgs.forEach(function (img) {
+      if (img.complete) return;
+      img.addEventListener('load', done);
+      img.addEventListener('error', done);
+    });
+  }
+  function start() { waitImages(go); }
   if (document.readyState === 'complete') {
-    go();
+    start();
   } else {
-    window.addEventListener('load', go);
+    window.addEventListener('load', start);
   }
 })();

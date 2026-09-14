@@ -321,7 +321,7 @@ layout_start('Settings', $user);
       </div>
       <div class="sig-block" data-signature-pad data-sig-url="<?= h(url('settings.php')) ?>">
         <h3>Signature</h3>
-        <p class="hint">Write with a finger or mouse. Cancel clears the pad. Retake removes an approved mark so you can draw again. Approve stores it for letters that need a sign-off.</p>
+        <p class="hint">Write with a finger or mouse. Cancel clears the pad only. Retake lets you draw again without dropping the stored mark until you approve the new one. Remove deletes the saved signature.</p>
         <?php $sigUrl = company_signature_url($b); ?>
         <div class="sig-preview" data-sig-preview <?= $sigUrl === '' ? 'hidden' : '' ?>>
           <?php if ($sigUrl !== ''): ?>
@@ -333,6 +333,7 @@ layout_start('Settings', $user);
         <div class="sig-actions">
           <button class="btn ghost sm" type="button" data-sig-cancel>Cancel</button>
           <button class="btn ghost sm" type="button" data-sig-retake>Retake</button>
+          <button class="btn ghost sm" type="button" data-sig-remove>Remove</button>
           <button class="btn sm" type="button" data-sig-approve>Approve signature</button>
         </div>
         <p class="hint" data-sig-status></p>

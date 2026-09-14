@@ -28,14 +28,21 @@ function currency_decimals(string $currency): int
     return in_array($currency, $zero, true) ? 0 : 2;
 }
 
+function money_display_decimals(float $amount, string $currency): int
+{
+    $max = currency_decimals($currency);
+    $rounded = round($amount, 6);
+    if (abs($rounded - round($rounded)) < 0.0000001) {
+        return 0;
+    }
+    return max(2, $max);
+}
+
 function money($amount, ?string $currency = null): string
 {
     $currency = normalize_currency((string) ($currency ?: default_currency()), default_currency());
     $n = (float) $amount;
-    $dec = currency_decimals($currency);
-    if ($dec === 0 && $n != floor($n)) {
-        $dec = 2;
-    }
+    $dec = money_display_decimals($n, $currency);
     return $currency . ' ' . number_format($n, $dec, '.', ',');
 }
 

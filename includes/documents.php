@@ -907,7 +907,7 @@ function render_doc_actions(array $doc, bool $labeled = false): void
       <?php if ($doc['kind'] === 'letter'): ?>
         <a class="<?= $cls ?>" href="<?= h(url('letter_docx.php?id=' . $id)) ?>" title="Download Word" aria-label="Download Word"><?= icon('download', 15) ?><?php if ($labeled): ?> Word<?php endif; ?></a>
       <?php endif; ?>
-      <a class="<?= $cls ?>" href="<?= h(url('document_pdf.php?id=' . $id)) ?>" title="Download PDF" aria-label="Download PDF"><?= icon('file', 15) ?><?php if ($labeled): ?> PDF<?php endif; ?></a>
+      <a class="<?= $cls ?>" href="<?= h(url('document_pdf.php?id=' . $id)) ?>" title="PDF of this document" aria-label="PDF of this document"><?= icon('pdf', 15) ?><?php if ($labeled): ?> PDF<?php endif; ?></a>
       <a class="<?= $cls ?>" href="<?= h(url('document_view.php?id=' . $id)) ?>" title="View" aria-label="View"><?= icon('eye', 15) ?><?php if ($labeled): ?> View<?php endif; ?></a>
       <?php if (!$void): ?>
         <a class="<?= $cls ?>" href="<?= h(url('document_new.php?id=' . $id)) ?>" title="Edit" aria-label="Edit"><?= icon('pencil', 15) ?><?php if ($labeled): ?> Edit<?php endif; ?></a>
