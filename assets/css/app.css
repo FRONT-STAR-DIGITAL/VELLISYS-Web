@@ -295,10 +295,18 @@ img { max-width: 100%; display: block; }
 .nav-user a:hover { background: color-mix(in srgb, var(--brand) 10%, #fff); text-decoration: none; }
 
 @media (hover: hover) and (pointer: fine) {
+  .top {
+    transition: padding-left .32s cubic-bezier(.22, 1, .36, 1);
+  }
   .nav:hover,
   .nav:focus-within {
     width: var(--open);
+    z-index: 90;
     box-shadow: 10px 0 32px rgba(8, 20, 58, .1);
+  }
+  .nav:hover ~ .main > .top,
+  .nav:focus-within ~ .main > .top {
+    padding-left: calc(22px + var(--open) - var(--rail));
   }
   .nav:hover .brand-logo,
   .nav:focus-within .brand-logo {
@@ -2237,10 +2245,18 @@ input, select, textarea { font-weight: 400; }
   .app { flex-direction: column; }
   .nav-toggle { display: inline-flex; }
   .nav {
-    width: min(var(--open), 86vw);
+    width: min(var(--open), 78vw);
+    top: var(--desk-top-h, 58px);
+    bottom: auto;
+    height: auto;
+    max-height: calc(100dvh - var(--desk-top-h, 58px) - var(--app-tabbar-h, 48px) - 12px);
     transform: translateX(-105%);
     box-shadow: none;
     border-right: 0;
+    border-bottom: 1px solid rgba(8, 20, 58, .08);
+    border-radius: 0 0 18px 0;
+    padding-bottom: 8px;
+    z-index: 55;
     transition: transform .32s cubic-bezier(.22, 1, .36, 1), box-shadow .32s ease;
   }
   .nav .brand-logo {
@@ -2271,8 +2287,13 @@ input, select, textarea { font-weight: 400; }
   }
   .desk-body.nav-open .nav {
     transform: translateX(0);
-    box-shadow: 12px 0 40px rgba(8, 20, 58, .16);
-    z-index: 60;
+    box-shadow: 12px 0 28px rgba(8, 20, 58, .12);
+    z-index: 55;
+  }
+  .nav .brand { padding: 8px 0 6px; }
+  .nav nav a {
+    min-height: 38px;
+    padding: 7px 14px 7px 18px;
   }
   .desk-body.nav-open { overflow: hidden; }
   .desk-body .nav-user {
@@ -3807,12 +3828,18 @@ a.activity-row:hover { background: #f7f8fc; text-decoration: none; }
   }
   .desk-body {
     --app-tabbar-h: calc(48px + env(safe-area-inset-bottom, 0px));
+    --desk-top-h: calc(56px + env(safe-area-inset-top, 0px));
   }
+  html.is-pwa .desk-body {
+    --desk-top-h: calc(60px + env(safe-area-inset-top, 0px));
+  }
+}
+@media (max-width: 1024px) and (min-width: 821px) {
   .desk-body .nav {
-    height: 100dvh;
-    max-height: 100dvh;
     padding-bottom: var(--app-tabbar-h);
   }
+}
+@media (max-width: 1024px) {
   .desk-body .nav-user {
     flex-shrink: 0;
     position: relative;
