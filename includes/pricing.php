@@ -46,6 +46,7 @@ function pricing_package_defaults(): array
                 'Clients, debtors and share by email or WhatsApp',
                 'Print and PDF from the browser',
                 'Reports for the person who signs in',
+                'Activity log of major desk events',
             ],
             'sort' => 10,
         ],
@@ -65,7 +66,7 @@ function pricing_package_defaults(): array
                 'Access levels: Books or Sales',
                 'Everything in Quill',
                 'Expenses, creditors and delivery notes',
-                'Planner notes, budget and calendar',
+                'Planner notes, budget, calendar, and tasks',
                 'Headed correspondence from the company mailbox',
             ],
             'sort' => 20,
@@ -546,7 +547,16 @@ function render_landing_pricing(): void
                 <?php endforeach; ?>
               </ul>
               <?php endif; ?>
-              <a class="lp-btn <?= !empty($pkg['popular']) ? 'lp-btn-solid' : 'lp-btn-ghost' ?>" href="<?= h(url('checkout.php?plan=' . $pkg['key'])) ?>"><?= h(pricing_display_cta($pkg, $packages)) ?></a>
+              <div class="lp-price-actions">
+                <a class="lp-btn <?= !empty($pkg['popular']) ? 'lp-btn-solid' : 'lp-btn-ghost' ?>" href="<?= h(url('checkout.php?plan=' . $pkg['key'])) ?>"><?= h(pricing_display_cta($pkg, $packages)) ?></a>
+                <?php
+                $viewer = current_user();
+                $activityHref = ($viewer && ($viewer['role'] ?? '') !== 'platform')
+                    ? url('activities.php')
+                    : url('login.php?next=activities.php');
+                ?>
+                <a class="lp-btn lp-btn-ghost" href="<?= h($activityHref) ?>">Activities</a>
+              </div>
             </div>
           </article>
         <?php endforeach; ?>

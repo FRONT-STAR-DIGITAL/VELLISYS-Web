@@ -107,6 +107,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         unset($_SESSION['branding_welcome']);
         mark_branding_saved($cid, $user);
         flash('Settings saved. This design now prints on every document. USD converts at your ' . default_currency() . ' rate.');
+        if (function_exists('record_company_activity')) {
+            record_company_activity('settings', 'Letterhead and colours saved', [
+                'detail' => 'Document layout ' . $tpl,
+                'href' => 'settings.php',
+            ]);
+        }
         redirect('settings.php');
     }
     }
@@ -402,7 +408,7 @@ layout_start('Settings', $user);
 
     <section class="card settings-card" id="templates">
       <h2><?= icon('palette') ?>Document designs</h2>
-      <p class="lede">Twelve layouts on white paper with black type and your brand colours. The preview is the printed sheet: the same A4 page on a phone, a tablet and a desktop. On small screens the page is scaled to fit, not redesigned. Logo watermark and Bond watermark print the company mark faintly on the paper. Atelier and Company seal are quiet, formal sheets meant to email. Every invoice, quotation, receipt, expense and headed note reprints in that design. Changing it here reprints the whole books.</p>
+      <p class="lede">Fifteen layouts on white paper with black type and your brand colours. The preview is the printed sheet. On small screens A4 pages are scaled to fit. Page frame and Inset border put a rule around the paper. Thermal roll is an 80mm receipt for a kitchen or shop printer. Logo watermark and Bond watermark print the company mark faintly. Changing the design here reprints the whole books.</p>
       <?php $letterTpls = letter_templates(true); ?>
       <label class="check">
         <input type="hidden" name="logo_bg" value="0">

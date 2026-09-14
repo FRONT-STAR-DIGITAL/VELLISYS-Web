@@ -1023,9 +1023,19 @@ input:focus, select:focus, textarea:focus {
 .invoice-sheet.sheet-seal,
 .invoice-sheet.sheet-mark,
 .invoice-sheet.sheet-bill,
-.invoice-sheet.sheet-stripe {
+.invoice-sheet.sheet-stripe,
+.invoice-sheet.sheet-frame,
+.invoice-sheet.sheet-inset,
+.invoice-sheet.sheet-thermal {
   background: #fff;
   color: #000;
+}
+.invoice-sheet.sheet-thermal {
+  width: 80mm;
+  max-width: 80mm;
+  min-height: 0;
+  padding: 6mm 4.5mm 8mm;
+  font-size: 11px;
 }
 table.grid tfoot td {
   font-weight: 700;
@@ -1134,7 +1144,7 @@ table.grid tfoot td {
   margin: 0 0 10px;
 }
 .lines-preview-head strong { font-size: 13px; }
-.lines-preview-table { min-width: 0; background: #fff; }
+.lines-preview-table { min-width: 640px; background: #fff; }
 .lines-preview-table td, .lines-preview-table th { font-size: 12px; }
 .doc-side-to { margin-top: 14px; border-color: color-mix(in srgb, var(--brand) 28%, var(--line)); background: #fff; }
 .expense-wrap { background: transparent; box-shadow: none; padding: 8px 0; }
@@ -2104,14 +2114,15 @@ input, select, textarea { font-weight: 400; }
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-x: contain;
+    max-width: 100%;
   }
   .document-form .lines-preview-table,
   .document-form .lines-preview .table-scroll table.grid {
     display: table;
-    width: 100%;
-    min-width: 0 !important;
+    width: max-content;
+    min-width: 720px !important;
     max-width: none;
-    table-layout: fixed;
+    table-layout: auto;
     border-collapse: collapse;
     background: #fff;
   }
@@ -2130,32 +2141,29 @@ input, select, textarea { font-weight: 400; }
   .document-form .lines-preview-table td {
     display: table-cell;
     width: auto;
-    min-width: 0;
+    min-width: max-content;
     max-width: none;
-    padding: 7px 6px;
+    padding: 8px 10px;
     border-bottom: 1px solid var(--line);
-    font-size: 11px;
+    font-size: 12px;
     vertical-align: top;
-    overflow: hidden;
+    overflow: visible;
+    white-space: nowrap;
   }
   .document-form .lines-preview-table th {
     white-space: nowrap;
-    font-size: 10px;
+    font-size: 11px;
   }
   .document-form .lines-preview-table td::before { content: none !important; }
-  .document-form .lines-preview-table td:nth-child(1) { width: 18%; }
-  .document-form .lines-preview-table td:nth-child(2) {
-    width: auto;
-    white-space: normal;
-    overflow-wrap: anywhere;
-    word-break: break-word;
-  }
-  .document-form .lines-preview-table td:nth-child(3) { width: 2.6rem; white-space: nowrap; text-align: center; }
+  .document-form .lines-preview-table td:nth-child(1) { min-width: 7.5rem; }
+  .document-form .lines-preview-table td:nth-child(2) { min-width: 14rem; }
+  .document-form .lines-preview-table td:nth-child(3) { text-align: center; }
   .document-form .lines-preview-table td:nth-child(4),
-  .document-form .lines-preview-table td:nth-child(5) { width: 4.6rem; white-space: nowrap; }
-  .document-form .lines-preview-table td:nth-child(6) { width: 2.4rem; white-space: nowrap; text-align: center; }
+  .document-form .lines-preview-table td:nth-child(5) { text-align: right; }
+  .document-form .lines-preview-table td:nth-child(6) { text-align: center; }
   .document-form .lines-preview-table tr.lines-preview-empty td {
     white-space: normal;
+    min-width: 0;
     text-align: left;
   }
   .action-grid { display: grid; grid-template-columns: 1fr 1fr; }
@@ -2403,10 +2411,10 @@ input, select, textarea { font-weight: 400; }
   }
   .document-form .lines-preview .table-scroll table.grid,
   .document-form .lines-preview-table {
-    min-width: 0 !important;
-    width: 100%;
+    min-width: 720px !important;
+    width: max-content;
     max-width: none;
-    table-layout: fixed;
+    table-layout: auto;
   }
   .table-scroll table.grid th,
   .table-scroll table.grid td.right,
@@ -2727,6 +2735,45 @@ input, select, textarea { font-weight: 400; }
   background: color-mix(in srgb, var(--brand) 10%, #fff);
   color: var(--brand);
 }
+.activity-list { display: grid; }
+.activity-row {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr) auto;
+  gap: 10px 14px;
+  align-items: start;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  color: inherit;
+  text-decoration: none;
+}
+.activity-row:last-child { border-bottom: 0; }
+a.activity-row:hover { background: #f7f8fc; text-decoration: none; }
+.activity-kind {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  background: #eef1f6;
+  color: #334;
+  white-space: nowrap;
+}
+.activity-kind-payment { background: color-mix(in srgb, var(--brand) 14%, #fff); color: var(--brand); }
+.activity-kind-email { background: #eef6ff; color: #1e4eff; }
+.activity-kind-client { background: #eef8f0; color: #17663a; }
+.activity-kind-settings { background: #f4eef8; color: #5b2d8a; }
+.activity-kind-planner { background: #fff4e8; color: #9a4b00; }
+.activity-main { display: grid; gap: 2px; min-width: 0; }
+.activity-main strong { font-size: 14px; }
+.activity-main span, .activity-row time {
+  font-size: 12px;
+  color: var(--muted);
+}
+.activity-row time { white-space: nowrap; }
 .planner-split {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
@@ -2898,6 +2945,11 @@ input, select, textarea { font-weight: 400; }
     padding: 6px 12px;
     font-size: 12.5px;
   }
+  .activity-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .activity-row time { white-space: normal; }
   .planner-cal-grid { gap: 4px; padding: 0 10px 12px; }
   .planner-cal-day { min-height: 44px; border-radius: 8px; }
   .top-bell-panel {

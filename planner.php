@@ -12,6 +12,12 @@ $essentials = array_values(array_filter(
     static fn (array $n): bool => in_array($n['priority'], ['essential', 'high'], true) || !empty($n['pinned'])
 ));
 $essentials = array_slice($essentials, 0, 6);
+$openGoals = [];
+try {
+    $openGoals = array_slice(planner_goals('open'), 0, 6);
+} catch (Throwable $e) {
+    $openGoals = [];
+}
 $budget = planner_budget_items($month);
 $actuals = planner_budget_actuals($month);
 $budgetIncome = 0.0;
@@ -34,10 +40,11 @@ layout_start('Planner', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('calendar') ?>Planner</h1>
-    <p class="lede">Notes, budget targets and the calendar for programmes, appointments and deadlines, with priority when it matters.</p>
+    <p class="lede">Notes, tasks and goals, budget targets and the calendar for programmes, appointments and deadlines, with priority when it matters.</p>
   </div>
   <div class="actions page-actions">
     <a class="btn ghost" href="<?= h(url('planner_notes.php')) ?>"><?= icon('letter', 16) ?>Note</a>
+    <a class="btn ghost" href="<?= h(url('planner_goals.php')) ?>"><?= icon('flag', 16) ?>Task</a>
     <a class="btn ghost" href="<?= h(url('planner_budget.php?month=' . urlencode($month))) ?>"><?= icon('bank', 16) ?>Budget</a>
     <a class="btn" href="<?= h(url('planner_calendar.php?date=' . urlencode($today))) ?>"><?= icon('plus', 16) ?>Event</a>
   </div>
@@ -47,6 +54,7 @@ layout_start('Planner', $user);
 <div class="stats">
   <div class="card stat"><?= icon('calendar', 20) ?><span>This week</span><strong><?= count($upcoming) ?></strong></div>
   <div class="card stat"><?= icon('flag', 20) ?><span>Essentials</span><strong><?= count($essentials) ?></strong></div>
+  <div class="card stat"><?= icon('check', 20) ?><span>Open tasks</span><strong><?= count($openGoals) ?></strong></div>
   <div class="card stat"><?= icon('invoice', 20) ?><span>Income vs target</span><strong><?= h(money($actuals['income'])) ?></strong><em>of <?= h(money($budgetIncome)) ?></em></div>
   <div class="card stat"><?= icon('wallet', 20) ?><span>Spend vs budget</span><strong><?= h(money($actuals['expense'])) ?></strong><em>of <?= h(money($budgetExpense)) ?></em></div>
 </div>
@@ -94,6 +102,27 @@ layout_start('Planner', $user);
       </div>
     <?php endif; ?>
   </div>
+</div>
+
+<div class="card" style="margin-top:16px">
+  <div class="card-head">
+    <h2><?= icon('flag', 16) ?>Tasks to hit</h2>
+    <a class="btn ghost sm" href="<?= h(url('planner_goals.php')) ?>">All tasks</a>
+  </div>
+  <?php if (!$openGoals): ?>
+    <p class="empty">No open goals. <a href="<?= h(url('planner_goals.php')) ?>">Add a task</a>.</p>
+  <?php else: ?>
+    <div class="work-list">
+      <?php foreach ($openGoals as $goal): ?>
+        <a class="work-row" href="<?= h(url('planner_goals.php?edit=' . (int) $goal['id'])) ?>">
+          <div>
+            <strong><?= h($goal['title']) ?></strong>
+            <span><?= h(planner_priorities()[$goal['priority']] ?? 'Normal') ?><?php if (!empty($goal['due_date'])): ?> · Due <?= h(format_date($goal['due_date'])) ?><?php endif; ?></span>
+          </div>
+        </a>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
 </div>
 
 <div class="card" style="margin-top:16px">

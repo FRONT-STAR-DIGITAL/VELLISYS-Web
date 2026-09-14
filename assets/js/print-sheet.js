@@ -1,7 +1,7 @@
 (function () {
   function markPages() {
     var sheet = document.querySelector('.invoice-sheet');
-    if (!sheet) return;
+    if (!sheet || sheet.classList.contains('sheet-thermal')) return;
     sheet.style.minHeight = '0';
     var pagePx = (297 * 96) / 25.4;
     if (sheet.offsetHeight > pagePx + 8) {

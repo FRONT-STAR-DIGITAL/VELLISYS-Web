@@ -34,6 +34,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             [$name, $kind, $tin, $contact, $phone, $phone2, $email, $address, $city, $country, $notes, $id, $cid]
         );
         flash('Client updated.');
+        if (function_exists('record_company_activity')) {
+            record_company_activity('client', 'Updated ' . $name, [
+                'href' => 'client_view.php?id=' . $id,
+                'ref_type' => 'party',
+                'ref_id' => $id,
+            ]);
+        }
         redirect('client_view.php?id=' . $id);
     }
     $newId = db_exec(
@@ -42,6 +49,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         [$cid, $name, $kind, $tin, $contact, $phone, $phone2, $email, $address, $city, $country, $notes]
     );
     flash('Client added.');
+    if (function_exists('record_company_activity')) {
+        record_company_activity('client', 'Added ' . $name, [
+            'href' => 'client_view.php?id=' . $newId,
+            'ref_type' => 'party',
+            'ref_id' => $newId,
+        ]);
+    }
     redirect('client_view.php?id=' . $newId);
 }
 

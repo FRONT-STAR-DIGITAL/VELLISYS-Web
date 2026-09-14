@@ -21,7 +21,7 @@ function folio_schema_ready_file(): string
     if (!is_dir($dir)) {
         @mkdir($dir, 0700, true);
     }
-    return $dir . '/schema-40.ok';
+    return $dir . '/schema-41.ok';
 }
 
 function folio_ensure_logo_bg(mysqli $db): void
@@ -132,7 +132,7 @@ function folio_migrate(mysqli $db): void
         return;
     }
     $verRow = @$db->query("SELECT v FROM schema_meta WHERE k='version'");
-    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 40) {
+    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 41) {
         @touch($ready);
         $done = true;
         return;
@@ -147,7 +147,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 40) {
+    if ($ver >= 41) {
         @touch($ready);
         $done = true;
         return;
@@ -374,8 +374,12 @@ function folio_migrate(mysqli $db): void
     if ($ver < 40) {
         folio_ensure_company_tax($db);
     }
+    if ($ver < 41) {
+        folio_migrate_desk_activity($db);
+        folio_migrate_planner_goals($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '40')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '41')");
     @touch($ready);
     $done = true;
 }
@@ -435,6 +439,7 @@ function folio_migrate_planner(mysqli $db): void
       KEY company_date (company_id, event_date),
       KEY company_done (company_id, done)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    folio_migrate_planner_goals($db);
 }
 
 function folio_migrate_onboard_steps(mysqli $db): void
@@ -1081,11 +1086,11 @@ function folio_migrate_pnl(mysqli $db): void
             $points = (string) ($row['points'] ?? '');
             $next = $points;
             if ($key === 'studio' && stripos($points, 'Planner') === false) {
-                $next = trim($points . "\nPlanner notes, budget and calendar");
+                $next = trim($points . "\nPlanner notes, budget, calendar, and tasks");
             }
             if ($key === 'practice') {
                 if (stripos($points, 'Planner') === false) {
-                    $next = trim($next . "\nPlanner notes, budget and calendar");
+                    $next = trim($next . "\nPlanner notes, budget, calendar, and tasks");
                 }
                 if (stripos($next, 'Profit') === false && stripos($next, 'P&L') === false) {
                     $next = trim($next . "\nProfit & Loss bookkeeping with refunds and returns");
@@ -1102,3 +1107,110 @@ function folio_migrate_pnl(mysqli $db): void
         }
     }
 }
+
+function folio_migrate_planner_goals(mysqli $db): void
+{
+    $db->query("CREATE TABLE IF NOT EXISTS planner_goals (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      company_id INT UNSIGNED NOT NULL,
+      user_id INT UNSIGNED NOT NULL DEFAULT 0,
+      title VARCHAR(190) NOT NULL,
+      body TEXT NULL,
+      due_date DATE NULL,
+      status ENUM('open','hit') NOT NULL DEFAULT 'open',
+      priority ENUM('low','normal','high','essential') NOT NULL DEFAULT 'normal',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY company_status (company_id, status),
+      KEY company_due (company_id, due_date)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+function folio_migrate_desk_activity(mysqli $db): void
+{
+    $db->query("CREATE TABLE IF NOT EXISTS company_activities (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      company_id INT UNSIGNED NOT NULL,
+      user_id INT UNSIGNED NOT NULL DEFAULT 0,
+      kind VARCHAR(20) NOT NULL DEFAULT 'document',
+      title VARCHAR(190) NOT NULL,
+      detail VARCHAR(500) NULL,
+      href VARCHAR(190) NULL,
+      ref_type VARCHAR(40) NULL,
+      ref_id INT UNSIGNED NULL,
+      occurred_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY company_occurred (company_id, id),
+      KEY company_kind (company_id, kind),
+      KEY ref_lookup (ref_type, ref_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $res = @$db->query('SELECT id, pkg_key, points FROM landing_packages');
+    if ($res) {
+        while ($row = $res->fetch_assoc()) {
+            $points = (string) ($row['points'] ?? '');
+            $next = $points;
+            if (stripos($points, 'Activity log') === false && stripos($points, 'Activities') === false) {
+                $next = trim($points . "\nActivity log of major desk events");
+            }
+            if ((string) ($row['pkg_key'] ?? '') !== 'solo' && stripos($next, 'tasks') === false && stripos($next, 'Planner') !== false) {
+                $replaced = str_ireplace(
+                    'Planner notes, budget and calendar',
+                    'Planner notes, budget, calendar, and tasks',
+                    $next
+                );
+                $next = is_string($replaced) ? $replaced : $next;
+            }
+            if ($next !== $points) {
+                $stmt = $db->prepare('UPDATE landing_packages SET points=? WHERE id=?');
+                if ($stmt) {
+                    $id = (int) $row['id'];
+                    $stmt->bind_param('si', $next, $id);
+                    $stmt->execute();
+                }
+            }
+        }
+    }
+
+    $companies = @$db->query('SELECT id FROM companies');
+    if (!$companies) {
+        return;
+    }
+    while ($c = $companies->fetch_assoc()) {
+        $cid = (int) $c['id'];
+        $has = @$db->query('SELECT id FROM company_activities WHERE company_id = ' . $cid . ' LIMIT 1');
+        if ($has && $has->num_rows > 0) {
+            continue;
+        }
+        $docs = @$db->query(
+            'SELECT d.id, d.kind, d.number, d.status, d.created_by, d.created_at, p.name AS party_name
+             FROM documents d
+             LEFT JOIN parties p ON p.id = d.party_id
+             WHERE d.company_id = ' . $cid . '
+             ORDER BY d.id DESC
+             LIMIT 80'
+        );
+        if (!$docs) {
+            continue;
+        }
+        $stmt = $db->prepare(
+            'INSERT INTO company_activities (company_id, user_id, kind, title, detail, href, ref_type, ref_id, occurred_at) VALUES (?,?,?,?,?,?,?,?,?)'
+        );
+        if (!$stmt) {
+            continue;
+        }
+        while ($d = $docs->fetch_assoc()) {
+            $kind = (string) ($d['kind'] ?? 'document');
+            $actKind = in_array($kind, ['receipt', 'expense', 'refund'], true) ? 'payment' : 'document';
+            $label = ucfirst(str_replace('_', ' ', $kind)) . ' ' . (string) $d['number'];
+            $detail = trim((string) ($d['party_name'] ?? '') . ((string) ($d['status'] ?? '') === 'void' ? ' · voided' : ' issued'));
+            $href = 'document_view.php?id=' . (int) $d['id'];
+            $refType = 'document';
+            $refId = (int) $d['id'];
+            $uid = (int) ($d['created_by'] ?? 0);
+            $when = (string) ($d['created_at'] ?? date('Y-m-d H:i:s'));
+            $stmt->bind_param('iisssssis', $cid, $uid, $actKind, $label, $detail, $href, $refType, $refId, $when);
+            $stmt->execute();
+        }
+    }
+}
+

@@ -491,7 +491,7 @@ layout_start($heading, $user, ['kind' => $kind]);
       <div class="lines-preview" data-lines-preview>
         <div class="lines-preview-head">
           <strong>Document preview</strong>
-          <span class="muted">How this table will look on the printed sheet</span>
+          <span class="muted">How this table will look on the printed sheet. On a phone, swipe sideways to see every column.</span>
         </div>
         <div class="table-scroll">
           <table class="grid lines-preview-table">

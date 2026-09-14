@@ -145,6 +145,85 @@ function planner_note_delete(int $id): void
     db_exec('DELETE FROM planner_notes WHERE id = ? AND company_id = ?', 'ii', [$id, current_company_id()]);
 }
 
+function planner_goal_save(array $data, int $id = 0): int
+{
+    $cid = current_company_id();
+    $uid = (int) (current_user()['id'] ?? 0);
+    $title = trim((string) ($data['title'] ?? ''));
+    $body = trim((string) ($data['body'] ?? ''));
+    $priority = planner_normalize_priority((string) ($data['priority'] ?? 'normal'));
+    $status = (string) ($data['status'] ?? 'open');
+    if ($status !== 'hit') {
+        $status = 'open';
+    }
+    $due = trim((string) ($data['due_date'] ?? ''));
+    $due = $due === '' ? null : $due;
+    if ($due !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $due)) {
+        $due = null;
+    }
+    if ($title === '') {
+        throw new RuntimeException('Name the task or goal.');
+    }
+    if ($id > 0) {
+        $row = db_one('SELECT id FROM planner_goals WHERE id = ? AND company_id = ?', 'ii', [$id, $cid]);
+        if (!$row) {
+            throw new RuntimeException('Task not found.');
+        }
+        db_exec(
+            'UPDATE planner_goals SET title=?, body=?, due_date=?, status=?, priority=?, updated_at=NOW() WHERE id=? AND company_id=?',
+            'sssssii',
+            [$title, $body !== '' ? $body : null, $due, $status, $priority, $id, $cid]
+        );
+        if (function_exists('record_company_activity')) {
+            record_company_activity('planner', ($status === 'hit' ? 'Hit: ' : 'Updated task: ') . $title, [
+                'href' => 'planner_goals.php?edit=' . $id,
+                'ref_type' => 'goal',
+                'ref_id' => $id,
+            ]);
+        }
+        return $id;
+    }
+    $newId = db_exec(
+        'INSERT INTO planner_goals (company_id, user_id, title, body, due_date, status, priority) VALUES (?,?,?,?,?,?,?)',
+        'iisssss',
+        [$cid, $uid, $title, $body !== '' ? $body : null, $due, $status, $priority]
+    );
+    if (function_exists('record_company_activity')) {
+        record_company_activity('planner', 'New task: ' . $title, [
+            'href' => 'planner_goals.php?edit=' . $newId,
+            'ref_type' => 'goal',
+            'ref_id' => $newId,
+        ]);
+    }
+    return $newId;
+}
+
+function planner_goal_delete(int $id): void
+{
+    db_exec('DELETE FROM planner_goals WHERE id = ? AND company_id = ?', 'ii', [$id, current_company_id()]);
+}
+
+function planner_goals(?string $status = null): array
+{
+    try {
+        $cid = current_company_id();
+        if ($status === 'open' || $status === 'hit') {
+            return db_all(
+                'SELECT * FROM planner_goals WHERE company_id = ? AND status = ? ORDER BY FIELD(priority,\'essential\',\'high\',\'normal\',\'low\'), due_date IS NULL, due_date, id DESC',
+                'is',
+                [$cid, $status]
+            );
+        }
+        return db_all(
+            'SELECT * FROM planner_goals WHERE company_id = ? ORDER BY FIELD(status,\'open\',\'hit\'), FIELD(priority,\'essential\',\'high\',\'normal\',\'low\'), due_date IS NULL, due_date, id DESC',
+            'i',
+            [$cid]
+        );
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
 function planner_notes(?string $q = null): array
 {
     $cid = current_company_id();
@@ -412,6 +491,31 @@ function planner_notifications(int $limit = 12): array
         ];
     }
 
+    try {
+        $goals = db_all(
+            "SELECT id, title, due_date, priority FROM planner_goals
+             WHERE company_id = ? AND status = 'open' AND (due_date IS NULL OR due_date <= ?)
+             ORDER BY FIELD(priority,'essential','high','normal','low'), due_date IS NULL, due_date, id
+             LIMIT 8",
+            'is',
+            [$cid, $until]
+        );
+        foreach ($goals as $goal) {
+            $due = (string) ($goal['due_date'] ?? '');
+            $label = $due === '' ? 'Open task' : ($due < $today ? 'Overdue' : ($due === $today ? 'Due today' : 'Due ' . format_date($due)));
+            $items[] = [
+                'type' => 'goal',
+                'tone' => ($due !== '' && $due < $today) || $goal['priority'] === 'essential' ? 'warn' : 'info',
+                'title' => (string) $goal['title'],
+                'meta' => $label,
+                'href' => url('planner_goals.php?edit=' . (int) $goal['id']),
+                'sort' => ($due !== '' ? $due : '9') . '-goal',
+            ];
+        }
+    } catch (Throwable $e) {
+        // Goals table arrives with schema 41.
+    }
+
     foreach (planner_due_invoices(7) as $doc) {
         if ((float) ($doc['balance'] ?? 0) <= 0.009) {
             continue;
@@ -456,6 +560,7 @@ function render_planner_subnav(string $active): void
     $tabs = [
         ['planner.php', 'Overview', 'desk'],
         ['planner_notes.php', 'Notes', 'letter'],
+        ['planner_goals.php', 'Tasks', 'flag'],
         ['planner_budget.php', 'Budget', 'bank'],
         ['planner_calendar.php', 'Calendar', 'calendar'],
     ];

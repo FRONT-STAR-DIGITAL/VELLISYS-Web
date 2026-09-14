@@ -63,12 +63,11 @@ $canInvoice = user_can_kind('invoice');
       </div>
     </div>
   </div>
-  <?php if ($canQuote || $canInvoice): ?>
   <div class="actions">
     <?php if ($canQuote): ?><a class="btn ghost" href="<?= h(url('document_new.php?kind=quotation')) ?>"><?= icon('quotation', 16) ?>Quotation</a><?php endif; ?>
     <?php if ($canInvoice): ?><a class="btn" href="<?= h(url('document_new.php?kind=invoice')) ?>"><?= icon('invoice', 16) ?>Invoice</a><?php endif; ?>
+    <a class="btn ghost" href="<?= h(url('activities.php')) ?>"><?= icon('clock', 16) ?>Activities</a>
   </div>
-  <?php endif; ?>
 </div>
 
 <div class="desk-grid">

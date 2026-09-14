@@ -255,6 +255,7 @@ function render_letter_body(array $doc): void
 function render_print_document_page(array $doc, bool $pdf = false): void
 {
     $brand = branding();
+    $thermal = doc_template_key($doc) === 'thermal' && !kind_is_stationery($doc['kind'] ?? '');
     ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -268,10 +269,10 @@ function render_print_document_page(array $doc, bool $pdf = false): void
   <?php folio_font_links(); ?>
   <style>
     :root { <?= brand_css_vars() ?> }
-    @page { size: A4; margin: 0; }
+    @page { size: <?= $thermal ? '80mm auto' : 'A4' ?>; margin: 0; }
   </style>
 </head>
-<body class="print-body<?= $pdf ? ' print-pdf' : '' ?>">
+<body class="print-body<?= $pdf ? ' print-pdf' : '' ?><?= $thermal ? ' print-thermal' : '' ?>">
   <?php if ($pdf): ?>
     <div class="pdf-bar">
       <p>This is the branded sheet. In the print dialog choose <strong>Save as PDF</strong> (or Microsoft Print to PDF).</p>
@@ -961,6 +962,161 @@ function render_sheet_bond(array $d): void
 <?php
 }
 
+function render_sheet_frame(array $d): void
+{
+    $brand = $d['brand'];
+    $doc = $d['doc'];
+    ?>
+<article class="invoice-sheet sheet-frame" style="<?= h($d['vars']) ?>">
+  <div class="page-frame">
+    <div class="page-frame-inner">
+      <header class="d-row">
+        <div>
+          <img src="<?= h($d['logo']) ?>" alt="" class="d-logo">
+          <div class="d-co">
+            <strong><?= h($brand['name']) ?></strong>
+            <div><?= h($brand['address']) ?></div>
+            <div><?= h($brand['phone']) ?> · <?= h($brand['email']) ?></div>
+            <?php if (!empty($brand['tin'])): ?><div>TIN <?= h($brand['tin']) ?></div><?php endif; ?>
+          </div>
+        </div>
+        <div class="d-meta-box">
+          <p class="d-title" style="color:<?= h($d['color']) ?>"><?= h($d['heading']) ?></p>
+          <table class="meta">
+            <tr><td class="k">DATE</td><td><?= h(format_date($doc['date'])) ?></td></tr>
+            <tr><td class="k">No.</td><td><?= h($doc['number']) ?></td></tr>
+            <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
+            <tr><td class="k">CURRENCY</td><td><?= h($d['cur']) ?></td></tr>
+            <?php endif; ?>
+            <?php if (!empty($doc['due_date'])): ?>
+              <tr><td class="k">DUE DATE</td><td><strong><?= h(format_date($doc['due_date'])) ?></strong></td></tr>
+            <?php endif; ?>
+          </table>
+        </div>
+      </header>
+      <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
+      <div class="bar" style="background:<?= h($d['color']) ?>"><?= kind_shows_money($doc['kind'] ?? '') ? 'BILL TO' : 'TO' ?></div>
+      <div class="d-party"><?php render_party_contact($doc); ?></div>
+      <?php render_line_table($doc, $d['color'], $d['tint']); ?>
+      <div class="d-split">
+        <div class="d-notes">
+          <div class="bar" style="background:<?= h($d['color']) ?>">OTHER COMMENTS</div>
+          <div class="d-notes-body"><?= h($d['comments']) ?></div>
+        </div>
+        <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
+        <div class="d-sums">
+          <div class="d-sum"><span>Subtotal</span><span><?= h(money($d['net'], $d['cur'])) ?></span></div>
+          <?php if (!empty($d['show_vat'])): ?>
+            <div class="d-sum"><span><?= h($d['tax_label']) ?></span><span><?= h(money($d['vat'], $d['cur'])) ?></span></div>
+          <?php endif; ?>
+          <div class="d-total"><span>Total</span><span><?= h(money($d['total'], $d['cur'])) ?></span></div>
+          <?php render_fx_equiv($d); ?>
+          <?php render_settlement($d); ?>
+        </div>
+        <?php endif; ?>
+      </div>
+      <footer class="d-foot">
+        <p><?= h($brand['phone']) ?> · <?= h($brand['email']) ?></p>
+        <p class="thanks">Thank You For Your Business!</p>
+      </footer>
+    </div>
+  </div>
+</article>
+<?php
+}
+
+function render_sheet_inset(array $d): void
+{
+    $brand = $d['brand'];
+    $doc = $d['doc'];
+    ?>
+<article class="invoice-sheet sheet-inset" style="<?= h($d['vars']) ?>">
+  <div class="page-inset">
+    <header class="d-row">
+      <div>
+        <img src="<?= h($d['logo']) ?>" alt="" class="d-logo">
+        <div class="d-co">
+          <strong><?= h($brand['name']) ?></strong>
+          <div><?= h($brand['address']) ?></div>
+          <div><?= h($brand['phone']) ?></div>
+          <div><?= h($brand['email']) ?></div>
+        </div>
+      </div>
+      <div class="d-meta-box">
+        <p class="d-title" style="color:<?= h($d['deep']) ?>"><?= h($d['heading']) ?></p>
+        <table class="meta">
+          <tr><td class="k">No.</td><td><?= h($doc['number']) ?></td></tr>
+          <tr><td class="k">DATE</td><td><?= h(format_date($doc['date'])) ?></td></tr>
+          <?php if (!empty($doc['due_date'])): ?>
+            <tr><td class="k">DUE</td><td><?= h(format_date($doc['due_date'])) ?></td></tr>
+          <?php endif; ?>
+        </table>
+      </div>
+    </header>
+    <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
+    <div class="inset-to">
+      <span><?= kind_shows_money($doc['kind'] ?? '') ? 'Bill to' : 'To' ?></span>
+      <?php render_party_contact($doc); ?>
+    </div>
+    <?php render_line_table($doc, $d['deep'], $d['tint']); ?>
+    <div class="d-split">
+      <div class="d-notes">
+        <div class="d-notes-body"><?= h($d['comments'] ?: ($brand['payment_note'] ?? '')) ?></div>
+      </div>
+      <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
+      <div class="d-sums">
+        <div class="d-sum"><span>Subtotal</span><span><?= h(money($d['net'], $d['cur'])) ?></span></div>
+        <?php if (!empty($d['show_vat'])): ?>
+          <div class="d-sum"><span><?= h($d['tax_label']) ?></span><span><?= h(money($d['vat'], $d['cur'])) ?></span></div>
+        <?php endif; ?>
+        <div class="d-total"><span>Total</span><span><?= h(money($d['total'], $d['cur'])) ?></span></div>
+        <?php render_fx_equiv($d); ?>
+        <?php render_settlement($d); ?>
+      </div>
+      <?php endif; ?>
+    </div>
+  </div>
+</article>
+<?php
+}
+
+function render_sheet_thermal(array $d): void
+{
+    $brand = $d['brand'];
+    $doc = $d['doc'];
+    $qtyOnly = in_array(($doc['kind'] ?? ''), ['delivery', 'return_note'], true);
+    ?>
+<article class="invoice-sheet sheet-thermal" style="<?= h($d['vars']) ?>">
+  <header class="thermal-head">
+    <img src="<?= h($d['logo']) ?>" alt="" class="d-logo xs">
+    <strong><?= h($brand['name']) ?></strong>
+    <p><?= h($brand['address']) ?></p>
+    <p><?= h($brand['phone']) ?></p>
+    <?php if (!empty($brand['tin'])): ?><p>TIN <?= h($brand['tin']) ?></p><?php endif; ?>
+  </header>
+  <p class="thermal-kind"><?= h($d['heading']) ?></p>
+  <p class="thermal-meta"><?= h($doc['number']) ?><br><?= h(format_date($doc['date'])) ?><?php if (!empty($doc['due_date'])): ?><br>Due <?= h(format_date($doc['due_date'])) ?><?php endif; ?></p>
+  <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID</p><?php endif; ?>
+  <p class="thermal-to"><span>To</span> <?= h($doc['party_name'] ?? '') ?></p>
+  <?php render_line_table($doc, '#111', '#f4f4f4', ['compact' => true, 'min' => 1, 'class' => 'thermal-lines']); ?>
+  <?php if (kind_shows_money($doc['kind'] ?? '') && !$qtyOnly): ?>
+  <div class="thermal-sums">
+    <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
+    <?php if (!empty($d['show_vat'])): ?>
+      <div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div>
+    <?php endif; ?>
+    <div class="thermal-total"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
+  </div>
+  <?php endif; ?>
+  <?php if (trim((string) $d['comments']) !== ''): ?>
+    <p class="thermal-note"><?= h($d['comments']) ?></p>
+  <?php endif; ?>
+  <p class="thermal-thanks">Thank you</p>
+  <p class="thermal-foot"><?= h($brand['email']) ?></p>
+</article>
+<?php
+}
+
 function render_expense_card(array $brand, array $doc): void
 {
     $d = sheet_data($brand, $doc);
@@ -1051,6 +1207,9 @@ function render_sheet(array $brand, array $doc): void
             'seal' => render_sheet_seal($d),
             'mark' => render_sheet_mark($d),
             'bond' => render_sheet_bond($d),
+            'frame' => render_sheet_frame($d),
+            'inset' => render_sheet_inset($d),
+            'thermal' => render_sheet_thermal($d),
             default => render_sheet_folio($d),
         };
     }

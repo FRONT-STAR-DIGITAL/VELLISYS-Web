@@ -131,7 +131,7 @@ function user_can_kind(string $kind, ?array $user = null): bool
 function user_can_open(string $script, string $kind = ''): bool
 {
     $script = basename($script);
-    $plannerScripts = ['planner.php', 'planner_notes.php', 'planner_budget.php', 'planner_calendar.php'];
+    $plannerScripts = ['planner.php', 'planner_notes.php', 'planner_goals.php', 'planner_budget.php', 'planner_calendar.php'];
     if (in_array($script, $plannerScripts, true)) {
         return company_planner_enabled() && is_desk_admin();
     }

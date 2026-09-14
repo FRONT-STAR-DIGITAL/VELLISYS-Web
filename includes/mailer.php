@@ -332,6 +332,17 @@ function send_company_email(array $user, string $to, string $subject, string $me
     $result = deliver_mail($account, $to, $subject, $html, $text, $from, company_logo_inlines($brand));
     log_email($docId > 0 ? $docId : null, (int) $user['id'], $to, $subject, $message, $result['ok'], (string) ($result['error'] ?? ''), $from);
     $result['from'] = $from;
+    if (function_exists('record_company_activity') && $cid > 0) {
+        $label = $doc ? (kind_meta((string) ($doc['kind'] ?? ''))['singular'] . ' ' . (string) ($doc['number'] ?? '')) : $subject;
+        record_company_activity('email', 'Emailed ' . $label, [
+            'detail' => 'To ' . $to . (!empty($result['ok']) ? '' : ' · queued'),
+            'href' => $docId > 0 ? 'document_view.php?id=' . $docId : 'desk_mail.php',
+            'ref_type' => $docId > 0 ? 'document' : 'email',
+            'ref_id' => $docId,
+            'company_id' => $cid,
+            'user_id' => (int) $user['id'],
+        ]);
+    }
     return $result;
 }
 

@@ -319,6 +319,24 @@ function create_document(array $data): int
 
     insert_document_items($id, $items);
 
+    if (function_exists('record_company_activity')) {
+        $partyName = '';
+        $partyRow = db_one('SELECT name FROM parties WHERE id = ? AND company_id = ?', 'ii', [$party, $cid]);
+        if ($partyRow) {
+            $partyName = (string) $partyRow['name'];
+        }
+        $meta = kind_meta($kind);
+        $payKinds = ['receipt' => 'payment', 'expense' => 'payment', 'refund' => 'payment'];
+        record_company_activity($payKinds[$kind] ?? 'document', $meta['singular'] . ' ' . $number, [
+            'detail' => trim($partyName . ($status === 'void' ? ' · voided' : ' issued')),
+            'href' => 'document_view.php?id=' . $id,
+            'ref_type' => 'document',
+            'ref_id' => $id,
+            'company_id' => $cid,
+            'user_id' => $userId,
+        ]);
+    }
+
     return $id;
 }
 
@@ -660,11 +678,22 @@ function pay_creditor(int $expenseId, float $amount, string $method, string $ref
 
 function void_document(int $id, string $reason): void
 {
+    $cid = current_company_id();
+    $doc = db_one('SELECT number, kind FROM documents WHERE id = ? AND company_id = ?', 'ii', [$id, $cid]);
     db_exec(
         'UPDATE documents SET status = \'void\', void_reason = ? WHERE id = ? AND company_id = ?',
         'sii',
-        [$reason, $id, current_company_id()]
+        [$reason, $id, $cid]
     );
+    if ($doc && function_exists('record_company_activity')) {
+        $meta = kind_meta((string) $doc['kind']);
+        record_company_activity('document', $meta['singular'] . ' ' . $doc['number'] . ' voided', [
+            'detail' => trim($reason),
+            'href' => 'document_view.php?id=' . $id,
+            'ref_type' => 'document',
+            'ref_id' => $id,
+        ]);
+    }
 }
 
 function convert_quotation_to_invoice(int $quoteId): int

@@ -58,5 +58,6 @@ require_once ROOT_PATH . '/includes/pesapal.php';
 require_once ROOT_PATH . '/includes/join.php';
 require_once ROOT_PATH . '/includes/onboard.php';
 require_once ROOT_PATH . '/includes/visits.php';
+require_once ROOT_PATH . '/includes/activity.php';
 require_once ROOT_PATH . '/includes/pdf.php';
 require_once ROOT_PATH . '/includes/layout.php';

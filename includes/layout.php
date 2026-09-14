@@ -64,6 +64,7 @@ function layout_start(string $title, array $user, array $opts = []): void
         $nav[] = ['pnl.php', 'P&L', 'reports'];
     }
     $nav = array_merge($nav, [
+        ['activities.php', 'Activities', 'clock'],
         ['tutorials.php', 'Tutorials', 'book'],
         ['reports.php', 'Reports', 'reports'],
         ['settings.php', 'Settings', 'settings'],
@@ -119,7 +120,7 @@ function layout_start(string $title, array $user, array $opts = []): void
           if (str_starts_with($here, 'planner')) {
               $active = $file === 'planner.php' || str_starts_with((string) $file, 'planner');
               if ($file === 'planner.php') {
-                  $active = in_array($here, ['planner.php', 'planner_notes.php', 'planner_budget.php', 'planner_calendar.php'], true);
+                  $active = in_array($here, ['planner.php', 'planner_notes.php', 'planner_goals.php', 'planner_budget.php', 'planner_calendar.php'], true);
               } else {
                   $active = $file === $here;
               }

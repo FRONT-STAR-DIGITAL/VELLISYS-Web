@@ -6,7 +6,10 @@ if (function_exists('record_site_visit')) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' && ($user = current_user())) {
-    redirect(($user['role'] ?? '') === 'platform' ? 'admin_signups.php' : 'dashboard.php');
+    if (($user['role'] ?? '') === 'platform') {
+        redirect('admin_signups.php');
+    }
+    redirect(desk_safe_next((string) ($_GET['next'] ?? 'dashboard.php')));
 }
 $prefillEmail = strtolower(trim((string) ($_GET['email'] ?? '')));
 if ($prefillEmail !== '' && !filter_var($prefillEmail, FILTER_VALIDATE_EMAIL)) {
@@ -29,7 +32,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('admin_signups.php');
         }
         $first = finish_member_first_login($user);
-        redirect($first ? 'settings.php?welcome=1' : 'dashboard.php');
+        $next = desk_safe_next(post('next') ?: (string) ($_GET['next'] ?? ''));
+        if ($first) {
+            redirect('settings.php?welcome=1');
+        }
+        redirect($next);
     } else {
         form_rate_hit('login', 900);
         $error = 'Those details did not match an account.';
@@ -66,6 +73,9 @@ $showDemoKeys = !folio_is_live_host();
     <?php render_gate_card_mark(); ?>
     <form class="gate-box" method="post" action="<?= h(url('login.php')) ?>">
       <?= csrf_field() ?>
+      <?php if (desk_safe_next((string) ($_GET['next'] ?? post('next'))) !== 'dashboard.php' || post('next') !== ''): ?>
+        <input type="hidden" name="next" value="<?= h(desk_safe_next((string) ($_GET['next'] ?? post('next')))) ?>">
+      <?php endif; ?>
       <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
       <h2>Welcome back</h2>
       <p class="gate-lead">Sign in to your account to continue</p>

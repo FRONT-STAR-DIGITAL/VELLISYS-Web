@@ -369,6 +369,18 @@ function doc_templates(): array
             'name' => 'Bond watermark',
             'blurb' => 'White bond sheet with a large tilted logo mark behind the lines.',
         ],
+        'frame' => [
+            'name' => 'Page frame',
+            'blurb' => 'Double line around the A4 page, like a certificate border.',
+        ],
+        'inset' => [
+            'name' => 'Inset border',
+            'blurb' => 'A thick brand margin and an inner rule around the whole sheet.',
+        ],
+        'thermal' => [
+            'name' => 'Thermal roll',
+            'blurb' => 'Narrow 80mm receipt for a thermal printer. Prints as a roll, not A4.',
+        ],
     ];
 }
 
@@ -2817,7 +2829,7 @@ function desk_manage_items(): array
         ['icon' => 'bank', 'title' => 'Creditors', 'body' => 'Track suppliers you still need to pay. Note a payment or write to them from the desk.'],
         ['icon' => 'letter', 'title' => 'Headed letters', 'body' => 'Correspondence on the same stationery as the books. Print or email in one click.'],
         ['icon' => 'send', 'title' => 'Send emails', 'body' => 'Quotations, invoices, receipts, letters and reminders leave from your assigned mailbox.'],
-        ['icon' => 'palette', 'title' => '10+ templates', 'body' => 'Pick Folio, Ledger, Twin copy, Estate, Night and more. The whole books follow that layout.'],
+        ['icon' => 'palette', 'title' => '15 layouts', 'body' => 'Pick Folio, page borders, an 80mm thermal roll, Twin copy, watermarks and more. The whole books follow that layout.'],
         ['icon' => 'image', 'title' => 'Your company branding', 'body' => 'Logo, three colours, letterhead. Every document looks like it left your office.'],
     ];
 }

@@ -154,7 +154,10 @@
 .invoice-sheet.sheet-atelier,
 .invoice-sheet.sheet-seal,
 .invoice-sheet.sheet-mark,
-.invoice-sheet.sheet-bond {
+.invoice-sheet.sheet-bond,
+.invoice-sheet.sheet-frame,
+.invoice-sheet.sheet-inset,
+.invoice-sheet.sheet-thermal {
   background: #fff !important;
   color: #111 !important;
 }
@@ -597,6 +600,131 @@
 .mini-seal { background: #fff; }
 .mini-seal::before { content: ""; position: absolute; left: 50%; top: 14px; width: 30px; height: 30px; margin-left: -15px; border: 3px solid var(--brand-3); border-radius: 50%; }
 .mini-seal::after { content: ""; position: absolute; left: 14px; right: 14px; top: 56px; height: 3px; border-top: 1px solid var(--brand-3); border-bottom: 1px solid var(--brand-2); }
+.mini-frame { background: #fff; box-shadow: inset 0 0 0 3px var(--brand), inset 0 0 0 6px #fff, inset 0 0 0 7px var(--brand-2); }
+.mini-frame::before { content: ""; position: absolute; left: 16px; right: 16px; top: 20px; height: 8px; background: var(--brand); }
+.mini-frame::after { content: ""; position: absolute; left: 16px; right: 28%; top: 36px; height: 2px; background: #dfe3ea; }
+.mini-inset { background: #fff; border: 8px solid var(--brand); box-shadow: inset 0 0 0 1.5px var(--brand-2); }
+.mini-inset::before { content: ""; position: absolute; left: 10px; right: 36%; top: 16px; height: 10px; background: var(--brand-3); }
+.mini-inset::after { content: ""; position: absolute; left: 10px; right: 10px; top: 34px; height: 2px; background: var(--brand-2); }
+.mini-thermal {
+  width: 42%;
+  height: 96px;
+  margin: 8px auto;
+  background: #fff;
+  border: 1px dashed #888;
+  border-radius: 3px;
+}
+.mini-thermal::before { content: ""; position: absolute; left: 18%; right: 18%; top: 10px; height: 8px; background: var(--brand); }
+.mini-thermal::after { content: ""; position: absolute; left: 14%; right: 14%; top: 26px; bottom: 12px; border-top: 1px dashed #bbb; border-bottom: 1px dashed #bbb; }
+
+/* Page frame — double rule around A4 */
+.invoice-sheet.sheet-frame {
+  padding: 7mm;
+  display: flex;
+  flex-direction: column;
+}
+.sheet-frame .page-frame {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(297mm - 14mm);
+  box-sizing: border-box;
+  border: 2.25px solid var(--brand);
+  padding: 3.5px;
+}
+.sheet-frame .page-frame-inner {
+  flex: 1 1 auto;
+  box-sizing: border-box;
+  border: 1px solid var(--brand-2);
+  padding: 10mm 12mm 12mm;
+}
+.sheet-frame .page-frame-inner .d-row { margin-bottom: 8px; }
+
+/* Inset border — thick brand margin + inner rule */
+.invoice-sheet.sheet-inset { padding: 0; }
+.sheet-inset .page-inset {
+  min-height: 297mm;
+  box-sizing: border-box;
+  border: 9px solid var(--brand);
+  box-shadow: inset 0 0 0 1.5px var(--brand-2);
+  padding: 12mm 14mm 14mm;
+}
+.inset-to {
+  margin: 8px 0 14px;
+  padding: 10px 0 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--brand) 28%, #ddd);
+}
+.inset-to > span {
+  display: block;
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--brand);
+  margin-bottom: 6px;
+}
+
+/* Thermal roll — 80mm receipt */
+.invoice-sheet.sheet-thermal {
+  width: 80mm;
+  max-width: 80mm;
+  min-height: 0;
+  padding: 5mm 4mm 7mm;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.thermal-head { text-align: center; }
+.thermal-head .d-logo { margin: 0 auto 6px; }
+.thermal-head strong { display: block; font-size: 13px; line-height: 1.25; }
+.thermal-head p { margin: 2px 0; font-size: 10px; line-height: 1.35; }
+.thermal-kind {
+  text-align: center;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  font-size: 11px;
+  border-top: 1px dashed #111;
+  border-bottom: 1px dashed #111;
+  padding: 7px 0;
+  margin: 10px 0 8px;
+}
+.thermal-meta { text-align: center; font-size: 11px; line-height: 1.45; margin: 0 0 8px; }
+.thermal-to { font-size: 11px; margin: 0 0 10px; line-height: 1.4; }
+.thermal-to span {
+  display: block;
+  font-size: 9px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: #555;
+  font-weight: 700;
+}
+.d-lines.thermal-lines {
+  table-layout: auto;
+  width: 100%;
+  font-size: 10px;
+}
+.d-lines.thermal-lines th,
+.d-lines.thermal-lines td {
+  padding: 4px 3px;
+  border-bottom: 1px dashed #ccc;
+}
+.thermal-sums {
+  border-top: 1px dashed #111;
+  margin-top: 8px;
+  padding-top: 8px;
+  display: grid;
+  gap: 4px;
+}
+.thermal-sums > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+}
+.thermal-total { font-size: 13px; font-weight: 800; border-top: 1px solid #111; padding-top: 6px; margin-top: 4px; }
+.thermal-note { font-size: 10px; white-space: pre-wrap; margin: 10px 0 0; }
+.thermal-thanks { text-align: center; font-weight: 700; margin: 14px 0 4px; font-size: 12px; }
+.thermal-foot { text-align: center; font-size: 9px; color: #444; margin: 0; }
 
 /* Atelier - quiet studio letter */
 .sheet-atelier { color: #111; }
@@ -892,9 +1020,22 @@
     border-left: 2px dashed var(--brand-3) !important;
     border-top: 0 !important;
   }
-  .invoice-sheet.sheet-bond {
+  .invoice-sheet.sheet-bond,
+  .invoice-sheet.sheet-frame,
+  .invoice-sheet.sheet-inset {
     width: 210mm !important;
     max-width: 210mm !important;
+  }
+  .invoice-sheet.sheet-thermal {
+    width: 80mm !important;
+    max-width: 80mm !important;
+    min-height: 0 !important;
+    padding: 4mm 3.5mm 6mm !important;
+  }
+  .print-thermal .sheet-wrap,
+  .print-thermal .sheet-stage {
+    width: 80mm !important;
+    max-width: 80mm !important;
   }
   .bond-head {
     flex-direction: row !important;
@@ -917,7 +1058,7 @@
     page-break-after: avoid;
     break-after: avoid;
   }
-  .sheet-ledger, .sheet-estate, .sheet-twin, .sheet-night, .sheet-bill, .sheet-stripe, .sheet-folio, .sheet-mark, .sheet-bond {
+  .sheet-ledger, .sheet-estate, .sheet-twin, .sheet-night, .sheet-bill, .sheet-stripe, .sheet-folio, .sheet-mark, .sheet-bond, .sheet-frame, .sheet-inset, .sheet-thermal {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
