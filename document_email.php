@@ -14,9 +14,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
     $to = post('to');
     $subject = post('subject');
-    $message = post('message');
+    $message = posted_rich('message');
     if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
         flash('Enter a valid recipient email.', 'err');
+        redirect('document_email.php?id=' . $id);
+    }
+    if (html_to_plain($message) === '') {
+        flash('Write a message.', 'err');
         redirect('document_email.php?id=' . $id);
     }
     $result = send_document_email($user, $doc, $to, $subject, $message);
@@ -55,7 +59,7 @@ layout_start('Email ' . $doc['number'], $user, ['kind' => $doc['kind']]);
   <label for="subject">Subject</label>
   <input id="subject" name="subject" required value="<?= h($defaultSubject) ?>">
   <label for="message">Message</label>
-  <textarea id="message" name="message" rows="10" required><?= h($defaultBody) ?></textarea>
+  <?php render_rich_editor('message', 'message', $defaultBody, ['rows' => 10, 'required' => true, 'placeholder' => 'Write the email.']); ?>
   <div class="actions" style="margin-top:16px">
     <button class="btn" type="submit" <?= $sendAcct ? '' : 'disabled' ?>><?= icon('send') ?>Send email</button>
     <a class="btn ghost" href="<?= h(url('document_view.php?id=' . $id)) ?>">Cancel</a>

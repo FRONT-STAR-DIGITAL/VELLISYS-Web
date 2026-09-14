@@ -317,7 +317,8 @@ function send_company_email(array $user, string $to, string $subject, string $me
     }
     $from = (string) $account['from_email'];
     $link = $doc ? document_share_url($doc) : '';
-    $inner = '<p style="margin:0 0 14px;color:#000000">' . nl2br(h($message)) . '</p>';
+    $safe = sanitize_rich_html($message);
+    $inner = '<div style="margin:0 0 14px;color:#000000">' . ($safe !== '' ? $safe : '<p style="margin:0">' . nl2br(h($message)) . '</p>') . '</div>';
     if ($doc) {
         $meta = kind_meta((string) ($doc['kind'] ?? ''));
         $inner .= '<p style="margin:0 0 14px;color:#000000">' . h($meta['singular']) . ' <strong>' . h((string) ($doc['number'] ?? '')) . '</strong></p>'
@@ -325,7 +326,7 @@ function send_company_email(array $user, string $to, string $subject, string $me
     }
     $inner .= '<p style="margin:0;color:#000000">' . h($user['name'] ?: (string) $brand['name']) . '<br>' . h((string) $brand['name']) . '</p>';
     $html = branded_company_wrap($brand, $inner, $kicker);
-    $text = $message;
+    $text = html_to_plain($message);
     if ($link !== '') {
         $text .= "\n\n" . $link;
     }

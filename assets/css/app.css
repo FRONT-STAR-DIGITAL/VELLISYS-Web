@@ -541,10 +541,11 @@ form.actions, td form { display: inline; margin: 0; }
 .doc-date-control {
   position: relative;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px 12px;
   min-height: 48px;
-  padding: 10px 14px;
+  padding: 8px 12px;
   border: 1px solid color-mix(in srgb, var(--brand) 18%, var(--line));
   border-radius: 12px;
   background: color-mix(in srgb, var(--brand-tint, #eef6f8) 70%, #fff);
@@ -552,20 +553,27 @@ form.actions, td form { display: inline; margin: 0; }
 }
 .doc-date-control .icon { flex: 0 0 auto; color: var(--muted); }
 .doc-date-pretty {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 500;
-  pointer-events: none;
+  color: var(--muted);
+  width: 100%;
 }
 .doc-date-control input[type="date"] {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
-  width: 100%;
-  height: 100%;
+  position: static;
+  opacity: 1;
+  cursor: text;
+  flex: 1 1 180px;
+  width: auto;
+  min-width: 0;
+  height: auto;
   margin: 0;
+  padding: 4px 0;
   border: 0;
   background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
 }
 .document-form .doc-client-grid input,
 .document-form .doc-client-grid select {
@@ -679,6 +687,58 @@ form.actions, td form { display: inline; margin: 0; }
 .custom-doc-box h3 { margin: 0 0 6px; font-size: 15px; }
 .custom-field-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 10px; margin: 0 0 8px; }
 .letter-body-field { min-height: 18em; }
+.rich-editor {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+.rich-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--brand-tint, #eef6f8) 55%, #fff);
+}
+.rich-toolbar button {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 6px 9px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  line-height: 1;
+}
+.rich-toolbar button:hover,
+.rich-toolbar button.is-on {
+  border-color: color-mix(in srgb, var(--brand) 40%, var(--line));
+  background: color-mix(in srgb, var(--brand-tint, #eef6f8) 80%, #fff);
+}
+.rich-sep {
+  width: 1px;
+  background: var(--line);
+  margin: 2px 4px;
+  align-self: stretch;
+}
+.rich-surface {
+  min-height: 12em;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  outline: none;
+}
+.rich-surface:empty:before {
+  content: attr(data-placeholder);
+  color: var(--muted);
+}
+.rich-surface p { margin: 0 0 0.7em; }
+.rich-surface p:last-child { margin-bottom: 0; }
+.rich-surface ul, .rich-surface ol { margin: 0 0 0.7em; padding-left: 1.35em; }
 .check { display: flex; gap: 8px; align-items: center; font-weight: 600; margin: 16px 0 8px; }
 .check input { width: auto; }
 .center { text-align: center; }

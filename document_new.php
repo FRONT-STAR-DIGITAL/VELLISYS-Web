@@ -75,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash('Add at least one line.', 'err');
         redirect($editId ? 'document_new.php?id=' . $editId : 'document_new.php?kind=' . $kind . ($prefillParty ? '&party=' . $prefillParty : ''));
     }
-    if ($kind === 'letter' && (post('subject') === '' || post('body') === '')) {
+    if ($kind === 'letter' && (post('subject') === '' || html_to_plain(post('body', '', 80000)) === '')) {
         flash('A headed letter needs a subject and a body.', 'err');
         redirect($editId ? 'document_new.php?id=' . $editId : 'document_new.php?kind=letter' . ($prefillParty ? '&party=' . $prefillParty : ''));
     }
@@ -94,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'currency' => post('currency') ?: default_currency(),
         'notes' => post('notes') ?: null,
         'subject' => post('subject') ?: null,
-        'body' => post('body') ?: null,
+        'body' => in_array($kind, ['letter', 'custom'], true) ? (posted_rich('body') ?: null) : (post('body') ?: null),
         'related_id' => $relatedPosted,
         'payment_method' => post('payment_method') ?: null,
         'payment_ref' => post('payment_ref') ?: null,
@@ -259,17 +259,18 @@ layout_start($heading, $user, ['kind' => $kind]);
       <label for="date">Date</label>
       <div class="doc-date-control">
         <?= icon('calendar', 18) ?>
+        <input id="date" name="date" type="date" min="1990-01-01" max="2100-12-31" value="<?= h((string) ($existing['date'] ?? today())) ?>" required data-date-input>
         <span class="doc-date-pretty" data-date-pretty></span>
-        <input id="date" name="date" type="date" value="<?= h((string) ($existing['date'] ?? today())) ?>" required data-date-input>
       </div>
+      <p class="hint">Type or pick any date, including a past date if you need to backdate the sheet.</p>
     </div>
     <?php if (in_array($kind, ['invoice', 'quotation'], true)): ?>
       <div>
         <label for="due_date">Due date</label>
         <div class="doc-date-control">
           <?= icon('calendar', 18) ?>
+          <input id="due_date" name="due_date" type="date" min="1990-01-01" max="2100-12-31" value="<?= h((string) ($existing['due_date'] ?? date('Y-m-d', strtotime('+14 days')))) ?>" data-date-input>
           <span class="doc-date-pretty" data-date-pretty></span>
-          <input id="due_date" name="due_date" type="date" value="<?= h((string) ($existing['due_date'] ?? date('Y-m-d', strtotime('+14 days')))) ?>" data-date-input>
         </div>
       </div>
     <?php endif; ?>
@@ -421,16 +422,16 @@ layout_start($heading, $user, ['kind' => $kind]);
     <label for="subject">Subject</label>
     <input id="subject" name="subject" required value="<?= h($prefillTpl['subject']) ?>">
     <label for="body">Body</label>
-    <textarea id="body" name="body" class="letter-body-field" rows="18" required><?= h($prefillTpl['body']) ?></textarea>
+    <?php render_rich_editor('body', 'body', (string) $prefillTpl['body'], ['rows' => 16, 'required' => true, 'placeholder' => 'Write the letter. Use the toolbar for bold, lists and alignment.']); ?>
     <?php $hasSig = company_signature_path() !== ''; ?>
+    <label class="kinds-opt" data-sign-box <?= $tplKey === 'none' && empty($existing['add_signature']) ? 'hidden' : '' ?>>
+      <input type="checkbox" name="add_signature" value="1" <?= $hasSig ? '' : 'disabled' ?> <?= !empty($existing['add_signature']) || ($tplKey !== 'none' && $hasSig && !$existing) ? 'checked' : '' ?>>
+      <span>Add signature</span>
+    </label>
     <?php if ($hasSig): ?>
-      <label class="kinds-opt" data-sign-box <?= $tplKey === 'none' && empty($existing['add_signature']) ? 'hidden' : '' ?>>
-        <input type="checkbox" name="add_signature" value="1" <?= !empty($existing['add_signature']) || ($tplKey !== 'none' && $hasSig && !$existing) ? 'checked' : '' ?>>
-        <span>Add signature</span>
-      </label>
       <p class="hint" data-sign-hint <?= $tplKey === 'none' && empty($existing['add_signature']) ? '' : 'hidden' ?>>Starting texts that close with a sign-off can stamp the approved signature from Settings.</p>
     <?php else: ?>
-      <p class="hint">To stamp letters, capture a signature under Settings → Appearance.</p>
+      <p class="hint" data-sign-need>Approve a signature in Settings first. It will stamp here when you tick Add signature.</p>
     <?php endif; ?>
   <?php elseif ($kind === 'custom'): ?>
     <?php $savedCustom = is_array($existing['custom_values'] ?? null) ? $existing['custom_values'] : []; ?>

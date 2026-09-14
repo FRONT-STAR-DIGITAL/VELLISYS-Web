@@ -64,6 +64,9 @@
 }
 .d-letter-body p.corr-p:last-child,
 .corr-body p.corr-p:last-child { margin-bottom: 0; }
+.d-letter-body ul, .d-letter-body ol,
+.corr-body ul, .corr-body ol { margin: 0 0 0.7em; padding-left: 1.35em; }
+.d-letter-body li, .corr-body li { margin: 0 0 0.15em; }
 .corr-head { display: flex; justify-content: space-between; gap: 28px; align-items: flex-start; }
 .corr-brand { min-width: 0; flex: 1; }
 .corr-co { margin-top: 10px; font-size: 12px; line-height: 1.55; }
@@ -71,23 +74,23 @@
 .corr-meta span { display: block; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #555; }
 .corr-kind { margin: 0 0 10px; font-size: 20px; font-weight: 800; letter-spacing: .04em; }
 .corr-rule { border: 0; border-top: 2px solid var(--brand, #1e4eff); margin: 18px 0 22px; }
-.corr-to { display: grid; gap: 6px; margin: 0 0 22px; }
-.corr-to > span { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #666; }
+.corr-to { display: grid; gap: 6px; margin: 16px 0 22px; }
+.corr-to > span { font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; color: inherit; }
 .corr-subject {
-  font-size: 20px;
-  font-weight: 800;
-  line-height: 1.3;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.35;
   margin: 0 0 16px;
-  color: var(--brand, #1e4eff);
+  color: inherit;
 }
 .corr-subject span {
-  display: block;
-  font-size: 10px;
+  display: inline;
+  font-size: 16px;
   font-weight: 700;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  color: #555;
-  margin: 0 0 4px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: inherit;
+  margin: 0 0.3em 0 0;
 }
 .corr-fields { display: grid; gap: 10px 24px; grid-template-columns: 1fr 1fr; margin: 0 0 22px; }
 .corr-fields div { display: grid; gap: 2px; }
@@ -115,31 +118,94 @@
 .d-lines.tiny td { min-height: 22px; height: auto; padding: 4px 6px; }
 .d-letter { padding: 8px 4px 24px; }
 .d-letter-sub {
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: .01em;
-  line-height: 1.3;
-  margin: 4px 0 16px;
-  color: var(--brand, #1e4eff);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.35;
+  margin: 8px 0 14px;
+  color: inherit;
 }
 .d-letter-sub span {
-  display: block;
-  font-size: 10px;
+  display: inline;
+  font-size: 16px;
   font-weight: 700;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  color: #555;
-  margin: 0 0 4px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: inherit;
+  margin: 0 0.3em 0 0;
 }
-.d-letter-to { margin: 0 0 6px; }
-.d-letter-to span {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: #666;
+.d-letter-to { margin: 14px 0 6px; }
+.d-letter-to span,
+.d-to-word {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: inherit;
 }
 .d-letter-body { line-height: 1.45; font-size: 13px; }
+.invoice-sheet.is-letter {
+  font-size: 13px;
+}
+.invoice-sheet.is-letter header {
+  margin-bottom: 4px;
+}
+.invoice-sheet.is-letter .d-letter-to,
+.invoice-sheet.is-letter .corr-to,
+.invoice-sheet.is-letter .night-pair,
+.invoice-sheet.is-letter .atelier-party,
+.invoice-sheet.is-letter .seal-for,
+.invoice-sheet.is-letter .inset-to,
+.invoice-sheet.is-letter .ledger-grid {
+  margin-top: 16px;
+}
+.invoice-sheet.is-letter .d-party {
+  padding-top: 4px;
+  font-size: 13px;
+}
+.invoice-sheet.is-letter .d-party-block,
+.invoice-sheet.is-letter .d-letter-body,
+.invoice-sheet.is-letter .corr-body,
+.invoice-sheet.is-letter .corr-meta,
+.invoice-sheet.is-letter .meta td,
+.invoice-sheet.is-letter .bill-who,
+.invoice-sheet.is-letter .night-pair,
+.invoice-sheet.is-letter .atelier-party,
+.invoice-sheet.is-letter .seal-meta,
+.invoice-sheet.is-letter .ledger-grid {
+  font-size: 13px;
+}
+.invoice-sheet.is-letter .corr-to > span,
+.invoice-sheet.is-letter .d-letter-to span,
+.invoice-sheet.is-letter .d-to-word {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: inherit;
+}
+.invoice-sheet.is-letter .corr-subject {
+  font-size: 16px;
+  font-weight: 600;
+  color: inherit;
+  letter-spacing: 0;
+}
+.invoice-sheet.is-letter .corr-subject span,
+.invoice-sheet.is-letter .d-letter-sub span {
+  display: inline;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: inherit;
+}
+.invoice-sheet.is-letter .corr-meta span {
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 400;
+  color: inherit;
+}
 .d-sign { margin-top: 18px; }
 .d-sign img {
   display: block;

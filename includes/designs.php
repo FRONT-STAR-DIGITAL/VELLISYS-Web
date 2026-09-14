@@ -195,15 +195,13 @@ function render_party_contact(array $doc): void
 
 function format_letter_html(string $body): string
 {
-    $body = str_replace(["\r\n", "\r"], "\n", $body);
-    $body = trim($body);
-    if ($body === '') {
+    $html = sanitize_rich_html($body);
+    if ($html === '') {
         return '';
     }
-    $parts = preg_split("/\n{2,}/", $body) ?: [$body];
-    $html = '';
-    foreach ($parts as $part) {
-        $html .= '<p class="corr-p">' . nl2br(h($part), false) . '</p>';
+    $html = preg_replace('/<p(\s|>)/i', '<p class="corr-p"$1', $html) ?? $html;
+    if (!preg_match('/<(p|ul|ol|div)\b/i', $html)) {
+        $html = '<p class="corr-p">' . $html . '</p>';
     }
     return $html;
 }
@@ -256,7 +254,7 @@ function render_letter_subject(array $doc): void
         return;
     }
     ?>
-    <p class="d-letter-sub"><span>Subject</span><?= h($subject) ?></p>
+    <p class="d-letter-sub"><span>Subject:</span> <?= h($subject) ?></p>
     <?php
 }
 
@@ -373,7 +371,7 @@ function render_sheet_correspondence(array $d): void
     <?php render_party_contact($doc); ?>
   </div>
   <?php if ($subject !== ''): ?>
-    <p class="corr-subject"><span>Subject</span><?= h($subject) ?></p>
+    <p class="corr-subject"><span>Subject:</span> <?= h($subject) ?></p>
   <?php endif; ?>
   <?php if ($isCustom && $custom['fields']): ?>
     <dl class="corr-fields">
@@ -494,7 +492,7 @@ function render_sheet_ledger(array $d): void
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
   <div class="ledger-grid">
     <label>Date <b><?= h(format_date($doc['date'])) ?></b></label>
-    <label class="wide"><?= ($doc['kind'] ?? '') === 'letter' ? 'To' : 'From' ?> <b><?php render_party_contact($doc); ?></b></label>
+    <label class="wide"><?= ($doc['kind'] ?? '') === 'letter' ? '<span class="d-to-word">To</span>' : 'From' ?> <b><?php render_party_contact($doc); ?></b></label>
     <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
     <div class="ledger-amt"><span><?= h($d['cur']) ?></span><strong><?= h(number_format($d['total'], currency_decimals($d['cur']))) ?></strong></div>
     <?php endif; ?>
@@ -791,7 +789,7 @@ function render_sheet_night(array $d): void
   <div class="night-body">
     <div class="night-pair">
       <div>
-        <span><?= ($doc['kind'] ?? '') === 'letter' ? 'To' : 'Client' ?></span>
+        <span class="<?= ($doc['kind'] ?? '') === 'letter' ? 'd-to-word' : '' ?>"><?= ($doc['kind'] ?? '') === 'letter' ? 'To' : 'Client' ?></span>
         <strong><?= h($doc['party_name'] ?? '') ?></strong>
         <p><?= h($doc['party_address'] ?? '') ?><br><?= h($doc['party_email'] ?? '') ?></p>
       </div>
@@ -849,7 +847,7 @@ function render_sheet_atelier(array $d): void
   <hr class="atelier-rule">
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
   <div class="atelier-party">
-    <span><?= $doc['kind'] === 'letter' ? 'To' : 'Prepared for' ?></span>
+    <span class="<?= $doc['kind'] === 'letter' ? 'd-to-word' : '' ?>"><?= $doc['kind'] === 'letter' ? 'To' : 'Prepared for' ?></span>
     <strong><?= h($doc['party_name'] ?? '') ?></strong>
     <p><?= h($doc['party_address'] ?? '') ?><?= !empty($doc['party_email']) ? ' · ' . h($doc['party_email']) : '' ?></p>
   </div>
@@ -902,7 +900,7 @@ function render_sheet_seal(array $d): void
     <?php if (!empty($doc['due_date'])): ?><div><span>Due</span><b><?= h(format_date($doc['due_date'])) ?></b></div><?php endif; ?>
     <div><span>Currency</span><b><?= h($d['cur']) ?></b></div>
   </div>
-  <p class="seal-for"><span><?= $doc['kind'] === 'letter' ? 'To' : 'In account with' ?></span> <strong><?= h($doc['party_name'] ?? '') ?></strong></p>
+  <p class="seal-for"><span class="<?= $doc['kind'] === 'letter' ? 'd-to-word' : '' ?>"><?= $doc['kind'] === 'letter' ? 'To' : 'In account with' ?></span> <strong><?= h($doc['party_name'] ?? '') ?></strong></p>
   <?php if ($doc['kind'] === 'letter'): ?>
     <?php render_letter_subject($doc); ?>
     <?php render_letter_body($doc); ?>
@@ -1126,7 +1124,7 @@ function render_sheet_inset(array $d): void
     </header>
     <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
     <div class="inset-to">
-      <span><?= kind_shows_money($doc['kind'] ?? '') ? 'Bill to' : 'To' ?></span>
+      <span class="<?= ($doc['kind'] ?? '') === 'letter' ? 'd-to-word' : '' ?>"><?= ($doc['kind'] ?? '') === 'letter' ? 'To' : (kind_shows_money($doc['kind'] ?? '') ? 'Bill to' : 'To') ?></span>
       <?php render_party_contact($doc); ?>
     </div>
     <?php if (($doc['kind'] ?? '') === 'letter'): ?>

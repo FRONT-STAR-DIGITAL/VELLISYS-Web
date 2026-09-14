@@ -503,6 +503,113 @@ function post(string $key, string $default = '', int $max = 4000): string
     return $value;
 }
 
+function looks_like_html(string $s): bool
+{
+    return (bool) preg_match('/<\/?[a-z][a-z0-9]*\b/i', $s);
+}
+
+function html_to_plain(string $html): string
+{
+    $html = str_replace(["\r\n", "\r"], "\n", $html);
+    $html = preg_replace('/<\s*br\s*\/?\s*>/i', "\n", $html) ?? $html;
+    $html = preg_replace('/<\/\s*(p|div|h[1-6]|li|tr)\s*>/i', "\n", $html) ?? $html;
+    $html = preg_replace('/<\/\s*(ul|ol|table)\s*>/i', "\n\n", $html) ?? $html;
+    $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $text = preg_replace("/[ \t]+\n/", "\n", $text) ?? $text;
+    $text = preg_replace("/\n{3,}/", "\n\n", $text) ?? $text;
+    return trim($text);
+}
+
+function plain_to_rich_html(string $text): string
+{
+    $text = str_replace(["\r\n", "\r"], "\n", $text);
+    $text = trim($text);
+    if ($text === '') {
+        return '';
+    }
+    $parts = preg_split("/\n{2,}/", $text) ?: [$text];
+    $html = '';
+    foreach ($parts as $part) {
+        $html .= '<p>' . nl2br(h($part), false) . '</p>';
+    }
+    return $html;
+}
+
+function sanitize_rich_html(string $html): string
+{
+    $html = trim(str_replace("\0", '', $html));
+    if ($html === '') {
+        return '';
+    }
+    if (!looks_like_html($html)) {
+        return plain_to_rich_html($html);
+    }
+    $html = preg_replace('#<(script|style|textarea|iframe|object|embed)\b[^>]*>.*?</\1>#is', '', $html) ?? $html;
+    $html = strip_tags($html, '<p><br><strong><b><em><i><u><ul><ol><li><div><span>');
+    $html = preg_replace_callback('/<([a-z0-9]+)([^>]*)>/i', static function (array $m): string {
+        $tag = strtolower($m[1]);
+        $attrs = $m[2];
+        $align = '';
+        if (preg_match('/text-align\s*:\s*(left|center|right|justify)/i', $attrs, $a)) {
+            $align = strtolower($a[1]);
+        } elseif (preg_match('/\balign\s*=\s*["\']?(left|center|right|justify)/i', $attrs, $a)) {
+            $align = strtolower($a[1]);
+        }
+        if ($tag === 'br') {
+            return '<br>';
+        }
+        if (in_array($tag, ['p', 'div'], true) && $align !== '') {
+            return '<' . $tag . ' style="text-align:' . $align . '">';
+        }
+        return '<' . $tag . '>';
+    }, $html) ?? $html;
+    $plain = html_to_plain($html);
+    if ($plain === '') {
+        return '';
+    }
+    return $html;
+}
+
+function posted_rich(string $key): string
+{
+    return sanitize_rich_html(post($key, '', 80000));
+}
+
+function render_rich_editor(string $id, string $name, string $value, array $opts = []): void
+{
+    $rows = (int) ($opts['rows'] ?? 12);
+    $required = !empty($opts['required']);
+    $placeholder = (string) ($opts['placeholder'] ?? '');
+    $html = sanitize_rich_html($value);
+    $min = max(10, $rows) . 'em';
+    ?>
+    <div class="rich-editor" data-rich-editor <?= $required ? 'data-rich-required' : '' ?>>
+      <div class="rich-toolbar" role="toolbar" aria-label="Text formatting">
+        <button type="button" data-cmd="bold" title="Bold"><b>B</b></button>
+        <button type="button" data-cmd="italic" title="Italic"><i>I</i></button>
+        <button type="button" data-cmd="underline" title="Underline"><u>U</u></button>
+        <span class="rich-sep" aria-hidden="true"></span>
+        <button type="button" data-cmd="insertUnorderedList" title="Bulleted list">• List</button>
+        <button type="button" data-cmd="insertOrderedList" title="Numbered list">1. List</button>
+        <span class="rich-sep" aria-hidden="true"></span>
+        <button type="button" data-cmd="justifyLeft" title="Align left">Left</button>
+        <button type="button" data-cmd="justifyCenter" title="Align centre">Centre</button>
+        <button type="button" data-cmd="justifyRight" title="Align right">Right</button>
+      </div>
+      <div
+        class="rich-surface"
+        contenteditable="true"
+        role="textbox"
+        aria-multiline="true"
+        id="<?= h($id) ?>-editor"
+        data-placeholder="<?= h($placeholder) ?>"
+        style="min-height:<?= h($min) ?>"
+      ><?= $html ?></div>
+      <textarea id="<?= h($id) ?>" name="<?= h($name) ?>" hidden><?= h($html) ?></textarea>
+    </div>
+    <?php
+}
+
 function csrf_field(): string
 {
     return '<input type="hidden" name="csrf" value="' . h(csrf_token()) . '">';

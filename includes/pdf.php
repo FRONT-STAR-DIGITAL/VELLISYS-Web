@@ -163,7 +163,7 @@ function document_pdf_bytes(array $brand, array $doc): string
             $y -= 2;
         }
         $rgb('#000000');
-        foreach (vellisys_pdf_wrap((string) ($doc['body'] ?? ''), 88) as $wrap) {
+        foreach (vellisys_pdf_wrap(html_to_plain((string) ($doc['body'] ?? '')), 88) as $wrap) {
             $ensure(16);
             $put($m, $y, $wrap, 10);
         }

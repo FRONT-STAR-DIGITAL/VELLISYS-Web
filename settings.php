@@ -319,7 +319,7 @@ layout_start('Settings', $user);
           <?php endif; ?>
         </div>
       </div>
-      <div class="sig-block" data-signature-pad>
+      <div class="sig-block" data-signature-pad data-sig-url="<?= h(url('settings.php')) ?>">
         <h3>Signature</h3>
         <p class="hint">Write with a finger or mouse. Cancel clears the pad. Retake removes an approved mark so you can draw again. Approve stores it for letters that need a sign-off.</p>
         <?php $sigUrl = company_signature_url($b); ?>

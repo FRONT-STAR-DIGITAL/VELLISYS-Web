@@ -339,14 +339,14 @@ document.querySelectorAll('[data-letter-templates]').forEach(function (form) {
     if (signBox) signBox.hidden = !needsSign;
     if (signHint) signHint.hidden = !!needsSign;
     var cb = signBox && signBox.querySelector('input[name="add_signature"]');
-    if (cb) cb.checked = !!needsSign;
+    if (cb && !cb.disabled) cb.checked = !!needsSign;
   }
   form.querySelectorAll('input[name="letter_template"]').forEach(function (radio) {
     radio.addEventListener('change', function () {
       var card = radio.closest('.template-card');
       if (!card) return;
       if (subject) subject.value = card.getAttribute('data-subject') || '';
-      if (body) body.value = card.getAttribute('data-body') || '';
+      setRichValue(form.querySelector('[data-rich-editor]'), card.getAttribute('data-body') || '', body);
       applySign(card.getAttribute('data-sign') === '1');
     });
   });
@@ -389,9 +389,78 @@ function subjectValue(form) {
   return el ? el.value : '';
 }
 function bodyValue(form) {
+  var wrap = form.querySelector('[data-rich-editor]');
+  syncRichEditor(wrap);
   var el = form.querySelector('#body');
   return el ? el.value : '';
 }
+
+function textToRichHtml(s) {
+  s = String(s || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+  if (!s) return '';
+  if (/<\/?[a-z][\s\S]*>/i.test(s)) return s;
+  return s.split(/\n{2,}/).map(function (p) {
+    return '<p>' + p
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\n/g, '<br>') + '</p>';
+  }).join('');
+}
+
+function syncRichEditor(wrap) {
+  if (!wrap) return;
+  var surface = wrap.querySelector('.rich-surface');
+  var ta = wrap.querySelector('textarea');
+  if (!surface || !ta) return;
+  ta.value = surface.innerHTML;
+}
+
+function setRichValue(wrap, value, taFallback) {
+  var html = textToRichHtml(value);
+  if (wrap) {
+    var surface = wrap.querySelector('.rich-surface');
+    var ta = wrap.querySelector('textarea');
+    if (surface) surface.innerHTML = html;
+    if (ta) ta.value = html;
+    return;
+  }
+  if (taFallback) taFallback.value = value || '';
+}
+
+function richPlain(wrap) {
+  if (!wrap) return '';
+  var surface = wrap.querySelector('.rich-surface');
+  if (!surface) return '';
+  var t = (surface.innerText || surface.textContent || '').replace(/\u00a0/g, ' ').trim();
+  return t;
+}
+
+document.querySelectorAll('[data-rich-editor]').forEach(function (wrap) {
+  var surface = wrap.querySelector('.rich-surface');
+  var form = wrap.closest('form');
+  if (!surface) return;
+  wrap.querySelectorAll('[data-cmd]').forEach(function (btn) {
+    btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      surface.focus();
+      try { document.execCommand(btn.getAttribute('data-cmd'), false, null); } catch (err) {}
+      syncRichEditor(wrap);
+    });
+  });
+  surface.addEventListener('input', function () { syncRichEditor(wrap); });
+  surface.addEventListener('blur', function () { syncRichEditor(wrap); });
+  if (form) {
+    form.addEventListener('submit', function (e) {
+      syncRichEditor(wrap);
+      if (wrap.hasAttribute('data-rich-required') && !richPlain(wrap)) {
+        e.preventDefault();
+        surface.focus();
+      }
+    });
+  }
+});
 
 document.querySelectorAll('[data-signature-pad]').forEach(function (root) {
   var canvas = root.querySelector('[data-sig-canvas]');
@@ -447,21 +516,24 @@ document.querySelectorAll('[data-signature-pad]').forEach(function (root) {
     var field = document.querySelector('input[name="csrf"]');
     return field ? field.value : '';
   }
-    var formEl = root.closest('form');
-    var postUrl = formEl && formEl.action ? formEl.action : 'settings.php';
-    function postAction(action, extra) {
-      var data = new FormData();
-      data.append('csrf', csrf());
-      data.append('action', action);
-      data.append('ajax', '1');
-      Object.keys(extra || {}).forEach(function (k) { data.append(k, extra[k]); });
-      return fetch(postUrl, { method: 'POST', body: data, headers: { Accept: 'application/json' } }).then(function (res) {
-        return res.json().then(function (json) {
-          if (!res.ok || !json.ok) throw new Error((json && json.error) || 'Could not save.');
-          return json;
-        });
+  var postUrl = root.getAttribute('data-sig-url') || 'settings.php';
+  function postAction(action, extra) {
+    var data = new FormData();
+    data.append('csrf', csrf());
+    data.append('action', action);
+    data.append('ajax', '1');
+    Object.keys(extra || {}).forEach(function (k) { data.append(k, extra[k]); });
+    return fetch(postUrl, { method: 'POST', body: data, headers: { Accept: 'application/json' }, credentials: 'same-origin' }).then(function (res) {
+      return res.text().then(function (text) {
+        var json = null;
+        try { json = JSON.parse(text); } catch (err) { json = null; }
+        if (!json || !json.ok) {
+          throw new Error((json && json.error) || 'Could not save the signature.');
+        }
+        return json;
       });
-    }
+    });
+  }
   function setStatus(msg) { if (status) status.textContent = msg || ''; }
   var cancel = root.querySelector('[data-sig-cancel]');
   var retake = root.querySelector('[data-sig-retake]');

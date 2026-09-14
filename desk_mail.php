@@ -93,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
     $to = strtolower(post('to'));
     $subject = post('subject') ?: ('A note from ' . $brand['name']);
-    $message = post('message');
+    $message = posted_rich('message');
     $partyId = (int) post('party_id');
     if ($partyId && $to === '') {
         $picked = db_one('SELECT email FROM parties WHERE id = ? AND company_id = ?', 'ii', [$partyId, $cid]);
@@ -103,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash('Enter a valid recipient email, or pick a client who has one on file.', 'err');
         redirect('desk_mail.php' . desk_mail_query($type, $docId, $partyId));
     }
-    if (mb_strlen($message) < 8) {
+    if (mb_strlen(html_to_plain($message)) < 8) {
         flash('Write a little more in the message.', 'err');
         redirect('desk_mail.php' . desk_mail_query($type, $docId, $partyId));
     }
@@ -187,7 +187,7 @@ layout_start($pageTitle, $user);
     </div>
   </div>
   <label for="message">Message</label>
-  <textarea id="message" name="message" rows="12" required><?= h($messagePrefill) ?></textarea>
+  <?php render_rich_editor('message', 'message', $messagePrefill, ['rows' => 12, 'required' => true, 'placeholder' => 'Write the email.']); ?>
   <p class="hint">The letter uses your logo on a white background. A copy also goes to <?= h(product_email()) ?> so Vellisys can follow up with the client. Vellisys stationery (questions, registration, onboarding) still leaves from <?= h(product_email()) ?>.</p>
   <div class="actions" style="margin-top:12px">
     <button class="btn" type="submit" <?= $sendAcct ? '' : 'disabled' ?>><?= icon('send') ?>Send from company mailbox</button>

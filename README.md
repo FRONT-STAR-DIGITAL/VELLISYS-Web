@@ -54,7 +54,7 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - Line items are **Item**, **Description** (paragraph), **Qty**, **Unit price**, **Total Amt**, and **tax** as Y or N. If every line is N, tax is left off the printed sheet
 - Receipts show **RECEIVED** and **DUE**. The Receipts tab lists cleared and partially cleared payments
 - Static navigation; desk portals use the same pale wash as the public site, a faint blue V, and soft card shadows
-- **Letters** print on the same document design as invoices. Download a Microsoft Word letterhead from Letters and type your own content. Starting texts stay fully editable
+- **Letters** print on the same document design as invoices. Download a Microsoft Word letterhead from Letters. Letter and email bodies use a formatting toolbar (bold, italic, underline, lists, alignment). Document dates can be typed or picked, including past dates for backdating
 - Expenses as cards; debtors and creditors as tables with totals
 - Date filters: today, this week, last week, this month, last month, plus from/to
 - Company reports with a time series, expense pie, debtors aging, collections vs outstanding, quote conversion, top clients billed, and documents issued over time

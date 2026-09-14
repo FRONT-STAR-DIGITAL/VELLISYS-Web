@@ -16,6 +16,7 @@ function logo_file(?array $brand = null): ?string
 
 function docx_xml(string $s): string
 {
+    $s = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', $s) ?? $s;
     return htmlspecialchars($s, ENT_XML1 | ENT_QUOTES, 'UTF-8');
 }
 
@@ -28,53 +29,169 @@ function docx_color(string $hex): string
     return $hex;
 }
 
-function docx_p(string $text, array $opts = []): string
+function docx_rpr(array $opts = []): string
 {
     $size = (int) ($opts['size'] ?? 22);
     $bold = !empty($opts['bold']);
-    $color = $opts['color'] ?? '111111';
-    $align = $opts['align'] ?? 'left';
-    $spaceAfter = (int) ($opts['after'] ?? 120);
     $italic = !empty($opts['italic']);
-    $runs = '';
-    $parts = preg_split("/\r\n|\n|\r/", $text) ?: [''];
-    foreach ($parts as $i => $line) {
-        if ($i > 0) {
-            $runs .= '<w:br/>';
-        }
-        $runs .= '<w:t xml:space="preserve">' . docx_xml($line) . '</w:t>';
-    }
-    $rPr = '<w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="Calibri"/>'
+    $underline = !empty($opts['underline']);
+    $color = $opts['color'] ?? '111111';
+    return '<w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>'
         . '<w:sz w:val="' . $size . '"/><w:szCs w:val="' . $size . '"/>'
         . '<w:color w:val="' . docx_xml($color) . '"/>'
-        . ($bold ? '<w:b/>' : '')
-        . ($italic ? '<w:i/>' : '')
+        . ($bold ? '<w:b/><w:bCs/>' : '')
+        . ($italic ? '<w:i/><w:iCs/>' : '')
+        . ($underline ? '<w:u w:val="single"/>' : '')
         . '</w:rPr>';
-    return '<w:p><w:pPr><w:jc w:val="' . docx_xml($align) . '"/><w:spacing w:after="' . $spaceAfter . '"/></w:pPr>'
-        . '<w:r>' . $rPr . $runs . '</w:r></w:p>';
 }
 
-function docx_inline_image(int $cx, int $cy, string $rid, string $name): string
+function docx_text_run(string $text, array $opts = []): string
+{
+    $parts = preg_split("/\r\n|\n|\r/", $text);
+    if ($parts === false) {
+        $parts = [$text];
+    }
+    $xml = '';
+    foreach ($parts as $i => $line) {
+        if ($i > 0) {
+            $xml .= '<w:r>' . docx_rpr($opts) . '<w:br/></w:r>';
+        }
+        $xml .= '<w:r>' . docx_rpr($opts) . '<w:t xml:space="preserve">' . docx_xml($line) . '</w:t></w:r>';
+    }
+    return $xml;
+}
+
+function docx_p_wrap(string $runs, array $opts = []): string
+{
+    $align = $opts['align'] ?? 'left';
+    $spaceAfter = (int) ($opts['after'] ?? 120);
+    if ($runs === '') {
+        $runs = '<w:r>' . docx_rpr($opts) . '<w:t></w:t></w:r>';
+    }
+    return '<w:p><w:pPr><w:jc w:val="' . docx_xml($align) . '"/><w:spacing w:after="' . $spaceAfter . '"/></w:pPr>'
+        . $runs . '</w:p>';
+}
+
+function docx_p(string $text, array $opts = []): string
+{
+    return docx_p_wrap(docx_text_run($text, $opts), $opts);
+}
+
+function docx_inline_image(int $cx, int $cy, string $rid, string $name, int $docPrId): string
 {
     return '<w:p><w:pPr><w:jc w:val="left"/><w:spacing w:after="80"/></w:pPr><w:r>'
-        . '<w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" '
-        . 'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" '
-        . 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
-        . 'xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" '
-        . 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        . '<w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">'
         . '<wp:extent cx="' . $cx . '" cy="' . $cy . '"/>'
-        . '<wp:docPr id="' . h($rid) . '" name="' . docx_xml($name) . '"/>'
+        . '<wp:docPr id="' . $docPrId . '" name="' . docx_xml($name) . '"/>'
         . '<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">'
-        . '<pic:pic><pic:nvPicPr><pic:cNvPr id="0" name="' . docx_xml($name) . '"/><pic:cNvPicPr/></pic:nvPicPr>'
+        . '<pic:pic><pic:nvPicPr><pic:cNvPr id="' . $docPrId . '" name="' . docx_xml($name) . '"/><pic:cNvPicPr/></pic:nvPicPr>'
         . '<pic:blipFill><a:blip r:embed="' . docx_xml($rid) . '"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>'
         . '<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="' . $cx . '" cy="' . $cy . '"/></a:xfrm>'
         . '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic>'
         . '</a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>';
 }
 
-function docx_logo_drawing(int $cx, int $cy): string
+function docx_node_align(DOMNode $node): string
 {
-    return docx_inline_image($cx, $cy, 'rId1', 'Logo');
+    if (!$node instanceof DOMElement) {
+        return 'left';
+    }
+    $style = (string) $node->getAttribute('style');
+    if (preg_match('/text-align\s*:\s*(left|center|right|justify)/i', $style, $m)) {
+        return strtolower($m[1]);
+    }
+    $align = strtolower((string) $node->getAttribute('align'));
+    return in_array($align, ['left', 'center', 'right', 'justify'], true) ? $align : 'left';
+}
+
+function docx_collect_runs(DOMNode $node, array $fmt): string
+{
+    $xml = '';
+    foreach ($node->childNodes as $child) {
+        if ($child->nodeType === XML_TEXT_NODE) {
+            $xml .= docx_text_run((string) $child->textContent, $fmt);
+            continue;
+        }
+        if ($child->nodeType !== XML_ELEMENT_NODE) {
+            continue;
+        }
+        $tag = strtolower($child->nodeName);
+        if ($tag === 'br') {
+            $xml .= '<w:r>' . docx_rpr($fmt) . '<w:br/></w:r>';
+            continue;
+        }
+        $next = $fmt;
+        if (in_array($tag, ['b', 'strong'], true)) {
+            $next['bold'] = true;
+        }
+        if (in_array($tag, ['i', 'em'], true)) {
+            $next['italic'] = true;
+        }
+        if ($tag === 'u') {
+            $next['underline'] = true;
+        }
+        $xml .= docx_collect_runs($child, $next);
+    }
+    return $xml;
+}
+
+function docx_block_from_node(DOMNode $node, array $base): string
+{
+    if ($node->nodeType === XML_TEXT_NODE) {
+        $t = trim((string) $node->textContent);
+        return $t === '' ? '' : docx_p($t, $base);
+    }
+    if ($node->nodeType !== XML_ELEMENT_NODE) {
+        return '';
+    }
+    $tag = strtolower($node->nodeName);
+    if ($tag === 'br') {
+        return docx_p('', array_merge($base, ['after' => 0]));
+    }
+    if ($tag === 'ul' || $tag === 'ol') {
+        $xml = '';
+        $i = 0;
+        foreach ($node->childNodes as $li) {
+            if (strtolower($li->nodeName) !== 'li') {
+                continue;
+            }
+            $i++;
+            $prefix = $tag === 'ol' ? ($i . '. ') : "• ";
+            $opts = array_merge($base, ['after' => 60]);
+            $xml .= docx_p_wrap(docx_text_run($prefix, $opts) . docx_collect_runs($li, $opts), $opts);
+        }
+        return $xml;
+    }
+    $opts = $base;
+    $opts['align'] = docx_node_align($node);
+    if (in_array($tag, ['p', 'div', 'span'], true) || $tag === 'body') {
+        return docx_p_wrap(docx_collect_runs($node, $opts), $opts);
+    }
+    return docx_p_wrap(docx_collect_runs($node, $opts), $opts);
+}
+
+function docx_from_html(string $html, array $opts = []): string
+{
+    $html = function_exists('sanitize_rich_html') ? sanitize_rich_html($html) : trim($html);
+    if ($html === '') {
+        return '';
+    }
+    if (!function_exists('looks_like_html') || !looks_like_html($html)) {
+        return docx_p(function_exists('html_to_plain') ? html_to_plain($html) : $html, $opts);
+    }
+    $dom = new DOMDocument('1.0', 'UTF-8');
+    libxml_use_internal_errors(true);
+    $dom->loadHTML('<?xml encoding="UTF-8"><body>' . $html . '</body>', LIBXML_HTML_NODEFDTD);
+    libxml_clear_errors();
+    $body = $dom->getElementsByTagName('body')->item(0);
+    if (!$body) {
+        return docx_p(html_to_plain($html), $opts);
+    }
+    $xml = '';
+    foreach ($body->childNodes as $child) {
+        $xml .= docx_block_from_node($child, $opts);
+    }
+    return $xml !== '' ? $xml : docx_p(html_to_plain($html), $opts);
 }
 
 function letter_docx_apply_request(?array $doc): array
@@ -112,7 +229,7 @@ function letter_docx_apply_request(?array $doc): array
         $out['subject'] = $subjectIn;
     }
     if ($bodyPosted) {
-        $out['body'] = $bodyIn;
+        $out['body'] = function_exists('sanitize_rich_html') ? sanitize_rich_html($bodyIn) : $bodyIn;
     }
     if (array_key_exists('add_signature', $_REQUEST)) {
         $out['add_signature'] = (string) $_REQUEST['add_signature'] === '1' ? 1 : 0;
@@ -165,7 +282,7 @@ function letter_docx_bytes(?array $doc = null): string
     $logoXml = '';
     $cx = 1371600;
     $cy = 548640;
-    if ($logoPath) {
+    if ($logoPath && is_readable($logoPath)) {
         $info = @getimagesize($logoPath);
         if (is_array($info) && ($info[0] ?? 0) > 0) {
             $w = (int) $info[0];
@@ -175,7 +292,9 @@ function letter_docx_bytes(?array $doc = null): string
             $mime = (string) ($info['mime'] ?? 'image/png');
             $logoExt = str_contains($mime, 'jpeg') ? 'jpeg' : (str_contains($mime, 'gif') ? 'gif' : 'png');
         }
-        $logoXml = docx_logo_drawing($cx, $cy);
+        $logoXml = docx_inline_image($cx, $cy, 'rId1', 'Logo', 1);
+    } else {
+        $logoPath = null;
     }
 
     $addrBits = array_filter([
@@ -187,54 +306,82 @@ function letter_docx_bytes(?array $doc = null): string
         !empty($brand['tin']) ? 'TIN ' . $brand['tin'] : '',
     ]);
 
+    $nsHdr = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+        . 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" '
+        . 'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" '
+        . 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
+        . 'xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"';
+
     $header = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        . '<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        . '<w:hdr ' . $nsHdr . '>'
         . $logoXml
-        . docx_p($name, ['size' => 32, 'bold' => true, 'color' => $color, 'after' => 40])
-        . docx_p(implode("\n", $addrBits), ['size' => 18, 'color' => '444444', 'after' => 80])
-        . '<w:p><w:pPr><w:spacing w:after="200"/></w:pPr><w:r><w:rPr><w:sz w:val="12"/></w:rPr>'
-        . '<w:pict xmlns:v="urn:schemas-microsoft-com:vml"><v:rect style="width:468pt;height:2.5pt" fillcolor="#' . $color . '" stroked="f"/></w:pict>'
-        . '</w:r></w:p></w:hdr>';
+        . docx_p($name, ['size' => 22, 'bold' => true, 'color' => $color, 'after' => 40])
+        . docx_p(implode("\n", $addrBits), ['size' => 22, 'color' => '444444', 'after' => 80])
+        . '<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="18" w:space="1" w:color="' . $color . '"/></w:pBdr>'
+        . '<w:spacing w:after="280"/></w:pPr></w:p></w:hdr>';
 
     $footLine = trim(implode(' · ', array_filter([(string) ($brand['phone'] ?? ''), (string) ($brand['email'] ?? ''), (string) ($brand['website'] ?? '')])));
     $footer = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         . '<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-        . '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="80"/></w:pPr><w:r><w:rPr>'
-        . '<w:sz w:val="16"/><w:color w:val="666666"/></w:rPr><w:t>' . docx_xml($footLine) . '</w:t></w:r></w:p></w:ftr>';
+        . '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="80"/></w:pPr><w:r>'
+        . docx_rpr(['size' => 18, 'color' => '666666'])
+        . '<w:t>' . docx_xml($footLine) . '</w:t></w:r></w:p></w:ftr>';
 
     $signPath = ($stampSign && company_signature_path() !== '') ? (ROOT_PATH . '/' . company_signature_path()) : '';
     $signXml = '';
     $signCx = 2286000;
     $signCy = 914400;
-    if ($signPath && is_file($signPath)) {
+    if ($signPath && is_file($signPath) && is_readable($signPath)) {
         $info = @getimagesize($signPath);
         if (is_array($info) && ($info[0] ?? 0) > 0) {
             $signCy = (int) round($signCx * ((int) $info[1] / max(1, (int) $info[0])));
         }
-        $signXml = docx_inline_image($signCx, $signCy, 'rId3', 'Signature');
+        $signXml = docx_inline_image($signCx, $signCy, 'rId4', 'Signature', 2);
+    } else {
+        $signPath = '';
     }
 
-    $toXml = docx_p('To', ['size' => 16, 'bold' => true, 'color' => '666666', 'after' => 40])
-        . ($toName !== '' ? docx_p($toName, ['size' => 22, 'bold' => true, 'after' => 40]) : '')
-        . ($toAddr !== '' ? docx_p($toAddr, ['size' => 20, 'after' => 40]) : '')
-        . ($toContact !== '' ? docx_p($toContact, ['size' => 20, 'after' => 200]) : docx_p('', ['after' => 200]));
+    $bodySize = ['size' => 22, 'after' => 160];
+    $toXml = docx_p('To', ['size' => 22, 'bold' => true, 'after' => 40])
+        . ($toName !== '' ? docx_p($toName, array_merge($bodySize, ['after' => 40])) : '')
+        . ($toAddr !== '' ? docx_p($toAddr, array_merge($bodySize, ['after' => 40])) : '')
+        . ($toContact !== '' ? docx_p($toContact, array_merge($bodySize, ['after' => 200])) : docx_p('', ['after' => 200]));
     $subjectXml = $subject === ''
         ? ''
-        : docx_p('Subject', ['size' => 16, 'bold' => true, 'color' => '555555', 'after' => 20])
-            . docx_p($subject, ['size' => 28, 'bold' => true, 'color' => $color, 'after' => 240]);
-    $bodyXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        . '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>'
-        . docx_p($date . ($ref !== '' ? '    Ref: ' . $ref : ''), ['size' => 22, 'after' => 240])
+        : docx_p_wrap(
+            docx_text_run('Subject: ', ['size' => 28, 'bold' => true])
+            . docx_text_run($subject, ['size' => 28, 'bold' => true]),
+            ['size' => 28, 'after' => 240]
+        );
+    $bodyXmlInner = docx_from_html($body, $bodySize);
+
+    $document = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        . '<w:document ' . $nsHdr . '><w:body>'
+        . docx_p($date . ($ref !== '' ? '    Ref: ' . $ref : ''), array_merge($bodySize, ['after' => 240]))
         . $toXml
         . $subjectXml
-        . docx_p($body, ['size' => 22, 'after' => 200])
+        . $bodyXmlInner
         . $signXml
         . '<w:sectPr>'
         . '<w:headerReference w:type="default" r:id="rId1"/>'
         . '<w:footerReference w:type="default" r:id="rId2"/>'
         . '<w:pgSz w:w="11906" w:h="16838"/>'
-        . '<w:pgMar w:top="2000" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720"/>'
+        . '<w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720"/>'
         . '</w:sectPr></w:body></w:document>';
+
+    $styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        . '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        . '<w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>'
+        . '<w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:rPrDefault>'
+        . '<w:pPrDefault><w:pPr><w:spacing w:after="120"/></w:pPr></w:pPrDefault></w:docDefaults>'
+        . '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/>'
+        . '<w:qFormat/><w:pPr/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:style>'
+        . '</w:styles>';
+
+    $settings = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        . '<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        . '<w:compat><w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/></w:compat>'
+        . '</w:settings>';
 
     $contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         . '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
@@ -244,6 +391,8 @@ function letter_docx_bytes(?array $doc = null): string
         . '<Default Extension="jpeg" ContentType="image/jpeg"/>'
         . '<Default Extension="gif" ContentType="image/gif"/>'
         . '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+        . '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>'
+        . '<Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/>'
         . '<Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>'
         . '<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>'
         . '</Types>';
@@ -257,7 +406,9 @@ function letter_docx_bytes(?array $doc = null): string
         . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
         . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>'
         . '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>'
-        . ($signXml !== '' ? '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/sign.png"/>' : '')
+        . '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+        . '<Relationship Id="rId5" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>'
+        . ($signXml !== '' ? '<Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/sign.png"/>' : '')
         . '</Relationships>';
 
     $headRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -265,32 +416,36 @@ function letter_docx_bytes(?array $doc = null): string
         . ($logoPath ? '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/logo.' . $logoExt . '"/>' : '')
         . '</Relationships>';
 
-    $tmp = tempnam(sys_get_temp_dir(), 'docx');
-    if ($tmp === false) {
-        throw new RuntimeException('Could not write a Word file.');
-    }
+    $tmp = sys_get_temp_dir() . '/vellisys-' . bin2hex(random_bytes(8)) . '.docx';
     $zip = new ZipArchive();
-    if ($zip->open($tmp, ZipArchive::OVERWRITE) !== true) {
-        @unlink($tmp);
+    if ($zip->open($tmp, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
         throw new RuntimeException('Could not write a Word file.');
     }
     $zip->addFromString('[Content_Types].xml', $contentTypes);
     $zip->addFromString('_rels/.rels', $rels);
-    $zip->addFromString('word/document.xml', $bodyXml);
+    $zip->addFromString('word/document.xml', $document);
+    $zip->addFromString('word/styles.xml', $styles);
+    $zip->addFromString('word/settings.xml', $settings);
     $zip->addFromString('word/_rels/document.xml.rels', $docRels);
     $zip->addFromString('word/header1.xml', $header);
     $zip->addFromString('word/footer1.xml', $footer);
-    $zip->addFromString('word/_rels/header1.xml.rels', $headRels);
     if ($logoPath) {
-        $zip->addFile($logoPath, 'word/media/logo.' . $logoExt);
+        $zip->addFromString('word/_rels/header1.xml.rels', $headRels);
+        $bytesLogo = (string) file_get_contents($logoPath);
+        if ($bytesLogo !== '') {
+            $zip->addFromString('word/media/logo.' . $logoExt, $bytesLogo);
+        }
     }
-    if ($signXml !== '' && $signPath) {
-        $zip->addFile($signPath, 'word/media/sign.png');
+    if ($signXml !== '' && $signPath !== '') {
+        $bytesSign = (string) file_get_contents($signPath);
+        if ($bytesSign !== '') {
+            $zip->addFromString('word/media/sign.png', $bytesSign);
+        }
     }
     $zip->close();
     $bytes = (string) file_get_contents($tmp);
     @unlink($tmp);
-    if ($bytes === '') {
+    if ($bytes === '' || strncmp($bytes, "PK", 2) !== 0) {
         throw new RuntimeException('The Word file was empty.');
     }
     return $bytes;
