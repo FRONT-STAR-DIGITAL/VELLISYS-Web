@@ -1004,6 +1004,7 @@ table.grid td:not(.row-actions):not(.right) {
   font-weight: 600;
 }
 .pill.warn { background: #f8e8d8; color: #7a3e12; }
+table.grid tr.is-muted td { color: var(--muted); }
 .pill.bad { background: #f8e1df; color: #7a1f1a; }
 .actions { display: flex; flex-direction: row; flex-wrap: nowrap; gap: 3px; align-items: center; }
 .page-head > .actions,

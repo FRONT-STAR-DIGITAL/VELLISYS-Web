@@ -171,6 +171,18 @@ $docCurrency = $existing ? doc_currency($existing) : default_currency();
 $docTpl = $existing ? doc_template_key($existing) : doc_template_key();
 $allocValue = $existing ? (string) ($existing['allocated_amount'] ?: ($existing['totals']['total'] ?? '')) : '';
 $toParty = $prefillParty ? db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$prefillParty, current_company_id()]) : null;
+if ($toParty && party_status($toParty) !== 'active') {
+    $found = false;
+    foreach ($parties as $p) {
+        if ((int) $p['id'] === (int) $toParty['id']) {
+            $found = true;
+            break;
+        }
+    }
+    if (!$found) {
+        array_unshift($parties, $toParty);
+    }
+}
 $partyBook = [];
 foreach ($parties as $p) {
     $partyBook[(int) $p['id']] = [

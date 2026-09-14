@@ -1190,13 +1190,13 @@ function render_doc_actions(array $doc, bool $labeled = false): void
           <a class="<?= $pri ?>" href="<?= h(url('document_action.php?pay=' . $id)) ?>" title="Pay" aria-label="Pay"><?= icon('bank', 15) ?><?php if ($labeled): ?> Pay<?php endif; ?></a>
           <a class="<?= $cls ?>" href="<?= h(url('desk_mail.php?type=creditor&id=' . $id)) ?>" title="Message supplier" aria-label="Message supplier"><?= icon('letter', 15) ?><?php if ($labeled): ?> Message<?php endif; ?></a>
         <?php endif; ?>
-        <form method="post" action="<?= h(url('document_action.php')) ?>" onsubmit="return confirm('Void this document?');">
-          <?= csrf_field() ?>
-          <input type="hidden" name="id" value="<?= $id ?>">
-          <input type="hidden" name="action" value="void">
-          <input type="hidden" name="reason" value="Voided from desk">
-          <button class="<?= $dang ?>" type="submit" title="Void" aria-label="Void"><?= icon('ban', 15) ?><?php if ($labeled): ?> Void<?php endif; ?></button>
-        </form>
+        <form method="post" action="<?= h(url('document_action.php')) ?>" onsubmit="return confirm('Delete this document? It will be voided and kept in the books.');">
+            <?= csrf_field() ?>
+            <input type="hidden" name="id" value="<?= $id ?>">
+            <input type="hidden" name="action" value="void">
+            <input type="hidden" name="reason" value="Deleted from desk">
+            <button class="<?= $dang ?>" type="submit" title="Delete" aria-label="Delete"><?= icon('trash', 15) ?><?php if ($labeled): ?> Delete<?php endif; ?></button>
+          </form>
       <?php endif; ?>
     </div>
     <?php

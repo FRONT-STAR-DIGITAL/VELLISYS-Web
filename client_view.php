@@ -49,6 +49,7 @@ layout_start($party['name'], $user);
     <h1><?= icon('clients') ?><?= h($party['name']) ?></h1>
     <dl class="party-brief">
       <div><dt>Kind</dt><dd><?= h($party['kind']) ?></dd></div>
+      <div><dt>Status</dt><dd><span class="pill<?= party_status($party) === 'inactive' ? ' warn' : '' ?>"><?= h(party_status_label($party)) ?></span></dd></div>
       <?php if (!empty($party['contact_person'])): ?><div><dt>Attn</dt><dd><?= h($party['contact_person']) ?></dd></div><?php endif; ?>
       <?php if ($party['email']): ?><div><dt>Email</dt><dd><a href="mailto:<?= h($party['email']) ?>"><?= h($party['email']) ?></a></dd></div><?php endif; ?>
       <?php if (trim((string) $party['phone']) !== ''): ?><div><dt>Phone</dt><dd><a href="<?= h(phone_tel_href((string) $party['phone'])) ?>"><?= h($party['phone']) ?></a></dd></div><?php endif; ?>
@@ -66,6 +67,17 @@ layout_start($party['name'], $user);
     <a class="btn ghost" href="<?= h(export_query('party', ['id' => (string) $id])) ?>"><?= icon('download', 16) ?>CSV</a>
     <a class="btn ghost" href="<?= h(url('desk_mail.php?party=' . $id)) ?>"><?= icon('send') ?>Email</a>
     <a class="btn ghost" href="<?= h(url('client_edit.php?id=' . $id)) ?>"><?= icon('pencil') ?>Edit</a>
+    <?php if (party_status($party) !== 'deleted'): ?>
+      <form method="post" action="<?= h(url('client_action.php')) ?>">
+        <?= csrf_field() ?>
+        <input type="hidden" name="action" value="status">
+        <input type="hidden" name="id" value="<?= $id ?>">
+        <input type="hidden" name="next" value="view">
+        <input type="hidden" name="status" value="<?= party_status($party) === 'inactive' ? 'active' : 'inactive' ?>">
+        <button class="btn ghost" type="submit"><?= icon(party_status($party) === 'inactive' ? 'check' : 'ban') ?><?= party_status($party) === 'inactive' ? 'Mark active' : 'Mark inactive' ?></button>
+      </form>
+      <?php render_party_delete_button($id, true); ?>
+    <?php endif; ?>
   </div>
 </div>
 

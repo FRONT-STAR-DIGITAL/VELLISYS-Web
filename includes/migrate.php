@@ -126,6 +126,19 @@ function folio_ensure_ofagros_pro_plan(mysqli $db): void
     @$db->query("UPDATE companies SET plan = 'office', planner_enabled = 1, pnl_enabled = 1 WHERE name = 'Ofagros Limited' AND plan IN ('sme','starter')");
 }
 
+function folio_ensure_party_status(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    if (!function_exists('db_has_column') || !db_has_column($db, 'parties', 'status')) {
+        @$db->query("ALTER TABLE parties ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'active' AFTER kind");
+        @$db->query("ALTER TABLE parties ADD KEY party_status (company_id, status)");
+    }
+}
+
 function folio_migrate(mysqli $db): void
 {
     static $done = false;
@@ -133,6 +146,7 @@ function folio_migrate(mysqli $db): void
         return;
     }
     folio_ensure_logo_bg($db);
+    folio_ensure_party_status($db);
     folio_ensure_signature($db);
     folio_ensure_company_tax($db);
     folio_ensure_company_admins($db);

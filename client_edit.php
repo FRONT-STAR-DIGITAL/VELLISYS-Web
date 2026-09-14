@@ -27,11 +27,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $city = post('city') ?: null;
     $country = post('country') ?: null;
     $notes = post('party_notes') ?: null;
+    $status = party_normalize_status(post('status'));
     if ($id && $party) {
         db_exec(
-            'UPDATE parties SET name=?, kind=?, tin=?, contact_person=?, phone=?, phone2=?, email=?, address=?, city=?, country=?, notes=? WHERE id=? AND company_id=?',
-            'sssssssssssii',
-            [$name, $kind, $tin, $contact, $phone, $phone2, $email, $address, $city, $country, $notes, $id, $cid]
+            'UPDATE parties SET name=?, kind=?, status=?, tin=?, contact_person=?, phone=?, phone2=?, email=?, address=?, city=?, country=?, notes=? WHERE id=? AND company_id=?',
+            'ssssssssssssii',
+            [$name, $kind, $status, $tin, $contact, $phone, $phone2, $email, $address, $city, $country, $notes, $id, $cid]
         );
         flash('Client updated.');
         if (function_exists('record_company_activity')) {
@@ -44,9 +45,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('client_view.php?id=' . $id);
     }
     $newId = db_exec(
-        'INSERT INTO parties (company_id, name, kind, tin, contact_person, phone, phone2, email, address, city, country, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
-        'isssssssssss',
-        [$cid, $name, $kind, $tin, $contact, $phone, $phone2, $email, $address, $city, $country, $notes]
+        'INSERT INTO parties (company_id, name, kind, status, tin, contact_person, phone, phone2, email, address, city, country, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'issssssssssss',
+        [$cid, $name, $kind, $status, $tin, $contact, $phone, $phone2, $email, $address, $city, $country, $notes]
     );
     flash('Client added.');
     if (function_exists('record_company_activity')) {
@@ -65,6 +66,9 @@ layout_start($party ? 'Edit client' : 'New client', $user);
   <div>
     <h1><?= icon($party ? 'pencil' : 'plus') ?><?= $party ? 'Edit client' : 'New client' ?></h1>
     <p class="lede">People and firms you invoice, quote, or pay. Give the address and phones room so they print clearly on the sheet.</p>
+    <?php if ($party && party_status($party) === 'deleted'): ?>
+      <p class="lede">This client was removed from the list. Their documents stay on the books.</p>
+    <?php endif; ?>
   </div>
 </div>
 <form class="card form-wide" method="post">
@@ -80,6 +84,14 @@ layout_start($party ? 'Edit client' : 'New client', $user);
       <select id="kind" name="kind">
         <?php foreach (['customer' => 'Customer', 'supplier' => 'Supplier', 'both' => 'Customer and supplier'] as $k => $label): ?>
           <option value="<?= h($k) ?>" <?= ($party['kind'] ?? 'customer') === $k ? 'selected' : '' ?>><?= h($label) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div>
+      <label for="status">Status</label>
+      <select id="status" name="status">
+        <?php foreach (party_statuses() as $k => $label): ?>
+          <option value="<?= h($k) ?>" <?= party_status($party ?? []) === $k ? 'selected' : '' ?>><?= h($label) ?></option>
         <?php endforeach; ?>
       </select>
     </div>
@@ -119,6 +131,9 @@ layout_start($party ? 'Edit client' : 'New client', $user);
   <div class="actions" style="margin-top:16px">
     <button class="btn" type="submit"><?= icon('check') ?>Save client</button>
     <a class="btn ghost" href="<?= h($id ? url('client_view.php?id=' . $id) : url('clients.php')) ?>">Cancel</a>
+    <?php if ($id && $party && party_status($party) !== 'deleted'): ?>
+      <?php render_party_delete_button($id, true); ?>
+    <?php endif; ?>
   </div>
 </form>
 <?php layout_end(); ?>

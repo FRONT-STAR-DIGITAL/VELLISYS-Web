@@ -27,9 +27,9 @@ if ($type === 'clients') {
     );
     $rows = [];
     foreach ($parties as $p) {
-        $rows[] = [$p['name'], $p['kind'], $p['contact_person'] ?? '', $p['tin'], $p['email'], $p['phone'], $p['phone2'] ?? '', $p['address'], $p['city'] ?? '', $p['country'] ?? '', $p['invoices'], $p['quotes'], $p['receipts']];
+        $rows[] = [$p['name'], $p['kind'], party_status_label($p), $p['contact_person'] ?? '', $p['tin'], $p['email'], $p['phone'], $p['phone2'] ?? '', $p['address'], $p['city'] ?? '', $p['country'] ?? '', $p['invoices'], $p['quotes'], $p['receipts']];
     }
-    csv_download('clients.csv', ['Name', 'Kind', 'Contact', 'TIN', 'Email', 'Phone', 'Phone 2', 'Address', 'City', 'Country', 'Invoices', 'Quotations', 'Receipts'], $rows);
+    csv_download('clients.csv', ['Name', 'Kind', 'Status', 'Contact', 'TIN', 'Email', 'Phone', 'Phone 2', 'Address', 'City', 'Country', 'Invoices', 'Quotations', 'Receipts'], $rows);
 }
 
 if ($type === 'party') {

@@ -48,6 +48,7 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - **One document design** for the whole desk - the layout you pick in Settings prints on every invoice, quotation, receipt, expense and headed note
 - **Three brand colours** (primary, accent, deep) that paint the desk and every document design
 - **CSV export** on invoices, quotations, receipts, expenses, letters, debtors, creditors, clients, reports, and on a single document's lines
+- Clients have **Active / Inactive** status and a **Delete** action. Inactive names stay off new documents; deleted names leave the list while their issued documents stay in the books. Document tables use the same delete (void) icon
 - Quotations convert to invoices; invoices take full or **part receipts**; unpaid balances stay on Debtors
 - Every document can be edited after it is saved
 - Print and share a clean sheet - no desk chrome, dates or page URLs around the paper

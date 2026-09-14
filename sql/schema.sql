@@ -90,8 +90,10 @@ CREATE TABLE IF NOT EXISTS parties (
   country VARCHAR(80) DEFAULT NULL,
   contact_person VARCHAR(160) DEFAULT NULL,
   notes TEXT DEFAULT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'active',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  KEY company_id (company_id)
+  KEY company_id (company_id),
+  KEY party_status (company_id, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS documents (

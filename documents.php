@@ -61,7 +61,7 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
       <?php elseif ($kind === 'receipt'): ?>
         Cleared receipts are paid in full. Partially cleared receipts still have an amount due on Debtors.
       <?php else: ?>
-        Every row has actions - view, edit, print, email<?= $kind === 'quotation' ? ', convert to invoice' : '' ?><?= $kind === 'invoice' ? ', take a receipt (full or part)' : '' ?>, or void.
+        Every row has actions - view, edit, print, email<?= $kind === 'quotation' ? ', convert to invoice' : '' ?><?= $kind === 'invoice' ? ', take a receipt (full or part)' : '' ?>, or delete.
       <?php endif; ?>
     </p>
   </div>

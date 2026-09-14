@@ -986,13 +986,122 @@ function logo_url(?array $brand = null): string
 function parties_for(string $kind = 'customer'): array
 {
     $cid = current_company_id();
+    $status = " AND (status IS NULL OR status = 'active')";
     if ($kind === 'expense') {
-        return db_all("SELECT * FROM parties WHERE company_id = ? AND kind IN ('supplier','both') ORDER BY name", 'i', [$cid]);
+        return db_all("SELECT * FROM parties WHERE company_id = ? AND kind IN ('supplier','both'){$status} ORDER BY name", 'i', [$cid]);
     }
     if ($kind === 'refund' || $kind === 'return_note') {
-        return db_all("SELECT * FROM parties WHERE company_id = ? AND kind IN ('customer','supplier','both') ORDER BY name", 'i', [$cid]);
+        return db_all("SELECT * FROM parties WHERE company_id = ? AND kind IN ('customer','supplier','both'){$status} ORDER BY name", 'i', [$cid]);
     }
-    return db_all("SELECT * FROM parties WHERE company_id = ? AND kind IN ('customer','both') ORDER BY name", 'i', [$cid]);
+    return db_all("SELECT * FROM parties WHERE company_id = ? AND kind IN ('customer','both'){$status} ORDER BY name", 'i', [$cid]);
+}
+
+function party_statuses(): array
+{
+    return [
+        'active' => 'Active',
+        'inactive' => 'Inactive',
+    ];
+}
+
+function party_status(array $party): string
+{
+    $status = strtolower(trim((string) ($party['status'] ?? 'active')));
+    if ($status === '' || $status === 'deleted') {
+        return $status === 'deleted' ? 'deleted' : 'active';
+    }
+    return array_key_exists($status, party_statuses()) ? $status : 'active';
+}
+
+function party_status_label(array $party): string
+{
+    $status = party_status($party);
+    if ($status === 'deleted') {
+        return 'Removed';
+    }
+    return party_statuses()[$status] ?? 'Active';
+}
+
+function party_normalize_status(string $status): string
+{
+    $status = strtolower(trim($status));
+    return array_key_exists($status, party_statuses()) ? $status : 'active';
+}
+
+function party_document_count(int $partyId): int
+{
+    $row = db_one(
+        'SELECT COUNT(*) AS n FROM documents WHERE company_id = ? AND party_id = ?',
+        'ii',
+        [current_company_id(), $partyId]
+    );
+    return (int) ($row['n'] ?? 0);
+}
+
+function set_party_status(int $partyId, string $status): void
+{
+    $party = db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$partyId, current_company_id()]);
+    if (!$party) {
+        throw new RuntimeException('Client not found.');
+    }
+    $status = party_normalize_status($status);
+    db_exec('UPDATE parties SET status = ? WHERE id = ? AND company_id = ?', 'sii', [$status, $partyId, current_company_id()]);
+    if (function_exists('record_company_activity')) {
+        record_company_activity('client', ($status === 'inactive' ? 'Marked inactive: ' : 'Marked active: ') . $party['name'], [
+            'href' => 'client_view.php?id=' . $partyId,
+            'ref_type' => 'party',
+            'ref_id' => $partyId,
+        ]);
+    }
+}
+
+function delete_party(int $partyId): string
+{
+    $cid = current_company_id();
+    $party = db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$partyId, $cid]);
+    if (!$party) {
+        throw new RuntimeException('Client not found.');
+    }
+    $name = (string) $party['name'];
+    $docs = party_document_count($partyId);
+    if ($docs > 0) {
+        db_exec("UPDATE parties SET status = 'deleted' WHERE id = ? AND company_id = ?", 'ii', [$partyId, $cid]);
+        if (function_exists('record_company_activity')) {
+            record_company_activity('client', 'Removed ' . $name, [
+                'href' => 'clients.php',
+                'ref_type' => 'party',
+                'ref_id' => $partyId,
+            ]);
+        }
+        return $name . ' was removed from Clients. Their documents stay in the books.';
+    }
+    try {
+        db_exec('UPDATE planner_events SET party_id = NULL WHERE party_id = ? AND company_id = ?', 'ii', [$partyId, $cid]);
+    } catch (Throwable $e) {
+        // Planner table may be missing.
+    }
+    db_exec('DELETE FROM parties WHERE id = ? AND company_id = ?', 'ii', [$partyId, $cid]);
+    if (function_exists('record_company_activity')) {
+        record_company_activity('client', 'Deleted ' . $name, [
+            'href' => 'clients.php',
+            'ref_type' => 'party',
+            'ref_id' => $partyId,
+        ]);
+    }
+    return $name . ' was deleted.';
+}
+
+function render_party_delete_button(int $id, bool $labeled = false): void
+{
+    $cls = $labeled ? 'btn danger sm' : 'btn danger sm icon-only';
+    ?>
+    <form method="post" action="<?= h(url('client_action.php')) ?>" onsubmit="return confirm('Delete this client? Documents already issued stay in the books.');">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="delete">
+      <input type="hidden" name="id" value="<?= $id ?>">
+      <button class="<?= $cls ?>" type="submit" title="Delete" aria-label="Delete"><?= icon('trash', 15) ?><?php if ($labeled): ?> Delete<?php endif; ?></button>
+    </form>
+    <?php
 }
 
 function expense_categories(): array

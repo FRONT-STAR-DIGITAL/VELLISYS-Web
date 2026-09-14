@@ -42,7 +42,7 @@ if ($doc && $partyId === 0) {
 $party = $partyId
     ? db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$partyId, $cid])
     : null;
-$parties = db_all('SELECT id, name, email, kind FROM parties WHERE company_id = ? ORDER BY name', 'i', [$cid]);
+$parties = db_all("SELECT id, name, email, kind FROM parties WHERE company_id = ? AND (status IS NULL OR status <> 'deleted') ORDER BY name", 'i', [$cid]);
 
 $toPrefill = post('to');
 $subjectPrefill = post('subject');
