@@ -311,13 +311,7 @@ function render_print_document_page(array $doc, bool $pdf = false): void
     @page { size: <?= $thermal ? '80mm auto' : 'A4' ?>; margin: 0; }
   </style>
 </head>
-<body class="print-body<?= $pdf ? ' print-pdf' : '' ?><?= $thermal ? ' print-thermal' : '' ?>">
-  <?php if ($pdf): ?>
-    <div class="pdf-bar">
-      <p>This is the branded sheet. In the print dialog choose <strong>Save as PDF</strong> (or Microsoft Print to PDF).</p>
-      <button class="btn sm" type="button" onclick="window.print()"><?= icon('pdf', 15) ?> Save PDF</button>
-    </div>
-  <?php endif; ?>
+<body class="print-body<?= $thermal ? ' print-thermal' : '' ?>">
   <div class="sheet-wrap">
     <div class="sheet-stage">
       <?php render_sheet($brand, $doc); ?>

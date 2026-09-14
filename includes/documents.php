@@ -505,6 +505,69 @@ function document_share_url(array $doc): string
     return absolute_url('share.php?id=' . (int) $doc['id'] . '&t=' . document_share_token($doc));
 }
 
+function document_sheet_chrome(): string
+{
+    foreach (['/usr/bin/google-chrome-stable', '/usr/bin/google-chrome', '/usr/local/bin/google-chrome'] as $bin) {
+        if (is_executable($bin)) {
+            return $bin;
+        }
+    }
+    return '';
+}
+
+function document_download_filename(array $doc): string
+{
+    $base = preg_replace('/[^A-Za-z0-9._-]+/', '-', (string) ($doc['number'] ?? 'document')) ?: 'document';
+    return $base . '.pdf';
+}
+
+function document_sheet_pdf_bytes(array $doc): string
+{
+    $chrome = document_sheet_chrome();
+    $url = document_share_url($doc) . '&sheet=1';
+    if ($chrome !== '') {
+        $out = sys_get_temp_dir() . '/vellisys-doc-' . (int) ($doc['id'] ?? 0) . '-' . bin2hex(random_bytes(4)) . '.pdf';
+        $cmd = 'timeout 20s ' . escapeshellcmd($chrome)
+            . ' --headless=new --disable-gpu --no-sandbox --hide-scrollbars --no-first-run --no-default-browser-check'
+            . ' --no-pdf-header-footer --print-to-pdf-no-header'
+            . ' --virtual-time-budget=8000'
+            . ' --print-to-pdf=' . escapeshellarg($out)
+            . ' ' . escapeshellarg($url)
+            . ' >/dev/null 2>&1';
+        exec($cmd);
+        if (is_file($out) && filesize($out) > 200) {
+            $bytes = (string) file_get_contents($out);
+            @unlink($out);
+            if (str_starts_with($bytes, '%PDF')) {
+                return $bytes;
+            }
+        }
+        @unlink($out);
+    }
+    $brand = branding();
+    $lh = decode_letterhead($doc['letterhead'] ?? '');
+    if ($lh) {
+        foreach ($lh as $k => $v) {
+            if (is_string($v) && trim($v) !== '') {
+                $brand[$k] = $v;
+            }
+        }
+    }
+    return document_pdf_bytes($brand, $doc);
+}
+
+function send_document_download(array $doc): void
+{
+    $bytes = document_sheet_pdf_bytes($doc);
+    $name = document_download_filename($doc);
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: attachment; filename="' . $name . '"');
+    header('Content-Length: ' . (string) strlen($bytes));
+    header('Cache-Control: private, no-store');
+    echo $bytes;
+    exit;
+}
+
 function document_share_message(array $doc): string
 {
     $brand = branding();
@@ -907,7 +970,7 @@ function render_doc_actions(array $doc, bool $labeled = false): void
       <?php if ($doc['kind'] === 'letter'): ?>
         <a class="<?= $cls ?>" href="<?= h(url('letter_docx.php?id=' . $id)) ?>" title="Download Word" aria-label="Download Word"><?= icon('download', 15) ?><?php if ($labeled): ?> Word<?php endif; ?></a>
       <?php endif; ?>
-      <a class="<?= $cls ?>" href="<?= h(url('document_pdf.php?id=' . $id)) ?>" title="PDF of this document" aria-label="PDF of this document"><?= icon('pdf', 15) ?><?php if ($labeled): ?> PDF<?php endif; ?></a>
+      <a class="<?= $cls ?>" href="<?= h(url('document_download.php?id=' . $id)) ?>" title="Download" aria-label="Download"><?= icon('download', 15) ?><?php if ($labeled): ?> Download<?php endif; ?></a>
       <a class="<?= $cls ?>" href="<?= h(url('document_view.php?id=' . $id)) ?>" title="View" aria-label="View"><?= icon('eye', 15) ?><?php if ($labeled): ?> View<?php endif; ?></a>
       <?php if (!$void): ?>
         <a class="<?= $cls ?>" href="<?= h(url('document_new.php?id=' . $id)) ?>" title="Edit" aria-label="Edit"><?= icon('pencil', 15) ?><?php if ($labeled): ?> Edit<?php endif; ?></a>

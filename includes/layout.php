@@ -38,6 +38,12 @@ function render_top_term(?array $company): void
 function render_page_loader(): void
 {
     ?>
+<style>
+.page-loader{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;background:transparent;pointer-events:none}
+.page-loader-mark{width:92px;height:92px;border-radius:18px;background:#fff;position:relative;box-shadow:0 10px 28px rgba(8,20,58,.12)}
+.page-loader-dot{position:absolute;left:50%;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:var(--brand);transform:rotate(calc(var(--i)*60deg)) translateY(-22px);animation:page-loader-pulse .9s ease-in-out infinite;animation-delay:calc(var(--i)*.12s)}
+@keyframes page-loader-pulse{0%,80%,100%{opacity:.22}40%{opacity:1}}
+</style>
 <div class="page-loader" id="page-loader" role="status" aria-live="polite" aria-label="Loading">
   <div class="page-loader-mark" aria-hidden="true">
     <span class="page-loader-dot" style="--i:0"></span>
@@ -505,7 +511,7 @@ function layout_end(string $extra = ''): void
 <?php endif; ?>
 <script src="<?= h(asset('js/app.js')) ?>" defer></script>
 <?php
-$sheetJs = in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['document_view.php', 'document_new.php', 'document_action.php', 'share.php', 'document_pdf.php'], true);
+$sheetJs = in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['document_view.php', 'document_new.php', 'document_action.php', 'share.php', 'document_download.php', 'document_pdf.php'], true);
 if ($sheetJs): ?>
 <script src="<?= h(asset('js/sheet-fit.js')) ?>"></script>
 <?php endif; ?>

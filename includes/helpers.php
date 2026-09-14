@@ -3051,7 +3051,7 @@ function landing_faqs(): array
         ],
         [
             'q' => 'How do we send a sheet to a client?',
-            'a' => 'Share opens WhatsApp or email with a link to the branded sheet. You can also print or save as PDF from the browser.',
+            'a' => 'Share opens WhatsApp or email with a link to the branded sheet. You can print it, or download the document in one click.',
         ],
         [
             'q' => 'Who sees the books?',
@@ -3255,7 +3255,7 @@ function folio_css_links(bool $critical = true, ?bool $sheet = null): void
     folio_stylesheet('css/app.css');
     if ($sheet === null) {
         $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
-        $sheet = in_array($here, ['document_view.php', 'document_new.php', 'document_action.php', 'share.php', 'document_pdf.php', 'settings.php'], true);
+        $sheet = in_array($here, ['document_view.php', 'document_new.php', 'document_action.php', 'share.php', 'document_download.php', 'document_pdf.php', 'settings.php'], true);
     }
     if ($sheet) {
         folio_stylesheet('css/designs.css', false);
