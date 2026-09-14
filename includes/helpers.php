@@ -1030,7 +1030,7 @@ function csrf_token(): string
 
 function csrf_valid(): bool
 {
-    $token = (string) ($_POST['csrf'] ?? '');
+    $token = (string) ($_POST['csrf'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
     $expect = (string) ($_SESSION['csrf'] ?? '');
     return $token !== '' && $expect !== '' && hash_equals($expect, $token);
 }

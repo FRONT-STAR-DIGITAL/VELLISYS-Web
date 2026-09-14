@@ -116,9 +116,12 @@ function layout_start(string $title, array $user, array $opts = []): void
     }));
     $notes = (company_planner_enabled() && is_desk_admin()) ? enrich_planner_notifications(planner_notifications(40)) : [];
     $noteCount = count($notes);
+    if ($noteCount && function_exists('push_schedule_sync')) {
+        push_schedule_sync();
+    }
     ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en"<?= function_exists('folio_html_root_attrs') ? folio_html_root_attrs() : '' ?>>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -286,9 +289,12 @@ function layout_admin_start(string $title, array $user): void
     ];
     $notes = platform_notifications(40);
     $noteCount = count($notes);
+    if ($noteCount && function_exists('push_schedule_sync')) {
+        push_schedule_sync();
+    }
     ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en"<?= function_exists('folio_html_root_attrs') ? folio_html_root_attrs() : '' ?>>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -513,6 +519,8 @@ function layout_end(string $extra = ''): void
 <?php render_app_tabbar(); ?>
 <?php endif; ?>
 <script src="<?= h(asset('js/app.js')) ?>" defer></script>
+<script src="<?= h(asset('js/pwa.js')) ?>" defer></script>
+<script src="<?= h(asset('js/push.js')) ?>" defer></script>
 <?php
 $sheetJs = in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['document_view.php', 'document_new.php', 'document_action.php', 'share.php', 'document_download.php', 'document_pdf.php'], true);
 if ($sheetJs): ?>

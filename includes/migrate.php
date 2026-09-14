@@ -137,6 +137,9 @@ function folio_migrate(mysqli $db): void
     folio_ensure_company_tax($db);
     folio_ensure_company_admins($db);
     folio_ensure_notification_dismissals($db);
+    if (function_exists('vapid_ensure_tables')) {
+        vapid_ensure_tables();
+    }
     folio_ensure_ofagros_pro_plan($db);
     $ready = folio_schema_ready_file();
     if (is_file($ready) && filemtime($ready) > time() - 86400) {

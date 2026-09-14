@@ -32,6 +32,7 @@ layout_start('Password', $user);
   </div>
 </div>
 <?php if ($error): ?><p class="flash flash-err" style="margin:0 0 16px"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
+<?php if (function_exists('render_push_settings_card')) { render_push_settings_card(); } ?>
 <form class="card form" method="post" style="max-width:28rem" autocomplete="off">
   <?= csrf_field() ?>
   <label for="current_password">Current password</label>

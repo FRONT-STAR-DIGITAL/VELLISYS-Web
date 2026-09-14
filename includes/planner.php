@@ -195,6 +195,14 @@ function planner_goal_save(array $data, int $id = 0): int
             'ref_id' => $newId,
         ]);
     }
+    if (function_exists('push_notify_item')) {
+        push_notify_item([
+            'title' => $title,
+            'meta' => $due ? 'Due ' . format_date($due) : 'New task',
+            'href' => url('planner_goals.php?edit=' . $newId),
+            'key' => 'goal:' . $newId,
+        ], 'company');
+    }
     return $newId;
 }
 
@@ -386,11 +394,26 @@ function planner_event_save(array $data, int $id = 0): int
         );
         return $id;
     }
-    return db_exec(
+    $newId = (int) db_exec(
         'INSERT INTO planner_events (company_id, user_id, title, body, event_date, event_time, end_date, kind, priority, party_id, document_id, done) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
         'iisssssssiii',
         [$cid, $uid, $title, $bodySql, $date, $timeSql, $endSql, $kind, $priority, $partySql, $docSql, $done]
     );
+    planner_event_after_save($newId, $title, $date);
+    return $newId;
+}
+
+function planner_event_after_save(int $id, string $title, string $date): void
+{
+    if (!function_exists('push_notify_item')) {
+        return;
+    }
+    push_notify_item([
+        'title' => $title,
+        'meta' => 'Planner · ' . format_date($date),
+        'href' => url('planner_calendar.php?date=' . urlencode($date) . '&edit=' . $id),
+        'key' => 'event:' . $id,
+    ], 'company');
 }
 
 function planner_event_delete(int $id): void

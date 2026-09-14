@@ -341,6 +341,15 @@ function create_document(array $data): int
         ]);
     }
 
+    if ($kind === 'invoice' && $due && function_exists('push_notify_item')) {
+        push_notify_item([
+            'title' => $number,
+            'meta' => 'Invoice due ' . format_date($due),
+            'href' => url('document_view.php?id=' . $id),
+            'key' => 'invoice:' . $id,
+        ], 'company', $cid);
+    }
+
     return $id;
 }
 

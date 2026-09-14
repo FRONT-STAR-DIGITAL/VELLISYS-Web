@@ -149,5 +149,6 @@ $showDemoKeys = !folio_is_live_host();
 <?php public_float_widgets(); ?>
 <script src="<?= h(asset('js/landing.js')) ?>" defer></script>
 <script src="<?= h(asset('js/pwa.js')) ?>" defer></script>
+<script src="<?= h(asset('js/push.js')) ?>" defer></script>
 </body>
 </html>

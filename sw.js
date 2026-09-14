@@ -1,5 +1,5 @@
 /* Vellisys service worker: cache images/fonts/css only. Never intercept pages or form posts. */
-const CACHE = 'vellisys-shell-v5';
+const CACHE = 'vellisys-shell-v6';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -50,6 +50,49 @@ self.addEventListener('fetch', (event) => {
         }
         return res;
       });
+    })
+  );
+});
+
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    data = { title: 'Vellisys', body: event.data ? event.data.text() : '' };
+  }
+  const title = data.title || 'Vellisys';
+  const opts = {
+    body: data.body || '',
+    icon: '/assets/img/pwa-192.png',
+    badge: '/assets/img/pwa-192.png',
+    tag: data.tag || 'vellisys',
+    renotify: true,
+    data: { url: data.url || '/dashboard.php' },
+    vibrate: [140, 70, 140],
+  };
+  event.waitUntil(self.registration.showNotification(title, opts));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || '/dashboard.php';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      for (const client of windows) {
+        if ('focus' in client) {
+          client.focus();
+          if ('navigate' in client && target) {
+            try {
+              client.navigate(target);
+            } catch (e) {}
+          }
+          return;
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(target);
+      }
     })
   );
 });

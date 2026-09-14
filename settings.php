@@ -170,6 +170,7 @@ layout_start('Settings', $user);
 <div class="settings-layout">
   <aside class="settings-toc">
     <a href="#account"><?= icon('lock', 16) ?>Account</a>
+    <a href="#notifications"><?= icon('bell', 16) ?>Notifications</a>
     <a href="#people"><?= icon('user', 16) ?>People</a>
     <a href="#appearance"><?= icon('palette', 16) ?>Appearance</a>
     <a href="#company"><?= icon('building', 16) ?>Company</a>
@@ -209,6 +210,8 @@ layout_start('Settings', $user);
         </div>
       </div>
     </section>
+
+    <?php render_push_settings_card(); ?>
 
     <section class="card settings-card" id="people">
       <h2><?= icon('user') ?>People</h2>

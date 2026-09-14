@@ -81,6 +81,11 @@
   window.addEventListener('appinstalled', function () {
     deferred = null;
     wrap.hidden = true;
+    try {
+      localStorage.setItem('vellisys-ask-push-install', '1');
+      localStorage.setItem('vellisys-pwa-installed', '1');
+      sessionStorage.removeItem('vellisys-push-asked');
+    } catch (err) {}
   });
 
   if (btn) {

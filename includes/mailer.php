@@ -363,6 +363,15 @@ function notify_admin_question(array $q): void
     );
     $text = "A visitor asked a question on the Vellisys site.\n\nName: {$name}\nEmail: {$email}\nPhone: " . ($phone !== '' ? $phone : '(none)') . "\n\n{$message}\n\nOpen: " . absolute_url('admin_questions.php');
     notify_platform('Vellisys question from ' . ($name !== '' ? $name : 'a visitor'), $html, $text, $email);
+    if (function_exists('push_notify_item')) {
+        $qid = (int) ($q['id'] ?? 0);
+        push_notify_item([
+            'title' => $name !== '' ? $name : 'New question',
+            'meta' => clip_text($message, 80),
+            'href' => url('admin_question.php?id=' . $qid),
+            'key' => $qid > 0 ? 'question:' . $qid : 'question-new',
+        ], 'platform');
+    }
     notify_visitor_question($q);
 }
 
@@ -769,6 +778,15 @@ function notify_admin_signup(array $signup): void
         $kind = $isQuote ? 'quote request' : ($isDemo ? 'demo request' : 'registration');
         $text = 'New ' . $kind . ': ' . ($signup['company'] ?? '') . ' / ' . ($signup['name'] ?? '') . ' / ' . ($signup['email'] ?? '') . ' / ' . ($signup['phone'] ?? '');
         notify_platform('Vellisys ' . $kind . ': ' . ($signup['company'] ?? 'a company'), $html, $text, (string) ($signup['email'] ?? ''));
+        if (function_exists('push_notify_item')) {
+            $sid = (int) ($signup['id'] ?? 0);
+            push_notify_item([
+                'title' => trim((string) ($signup['company'] ?: $signup['name'])) ?: 'New sign-up',
+                'meta' => 'Sign-up · ' . (string) ($signup['email'] ?? ''),
+                'href' => url('admin_signups.php'),
+                'key' => $sid > 0 ? 'signup:' . $sid : 'signup-new',
+            ], 'platform');
+        }
         notify_visitor_signup($signup);
     } catch (Throwable $e) {
         error_log('Vellisys signup mail: ' . $e->getMessage());

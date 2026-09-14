@@ -1600,6 +1600,30 @@ table.grid tfoot td {
   margin: 14px 0 0;
 }
 .settings-account-actions .btn { min-height: 40px; }
+.push-settings { display: grid; gap: 10px; }
+.push-settings [data-push-status] { margin: 0; max-width: 42rem; line-height: 1.45; }
+.push-toast {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 80;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #08143a;
+  color: #fff;
+  box-shadow: 0 12px 40px rgba(8, 20, 58, .28);
+}
+.push-toast span { font-size: 14px; font-weight: 600; }
+.push-toast .btn { background: #1e4eff; color: #fff; border: 0; }
+@media (min-width: 1025px) {
+  .push-toast { left: auto; right: 24px; width: min(420px, calc(100vw - 48px)); }
+}
 .acting-bar {
   background: var(--brand-3, #1f3a12);
   color: #f4f3ef;
