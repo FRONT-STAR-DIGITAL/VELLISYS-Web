@@ -342,6 +342,7 @@ function send_company_email(array $user, string $to, string $subject, string $me
             'ref_id' => $docId,
             'company_id' => $cid,
             'user_id' => (int) $user['id'],
+            'branch_id' => $doc['branch_id'] ?? ($user['branch_id'] ?? null),
         ]);
     }
     return $result;

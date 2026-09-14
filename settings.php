@@ -21,6 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'password' => post('user_password'),
             'job_title' => post('user_title'),
             'access' => post('user_access'),
+            'branch_id' => post('user_branch'),
         ]);
         if (empty($made['ok'])) {
             $error = (string) ($made['error'] ?? 'Could not add that user.');
@@ -40,6 +41,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             db_exec('UPDATE users SET password_hash = ? WHERE id = ?', 'si', [password_hash($newPass, PASSWORD_DEFAULT), $uid]);
             flash('Password updated for ' . $member['email'] . '.');
             redirect('settings.php#people');
+        }
+    } elseif ($action === 'assign_branch') {
+        $uid = (int) post('user_id');
+        if (company_branches_enabled() && assign_user_branch($uid, post('user_branch'))) {
+            flash('Branch updated.');
+            redirect('settings.php#people');
+        } else {
+            $error = 'Could not assign that branch.';
         }
     } elseif ($action === 'save_signature') {
         $wantsJson = str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json')
@@ -213,6 +222,7 @@ layout_start('Settings', $user);
               <th>Title</th>
               <th>Email</th>
               <th>Access</th>
+              <?php if (company_branches_enabled()): ?><th>Branch</th><?php endif; ?>
               <th></th>
             </tr>
           </thead>
@@ -223,6 +233,19 @@ layout_start('Settings', $user);
                 <td><?= h((string) ($m['job_title'] ?? '')) ?></td>
                 <td class="mono"><?= h($m['email']) ?></td>
                 <td><?= h(desk_access_label((string) $m['role'], (string) ($m['access'] ?? 'books'))) ?></td>
+                <?php if (company_branches_enabled()): ?>
+                  <td>
+                    <form method="post" class="people-reset">
+                      <?= csrf_field() ?>
+                      <input type="hidden" name="action" value="assign_branch">
+                      <input type="hidden" name="user_id" value="<?= (int) $m['id'] ?>">
+                      <select name="user_branch" aria-label="Branch for <?= h($m['name']) ?>">
+                        <?php render_branch_options((int) ($m['branch_id'] ?? 0)); ?>
+                      </select>
+                      <button class="btn ghost sm" type="submit">Save</button>
+                    </form>
+                  </td>
+                <?php endif; ?>
                 <td>
                   <form method="post" class="people-reset">
                     <?= csrf_field() ?>
@@ -269,6 +292,14 @@ layout_start('Settings', $user);
               <label for="user_password">Temporary password</label>
               <input id="user_password" name="user_password" value="<?= h(post('user_password') !== '' ? post('user_password') : 'folio2026') ?>" minlength="8">
             </div>
+            <?php if (company_branches_enabled()): ?>
+            <div>
+              <label for="user_branch">Branch</label>
+              <select id="user_branch" name="user_branch">
+                <?php render_branch_options((int) post('user_branch')); ?>
+              </select>
+            </div>
+            <?php endif; ?>
           </div>
           <div class="actions" style="margin-top:12px">
             <button class="btn sm" type="submit"><?= icon('plus', 14) ?>Create login</button>
@@ -339,7 +370,7 @@ layout_start('Settings', $user);
 
     <section class="card settings-card" id="company">
       <h2><?= icon('building') ?>Company</h2>
-      <p class="lede">Printed on every sheet under the logo.</p>
+      <p class="lede">Printed on every Head office sheet under the logo. Named branches (Business and Pro) keep their own address.</p>
       <div class="form-grid">
         <div>
           <label for="name">Company name</label>

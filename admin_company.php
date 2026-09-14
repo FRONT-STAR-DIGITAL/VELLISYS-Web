@@ -101,6 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'password' => post('user_password'),
             'job_title' => post('user_title'),
             'access' => post('user_access'),
+            'branch_id' => post('user_branch'),
         ]);
         if (empty($made['ok'])) {
             $error = (string) ($made['error'] ?? 'Could not add that user.');
@@ -376,6 +377,12 @@ layout_admin_start($company['name'], $user);
       </select>
       <label for="user_password">Temporary password</label>
       <input id="user_password" name="user_password" value="folio2026">
+      <?php if (plan_includes_branches((string) ($company['plan'] ?? 'sme'))): ?>
+      <label for="user_branch">Branch</label>
+      <select id="user_branch" name="user_branch">
+        <?php render_branch_options(0, true, $id); ?>
+      </select>
+      <?php endif; ?>
       <div class="actions" style="margin-top:12px">
         <button class="btn sm" type="submit"><?= icon('plus', 14) ?>Create login</button>
       </div>

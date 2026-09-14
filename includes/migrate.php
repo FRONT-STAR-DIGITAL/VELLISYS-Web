@@ -144,6 +144,46 @@ function folio_ensure_ofagros_pro_plan(mysqli $db): void
     @$db->query("UPDATE companies SET plan = 'office', planner_enabled = 1, pnl_enabled = 1 WHERE name = 'Ofagros Limited' AND plan IN ('sme','starter')");
 }
 
+function folio_ensure_branches(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    @$db->query("CREATE TABLE IF NOT EXISTS branches (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      company_id INT UNSIGNED NOT NULL,
+      name VARCHAR(120) NOT NULL,
+      address VARCHAR(255) NOT NULL DEFAULT '',
+      city VARCHAR(120) NOT NULL DEFAULT '',
+      phone VARCHAR(80) NOT NULL DEFAULT '',
+      email VARCHAR(160) NOT NULL DEFAULT '',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY company_id (company_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    if (!db_has_column($db, 'users', 'branch_id')) {
+        @$db->query('ALTER TABLE users ADD COLUMN branch_id INT UNSIGNED NULL AFTER company_id');
+        @$db->query('ALTER TABLE users ADD KEY user_branch (company_id, branch_id)');
+    }
+    if (!db_has_column($db, 'documents', 'branch_id')) {
+        @$db->query('ALTER TABLE documents ADD COLUMN branch_id INT UNSIGNED NULL AFTER company_id');
+        @$db->query('ALTER TABLE documents ADD KEY document_branch (company_id, branch_id)');
+    }
+    if (!db_has_column($db, 'company_activities', 'branch_id')) {
+        @$db->query('ALTER TABLE company_activities ADD COLUMN branch_id INT UNSIGNED NULL AFTER user_id');
+        @$db->query('ALTER TABLE company_activities ADD KEY activity_branch (company_id, branch_id)');
+        @$db->query("UPDATE company_activities a
+            INNER JOIN documents d ON a.ref_type = 'document' AND a.ref_id = d.id AND a.company_id = d.company_id
+            SET a.branch_id = d.branch_id
+            WHERE a.branch_id IS NULL AND d.branch_id IS NOT NULL AND d.branch_id > 0");
+        @$db->query("UPDATE company_activities a
+            INNER JOIN users u ON u.id = a.user_id AND u.company_id = a.company_id
+            SET a.branch_id = u.branch_id
+            WHERE a.branch_id IS NULL AND u.branch_id IS NOT NULL AND u.branch_id > 0");
+    }
+}
+
 function folio_ensure_party_status(mysqli $db): void
 {
     static $ready = false;
@@ -165,6 +205,7 @@ function folio_migrate(mysqli $db): void
     }
     folio_ensure_logo_bg($db);
     folio_ensure_party_status($db);
+    folio_ensure_branches($db);
     folio_ensure_signature($db);
     folio_ensure_brand_assets($db);
     folio_ensure_company_tax($db);

@@ -35,6 +35,11 @@ function plan_includes_planner(string $plan): bool
     return in_array(normalize_company_plan($plan), ['sme', 'office'], true);
 }
 
+function plan_includes_branches(string $plan): bool
+{
+    return plan_includes_planner($plan);
+}
+
 function company_planner_enabled(?array $company = null): bool
 {
     $company = $company ?? current_company();

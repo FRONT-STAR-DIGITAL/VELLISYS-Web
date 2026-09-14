@@ -3162,6 +3162,35 @@ a.activity-row:hover { background: #f7f8fc; text-decoration: none; }
 .activity-kind-client { background: #eef8f0; color: #17663a; }
 .activity-kind-settings { background: #f4eef8; color: #5b2d8a; }
 .activity-kind-planner { background: #fff4e8; color: #9a4b00; }
+.activity-kind-branch { background: #eef6ff; color: #1e4eff; }
+.activity-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.activity-branch .icon { width: 13px; height: 13px; }
+.branch-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 14px;
+}
+.branch-card .card-head { padding-bottom: 0; }
+.branch-activity {
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+.branch-activity-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+.branch-activity-row span { color: var(--muted); font-size: 12px; }
 .activity-main { display: grid; gap: 2px; min-width: 0; }
 .activity-main strong { font-size: 14px; }
 .activity-main span, .activity-row time {

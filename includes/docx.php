@@ -261,6 +261,9 @@ function letter_docx_bytes(?array $doc = null): string
     }
     $doc = letter_docx_apply_request($doc);
     $brand = branding();
+    if (function_exists('apply_branch_to_brand')) {
+        $brand = apply_branch_to_brand($brand, $doc['branch_id'] ?? 0);
+    }
     $color = docx_color((string) ($brand['brand_color'] ?? brand_color()));
     $name = (string) ($brand['name'] ?? 'Company');
     $tagline = trim((string) ($brand['tagline'] ?? ''));

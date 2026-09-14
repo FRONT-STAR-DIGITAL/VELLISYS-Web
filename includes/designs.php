@@ -4,6 +4,9 @@ declare(strict_types=1);
 function sheet_data(array $brand, array $doc): array
 {
     $lh = decode_letterhead($doc['letterhead'] ?? '');
+    if (function_exists('apply_branch_to_brand')) {
+        $brand = apply_branch_to_brand($brand, $doc['branch_id'] ?? 0);
+    }
     if ($lh) {
         foreach ($lh as $k => $v) {
             if (is_string($v) && trim($v) !== '') {

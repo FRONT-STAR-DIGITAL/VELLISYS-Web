@@ -10,7 +10,20 @@ function company_activity_kinds(): array
         'client' => 'Clients',
         'settings' => 'Settings',
         'planner' => 'Planner',
+        'branch' => 'Branches',
     ];
+}
+
+function resolve_activity_branch_id(array $opts = []): ?int
+{
+    if (!function_exists('company_branches_enabled') || !company_branches_enabled()) {
+        return null;
+    }
+    if (array_key_exists('branch_id', $opts)) {
+        return function_exists('normalize_branch_id') ? normalize_branch_id($opts['branch_id']) : null;
+    }
+    $user = function_exists('current_user') ? current_user() : null;
+    return function_exists('normalize_branch_id') ? normalize_branch_id($user['branch_id'] ?? null) : null;
 }
 
 function record_company_activity(string $kind, string $title, array $opts = []): void
@@ -42,14 +55,23 @@ function record_company_activity(string $kind, string $title, array $opts = []):
     $href = trim((string) ($opts['href'] ?? ''));
     $refType = trim((string) ($opts['ref_type'] ?? ''));
     $refId = (int) ($opts['ref_id'] ?? 0);
+    $branchId = resolve_activity_branch_id($opts);
     try {
         db_exec(
-            'INSERT INTO company_activities (company_id, user_id, kind, title, detail, href, ref_type, ref_id) VALUES (?,?,?,?,?,?,?,?)',
-            'iisssssi',
-            [$cid, $uid, $kind, mb_substr($title, 0, 190), $detail !== '' ? mb_substr($detail, 0, 500) : null, $href !== '' ? mb_substr($href, 0, 190) : null, $refType !== '' ? mb_substr($refType, 0, 40) : null, $refId > 0 ? $refId : null]
+            'INSERT INTO company_activities (company_id, user_id, branch_id, kind, title, detail, href, ref_type, ref_id) VALUES (?,?,?,?,?,?,?,?,?)',
+            'iiisssssi',
+            [$cid, $uid, $branchId, $kind, mb_substr($title, 0, 190), $detail !== '' ? mb_substr($detail, 0, 500) : null, $href !== '' ? mb_substr($href, 0, 190) : null, $refType !== '' ? mb_substr($refType, 0, 40) : null, $refId > 0 ? $refId : null]
         );
     } catch (Throwable $e) {
-        error_log('Vellisys activity: ' . $e->getMessage());
+        try {
+            db_exec(
+                'INSERT INTO company_activities (company_id, user_id, kind, title, detail, href, ref_type, ref_id) VALUES (?,?,?,?,?,?,?,?)',
+                'iisssssi',
+                [$cid, $uid, $kind, mb_substr($title, 0, 190), $detail !== '' ? mb_substr($detail, 0, 500) : null, $href !== '' ? mb_substr($href, 0, 190) : null, $refType !== '' ? mb_substr($refType, 0, 40) : null, $refId > 0 ? $refId : null]
+            );
+        } catch (Throwable $e2) {
+            error_log('Vellisys activity: ' . $e2->getMessage());
+        }
     }
 }
 
@@ -70,6 +92,18 @@ function company_activities(array $opts = []): array
         $types .= 's';
         $params[] = $kind;
     }
+    if (array_key_exists('branch_id', $opts) && function_exists('company_branches_enabled') && company_branches_enabled()) {
+        $raw = $opts['branch_id'];
+        if ($raw === 'all' || $raw === null || $raw === '') {
+            // every branch
+        } elseif ((int) $raw === 0) {
+            $sql .= ' AND (a.branch_id IS NULL OR a.branch_id = 0)';
+        } else {
+            $sql .= ' AND a.branch_id = ?';
+            $types .= 'i';
+            $params[] = (int) $raw;
+        }
+    }
     if ($q !== '') {
         $sql .= ' AND (a.title LIKE ? OR a.detail LIKE ?)';
         $types .= 'ss';
@@ -79,15 +113,24 @@ function company_activities(array $opts = []): array
     }
     $sql .= ' ORDER BY a.id DESC LIMIT ' . $limit;
     try {
-        return db_all($sql, $types, $params);
+        $rows = db_all($sql, $types, $params);
     } catch (Throwable $e) {
         return [];
     }
+    foreach ($rows as &$row) {
+        $bid = isset($row['branch_id']) && (int) $row['branch_id'] > 0 ? (int) $row['branch_id'] : 0;
+        $row['branch_id'] = $bid > 0 ? $bid : null;
+        $row['branch_name'] = function_exists('company_branch_label')
+            ? company_branch_label($bid)
+            : 'Head office';
+    }
+    unset($row);
+    return $rows;
 }
 
 function desk_safe_next(?string $next): string
 {
     $next = basename(trim((string) $next));
-    $ok = ['activities.php', 'dashboard.php', 'planner.php', 'planner_goals.php', 'settings.php'];
+    $ok = ['activities.php', 'dashboard.php', 'planner.php', 'planner_goals.php', 'settings.php', 'branches.php'];
     return in_array($next, $ok, true) ? $next : 'dashboard.php';
 }

@@ -105,6 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'doc_template' => doc_template_key(),
         'items' => $items,
         'custom_values' => $customValues,
+        'branch_id' => post('branch_id'),
     ];
     try {
         if (post('doc_template') !== '') {
@@ -284,6 +285,26 @@ layout_start($heading, $user, ['kind' => $kind]);
           <input id="due_date" name="due_date" type="date" min="1990-01-01" max="2100-12-31" value="<?= h((string) ($existing['due_date'] ?? date('Y-m-d', strtotime('+14 days')))) ?>" data-date-input>
           <span class="doc-date-pretty" data-date-pretty></span>
         </div>
+      </div>
+    <?php endif; ?>
+    <?php if (company_branches_enabled()): ?>
+      <div>
+        <label for="branch_id">Branch</label>
+        <?php
+          $issueBranch = (int) ($existing['branch_id'] ?? ($user['branch_id'] ?? 0));
+          if (!is_desk_admin($user)) {
+              $issueBranch = (int) ($user['branch_id'] ?? 0);
+          }
+        ?>
+        <?php if (is_desk_admin($user)): ?>
+          <select id="branch_id" name="branch_id">
+            <?php render_branch_options($issueBranch); ?>
+          </select>
+          <p class="hint">The address on this sheet is the branch you pick. Head office uses the company address in Settings.</p>
+        <?php else: ?>
+          <input type="hidden" name="branch_id" value="<?= $issueBranch ?>">
+          <p class="hint">Issued from <strong><?= h(company_branch_label($issueBranch)) ?></strong>.</p>
+        <?php endif; ?>
       </div>
     <?php endif; ?>
     <?php if ($kind === 'expense'): ?>

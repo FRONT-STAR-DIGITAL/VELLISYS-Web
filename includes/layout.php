@@ -91,6 +91,9 @@ function layout_start(string $title, array $user, array $opts = []): void
             ['clients.php', 'Clients', 'building'],
         ]
     );
+    if (company_branches_enabled()) {
+        $nav[] = ['branches.php', 'Branches', 'pin'];
+    }
     if (company_planner_enabled() && is_desk_admin()) {
         $nav[] = ['planner.php', 'Planner', 'calendar'];
     }
@@ -176,6 +179,9 @@ function layout_start(string $title, array $user, array $opts = []): void
           if ($here === 'branding.php') {
               $active = $file === 'settings.php';
           }
+          if ($here === 'branches.php') {
+              $active = $file === 'branches.php';
+          }
           ?>
         <a class="<?= $active ? 'is-on' : '' ?>" href="<?= h(url($href)) ?>" title="<?= h($label) ?>"><?= icon($iconName, 18) ?><span><?= h($label) ?></span></a>
       <?php endforeach; ?>
@@ -185,6 +191,9 @@ function layout_start(string $title, array $user, array $opts = []): void
       <span class="nav-user-mail"><?= h($user['email']) ?></span>
       <?php if (!empty($user['job_title'])): ?>
         <span class="nav-user-mail"><?= h((string) $user['job_title']) ?></span>
+      <?php endif; ?>
+      <?php if (company_branches_enabled()): ?>
+        <span class="nav-user-mail"><?= h(company_branch_label(isset($user['branch_id']) ? (int) $user['branch_id'] : 0)) ?></span>
       <?php endif; ?>
       <?php if (is_acting_admin()): ?>
         <a href="<?= h(url('admin_desk.php?leave=1')) ?>" title="Leave desk"><?= icon('logout', 15) ?><span>Leave desk</span></a>

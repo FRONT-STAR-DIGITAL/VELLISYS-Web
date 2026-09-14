@@ -17,6 +17,7 @@ function current_user(): ?array
     $user['job_title'] = (string) ($user['job_title'] ?? '');
     $user['access'] = (string) ($user['access'] ?? (($user['role'] ?? '') === 'admin' ? 'admin' : 'books'));
     $user['role'] = (string) ($user['role'] ?? 'member');
+    $user['branch_id'] = isset($user['branch_id']) && (int) $user['branch_id'] > 0 ? (int) $user['branch_id'] : null;
     return $user;
 }
 
@@ -134,6 +135,9 @@ function user_can_open(string $script, string $kind = ''): bool
     $plannerScripts = ['planner.php', 'planner_notes.php', 'planner_goals.php', 'planner_budget.php', 'planner_calendar.php'];
     if (in_array($script, $plannerScripts, true)) {
         return company_planner_enabled() && is_desk_admin();
+    }
+    if ($script === 'branches.php') {
+        return company_branches_enabled();
     }
     if ($script === 'notify_action.php') {
         return is_desk_admin();

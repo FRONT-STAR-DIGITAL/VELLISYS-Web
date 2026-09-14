@@ -212,6 +212,19 @@ $lessons = [
         ],
     ],
     [
+        'id' => 'branches',
+        'icon' => 'pin',
+        'title' => 'Branches',
+        'file' => '',
+        'alt' => '',
+        'lead' => 'Business and Pro desks can run more than one address. Head office is the company address in Settings. Other locations are named branches, and each login can sit at one of them.',
+        'points' => [
+            'Open Branches on the rail. Add a shop or city name, its address, and who works there.',
+            'Sheets issued from a branch print that address. Head office keeps using the Settings address.',
+            'The company admin opens Activities and chips for every branch, Head office, or the whole desk.',
+        ],
+    ],
+    [
         'id' => 'notify',
         'icon' => 'bell',
         'title' => 'Notifications',

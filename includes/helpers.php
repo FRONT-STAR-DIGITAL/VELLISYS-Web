@@ -1675,10 +1675,14 @@ function create_desk_user(int $companyId, array $fields): array
         }
     }
     $hash = password_hash($password, PASSWORD_DEFAULT);
+    $branchId = null;
+    if (company_branches_enabled($company)) {
+        $branchId = normalize_branch_id($fields['branch_id'] ?? null, $companyId);
+    }
     db_exec(
-        'INSERT INTO users (name, job_title, email, password_hash, role, access, company_id) VALUES (?,?,?,?,?,?,?)',
-        'ssssssi',
-        [$name, $title, $email, $hash, $role, $access, $companyId]
+        'INSERT INTO users (name, job_title, email, password_hash, role, access, company_id, branch_id) VALUES (?,?,?,?,?,?,?,?)',
+        'ssssssii',
+        [$name, $title, $email, $hash, $role, $access, $companyId, $branchId]
     );
     return ['ok' => true, 'email' => $email, 'password' => $password, 'role' => $role];
 }

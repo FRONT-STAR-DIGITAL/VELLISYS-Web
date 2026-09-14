@@ -65,6 +65,7 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - Company desk and every document template scale to fit a phone; line editors stack on a phone; the document table preview stays full width and scrolls sideways
 - **Activities** on every package: a log of major desk events (issued sheets, payments, mail, clients, settings). Open it from the rail or the Activities button on each public package
 - **Planner** (Business and Pro) includes a Tasks tab for goals to hit, with due dates in the notification bell
+- **Branches** (Business and Pro): Head office is the company address; add named branches, assign staff, and the company admin filters Activities per branch
 - **Push notifications** on the installed app: allow them in Settings → Notifications. The same prompt appears after you install the app. Desk alerts then pop up on the device, including notices already in the bell.
 - Each company sets its **own tax name and rate** in Settings (VAT 18%, GST 16%, SST 8%…). New taxed lines use that rate; older sheets keep the rate they were saved with
 - Email sends **From** the signed-in account

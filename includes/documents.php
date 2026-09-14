@@ -286,6 +286,9 @@ function create_document(array $data): int
         $docTpl = doc_template_key();
     }
     $userId = (int) ($data['created_by'] ?? ($_SESSION['user_id'] ?? 0));
+    $branchId = function_exists('resolve_document_branch_id')
+        ? resolve_document_branch_id($data['branch_id'] ?? null)
+        : null;
     $items = $data['items'] ?? [];
     $customValues = $data['custom_values'] ?? null;
     if (is_array($customValues)) {
@@ -315,10 +318,10 @@ function create_document(array $data): int
     }
 
     $id = db_exec(
-        'INSERT INTO documents (company_id, kind, sequence, number, date, due_date, party_id, vat_rate, notes, subject, body, custom_values, status, related_id, payment_method, payment_ref, allocated_amount, expense_category, letter_template, created_by, currency, doc_template, add_signature)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        'isisssidsssssissdssissi',
-        [$cid, $kind, $seq, $number, $date, $due, $party, $rate, $notes, $subject, $body, $customValues, $status, $related, $method, $ref, $alloc, $cat, $tpl, $userId, $currency, $docTpl, $addSig]
+        'INSERT INTO documents (company_id, kind, sequence, number, date, due_date, party_id, vat_rate, notes, subject, body, custom_values, status, related_id, payment_method, payment_ref, allocated_amount, expense_category, letter_template, created_by, branch_id, currency, doc_template, add_signature)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'isisssidsssssissdssiissi',
+        [$cid, $kind, $seq, $number, $date, $due, $party, $rate, $notes, $subject, $body, $customValues, $status, $related, $method, $ref, $alloc, $cat, $tpl, $userId, $branchId, $currency, $docTpl, $addSig]
     );
 
     insert_document_items($id, $items);
@@ -338,6 +341,7 @@ function create_document(array $data): int
             'ref_id' => $id,
             'company_id' => $cid,
             'user_id' => $userId,
+            'branch_id' => $branchId,
         ]);
     }
 
@@ -421,6 +425,9 @@ function update_document(int $id, array $data): void
     $addSig = array_key_exists('add_signature', $data)
         ? (!empty($data['add_signature']) ? 1 : 0)
         : (int) ($doc['add_signature'] ?? 0);
+    $branchId = array_key_exists('branch_id', $data)
+        ? (function_exists('resolve_document_branch_id') ? resolve_document_branch_id($data['branch_id']) : null)
+        : (isset($doc['branch_id']) && (int) $doc['branch_id'] > 0 ? (int) $doc['branch_id'] : null);
     $currency = normalize_currency((string) ($data['currency'] ?? doc_currency($doc)), doc_currency($doc));
     $docTpl = trim((string) ($data['doc_template'] ?? doc_template_key($doc)));
     if ($docTpl === '' || !array_key_exists($docTpl, doc_templates())) {
@@ -450,9 +457,9 @@ function update_document(int $id, array $data): void
     }
 
     db_exec(
-        'UPDATE documents SET party_id=?, date=?, due_date=?, vat_rate=?, notes=?, subject=?, body=?, custom_values=?, related_id=?, payment_method=?, payment_ref=?, allocated_amount=?, expense_category=?, letter_template=?, currency=?, doc_template=?, add_signature=? WHERE id=? AND company_id=?',
-        'issdssssissdssssiii',
-        [$party, $date, $due, $rate, $notes, $subject, $body, $customValues, $related, $method, $ref, $alloc, $cat, $tpl, $currency, $docTpl, $addSig, $id, current_company_id()]
+        'UPDATE documents SET party_id=?, date=?, due_date=?, vat_rate=?, notes=?, subject=?, body=?, custom_values=?, related_id=?, payment_method=?, payment_ref=?, allocated_amount=?, expense_category=?, letter_template=?, currency=?, doc_template=?, add_signature=?, branch_id=? WHERE id=? AND company_id=?',
+        'issdssssissdssssiiii',
+        [$party, $date, $due, $rate, $notes, $subject, $body, $customValues, $related, $method, $ref, $alloc, $cat, $tpl, $currency, $docTpl, $addSig, $branchId, $id, current_company_id()]
     );
     db_exec('DELETE FROM document_items WHERE document_id = ?', 'i', [$id]);
     insert_document_items($id, $items);
@@ -947,7 +954,7 @@ function pay_creditor(int $expenseId, float $amount, string $method, string $ref
 function void_document(int $id, string $reason): void
 {
     $cid = current_company_id();
-    $doc = db_one('SELECT number, kind FROM documents WHERE id = ? AND company_id = ?', 'ii', [$id, $cid]);
+    $doc = db_one('SELECT number, kind, branch_id FROM documents WHERE id = ? AND company_id = ?', 'ii', [$id, $cid]);
     db_exec(
         'UPDATE documents SET status = \'void\', void_reason = ? WHERE id = ? AND company_id = ?',
         'sii',
@@ -960,6 +967,7 @@ function void_document(int $id, string $reason): void
             'href' => 'document_view.php?id=' . $id,
             'ref_type' => 'document',
             'ref_id' => $id,
+            'branch_id' => $doc['branch_id'] ?? null,
         ]);
     }
 }
