@@ -1052,6 +1052,31 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
 
 (function () {
   var plan = document.querySelector('[data-planner-plan]');
+  var seats = document.querySelector('[data-user-limit]');
+  if (!plan || !seats) return;
+  function maxForPlan() {
+    var opt = plan.options[plan.selectedIndex];
+    var n = opt ? parseInt(opt.getAttribute('data-max-users') || '0', 10) : 0;
+    if (n > 0) return n;
+    if (plan.value === 'office') return 4;
+    if (plan.value === 'starter') return 2;
+    return 3;
+  }
+  function syncSeats() {
+    var max = maxForPlan();
+    Array.prototype.forEach.call(seats.options, function (opt) {
+      var val = parseInt(opt.value, 10);
+      opt.hidden = val > max;
+      opt.disabled = val > max;
+    });
+    if (parseInt(seats.value, 10) > max) seats.value = String(max);
+  }
+  plan.addEventListener('change', syncSeats);
+  syncSeats();
+})();
+
+(function () {
+  var plan = document.querySelector('[data-planner-plan]');
   var toggle = document.querySelector('[data-planner-toggle]');
   if (!plan || !toggle) return;
   function syncPlanner() {

@@ -23,13 +23,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $name = post('name') ?: $company['name'];
         $kindsPosted = $_POST['enabled_kinds'] ?? [];
-        $limit = clamp_user_limit((int) post('user_limit'));
+        $plan = normalize_company_plan(post('plan') ?: (string) ($company['plan'] ?? 'sme'));
+        $limit = clamp_user_limit((int) post('user_limit'), $plan);
         if (!is_array($kindsPosted) || $kindsPosted === []) {
             $error = 'Select at least one document type this company will use.';
         } elseif ($limit < company_seat_count($id)) {
             $error = 'This desk already has ' . company_seat_count($id) . ' logins. Raise the seat count or remove a user first.';
         } else {
-            $plan = normalize_company_plan(post('plan') ?: (string) ($company['plan'] ?? 'sme'));
             $plannerOn = planner_resolve_enabled($plan, !empty($_POST['planner_enabled']), $company);
             $pnlOn = pnl_resolve_enabled($plan, !empty($_POST['pnl_enabled']), $company);
             try {
@@ -362,7 +362,7 @@ layout_admin_start($company['name'], $user);
       <?= csrf_field() ?>
       <input type="hidden" name="id" value="<?= $id ?>">
       <input type="hidden" name="action" value="add_user">
-      <p class="hint">Seats: <?= count($members) ?> of <?= (int) company_user_limit($company) ?>. Maximum 3 (admin + 2). The first login is the company admin.</p>
+      <p class="hint">Seats: <?= count($members) ?> of <?= (int) company_user_limit($company) ?>. This plan allows up to <?= (int) plan_user_limit_max($company) ?> users. You choose how many this desk gets. The first login is the company admin.</p>
       <label for="user_name">Add a desk user</label>
       <input id="user_name" name="user_name" required placeholder="Name">
       <label for="user_title">Title</label>
@@ -546,24 +546,26 @@ layout_admin_start($company['name'], $user);
     </div>
     <div>
       <label for="user_limit">Logins allowed</label>
-      <select id="user_limit" name="user_limit">
-        <?php for ($n = 1; $n <= 3; $n++): ?>
-          <option value="<?= $n ?>" <?= company_user_limit($company) === $n ? 'selected' : '' ?>><?= $n ?> <?= $n === 1 ? '(admin only)' : ($n === 2 ? '(admin + 1)' : '(admin + 2)') ?></option>
+      <select id="user_limit" name="user_limit" data-user-limit>
+        <?php $limitMax = plan_user_limit_max($company); ?>
+        <?php for ($n = 1; $n <= 4; $n++): ?>
+          <option value="<?= $n ?>" data-min-plan="<?= $n <= 2 ? 'starter' : ($n === 3 ? 'sme' : 'office') ?>" <?= company_user_limit($company) === $n ? 'selected' : '' ?>><?= h(desk_user_limit_choice_label($n)) ?></option>
         <?php endfor; ?>
       </select>
+      <p class="hint">Vellisys Start up to 2, Business up to 3, Pro up to 4. You give this desk the number it may use (now <?= (int) $limitMax ?> max on this plan).</p>
     </div>
     <div>
       <label for="plan">Plan</label>
-      <select id="plan" name="plan" data-planner-plan>
+      <select id="plan" name="plan" data-planner-plan data-plan-user-max>
         <?php foreach (company_plan_options() as $key => $label): ?>
-          <option value="<?= h($key) ?>" <?= normalize_company_plan((string) ($company['plan'] ?? 'sme')) === $key ? 'selected' : '' ?>><?= h($label) ?></option>
+          <option value="<?= h($key) ?>" data-max-users="<?= (int) plan_user_limit_max($key) ?>" <?= normalize_company_plan((string) ($company['plan'] ?? 'sme')) === $key ? 'selected' : '' ?>><?= h($label) ?></option>
         <?php endforeach; ?>
       </select>
-      <p class="hint">Business and Pro turn Planner on automatically. You can still switch Planner off below.</p>
+      <p class="hint">Vellisys Business and Pro turn Planner on automatically. You can still switch Planner off below.</p>
     </div>
     <div>
       <label class="check" for="planner_enabled"><input id="planner_enabled" name="planner_enabled" type="checkbox" value="1" data-planner-toggle <?= !empty($company['planner_enabled']) ? 'checked' : '' ?>> Planner on for this desk</label>
-      <p class="hint">Notes, budget and calendar for Business and Pro subscribers. Starter stays off unless you enable it here.</p>
+      <p class="hint">Notes, budget and calendar for Vellisys Business and Pro. Start stays off unless you enable it here.</p>
     </div>
     <div>
       <label class="check" for="pnl_enabled"><input id="pnl_enabled" name="pnl_enabled" type="checkbox" value="1" data-pnl-toggle <?= !empty($company['pnl_enabled']) ? 'checked' : '' ?>> Profit &amp; Loss on for this desk</label>

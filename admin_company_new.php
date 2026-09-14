@@ -110,9 +110,9 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
     <div>
       <label for="plan">Plan</label>
       <?php $planPick = normalize_company_plan(post('plan') ?: 'sme'); ?>
-      <select id="plan" name="plan" data-planner-plan>
+      <select id="plan" name="plan" data-planner-plan data-plan-user-max>
         <?php foreach (company_plan_options() as $key => $label): ?>
-          <option value="<?= h($key) ?>" <?= $planPick === $key ? 'selected' : '' ?>><?= h($label) ?></option>
+          <option value="<?= h($key) ?>" data-max-users="<?= (int) plan_user_limit_max($key) ?>" <?= $planPick === $key ? 'selected' : '' ?>><?= h($label) ?></option>
         <?php endforeach; ?>
       </select>
     </div>
@@ -131,12 +131,13 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
     </div>
     <div>
       <label for="user_limit">Logins allowed</label>
-      <select id="user_limit" name="user_limit">
-        <?php $limitPick = clamp_user_limit((int) (post('user_limit') ?: 3)); ?>
-        <?php for ($n = 1; $n <= 3; $n++): ?>
-          <option value="<?= $n ?>" <?= $limitPick === $n ? 'selected' : '' ?>><?= $n ?> <?= $n === 1 ? '(admin only)' : ($n === 2 ? '(admin + 1)' : '(admin + 2)') ?></option>
+      <select id="user_limit" name="user_limit" data-user-limit>
+        <?php $limitPick = clamp_user_limit((int) (post('user_limit') ?: plan_user_limit_max($planPick)), $planPick); ?>
+        <?php for ($n = 1; $n <= 4; $n++): ?>
+          <option value="<?= $n ?>" <?= $limitPick === $n ? 'selected' : '' ?>><?= h(desk_user_limit_choice_label($n)) ?></option>
         <?php endfor; ?>
       </select>
+      <p class="hint">You give this desk its logins. Caps: Start 2, Business 3, Pro 4.</p>
     </div>
     <div>
       <label for="user_name">Desk admin</label>

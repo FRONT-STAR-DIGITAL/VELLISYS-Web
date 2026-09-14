@@ -65,7 +65,8 @@ function create_company_from_paid_order(array $order): int
 {
     $name = trim((string) ($order['company'] ?? '')) ?: 'New company';
     $plan = pricing_package((string) ($order['plan'] ?? ''));
-    $seats = clamp_user_limit((int) ($plan['seats'] ?? 1));
+    $companyPlan = normalize_company_plan((string) ($order['plan'] ?? ($plan['key'] ?? 'sme')));
+    $seats = clamp_user_limit((int) ($plan['seats'] ?? 1), $companyPlan);
     $from = desk_now()->format('Y-m-d');
     $expires = compute_expiry_date($from, 1, 'years') ?: $from;
     $fee = (float) ($order['amount'] ?? 0);
@@ -76,7 +77,6 @@ function create_company_from_paid_order(array $order): int
     $notes = 'Paid website checkout. ' . ($plan['name'] ?? $order['plan'] ?? 'desk')
         . ' · ' . $ccy . ' ' . $fee
         . ' · ' . trim((string) ($order['email'] ?? ''));
-    $companyPlan = normalize_company_plan((string) ($order['plan'] ?? ($plan['key'] ?? 'sme')));
     $plannerOn = planner_resolve_enabled($companyPlan, plan_includes_planner($companyPlan), null);
     $pnlOn = pnl_resolve_enabled($companyPlan, plan_includes_pnl($companyPlan), null);
     $cid = (int) db_exec(

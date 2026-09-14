@@ -102,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $name,
                         mb_substr(post('kicker'), 0, 80),
                         mb_substr(post('ribbon'), 0, 80),
-                        max(1, min(3, (int) post('seats') ?: 1)),
+                        max(1, min(4, (int) post('seats') ?: 1)),
                         (float) str_replace(',', '', post('price_ugx')),
                         (float) str_replace(',', '', post('was_ugx')),
                         mb_substr(post('cta') ?: ('Select ' . $name), 0, 80),
@@ -135,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $name,
                         mb_substr(post('kicker'), 0, 80),
                         mb_substr(post('ribbon'), 0, 80),
-                        max(1, min(3, (int) post('seats') ?: 1)),
+                        max(1, min(4, (int) post('seats') ?: 1)),
                         (float) str_replace(',', '', post('price_ugx')),
                         (float) str_replace(',', '', post('was_ugx')),
                         $cta,
@@ -466,8 +466,8 @@ layout_admin_start('Landing', $user);
   <input id="pkg-new-kicker" name="kicker" maxlength="80" placeholder="Starting package">
   <label for="pkg-new-ribbon">Ribbon <span class="hint">(with Featured)</span></label>
   <input id="pkg-new-ribbon" name="ribbon" maxlength="80" placeholder="Most companies">
-  <label for="pkg-new-seats">Logins (1-3)</label>
-  <input id="pkg-new-seats" name="seats" type="number" min="1" max="3" step="1" value="1">
+  <label for="pkg-new-seats">Users (1-4)</label>
+  <input id="pkg-new-seats" name="seats" type="number" min="1" max="4" step="1" value="2">
   <label for="pkg-new-price">Price UGX</label>
   <input id="pkg-new-price" name="price_ugx" type="number" min="0" step="1" required placeholder="150000">
   <label for="pkg-new-was">Was UGX</label>
@@ -502,8 +502,8 @@ layout_admin_start('Landing', $user);
         <input id="pkg-kicker-<?= (int) $p['id'] ?>" name="kicker" maxlength="80" value="<?= h((string) $p['kicker']) ?>">
         <label for="pkg-ribbon-<?= (int) $p['id'] ?>">Ribbon</label>
         <input id="pkg-ribbon-<?= (int) $p['id'] ?>" name="ribbon" maxlength="80" value="<?= h((string) $p['ribbon']) ?>">
-        <label for="pkg-seats-<?= (int) $p['id'] ?>">Logins (1-3)</label>
-        <input id="pkg-seats-<?= (int) $p['id'] ?>" name="seats" type="number" min="1" max="3" step="1" required value="<?= (int) $p['seats'] ?>">
+        <label for="pkg-seats-<?= (int) $p['id'] ?>">Users (1-4)</label>
+        <input id="pkg-seats-<?= (int) $p['id'] ?>" name="seats" type="number" min="1" max="4" step="1" required value="<?= (int) $p['seats'] ?>">
         <label for="pkg-price-<?= (int) $p['id'] ?>">Price UGX</label>
         <input id="pkg-price-<?= (int) $p['id'] ?>" name="price_ugx" type="number" min="0" step="1" required value="<?= h((string) (int) $p['price_ugx']) ?>">
         <label for="pkg-was-<?= (int) $p['id'] ?>">Was UGX</label>

@@ -431,7 +431,7 @@ function vellisys_pitch_deck_bytes(): string
         ['mail', 'Mail that belongs', 'It leaves from the mailbox we assign you. Logo on a white band. Not a personal inbox. Not a maybe.'],
         ['people', 'The right hands', 'Up to three people. Admin, Books or Sales. The person who quotes is not wandering through Settings.'],
         ['globe', 'Another country', 'Change the currency and the tax in Settings. You do not wait on anyone to "add your market".'],
-        ['pack', 'One year, done', 'Quill, Ledger or Crest. Pay once for the year. Mobile money, card, or we invoice you. Then we open the desk.'],
+        ['pack', 'One year, done', 'Vellisys Start, Business or Pro. Pay once for the year. Mobile money, card, or we invoice you. Then we open the desk.'],
     ];
     foreach ($why as $i => $row) {
         [$kind, $title, $body] = $row;
@@ -467,7 +467,7 @@ function vellisys_pitch_deck_bytes(): string
         ['people', 'See who you still need to pay. Write to them from the same desk.'],
         ['file', 'Send a headed letter or a custom form on the same stationery as the books.'],
         ['chart', 'Ask the month a question: collected, outstanding, tax due, who converted.'],
-        ['chart', 'On Crest, read profit with the other income and costs beside the invoices.'],
+        ['chart', 'On Vellisys Pro, read profit with the other income and costs beside the invoices.'],
         ['check', 'Fix a saved sheet. Void one that is dead. Number it the way your office numbers things.'],
     ];
     foreach ($feats as $i => $f) {
@@ -491,9 +491,9 @@ function vellisys_pitch_deck_bytes(): string
     $text(56, 530, 'The rest of the office, in the same place', 20, 'F2');
     $desk = [
         ['file', 'Look', 'You pick two colours and a logo. Twelve papers to choose from. Change it once and every sheet reprints. Clients stop asking if you "have a letterhead".'],
-        ['people', 'People', 'Three seats at most. You keep Settings and Reports. Give Sales to the person who quotes. They cannot wander. You sleep.'],
+        ['people', 'People', 'Vellisys sets the logins: Start up to 2, Business up to 3, Pro up to 4. You keep Settings and Reports. Give Sales to the person who quotes.'],
         ['mail', 'Mail', 'We assign the company mailbox. Quotes, invoices, letters and reminders leave from there. Personal Gmail stays personal.'],
-        ['calendar', 'Planner', 'On Ledger and Crest: notes, a budget, a calendar, a bell when money should be logged. The desk remembers so you do not have to.'],
+        ['calendar', 'Planner', 'On Vellisys Business and Pro: notes, a budget, a calendar, a bell when money should be logged. The desk remembers so you do not have to.'],
         ['send', 'Share', 'Print. Save a PDF. WhatsApp the link. Email the sheet. They see paper. They never see your books. On a phone it is still the A4 page, just smaller.'],
         ['pack', 'Pay', 'Pay in the same tab: mobile money, card, bank. Or ask us to invoice you. Or book a morning and we walk you through it. You are not left with a login and a shrug.'],
     ];
@@ -517,29 +517,28 @@ function vellisys_pitch_deck_bytes(): string
     $fillRgb($navy);
     $text(56, 530, 'One year. One decision.', 22, 'F2');
     $fillRgb($muted);
-    $text(56, 508, 'Prices in Uganda shillings. Change currency on the site. The crossed-out figure is what it was. Most companies take Ledger and get on with work.', 11);
+    $text(56, 508, 'Prices in Uganda shillings. Change currency on the site. The crossed-out figure is what it was. Most companies take Vellisys Business and get on with work.', 11);
     $pkgs = [
-        ['QUILL', 'If it is just you', 'UGX 150,000', 'was 200,000', '1 seat', [
-            'You, the company admin',
+        ['START', 'If it is just you', 'UGX 150,000', 'was 200,000', 'up to 2 users', [
+            'Admin plus one, Vellisys sets how many',
+            'Head office only',
             'Quotes, invoices and receipts that look like you',
             'Clients, debtors, email and WhatsApp',
             'Print and PDF, no hunt',
-            'Reports for the person who signs in',
         ]],
-        ['LEDGER', 'Where most of us land', 'UGX 200,000', 'was 280,000', '2 seats', [
-            'You, plus one (Books or Sales)',
-            'Everything in Quill',
+        ['BUSINESS', 'Where most of us land', 'UGX 200,000', 'was 280,000', 'up to 3 users', [
+            'Admin plus two, Vellisys sets how many',
+            'Everything in Start',
             'Expenses, creditors, delivery notes',
-            'Planner: notes, budget, calendar, tasks',
-            'Letters from the company mailbox',
-            'Branches up to your logins; several people per shop',
+            'Planner, letters from the mailbox',
+            'Up to 2 branches',
         ]],
-        ['CREST', 'The full house', 'UGX 250,000', 'was 350,000', '3 seats', [
-            'You, plus two',
-            'Everything in Ledger',
+        ['PRO', 'The full house', 'UGX 250,000', 'was 350,000', 'up to 4 users', [
+            'Admin plus three, Vellisys sets how many',
+            'Everything in Business',
             'Custom documents and every layout',
             'Profit, refunds, return notes',
-            'Branches up to your logins; several people per shop',
+            'Up to 3 branches',
             'We onboard you first, properly',
         ]],
     ];
@@ -605,7 +604,7 @@ function vellisys_pitch_deck_bytes(): string
         'Welcome. We are glad you read this far.',
         'You are not buying another password. You are opening a desk that prints like your office and keeps the books where you can find them.',
         'Here is how we start. It is short on purpose.',
-        '1. Tell us how many people will sign in. We will say Quill, Ledger or Crest. Most companies take Ledger. If you need Planner and profit, take Crest.',
+        '1. Tell us how many people will sign in. We will say Vellisys Start, Business or Pro. Most companies take Business. If you need Planner and profit, take Pro.',
         '2. Pay on the site (mobile money or card), or we invoice you, or you book a morning and we sit together. There is no password until the desk is opened on purpose. That is how we keep it clean.',
         '3. We create the company, assign the mailbox, and write to you from info@vellisys.com with a short tutorial. You are not dumped at a blank screen.',
         '4. You sign in. Settings is first: logo, colours, TIN, tax name and rate, currency, bank. Save once. Every sheet from then on is you.',
@@ -639,7 +638,7 @@ function vellisys_pitch_deck_bytes(): string
     $fillRgb('#FFFFFF');
     $text(56, 430, 'This week is better than next month.', 22, 'F2');
     $y = 392;
-    $para(56, 'Go to www.vellisys.com and take Ledger if you are unsure. Most people are. Tell us the company name, how many will sign in, the currency you bill in, and the tax you charge. We match the package and we open the books. If you would rather talk first, call. If you are ready, pay. Either way, the leak stops.', 13, '#C9D2EE', 88, 17);
+    $para(56, 'Go to www.vellisys.com and take Vellisys Business if you are unsure. Most people are. Tell us the company name, how many will sign in, the currency you bill in, and the tax you charge. We match the package and we open the books. If you would rather talk first, call. If you are ready, pay. Either way, the leak stops.', 13, '#C9D2EE', 88, 17);
     $y = 268;
     $fillRgb($gold);
     $text(56, $y, 'www.vellisys.com', 16, 'F2');

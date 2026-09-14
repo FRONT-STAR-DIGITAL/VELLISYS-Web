@@ -210,7 +210,7 @@ layout_start('Settings', $user);
 
     <section class="card settings-card" id="people">
       <h2><?= icon('user') ?>People</h2>
-      <p class="lede">This desk has <?= (int) $used ?> of <?= (int) $seats ?> login<?= $seats === 1 ? '' : 's' ?>. Vellisys sets the number. Maximum is 3: the company admin and up to two more. Only the company admin can open Reports, Settings and this list.</p>
+      <p class="lede">This desk has <?= (int) $used ?> of <?= (int) $seats ?> login<?= $seats === 1 ? '' : 's' ?>. Vellisys sets the number. <?= h(company_plan_label()) ?> allows up to <?= (int) plan_user_limit_max($deskCompany ?: null) ?> users. Only the company admin can open Reports, Settings and this list.</p>
       <?php if (!$members): ?>
         <p class="empty">No logins yet.</p>
       <?php else: ?>

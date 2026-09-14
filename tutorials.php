@@ -217,9 +217,9 @@ $lessons = [
         'title' => 'Branches',
         'file' => '',
         'alt' => '',
-        'lead' => 'Business and Pro desks can run more than one address. Head office is the company address in Settings. You may have as many locations as logins; several people can share one branch.',
+        'lead' => 'Vellisys Business allows up to 2 branches and Pro up to 3, including Head office. Several people can share a branch. Vellisys Start is Head office only.',
         'points' => [
-            'Open Branches on the rail. Add a shop or city name and its address. You cannot add more locations than the logins on the package.',
+            'Open Branches on the rail. Add a shop or city name and its address, up to the branch cap on the package.',
             'Sheets issued from a branch print that address. Head office keeps using the Settings address.',
             'Assign staff so their work is recorded there. Several logins can sit on one branch.',
             'The company admin opens Activities and chips for every branch, Head office, or the whole desk.',
@@ -335,7 +335,7 @@ $lessons = [
         'title' => 'People on the desk',
         'file' => 'people.png',
         'alt' => 'Settings People with logins, titles and access',
-        'lead' => 'A desk has up to three logins: the company admin and two more. Vellisys sets the number of seats. Only the admin adds people.',
+        'lead' => 'Vellisys Start allows up to 2 users, Business up to 3, Pro up to 4. Vellisys sets how many this desk actually gets. Only the admin adds people.',
         'points' => [
             'Settings, People. Add a name, title, email, access and a temporary password.',
             'Books sees documents, clients, debtors, creditors and email. Sales sees quotations, invoices, receipts, clients and email. Neither opens Reports or Settings.',

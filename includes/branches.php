@@ -14,7 +14,7 @@ function require_branches(): array
 {
     $user = require_member();
     if (!company_branches_enabled()) {
-        flash('Branches are on Business and Pro desks. Ask Vellisys if you need them.', 'err');
+        flash('Branches are on Vellisys Business and Pro desks. Ask Vellisys if you need them.', 'err');
         redirect('dashboard.php');
     }
     return $user;
@@ -36,7 +36,11 @@ function company_head_office(?array $brand = null): array
 
 function company_location_limit(?array $company = null): int
 {
-    return company_user_limit($company);
+    $company = $company ?? current_company();
+    if (function_exists('plan_branch_limit')) {
+        return plan_branch_limit($company);
+    }
+    return 1;
 }
 
 function company_named_branch_limit(?array $company = null): int
@@ -205,14 +209,14 @@ function save_named_branch(array $fields, ?int $id = null): array
         );
         return ['ok' => true, 'id' => $id];
     }
-    $seats = company_location_limit();
+    $cap = company_location_limit();
     $used = company_location_count($cid);
-    if ($used >= $seats) {
+    if ($used >= $cap) {
         return [
             'ok' => false,
-            'error' => 'Locations cannot outnumber logins. You have ' . $seats . ' login' . ($seats === 1 ? '' : 's')
-                . ' and already use ' . $used . ' location' . ($used === 1 ? '' : 's')
-                . ' (Head office plus named branches). Several people can share one branch.',
+            'error' => 'This package allows up to ' . $cap . ' branch' . ($cap === 1 ? '' : 'es')
+                . ', including Head office. You already use ' . $used
+                . '. Several people can share a branch.',
         ];
     }
     $newId = db_exec(

@@ -1608,15 +1608,34 @@ function is_platform(?array $user = null): bool
     return ($user['role'] ?? '') === 'platform';
 }
 
-function clamp_user_limit(int $n): int
+function desk_user_limit_choice_label(int $n): string
 {
-    return max(1, min(3, $n));
+    return match ($n) {
+        1 => '1 (admin only)',
+        2 => '2 (admin + 1)',
+        3 => '3 (admin + 2)',
+        4 => '4 (admin + 3)',
+        default => (string) $n,
+    };
+}
+
+function clamp_user_limit(int $n, string|array|null $plan = null): int
+{
+    $max = 4;
+    if ($plan !== null && function_exists('plan_user_limit_max')) {
+        $max = plan_user_limit_max($plan);
+    }
+    return max(1, min($max, $n));
 }
 
 function company_user_limit(?array $company = null): int
 {
     $company = $company ?? current_company();
-    return clamp_user_limit((int) ($company['user_limit'] ?? 3));
+    $raw = (int) ($company['user_limit'] ?? 0);
+    if ($raw < 1) {
+        $raw = function_exists('plan_user_limit_max') ? plan_user_limit_max($company) : 3;
+    }
+    return clamp_user_limit($raw, $company);
 }
 
 function company_seat_count(int $companyId): int
@@ -1894,12 +1913,12 @@ function platform_create_company(?int $signupId = null): array
     $accent = parse_hex_color(post('brand_accent'), '#C6A15B');
     $deep = parse_hex_color(post('brand_deep'), '#08143A');
     $prefix = strtoupper(post('prefix') ?: prefix_from_name($name));
-    $limit = clamp_user_limit((int) post('user_limit') ?: 3);
+    $plan = normalize_company_plan(post('plan') ?: 'sme');
+    $limit = clamp_user_limit((int) post('user_limit') ?: plan_user_limit_max($plan), $plan);
     $accountName = post('account_name') ?: $name;
     $paymentNote = post('payment_note') ?: ('Make payment to ' . $name . '.');
     $comments = post('invoice_comments') ?: "1. Payment is due by the date shown above.\n2. Quote the invoice number on the transfer.";
 
-    $plan = normalize_company_plan(post('plan') ?: 'sme');
     $plannerOn = planner_resolve_enabled($plan, !empty($_POST['planner_enabled']), null);
     $pnlOn = pnl_resolve_enabled($plan, !empty($_POST['pnl_enabled']), null);
     $cid = db_exec(
@@ -3365,7 +3384,7 @@ function desk_manage_items(): array
         ['icon' => 'letter', 'title' => 'Letters', 'body' => 'Headed letters on the same document design as the books. Print, email, or download a Word letterhead and type your own content.'],
         ['icon' => 'send', 'title' => 'Send emails', 'body' => 'Quotations, invoices, receipts, letters and reminders leave from your assigned mailbox.'],
         ['icon' => 'palette', 'title' => '15 layouts', 'body' => 'Pick Folio, page borders, an 80mm thermal roll, Twin copy, watermarks and more. The whole books follow that layout.'],
-        ['icon' => 'image', 'title' => 'Your company branding', 'body' => 'Logo, three colours, letterhead. Business and Pro desks add named branches up to the number of logins; several people can share a shop, and documents print that address.'],
+        ['icon' => 'image', 'title' => 'Your company branding', 'body' => 'Logo, three colours, letterhead. Vellisys Business allows up to 2 branches and Pro up to 3; several people can share a shop, and documents print that address.'],
     ];
 }
 
@@ -3416,7 +3435,11 @@ function landing_faqs(): array
         ],
         [
             'q' => 'Can we run more than one shop?',
-            'a' => 'Business (Ledger) and Pro (Crest) desks include Branches. Head office is always the company address. You may add named shops up to the number of logins on the package. Several people can sit on one branch; you cannot have more locations than logins.',
+            'a' => 'Vellisys Business includes up to 2 branches and Vellisys Pro up to 3, counting Head office. Vellisys Start is Head office only. Several people can sit on one branch.',
+        ],
+        [
+            'q' => 'How many people can sign in?',
+            'a' => 'Vellisys Start allows up to 2 users, Business up to 3, and Pro up to 4. Vellisys sets how many logins your desk actually gets when you are onboarded.',
         ],
         [
             'q' => 'How do I ask something the list does not cover?',

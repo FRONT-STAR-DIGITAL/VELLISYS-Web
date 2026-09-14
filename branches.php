@@ -74,6 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $branches = company_all_branches();
 $members = db_all("SELECT id, name, job_title, email, role, access, branch_id FROM users WHERE company_id = ? AND role <> 'platform' ORDER BY role = 'admin' DESC, name", 'i', [$cid]);
 $seats = company_user_limit();
+$branchCap = company_location_limit();
 $locations = company_location_count($cid);
 $canAddBranch = $admin && company_can_add_named_branch();
 $activityByBranch = [];
@@ -104,7 +105,7 @@ layout_start('Branches', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('pin') ?>Branches</h1>
-    <p class="lede">Head office uses the company address in Settings. Named branches print their own address. You may have as many locations as logins (<?= (int) $seats ?>), including Head office. Several people can share one branch.</p>
+    <p class="lede">Head office uses the company address in Settings. Named branches print their own address. This package allows up to <?= (int) $branchCap ?> branch<?= $branchCap === 1 ? '' : 'es' ?>, including Head office. Several people can share a branch. Vellisys sets how many users this desk has (<?= (int) $seats ?> of <?= (int) plan_user_limit_max() ?> on <?= h(company_plan_label()) ?>).</p>
   </div>
   <?php if ($admin): ?>
     <div class="actions">
@@ -234,7 +235,7 @@ layout_start('Branches', $user);
       <input type="hidden" name="branch_id" value="<?= (int) $edit['id'] ?>">
     <?php endif; ?>
     <h2><?= icon($edit ? 'pencil' : 'plus', 16) ?><?= $edit ? 'Edit ' . h((string) $edit['name']) : 'Add a named branch' ?></h2>
-    <p class="lede">Use a city or shop name. That address prints on documents issued from the branch. <?= (int) $locations ?> of <?= (int) $seats ?> location slots in use.</p>
+    <p class="lede">Use a city or shop name. That address prints on documents issued from the branch. <?= (int) $locations ?> of <?= (int) $branchCap ?> branch slots in use.</p>
     <div class="branch-form-grid">
       <div>
         <label for="name">Branch name</label>
@@ -265,7 +266,7 @@ layout_start('Branches', $user);
     </div>
   </form>
   <?php else: ?>
-  <p class="lede">All <?= (int) $seats ?> location slots are in use. Remove a named branch, or add a login in Settings, before adding another shop.</p>
+  <p class="lede">All <?= (int) $branchCap ?> branch slots are in use. Remove a named branch before adding another shop.</p>
   <?php endif; ?>
 <?php endif; ?>
 </div>

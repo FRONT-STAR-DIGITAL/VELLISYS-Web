@@ -4,23 +4,48 @@ declare(strict_types=1);
 function company_plan_options(): array
 {
     return [
-        'starter' => 'Starter',
-        'sme' => 'Business',
-        'office' => 'Pro',
+        'starter' => 'Vellisys Start',
+        'sme' => 'Vellisys Business',
+        'office' => 'Vellisys Pro',
     ];
 }
 
 function normalize_company_plan(string $plan): string
 {
     $plan = strtolower(trim($plan));
+    $plan = preg_replace('/^vellisys\s+/', '', $plan) ?? $plan;
     // Friendly aliases from marketing / SA copy.
     $plan = match ($plan) {
         'business', 'ledger', 'studio' => 'sme',
         'pro', 'crest', 'practice', 'office' => 'office',
-        'starter', 'quill', 'solo' => 'starter',
+        'starter', 'start', 'quill', 'solo' => 'starter',
         default => $plan,
     };
     return array_key_exists($plan, company_plan_options()) ? $plan : 'sme';
+}
+
+function plan_user_limit_max(string|array|null $plan = null): int
+{
+    if (is_array($plan)) {
+        $plan = (string) ($plan['plan'] ?? 'sme');
+    }
+    return match (normalize_company_plan((string) ($plan ?? 'sme'))) {
+        'starter' => 2,
+        'office' => 4,
+        default => 3,
+    };
+}
+
+function plan_branch_limit(string|array|null $plan = null): int
+{
+    if (is_array($plan)) {
+        $plan = (string) ($plan['plan'] ?? 'sme');
+    }
+    return match (normalize_company_plan((string) ($plan ?? 'sme'))) {
+        'office' => 3,
+        'sme' => 2,
+        default => 1,
+    };
 }
 
 function company_plan_label(?array $company = null): string

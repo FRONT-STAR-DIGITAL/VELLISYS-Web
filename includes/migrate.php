@@ -232,6 +232,22 @@ function folio_ensure_trust_logos(mysqli $db): void
     }
 }
 
+function folio_ensure_user_limits(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    if (!db_has_column($db, 'companies', 'user_limit')) {
+        @$db->query('ALTER TABLE companies ADD COLUMN user_limit TINYINT UNSIGNED NOT NULL DEFAULT 3');
+    }
+    @$db->query("UPDATE companies SET user_limit = 2 WHERE plan IN ('starter','solo') AND user_limit > 2");
+    @$db->query("UPDATE companies SET user_limit = 3 WHERE plan IN ('sme','studio') AND user_limit > 3");
+    @$db->query("UPDATE companies SET user_limit = 4 WHERE plan IN ('office','practice') AND user_limit > 4");
+    @$db->query("UPDATE companies SET user_limit = 1 WHERE user_limit < 1");
+}
+
 function folio_ensure_package_branch_copy(mysqli $db): void
 {
     static $ready = false;
@@ -239,58 +255,56 @@ function folio_ensure_package_branch_copy(mysqli $db): void
         return;
     }
     $ready = true;
-    $branchLine = 'Branches: as many locations as logins (Head office plus named shops). Several logins can sit on one branch';
-    $leads = [
-        'solo' => 'One login, one location. The books in your colours. Enough for a founder who writes every sheet.',
-        'studio' => 'The common desk: two seats, access levels, and the full sales loop. Locations cannot outnumber those logins; several people can share a branch.',
-        'practice' => 'Three seats, access levels, and every document the desk can print. Locations cannot outnumber those logins; several people can share a branch.',
-    ];
-    $res = @$db->query('SELECT id, pkg_key, points, lead FROM landing_packages');
-    if (!$res) {
+    @$db->query("CREATE TABLE IF NOT EXISTS schema_meta (
+      k VARCHAR(40) PRIMARY KEY,
+      v VARCHAR(40) NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $flag = @$db->query("SELECT v FROM schema_meta WHERE k = 'pkg_copy_vellisys'");
+    if ($flag && ($r = $flag->fetch_assoc()) && (string) $r['v'] === '2') {
         return;
     }
+    $packages = [
+        'solo' => [
+            'name' => 'Vellisys Start',
+            'cta' => 'Select Vellisys Start',
+            'seats' => 2,
+            'lead' => 'Up to 2 users. Head office only. The books in your colours. Vellisys sets how many logins this desk actually gets.',
+            'points' => "Up to 2 users: company admin plus one. Vellisys sets the number\nHead office only (no extra branches)\nBranded quotations, invoices and receipts\nClients, debtors and share by email or WhatsApp\nPrint and PDF from the browser\nReports for the person who signs in\nActivity log of major desk events",
+        ],
+        'studio' => [
+            'name' => 'Vellisys Business',
+            'cta' => 'Select Vellisys Business',
+            'seats' => 3,
+            'lead' => 'Up to 3 users and up to 2 branches. Access levels and the full sales loop. Vellisys sets how many logins this desk actually gets.',
+            'points' => "Up to 3 users: admin plus two. Vellisys sets the number\nAccess levels: Books or Sales\nEverything in Vellisys Start\nExpenses, creditors and delivery notes\nPlanner notes, budget, calendar, and tasks\nHeaded letters from the company mailbox\nUp to 2 branches (Head office plus named shops). Several users can share a branch",
+        ],
+        'practice' => [
+            'name' => 'Vellisys Pro',
+            'cta' => 'Select Vellisys Pro',
+            'seats' => 4,
+            'lead' => 'Up to 4 users and up to 3 branches. Every document the desk can print. Vellisys sets how many logins this desk actually gets.',
+            'points' => "Up to 4 users: admin plus three. Vellisys sets the number\nAccess levels for each extra seat\nEverything in Vellisys Business\nCustom documents and all letter layouts\nProfit & Loss bookkeeping with refunds and returns\nUp to 3 branches (Head office plus named shops). Several users can share a branch\nPriority onboarding from Vellisys",
+        ],
+    ];
     $changed = false;
-    while ($row = $res->fetch_assoc()) {
-        $key = (string) ($row['pkg_key'] ?? '');
-        $points = (string) ($row['points'] ?? '');
-        $lead = (string) ($row['lead'] ?? '');
-        $nextPoints = $points;
-        $nextLead = $lead;
-        $oldLeads = [
-            'solo' => 'One login. The books in your colours. Enough for a founder who writes every sheet.',
-            'studio' => 'The common desk: two seats, access levels, and the full sales loop.',
-            'practice' => 'Three seats, access levels, and every document the desk can print.',
-        ];
-        if (isset($leads[$key]) && ($lead === '' || $lead === ($oldLeads[$key] ?? '') || $lead === $leads[$key])) {
-            $nextLead = $leads[$key];
-        }
-        if ($key === 'solo') {
-            if (stripos($nextPoints, 'One location') === false && stripos($nextPoints, 'Head office') === false) {
-                $nextPoints = preg_replace('/^1 company admin login\s*$/mi', "1 company admin login\nOne location: Head office", $nextPoints) ?? $nextPoints;
-                if (stripos($nextPoints, 'One location') === false) {
-                    $nextPoints = trim($nextPoints) . "\nOne location: Head office";
-                }
-            }
-        } else {
-            $replaced = preg_replace('/^Branches:.*$/mi', $branchLine, $nextPoints);
-            $nextPoints = is_string($replaced) ? $replaced : $nextPoints;
-            if (stripos($nextPoints, 'Branches:') === false && stripos($nextPoints, 'named shop') === false) {
-                $nextPoints = trim($nextPoints) . "\n" . $branchLine;
-            }
-        }
-        if ($nextPoints === $points && $nextLead === $lead) {
-            continue;
-        }
-        $stmt = $db->prepare('UPDATE landing_packages SET points=?, lead=? WHERE id=?');
+    foreach ($packages as $key => $want) {
+        $name = $want['name'];
+        $cta = $want['cta'];
+        $seats = (int) $want['seats'];
+        $lead = $want['lead'];
+        $points = $want['points'];
+        $stmt = $db->prepare('UPDATE landing_packages SET name=?, cta=?, seats=?, lead=?, points=? WHERE pkg_key=?');
         if (!$stmt) {
             continue;
         }
-        $id = (int) $row['id'];
-        $stmt->bind_param('ssi', $nextPoints, $nextLead, $id);
+        $stmt->bind_param('ssisss', $name, $cta, $seats, $lead, $points, $key);
         $stmt->execute();
+        if ($stmt->affected_rows > 0) {
+            $changed = true;
+        }
         $stmt->close();
-        $changed = true;
     }
+    @$db->query("REPLACE INTO schema_meta (k, v) VALUES ('pkg_copy_vellisys', '2')");
     if ($changed && function_exists('folio_cache_bust')) {
         folio_cache_bust();
     }
@@ -319,6 +333,7 @@ function folio_migrate(mysqli $db): void
     folio_ensure_party_status($db);
     folio_ensure_branches($db);
     folio_ensure_trust_logos($db);
+    folio_ensure_user_limits($db);
     folio_ensure_package_branch_copy($db);
     folio_ensure_signature($db);
     folio_ensure_brand_assets($db);
