@@ -164,6 +164,7 @@ function layout_start(string $title, array $user, array $opts = []): void
         <?php render_top_clock(); ?>
       </div>
       <div class="top-actions">
+        <a class="header-settings<?= in_array($here, ['settings.php', 'branding.php'], true) ? ' is-on' : '' ?>" href="<?= h(url('settings.php')) ?>" title="Settings" aria-label="Settings"><?= icon('settings', 20) ?></a>
         <?php if (company_planner_enabled() && is_desk_admin()): ?>
           <details class="top-bell">
             <summary class="header-settings<?= $noteCount ? ' has-badge' : '' ?>" title="Notifications" aria-label="Notifications">
@@ -352,6 +353,10 @@ function render_desk_calculator(): void
     ?>
 <div class="desk-calc" data-desk-calc>
   <div class="desk-calc-pad" data-calc-pad hidden>
+    <div class="desk-calc-head">
+      <strong>Calculator</strong>
+      <button type="button" class="desk-calc-close" data-calc-toggle aria-label="Close calculator"><?= icon('x', 18) ?></button>
+    </div>
     <div class="desk-calc-tools">
       <button type="button" class="desk-calc-tool" data-calc="history"><?= icon('clock', 16) ?> History</button>
       <button type="button" class="desk-calc-tool" data-calc="copy"><?= icon('copy', 16) ?> Copy</button>
@@ -388,20 +393,9 @@ function render_app_tabbar(): void
 {
     $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
     $kind = (string) ($_GET['kind'] ?? '');
-    $kinds = desk_kind_nav_items();
-    $docKind = 'invoice';
-    foreach ($kinds as $item) {
-        if (($item[3] ?? '') === 'invoice') {
-            $docKind = 'invoice';
-            break;
-        }
-        $docKind = (string) ($item[3] ?? $docKind);
-    }
-    $docsHref = 'documents.php?kind=' . $docKind;
     $reportsHref = function_exists('user_can_open') && user_can_open('reports.php') ? 'reports.php' : 'debtors.php';
     $homeOn = $here === 'dashboard.php';
-    $docsOn = in_array($here, ['documents.php', 'document_view.php', 'document_new.php', 'document_email.php', 'document_action.php'], true)
-        && !in_array($kind, ['refund', 'return_note'], true);
+    $clientsOn = in_array($here, ['clients.php', 'client_view.php', 'client_edit.php'], true);
     $repOn = in_array($here, ['reports.php', 'pnl.php', 'pnl_entries.php', 'debtors.php', 'creditors.php'], true)
         || in_array($kind, ['refund', 'return_note'], true);
     ?>
@@ -409,10 +403,10 @@ function render_app_tabbar(): void
   <a class="app-tab<?= $homeOn ? ' is-on' : '' ?>" href="<?= h(url('dashboard.php')) ?>">
     <?= icon('home', 22) ?><span>Home</span>
   </a>
-  <a class="app-tab<?= $docsOn ? ' is-on' : '' ?>" href="<?= h(url($docsHref)) ?>">
-    <?= icon('file', 22) ?><span>Documents</span>
+  <a class="app-tab<?= $clientsOn ? ' is-on' : '' ?>" href="<?= h(url('clients.php')) ?>">
+    <?= icon('building', 22) ?><span>Clients</span>
   </a>
-  <button type="button" class="app-tab app-tab-create" data-quick aria-label="Create a document">
+  <button type="button" class="app-tab app-tab-create" data-quick aria-label="Create">
     <span class="app-tab-plus"><?= icon('plus', 26) ?></span>
     <span>Create</span>
   </button>
@@ -434,12 +428,45 @@ function layout_end(string $extra = ''): void
   </div>
 </div>
 
-<?php if (!$admin): ?>
+<?php if (!$admin):
+    $createItems = desk_kind_nav_items();
+    $createLead = [];
+    $createMore = [];
+    foreach ($createItems as $item) {
+        $qKind = (string) ($item[3] ?? '');
+        if (in_array($qKind, ['invoice', 'quotation'], true)) {
+            $createLead[] = $item;
+        } else {
+            $createMore[] = $item;
+        }
+    }
+    ?>
+<div class="quick-scrim" hidden data-quick-scrim></div>
 <div class="quick" hidden data-quick-panel>
-  <p>Create</p>
-  <?php foreach (desk_kind_nav_items() as [$href, $label, $iconName, $qKind]): ?>
+  <div class="quick-head">
+    <div>
+      <strong>Create</strong>
+      <span>Pick a document or a client</span>
+    </div>
+    <button type="button" class="quick-close" data-quick-close aria-label="Close"><?= icon('x', 18) ?></button>
+  </div>
+  <?php if ($createLead): ?>
+  <div class="quick-featured">
+    <?php foreach ($createLead as [$href, $label, $iconName, $qKind]): ?>
+      <a class="quick-card<?= $qKind === 'invoice' ? ' is-primary' : '' ?>" href="<?= h(url('document_new.php?kind=' . $qKind)) ?>">
+        <?= icon($iconName, 20) ?>
+        <span><?= h(kind_meta($qKind)['singular']) ?></span>
+      </a>
+    <?php endforeach; ?>
+  </div>
+  <?php endif; ?>
+  <?php if ($createMore): ?>
+  <p>More documents</p>
+  <?php foreach ($createMore as [$href, $label, $iconName, $qKind]): ?>
     <a href="<?= h(url('document_new.php?kind=' . $qKind)) ?>"><?= icon($iconName) ?><?= h($qKind === 'expense' ? 'Expense' : kind_meta($qKind)['singular']) ?></a>
   <?php endforeach; ?>
+  <?php endif; ?>
+  <p>Workspace</p>
   <a href="<?= h(url('desk_mail.php')) ?>"><?= icon('send') ?>Email</a>
   <a href="<?= h(url('client_edit.php')) ?>"><?= icon('clients') ?>Client</a>
 </div>

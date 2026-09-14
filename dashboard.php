@@ -151,7 +151,7 @@ layout_start('Desk', $user);
   <div class="desk-hello">
     <p class="desk-kicker"><?= h($brand['name']) ?></p>
     <h1 class="desk-hello-title"><?= h($hello) ?> <?= h($firstName) ?></h1>
-    <p class="desk-hello-lead">This month at a glance — invoices, collections, spend and who still owes you.</p>
+    <p class="desk-hello-lead">This month at a glance - invoices, collections, spend and who still owes you.</p>
     <div class="desk-fx">
       <div>
         <span>Main currency</span>

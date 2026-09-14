@@ -15,14 +15,32 @@ document.addEventListener('click', function (e) {
     if (!el.contains(e.target)) el.removeAttribute('open');
   });
   var q = e.target.closest('[data-quick]');
+  var qClose = e.target.closest('[data-quick-close], [data-quick-scrim]');
   var panel = document.querySelector('[data-quick-panel]');
+  var scrim = document.querySelector('[data-quick-scrim]');
+  function setQuick(open) {
+    if (panel) panel.hidden = !open;
+    if (scrim) scrim.hidden = !open;
+    document.body.classList.toggle('quick-open', !!(panel && !panel.hidden));
+  }
   if (q) {
     e.preventDefault();
-    if (panel) panel.hidden = !panel.hidden;
+    var opening = !panel || panel.hidden;
+    setQuick(opening);
+    if (opening) {
+      var calcPad = document.querySelector('[data-calc-pad]');
+      if (calcPad) calcPad.hidden = true;
+      document.body.classList.remove('calc-open');
+    }
     return;
   }
-  if (panel && !panel.contains(e.target)) {
-    panel.hidden = true;
+  if (qClose) {
+    e.preventDefault();
+    setQuick(false);
+    return;
+  }
+  if (panel && !panel.hidden && !panel.contains(e.target)) {
+    setQuick(false);
   }
 
   var toggle = e.target.closest('[data-nav-toggle]');
@@ -1149,6 +1167,7 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
   });
   function setOpen(open) {
     pad.hidden = !open;
+    document.body.classList.toggle('calc-open', open);
     document.querySelectorAll('[data-calc-toggle]').forEach(function (el) {
       el.setAttribute('aria-label', pad.hidden ? 'Open calculator' : 'Close calculator');
       el.classList.toggle('is-on', !pad.hidden);
@@ -1158,6 +1177,11 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
     var t = e.target.closest('[data-calc-toggle]');
     if (!t) return;
     e.preventDefault();
+    var panel = document.querySelector('[data-quick-panel]');
+    var scrim = document.querySelector('[data-quick-scrim]');
+    if (panel) panel.hidden = true;
+    if (scrim) scrim.hidden = true;
+    document.body.classList.remove('quick-open');
     setOpen(pad.hidden);
   });
 })();
