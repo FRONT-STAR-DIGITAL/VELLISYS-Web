@@ -1,6 +1,6 @@
 # Vellisys
 
-Branded books for companies anywhere in the world - quotations, invoices, receipts, expenses and headed correspondence in the company's own logo, colour and currency. One desk, everything included. Built for East Africa and used across Africa and worldwide.
+Branded books for companies anywhere in the world - quotations, invoices, receipts, expenses and headed letters in the company's own logo, colour and currency. One desk, everything included. Built for East Africa and used across Africa and worldwide.
 
 This is a **PHP + MySQL** desk meant to run on **XAMPP**. There is no Node or Next.js. Copy the folder, start Apache and MySQL, open the installer.
 
@@ -47,14 +47,14 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - **Any currency** on the desk - the company enters UGX, KES, EUR, USD or another three-letter code in Settings. Documents can also be in USD; the rate is 1 USD = n of the home currency
 - **One document design** for the whole desk - the layout you pick in Settings prints on every invoice, quotation, receipt, expense and headed note
 - **Three brand colours** (primary, accent, deep) that paint the desk and every document design
-- **CSV export** on invoices, quotations, receipts, expenses, correspondence, debtors, creditors, clients, reports, and on a single document's lines
+- **CSV export** on invoices, quotations, receipts, expenses, letters, debtors, creditors, clients, reports, and on a single document's lines
 - Quotations convert to invoices; invoices take full or **part receipts**; unpaid balances stay on Debtors
 - Every document can be edited after it is saved
 - Print and share a clean sheet - no desk chrome, dates or page URLs around the paper
 - Line items are **Item**, **Description** (paragraph), **Qty**, **Unit price**, **Total Amt**, and **tax** as Y or N. If every line is N, tax is left off the printed sheet
 - Receipts show **RECEIVED** and **DUE**. The Receipts tab lists cleared and partially cleared payments
 - Static navigation; desk portals use the same pale wash as the public site, a faint blue V, and soft card shadows
-- **Correspondence** stays fully editable. Settings → Templates picks a document design (ledger, bills, twin copy, stripe, plus Estate cream and Lake night)
+- **Letters** print on the same document design as invoices. Download a Microsoft Word letterhead from Letters and type your own content. Starting texts stay fully editable
 - Expenses as cards; debtors and creditors as tables with totals
 - Date filters: today, this week, last week, this month, last month, plus from/to
 - Company reports with a time series, expense pie, debtors aging, collections vs outstanding, quote conversion, top clients billed, and documents issued over time

@@ -136,14 +136,14 @@ $lessons = [
     [
         'id' => 'letters',
         'icon' => 'letter',
-        'title' => 'Correspondence',
+        'title' => 'Letters',
         'file' => 'letter.png',
-        'alt' => 'Headed correspondence on company stationery',
-        'lead' => 'Headed notes - demands, cover letters, introductions - use the same logo as the invoices.',
+        'alt' => 'Headed letter on the company document design',
+        'lead' => 'Headed letters - demands, cover notes, introductions - use the same logo and document design as the invoices.',
         'points' => [
-            'Write the body on Correspondence. It stays editable. Pick a letter layout in Settings under Templates.',
-            'Email or print. Clients see you, not a generic PDF from an accounting package.',
-            'Custom notes that are not a headed sheet go from Email in the menu.',
+            'Write the body on Letters. It stays editable. The paper around it is the design you picked in Settings under Templates.',
+            'Download Word template when you want the company letterhead in Microsoft Word, then type your own content.',
+            'Print, share or email from the same row as any other document.',
         ],
     ],
     [
@@ -299,7 +299,7 @@ $lessons = [
         'points' => [
             'Corner bill and Accent bill put primary and accent triangles on the paper corners. Page frame and Inset border draw a rule around the A4 sheet. Thermal roll is 80mm for a receipt printer.',
             'Estate panel and Harbour block use solid colour bands - no fades, no washes - so they print cleanly. On a phone you see the same A4 sheet as print, scaled to fit.',
-            'Changing the design here reprints the whole books. Correspondence text stays editable; only the paper around it changes.',
+            'Changing the design here reprints the whole books, including letters. Letter text stays editable; only the paper around it changes.',
         ],
     ],
     [

@@ -28,7 +28,7 @@ layout_start('Clients', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('clients') ?>Clients</h1>
-    <p class="lede">Open a name to invoice, quote, receipt, write correspondence, or see their documents.</p>
+    <p class="lede">Open a name to invoice, quote, receipt, write a letter, or see their documents.</p>
   </div>
   <div class="actions">
     <a class="btn ghost" href="<?= h(export_query('clients')) ?>"><?= icon('download', 16) ?>Export CSV</a>

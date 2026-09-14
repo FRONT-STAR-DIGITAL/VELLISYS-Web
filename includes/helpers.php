@@ -1024,7 +1024,7 @@ function selectable_document_kinds(): array
         'invoice' => 'Invoices',
         'receipt' => 'Receipts',
         'delivery' => 'Delivery notes',
-        'letter' => 'Headed letters',
+        'letter' => 'Letters',
         'custom' => 'Custom documents',
     ];
 }
@@ -1163,7 +1163,7 @@ function kind_meta(string $kind): array
         'receipt' => ['title' => 'Receipts', 'singular' => 'Receipt', 'heading' => 'RECEIPT', 'verb' => 'New receipt'],
         'delivery' => ['title' => 'Delivery notes', 'singular' => 'Delivery note', 'heading' => 'DELIVERY NOTE', 'verb' => 'New delivery note'],
         'expense' => ['title' => 'Expenses', 'singular' => 'Expense', 'heading' => 'EXPENSE', 'verb' => 'Record expense'],
-        'letter' => ['title' => 'Correspondence', 'singular' => 'Letter', 'heading' => '', 'verb' => 'New letter'],
+        'letter' => ['title' => 'Letters', 'singular' => 'Letter', 'heading' => 'LETTER', 'verb' => 'New letter'],
         'refund' => ['title' => 'Refunds', 'singular' => 'Refund', 'heading' => 'REFUND', 'verb' => 'Record refund'],
         'return_note' => ['title' => 'Return notes', 'singular' => 'Return note', 'heading' => 'RETURN NOTE', 'verb' => 'New return note'],
         default => ['title' => 'Documents', 'singular' => 'Document', 'heading' => 'DOCUMENT', 'verb' => 'New'],
@@ -1202,9 +1202,6 @@ function kind_nav_label(string $kind): string
     }
     if ($kind === 'expense') {
         return 'Expenses';
-    }
-    if ($kind === 'letter') {
-        return 'Correspondence';
     }
     if ($kind === 'refund') {
         return 'Refunds';
@@ -2827,7 +2824,7 @@ function desk_manage_items(): array
         ['icon' => 'file', 'title' => 'Custom documents', 'body' => 'A form you define at onboarding - fields, a body, or both - on the same branded paper.'],
         ['icon' => 'clients', 'title' => 'Debtors', 'body' => 'See who still owes you. Send a reminder from the row, from the company mailbox.'],
         ['icon' => 'bank', 'title' => 'Creditors', 'body' => 'Track suppliers you still need to pay. Note a payment or write to them from the desk.'],
-        ['icon' => 'letter', 'title' => 'Headed letters', 'body' => 'Correspondence on the same stationery as the books. Print or email in one click.'],
+        ['icon' => 'letter', 'title' => 'Letters', 'body' => 'Headed letters on the same document design as the books. Print, email, or download a Word letterhead and type your own content.'],
         ['icon' => 'send', 'title' => 'Send emails', 'body' => 'Quotations, invoices, receipts, letters and reminders leave from your assigned mailbox.'],
         ['icon' => 'palette', 'title' => '15 layouts', 'body' => 'Pick Folio, page borders, an 80mm thermal roll, Twin copy, watermarks and more. The whole books follow that layout.'],
         ['icon' => 'image', 'title' => 'Your company branding', 'body' => 'Logo, three colours, letterhead. Every document looks like it left your office.'],

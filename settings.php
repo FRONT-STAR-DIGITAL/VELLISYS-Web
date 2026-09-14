@@ -408,7 +408,7 @@ layout_start('Settings', $user);
 
     <section class="card settings-card" id="templates">
       <h2><?= icon('palette') ?>Document designs</h2>
-      <p class="lede">Fifteen layouts on white paper with black type and your brand colours. The preview is the printed sheet. On small screens A4 pages are scaled to fit. Page frame and Inset border put a rule around the paper. Thermal roll is an 80mm receipt for a kitchen or shop printer. Logo watermark and Bond watermark print the company mark faintly. Changing the design here reprints the whole books.</p>
+      <p class="lede">Fifteen layouts on white paper with black type and your brand colours. The preview is the printed sheet. This design prints on invoices, quotations, receipts and letters. On small screens A4 pages are scaled to fit. Page frame and Inset border put a rule around the paper. Thermal roll is an 80mm receipt for a kitchen or shop printer. Logo watermark and Bond watermark print the company mark faintly. Changing the design here reprints the whole books.</p>
       <?php $letterTpls = letter_templates(true); ?>
       <label class="check">
         <input type="hidden" name="logo_bg" value="0">
@@ -436,8 +436,8 @@ layout_start('Settings', $user);
         <?php endforeach; ?>
       </div>
 
-      <h2 style="margin-top:28px"><?= icon('letter') ?>Correspondence copy</h2>
-      <p class="lede">The note itself stays 100% editable when you write it. These are starting texts only. Put <code>{company}</code> where the company name should appear. Open one tab at a time - Save still stores every letter and email template.</p>
+      <h2 style="margin-top:28px"><?= icon('letter') ?>Letter starting texts</h2>
+      <p class="lede">The letter itself stays fully editable when you write it. These are starting texts only. Put <code>{company}</code> where the company name should appear. Open one tab at a time - Save still stores every letter and email template. Download a blank Word letterhead from Letters when you need to finish a note in Microsoft Word.</p>
       <div class="tpl-tabs" data-tpl-tabs>
         <div class="tpl-tab-bar" data-tpl-tab-bar>
           <?php foreach ($letterTpls as $key => $tpl): ?>

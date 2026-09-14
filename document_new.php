@@ -185,7 +185,7 @@ layout_start($heading, $user, ['kind' => $kind]);
       if ($existing) {
           echo 'Number stays the same. Change the client, lines, dates or design, then save.';
       } elseif ($kind === 'letter') {
-          echo 'Pick a headed template, then write a subject and body. This is stationery, not a receipt.';
+          echo 'Pick a headed starting text, then write a subject and body. The letter prints on the same document design as invoices. Download the Word letterhead if you need to finish it in Microsoft Word.';
       } elseif ($kind === 'custom') {
           echo h($customDef['title']) . ' - fill the fields this company uses' . (!empty($customDef['has_body']) ? ', then the body if you need it' : '') . '.';
       } elseif ($kind === 'delivery') {
@@ -203,6 +203,11 @@ layout_start($heading, $user, ['kind' => $kind]);
       }
     ?></p>
   </div>
+  <?php if ($kind === 'letter'): ?>
+  <div class="actions page-actions">
+    <a class="btn ghost" href="<?= h(url('letter_docx.php' . ($existing ? '?id=' . (int) $existing['id'] : ''))) ?>"><?= icon('download', 16) ?>Word template</a>
+  </div>
+  <?php endif; ?>
 </div>
 
 <form class="card form-wide document-form" method="post" <?= $kind === 'letter' ? 'data-letter-templates' : '' ?> <?= $kind === 'receipt' ? 'data-receipt-form' : '' ?> data-fx-form data-fx-home="<?= h(default_currency()) ?>" data-tax-rate="<?= h((string) $vatDefault) ?>" data-party-book="<?= h(json_encode($partyBook, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}') ?>">
@@ -319,7 +324,7 @@ layout_start($heading, $user, ['kind' => $kind]);
         <p class="hint">USD converts into <?= h(default_currency()) ?> at this rate. Other currencies stay as entered.</p>
       </div>
     <?php endif; ?>
-    <?php if (!kind_is_stationery($kind) && $kind !== 'expense'): ?>
+    <?php if ($kind !== 'custom' && $kind !== 'expense'): ?>
     <div>
       <label for="doc_template">Design</label>
       <select id="doc_template" name="doc_template">
@@ -327,7 +332,7 @@ layout_start($heading, $user, ['kind' => $kind]);
           <option value="<?= h($key) ?>" <?= $docTpl === $key ? 'selected' : '' ?>><?= h($info['name']) ?></option>
         <?php endforeach; ?>
       </select>
-      <p class="hint">This layout is used on every document, not only this one.</p>
+      <p class="hint">This layout prints on invoices, quotations, receipts and letters.</p>
     </div>
     <?php endif; ?>
     <?php if ($kind === 'expense'): ?>

@@ -88,7 +88,7 @@ function record_site_visit(?string $script = null): void
         return;
     }
     $script = $script ?? basename((string) ($_SERVER['SCRIPT_NAME'] ?? ''));
-    if (in_array($script, ['document_pdf.php', 'export.php', 'sw.js', 'manifest.php'], true)) {
+    if (in_array($script, ['document_pdf.php', 'letter_docx.php', 'export.php', 'sw.js', 'manifest.php'], true)) {
         return;
     }
     if (!function_exists('db') || !function_exists('db_has_column')) {

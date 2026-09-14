@@ -157,6 +157,9 @@ function user_can_open(string $script, string $kind = ''): bool
         }
         return user_can_kind($kind);
     }
+    if ($script === 'letter_docx.php') {
+        return user_can_kind('letter');
+    }
     if ($script === 'export.php') {
         return $kind === '' || user_can_kind($kind);
     }

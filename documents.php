@@ -53,7 +53,7 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
       <?php if ($kind === 'expense'): ?>
         Company spending - open a row to see the expense details. Not a bill sent to a client.
       <?php elseif ($kind === 'letter'): ?>
-        Headed notes with a subject and body. They are stationery, not a receipt.
+        Headed letters with a subject and body, on the same document design as the rest of the books. Download a Word letterhead when you need to type the rest in Microsoft Word.
       <?php elseif ($kind === 'custom'): ?>
         <?= h($meta['singular']) ?> using the fields set when this company was onboarded.
       <?php elseif ($kind === 'delivery'): ?>
@@ -66,6 +66,9 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
     </p>
   </div>
   <div class="actions">
+    <?php if ($kind === 'letter'): ?>
+      <a class="btn ghost" href="<?= h(url('letter_docx.php')) ?>"><?= icon('download', 16) ?>Word template</a>
+    <?php endif; ?>
     <a class="btn ghost" href="<?= h(export_query('documents', ['kind' => $kind])) ?>"><?= icon('download', 16) ?>Export CSV</a>
     <a class="btn" href="<?= h(url('document_new.php?kind=' . $kind)) ?>"><?= icon(document_kind_icon($kind)) ?><?= h($meta['verb']) ?></a>
   </div>

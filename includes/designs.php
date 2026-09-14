@@ -20,6 +20,14 @@ function sheet_data(array $brand, array $doc): array
     $balance = (float) ($doc['balance'] ?? $total);
     $method = (string) ($doc['payment_method'] ?? '');
     $settlement = $doc['settlement'] ?? receipt_settlement($doc);
+    $heading = '';
+    if (($doc['kind'] ?? '') === 'custom') {
+        $heading = kind_meta('custom')['heading'];
+    } elseif (($doc['kind'] ?? '') === 'letter') {
+        $heading = letter_heading($doc);
+    } else {
+        $heading = kind_meta($doc['kind'])['heading'];
+    }
     return [
         'brand' => $brand,
         'doc' => $doc,
@@ -30,9 +38,7 @@ function sheet_data(array $brand, array $doc): array
         'tint' => $palette['tint'],
         'accent_tint' => $palette['accent_tint'],
         'vars' => brand_css_vars($brand),
-        'heading' => kind_is_stationery($doc['kind'] ?? '')
-            ? (($doc['kind'] ?? '') === 'custom' ? kind_meta('custom')['heading'] : '')
-            : kind_meta($doc['kind'])['heading'],
+        'heading' => $heading,
         'items' => $items,
         'net' => $net,
         'vat' => $vat,
@@ -255,7 +261,7 @@ function render_letter_body(array $doc): void
 function render_print_document_page(array $doc, bool $pdf = false): void
 {
     $brand = branding();
-    $thermal = doc_template_key($doc) === 'thermal' && !kind_is_stationery($doc['kind'] ?? '');
+    $thermal = doc_template_key($doc) === 'thermal' && ($doc['kind'] ?? '') !== 'custom' && ($doc['kind'] ?? '') !== 'expense';
     ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -997,24 +1003,28 @@ function render_sheet_frame(array $d): void
       <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
       <div class="bar" style="background:<?= h($d['color']) ?>"><?= kind_shows_money($doc['kind'] ?? '') ? 'BILL TO' : 'TO' ?></div>
       <div class="d-party"><?php render_party_contact($doc); ?></div>
-      <?php render_line_table($doc, $d['color'], $d['tint']); ?>
-      <div class="d-split">
-        <div class="d-notes">
-          <div class="bar" style="background:<?= h($d['color']) ?>">OTHER COMMENTS</div>
-          <div class="d-notes-body"><?= h($d['comments']) ?></div>
-        </div>
-        <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
-        <div class="d-sums">
-          <div class="d-sum"><span>Subtotal</span><span><?= h(money($d['net'], $d['cur'])) ?></span></div>
-          <?php if (!empty($d['show_vat'])): ?>
-            <div class="d-sum"><span><?= h($d['tax_label']) ?></span><span><?= h(money($d['vat'], $d['cur'])) ?></span></div>
+      <?php if (($doc['kind'] ?? '') === 'letter'): ?>
+        <?php render_letter_body($doc); ?>
+      <?php else: ?>
+        <?php render_line_table($doc, $d['color'], $d['tint']); ?>
+        <div class="d-split">
+          <div class="d-notes">
+            <div class="bar" style="background:<?= h($d['color']) ?>">OTHER COMMENTS</div>
+            <div class="d-notes-body"><?= h($d['comments']) ?></div>
+          </div>
+          <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
+          <div class="d-sums">
+            <div class="d-sum"><span>Subtotal</span><span><?= h(money($d['net'], $d['cur'])) ?></span></div>
+            <?php if (!empty($d['show_vat'])): ?>
+              <div class="d-sum"><span><?= h($d['tax_label']) ?></span><span><?= h(money($d['vat'], $d['cur'])) ?></span></div>
+            <?php endif; ?>
+            <div class="d-total"><span>Total</span><span><?= h(money($d['total'], $d['cur'])) ?></span></div>
+            <?php render_fx_equiv($d); ?>
+            <?php render_settlement($d); ?>
+          </div>
           <?php endif; ?>
-          <div class="d-total"><span>Total</span><span><?= h(money($d['total'], $d['cur'])) ?></span></div>
-          <?php render_fx_equiv($d); ?>
-          <?php render_settlement($d); ?>
         </div>
-        <?php endif; ?>
-      </div>
+      <?php endif; ?>
       <footer class="d-foot">
         <p><?= h($brand['phone']) ?> · <?= h($brand['email']) ?></p>
         <p class="thanks">Thank You For Your Business!</p>
@@ -1058,23 +1068,27 @@ function render_sheet_inset(array $d): void
       <span><?= kind_shows_money($doc['kind'] ?? '') ? 'Bill to' : 'To' ?></span>
       <?php render_party_contact($doc); ?>
     </div>
-    <?php render_line_table($doc, $d['deep'], $d['tint']); ?>
-    <div class="d-split">
-      <div class="d-notes">
-        <div class="d-notes-body"><?= h($d['comments'] ?: ($brand['payment_note'] ?? '')) ?></div>
-      </div>
-      <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
-      <div class="d-sums">
-        <div class="d-sum"><span>Subtotal</span><span><?= h(money($d['net'], $d['cur'])) ?></span></div>
-        <?php if (!empty($d['show_vat'])): ?>
-          <div class="d-sum"><span><?= h($d['tax_label']) ?></span><span><?= h(money($d['vat'], $d['cur'])) ?></span></div>
+    <?php if (($doc['kind'] ?? '') === 'letter'): ?>
+      <?php render_letter_body($doc); ?>
+    <?php else: ?>
+      <?php render_line_table($doc, $d['deep'], $d['tint']); ?>
+      <div class="d-split">
+        <div class="d-notes">
+          <div class="d-notes-body"><?= h($d['comments'] ?: ($brand['payment_note'] ?? '')) ?></div>
+        </div>
+        <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
+        <div class="d-sums">
+          <div class="d-sum"><span>Subtotal</span><span><?= h(money($d['net'], $d['cur'])) ?></span></div>
+          <?php if (!empty($d['show_vat'])): ?>
+            <div class="d-sum"><span><?= h($d['tax_label']) ?></span><span><?= h(money($d['vat'], $d['cur'])) ?></span></div>
+          <?php endif; ?>
+          <div class="d-total"><span>Total</span><span><?= h(money($d['total'], $d['cur'])) ?></span></div>
+          <?php render_fx_equiv($d); ?>
+          <?php render_settlement($d); ?>
+        </div>
         <?php endif; ?>
-        <div class="d-total"><span>Total</span><span><?= h(money($d['total'], $d['cur'])) ?></span></div>
-        <?php render_fx_equiv($d); ?>
-        <?php render_settlement($d); ?>
       </div>
-      <?php endif; ?>
-    </div>
+    <?php endif; ?>
   </div>
 </article>
 <?php
@@ -1098,18 +1112,22 @@ function render_sheet_thermal(array $d): void
   <p class="thermal-meta"><?= h($doc['number']) ?><br><?= h(format_date($doc['date'])) ?><?php if (!empty($doc['due_date'])): ?><br>Due <?= h(format_date($doc['due_date'])) ?><?php endif; ?></p>
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID</p><?php endif; ?>
   <p class="thermal-to"><span>To</span> <?= h($doc['party_name'] ?? '') ?></p>
-  <?php render_line_table($doc, '#111', '#f4f4f4', ['compact' => true, 'min' => 1, 'class' => 'thermal-lines']); ?>
-  <?php if (kind_shows_money($doc['kind'] ?? '') && !$qtyOnly): ?>
-  <div class="thermal-sums">
-    <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
-    <?php if (!empty($d['show_vat'])): ?>
-      <div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div>
+  <?php if (($doc['kind'] ?? '') === 'letter'): ?>
+    <?php render_letter_body($doc); ?>
+  <?php else: ?>
+    <?php render_line_table($doc, '#111', '#f4f4f4', ['compact' => true, 'min' => 1, 'class' => 'thermal-lines']); ?>
+    <?php if (kind_shows_money($doc['kind'] ?? '') && !$qtyOnly): ?>
+    <div class="thermal-sums">
+      <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
+      <?php if (!empty($d['show_vat'])): ?>
+        <div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div>
+      <?php endif; ?>
+      <div class="thermal-total"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
+    </div>
     <?php endif; ?>
-    <div class="thermal-total"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
-  </div>
-  <?php endif; ?>
-  <?php if (trim((string) $d['comments']) !== ''): ?>
-    <p class="thermal-note"><?= h($d['comments']) ?></p>
+    <?php if (trim((string) $d['comments']) !== ''): ?>
+      <p class="thermal-note"><?= h($d['comments']) ?></p>
+    <?php endif; ?>
   <?php endif; ?>
   <p class="thermal-thanks">Thank you</p>
   <p class="thermal-foot"><?= h($brand['email']) ?></p>
@@ -1192,7 +1210,7 @@ function render_sheet(array $brand, array $doc): void
     }
     $d = sheet_data($brand, $doc);
     ob_start();
-    if (kind_is_stationery($doc['kind'] ?? '')) {
+    if (($doc['kind'] ?? '') === 'custom') {
         render_sheet_correspondence($d);
     } else {
         match (doc_template_key($doc)) {

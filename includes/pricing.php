@@ -67,7 +67,7 @@ function pricing_package_defaults(): array
                 'Everything in Quill',
                 'Expenses, creditors and delivery notes',
                 'Planner notes, budget, calendar, and tasks',
-                'Headed correspondence from the company mailbox',
+                'Headed letters from the company mailbox',
             ],
             'sort' => 20,
         ],
