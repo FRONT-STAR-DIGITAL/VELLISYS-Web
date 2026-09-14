@@ -161,7 +161,7 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
                     }
                     echo implode(' ', $parts);
                     if ($showVat && !empty($item['taxed'])) {
-                        echo '<span class="twin-vat">' . h($taxName) . '</span>';
+                        echo '<span class="twin-vat"> ' . h($taxName) . '</span>';
                     }
                 }
               ?></td>
