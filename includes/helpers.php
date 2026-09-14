@@ -1787,7 +1787,8 @@ function letter_heading(array $doc): string
     if ($key && isset($templates[$key])) {
         return $templates[$key]['heading'];
     }
-    return $doc['subject'] ?: 'NOTE';
+    $subject = trim((string) ($doc['subject'] ?? ''));
+    return $subject !== '' ? $subject : 'LETTER';
 }
 
 function period_range(): array

@@ -58,10 +58,24 @@
 .corr-meta span { display: block; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #555; }
 .corr-kind { margin: 0 0 10px; font-size: 20px; font-weight: 800; letter-spacing: .04em; }
 .corr-rule { border: 0; border-top: 2px solid var(--brand, #1e4eff); margin: 18px 0 22px; }
-.corr-to { display: grid; gap: 8px; margin: 0 0 22px; }
-.corr-to > span { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #555; }
-.corr-subject { font-size: 17px; font-weight: 700; line-height: 1.35; margin: 0 0 12px; }
-.corr-subject span { font-weight: 800; margin-right: 6px; }
+.corr-to { display: grid; gap: 6px; margin: 0 0 22px; }
+.corr-to > span { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #666; }
+.corr-subject {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.3;
+  margin: 0 0 16px;
+  color: var(--brand, #1e4eff);
+}
+.corr-subject span {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: #555;
+  margin: 0 0 4px;
+}
 .corr-fields { display: grid; gap: 10px 24px; grid-template-columns: 1fr 1fr; margin: 0 0 22px; }
 .corr-fields div { display: grid; gap: 2px; }
 .corr-fields dt { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #555; }
@@ -88,11 +102,29 @@
 .d-lines.tiny td { min-height: 22px; height: auto; padding: 4px 6px; }
 .d-letter { padding: 8px 4px 24px; }
 .d-letter-sub {
-  font-size: 17px;
+  font-size: 20px;
   font-weight: 800;
-  letter-spacing: .02em;
+  letter-spacing: .01em;
   line-height: 1.3;
-  margin: 0 0 10px;
+  margin: 4px 0 16px;
+  color: var(--brand, #1e4eff);
+}
+.d-letter-sub span {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: #555;
+  margin: 0 0 4px;
+}
+.d-letter-to { margin: 0 0 6px; }
+.d-letter-to span {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #666;
 }
 .d-letter-body { line-height: 1.45; font-size: 13px; }
 .d-lines td.desc { white-space: pre-wrap; word-break: break-word; line-height: 1.45; }

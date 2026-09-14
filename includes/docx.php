@@ -154,11 +154,12 @@ function letter_docx_bytes(?array $doc = null): string
         . '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>'
         . docx_p($heading, ['size' => 28, 'bold' => true, 'color' => $color, 'after' => 200])
         . docx_p($date . ($ref !== '' ? '    Ref: ' . $ref : ''), ['size' => 22, 'after' => 240])
-        . docx_p('To', ['size' => 18, 'bold' => true, 'color' => '555555', 'after' => 40])
+        . docx_p('Subject', ['size' => 16, 'bold' => true, 'color' => '555555', 'after' => 20])
+        . docx_p($subject, ['size' => 28, 'bold' => true, 'color' => $color, 'after' => 240])
+        . docx_p('To', ['size' => 16, 'bold' => true, 'color' => '666666', 'after' => 40])
         . docx_p($toName, ['size' => 22, 'bold' => true, 'after' => 40])
         . ($toAddr !== '' ? docx_p($toAddr, ['size' => 20, 'after' => 40]) : '')
-        . ($toContact !== '' ? docx_p($toContact, ['size' => 20, 'after' => 200]) : docx_p('', ['after' => 200]))
-        . docx_p('Subject: ' . $subject, ['size' => 22, 'bold' => true, 'after' => 280])
+        . ($toContact !== '' ? docx_p($toContact, ['size' => 20, 'after' => 280]) : docx_p('', ['after' => 280]))
         . docx_p($body, ['size' => 22, 'after' => 200])
         . '<w:sectPr>'
         . '<w:headerReference w:type="default" r:id="rId1"/>'

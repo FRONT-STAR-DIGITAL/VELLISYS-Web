@@ -100,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'payment_ref' => post('payment_ref') ?: null,
         'allocated_amount' => in_array($kind, ['receipt', 'refund'], true) ? $allocPosted : null,
         'expense_category' => post('expense_category') ?: null,
-        'letter_template' => post('letter_template') ?: null,
+        'letter_template' => (post('letter_template') === '' || post('letter_template') === 'none') ? null : (post('letter_template') ?: null),
         'doc_template' => doc_template_key(),
         'items' => $items,
         'custom_values' => $customValues,
@@ -136,16 +136,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$tplKey = $existing['letter_template'] ?? ($_GET['template'] ?? post('letter_template') ?: 'demand');
 $templates = letter_templates();
-if (!isset($templates[$tplKey])) {
-    $tplKey = 'demand';
+if ($existing && $kind === 'letter') {
+    $tplKey = trim((string) ($existing['letter_template'] ?? ''));
+    if ($tplKey === '' || !isset($templates[$tplKey])) {
+        $tplKey = 'none';
+    }
+} else {
+    $tplKey = trim((string) ($_GET['template'] ?? post('letter_template') ?: 'none'));
+    if ($tplKey === '' || ($tplKey !== 'none' && !isset($templates[$tplKey]))) {
+        $tplKey = 'none';
+    }
 }
-$prefillTpl = $templates[$tplKey];
+$prefillTpl = ($tplKey !== 'none' && isset($templates[$tplKey]))
+    ? $templates[$tplKey]
+    : ['subject' => '', 'body' => '', 'title' => 'No template', 'heading' => ''];
 if ($existing && $kind === 'letter') {
     $prefillTpl['subject'] = (string) $existing['subject'];
     $prefillTpl['body'] = (string) $existing['body'];
-} elseif ($related && !$existing) {
+} elseif ($related && !$existing && $tplKey !== 'none') {
     $rel = load_document($related);
     if ($rel) {
         $prefillTpl['subject'] = $prefillTpl['subject'] . ' - ' . $rel['number'];
@@ -392,8 +401,14 @@ layout_start($heading, $user, ['kind' => $kind]);
   </div>
 
   <?php if ($kind === 'letter'): ?>
-    <label>Template</label>
+    <label>Starting text</label>
+    <p class="hint">Leave blank, or pick a starting text. Subject and body stay required either way.</p>
     <div class="template-grid">
+      <label class="template-card" data-subject="" data-body="">
+        <input type="radio" name="letter_template" value="none" <?= $tplKey === 'none' ? 'checked' : '' ?>>
+        <strong>No template</strong>
+        <em>Blank letter</em>
+      </label>
       <?php foreach ($templates as $key => $tpl): ?>
         <label class="template-card" data-subject="<?= h($tpl['subject']) ?>" data-body="<?= h($tpl['body']) ?>">
           <input type="radio" name="letter_template" value="<?= h($key) ?>" <?= $tplKey === $key ? 'checked' : '' ?>>
