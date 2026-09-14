@@ -35,6 +35,34 @@ function render_top_term(?array $company): void
     <?php
 }
 
+function render_page_loader(): void
+{
+    ?>
+<div class="page-loader" id="page-loader" role="status" aria-live="polite" aria-label="Loading">
+  <div class="page-loader-mark" aria-hidden="true">
+    <span class="page-loader-dot" style="--i:0"></span>
+    <span class="page-loader-dot" style="--i:1"></span>
+    <span class="page-loader-dot" style="--i:2"></span>
+    <span class="page-loader-dot" style="--i:3"></span>
+    <span class="page-loader-dot" style="--i:4"></span>
+    <span class="page-loader-dot" style="--i:5"></span>
+  </div>
+</div>
+<script>
+(function () {
+  var el = document.getElementById('page-loader');
+  if (!el) return;
+  window.setTimeout(function () {
+    el.classList.add('is-done');
+    window.setTimeout(function () {
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+    }, 220);
+  }, 1000);
+})();
+</script>
+    <?php
+}
+
 function layout_start(string $title, array $user, array $opts = []): void
 {
     $brand = branding();
@@ -95,6 +123,7 @@ function layout_start(string $title, array $user, array $opts = []): void
   <style>:root { <?= brand_css_vars() ?> }</style>
 </head>
 <body class="desk-body">
+<?php render_page_loader(); ?>
 <div class="app">
   <div class="nav-scrim" data-nav-scrim hidden></div>
   <aside class="nav" data-nav>
@@ -261,6 +290,7 @@ function layout_admin_start(string $title, array $user): void
   <style>:root { <?= product_css_vars() ?> }</style>
 </head>
 <body class="desk-body admin-body">
+<?php render_page_loader(); ?>
 <div class="app">
   <div class="nav-scrim" data-nav-scrim hidden></div>
   <aside class="nav" data-nav>

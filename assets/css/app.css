@@ -60,6 +60,53 @@ a:hover { text-decoration: underline; }
 img { max-width: 100%; display: block; }
 .icon { display: block; flex-shrink: 0; }
 
+.page-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--brand-ink, #08143A) 42%, transparent);
+  transition: opacity .2s ease, visibility .2s ease;
+}
+.page-loader.is-done {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.page-loader-mark {
+  width: 92px;
+  height: 92px;
+  border-radius: 18px;
+  background: var(--brand-ink, #08143A);
+  position: relative;
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--brand-ink, #08143A) 35%, transparent);
+}
+.page-loader-dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: var(--brand);
+  transform: rotate(calc(var(--i) * 60deg)) translateY(-22px);
+  animation: page-loader-pulse .9s ease-in-out infinite;
+  animation-delay: calc(var(--i) * .12s);
+}
+@keyframes page-loader-pulse {
+  0%, 80%, 100% { opacity: .22; }
+  40% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-loader-dot { animation: none; opacity: .85; }
+}
+@media print {
+  .page-loader { display: none !important; }
+}
+
 .desk-body {
   background-color: #f5f7fc;
   background-image: none;
