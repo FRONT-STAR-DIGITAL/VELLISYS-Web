@@ -47,6 +47,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msg .= ' Balance ' . money($done['balance']) . ' sits on Debtors.';
         }
         $_SESSION['stock_last_print'] = (int) $done['print_id'];
+        if (isset($_POST['do_print']) && (string) $_POST['do_print'] === '1' && (int) $done['print_id'] > 0) {
+            redirect('document_view.php?id=' . (int) $done['print_id'] . '&print=1');
+        }
         flash($msg);
         redirect('sale.php');
     }
@@ -63,11 +66,11 @@ layout_start('Sale', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('cart') ?>Sale</h1>
-    <p class="lede">Type the product. It fills in. Save stays on this page so the next customer is not waiting on print.</p>
+    <p class="lede">Type the product. It fills in. Save and print opens the slip. Save sale stays on this till.</p>
   </div>
   <?php if ($lastPrint): ?>
     <div class="actions page-actions">
-      <a class="btn ghost" href="<?= h(url('document_view.php?id=' . $lastPrint . '&print=1')) ?>" target="_blank" rel="noopener"><?= icon('printer', 16) ?>Print last</a>
+      <a class="btn ghost" href="<?= h(url('document_view.php?id=' . $lastPrint . '&print=1')) ?>"><?= icon('printer', 16) ?>Print last</a>
     </div>
   <?php endif; ?>
 </div>
@@ -138,9 +141,10 @@ layout_start('Sale', $user);
       </div>
     </div>
     <div class="actions sticky-save">
-      <button class="btn pos-save" type="submit" <?= $dayOpen ? '' : 'disabled' ?>><?= icon('check') ?>Save sale</button>
+      <button class="btn pos-save" type="submit" name="do_print" value="1" <?= $dayOpen ? '' : 'disabled' ?>><?= icon('printer') ?>Save and print</button>
+      <button class="btn" type="submit" <?= $dayOpen ? '' : 'disabled' ?>><?= icon('check') ?>Save sale</button>
       <?php if ($lastPrint): ?>
-        <a class="btn ghost" href="<?= h(url('document_view.php?id=' . $lastPrint . '&print=1')) ?>" target="_blank" rel="noopener"><?= icon('printer') ?>Print last</a>
+        <a class="btn ghost" href="<?= h(url('document_view.php?id=' . $lastPrint . '&print=1')) ?>"><?= icon('printer') ?>Print last</a>
       <?php endif; ?>
     </div>
   </div>

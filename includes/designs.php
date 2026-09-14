@@ -237,6 +237,9 @@ function inject_sheet_watermark(string $html, array $d, array $doc): string
     if (($doc['kind'] ?? '') === 'letter') {
         $html = preg_replace('/class="([^"]*invoice-sheet[^"]*)"/', 'class="$1 is-letter"', $html, 1) ?? $html;
     }
+    if (doc_template_key($doc) === 'thermal') {
+        return $html;
+    }
     if (!sheet_uses_watermark($doc)) {
         return $html;
     }
@@ -321,9 +324,6 @@ function render_print_document_page(array $doc, bool $pdf = false): void
       <?php render_sheet($brand, $doc); ?>
     </div>
   </div>
-  <?php if (!$pdf): ?>
-  <script src="<?= h(asset('js/sheet-fit.js')) ?>"></script>
-  <?php endif; ?>
   <script src="<?= h(asset('js/print-sheet.js')) ?>"></script>
 </body>
 </html>
@@ -1159,6 +1159,38 @@ function render_sheet_thermal(array $d): void
     $brand = $d['brand'];
     $doc = $d['doc'];
     $qtyOnly = in_array(($doc['kind'] ?? ''), ['delivery', 'return_note'], true);
+    $kind = (string) ($doc['kind'] ?? '');
+    $notes = trim((string) ($doc['notes'] ?? ''));
+    $isTill = $kind === 'receipt' || str_starts_with($notes, 'Sale');
+    $heading = $isTill ? 'Receipt' : (string) $d['heading'];
+    $slip = $doc;
+    if ($kind === 'receipt') {
+        $relatedId = (int) ($doc['related_id'] ?? 0);
+        if ($relatedId > 0) {
+            $inv = load_document($relatedId);
+            if ($inv && ($inv['kind'] ?? '') === 'invoice' && !empty($inv['items'])) {
+                $slip = $inv;
+                $d['net'] = doc_subtotal($inv['items']);
+                $d['vat'] = doc_vat($inv['items'], (float) ($inv['vat_rate'] ?? 0));
+                $d['total'] = $d['net'] + $d['vat'];
+                $d['show_vat'] = doc_shows_vat($inv);
+                $d['cur'] = doc_currency($inv);
+            }
+        }
+    }
+    $paid = (float) ($doc['kind'] === 'receipt'
+        ? (($doc['settlement']['received'] ?? $doc['allocated_amount'] ?? $d['total']))
+        : ($doc['paid'] ?? 0));
+    if ($kind === 'invoice' && $paid <= 0 && !empty($d['paid'])) {
+        $paid = (float) $d['paid'];
+    }
+    $due = max(0, round((float) $d['total'] - $paid, 2));
+    $comment = $notes;
+    if (!$isTill) {
+        $comment = (string) $d['comments'];
+    } elseif (strcasecmp($comment, 'Sale') === 0) {
+        $comment = '';
+    }
     ?>
 <article class="invoice-sheet sheet-thermal" style="<?= h($d['vars']) ?>">
   <header class="thermal-head">
@@ -1168,26 +1200,38 @@ function render_sheet_thermal(array $d): void
     <p><?= h($brand['phone']) ?></p>
     <?php if (!empty($brand['tin'])): ?><p>TIN <?= h($brand['tin']) ?></p><?php endif; ?>
   </header>
-  <p class="thermal-kind"><?= h($d['heading']) ?></p>
-  <p class="thermal-meta"><?= h($doc['number']) ?><br><?= h(format_date($doc['date'])) ?><?php if (!empty($doc['due_date'])): ?><br>Due <?= h(format_date($doc['due_date'])) ?><?php endif; ?></p>
+  <p class="thermal-kind"><?= h($heading) ?></p>
+  <p class="thermal-meta"><?= h($doc['number']) ?><br><?= h(format_date($doc['date'])) ?></p>
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID</p><?php endif; ?>
   <p class="thermal-to"><span>To</span> <?= h($doc['party_name'] ?? '') ?></p>
-  <?php if (($doc['kind'] ?? '') === 'letter'): ?>
+  <?php if ($kind === 'letter'): ?>
     <?php render_letter_subject($doc); ?>
     <?php render_letter_body($doc); ?>
   <?php else: ?>
-    <?php render_line_table($doc, '#111', '#f4f4f4', ['compact' => true, 'min' => 1, 'class' => 'thermal-lines']); ?>
-    <?php if (kind_shows_money($doc['kind'] ?? '') && !$qtyOnly): ?>
+    <?php render_line_table($slip, '#111', '#f4f4f4', ['compact' => true, 'min' => 1, 'class' => 'thermal-lines']); ?>
+    <?php if (kind_shows_money($slip['kind'] ?? $kind) && !$qtyOnly): ?>
     <div class="thermal-sums">
       <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
       <?php if (!empty($d['show_vat'])): ?>
         <div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div>
       <?php endif; ?>
       <div class="thermal-total"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
+      <?php if ($isTill): ?>
+        <div><span>Paid</span><b><?= h(money($paid, $d['cur'])) ?></b></div>
+        <?php if ($due > 0.009): ?>
+          <div><span>Due</span><b><?= h(money($due, $d['cur'])) ?></b></div>
+        <?php endif; ?>
+        <?php
+        $payHow = trim((string) (($d['methods'][$d['method']] ?? '') ?: $d['method']));
+        if ($payHow !== ''):
+        ?>
+          <div><span>How</span><b><?= h($payHow) ?></b></div>
+        <?php endif; ?>
+      <?php endif; ?>
     </div>
     <?php endif; ?>
-    <?php if (trim((string) $d['comments']) !== ''): ?>
-      <p class="thermal-note"><?= h($d['comments']) ?></p>
+    <?php if (trim($comment) !== ''): ?>
+      <p class="thermal-note"><?= h($comment) ?></p>
     <?php endif; ?>
   <?php endif; ?>
   <p class="thermal-thanks">Thank you</p>

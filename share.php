@@ -42,7 +42,12 @@ $asDownload = isset($_GET['download']);
 if ($asDownload) {
     send_document_download($doc);
 }
-if ($print && send_document_print_pdf($doc)) {
+if ($print) {
+    if (send_document_print_pdf($doc)) {
+        exit;
+    }
+    require_once ROOT_PATH . '/includes/designs.php';
+    render_print_document_page($doc, false);
     exit;
 }
 require ROOT_PATH . '/includes/sheet.php';

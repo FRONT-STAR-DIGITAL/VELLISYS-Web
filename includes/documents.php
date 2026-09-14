@@ -769,8 +769,22 @@ function send_document_download(array $doc): void
     }
 }
 
+function document_print_as_html(array $doc): bool
+{
+    $kind = (string) ($doc['kind'] ?? '');
+    $thermal = doc_template_key($doc) === 'thermal'
+        && $kind !== 'custom'
+        && $kind !== 'expense';
+    $ua = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
+    $ios = str_contains($ua, 'iPhone') || str_contains($ua, 'iPad') || str_contains($ua, 'iPod');
+    return $thermal || $ios;
+}
+
 function send_document_print_pdf(array $doc): bool
 {
+    if (document_print_as_html($doc)) {
+        return false;
+    }
     try {
         send_document_pdf($doc, 'inline');
         return true;

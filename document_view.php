@@ -13,6 +13,7 @@ $print = isset($_GET['print']);
 $emails = db_all('SELECT * FROM emails WHERE document_id = ? ORDER BY id DESC LIMIT 8', 'i', [$id]);
 
 if ($print) {
+    // Thermal and iOS print the HTML slip. Chrome PDF is A4 and often blank on phones.
     if (send_document_print_pdf($doc)) {
         exit;
     }

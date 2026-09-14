@@ -825,9 +825,12 @@
   font-weight: 700;
 }
 .d-lines.thermal-lines {
-  table-layout: auto;
+  table-layout: fixed;
   width: 100%;
   font-size: 10px;
+}
+.d-lines.thermal-lines td:first-child {
+  word-break: break-word;
 }
 .d-lines.thermal-lines th,
 .d-lines.thermal-lines td {
@@ -1166,11 +1169,24 @@
     max-width: 80mm !important;
     min-height: 0 !important;
     padding: 4mm 3.5mm 6mm !important;
+    page-break-after: auto !important;
+    break-after: auto !important;
+    page-break-inside: auto !important;
+    break-inside: auto !important;
   }
+  .print-thermal,
   .print-thermal .sheet-wrap,
   .print-thermal .sheet-stage {
     width: 80mm !important;
     max-width: 80mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  .print-thermal .invoice-sheet {
+    margin: 0 !important;
+    page-break-after: auto !important;
+    break-after: auto !important;
   }
   .bond-head {
     flex-direction: row !important;

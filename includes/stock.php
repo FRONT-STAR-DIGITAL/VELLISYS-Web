@@ -687,7 +687,7 @@ function stock_complete_sale(array $input): array
         'ok' => true,
         'invoice_id' => $invoiceId,
         'receipt_id' => $receiptId,
-        'print_id' => $receiptId > 0 ? $receiptId : $invoiceId,
+        'print_id' => $invoiceId,
         'balance' => max(0, round($grand - min($paid, $grand), 2)),
     ];
 }

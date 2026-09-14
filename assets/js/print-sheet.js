@@ -1,4 +1,8 @@
 (function () {
+  function isIos() {
+    var ua = navigator.userAgent || '';
+    return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
   function markPages(root) {
     var sheet = (root || document).querySelector('.invoice-sheet');
     if (!sheet || sheet.classList.contains('sheet-thermal')) return;
@@ -19,63 +23,54 @@
       nodes[i].removeAttribute('href');
     }
   }
+  function clearFit() {
+    if (typeof window.fitDocumentSheets === 'function') {
+      window.fitDocumentSheets = function () {};
+    }
+    document.querySelectorAll('.invoice-sheet').forEach(function (sheet) {
+      sheet.style.transform = 'none';
+      sheet.style.zoom = '1';
+      sheet.style.marginLeft = '0';
+    });
+    document.querySelectorAll('.sheet-stage').forEach(function (stage) {
+      stage.style.height = 'auto';
+      stage.style.overflow = 'visible';
+    });
+  }
   function waitImages(doc, fn) {
     var imgs = Array.prototype.slice.call(doc.images || []);
     var left = imgs.filter(function (img) { return !img.complete; }).length;
     if (!left) { fn(); return; }
-    function done() { left -= 1; if (left <= 0) fn(); }
+    var timer = window.setTimeout(fn, 2500);
+    function done() {
+      left -= 1;
+      if (left <= 0) {
+        window.clearTimeout(timer);
+        fn();
+      }
+    }
     imgs.forEach(function (img) {
       if (img.complete) return;
       img.addEventListener('load', done);
       img.addEventListener('error', done);
     });
   }
-  function printFrame(html) {
-    var frame = document.createElement('iframe');
-    frame.setAttribute('aria-hidden', 'true');
-    frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
-    document.body.appendChild(frame);
-    var w = frame.contentWindow;
-    var d = w.document;
-    d.open();
-    d.write(html);
-    d.close();
-    stripPrintUrls(d);
-    d.title = '';
-    function go() {
-      if (typeof w.fitDocumentSheets === 'function') {
-        w.fitDocumentSheets();
-      }
-      markPages(d);
-      w.focus();
-      w.print();
-      window.setTimeout(function () {
-        if (frame.parentNode) frame.parentNode.removeChild(frame);
-      }, 1200);
-    }
-    waitImages(d, function () {
-      window.setTimeout(go, 280);
-    });
-  }
   function start() {
     document.title = '';
     stripPrintUrls(document);
-    var clone = document.documentElement.cloneNode(true);
-    clone.querySelectorAll('script').forEach(function (el) { el.remove(); });
-    var html = '<!DOCTYPE html>' + clone.outerHTML;
-    html = html.replace(/<title>[\s\S]*?<\/title>/i, '<title></title>');
-    try {
-      printFrame(html);
-    } catch (err) {
+    clearFit();
+    markPages(document);
+    window.focus();
+    window.setTimeout(function () {
+      clearFit();
       window.print();
-    }
+    }, isIos() ? 350 : 50);
   }
   function boot() {
-    if (typeof window.fitDocumentSheets === 'function') {
-      window.fitDocumentSheets();
-    }
-    markPages(document);
-    waitImages(document, start);
+    clearFit();
+    waitImages(document, function () {
+      window.setTimeout(start, 120);
+    });
   }
   if (document.readyState === 'complete') {
     boot();
