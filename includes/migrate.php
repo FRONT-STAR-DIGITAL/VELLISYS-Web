@@ -144,6 +144,41 @@ function folio_ensure_ofagros_pro_plan(mysqli $db): void
     @$db->query("UPDATE companies SET plan = 'office', planner_enabled = 1, pnl_enabled = 1 WHERE name = 'Ofagros Limited' AND plan IN ('sme','starter')");
 }
 
+function folio_ensure_ofagros_demo_staff(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    $admin = @$db->query("SELECT company_id FROM users WHERE email = 'accounts@ofagros.org' AND company_id IS NOT NULL LIMIT 1");
+    $row = $admin ? $admin->fetch_assoc() : null;
+    $cid = (int) ($row['company_id'] ?? 0);
+    if ($cid < 1) {
+        return;
+    }
+    $hash = $db->real_escape_string(password_hash('folio2026', PASSWORD_DEFAULT));
+    $staff = [
+        ['desk@ofagros.org', 'Desk', 'Books', 'books'],
+        ['sales@ofagros.org', 'Sales desk', 'Sales', 'sales'],
+    ];
+    foreach ($staff as [$email, $name, $title, $access]) {
+        $emailSql = $db->real_escape_string($email);
+        $nameSql = $db->real_escape_string($name);
+        $titleSql = $db->real_escape_string($title);
+        $accessSql = $db->real_escape_string($access);
+        $found = @$db->query("SELECT id FROM users WHERE email = '{$emailSql}' LIMIT 1");
+        if ($found && $found->fetch_assoc()) {
+            continue;
+        }
+        $feat = $db->real_escape_string(json_encode(
+            function_exists('desk_feature_defaults') ? desk_feature_defaults($access) : [],
+            JSON_UNESCAPED_UNICODE
+        ));
+        @$db->query("INSERT INTO users (name, job_title, email, password_hash, role, access, features, status, company_id) VALUES ('{$nameSql}', '{$titleSql}', '{$emailSql}', '{$hash}', 'member', '{$accessSql}', '{$feat}', 'live', {$cid})");
+    }
+}
+
 function folio_ensure_stock(mysqli $db): void
 {
     static $ready = false;
@@ -260,6 +295,7 @@ function folio_ensure_access_addons(mysqli $db): void
       note VARCHAR(500) NOT NULL DEFAULT '',
       updated_at DATETIME NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    folio_ensure_ofagros_demo_staff($db);
 }
 
 function folio_ensure_branches(mysqli $db): void

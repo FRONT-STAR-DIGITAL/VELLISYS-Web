@@ -114,7 +114,11 @@ $showDemoKeys = !folio_is_live_host();
         <p><strong>Demo company desk</strong></p>
         <code>accounts@ofagros.org</code>
         <code>folio2026</code>
-        <button type="button" class="lp-btn lp-btn-ghost" data-fill-login data-fill-email="accounts@ofagros.org" data-fill-password="folio2026">Use demo desk</button>
+        <button type="button" class="lp-btn lp-btn-ghost" data-fill-login data-fill-email="accounts@ofagros.org" data-fill-password="folio2026">Use company admin</button>
+        <p><strong>Ofagros desk login</strong></p>
+        <code>desk@ofagros.org</code>
+        <code>folio2026</code>
+        <button type="button" class="lp-btn lp-btn-ghost" data-fill-login data-fill-email="desk@ofagros.org" data-fill-password="folio2026">Use desk login</button>
       </details>
       <?php endif; ?>
       <?php render_gate_legal(); ?>

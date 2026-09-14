@@ -15,8 +15,9 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 
 **Demo company desk** (Ofagros Limited)
 
-- Email: `accounts@ofagros.org`
-- Password: `folio2026`
+- Company admin: `accounts@ofagros.org` / `folio2026`
+- Desk: `desk@ofagros.org` / `folio2026`
+- Sales: `sales@ofagros.org` / `folio2026`
 
 ## What you get
 
