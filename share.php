@@ -87,7 +87,9 @@ require ROOT_PATH . '/includes/sheet.php';
       <?php render_sheet($brand, $doc); ?>
     </div>
   </div>
+  <?php if (!$asSheet): ?>
   <script src="<?= h(asset('js/sheet-fit.js')) ?>"></script>
+  <?php endif; ?>
   <?php if ($print): ?>
     <script src="<?= h(asset('js/print-sheet.js')) ?>"></script>
   <?php endif; ?>

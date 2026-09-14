@@ -521,44 +521,207 @@ function document_download_filename(array $doc): string
     return $base . '.pdf';
 }
 
+function document_local_file_uri(string $abs): string
+{
+    $abs = str_replace('\\', '/', $abs);
+    $parts = explode('/', $abs);
+    $enc = [];
+    foreach ($parts as $part) {
+        $enc[] = $part === '' ? '' : rawurlencode($part);
+    }
+    return 'file://' . implode('/', $enc);
+}
+
+function document_rewrite_css_urls(string $css, string $fromDir): string
+{
+    return (string) preg_replace_callback('/url\(\s*([\'"]?)([^\'")]+)\1\s*\)/i', static function (array $m) use ($fromDir): string {
+        $url = trim($m[2]);
+        if ($url === '' || str_starts_with($url, 'data:') || preg_match('#^(https?:|file:|//)#i', $url)) {
+            return $m[0];
+        }
+        $path = strtok($url, '?#') ?: $url;
+        $full = realpath($fromDir . '/' . $path);
+        if ($full === false || !is_file($full)) {
+            return $m[0];
+        }
+        return 'url("' . document_local_file_uri($full) . '")';
+    }, $css) ?: $css;
+}
+
+function document_rewrite_html_local_urls(string $html): string
+{
+    return (string) preg_replace_callback('/\b(src|href)=([\'"])([^\'"]+)\2/i', static function (array $m): string {
+        $url = $m[3];
+        if ($url === '' || str_starts_with($url, 'data:') || str_starts_with($url, '#') || preg_match('#^(https?:|file:|mailto:|//)#i', $url)) {
+            return $m[0];
+        }
+        $path = (string) parse_url($url, PHP_URL_PATH);
+        if ($path === '' || $path === false) {
+            return $m[0];
+        }
+        $full = ROOT_PATH . '/' . ltrim($path, '/');
+        if (!is_file($full)) {
+            return $m[0];
+        }
+        return $m[1] . '=' . $m[2] . document_local_file_uri($full) . $m[2];
+    }, $html) ?: $html;
+}
+
+function document_sheet_print_html(array $doc): string
+{
+    require_once ROOT_PATH . '/includes/sheet.php';
+    $cid = (int) ($doc['company_id'] ?? current_company_id());
+    $prev = $GLOBALS['folio_company_override'] ?? null;
+    if ($cid > 0) {
+        $GLOBALS['folio_company_override'] = $cid;
+    }
+    $brand = branding_for($cid > 0 ? $cid : current_company_id());
+    $thermal = doc_template_key($doc) === 'thermal'
+        && ($doc['kind'] ?? '') !== 'custom'
+        && ($doc['kind'] ?? '') !== 'expense';
+    $appCss = document_rewrite_css_urls((string) file_get_contents(ROOT_PATH . '/assets/css/app.css'), ROOT_PATH . '/assets/css');
+    $designCss = document_rewrite_css_urls((string) file_get_contents(ROOT_PATH . '/assets/css/designs.css'), ROOT_PATH . '/assets/css');
+    ob_start();
+    ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title><?= h((string) ($doc['number'] ?? 'document')) ?></title>
+  <style><?= $appCss ?></style>
+  <style><?= $designCss ?></style>
+  <style>
+    :root { <?= brand_css_vars($brand) ?> }
+    @page { size: <?= $thermal ? '80mm auto' : 'A4' ?>; margin: 0; }
+    html, body.print-body { background: #fff !important; margin: 0; padding: 0; }
+    .sheet-wrap, .sheet-stage { padding: 0 !important; margin: 0 !important; }
+    .invoice-sheet { transform: none !important; zoom: 1 !important; box-shadow: none !important; }
+  </style>
+</head>
+<body class="print-body<?= $thermal ? ' print-thermal' : '' ?>">
+  <div class="sheet-wrap">
+    <div class="sheet-stage">
+      <?php render_sheet($brand, $doc); ?>
+    </div>
+  </div>
+</body>
+</html>
+    <?php
+    $html = (string) ob_get_clean();
+    if ($prev === null) {
+        unset($GLOBALS['folio_company_override']);
+    } else {
+        $GLOBALS['folio_company_override'] = $prev;
+    }
+    return document_rewrite_html_local_urls($html);
+}
+
+function document_chrome_print_target(string $chrome, string $target): ?string
+{
+    $id = bin2hex(random_bytes(4));
+    $dir = sys_get_temp_dir() . '/vellisys-chrome-' . $id;
+    $pdf = sys_get_temp_dir() . '/vellisys-doc-' . $id . '.pdf';
+    $err = $pdf . '.log';
+    if (!@mkdir($dir, 0700, true) && !is_dir($dir)) {
+        return null;
+    }
+    $cmd = 'timeout 40s ' . escapeshellcmd($chrome)
+        . ' --headless=new --disable-gpu --no-sandbox --disable-dev-shm-usage'
+        . ' --hide-scrollbars --no-first-run --no-default-browser-check'
+        . ' --allow-file-access-from-files --disable-extensions --disable-popup-blocking'
+        . ' --no-pdf-header-footer --print-to-pdf-no-header'
+        . ' --run-all-compositor-stages-before-draw --virtual-time-budget=12000'
+        . ' --user-data-dir=' . escapeshellarg($dir)
+        . ' --print-to-pdf=' . escapeshellarg($pdf)
+        . ' ' . escapeshellarg($target)
+        . ' >' . escapeshellarg($err) . ' 2>&1';
+    exec($cmd, $ignored, $code);
+    $bytes = '';
+    if (is_file($pdf) && filesize($pdf) > 800) {
+        $bytes = (string) file_get_contents($pdf);
+    }
+    @unlink($pdf);
+    @unlink($err);
+    $it = new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS);
+    $files = new RecursiveIteratorIterator($it, RecursiveIteratorIterator::CHILD_FIRST);
+    foreach ($files as $file) {
+        $file->isDir() ? @rmdir($file->getPathname()) : @unlink($file->getPathname());
+    }
+    @rmdir($dir);
+    if ($code !== 0 || !str_starts_with($bytes, '%PDF')) {
+        return null;
+    }
+    return $bytes;
+}
+
+function document_sheet_print_urls(array $doc): array
+{
+    $path = '/share.php?id=' . (int) ($doc['id'] ?? 0) . '&t=' . rawurlencode(document_share_token($doc)) . '&sheet=1';
+    $urls = [];
+    $port = (int) ($_SERVER['SERVER_PORT'] ?? 0);
+    if ($port > 0) {
+        $urls[] = 'http://127.0.0.1:' . $port . $path;
+    }
+    foreach ([43219, 43230, 43231, 43232, 43233] as $tryPort) {
+        $urls[] = 'http://127.0.0.1:' . $tryPort . $path;
+    }
+    $urls[] = document_share_url($doc) . '&sheet=1';
+    return array_values(array_unique($urls));
+}
+
+function document_url_looks_like_sheet(string $url): bool
+{
+    $ctx = stream_context_create([
+        'http' => ['timeout' => 4, 'ignore_errors' => true],
+    ]);
+    $body = @file_get_contents($url, false, $ctx);
+    return is_string($body) && str_contains($body, 'invoice-sheet');
+}
+
 function document_sheet_pdf_bytes(array $doc): string
 {
     $chrome = document_sheet_chrome();
-    $url = document_share_url($doc) . '&sheet=1';
-    if ($chrome !== '') {
-        $out = sys_get_temp_dir() . '/vellisys-doc-' . (int) ($doc['id'] ?? 0) . '-' . bin2hex(random_bytes(4)) . '.pdf';
-        $cmd = 'timeout 20s ' . escapeshellcmd($chrome)
-            . ' --headless=new --disable-gpu --no-sandbox --hide-scrollbars --no-first-run --no-default-browser-check'
-            . ' --no-pdf-header-footer --print-to-pdf-no-header'
-            . ' --virtual-time-budget=8000'
-            . ' --print-to-pdf=' . escapeshellarg($out)
-            . ' ' . escapeshellarg($url)
-            . ' >/dev/null 2>&1';
-        exec($cmd);
-        if (is_file($out) && filesize($out) > 200) {
-            $bytes = (string) file_get_contents($out);
-            @unlink($out);
-            if (str_starts_with($bytes, '%PDF')) {
-                return $bytes;
-            }
-        }
-        @unlink($out);
+    if ($chrome === '') {
+        throw new RuntimeException('Chrome is required to download the current document.');
     }
-    $brand = branding();
-    $lh = decode_letterhead($doc['letterhead'] ?? '');
-    if ($lh) {
-        foreach ($lh as $k => $v) {
-            if (is_string($v) && trim($v) !== '') {
-                $brand[$k] = $v;
-            }
+
+    $html = document_sheet_print_html($doc);
+    $htmlPath = sys_get_temp_dir() . '/vellisys-sheet-' . (int) ($doc['id'] ?? 0) . '-' . bin2hex(random_bytes(4)) . '.html';
+    if (file_put_contents($htmlPath, $html) !== false) {
+        $bytes = document_chrome_print_target($chrome, document_local_file_uri($htmlPath));
+        @unlink($htmlPath);
+        if (is_string($bytes) && $bytes !== '') {
+            return $bytes;
+        }
+    } else {
+        @unlink($htmlPath);
+    }
+
+    foreach (document_sheet_print_urls($doc) as $url) {
+        if (!document_url_looks_like_sheet($url)) {
+            continue;
+        }
+        $bytes = document_chrome_print_target($chrome, $url);
+        if (is_string($bytes) && $bytes !== '') {
+            return $bytes;
         }
     }
-    return document_pdf_bytes($brand, $doc);
+
+    throw new RuntimeException('Could not print the current document. Use Print instead.');
 }
 
 function send_document_download(array $doc): void
 {
-    $bytes = document_sheet_pdf_bytes($doc);
+    try {
+        $bytes = document_sheet_pdf_bytes($doc);
+    } catch (Throwable $e) {
+        http_response_code(503);
+        header('Content-Type: text/html; charset=utf-8');
+        echo '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Download</title></head><body style="font-family:Montserrat,sans-serif;padding:48px;text-align:center">';
+        echo '<p>' . h($e->getMessage()) . '</p>';
+        echo '</body></html>';
+        exit;
+    }
     $name = document_download_filename($doc);
     header('Content-Type: application/pdf');
     header('Content-Disposition: attachment; filename="' . $name . '"');

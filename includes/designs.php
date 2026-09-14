@@ -317,7 +317,9 @@ function render_print_document_page(array $doc, bool $pdf = false): void
       <?php render_sheet($brand, $doc); ?>
     </div>
   </div>
+  <?php if (!$pdf): ?>
   <script src="<?= h(asset('js/sheet-fit.js')) ?>"></script>
+  <?php endif; ?>
   <script src="<?= h(asset('js/print-sheet.js')) ?>"></script>
 </body>
 </html>
