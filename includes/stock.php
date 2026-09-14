@@ -816,6 +816,32 @@ function stock_ensure_item_id(array $line, float $price): int
     return !empty($saved['ok']) ? (int) $saved['id'] : 0;
 }
 
+function stock_last_print_id(): int
+{
+    $cid = current_company_id();
+    $sid = (int) ($_SESSION['stock_last_print'] ?? 0);
+    if ($sid > 0) {
+        $ok = db_one('SELECT id FROM documents WHERE id = ? AND company_id = ? AND status = \'issued\'', 'ii', [$sid, $cid]);
+        if ($ok) {
+            return $sid;
+        }
+    }
+    $inv = db_one(
+        "SELECT id FROM documents WHERE company_id = ? AND kind = 'invoice' AND status = 'issued' ORDER BY id DESC LIMIT 1",
+        'i',
+        [$cid]
+    );
+    if (!$inv) {
+        return 0;
+    }
+    $rec = db_one(
+        "SELECT id FROM documents WHERE company_id = ? AND kind = 'receipt' AND related_id = ? AND status = 'issued' ORDER BY id DESC LIMIT 1",
+        'ii',
+        [$cid, (int) $inv['id']]
+    );
+    return $rec ? (int) $rec['id'] : (int) $inv['id'];
+}
+
 function stock_page_key(string $key): int
 {
     return max(1, (int) ($_GET[$key] ?? 1));

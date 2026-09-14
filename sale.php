@@ -55,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $catalog = stock_catalog_payload();
 $customers = db_all("SELECT id, name FROM parties WHERE company_id = ? AND kind = 'customer' ORDER BY name LIMIT 250", 'i', [current_company_id()]);
 $taxName = company_tax_name();
-$lastPrint = (int) ($_SESSION['stock_last_print'] ?? 0);
+$lastPrint = stock_last_print_id();
 $salesPage = stock_search_docs('invoice', stock_q(), stock_page_key('p'), 20);
 
 layout_start('Sale', $user);
