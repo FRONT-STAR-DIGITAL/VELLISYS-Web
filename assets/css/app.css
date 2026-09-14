@@ -2101,52 +2101,63 @@ input, select, textarea { font-weight: 400; }
     margin-top: 4px;
   }
   .document-form .lines-preview .table-scroll {
-    overflow: visible;
-    -webkit-overflow-scrolling: auto;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
   }
-  .document-form .lines-preview-table {
-    min-width: 0 !important;
-    width: 100%;
-  }
-  .document-form .lines-preview-table thead { display: none; }
   .document-form .lines-preview-table,
-  .document-form .lines-preview-table tbody,
-  .document-form .lines-preview-table tr,
-  .document-form .lines-preview-table td {
-    display: block;
+  .document-form .lines-preview .table-scroll table.grid {
+    display: table;
     width: 100%;
-  }
-  .document-form .lines-preview-table tbody {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .document-form .lines-preview-table tr {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 12px;
-    border: 1px solid var(--line);
-    border-radius: 14px;
+    min-width: 0 !important;
+    max-width: none;
+    table-layout: fixed;
+    border-collapse: collapse;
     background: #fff;
   }
-  .document-form .lines-preview-table td {
+  .document-form .lines-preview-table thead { display: table-header-group; }
+  .document-form .lines-preview-table tbody { display: table-row-group; }
+  .document-form .lines-preview-table tr {
+    display: table-row;
     padding: 0;
     border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    gap: 0;
+  }
+  .document-form .lines-preview-table th,
+  .document-form .lines-preview-table td {
+    display: table-cell;
+    width: auto;
     min-width: 0;
+    max-width: none;
+    padding: 7px 6px;
+    border-bottom: 1px solid var(--line);
+    font-size: 11px;
+    vertical-align: top;
+    overflow: hidden;
   }
-  .document-form .lines-preview-table td::before {
-    content: attr(data-label);
-    display: block;
+  .document-form .lines-preview-table th {
+    white-space: nowrap;
     font-size: 10px;
-    font-weight: 700;
-    letter-spacing: .05em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 2px;
   }
-  .document-form .lines-preview-table tr.lines-preview-empty { padding: 12px; }
-  .document-form .lines-preview-table tr.lines-preview-empty td::before { content: none; }
+  .document-form .lines-preview-table td::before { content: none !important; }
+  .document-form .lines-preview-table td:nth-child(1) { width: 18%; }
+  .document-form .lines-preview-table td:nth-child(2) {
+    width: auto;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  .document-form .lines-preview-table td:nth-child(3) { width: 2.6rem; white-space: nowrap; text-align: center; }
+  .document-form .lines-preview-table td:nth-child(4),
+  .document-form .lines-preview-table td:nth-child(5) { width: 4.6rem; white-space: nowrap; }
+  .document-form .lines-preview-table td:nth-child(6) { width: 2.4rem; white-space: nowrap; text-align: center; }
+  .document-form .lines-preview-table tr.lines-preview-empty td {
+    white-space: normal;
+    text-align: left;
+  }
   .action-grid { display: grid; grid-template-columns: 1fr 1fr; }
   .stats, .stats.six { grid-template-columns: 1fr 1fr; }
   .login-art { min-height: 240px; padding: 28px; }
@@ -2389,6 +2400,13 @@ input, select, textarea { font-weight: 400; }
     min-width: 720px;
     width: max-content;
     max-width: none;
+  }
+  .document-form .lines-preview .table-scroll table.grid,
+  .document-form .lines-preview-table {
+    min-width: 0 !important;
+    width: 100%;
+    max-width: none;
+    table-layout: fixed;
   }
   .table-scroll table.grid th,
   .table-scroll table.grid td.right,
