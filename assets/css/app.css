@@ -617,7 +617,7 @@ form.actions, td form { display: inline; margin: 0; }
   color: var(--muted);
 }
 .row-action-stack {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
 }
 .kinds-pick {
@@ -1810,12 +1810,12 @@ input, select, textarea { font-weight: 400; }
   white-space: nowrap;
 }
 .admin-body table.grid td.row-actions {
-  white-space: normal;
+  white-space: nowrap;
 }
 .admin-body td.row-actions .actions {
   display: inline-flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  flex-wrap: nowrap;
+  gap: 3px;
   justify-content: flex-end;
 }
 .login-box h2 { font-family: var(--serif); font-weight: 500; font-size: 28px; margin: 0 0 8px; display: block; }
@@ -1942,6 +1942,176 @@ input, select, textarea { font-weight: 400; }
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 12px 18px;
   }
+  .document-form .lines thead { display: none; }
+  .document-form .lines,
+  .document-form .lines tbody,
+  .document-form .lines tr,
+  .document-form .lines td { display: block; width: 100%; }
+  .document-form .lines { border: 0; min-width: 0 !important; table-layout: auto; }
+  .document-form .lines-wrap { overflow: visible; margin: 8px 0; }
+  .document-form .lines tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .document-form .lines tr {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 14px 14px 12px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 1px 0 rgba(8, 20, 58, .03);
+  }
+  .document-form .lines th,
+  .document-form .lines td {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: 100%;
+    padding: 0;
+    border: 0;
+  }
+  .document-form .lines td {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .document-form .lines td::before {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .document-form .lines .line-item { padding-right: 44px; }
+  .document-form .lines .line-item::before { content: "Item"; }
+  .document-form .lines .line-desc::before { content: "Description"; }
+  .document-form .lines .line-qty::before { content: "Qty"; }
+  .document-form .lines .line-rate::before { content: "Unit price"; }
+  .document-form .lines .line-total::before { content: "Total"; }
+  .document-form .lines .line-vat::before { content: "VAT"; }
+  .document-form .lines td.lines-del-col {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: auto !important;
+    border: 0;
+    padding: 0;
+  }
+  .document-form .lines td.lines-del-col::before { content: none; }
+  .document-form .lines td.lines-del-col .btn {
+    min-width: 40px;
+    min-height: 40px;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+  }
+  .document-form .lines .qty-wrap {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    max-width: none;
+    gap: 0;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .document-form .lines .qty-wrap input {
+    width: auto;
+    min-width: 0;
+    flex: 1 1 auto;
+    border: 0;
+    border-radius: 0;
+    height: 42px;
+    box-shadow: none;
+  }
+  .document-form .lines .qty-btn {
+    flex: 0 0 42px;
+    width: 42px;
+    min-width: 42px;
+    height: 42px;
+    border: 0;
+    border-radius: 0;
+    background: #f4f6fb;
+  }
+  .document-form .lines .qty-btn + input { border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+  .document-form .lines .line-rate input,
+  .document-form .lines .line-item input,
+  .document-form .lines .line-desc textarea {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .document-form .lines .line-desc textarea { min-height: 52px; resize: vertical; }
+  .document-form .lines .line-total { font-size: 15px; }
+  .document-form .lines .vat-yn {
+    min-height: 42px;
+    padding: 0 10px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .document-form .lines td.right,
+  .document-form .lines td.center { text-align: left; }
+  .document-form .lines-preview {
+    display: block;
+    padding: 12px;
+    margin-top: 4px;
+  }
+  .document-form .lines-preview .table-scroll {
+    overflow: visible;
+    -webkit-overflow-scrolling: auto;
+  }
+  .document-form .lines-preview-table {
+    min-width: 0 !important;
+    width: 100%;
+  }
+  .document-form .lines-preview-table thead { display: none; }
+  .document-form .lines-preview-table,
+  .document-form .lines-preview-table tbody,
+  .document-form .lines-preview-table tr,
+  .document-form .lines-preview-table td {
+    display: block;
+    width: 100%;
+  }
+  .document-form .lines-preview-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .document-form .lines-preview-table tr {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: #fff;
+  }
+  .document-form .lines-preview-table td {
+    padding: 0;
+    border: 0;
+    min-width: 0;
+  }
+  .document-form .lines-preview-table td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 2px;
+  }
+  .document-form .lines-preview-table tr.lines-preview-empty { padding: 12px; }
+  .document-form .lines-preview-table tr.lines-preview-empty td::before { content: none; }
   .action-grid { display: grid; grid-template-columns: 1fr 1fr; }
   .stats, .stats.six { grid-template-columns: 1fr 1fr; }
   .login-art { min-height: 240px; padding: 28px; }
@@ -3155,259 +3325,4 @@ input, select, textarea { font-weight: 400; }
     gap: 10px 12px;
   }
   .document-form .doc-client-grid .hint { display: none; }
-  .lines-preview {
-    display: block;
-    padding: 12px;
-    margin-top: 4px;
-  }
-  .lines-preview .table-scroll {
-    overflow: visible;
-    -webkit-overflow-scrolling: auto;
-  }
-  .lines-preview-table {
-    min-width: 0 !important;
-    width: 100%;
-  }
-  .lines-preview-table thead { display: none; }
-  .lines-preview-table,
-  .lines-preview-table tbody,
-  .lines-preview-table tr,
-  .lines-preview-table td {
-    display: block;
-    width: 100%;
-  }
-  .lines-preview-table tbody {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .lines-preview-table tr {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px 12px;
-    padding: 12px;
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    background: #fff;
-  }
-  .lines-preview-table td {
-    padding: 0;
-    border: 0;
-    min-width: 0;
-  }
-  .lines-preview-table td::before {
-    content: attr(data-label);
-    display: block;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: .05em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 2px;
-  }
-  .lines-preview-table td[data-label="Item"],
-  .lines-preview-table td[data-label="Description"] {
-    grid-column: 1 / -1;
-  }
-  .lines-preview-table tr.lines-preview-empty {
-    display: block;
-    padding: 12px;
-  }
-  .lines-preview-table tr.lines-preview-empty td::before { content: none; }
-  .lines thead { display: none; }
-  .lines, .lines tbody, .lines tr, .lines td { display: block; width: 100%; }
-  .lines { border: 0; min-width: 0 !important; table-layout: auto; }
-  .lines-wrap { overflow: visible; margin: 8px 0; }
-  .lines tbody {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .lines tr {
-    position: relative;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px 12px;
-    margin: 0;
-    padding: 14px 14px 12px;
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    background: #fff;
-    box-shadow: 0 1px 0 rgba(8, 20, 58, .03);
-  }
-  .lines th,
-  .lines td {
-    width: auto !important;
-    min-width: 0 !important;
-    max-width: 100%;
-    padding: 0;
-    border: 0;
-  }
-  .lines td {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 6px;
-  }
-  .lines td::before {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: .05em;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-  .lines .line-item { grid-column: 1 / -1; padding-right: 44px; }
-  .lines .line-desc { grid-column: 1 / -1; }
-  .lines .line-item::before { content: "Item"; }
-  .lines .line-desc::before { content: "Description"; }
-  .lines .line-qty::before { content: "Qty"; }
-  .lines .line-rate::before { content: "Unit price"; }
-  .lines .line-total::before { content: "Total"; }
-  .lines .line-vat::before { content: "VAT"; }
-  .lines td.lines-del-col {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    width: auto !important;
-    border: 0;
-    padding: 0;
-  }
-  .lines td.lines-del-col::before { content: none; }
-  .lines td.lines-del-col .btn {
-    min-width: 40px;
-    min-height: 40px;
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-  }
-  .lines .qty-wrap {
-    display: flex;
-    align-items: stretch;
-    width: 100%;
-    max-width: none;
-    gap: 0;
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    overflow: hidden;
-    background: #fff;
-  }
-  .lines .qty-wrap input {
-    width: auto;
-    min-width: 0;
-    flex: 1 1 auto;
-    border: 0;
-    border-radius: 0;
-    height: 42px;
-    box-shadow: none;
-  }
-  .lines .qty-btn {
-    flex: 0 0 42px;
-    width: 42px;
-    min-width: 42px;
-    height: 42px;
-    border: 0;
-    border-radius: 0;
-    background: #f4f6fb;
-  }
-  .lines .qty-btn + input { border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
-  .lines .line-rate input,
-  .lines .line-item input,
-  .lines .line-desc textarea {
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-  .lines .line-desc textarea { min-height: 52px; resize: vertical; }
-  .lines .line-total {
-    justify-content: flex-end;
-    font-size: 15px;
-  }
-  .lines .line-vat { align-items: flex-start; }
-  .lines .vat-yn {
-    min-height: 42px;
-    padding: 0 10px;
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    width: 100%;
-    justify-content: flex-start;
-  }
-  .lines td.right, .lines td.center { text-align: left; }
-}
-
-@media (min-width: 601px) {
-  .document-form .lines-wrap { overflow-x: auto; }
-  .document-form table.lines {
-    display: table;
-    width: 100%;
-    min-width: 640px;
-    table-layout: auto;
-    border: 1px solid var(--line);
-  }
-  .document-form .lines thead { display: table-header-group; }
-  .document-form .lines tbody { display: table-row-group; }
-  .document-form .lines tr {
-    display: table-row;
-    position: static;
-    grid-template-columns: none;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-  }
-  .document-form .lines th,
-  .document-form .lines td {
-    display: table-cell;
-    width: auto;
-    max-width: none;
-    padding: 8px;
-    border-bottom: 1px solid var(--line);
-    vertical-align: top;
-  }
-  .document-form .lines td::before { content: none !important; }
-  .document-form .lines .line-item,
-  .document-form .lines .line-desc { grid-column: auto; padding-right: 0; }
-  .document-form .lines td.lines-del-col {
-    position: static;
-    width: 44px !important;
-    top: auto;
-    right: auto;
-  }
-  .document-form .lines .qty-wrap {
-    display: flex;
-    width: 148px;
-    max-width: 148px;
-    gap: 6px;
-    border: 0;
-    border-radius: 0;
-    overflow: visible;
-    background: transparent;
-  }
-  .document-form .lines .qty-wrap input {
-    width: 72px;
-    min-width: 64px;
-    flex: 1 0 64px;
-    height: auto;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-  }
-  .document-form .lines .qty-btn {
-    flex: 0 0 36px;
-    width: 36px;
-    min-width: 36px;
-    height: 38px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: #fff;
-  }
-  .document-form .lines-preview-table,
-  .document-form .lines-preview-table thead,
-  .document-form .lines-preview-table tbody,
-  .document-form .lines-preview-table tr,
-  .document-form .lines-preview-table td {
-    display: revert;
-    width: auto;
-  }
 }
