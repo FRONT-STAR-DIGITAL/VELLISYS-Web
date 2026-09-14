@@ -3147,7 +3147,7 @@ input, select, textarea { font-weight: 400; }
 .desk-calc-key.op[data-calc="clear"] { color: #e11d48; }
 .desk-calc-key.op[data-calc="back"] { color: #f59e0b; }
 
-@media (max-width: 640px) {
+@media (max-width: 600px) {
   .document-form > .form-grid,
   .document-form .doc-client-grid {
     display: grid;
@@ -3333,4 +3333,81 @@ input, select, textarea { font-weight: 400; }
     justify-content: flex-start;
   }
   .lines td.right, .lines td.center { text-align: left; }
+}
+
+@media (min-width: 601px) {
+  .document-form .lines-wrap { overflow-x: auto; }
+  .document-form table.lines {
+    display: table;
+    width: 100%;
+    min-width: 640px;
+    table-layout: auto;
+    border: 1px solid var(--line);
+  }
+  .document-form .lines thead { display: table-header-group; }
+  .document-form .lines tbody { display: table-row-group; }
+  .document-form .lines tr {
+    display: table-row;
+    position: static;
+    grid-template-columns: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .document-form .lines th,
+  .document-form .lines td {
+    display: table-cell;
+    width: auto;
+    max-width: none;
+    padding: 8px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  .document-form .lines td::before { content: none !important; }
+  .document-form .lines .line-item,
+  .document-form .lines .line-desc { grid-column: auto; padding-right: 0; }
+  .document-form .lines td.lines-del-col {
+    position: static;
+    width: 44px !important;
+    top: auto;
+    right: auto;
+  }
+  .document-form .lines .qty-wrap {
+    display: flex;
+    width: 148px;
+    max-width: 148px;
+    gap: 6px;
+    border: 0;
+    border-radius: 0;
+    overflow: visible;
+    background: transparent;
+  }
+  .document-form .lines .qty-wrap input {
+    width: 72px;
+    min-width: 64px;
+    flex: 1 0 64px;
+    height: auto;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .document-form .lines .qty-btn {
+    flex: 0 0 36px;
+    width: 36px;
+    min-width: 36px;
+    height: 38px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+  }
+  .document-form .lines-preview-table,
+  .document-form .lines-preview-table thead,
+  .document-form .lines-preview-table tbody,
+  .document-form .lines-preview-table tr,
+  .document-form .lines-preview-table td {
+    display: revert;
+    width: auto;
+  }
 }
