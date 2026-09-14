@@ -854,6 +854,8 @@ function branding_for(int $companyId): array
     if ($companyId > 0) {
         $row = db_one('SELECT * FROM branding WHERE company_id = ?', 'i', [$companyId]);
         if ($row) {
+            unset($row['logo_bin'], $row['signature_bin']);
+            hydrate_branding_files($row);
             return $row;
         }
     }
@@ -973,10 +975,17 @@ function brand_deep(): string
 function logo_url(?array $brand = null): string
 {
     $brand = $brand ?? branding();
-    $path = ltrim((string) ($brand['logo_path'] ?? 'assets/img/ofagros-logo.png'), '/');
-    foreach ([$path, 'assets/img/ofagros-logo.png', 'assets/img/ofagros-logo.svg'] as $rel) {
+    $path = ltrim((string) ($brand['logo_path'] ?? ''), '/');
+    $cid = (int) ($brand['company_id'] ?? current_company_id());
+    if ($path !== '' && is_file(ROOT_PATH . '/' . $path)) {
+        return url($path) . '?v=' . filemtime(ROOT_PATH . '/' . $path);
+    }
+    if ($cid > 0 && branding_asset_stored($cid, 'logo')) {
+        return url('brand_asset.php?k=logo&c=' . $cid);
+    }
+    foreach (['assets/img/ofagros-logo.png', 'assets/img/ofagros-logo.svg'] as $rel) {
         $full = ROOT_PATH . '/' . $rel;
-        if ($rel !== '' && is_file($full)) {
+        if (is_file($full)) {
             return url($rel) . '?v=' . filemtime($full);
         }
     }
@@ -1681,7 +1690,11 @@ function generate_desk_password(): string
 
 function store_company_logo_upload(int $companyId, string $field = 'logo'): array
 {
-    if (empty($_FILES[$field]['tmp_name']) || !is_uploaded_file($_FILES[$field]['tmp_name'])) {
+    $err = (int) ($_FILES[$field]['error'] ?? UPLOAD_ERR_NO_FILE);
+    if ($err === UPLOAD_ERR_NO_FILE || empty($_FILES[$field]['tmp_name'])) {
+        return ['ok' => true, 'path' => ''];
+    }
+    if ($err !== UPLOAD_ERR_OK || !is_uploaded_file($_FILES[$field]['tmp_name']) || (int) ($_FILES[$field]['size'] ?? 0) < 32) {
         return ['ok' => true, 'path' => ''];
     }
     $ext = strtolower(pathinfo((string) ($_FILES[$field]['name'] ?? ''), PATHINFO_EXTENSION));
@@ -1699,7 +1712,135 @@ function store_company_logo_upload(int $companyId, string $field = 'logo'): arra
     if (!move_uploaded_file($_FILES[$field]['tmp_name'], $dir . '/' . $fname)) {
         return ['ok' => false, 'error' => 'Could not save the logo file.'];
     }
-    return ['ok' => true, 'path' => 'uploads/logos/' . $fname];
+    $rel = 'uploads/logos/' . $fname;
+    persist_branding_asset($companyId, 'logo', $rel);
+    return ['ok' => true, 'path' => $rel];
+}
+
+function branding_take_logo_upload(int $companyId, string $field = 'logo'): array
+{
+    return store_company_logo_upload($companyId, $field);
+}
+
+function branding_asset_mime(string $rel): string
+{
+    $ext = strtolower(pathinfo($rel, PATHINFO_EXTENSION));
+    return match ($ext) {
+        'png' => 'image/png',
+        'jpg', 'jpeg' => 'image/jpeg',
+        'gif' => 'image/gif',
+        'svg' => 'image/svg+xml',
+        'webp' => 'image/webp',
+        default => 'application/octet-stream',
+    };
+}
+
+function persist_branding_asset(int $companyId, string $kind, string $rel): void
+{
+    if ($companyId < 1 || !in_array($kind, ['logo', 'signature'], true)) {
+        return;
+    }
+    $rel = ltrim($rel, '/');
+    $full = ROOT_PATH . '/' . $rel;
+    if ($rel === '' || !is_file($full)) {
+        return;
+    }
+    $bin = (string) file_get_contents($full);
+    if ($bin === '') {
+        return;
+    }
+    $mime = branding_asset_mime($rel);
+    try {
+        $row = db_one('SELECT company_id FROM branding_assets WHERE company_id = ? AND kind = ?', 'is', [$companyId, $kind]);
+        if ($row) {
+            db_exec(
+                'UPDATE branding_assets SET mime=?, path=?, bin=? WHERE company_id=? AND kind=?',
+                'sssis',
+                [$mime, $rel, $bin, $companyId, $kind]
+            );
+            return;
+        }
+        db_exec(
+            'INSERT INTO branding_assets (company_id, kind, mime, path, bin) VALUES (?,?,?,?,?)',
+            'issss',
+            [$companyId, $kind, $mime, $rel, $bin]
+        );
+    } catch (Throwable $e) {
+        error_log('Vellisys branding asset: ' . $e->getMessage());
+    }
+}
+
+function branding_asset_stored(int $companyId, string $kind): bool
+{
+    if ($companyId < 1) {
+        return false;
+    }
+    $row = db_one('SELECT company_id FROM branding_assets WHERE company_id = ? AND kind = ?', 'is', [$companyId, $kind]);
+    return (bool) $row;
+}
+
+function branding_asset_row(int $companyId, string $kind): ?array
+{
+    if ($companyId < 1 || !in_array($kind, ['logo', 'signature'], true)) {
+        return null;
+    }
+    return db_one('SELECT mime, path, bin FROM branding_assets WHERE company_id = ? AND kind = ?', 'is', [$companyId, $kind]);
+}
+
+function restore_branding_asset_file(int $companyId, string $kind, string $fallbackRel = ''): string
+{
+    $asset = branding_asset_row($companyId, $kind);
+    if (!$asset || !is_string($asset['bin'] ?? null) || $asset['bin'] === '') {
+        return '';
+    }
+    $rel = ltrim((string) ($asset['path'] ?: $fallbackRel), '/');
+    if ($rel === '' || str_contains($rel, '..')) {
+        $folder = $kind === 'logo' ? 'logos' : 'signatures';
+        $rel = 'uploads/' . $folder . '/' . $kind . '-' . $companyId . '-restored.png';
+    }
+    $full = ROOT_PATH . '/' . $rel;
+    $dir = dirname($full);
+    if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
+        return '';
+    }
+    if (@file_put_contents($full, $asset['bin']) === false) {
+        return '';
+    }
+    return $rel;
+}
+
+function hydrate_branding_files(array &$row): void
+{
+    $cid = (int) ($row['company_id'] ?? 0);
+    if ($cid < 1) {
+        return;
+    }
+    $map = ['logo' => 'logo_path', 'signature' => 'signature_path'];
+    foreach ($map as $kind => $col) {
+        $rel = ltrim((string) ($row[$col] ?? ''), '/');
+        if ($rel !== '' && is_file(ROOT_PATH . '/' . $rel)) {
+            if (str_starts_with($rel, 'uploads/') && !branding_asset_stored($cid, $kind)) {
+                persist_branding_asset($cid, $kind, $rel);
+            }
+            continue;
+        }
+        $restored = restore_branding_asset_file($cid, $kind, $rel);
+        if ($restored === '') {
+            continue;
+        }
+        if ($restored !== $rel) {
+            db_exec('UPDATE branding SET `' . $col . '` = ? WHERE company_id = ?', 'si', [$restored, $cid]);
+        }
+        $row[$col] = $restored;
+    }
+}
+
+function clear_branding_asset(int $companyId, string $kind): void
+{
+    if ($companyId < 1 || !in_array($kind, ['logo', 'signature'], true)) {
+        return;
+    }
+    db_exec('DELETE FROM branding_assets WHERE company_id = ? AND kind = ?', 'is', [$companyId, $kind]);
 }
 
 function platform_create_company(?int $signupId = null): array
@@ -2011,20 +2152,31 @@ function letter_heading(array $doc): string
 
 function company_signature_path(?array $brand = null): string
 {
-    $rel = ltrim((string) (($brand ?? branding())['signature_path'] ?? ''), '/');
+    $brand = $brand ?? branding();
+    $rel = ltrim((string) ($brand['signature_path'] ?? ''), '/');
     if ($rel !== '' && is_file(ROOT_PATH . '/' . $rel)) {
         return $rel;
+    }
+    $cid = (int) ($brand['company_id'] ?? current_company_id());
+    $restored = $cid > 0 ? restore_branding_asset_file($cid, 'signature', $rel) : '';
+    if ($restored !== '' && is_file(ROOT_PATH . '/' . $restored)) {
+        return $restored;
     }
     return '';
 }
 
 function company_signature_url(?array $brand = null): string
 {
+    $brand = $brand ?? branding();
     $rel = company_signature_path($brand);
-    if ($rel === '') {
-        return '';
+    if ($rel !== '' && is_file(ROOT_PATH . '/' . $rel)) {
+        return url($rel) . '?v=' . filemtime(ROOT_PATH . '/' . $rel);
     }
-    return url($rel) . '?v=' . filemtime(ROOT_PATH . '/' . $rel);
+    $cid = (int) ($brand['company_id'] ?? current_company_id());
+    if ($cid > 0 && branding_asset_stored($cid, 'signature')) {
+        return url('brand_asset.php?k=signature&c=' . $cid);
+    }
+    return '';
 }
 
 function letter_template_needs_signature(?string $key): bool
@@ -2054,12 +2206,14 @@ function save_company_signature_png(string $dataUrl): string
     if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
         throw new RuntimeException('Could not save the signature.');
     }
-    $rel = 'uploads/signatures/sig-' . current_company_id() . '-' . date('YmdHis') . '.png';
+    $cid = current_company_id();
+    $rel = 'uploads/signatures/sig-' . $cid . '-' . date('YmdHis') . '.png';
     if (file_put_contents(ROOT_PATH . '/' . $rel, $bin) === false) {
         throw new RuntimeException('Could not save the signature.');
     }
-    $old = company_signature_path();
-    db_exec('UPDATE branding SET signature_path=? WHERE company_id=?', 'si', [$rel, current_company_id()]);
+    $old = ltrim((string) (branding()['signature_path'] ?? ''), '/');
+    db_exec('UPDATE branding SET signature_path=? WHERE company_id=?', 'si', [$rel, $cid]);
+    persist_branding_asset($cid, 'signature', $rel);
     if ($old !== '' && $old !== $rel && str_contains($old, 'uploads/signatures/')) {
         $full = ROOT_PATH . '/' . $old;
         if (is_file($full)) {
@@ -2072,8 +2226,10 @@ function save_company_signature_png(string $dataUrl): string
 
 function clear_company_signature(): void
 {
-    $old = company_signature_path();
-    db_exec('UPDATE branding SET signature_path=NULL WHERE company_id=?', 'i', [current_company_id()]);
+    $cid = current_company_id();
+    $old = ltrim((string) (branding()['signature_path'] ?? ''), '/');
+    db_exec('UPDATE branding SET signature_path=NULL WHERE company_id=?', 'i', [$cid]);
+    clear_branding_asset($cid, 'signature');
     if ($old !== '' && str_contains($old, 'uploads/signatures/') && is_file(ROOT_PATH . '/' . $old)) {
         @unlink($old);
     }

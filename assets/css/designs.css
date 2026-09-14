@@ -1104,6 +1104,7 @@
     display: none !important;
   }
   a[href]::after, a[href]::before { content: none !important; }
+  a { color: inherit !important; text-decoration: none !important; }
   a[x-apple-data-detectors],
   span[x-apple-data-detectors],
   a[x-apple-data-detectors]:hover,

@@ -2270,19 +2270,24 @@ input, select, textarea { font-weight: 400; }
   .app { flex-direction: column; }
   .nav-toggle { display: inline-flex; }
   .nav {
-    width: min(var(--open), 78vw);
+    width: min(var(--open), 100vw);
     top: var(--desk-top-h, 58px);
     bottom: auto;
+    left: 0;
     height: auto;
-    max-height: calc(100dvh - var(--desk-top-h, 58px) - var(--app-tabbar-h, 48px) - 12px);
+    max-height: calc(100dvh - var(--desk-top-h, 58px) - var(--app-tabbar-h, 48px));
     transform: translateX(-105%);
     box-shadow: none;
-    border-right: 0;
+    border-right: 1px solid rgba(8, 20, 58, .08);
     border-bottom: 1px solid rgba(8, 20, 58, .08);
-    border-radius: 0 0 18px 0;
-    padding-bottom: 8px;
+    border-radius: 0;
+    padding-bottom: 0;
     z-index: 55;
     transition: transform .32s cubic-bezier(.22, 1, .36, 1), box-shadow .32s ease;
+  }
+  .nav nav {
+    flex: 0 1 auto;
+    overflow-y: auto;
   }
   .nav .brand-logo {
     width: auto;
@@ -3070,6 +3075,7 @@ input, select, textarea { font-weight: 400; }
   .pdf-bar { display: none !important; }
   .content > .card { display: none !important; }
   a[href]::after, a[href]::before { content: none !important; }
+  a { color: inherit !important; text-decoration: none !important; }
   a[x-apple-data-detectors],
   span[x-apple-data-detectors] {
     color: inherit !important;

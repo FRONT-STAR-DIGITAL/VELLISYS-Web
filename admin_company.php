@@ -51,25 +51,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $color = parse_hex_color(post('brand_color'), '#82B440');
         $accent = parse_hex_color(post('brand_accent'), '#C6A15B');
         $deep = parse_hex_color(post('brand_deep'), '#1F3A12');
-        $logoPath = $brand['logo_path'] ?? 'assets/img/ofagros-logo.png';
-        if (!empty($_FILES['logo']['tmp_name']) && is_uploaded_file($_FILES['logo']['tmp_name'])) {
-            $ext = strtolower(pathinfo($_FILES['logo']['name'], PATHINFO_EXTENSION));
-            if (!in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'], true)) {
-                $error = 'Logo must be PNG, JPG, SVG, GIF or WebP.';
-            } elseif ($_FILES['logo']['size'] > 2_000_000) {
-                $error = 'Logo must be under 2 MB.';
-            } else {
-                $dir = ROOT_PATH . '/uploads/logos';
-                if (!is_dir($dir)) {
-                    mkdir($dir, 0775, true);
-                }
-                $fname = 'logo-' . $id . '-' . date('YmdHis') . '.' . $ext;
-                if (move_uploaded_file($_FILES['logo']['tmp_name'], $dir . '/' . $fname)) {
-                    $logoPath = 'uploads/logos/' . $fname;
-                } else {
-                    $error = 'Could not save the logo file.';
-                }
-            }
+        $logoPath = (string) ($brand['logo_path'] ?? '');
+        $taken = branding_take_logo_upload($id);
+        if (empty($taken['ok'])) {
+            $error = (string) ($taken['error'] ?? 'Could not save the logo file.');
+        } elseif (!empty($taken['path'])) {
+            $logoPath = $taken['path'];
         }
         if ($error === '') {
             try {
@@ -678,7 +665,7 @@ layout_admin_start($company['name'], $user);
     <label for="logo">Logo</label>
     <input id="logo" name="logo" type="file" accept="image/*">
     <?php if (!empty($brand['logo_path'])): ?>
-      <div class="logo-preview"><img src="<?= h(url($brand['logo_path'])) ?>" alt=""></div>
+      <div class="logo-preview"><img src="<?= h(logo_url($brand)) ?>" alt=""></div>
     <?php endif; ?>
     <label for="payment_note">Payment note</label>
     <textarea id="payment_note" name="payment_note" rows="3"><?= h((string) ($brand['payment_note'] ?? '')) ?></textarea>

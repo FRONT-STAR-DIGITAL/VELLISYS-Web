@@ -77,26 +77,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $color = parse_hex_color(post('brand_color'), '#82B440');
     $accent = parse_hex_color(post('brand_accent'), '#C6A15B');
     $deep = hex_shade($color, 0.52);
-    $logoPath = $brand['logo_path'] ?? 'assets/img/ofagros-logo.png';
-    if (!empty($_FILES['logo']['tmp_name']) && is_uploaded_file($_FILES['logo']['tmp_name'])) {
-        $ext = strtolower(pathinfo($_FILES['logo']['name'], PATHINFO_EXTENSION));
-        if (!in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'], true)) {
-            $error = 'Logo must be PNG, JPG, SVG, GIF or WebP.';
-        } elseif ($_FILES['logo']['size'] > 2_000_000) {
-            $error = 'Logo must be under 2 MB.';
-        } else {
-            $dir = ROOT_PATH . '/uploads/logos';
-            if (!is_dir($dir)) {
-                mkdir($dir, 0775, true);
-            }
-            $name = 'logo-' . date('YmdHis') . '.' . $ext;
-            $dest = $dir . '/' . $name;
-            if (move_uploaded_file($_FILES['logo']['tmp_name'], $dest)) {
-                $logoPath = 'uploads/logos/' . $name;
-            } else {
-                $error = 'Could not save the logo file.';
-            }
-        }
+    $logoPath = (string) ($brand['logo_path'] ?? '');
+    $taken = branding_take_logo_upload($cid);
+    if (empty($taken['ok'])) {
+        $error = (string) ($taken['error'] ?? 'Could not save the logo file.');
+    } elseif (!empty($taken['path'])) {
+        $logoPath = $taken['path'];
     }
     if ($error === '') {
         db_exec(
@@ -293,7 +279,7 @@ layout_start('Settings', $user);
       <?php endif; ?>
     </section>
 
-    <form method="post" enctype="multipart/form-data">
+    <form method="post" enctype="multipart/form-data" data-brand-form>
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="save_brand">
     <section class="card settings-card" id="appearance">

@@ -604,6 +604,8 @@ function document_sheet_print_html(array $doc): string
     :root { <?= brand_css_vars($brand) ?> }
     @page { size: <?= $thermal ? '80mm auto' : 'A4' ?>; margin: 0; }
     html, body.print-body { background: #fff !important; margin: 0; padding: 0; }
+    a[href]::after, a[href]::before { content: none !important; }
+    a { color: inherit !important; text-decoration: none !important; }
     .sheet-wrap, .sheet-stage { padding: 0 !important; margin: 0 !important; }
     .invoice-sheet { transform: none !important; zoom: 1 !important; box-shadow: none !important; }
   </style>

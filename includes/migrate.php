@@ -55,6 +55,24 @@ function folio_ensure_signature(mysqli $db): void
     if (!db_has_column($db, 'documents', 'add_signature')) {
         @$db->query('ALTER TABLE documents ADD COLUMN add_signature TINYINT(1) NOT NULL DEFAULT 0');
     }
+    folio_ensure_brand_assets($db);
+}
+
+function folio_ensure_brand_assets(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    @$db->query("CREATE TABLE IF NOT EXISTS branding_assets (
+      company_id INT UNSIGNED NOT NULL,
+      kind VARCHAR(20) NOT NULL,
+      mime VARCHAR(80) NOT NULL DEFAULT 'image/png',
+      path VARCHAR(255) NOT NULL DEFAULT '',
+      bin MEDIUMBLOB NOT NULL,
+      PRIMARY KEY (company_id, kind)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
 function folio_ensure_company_tax(mysqli $db): void
@@ -148,6 +166,7 @@ function folio_migrate(mysqli $db): void
     folio_ensure_logo_bg($db);
     folio_ensure_party_status($db);
     folio_ensure_signature($db);
+    folio_ensure_brand_assets($db);
     folio_ensure_company_tax($db);
     folio_ensure_company_admins($db);
     folio_ensure_notification_dismissals($db);

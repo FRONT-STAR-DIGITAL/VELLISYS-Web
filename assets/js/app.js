@@ -508,6 +508,15 @@ document.querySelectorAll('[data-rich-editor]').forEach(function (wrap) {
   }
 });
 
+document.querySelectorAll('form[data-brand-form]').forEach(function (form) {
+  form.addEventListener('submit', function () {
+    var logo = form.querySelector('input[name="logo"]');
+    if (logo && (!logo.files || !logo.files.length)) {
+      logo.disabled = true;
+    }
+  });
+});
+
 document.querySelectorAll('[data-signature-pad]').forEach(function (root) {
   var canvas = root.querySelector('[data-sig-canvas]');
   var preview = root.querySelector('[data-sig-preview]');
@@ -516,8 +525,10 @@ document.querySelectorAll('[data-signature-pad]').forEach(function (root) {
   var ctx = canvas.getContext('2d');
   var drawing = false;
   var last = null;
-  function sizeCanvas() {
-    if (canvas.hidden) return;
+  var inked = false;
+  function sizeCanvas(force) {
+    if (canvas.hidden && !force) return;
+    if (inked && !force) return;
     var ratio = window.devicePixelRatio || 1;
     var w = canvas.clientWidth || 560;
     var h = canvas.clientHeight || 180;
@@ -528,9 +539,10 @@ document.querySelectorAll('[data-signature-pad]').forEach(function (root) {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.strokeStyle = '#111';
+    if (force) inked = false;
   }
-  sizeCanvas();
-  window.addEventListener('resize', sizeCanvas);
+  sizeCanvas(true);
+  window.addEventListener('resize', function () { sizeCanvas(false); });
   function pos(ev) {
     var r = canvas.getBoundingClientRect();
     var pt = ev.touches ? ev.touches[0] : ev;
@@ -550,6 +562,7 @@ document.querySelectorAll('[data-signature-pad]').forEach(function (root) {
     ctx.lineTo(p.x, p.y);
     ctx.stroke();
     last = p;
+    inked = true;
   }
   function end() { drawing = false; }
   canvas.addEventListener('pointerdown', start);
@@ -588,14 +601,14 @@ document.querySelectorAll('[data-signature-pad]').forEach(function (root) {
   var approve = root.querySelector('[data-sig-approve]');
   if (cancel) {
     cancel.addEventListener('click', function () {
-      sizeCanvas();
+      sizeCanvas(true);
       setStatus('Pad cleared.');
     });
   }
   function showPad() {
     if (preview) preview.hidden = true;
     canvas.hidden = false;
-    sizeCanvas();
+    sizeCanvas(true);
   }
   if (retake) {
     retake.addEventListener('click', function () {

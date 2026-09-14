@@ -51,7 +51,9 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - Clients have **Active / Inactive** status and a **Delete** action. Inactive names stay off new documents; deleted names leave the list while their issued documents stay in the books. Document tables use the same delete (void) icon
 - Quotations convert to invoices; invoices take full or **part receipts**; unpaid balances stay on Debtors
 - Every document can be edited after it is saved
-- Print and share a clean sheet - no desk chrome, dates or page URLs around the paper
+- Print and share a clean sheet - no desk chrome, dates or page URLs around the paper. On a phone, print uses a blank sheet so Safari does not stamp the desk link at the bottom
+- Logo and signature stay in MySQL as well as files, so a settings save does not replace them unless you upload a new logo or approve or remove a signature
+- Phone menu sits flush under the header and hugs the links, with Accounts directly under the last item
 - Line items are **Item**, **Description** (paragraph), **Qty**, **Unit price**, **Total Amt**, and **tax** as Y or N. If every line is N, tax is left off the printed sheet
 - Receipts show **RECEIVED** and **DUE**. The Receipts tab lists cleared and partially cleared payments
 - Static navigation; desk portals use the same pale wash as the public site, a faint blue V, and soft card shadows
