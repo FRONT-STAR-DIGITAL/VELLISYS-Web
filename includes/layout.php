@@ -40,7 +40,7 @@ function render_page_loader(): void
     ?>
 <style>
 .page-loader{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;background:transparent;pointer-events:none}
-.page-loader-mark{width:92px;height:92px;border-radius:18px;background:#fff;position:relative;box-shadow:0 10px 28px rgba(8,20,58,.12)}
+.page-loader-mark{width:92px;height:92px;border-radius:18px;background:transparent;position:relative;box-shadow:none}
 .page-loader-dot{position:absolute;left:50%;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:var(--brand);transform:rotate(calc(var(--i)*60deg)) translateY(-22px);animation:page-loader-pulse .9s ease-in-out infinite;animation-delay:calc(var(--i)*.12s)}
 @keyframes page-loader-pulse{0%,80%,100%{opacity:.22}40%{opacity:1}}
 </style>
@@ -63,7 +63,7 @@ function render_page_loader(): void
     window.setTimeout(function () {
       if (el && el.parentNode) el.parentNode.removeChild(el);
     }, 220);
-  }, 1000);
+  }, 400);
 })();
 </script>
     <?php
