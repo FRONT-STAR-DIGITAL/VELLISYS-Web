@@ -63,7 +63,7 @@ $lessons = [
         'alt' => 'A branded quotation ready to share',
         'lead' => 'A quotation is the offer. Write it in your logo and colours, send it, then convert it when they say yes.',
         'points' => [
-            'New quotation, pick the client, add lines: item, description, qty, unit price, tax Y or N.',
+            'New quotation, pick the client, add lines: item, description, qty, unit price, tax Y or N. On a phone, swipe the line sideways. Type an item to pick from stock, or keep a name that is not in stock.',
             'Share the branded sheet, or Email it in one click. Mail leaves from the company mailbox Vellisys assigned, not your personal inbox.',
             'When they accept, convert the quotation to an invoice. The lines copy across so you do not retype them.',
         ],
