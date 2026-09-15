@@ -515,7 +515,7 @@ layout_start($heading, $user, ['kind' => $kind]);
   <?php else: ?>
     <div class="lines-panel" data-lines-panel data-delivery="<?= in_array($kind, ['delivery', 'return_note'], true) ? '1' : '0' ?>">
       <div class="lines-wrap">
-      <table class="grid lines" id="lines" data-lines<?= (function_exists('company_stock_enabled') && company_stock_enabled() && in_array($kind, ['quotation', 'invoice'], true)) ? ' data-stock-catalog="1"' : '' ?>>
+      <table class="grid lines" id="lines" data-lines<?= (function_exists('company_stock_enabled') && company_stock_enabled()) ? ' data-stock-catalog="1"' : '' ?>>
         <thead>
           <tr>
             <th>Item</th>
@@ -561,7 +561,7 @@ layout_start($heading, $user, ['kind' => $kind]);
                 <input type="hidden" name="item_rate[<?= $i ?>]" value="0">
               <?php endif; ?>
               <td class="center lines-del-col">
-                <button type="button" class="btn ghost sm icon-only" data-remove-line title="Delete row" aria-label="Delete row"><?= icon('trash', 14) ?></button>
+                <button type="button" class="btn ghost sm icon-only" data-remove-line title="Remove" aria-label="Remove"><?= icon('x', 14) ?></button>
               </td>
             </tr>
           <?php endforeach; ?>
@@ -578,7 +578,7 @@ layout_start($heading, $user, ['kind' => $kind]);
         <?php elseif ($kind === 'expense'): ?>
           <span class="hint">What was bought or paid for. Expenses open as a detail card, not stationery.</span>
         <?php else: ?>
-          <span class="hint">Item is the short name. Tick <?= h($taxName) ?> for Y. Preview below shows how lines print.</span>
+          <span class="hint">Type an item. Names in stock appear as you type. Keep typing if it is not in stock. Tick <?= h($taxName) ?> for Y.</span>
         <?php endif; ?>
       </p>
       <?php if ($kind !== 'expense'): ?>
@@ -618,7 +618,7 @@ layout_start($heading, $user, ['kind' => $kind]);
 </form>
 <?php
 $stockJs = '';
-if (function_exists('company_stock_enabled') && company_stock_enabled() && in_array($kind, ['quotation', 'invoice'], true)) {
+if (function_exists('company_stock_enabled') && company_stock_enabled() && $kind !== 'letter' && $kind !== 'custom') {
     $stockJs = '<script type="application/json" id="desk-stock-catalog">' . json_encode(stock_catalog_payload(), JSON_UNESCAPED_UNICODE) . '</script>';
 }
 layout_end($stockJs);
