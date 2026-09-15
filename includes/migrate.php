@@ -1,10 +1,13 @@
 <?php
 declare(strict_types=1);
 
-function db_has_column(mysqli $db, string $table, string $column): bool
+function db_has_column(mysqli $db, string $table, string $column, bool $refresh = false): bool
 {
     static $cache = [];
     $key = $table . '.' . $column;
+    if ($refresh) {
+        unset($cache[$key]);
+    }
     if (array_key_exists($key, $cache)) {
         return $cache[$key];
     }
@@ -21,7 +24,7 @@ function folio_schema_ready_file(): string
     if (!is_dir($dir)) {
         @mkdir($dir, 0700, true);
     }
-    return $dir . '/schema-42.ok';
+    return $dir . '/schema-44.ok';
 }
 
 function folio_ensure_logo_bg(mysqli $db): void
@@ -474,7 +477,7 @@ function folio_migrate(mysqli $db): void
         return;
     }
     $verRow = @$db->query("SELECT v FROM schema_meta WHERE k='version'");
-    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 42) {
+    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 44) {
         @touch($ready);
         $done = true;
         return;
@@ -489,7 +492,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 42) {
+    if ($ver >= 44) {
         @touch($ready);
         $done = true;
         return;
@@ -723,10 +726,91 @@ function folio_migrate(mysqli $db): void
     if ($ver < 42) {
         folio_migrate_public_voice($db);
     }
+    if ($ver < 44) {
+        folio_migrate_platform_ops($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '42')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '44')");
     @touch($ready);
     $done = true;
+}
+
+function folio_migrate_platform_ops(mysqli $db): void
+{
+    if (!db_has_column($db, 'users', 'last_seen_at')) {
+        $db->query('ALTER TABLE users ADD COLUMN last_seen_at DATETIME NULL');
+        db_has_column($db, 'users', 'last_seen_at', true);
+    }
+    if (!db_has_column($db, 'users', 'last_login_at')) {
+        $db->query('ALTER TABLE users ADD COLUMN last_login_at DATETIME NULL');
+        $db->query('UPDATE users SET last_login_at = first_login_at WHERE last_login_at IS NULL AND first_login_at IS NOT NULL');
+        db_has_column($db, 'users', 'last_login_at', true);
+    }
+    $db->query("CREATE TABLE IF NOT EXISTS platform_fee_ledger (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      company_id INT UNSIGNED NULL,
+      source VARCHAR(20) NOT NULL DEFAULT 'term',
+      amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+      currency CHAR(3) NOT NULL DEFAULT 'USD',
+      amount_usd DECIMAL(14,2) NOT NULL DEFAULT 0,
+      occurred_at DATETIME NOT NULL,
+      note VARCHAR(190) NULL,
+      KEY occurred (occurred_at),
+      KEY company (company_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $db->query("CREATE TABLE IF NOT EXISTS platform_perf_samples (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      ms INT UNSIGNED NOT NULL DEFAULT 0,
+      path VARCHAR(120) NOT NULL DEFAULT '',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY created_at (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $count = $db->query('SELECT COUNT(*) AS c FROM platform_fee_ledger');
+    $n = $count ? (int) $count->fetch_assoc()['c'] : 0;
+    if ($n === 0) {
+        $orders = @$db->query("SELECT company_id, amount, currency, updated_at FROM website_orders WHERE status = 'paid' AND amount > 0");
+        if ($orders) {
+            $ins = $db->prepare('INSERT INTO platform_fee_ledger (company_id, source, amount, currency, amount_usd, occurred_at, note) VALUES (?,?,?,?,?,?,?)');
+            while ($o = $orders->fetch_assoc()) {
+                $amt = (float) $o['amount'];
+                $ccy = strtoupper((string) ($o['currency'] ?: 'USD'));
+                $usd = $amt;
+                if (function_exists('platform_convert')) {
+                    $usd = platform_convert($amt, $ccy, 'USD');
+                }
+                $src = 'checkout';
+                $note = 'Package payment';
+                $when = (string) ($o['updated_at'] ?? date('Y-m-d H:i:s'));
+                $cid = (int) ($o['company_id'] ?? 0);
+                $ins->bind_param('isdsdss', $cid, $src, $amt, $ccy, $usd, $when, $note);
+                $ins->execute();
+            }
+        }
+        $cos = @$db->query("SELECT id, name, fee_paid, fee_currency, paid_from, created_at FROM companies WHERE fee_paid > 0");
+        if ($cos) {
+            $ins = $db->prepare('INSERT INTO platform_fee_ledger (company_id, source, amount, currency, amount_usd, occurred_at, note) VALUES (?,?,?,?,?,?,?)');
+            while ($c = $cos->fetch_assoc()) {
+                $cid = (int) $c['id'];
+                $has = $db->query('SELECT id FROM platform_fee_ledger WHERE company_id = ' . $cid . " AND source = 'checkout' LIMIT 1");
+                if ($has && $has->num_rows > 0) {
+                    continue;
+                }
+                $amt = (float) $c['fee_paid'];
+                $ccy = strtoupper((string) ($c['fee_currency'] ?: 'USD'));
+                $usd = function_exists('platform_convert') ? platform_convert($amt, $ccy, 'USD') : $amt;
+                $src = 'term';
+                $note = 'Paid term for ' . (string) $c['name'];
+                $when = (string) (($c['paid_from'] ?? '') !== '' ? $c['paid_from'] . ' 12:00:00' : ($c['created_at'] ?? date('Y-m-d H:i:s')));
+                $ins->bind_param('isdsdss', $cid, $src, $amt, $ccy, $usd, $when, $note);
+                $ins->execute();
+            }
+        }
+    }
+    @$db->query("UPDATE landing_ticker SET body = REPLACE(REPLACE(body, '—', '-'), '–', '-')");
+    @$db->query("UPDATE landing_cards SET body = REPLACE(REPLACE(body, '—', '-'), '–', '-')");
+    if (function_exists('folio_cache_bust')) {
+        folio_cache_bust();
+    }
 }
 
 function folio_migrate_planner(mysqli $db): void

@@ -41,7 +41,7 @@ function require_member(): array
     if (($user['role'] ?? '') === 'platform') {
         $acting = (int) ($_SESSION['acting_company_id'] ?? 0);
         if ($acting <= 0) {
-            redirect('admin_signups.php');
+            redirect(platform_home());
         }
         $_SESSION['company_id'] = $acting;
     }
@@ -362,6 +362,9 @@ function attempt_login(string $email, string $password): bool
     $_SESSION['user_id'] = (int) $user['id'];
     $_SESSION['company_id'] = $cid;
     $_SESSION['role'] = $user['role'] ?? 'member';
+    if (function_exists('touch_user_seen')) {
+        touch_user_seen((int) $user['id'], true);
+    }
     return true;
 }
 

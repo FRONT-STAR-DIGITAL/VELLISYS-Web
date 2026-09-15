@@ -17,13 +17,19 @@ $companies = db_all(
             (SELECT COUNT(*) FROM documents d WHERE d.company_id = c.id) AS docs
      FROM companies c ORDER BY c.id DESC'
 );
+$from = desk_now()->modify('-30 days')->format('Y-m-d');
+$to = desk_now()->format('Y-m-d');
+$presence = [];
+foreach (platform_company_presence() as $row) {
+    $presence[(int) $row['id']] = $row;
+}
 
 layout_admin_start('Companies', $user);
 ?>
 <div class="page-head">
   <div>
     <h1><?= icon('building') ?>Companies</h1>
-    <p class="lede">Create a company from scratch, or onboard one from Sign-ups. Issue the first login, set stationery, then mark the desk live.</p>
+    <p class="lede">Who is online, who signed in last, how heavily they use the desk, and when their term renews. Open a company for its own snapshot.</p>
   </div>
   <a class="btn" href="<?= h(url('admin_company_new.php')) ?>"><?= icon('plus') ?>New company</a>
 </div>
@@ -38,28 +44,34 @@ layout_admin_start('Companies', $user);
         <tr>
           <th>Company</th>
           <th>Status</th>
+          <th>Online</th>
+          <th>Last sign-in</th>
           <th>Paid term</th>
-          <th>Expiry</th>
-          <th>Paid</th>
-          <th>Balance</th>
+          <th>Renews</th>
+          <th>They pay</th>
           <th>Users</th>
-          <th>Documents</th>
+          <th>Use (30d)</th>
           <th>Onboard</th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody>
-        <?php foreach ($companies as $c): ?>
+        <?php foreach ($companies as $c):
+            $p = $presence[(int) $c['id']] ?? [];
+            $onlineN = (int) ($p['online_users'] ?? 0);
+            $use = platform_usage_counts((int) $c['id'], $from, $to);
+            $onboard = company_onboard_progress($c);
+            ?>
           <tr>
             <td><a href="<?= h(url('admin_company.php?id=' . $c['id'])) ?>"><strong><?= h($c['name']) ?></strong></a></td>
             <td><span class="pill<?= $c['status'] === 'live' ? '' : ($c['status'] === 'suspended' ? ' bad' : ' warn') ?>"><?= h($c['status']) ?></span></td>
+            <td><?php if ($onlineN > 0): ?><span class="pill"><?= $onlineN ?> online</span><?php else: ?><span class="muted">Off</span><?php endif; ?></td>
+            <td class="mono"><?= h(format_when($p['last_login_at'] ?? null)) ?></td>
             <td><?= h(company_term_label($c)) ?></td>
-            <td class="<?= company_expiry_state($c) === 'expired' ? 'expiry-expired' : (company_expiry_state($c) === 'soon' ? 'expiry-soon' : '') ?>"><?= h(company_remaining_phrase($c)) ?></td>
-            <td class="mono"><?= company_fee_paid($c) > 0 ? h(money(company_fee_paid($c), company_fee_currency($c))) : '-' ?></td>
-            <td class="mono"><?= company_fee_balance($c) > 0 ? h(money(company_fee_balance($c), company_fee_currency($c))) : '-' ?></td>
+            <td class="<?= company_expiry_state($c) === 'expired' ? 'expiry-expired' : (company_expiry_state($c) === 'soon' ? 'expiry-soon' : '') ?>"><?= !empty($c['expires_at']) ? h(format_date((string) $c['expires_at'])) : h(company_remaining_phrase($c)) ?></td>
+            <td class="mono"><?= company_fee_amount($c) > 0 ? h(platform_money_company_fee($c, 'amount')) : '-' ?></td>
             <td class="mono"><?= (int) $c['users'] ?> / <?= (int) company_user_limit($c) ?></td>
-            <td class="mono"><?= (int) $c['docs'] ?></td>
-            <?php $onboard = company_onboard_progress($c); ?>
+            <td class="mono"><?= (int) $use['score'] ?></td>
             <td class="mono"><?= (int) $onboard['done'] ?> / <?= (int) $onboard['total'] ?></td>
             <td class="row-actions">
               <div class="actions">
@@ -72,6 +84,7 @@ layout_admin_start('Companies', $user);
       </tbody>
     </table>
     </div>
+    <p class="hint">Use in the last 30 days is sheets issued plus desk events. Online means a sign-in was seen in the last <?= (int) platform_online_window_minutes() ?> minutes. Amounts use the currency in Settings.</p>
   <?php endif; ?>
 </div>
 <?php layout_end(); ?>

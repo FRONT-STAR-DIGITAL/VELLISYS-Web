@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
 if ($user = current_user()) {
-    redirect(($user['role'] ?? '') === 'platform' ? 'admin_signups.php' : 'dashboard.php');
+    redirect(($user['role'] ?? '') === 'platform' ? platform_home() : 'dashboard.php');
 }
 
 $planKey = strtolower(trim((string) ($_GET['plan'] ?? post('plan'))));

@@ -571,13 +571,6 @@ function render_landing_pricing(): void
               <?php endif; ?>
               <div class="lp-price-actions">
                 <a class="lp-btn <?= !empty($pkg['popular']) ? 'lp-btn-solid' : 'lp-btn-ghost' ?>" href="<?= h(url('checkout.php?plan=' . $pkg['key'])) ?>"><?= h(pricing_display_cta($pkg, $packages)) ?></a>
-                <?php
-                $viewer = current_user();
-                $activityHref = ($viewer && ($viewer['role'] ?? '') !== 'platform')
-                    ? url('activities.php')
-                    : url('login.php?next=activities.php');
-                ?>
-                <a class="lp-btn lp-btn-ghost" href="<?= h($activityHref) ?>">Activities</a>
               </div>
             </div>
           </article>

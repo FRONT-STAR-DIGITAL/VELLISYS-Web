@@ -37,7 +37,7 @@ $lessons = [
         'alt' => 'Company activity log of issued documents, payments and mail',
         'lead' => 'Activities is on every package. It is the desk history: who issued what, who was paid, which mail left, and when branding was saved. It is not a visitor log of every page click.',
         'points' => [
-            'Open Activities from the rail, from Desk, or from the Activities button on the public packages.',
+            'Open Activities from the rail or from Desk.',
             'Filter by documents, payments, email, clients, settings or planner. On a desk with branches, chip a branch, Head office, or the whole company.',
             'Older sheets already on the books are copied in the first time the log is created, so you are not looking at an empty page.',
         ],

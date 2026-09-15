@@ -102,8 +102,8 @@ foreach ($companies as $c) {
     $totalBalance += company_fee_ugx($c, 'balance');
     $totalRemaining += company_fee_ugx($c, 'remaining');
     $feeNames[] = (string) $c['name'];
-    $feePaidSeries[] = company_fee_ugx($c, 'paid');
-    $feeBalSeries[] = company_fee_ugx($c, 'balance');
+    $feePaidSeries[] = platform_convert(company_fee_ugx($c, 'paid'), 'USD');
+    $feeBalSeries[] = platform_convert(company_fee_ugx($c, 'balance'), 'USD');
 }
 
 $signupMonths = array_fill_keys($months, 0);
@@ -123,71 +123,6 @@ foreach ($signups as $s) {
     }
 }
 
-$booksBy = [];
-foreach ($companies as $c) {
-    $booksBy[(int) $c['id']] = [
-        'name' => (string) $c['name'],
-        'invoiced' => 0.0,
-        'collected' => 0.0,
-        'outstanding' => 0.0,
-        'expenses' => 0.0,
-        'quotes' => 0,
-        'invoices' => 0,
-        'receipts' => 0,
-        'expenses_n' => 0,
-        'letters' => 0,
-    ];
-}
-$fxByCo = [];
-foreach ($companies as $c) {
-    $fxByCo[(int) $c['id']] = company_fx_context((int) $c['id']);
-}
-$bookMonths = [];
-foreach ($months as $m) {
-    $bookMonths[$m] = ['invoiced' => 0.0, 'collected' => 0.0, 'expenses' => 0.0];
-}
-foreach (platform_issued_documents() as $d) {
-    $cid = (int) $d['company_id'];
-    if (!isset($booksBy[$cid])) {
-        continue;
-    }
-    $fx = $fxByCo[$cid] ?? ['home' => 'USD', 'rate' => 1.0];
-    $kind = (string) ($d['kind'] ?? '');
-    $usdAmt = convert_money((float) $d['totals']['total'], doc_currency($d), 'USD', $fx['rate'], $fx['home']);
-    $ym = substr((string) $d['date'], 0, 7);
-    if ($kind === 'invoice') {
-        $booksBy[$cid]['invoiced'] += $usdAmt;
-        $booksBy[$cid]['outstanding'] += convert_money((float) $d['balance'], doc_currency($d), 'USD', $fx['rate'], $fx['home']);
-        $booksBy[$cid]['invoices']++;
-        if (isset($bookMonths[$ym])) {
-            $bookMonths[$ym]['invoiced'] += $usdAmt;
-        }
-    } elseif ($kind === 'expense') {
-        $booksBy[$cid]['expenses'] += $usdAmt;
-        $booksBy[$cid]['expenses_n']++;
-        if (isset($bookMonths[$ym])) {
-            $bookMonths[$ym]['expenses'] += $usdAmt;
-        }
-    } elseif ($kind === 'receipt') {
-        $booksBy[$cid]['receipts']++;
-        $got = convert_money((float) ($d['paid'] ?: $d['totals']['total']), doc_currency($d), 'USD', $fx['rate'], $fx['home']);
-        if (($d['related_kind'] ?? '') !== 'expense') {
-            $booksBy[$cid]['collected'] += $got;
-            if (isset($bookMonths[$ym])) {
-                $bookMonths[$ym]['collected'] += $got;
-            }
-        }
-    } elseif ($kind === 'quotation') {
-        $booksBy[$cid]['quotes']++;
-    } elseif ($kind === 'letter') {
-        $booksBy[$cid]['letters']++;
-    }
-}
-$deskInvoiced = array_sum(array_column($booksBy, 'invoiced'));
-$deskCollected = array_sum(array_column($booksBy, 'collected'));
-$deskOutstanding = array_sum(array_column($booksBy, 'outstanding'));
-$deskExpenses = array_sum(array_column($booksBy, 'expenses'));
-
 $export = (string) ($_GET['export'] ?? '');
 if ($export === 'fees') {
     $rows = [];
@@ -206,26 +141,6 @@ if ($export === 'fees') {
         ];
     }
     csv_download('vellisys-fees.csv', ['Company', 'Status', 'Term', 'Remaining', 'Expires', 'Fee', 'Paid', 'Balance', 'Unused value', 'Currency'], $rows);
-}
-if ($export === 'books') {
-    $rows = [];
-    foreach ($companies as $c) {
-        $b = $booksBy[(int) $c['id']];
-        $rows[] = [
-            $c['name'],
-            $c['status'],
-            round($b['invoiced'], 2),
-            round($b['collected'], 2),
-            round($b['outstanding'], 2),
-            round($b['expenses'], 2),
-            $b['quotes'],
-            $b['invoices'],
-            $b['receipts'],
-            $b['expenses_n'],
-            $b['letters'],
-        ];
-    }
-    csv_download('vellisys-desk-books.csv', ['Company', 'Status', 'Invoiced', 'Collected', 'Outstanding', 'Expenses', 'Quotations', 'Invoices', 'Receipts', 'Expenses issued', 'Letters'], $rows);
 }
 
 $traffic = visit_report(30);
@@ -248,12 +163,9 @@ $adminChart = [
     'feeNames' => $feeNames,
     'feePaid' => $feePaidSeries,
     'feeBalance' => $feeBalSeries,
-    'bookInvoiced' => array_column($bookMonths, 'invoiced'),
-    'bookCollected' => array_column($bookMonths, 'collected'),
-    'bookExpenses' => array_column($bookMonths, 'expenses'),
     'funnelLabels' => array_keys($signupStatus),
     'funnelValues' => array_values($signupStatus),
-    'currency' => 'USD',
+    'currency' => platform_currency(),
     'visitDays' => $traffic['daily']['labels'],
     'visitLanding' => $traffic['daily']['landing'],
     'visitDesk' => $traffic['daily']['desk'],
@@ -303,11 +215,11 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
 <div class="page-head">
   <div>
     <h1><?= icon('reports') ?>Reports</h1>
-    <p class="lede">Collections, balances, onboarding, and how every desk is performing. When a company is one month from expiry, preview the letter and send it in one click.</p>
+    <p class="lede">Onboarding, expiry, site visits, and renewal letters. Money Vellisys has taken in lives under Finances. How desks run lives under System.</p>
   </div>
   <div class="actions">
     <a class="btn ghost" href="<?= h(url('admin_reports.php?export=fees')) ?>"><?= icon('download', 16) ?>Fees CSV</a>
-    <a class="btn ghost" href="<?= h(url('admin_reports.php?export=books')) ?>"><?= icon('download', 16) ?>Desk books CSV</a>
+    <a class="btn ghost" href="<?= h(url('admin_finances.php')) ?>"><?= icon('bank', 16) ?>Finances</a>
     <a class="btn ghost" href="<?= h(url('admin_reports.php?export=visits')) ?>"><?= icon('globe', 16) ?>Visits CSV</a>
   </div>
 </div>
@@ -319,12 +231,10 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
   <div class="card stat"><?= icon('ban', 20) ?><span>Expired</span><strong><?= count($expired) ?></strong></div>
 </div>
 <div class="stats">
-  <div class="card stat"><?= icon('bank', 20) ?><span>Fees collected</span><strong><?= h(money($totalPaid, 'USD')) ?></strong></div>
-  <div class="card stat"><?= icon('invoice', 20) ?><span>Fee balances</span><strong><?= h(money($totalBalance, 'USD')) ?></strong></div>
-  <div class="card stat"><?= icon('receipt', 20) ?><span>Desk collections</span><strong><?= h(money($deskCollected, 'USD')) ?></strong></div>
-  <div class="card stat"><?= icon('clients', 20) ?><span>Desk outstanding</span><strong><?= h(money($deskOutstanding, 'USD')) ?></strong></div>
+  <div class="card stat"><?= icon('bank', 20) ?><span>Fees collected</span><strong><?= h(platform_money($totalPaid, 'USD')) ?></strong></div>
+  <div class="card stat"><?= icon('invoice', 20) ?><span>Fee balances</span><strong><?= h(platform_money($totalBalance, 'USD')) ?></strong></div>
 </div>
-<p class="hint" style="margin:-12px 0 20px"><?= $withTerm ?> of <?= count($companies) ?> <?= count($companies) === 1 ? 'company has' : 'companies have' ?> a paid term on file. Remaining unused term value <?= h(money($totalRemaining, 'USD')) ?>. Desk invoiced <?= h(money($deskInvoiced, 'USD')) ?> · expenses <?= h(money($deskExpenses, 'USD')) ?>. Combined totals are USD equivalents.</p>
+<p class="hint" style="margin:-12px 0 20px"><?= $withTerm ?> of <?= count($companies) ?> <?= count($companies) === 1 ? 'company has' : 'companies have' ?> a paid term on file. Unused term value <?= h(platform_money($totalRemaining, 'USD')) ?>. Open Finances for money in over time. Figures follow the currency in Settings.</p>
 
 <div class="page-head" style="margin-top:8px">
   <div>
@@ -408,109 +318,6 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
       <canvas id="chart-fees"></canvas>
     <?php endif; ?>
   </div>
-  <div class="card chart-box">
-    <div class="card-head"><h2><?= icon('reports', 16) ?>Desk books over time</h2></div>
-    <canvas id="chart-books"></canvas>
-  </div>
-</div>
-
-<div class="card" style="margin-bottom:24px">
-  <div class="card-head"><h2><?= icon('bank', 16) ?>What each client paid</h2></div>
-  <?php if (!$companies): ?>
-    <p class="empty">No companies yet.</p>
-  <?php else: ?>
-    <div class="table-scroll">
-    <table class="grid">
-      <thead>
-        <tr>
-          <th>Company</th>
-          <th>Status</th>
-          <th>Term</th>
-          <th>Remaining</th>
-          <th>Expires</th>
-          <th class="right">Fee</th>
-          <th class="right">Paid</th>
-          <th class="right">Balance</th>
-          <th class="right">Unused value</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php foreach ($companies as $c): ?>
-          <tr>
-            <td><a href="<?= h(url('admin_company.php?id=' . $c['id'])) ?>"><strong><?= h($c['name']) ?></strong></a></td>
-            <td><span class="pill<?= $c['status'] === 'live' ? '' : ($c['status'] === 'suspended' ? ' bad' : ' warn') ?>"><?= h($c['status']) ?></span></td>
-            <td><?= h(company_term_label($c)) ?></td>
-            <td><?= h(company_remaining_phrase($c)) ?></td>
-            <td><?= $c['expires_at'] ? h(format_date((string) $c['expires_at'])) : '-' ?></td>
-            <td class="right mono"><?= h(money(company_fee_amount($c), company_fee_currency($c))) ?></td>
-            <td class="right mono"><?= h(money(company_fee_paid($c), company_fee_currency($c))) ?></td>
-            <td class="right mono"><?= h(money(company_fee_balance($c), company_fee_currency($c))) ?></td>
-            <td class="right mono"><?= h(money(company_remaining_value($c), company_fee_currency($c))) ?></td>
-          </tr>
-        <?php endforeach; ?>
-      </tbody>
-      <tfoot>
-        <tr>
-          <td colspan="5">Totals (USD equivalent)</td>
-          <td class="right mono"><?= h(money($totalFee, 'USD')) ?></td>
-          <td class="right mono"><?= h(money($totalPaid, 'USD')) ?></td>
-          <td class="right mono"><?= h(money($totalBalance, 'USD')) ?></td>
-          <td class="right mono"><?= h(money($totalRemaining, 'USD')) ?></td>
-        </tr>
-      </tfoot>
-    </table>
-    </div>
-  <?php endif; ?>
-</div>
-
-<div class="card" style="margin-bottom:24px">
-  <div class="card-head"><h2><?= icon('desk', 16) ?>System performance</h2></div>
-  <?php if (!$companies): ?>
-    <p class="empty">No desks to measure.</p>
-  <?php else: ?>
-    <div class="table-scroll">
-    <table class="grid">
-      <thead>
-        <tr>
-          <th>Company</th>
-          <th class="right">Invoiced</th>
-          <th class="right">Collected</th>
-          <th class="right">Outstanding</th>
-          <th class="right">Expenses</th>
-          <th class="right">Quotes</th>
-          <th class="right">Invoices</th>
-          <th class="right">Receipts</th>
-          <th class="right">Letters</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php foreach ($companies as $c): $b = $booksBy[(int) $c['id']]; ?>
-          <tr>
-            <td><a href="<?= h(url('admin_company.php?id=' . $c['id'])) ?>"><strong><?= h($c['name']) ?></strong></a></td>
-            <td class="right mono"><?= h(money($b['invoiced'], 'USD')) ?></td>
-            <td class="right mono"><?= h(money($b['collected'], 'USD')) ?></td>
-            <td class="right mono"><?= h(money($b['outstanding'], 'USD')) ?></td>
-            <td class="right mono"><?= h(money($b['expenses'], 'USD')) ?></td>
-            <td class="right mono"><?= (int) $b['quotes'] ?></td>
-            <td class="right mono"><?= (int) $b['invoices'] ?></td>
-            <td class="right mono"><?= (int) $b['receipts'] ?></td>
-            <td class="right mono"><?= (int) $b['letters'] ?></td>
-          </tr>
-        <?php endforeach; ?>
-      </tbody>
-      <tfoot>
-        <tr>
-          <td>Totals</td>
-          <td class="right mono"><?= h(money($deskInvoiced, 'USD')) ?></td>
-          <td class="right mono"><?= h(money($deskCollected, 'USD')) ?></td>
-          <td class="right mono"><?= h(money($deskOutstanding, 'USD')) ?></td>
-          <td class="right mono"><?= h(money($deskExpenses, 'USD')) ?></td>
-          <td colspan="4"></td>
-        </tr>
-      </tfoot>
-    </table>
-    </div>
-  <?php endif; ?>
 </div>
 
 <?php if ($preview && $previewCopy): ?>
@@ -770,21 +577,6 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
       type: "bar",
       data: { labels: d.visitCountryNames, datasets: [{ label: "Visits", data: d.visitCountryValues, backgroundColor: "#1E4EFF" }] },
       options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { precision: 0 } } } }
-    });
-  }
-  var books = document.getElementById("chart-books");
-  if (books) {
-    new Chart(books, {
-      type: "line",
-      data: {
-        labels: d.months,
-        datasets: [
-          { label: "Invoiced", data: d.bookInvoiced, borderColor: "#82B440", backgroundColor: "rgba(130,180,64,.16)", tension: .25, fill: true },
-          { label: "Collected", data: d.bookCollected, borderColor: "#1f3a12", tension: .25, fill: false },
-          { label: "Expenses", data: d.bookExpenses, borderColor: "#b42318", backgroundColor: "rgba(180,35,24,.1)", tension: .25, fill: true }
-        ]
-      },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, scales: { y: { ticks: { callback: money } } } }
     });
   }
 })();

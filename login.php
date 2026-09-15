@@ -7,7 +7,7 @@ if (function_exists('record_site_visit')) {
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' && ($user = current_user())) {
     if (($user['role'] ?? '') === 'platform') {
-        redirect('admin_signups.php');
+        redirect(platform_home());
     }
     redirect(desk_safe_next((string) ($_GET['next'] ?? 'dashboard.php')));
 }
@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         remember_login($remember);
         $user = current_user();
         if (($user['role'] ?? '') === 'platform') {
-            redirect('admin_signups.php');
+            redirect(platform_home());
         }
         $first = finish_member_first_login($user ?: []);
         $next = desk_safe_next(post('next') ?: (string) ($_GET['next'] ?? ''));

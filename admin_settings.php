@@ -8,6 +8,7 @@ $solo = platform_setting_int('stock_addon_solo_ugx', 50000);
 $multi = platform_setting_int('stock_addon_multi_ugx', 100000);
 $tempPass = default_desk_password();
 $signupsOpen = platform_setting('signups_open', '1') !== '0';
+$adminCcy = platform_currency();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
@@ -15,6 +16,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $multi = max(0, (int) post('stock_addon_multi_ugx'));
     $tempPass = trim(post('default_desk_password'));
     $signupsOpen = !empty($_POST['signups_open']);
+    $picked = posted_currency('admin_currency', $adminCcy);
+    $allowed = array_keys(pricing_currencies());
+    if (!in_array($picked, $allowed, true)) {
+        $picked = 'USD';
+    }
     if (strlen($tempPass) < 8) {
         $error = 'The default desk password must be at least 8 characters.';
     } else {
@@ -22,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         save_platform_setting('stock_addon_multi_ugx', (string) $multi);
         save_platform_setting('default_desk_password', $tempPass);
         save_platform_setting('signups_open', $signupsOpen ? '1' : '0');
+        save_platform_setting('admin_currency', $picked);
         flash('Platform settings saved.');
         redirect('admin_settings.php');
     }
@@ -40,6 +47,18 @@ layout_admin_start('Settings', $user);
 
 <form class="card form-wide" method="post">
   <?= csrf_field() ?>
+  <div class="card-head"><h2><?= icon('bank', 16) ?>Super admin figures</h2></div>
+  <div class="form-grid" style="padding:0 22px">
+    <div>
+      <label for="admin_currency">Currency for Dashboard, Finances and System</label>
+      <select id="admin_currency" name="admin_currency">
+        <?php foreach (pricing_currencies() as $code => $meta): ?>
+          <option value="<?= h($code) ?>" <?= $adminCcy === $code ? 'selected' : '' ?>><?= h($code) ?> · <?= h((string) ($meta['name'] ?? $code)) ?></option>
+        <?php endforeach; ?>
+      </select>
+      <p class="hint">Package fees and paid terms are converted into this currency for the super admin portal. Each company desk still bills in its own currency.</p>
+    </div>
+  </div>
   <div class="card-head"><h2><?= icon('package', 16) ?>Stock add-on</h2></div>
   <div class="form-grid" style="padding:0 22px">
     <div>

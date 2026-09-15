@@ -299,11 +299,14 @@ function layout_admin_start(string $title, array $user): void
         record_site_visit();
     }
     $nav = [
+        ['admin_dashboard.php', 'Dashboard', 'reports'],
         ['admin_landing.php', 'Landing', 'image'],
         ['admin_signups.php', 'Sign-ups', 'letter'],
         ['admin_questions.php', 'Questions', 'help'],
         ['admin_companies.php', 'Companies', 'building'],
-        ['admin_reports.php', 'Reports', 'reports'],
+        ['admin_finances.php', 'Finances', 'bank'],
+        ['admin_system.php', 'System', 'clock'],
+        ['admin_reports.php', 'Reports', 'file'],
         ['admin_mail.php', 'Email', 'send'],
         ['admin_settings.php', 'Settings', 'settings'],
         ['admin_admins.php', 'Admins', 'user'],
@@ -330,7 +333,7 @@ function layout_admin_start(string $title, array $user): void
 <div class="app">
   <div class="nav-scrim" data-nav-scrim hidden></div>
   <aside class="nav" data-nav>
-    <a class="brand" href="<?= h(url('admin_signups.php')) ?>">
+    <a class="brand" href="<?= h(url('admin_dashboard.php')) ?>">
       <img class="brand-logo" src="<?= h(product_mark_url()) ?>" alt="<?= h(product_name()) ?>">
       <strong>Platform admin</strong>
     </a>
@@ -340,7 +343,6 @@ function layout_admin_start(string $title, array $user): void
           $active = $file === $here
               || (in_array($here, ['admin_company.php', 'admin_company_new.php'], true) && $file === 'admin_companies.php')
               || ($here === 'admin_question.php' && $file === 'admin_questions.php');
-          $count = 0;
           if ($file === 'admin_signups.php') {
               $count = $signupNew;
           } elseif ($file === 'admin_questions.php') {
@@ -548,6 +550,25 @@ function layout_end(string $extra = ''): void
 <script src="<?= h(asset('js/app.js')) ?>" defer></script>
 <script src="<?= h(asset('js/pwa.js')) ?>" defer></script>
 <script src="<?= h(asset('js/push.js')) ?>" defer></script>
+<?php if (function_exists('current_user') && current_user()): ?>
+<script>
+(function () {
+  var ping = <?= json_encode(url('ping.php')) ?>;
+  function beat(ms) {
+    var q = ping + (ms ? ('?ms=' + encodeURIComponent(ms)) : '');
+    try { fetch(q, { credentials: 'same-origin', cache: 'no-store' }); } catch (e) {}
+  }
+  var t0 = (window.performance && performance.now) ? performance.now() : 0;
+  function first() {
+    var ms = t0 && performance.now ? Math.round(performance.now() - t0) : 0;
+    beat(ms);
+  }
+  if (document.readyState === 'complete') first();
+  else window.addEventListener('load', first);
+  setInterval(function () { beat(0); }, 45000);
+})();
+</script>
+<?php endif; ?>
 <?php
 $sheetJs = in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['document_view.php', 'document_new.php', 'document_action.php', 'share.php', 'document_download.php', 'document_pdf.php'], true);
 if ($sheetJs): ?>

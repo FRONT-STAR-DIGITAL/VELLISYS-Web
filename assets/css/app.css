@@ -1127,6 +1127,11 @@ form.actions, td form { display: inline; margin: 0; }
   font-weight: 600;
 }
 .stat em { display: block; margin-top: 4px; font-style: normal; font-size: 12px; color: var(--muted); }
+.admin-health { font-weight: 650; letter-spacing: .02em; }
+.admin-health.is-fast { color: #1E4EFF; }
+.admin-health.is-healthy { color: #18794e; }
+.admin-health.is-slow { color: #b42318; }
+.admin-term-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 
 table.grid { width: 100%; border-collapse: collapse; font-size: 12.5px; table-layout: auto; }
 table.grid th, table.grid td {
@@ -3897,6 +3902,15 @@ a.branch-activity-row:hover { text-decoration: none; }
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+  }
+  .admin-term-actions {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+  }
+  .admin-term-actions .btn {
+    width: 100%;
+    justify-content: center;
   }
   .admin-body .desk-grid {
     display: grid;

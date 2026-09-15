@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
 if ($user = current_user()) {
-    redirect(($user['role'] ?? '') === 'platform' ? 'admin_signups.php' : 'dashboard.php');
+    redirect(($user['role'] ?? '') === 'platform' ? platform_home() : 'dashboard.php');
 }
 $familiar = landing_cards('familiar');
 $help = landing_cards('help');
@@ -38,7 +38,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
     <section class="lp-hero">
       <div class="lp-hero-copy" data-reveal>
         <h1>Lose track of the company books?</h1>
-        <p class="lp-lead">Quotes in email, invoices in WhatsApp, receipts in a drawer. Vellisys is one desk for quotations, invoices, receipts, expenses and reports — printed in your logo and colours, then shared in a click.</p>
+        <p class="lp-lead">Quotes in email, invoices in WhatsApp, receipts in a drawer. Vellisys is one desk for quotations, invoices, receipts, expenses and reports - printed in your logo and colours, then shared in a click.</p>
         <ul class="lp-hero-points">
           <li>Quotations</li>
           <li>Invoices</li>
@@ -155,7 +155,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       <div class="lp-compare-new">
         <p class="lp-kicker">The Vellisys way</p>
         <h2>Your brand. Their copy.</h2>
-        <p class="lp-compare-lead">Every quotation, invoice and receipt goes out in your logo, colours and letterhead. Pick a layout once — letterhead, ledger, twin copy and more — so the sheet in their hand looks like it came from your office, not a generic pad.</p>
+        <p class="lp-compare-lead">Every quotation, invoice and receipt goes out in your logo, colours and letterhead. Pick a layout once - letterhead, ledger, twin copy and more - so the sheet in their hand looks like it came from your office, not a generic pad.</p>
         <figure class="lp-new-shot">
           <img class="lp-new-main" src="<?= h(landing_way_image_url()) ?>" alt="A Vellisys receipt on desktop, laptop and phone" width="1254" height="1254" loading="lazy" decoding="async">
         </figure>
@@ -277,7 +277,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
     <section class="lp-world lp-pay" id="pay" data-reveal>
       <p class="lp-kicker">Pay</p>
       <h2>Pick a package. Pay. Open your desk.</h2>
-      <p class="lp-world-lead">Choose <?= h(pricing_names_phrase()) ?>, enter the company, then continue to Pesapal in this tab. Mobile money, a card, a bank or a wallet — in the currency you selected. After payment you choose how you sign in. Prefer we set the desk up for you? Request one without paying. Want a walkthrough first? Book a demo.</p>
+      <p class="lp-world-lead">Choose <?= h(pricing_names_phrase()) ?>, enter the company, then continue to Pesapal in this tab. Mobile money, a card, a bank or a wallet - in the currency you selected. After payment you choose how you sign in. Prefer we set the desk up for you? Request one without paying. Want a walkthrough first? Book a demo.</p>
       <ol class="lp-pay-flow">
         <li><b>1</b><span>Choose a package</span></li>
         <li><b>2</b><span>Enter company details</span></li>
@@ -318,7 +318,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       <div class="lp-ask-copy">
         <p class="lp-kicker">Talk to us</p>
         <h2>Have a question?</h2>
-        <p class="lp-ask-lead">Short answers below. If yours is not there, send a note — we reply by email.</p>
+        <p class="lp-ask-lead">Short answers below. If yours is not there, send a note - we reply by email.</p>
         <div class="lp-faqs">
           <?php foreach ($faqs as $i => $faq): ?>
             <details class="lp-faq"<?= $i === 0 ? ' open' : '' ?>>

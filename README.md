@@ -31,8 +31,11 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - Super admin **onboarding checklist** on each company: package paid, receipt email, admin credentials, first sign-in, branding saved, mailbox, welcome email, desk live, and client confirms login
 - **Have a question** form on the landing page. Super admin sees each note under **Questions**, opens the full message on its own page, and a copy is emailed to `info@vellisys.com`. The person who sent the question also gets a confirmation from that mailbox
 - Super admin **Email** tab: send a custom Vellisys letter from `info@vellisys.com`
-- Super admin **Settings**: stock add-on amounts, the default temporary desk password, and whether public register / demo / checkout is open. A Settings button sits in the admin header and in the rail. Edit, reset password, suspend and delete desk logins on each company page.
-- Super admin **Reports**: fees collected and balances per client, unused term value, desk collections vs outstanding, onboarding and expiry charts, sign-up funnel, time series of platform books, plus paid terms, desks due within a month, lapsed desks, one-click renewal letters, and **site visits** (landing page, desk, installed app, traffic by country)
+- Super admin **Settings**: stock add-on amounts, the default temporary desk password, whether public register / demo / checkout is open, and the **currency for super-admin figures**. A Settings button sits in the admin header and in the rail. Edit, reset password, suspend and delete desk logins on each company page.
+- Super admin **Dashboard**: snapshot of reload speed (fast / healthy / slow), who is on a desk now, people onboard, branches, and money taken in
+- Super admin **Finances**: package payments and paid terms over time, renewals and what each company pays. This is Vellisys income, not a company desk's own books
+- Super admin **System**: health, users, branches, activity in a date range, last sign-ins, who is online, and which companies use the desk most
+- Super admin **Reports**: onboarding and expiry charts, sign-up funnel, site visits, paid-term renewal letters. Company desk collections and outstanding are not listed here
 - On each company, super admin sets how many **months or years** the client has paid for, the **fee** and **amount paid**, and expiry is calculated from the start date. When a desk is one month from expiry, Reports prepares a professional notice to send
 - Company desk **top bar** shows live date and time, how much of the paid term is left (days and months), and the expiry date
 - Company reports with a time series, expense pie, debtors aging, collections vs outstanding, quote conversion, top clients, documents issued over time, and a tax payable table (items, receipts, output less input)
@@ -65,7 +68,7 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - Company reports with a time series, expense pie, debtors aging, collections vs outstanding, quote conversion, top clients billed, documents issued over time, and tax payable
 - Super admin top bar stays on screen on a phone so the menu stays in reach
 - Company desk and every document template scale to fit a phone; line editors stack on a phone; the document table preview stays full width and scrolls sideways
-- **Activities** on every package: a log of major desk events (issued sheets, payments, mail, clients, settings). Open it from the rail or the Activities button on each public package
+- **Activities** on every package: a log of major desk events (issued sheets, payments, mail, clients, settings). Open it from the rail or from Desk
 - **Planner** (Business and Pro) includes a Tasks tab for goals to hit, with due dates in the notification bell
 - **Branches** (Vellisys Business and Pro): Head office is the company address; Business allows up to 2 branches, Pro up to 3; several people can share a branch; Vellisys sets how many users the desk has (Start 2, Business 3, Pro 4)
 - **Push notifications** on the installed app: allow them in Settings → Notifications. The same prompt appears after you install the app. Desk alerts then pop up on the device, including notices already in the bell.

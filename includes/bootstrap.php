@@ -60,6 +60,7 @@ require_once ROOT_PATH . '/includes/mailer.php';
 require_once ROOT_PATH . '/includes/pesapal.php';
 require_once ROOT_PATH . '/includes/join.php';
 require_once ROOT_PATH . '/includes/onboard.php';
+require_once ROOT_PATH . '/includes/platform.php';
 require_once ROOT_PATH . '/includes/visits.php';
 require_once ROOT_PATH . '/includes/activity.php';
 require_once ROOT_PATH . '/includes/docx.php';

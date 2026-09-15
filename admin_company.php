@@ -283,6 +283,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
             $fresh = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$id]);
             company_mark_onboard_step($id, 'paid_term');
+            $delta = $feePaid - company_fee_paid($company);
+            if ($delta > 0.009) {
+                record_platform_fee($id, $delta, $feeCurrency, 'term', 'Paid term for ' . $company['name']);
+            }
             $note = $company['name'] . ' is paid for ' . $term . ' ' . $unit . ', until ' . format_date($expires) . '.';
             if ($sendReceipt) {
                 $sent = send_payment_receipt($fresh ?: $company, $user);
@@ -329,18 +333,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $company = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$id]);
 $brand = branding_for($id);
-$members = db_all('SELECT id, name, job_title, email, role, access, created_at FROM users WHERE company_id = ? ORDER BY role = \'admin\' DESC, id', 'i', [$id]);
+$members = db_all('SELECT id, name, job_title, email, role, access, created_at, last_seen_at, last_login_at FROM users WHERE company_id = ? ORDER BY role = \'admin\' DESC, id', 'i', [$id]);
 $onboardDefs = onboard_step_defs();
 $onboardProgress = company_onboard_progress($company);
 $receiptContact = company_notice_email($id, $brand ?: [], $members);
 $receiptPreview = company_expires_on($company) ? payment_receipt_copy($company, $receiptContact, $members) : null;
+$useFrom = desk_now()->modify('-30 days')->format('Y-m-d');
+$useTo = desk_now()->format('Y-m-d');
+$deskUse = platform_usage_counts($id, $useFrom, $useTo);
+$onlineNow = 0;
+$lastSeen = null;
+$lastLogin = null;
+foreach ($members as $m) {
+    if (user_is_online($m['last_seen_at'] ?? null)) {
+        $onlineNow++;
+    }
+    $seen = (string) ($m['last_seen_at'] ?? '');
+    $login = (string) ($m['last_login_at'] ?? '');
+    if ($seen !== '' && ($lastSeen === null || strcmp($seen, $lastSeen) > 0)) {
+        $lastSeen = $seen;
+    }
+    if ($login !== '' && ($lastLogin === null || strcmp($login, $lastLogin) > 0)) {
+        $lastLogin = $login;
+    }
+}
+$namedBranches = 0;
+try {
+    $br = db_one('SELECT COUNT(*) AS c FROM branches WHERE company_id = ?', 'i', [$id]);
+    $namedBranches = (int) ($br['c'] ?? 0);
+} catch (Throwable $e) {
+}
+$deskHealth = platform_desk_health(['last_seen_at' => $lastSeen, 'last_login_at' => $lastLogin]);
 
 layout_admin_start($company['name'], $user);
 ?>
 <div class="page-head">
   <div>
     <h1><?= icon('building') ?><?= h($company['name']) ?></h1>
-    <p class="lede"><?= h(ucfirst((string) $company['status'])) ?> · <?= h($brand['currency'] ?? 'UGX') ?> · <?= count($members) ?> / <?= (int) company_user_limit($company) ?> user<?= count($members) === 1 ? '' : 's' ?> · <?= h(company_term_label($company)) ?><?php if (company_expires_on($company)): ?> · <?= h(company_remaining_phrase($company)) ?> · <?= h(company_expiry_date_label($company)) ?><?php endif; ?><?php if (company_fee_paid($company) > 0 || company_fee_amount($company) > 0): ?> · Paid <?= h(money(company_fee_paid($company), company_fee_currency($company))) ?><?php if (company_fee_balance($company) > 0): ?> · Balance <?= h(money(company_fee_balance($company), company_fee_currency($company))) ?><?php endif; ?><?php endif; ?></p>
+    <p class="lede"><?= h(ucfirst((string) $company['status'])) ?> · <?= h($brand['currency'] ?? 'UGX') ?> · <?= count($members) ?> / <?= (int) company_user_limit($company) ?> user<?= count($members) === 1 ? '' : 's' ?> · <?= h(company_term_label($company)) ?><?php if (company_expires_on($company)): ?> · <?= h(company_remaining_phrase($company)) ?> · <?= h(company_expiry_date_label($company)) ?><?php endif; ?></p>
   </div>
   <div class="actions">
     <a class="btn" href="<?= h(url('admin_desk.php?id=' . $id)) ?>"><?= icon('desk') ?>Open desk</a>
@@ -356,6 +386,53 @@ layout_admin_start($company['name'], $user);
 </div>
 
 <?php if ($error): ?><p class="flash flash-err" style="margin:0 0 16px"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
+
+<div class="stats">
+  <div class="card stat">
+    <?= icon('clock', 20) ?>
+    <span>Desk</span>
+    <strong><?= h($deskHealth['label']) ?></strong>
+    <em class="admin-health is-<?= h($deskHealth['key']) ?>"><?= h(format_when($lastSeen)) ?></em>
+  </div>
+  <div class="card stat">
+    <?= icon('user', 20) ?>
+    <span>On this desk now</span>
+    <strong><?= $onlineNow ?></strong>
+  </div>
+  <div class="card stat">
+    <?= icon('clients', 20) ?>
+    <span>People onboard</span>
+    <strong><?= count($members) ?> / <?= (int) company_user_limit($company) ?></strong>
+  </div>
+  <div class="card stat">
+    <?= icon('pin', 20) ?>
+    <span>Named branches</span>
+    <strong><?= $namedBranches ?></strong>
+  </div>
+</div>
+<div class="stats">
+  <div class="card stat">
+    <?= icon('file', 20) ?>
+    <span>Sheets, last 30 days</span>
+    <strong><?= (int) $deskUse['documents'] ?></strong>
+  </div>
+  <div class="card stat">
+    <?= icon('clock', 20) ?>
+    <span>Desk events, last 30 days</span>
+    <strong><?= (int) $deskUse['activities'] ?></strong>
+  </div>
+  <div class="card stat">
+    <?= icon('reports', 20) ?>
+    <span>Use score</span>
+    <strong><?= (int) $deskUse['score'] ?></strong>
+  </div>
+  <div class="card stat">
+    <?= icon('user', 20) ?>
+    <span>Last sign-in</span>
+    <strong><?= h(format_when($lastLogin)) ?></strong>
+  </div>
+</div>
+<p class="hint" style="margin:-8px 0 20px">This snapshot is people and how busy the desk is. What they invoiced their own clients lives on their books, not here. Paid term for Vellisys is further down.</p>
 
 <div class="desk-grid">
   <div class="card">
@@ -395,7 +472,7 @@ layout_admin_start($company['name'], $user);
     <?php else: ?>
       <div class="table-scroll">
       <table class="grid">
-        <thead><tr><th>Name</th><th>Title</th><th>Email</th><th>Access</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Title</th><th>Email</th><th>Access</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead>
         <tbody>
           <?php foreach ($members as $m): ?>
             <tr>
@@ -404,6 +481,7 @@ layout_admin_start($company['name'], $user);
               <td class="mono"><?= h($m['email']) ?></td>
               <td><?= h(desk_access_label((string) $m['role'], (string) ($m['access'] ?? 'books'))) ?></td>
               <td><?= (($m['status'] ?? 'live') === 'suspended') ? 'Suspended' : 'Live' ?></td>
+              <td class="mono"><?php if (user_is_online($m['last_seen_at'] ?? null)): ?><span class="pill">Online</span><?php else: ?><?= h(format_when($m['last_login_at'] ?? $m['last_seen_at'] ?? null)) ?><?php endif; ?></td>
               <td class="row-actions">
                 <div class="actions">
                   <a class="btn ghost sm" href="<?= h(url('admin_company.php?id=' . $id . '&edit_user=' . (int) $m['id'])) ?>">Edit</a>
@@ -563,15 +641,15 @@ layout_admin_start($company['name'], $user);
       <?php if (company_expires_on($company)): ?>
         Current expiry <?= h(format_date($company['expires_at'])) ?> · <?= h(company_remaining_phrase($company)) ?>.
         Balance <?= h(money(company_fee_balance($company), company_fee_currency($company))) ?>.
-        Saving recalculates the end date. Set number to 0 to clear the term (fees already collected stay on Reports).
+        Saving recalculates the end date. Set number to 0 to clear the term (fees already collected stay on Finances).
       <?php else: ?>
         Set how many months or years this client has paid for, and the fee you collected. Expiry is the start date plus that term. Reports list desks one month from that date so you can send a renewal letter.
       <?php endif; ?>
     </p>
-    <div class="actions">
+    <div class="actions admin-term-actions">
       <button class="btn" type="submit"><?= icon('check') ?>Save paid term</button>
       <button class="btn ghost" type="submit" name="send_receipt" value="1"><?= icon('receipt', 16) ?>Save and send receipt</button>
-      <a class="btn ghost" href="<?= h(url('admin_reports.php')) ?>"><?= icon('reports', 16) ?>Reports</a>
+      <a class="btn ghost" href="<?= h(url('admin_finances.php')) ?>"><?= icon('bank', 16) ?>Finances</a>
     </div>
     <?php if ($receiptPreview): ?>
       <details class="receipt-preview" style="margin-top:16px">

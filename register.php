@@ -5,7 +5,7 @@ if (function_exists('record_site_visit')) {
     record_site_visit();
 }
 if ($user = current_user()) {
-    redirect(($user['role'] ?? '') === 'platform' ? 'admin_signups.php' : 'dashboard.php');
+    redirect(($user['role'] ?? '') === 'platform' ? platform_home() : 'dashboard.php');
 }
 
 $token = trim((string) ($_GET['t'] ?? post('t', '', 64)));

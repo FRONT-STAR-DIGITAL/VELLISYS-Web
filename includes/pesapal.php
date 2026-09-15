@@ -358,6 +358,16 @@ function apply_order_payment_status(array $order, string $status, string $error 
         attach_order_signup($fresh, 'paid');
         $fresh = provision_paid_order($fresh);
         notify_admin_order($fresh, 'paid');
+        $amt = (float) ($fresh['amount'] ?? 0);
+        if ($amt > 0 && function_exists('record_platform_fee')) {
+            record_platform_fee(
+                (int) ($fresh['company_id'] ?? 0),
+                $amt,
+                (string) ($fresh['currency'] ?? 'USD'),
+                'checkout',
+                'Package payment'
+            );
+        }
     } elseif (in_array($status, ['failed', 'cancelled'], true)) {
         attach_order_signup($fresh, $status);
         notify_admin_order($fresh, $status);

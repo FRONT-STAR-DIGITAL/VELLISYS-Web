@@ -80,7 +80,7 @@ function join_handle_post(string $intentKey): array
 function join_boot(string $intentKey): never
 {
     if ($user = current_user()) {
-        redirect(($user['role'] ?? '') === 'platform' ? 'admin_signups.php' : 'dashboard.php');
+        redirect(($user['role'] ?? '') === 'platform' ? platform_home() : 'dashboard.php');
     }
     $intent = join_intent($intentKey);
     $error = '';

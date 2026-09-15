@@ -3071,7 +3071,7 @@ function public_footer(): void
     <div class="lp-foot-grid">
       <div class="lp-foot-brand">
         <img class="lp-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
-        <p>Books you can share in one click — in your logo and colours, in your currency, with layouts you pick once. Anywhere in the world. A product of <?= h(product_maker_name()) ?>.</p>
+        <p>Books you can share in one click - in your logo and colours, in your currency, with layouts you pick once. Anywhere in the world. A product of <?= h(product_maker_name()) ?>.</p>
       </div>
       <div>
         <h3>Talk to us</h3>
@@ -3650,7 +3650,7 @@ function landing_faqs(): array
         ],
         [
             'q' => 'How is Vellisys different?',
-            'a' => 'Vellisys is branded books software. Quotations, invoices and receipts leave in your logo, colours and currency, from one desk — not a generic PDF pad.',
+            'a' => 'Vellisys is branded books software. Quotations, invoices and receipts leave in your logo, colours and currency, from one desk - not a generic PDF pad.',
         ],
         [
             'q' => 'Are the documents in our branding?',
@@ -3658,7 +3658,7 @@ function landing_faqs(): array
         ],
         [
             'q' => 'Can we work in our own currency?',
-            'a' => 'Yes. You enter the currency you bill in — UGX, KES, EUR, USD or any other three-letter code. Documents can also be in USD; set how many of your currency equal one dollar so reports can add them up.',
+            'a' => 'Yes. You enter the currency you bill in - UGX, KES, EUR, USD or any other three-letter code. Documents can also be in USD; set how many of your currency equal one dollar so reports can add them up.',
         ],
         [
             'q' => 'Can we set our own tax?',
@@ -3718,7 +3718,7 @@ function landing_ticker_defaults(): array
         ['body' => 'Join 100+ businesses and corporate companies using Vellisys', 'sort' => 10],
         ['body' => 'Quotations, invoices and receipts in your brand, shared in one click.', 'sort' => 20],
         ['body' => 'Built for East Africa. Used across Africa and worldwide.', 'sort' => 30],
-        ['body' => 'A company desk for the books — anywhere you work.', 'sort' => 40],
+        ['body' => 'A company desk for the books - anywhere you work.', 'sort' => 40],
     ];
 }
 
@@ -3802,7 +3802,7 @@ function landing_card_defaults(): array
         ['slot' => 'familiar_2', 'section' => 'familiar', 'sort' => 2, 'image_path' => 'assets/img/landing/landing-whatsapp.png', 'title' => 'Did that invoice vanish into WhatsApp?', 'body' => 'Quotes in email. Invoices in a chat. Nobody has one number for who still owes the company.'],
         ['slot' => 'familiar_3', 'section' => 'familiar', 'sort' => 3, 'image_path' => 'assets/img/landing/landing-office.png', 'title' => 'Can you only open the books at the office?', 'body' => 'If you are on the road, the PC is off, or the accountant is out, the records are out of reach.'],
         ['slot' => 'help_1', 'section' => 'help', 'sort' => 4, 'image_path' => 'assets/img/landing/landing-share.png', 'title' => 'Your brand. Many layouts.', 'body' => 'Every quotation, invoice and receipt uses your logo and colours. Choose a layout once, then email, WhatsApp or print the sheet.'],
-        ['slot' => 'help_2', 'section' => 'help', 'sort' => 5, 'image_path' => 'assets/img/landing/landing-anywhere.png', 'title' => 'Open the books from wherever you are.', 'body' => 'Sign in and this month is there — invoices, receipts, expenses, reports — on the screen in front of you.'],
+        ['slot' => 'help_2', 'section' => 'help', 'sort' => 5, 'image_path' => 'assets/img/landing/landing-anywhere.png', 'title' => 'Open the books from wherever you are.', 'body' => 'Sign in and this month is there - invoices, receipts, expenses, reports - on the screen in front of you.'],
         ['slot' => 'help_3', 'section' => 'help', 'sort' => 6, 'image_path' => 'assets/img/landing/landing-desk.png', 'title' => 'Quotes, invoices, receipts. One desk.', 'body' => 'Pick a layout once. The whole books print in that design, in the company colours. Quotations convert to invoices. Invoices take full or part receipts.'],
         ['slot' => 'steps_1', 'section' => 'steps', 'sort' => 7, 'image_path' => 'assets/img/landing/landing-form.png', 'title' => 'Choose a package', 'body' => 'Start, Business or Pro. Pay online, request a desk if you would rather we set it up, or book a demo first.'],
         ['slot' => 'steps_2', 'section' => 'steps', 'sort' => 8, 'image_path' => 'assets/img/landing/landing-call.png', 'title' => 'Pay or leave your details', 'body' => 'Online payment opens the desk the same day. If you request a desk instead, we follow up on the email and phone you left.'],
