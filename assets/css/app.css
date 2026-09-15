@@ -1105,7 +1105,7 @@ table.grid th {
 }
 table.grid tbody tr:last-child td { border-bottom: 0; }
 table.grid tbody tr:hover { background: color-mix(in srgb, var(--brand-tint) 70%, #fff); }
-table.grid td:not(.row-actions):not(.right) {
+table.grid:not(.lines) td:not(.row-actions):not(.right) {
   max-width: 11rem;
   overflow: hidden;
   text-overflow: ellipsis;
