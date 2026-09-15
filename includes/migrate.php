@@ -24,7 +24,7 @@ function folio_schema_ready_file(): string
     if (!is_dir($dir)) {
         @mkdir($dir, 0700, true);
     }
-    return $dir . '/schema-45.ok';
+    return $dir . '/schema-46.ok';
 }
 
 function folio_ensure_logo_bg(mysqli $db): void
@@ -477,7 +477,7 @@ function folio_migrate(mysqli $db): void
         return;
     }
     $verRow = @$db->query("SELECT v FROM schema_meta WHERE k='version'");
-    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 45) {
+    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 46) {
         @touch($ready);
         $done = true;
         return;
@@ -492,7 +492,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 45) {
+    if ($ver >= 46) {
         @touch($ready);
         $done = true;
         return;
@@ -732,8 +732,11 @@ function folio_migrate(mysqli $db): void
     if ($ver < 45) {
         folio_migrate_company_locations($db);
     }
+    if ($ver < 46) {
+        folio_migrate_term_and_welcome($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '45')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '46')");
     @touch($ready);
     $done = true;
 }
@@ -1156,13 +1159,38 @@ function folio_migrate_email_from(mysqli $db): void
     }
 }
 
+function folio_migrate_term_and_welcome(mysqli $db): void
+{
+    $col = $db->query("SHOW COLUMNS FROM companies LIKE 'paid_term'");
+    $info = $col ? $col->fetch_assoc() : null;
+    $type = strtolower((string) ($info['Type'] ?? ''));
+    if (!$info) {
+        $db->query('ALTER TABLE companies ADD COLUMN paid_term DECIMAL(8,2) NOT NULL DEFAULT 0');
+    } elseif (!str_contains($type, 'decimal')) {
+        $db->query('ALTER TABLE companies MODIFY paid_term DECIMAL(8,2) NOT NULL DEFAULT 0');
+    }
+    $unit = $db->query("SHOW COLUMNS FROM companies LIKE 'paid_unit'");
+    $uinfo = $unit ? $unit->fetch_assoc() : null;
+    $utype = strtolower((string) ($uinfo['Type'] ?? ''));
+    if (!$uinfo) {
+        $db->query("ALTER TABLE companies ADD COLUMN paid_unit ENUM('weeks','months','years') NOT NULL DEFAULT 'months'");
+    } elseif (!str_contains($utype, 'weeks')) {
+        $db->query("ALTER TABLE companies MODIFY paid_unit ENUM('weeks','months','years') NOT NULL DEFAULT 'months'");
+    }
+    if (!db_has_column($db, 'users', 'welcome_pop_seen_at')) {
+        $db->query('ALTER TABLE users ADD COLUMN welcome_pop_seen_at DATETIME NULL');
+        $db->query("UPDATE users SET welcome_pop_seen_at = COALESCE(first_login_at, created_at, NOW()) WHERE welcome_pop_seen_at IS NULL AND role <> 'platform' AND first_login_at IS NOT NULL");
+        db_has_column($db, 'users', 'welcome_pop_seen_at', true);
+    }
+}
+
 function folio_migrate_subscriptions(mysqli $db): void
 {
     if (!db_has_column($db, 'companies', 'paid_term')) {
-        $db->query('ALTER TABLE companies ADD COLUMN paid_term INT UNSIGNED NOT NULL DEFAULT 0');
+        $db->query('ALTER TABLE companies ADD COLUMN paid_term DECIMAL(8,2) NOT NULL DEFAULT 0');
     }
     if (!db_has_column($db, 'companies', 'paid_unit')) {
-        $db->query("ALTER TABLE companies ADD COLUMN paid_unit ENUM('months','years') NOT NULL DEFAULT 'months'");
+        $db->query("ALTER TABLE companies ADD COLUMN paid_unit ENUM('weeks','months','years') NOT NULL DEFAULT 'months'");
     }
     if (!db_has_column($db, 'companies', 'paid_from')) {
         $db->query('ALTER TABLE companies ADD COLUMN paid_from DATE NULL');

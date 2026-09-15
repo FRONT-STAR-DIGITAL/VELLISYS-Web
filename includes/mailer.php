@@ -732,12 +732,75 @@ function notify_client_first_login(array $company, array $user): void
     $email = (string) ($user['email'] ?? '');
     notify_platform(
         'First sign-in: ' . $name,
-        '<p style="margin:0"><strong>' . h($name) . '</strong> signed in for the first time as ' . h($email) . '. They were sent to Settings to finish branding.</p>'
+        '<p style="margin:0"><strong>' . h($name) . '</strong> signed in for the first time as ' . h($email) . '.</p>'
             . '<p style="margin:8px 0 0"><a href="' . h(absolute_url('admin_company.php?id=' . (int) ($company['id'] ?? 0))) . '" style="color:#1E4EFF">Open the company</a></p>',
         'First sign-in for ' . $name . ' / ' . $email,
         $email,
         (int) ($user['id'] ?? 0)
     );
+}
+
+function send_client_first_login_email(array $company, array $user): array
+{
+    $to = strtolower(trim((string) ($user['email'] ?? '')));
+    if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+        return ['ok' => false, 'error' => 'No email on the desk login.'];
+    }
+    $who = trim((string) ($user['name'] ?? '')) ?: 'the team';
+    $name = (string) ($company['name'] ?? 'your company');
+    $tutorials = absolute_url('tutorials.php');
+    $login = absolute_url('login.php');
+    $phones = implode(' or ', product_phones());
+    $html = vellisys_email_wrap(
+        '<p style="margin:0 0 16px">Dear ' . h($who) . ',</p>'
+        . '<p style="margin:0 0 14px">You have successfully signed in to the Vellisys desk for <strong>' . h($name) . '</strong>. We wish you a perfect journey with the portal.</p>'
+        . '<p style="margin:0 0 14px">Open <a href="' . h($tutorials) . '" style="color:#1E4EFF">Tutorials</a> for screenshots of every tab, or write to <a href="mailto:' . h(product_email()) . '" style="color:#1E4EFF">' . h(product_email()) . '</a> if you need an agent.</p>'
+        . '<p style="margin:0 0 14px">Sign in again any time at <a href="' . h($login) . '" style="color:#1E4EFF">' . h($login) . '</a>.</p>'
+        . '<p style="margin:0">Kind regards,<br><strong>Vellisys</strong></p>'
+    );
+    $text = "Dear {$who},\n\nYou have successfully signed in to the Vellisys desk for {$name}. We wish you a perfect journey with the portal.\n\nTutorials: {$tutorials}\nSign in: {$login}\n\nIf you need an agent, write to " . product_email() . " or call {$phones}.\n\nKind regards,\nVellisys";
+    return send_platform_email($to, 'Welcome to your Vellisys desk', $html, $text, (int) ($user['id'] ?? 0), product_email());
+}
+
+function send_login_credentials_email(array $company, array $member, string $password, int $userId = 0): array
+{
+    $to = strtolower(trim((string) ($member['email'] ?? '')));
+    if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+        return ['ok' => false, 'error' => 'No desk email to send credentials to.', 'from' => product_email()];
+    }
+    if ($password === '') {
+        return ['ok' => false, 'error' => 'A temporary password is required.', 'from' => product_email()];
+    }
+    $who = trim((string) ($member['name'] ?? '')) ?: 'the team';
+    $name = (string) ($company['name'] ?? 'your company');
+    $login = absolute_url('login.php?email=' . rawurlencode($to));
+    $phones = implode(' or ', product_phones());
+    $html = vellisys_email_wrap(
+        '<p style="margin:0 0 16px">Dear ' . h($who) . ',</p>'
+        . '<p style="margin:0 0 14px">Your Vellisys desk for <strong>' . h($name) . '</strong> is ready. Sign in with the details below.</p>'
+        . '<p style="margin:0 0 8px">Sign in: <a href="' . h($login) . '" style="color:#1E4EFF">' . h(absolute_url('login.php')) . '</a></p>'
+        . '<p style="margin:0 0 8px">Email: <strong>' . h($to) . '</strong></p>'
+        . '<p style="margin:0 0 14px">Temporary password: <strong>' . h($password) . '</strong></p>'
+        . '<p style="margin:0 0 14px">Please change this password after you sign in (Settings → Account). Do not share it.</p>'
+        . '<p style="margin:0">If you need help, write to <a href="mailto:' . h(product_email()) . '" style="color:#1E4EFF">' . h(product_email()) . '</a> or call ' . h($phones) . '.</p>'
+    );
+    $text = "Dear {$who},\n\nYour Vellisys desk for {$name} is ready.\n\nSign in: " . absolute_url('login.php') . "\nEmail: {$to}\nTemporary password: {$password}\n\nPlease change this password after you sign in (Settings, then Account). Do not share it.\n\nIf you need help, write to " . product_email() . " or call {$phones}.\n\nKind regards,\nVellisys";
+    $result = send_platform_email($to, 'Your Vellisys login credentials', $html, $text, $userId, product_email());
+    $cid = (int) ($company['id'] ?? 0);
+    if ($cid > 0) {
+        company_mark_onboard_step($cid, 'credentials_set');
+        company_mark_onboard_step($cid, 'welcome_email');
+        company_mark_onboard_step($cid, 'desk_login');
+    }
+    notify_platform(
+        'Login credentials: ' . $name,
+        '<p style="margin:0">Login credentials for <strong>' . h($name) . '</strong> were sent to ' . h($to) . ' from ' . h(product_email()) . '.</p>'
+            . '<p style="margin:8px 0 0"><a href="' . h(absolute_url('admin_company.php?id=' . $cid)) . '" style="color:#1E4EFF">Open the company</a></p>',
+        'Login credentials sent to ' . $to . ' for ' . $name . '.',
+        $to,
+        $userId
+    );
+    return $result;
 }
 
 function notify_branding_saved(array $company, array $user): void

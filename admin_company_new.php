@@ -189,13 +189,6 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
       </div>
     </div>
     <div>
-      <label for="brand_deep">Deep colour</label>
-      <div class="color-row" data-color-pair data-color-role="deep">
-        <input type="color" name="brand_deep" value="<?= h(parse_hex_color(post('brand_deep'), '#08143A')) ?>" data-color-picker>
-        <input type="text" maxlength="7" value="<?= h(parse_hex_color(post('brand_deep'), '#08143A')) ?>" data-color-hex>
-      </div>
-    </div>
-    <div>
       <label for="tagline">Tagline</label>
       <input id="tagline" name="tagline" value="<?= h(post('tagline')) ?>">
     </div>
@@ -250,7 +243,7 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
   </div>
 
   <div class="card-head" style="margin-top:8px"><h2><?= icon('calendar', 16) ?>Paid term</h2></div>
-  <p class="lede" style="padding:0 22px">Optional. Set how long they have paid for and the fee you collected. Leave the number at 0 to add this later.</p>
+  <p class="lede" style="padding:0 22px">Optional. Set how long they have paid for (weeks, months or years; decimals such as 1.5 are allowed) and the fee you collected. Leave the number at 0 to add this later.</p>
   <div class="form-grid" style="padding:0 22px">
     <div>
       <label for="paid_from">Paid from</label>
@@ -258,12 +251,13 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
     </div>
     <div>
       <label for="paid_term">Number</label>
-      <input id="paid_term" name="paid_term" type="number" min="0" max="120" value="<?= h(post('paid_term') !== '' ? post('paid_term') : '0') ?>">
+      <input id="paid_term" name="paid_term" type="number" min="0" max="520" step="0.01" value="<?= h(post('paid_term') !== '' ? post('paid_term') : '0') ?>">
     </div>
     <div>
       <label for="paid_unit">Unit</label>
       <select id="paid_unit" name="paid_unit">
-        <option value="months" <?= post('paid_unit') !== 'years' ? 'selected' : '' ?>>Months</option>
+        <option value="weeks" <?= post('paid_unit') === 'weeks' ? 'selected' : '' ?>>Weeks</option>
+        <option value="months" <?= !in_array(post('paid_unit'), ['weeks', 'years'], true) ? 'selected' : '' ?>>Months</option>
         <option value="years" <?= post('paid_unit') === 'years' ? 'selected' : '' ?>>Years</option>
       </select>
     </div>
@@ -282,7 +276,7 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
   </div>
 
   <div class="card-head" style="margin-top:8px"><h2><?= icon('send', 16) ?>Sending mailbox</h2></div>
-  <p class="lede" style="padding:0 22px">Optional. Hostinger or Titan address this desk will send from. The company cannot edit the password.</p>
+  <p class="lede" style="padding:0 22px">Optional. Hostinger, Titan or Gmail address this desk will send from. The company cannot edit the password.</p>
   <div class="form-grid" style="padding:0 22px" data-mail-box>
     <div>
       <label for="mail_provider">Mail type</label>
@@ -298,7 +292,7 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
     </div>
     <div>
       <label for="mail_password">Mailbox password</label>
-      <input id="mail_password" name="mail_password" type="password" autocomplete="new-password" value="<?= h(post('mail_password')) ?>">
+      <?php render_password_toggle_field('mail_password', 'mail_password', 'Mailbox or Gmail App Password', post('mail_password')); ?>
     </div>
     <div>
       <label for="mail_from_name">From name</label>
@@ -336,6 +330,9 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
     <div>
       <label for="imap_port">IMAP port</label>
       <input id="imap_port" name="imap_port" type="number" data-mail-field="imap_port" value="<?= h(post('imap_port') !== '' ? post('imap_port') : (string) $mailPreset['imap_port']) ?>">
+    </div>
+    <div style="grid-column:1 / -1">
+      <p class="hint" data-mail-help style="margin:0"><?= h(mail_provider_hint(post('mail_provider') ?: 'hostinger')) ?></p>
     </div>
     <script type="application/json" data-mail-presets><?= json_encode(mail_provider_presets(), JSON_UNESCAPED_SLASHES) ?></script>
   </div>

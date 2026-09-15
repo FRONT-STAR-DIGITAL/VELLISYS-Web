@@ -12,7 +12,7 @@ $shot = static function (string $file, string $alt): string {
     if (!is_file($full)) {
         return '';
     }
-    return '<figure class="tut-shot"><img src="' . h(url($rel) . '?v=' . filemtime($full)) . '" alt="' . h($alt) . '" loading="lazy" decoding="async"></figure>';
+    return '<figure class="tut-shot"><button type="button" class="tut-shot-btn" data-tut-open aria-label="Enlarge screenshot: ' . h($alt) . '"><img src="' . h(url($rel) . '?v=' . filemtime($full)) . '" alt="' . h($alt) . '" loading="lazy" decoding="async"></button></figure>';
 };
 
 $lessons = [

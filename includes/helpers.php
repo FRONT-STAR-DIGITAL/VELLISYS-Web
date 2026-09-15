@@ -2156,7 +2156,7 @@ function platform_create_company(?int $signupId = null): array
     $currency = posted_currency('currency', 'USD');
     $color = parse_hex_color(post('brand_color'), '#1E4EFF');
     $accent = parse_hex_color(post('brand_accent'), '#C6A15B');
-    $deep = parse_hex_color(post('brand_deep'), '#08143A');
+    $deep = hex_shade($color, 0.52);
     $prefix = strtoupper(post('prefix') ?: prefix_from_name($name));
     $plan = normalize_company_plan(post('plan') ?: 'sme');
     $limit = clamp_user_limit((int) post('user_limit') ?: plan_user_limit_max($plan), $plan);
@@ -2174,15 +2174,10 @@ function platform_create_company(?int $signupId = null): array
     db_exec('UPDATE companies SET stock_enabled = ? WHERE id = ?', 'ii', [!empty($_POST['stock_enabled']) ? 1 : 0, $cid]);
 
     $hasPaidTerm = false;
-    $term = (int) post('paid_term');
-    $unit = post('paid_unit') === 'years' ? 'years' : 'months';
+    $term = parse_paid_term(post('paid_term'));
+    $unit = normalize_paid_unit(post('paid_unit'));
+    $term = clamp_paid_term($term, $unit);
     if ($term > 0) {
-        if ($unit === 'years' && $term > 20) {
-            $term = 20;
-        }
-        if ($unit === 'months' && $term > 120) {
-            $term = 120;
-        }
         $from = post('paid_from');
         if ($from === '' || !DateTime::createFromFormat('Y-m-d', $from)) {
             $from = date('Y-m-d');
@@ -2195,7 +2190,7 @@ function platform_create_company(?int $signupId = null): array
         if ($expires) {
             db_exec(
                 'UPDATE companies SET paid_term=?, paid_unit=?, paid_from=?, expires_at=?, fee_amount=?, fee_paid=?, fee_currency=? WHERE id=?',
-                'isssddsi',
+                'dsssddsi',
                 [$term, $unit, $from, $expires, $feeAmount, $feePaid, $feeCurrency, $cid]
             );
             $hasPaidTerm = true;
@@ -3200,12 +3195,18 @@ function company_days_left(?string $expires): ?int
 
 function company_term_label(array $company): string
 {
-    $n = (int) ($company['paid_term'] ?? 0);
+    $n = (float) ($company['paid_term'] ?? 0);
     if ($n <= 0 || !company_expires_on($company)) {
         return 'Not set';
     }
-    $unit = ($company['paid_unit'] ?? 'months') === 'years' ? ($n === 1 ? 'year' : 'years') : ($n === 1 ? 'month' : 'months');
-    return $n . ' ' . $unit;
+    $shown = format_paid_term_number($n);
+    $unit = normalize_paid_unit((string) ($company['paid_unit'] ?? 'months'));
+    $word = match ($unit) {
+        'weeks' => (abs($n - 1) < 0.001 ? 'week' : 'weeks'),
+        'years' => (abs($n - 1) < 0.001 ? 'year' : 'years'),
+        default => (abs($n - 1) < 0.001 ? 'month' : 'months'),
+    };
+    return $shown . ' ' . $word;
 }
 
 function company_expiry_label(array $company): string
@@ -3528,18 +3529,141 @@ function platform_issued_documents(): array
     return $rows;
 }
 
-function compute_expiry_date(string $from, int $term, string $unit): ?string
+function parse_paid_term(string $raw): float
+{
+    $raw = str_replace([',', ' '], '', $raw);
+    if ($raw === '' || !is_numeric($raw)) {
+        return 0.0;
+    }
+    $n = round((float) $raw, 2);
+    return $n < 0 ? 0.0 : $n;
+}
+
+function normalize_paid_unit(string $unit): string
+{
+    return in_array($unit, ['weeks', 'months', 'years'], true) ? $unit : 'months';
+}
+
+function clamp_paid_term(float $term, string $unit): float
+{
+    $max = match (normalize_paid_unit($unit)) {
+        'years' => 20.0,
+        'weeks' => 520.0,
+        default => 120.0,
+    };
+    return min($term, $max);
+}
+
+function format_paid_term_number(float $n): string
+{
+    if (abs($n - round($n)) < 0.001) {
+        return (string) (int) round($n);
+    }
+    return rtrim(rtrim(number_format($n, 2, '.', ''), '0'), '.');
+}
+
+function compute_expiry_date(string $from, float $term, string $unit): ?string
 {
     if ($term <= 0) {
         return null;
     }
-    $unit = $unit === 'years' ? 'years' : 'months';
+    $unit = normalize_paid_unit($unit);
     $dt = DateTime::createFromFormat('Y-m-d', substr($from, 0, 10));
     if (!$dt) {
         return null;
     }
-    $dt->modify('+' . $term . ' ' . $unit);
+    if ($unit === 'weeks') {
+        $days = (int) round($term * 7);
+        if ($days < 1) {
+            return null;
+        }
+        $dt->modify('+' . $days . ' days');
+        return $dt->format('Y-m-d');
+    }
+    $whole = (int) floor($term);
+    $frac = $term - $whole;
+    $span = $unit === 'years' ? 'years' : 'months';
+    if ($whole > 0) {
+        $dt->modify('+' . $whole . ' ' . $span);
+    }
+    if ($frac > 0.0001) {
+        $days = (int) round($frac * ($unit === 'years' ? 365 : 30));
+        if ($days > 0) {
+            $dt->modify('+' . $days . ' days');
+        }
+    }
+    if ($whole < 1 && $frac <= 0.0001) {
+        return null;
+    }
     return $dt->format('Y-m-d');
+}
+
+function desk_welcome_pending(?array $user): bool
+{
+    if (!$user || ($user['role'] ?? '') === 'platform') {
+        return false;
+    }
+    if (!function_exists('db_has_column') || !db_has_column(db(), 'users', 'welcome_pop_seen_at')) {
+        return false;
+    }
+    if (trim((string) ($user['welcome_pop_seen_at'] ?? '')) !== '') {
+        return false;
+    }
+    return !empty($_SESSION['desk_welcome']) || trim((string) ($user['first_login_at'] ?? '')) !== '';
+}
+
+function mark_desk_welcome_seen(int $userId): void
+{
+    if ($userId < 1) {
+        return;
+    }
+    if (!function_exists('db_has_column') || !db_has_column(db(), 'users', 'welcome_pop_seen_at')) {
+        unset($_SESSION['desk_welcome']);
+        return;
+    }
+    db_exec('UPDATE users SET welcome_pop_seen_at = NOW() WHERE id = ? AND welcome_pop_seen_at IS NULL', 'i', [$userId]);
+    unset($_SESSION['desk_welcome']);
+}
+
+function handle_desk_welcome_dismiss(): void
+{
+    if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' || post('action') !== 'dismiss_desk_welcome') {
+        return;
+    }
+    if (!csrf_valid()) {
+        return;
+    }
+    $user = current_user();
+    if (!$user || ($user['role'] ?? '') === 'platform') {
+        return;
+    }
+    mark_desk_welcome_seen((int) ($user['id'] ?? 0));
+    redirect(basename($_SERVER['SCRIPT_NAME'] ?? 'dashboard.php'));
+}
+
+function render_desk_welcome_pop(array $user): void
+{
+    if (!desk_welcome_pending($user) || is_acting_admin()) {
+        return;
+    }
+    $who = explode(' ', trim((string) ($user['name'] ?? '')))[0] ?: 'there';
+    ?>
+  <div class="welcome-pop" role="dialog" aria-modal="true" aria-labelledby="desk-welcome-title">
+    <div class="welcome-pop-card">
+      <h2 id="desk-welcome-title">Welcome to your Vellisys desk</h2>
+      <p>Dear <?= h($who) ?>, we wish you the best experience on this portal. Open Tutorials for a walk-through of every tab, or write to us if you need an agent.</p>
+      <p>This note appears only once.</p>
+      <div class="actions">
+        <a class="btn ghost" href="<?= h(url('tutorials.php')) ?>"><?= icon('book', 16) ?>Tutorials</a>
+        <form method="post">
+          <?= csrf_field() ?>
+          <input type="hidden" name="action" value="dismiss_desk_welcome">
+          <button class="btn" type="submit"><?= icon('check', 16) ?>Get started</button>
+        </form>
+      </div>
+    </div>
+  </div>
+    <?php
 }
 
 function company_notice_email(int $companyId, array $brand = [], array $members = []): array

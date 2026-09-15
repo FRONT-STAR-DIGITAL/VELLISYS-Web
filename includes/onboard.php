@@ -81,7 +81,7 @@ function create_company_from_paid_order(array $order): int
     $pnlOn = pnl_resolve_enabled($companyPlan, plan_includes_pnl($companyPlan), null);
     $cid = (int) db_exec(
         'INSERT INTO companies (name, status, plan, notes, enabled_kinds, custom_doc, user_limit, planner_enabled, pnl_enabled, paid_term, paid_unit, paid_from, expires_at, fee_amount, fee_paid, fee_currency) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        'ssssssiiiisssdds',
+        'ssssssiiidsssdds',
         [
             $name,
             'onboarding',
@@ -199,7 +199,8 @@ function finish_member_first_login(array $user): bool
     company_mark_onboard_step($cid, 'first_login');
     $company = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$cid]) ?: ['id' => $cid, 'name' => ''];
     notify_client_first_login($company, $user);
-    $_SESSION['branding_welcome'] = 1;
+    send_client_first_login_email($company, $user);
+    $_SESSION['desk_welcome'] = 1;
     return true;
 }
 

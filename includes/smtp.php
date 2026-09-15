@@ -22,6 +22,7 @@ function mail_provider_presets(): array
             'pop_port' => 995,
             'imap_host' => 'imap.hostinger.com',
             'imap_port' => 993,
+            'hint' => 'Hostinger hPanel uses smtp.hostinger.com:465 SSL, pop.hostinger.com:995, imap.hostinger.com:993. Use the mailbox password from hPanel.',
         ],
         'titan' => [
             'label' => 'Titan',
@@ -32,6 +33,18 @@ function mail_provider_presets(): array
             'pop_port' => 995,
             'imap_host' => 'imap.titan.email',
             'imap_port' => 993,
+            'hint' => 'Titan uses smtp.titan.email:465 SSL, pop.titan.email:995, imap.titan.email:993. Use the mailbox password from the Titan panel.',
+        ],
+        'gmail' => [
+            'label' => 'Gmail',
+            'smtp_host' => 'smtp.gmail.com',
+            'smtp_port' => 587,
+            'smtp_secure' => 'tls',
+            'pop_host' => 'pop.gmail.com',
+            'pop_port' => 995,
+            'imap_host' => 'imap.gmail.com',
+            'imap_port' => 993,
+            'hint' => 'Gmail: turn on 2-Step Verification on the Google Account, then create an App Password (Google Account → Security → App passwords). Paste that 16-character App Password here, not the Gmail sign-in password. SMTP is smtp.gmail.com, port 587, STARTTLS.',
         ],
         'custom' => [
             'label' => 'Custom',
@@ -42,8 +55,32 @@ function mail_provider_presets(): array
             'pop_port' => 995,
             'imap_host' => '',
             'imap_port' => 993,
+            'hint' => 'Enter the SMTP host, port, security and password your provider gave you.',
         ],
     ];
+}
+
+function mail_provider_hint(string $provider): string
+{
+    $presets = mail_provider_presets();
+    $hint = (string) ($presets[$provider]['hint'] ?? '');
+    if ($hint !== '') {
+        return $hint;
+    }
+    return (string) ($presets['hostinger']['hint'] ?? '');
+}
+
+function render_password_toggle_field(string $id, string $name, string $placeholder = '', string $value = ''): void
+{
+    ?>
+    <div class="pw-field">
+      <input id="<?= h($id) ?>" name="<?= h($name) ?>" type="password" autocomplete="new-password" placeholder="<?= h($placeholder) ?>" value="<?= h($value) ?>">
+      <button class="pw-toggle" type="button" data-toggle-password aria-label="Show password" title="Show password" aria-pressed="false">
+        <span data-eye><?= icon('eye', 16) ?></span>
+        <span data-eye-off hidden><?= icon('eye-off', 16) ?></span>
+      </button>
+    </div>
+    <?php
 }
 
 function mail_encrypt_secret(string $plain): string

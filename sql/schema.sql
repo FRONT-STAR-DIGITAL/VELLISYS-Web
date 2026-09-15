@@ -8,8 +8,8 @@ CREATE TABLE IF NOT EXISTS companies (
   notes TEXT,
   enabled_kinds TEXT NULL,
   custom_doc TEXT NULL,
-  paid_term INT UNSIGNED NOT NULL DEFAULT 0,
-  paid_unit ENUM('months','years') NOT NULL DEFAULT 'months',
+  paid_term DECIMAL(8,2) NOT NULL DEFAULT 0,
+  paid_unit ENUM('weeks','months','years') NOT NULL DEFAULT 'months',
   paid_from DATE NULL,
   expires_at DATE NULL,
   renewal_notice_sent_at DATETIME NULL,
@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS users (
   access VARCHAR(20) NOT NULL DEFAULT 'books',
   company_id INT UNSIGNED NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  first_login_at DATETIME NULL,
+  welcome_pop_seen_at DATETIME NULL,
   KEY company_id (company_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

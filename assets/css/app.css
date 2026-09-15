@@ -1192,6 +1192,8 @@ table.grid tr.is-muted td { color: var(--muted); }
   border-radius: 16px;
   padding: 22px 20px 18px;
   width: min(440px, 100%);
+  max-height: min(90vh, 640px);
+  overflow: auto;
   box-shadow: 0 18px 50px rgba(8, 20, 58, .2);
 }
 .welcome-pop-card h2 { margin: 0 0 8px; font-size: 20px; color: #08143A; }
@@ -3125,6 +3127,16 @@ input, select, textarea { font-weight: 400; }
   width: 100%;
   max-width: 100%;
 }
+.tut-shot-btn {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+  border-radius: 12px;
+}
 .tut-shot img {
   width: 100%;
   max-width: 100%;
@@ -3135,6 +3147,42 @@ input, select, textarea { font-weight: 400; }
   border-radius: 12px;
   border: 1px solid var(--line);
 }
+.tut-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(8, 20, 58, .72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  cursor: zoom-out;
+}
+.tut-lightbox img {
+  max-width: min(1100px, 100%);
+  max-height: min(92vh, 100%);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 18px 50px rgba(8, 20, 58, .35);
+}
+.tut-lightbox-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  color: #08143A;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+body.tut-lightbox-open { overflow: hidden; }
 @media (max-width: 820px) {
   .tut-toc {
     display: grid;

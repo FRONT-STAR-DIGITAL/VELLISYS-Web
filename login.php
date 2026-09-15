@@ -35,8 +35,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $first = finish_member_first_login($user ?: []);
         $next = desk_safe_next(post('next') ?: (string) ($_GET['next'] ?? ''));
-        if ($first && $user && is_desk_admin($user)) {
-            redirect('settings.php?welcome=1');
+        if ($first) {
+            $next = 'dashboard.php';
         }
         redirect($next);
     } else {

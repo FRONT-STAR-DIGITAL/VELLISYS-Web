@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'branding') {
         $color = parse_hex_color(post('brand_color'), '#82B440');
         $accent = parse_hex_color(post('brand_accent'), '#C6A15B');
-        $deep = parse_hex_color(post('brand_deep'), '#1F3A12');
+        $deep = hex_shade($color, 0.52);
         $logoPath = (string) ($brand['logo_path'] ?? '');
         $taken = branding_take_logo_upload($id);
         if (empty($taken['ok'])) {
@@ -253,20 +253,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     if ($action === 'term') {
-        $term = (int) post('paid_term');
-        $unit = post('paid_unit') === 'years' ? 'years' : 'months';
+        $term = parse_paid_term(post('paid_term'));
+        $unit = normalize_paid_unit(post('paid_unit'));
+        $term = clamp_paid_term($term, $unit);
         $from = post('paid_from');
-        if ($term < 0) {
-            $term = 0;
-        }
-        if ($unit === 'years' && $term > 20) {
-            $term = 20;
-        }
-        if ($unit === 'months' && $term > 120) {
-            $term = 120;
-        }
         $sendReceipt = post('send_receipt') !== '';
-        if ($term === 0) {
+        if ($term <= 0) {
             if ($sendReceipt) {
                 $error = 'Set the paid term, start date and amount before sending a payment receipt.';
             } else {
@@ -292,7 +284,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             db_exec(
                 'UPDATE companies SET paid_term=?, paid_unit=?, paid_from=?, expires_at=?, renewal_notice_sent_at=NULL, fee_amount=?, fee_paid=?, fee_currency=? WHERE id=?',
-                'isssddsi',
+                'dsssddsi',
                 [$term, $unit, $from, $expires, $feeAmount, $feePaid, $feeCurrency, $id]
             );
             $fresh = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$id]);
@@ -301,7 +293,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($delta > 0.009) {
                 record_platform_fee($id, $delta, $feeCurrency, 'term', 'Paid term for ' . $company['name']);
             }
-            $note = $company['name'] . ' is paid for ' . $term . ' ' . $unit . ', until ' . format_date($expires) . '.';
+            $note = $company['name'] . ' is paid for ' . format_paid_term_number($term) . ' ' . $unit . ', until ' . format_date($expires) . '.';
             if ($sendReceipt) {
                 $sent = send_payment_receipt($fresh ?: $company, $user);
                 if (!empty($sent['ok'])) {
@@ -342,6 +334,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash($sent['error'] ?? 'Could not send the payment receipt.', 'err');
         }
         redirect('admin_company.php?id=' . $id);
+    }
+    if ($action === 'send_login_credentials') {
+        $target = null;
+        foreach ($members as $m) {
+            if (($m['role'] ?? '') === 'admin') {
+                $target = $m;
+                break;
+            }
+        }
+        $target = $target ?: ($members[0] ?? null);
+        if (!$target) {
+            $error = 'Create a desk login before sending credentials.';
+        } else {
+            $reset = reset_desk_user_password($id, (int) $target['id']);
+            if (empty($reset['ok'])) {
+                $error = (string) ($reset['error'] ?? 'Could not prepare a temporary password.');
+            } else {
+                $sent = send_login_credentials_email($company, array_merge($target, ['email' => $reset['email']]), (string) $reset['password'], (int) $user['id']);
+                if (!empty($sent['ok'])) {
+                    flash('Login credentials sent from ' . product_email() . ' to ' . $reset['email'] . '. The temporary password is in that email. Ask them to change it after they sign in.');
+                } elseif (($sent['status'] ?? '') === 'queued' || !empty($sent['error'])) {
+                    flash('Credentials queued for ' . $reset['email'] . '. ' . ($sent['error'] ?? 'Mail is waiting to send.'), 'err');
+                } else {
+                    flash($sent['error'] ?? 'Could not send login credentials.', 'err');
+                }
+                redirect('admin_company.php?id=' . $id);
+            }
+        }
     }
 }
 
@@ -540,6 +560,7 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
       </ol>
       <div class="actions onboard-actions">
         <button class="btn sm" type="submit" name="action" value="onboard_steps"><?= icon('check', 14) ?>Save steps</button>
+        <button class="btn ghost sm" type="submit" name="action" value="send_login_credentials"><?= icon('mail', 14) ?>Send login credentials</button>
         <button class="btn ghost sm" type="submit" name="action" value="send_receipt_only"><?= icon('receipt', 14) ?>Send receipt email</button>
       </div>
     </form>
@@ -693,11 +714,12 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
     </div>
     <div>
       <label for="paid_term">Number</label>
-      <input id="paid_term" name="paid_term" type="number" min="0" max="120" value="<?= (int) ($company['paid_term'] ?? 0) ?>">
+      <input id="paid_term" name="paid_term" type="number" min="0" max="520" step="0.01" value="<?= h(format_paid_term_number((float) ($company['paid_term'] ?? 0))) ?>">
     </div>
     <div>
       <label for="paid_unit">Unit</label>
       <select id="paid_unit" name="paid_unit">
+        <option value="weeks" <?= ($company['paid_unit'] ?? '') === 'weeks' ? 'selected' : '' ?>>Weeks</option>
         <option value="months" <?= ($company['paid_unit'] ?? 'months') === 'months' ? 'selected' : '' ?>>Months</option>
         <option value="years" <?= ($company['paid_unit'] ?? '') === 'years' ? 'selected' : '' ?>>Years</option>
       </select>
@@ -722,7 +744,7 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
         Balance <?= h(money(company_fee_balance($company), company_fee_currency($company))) ?>.
         Saving recalculates the end date. Set number to 0 to clear the term (fees already collected stay on Finances).
       <?php else: ?>
-        Set how many months or years this client has paid for, and the fee you collected. Expiry is the start date plus that term. Reports list desks one month from that date so you can send a renewal letter.
+        Set how many weeks, months or years this client has paid for (decimals such as 1.5 are allowed), and the fee you collected. Expiry is the start date plus that term. Reports list desks one month from that date so you can send a renewal letter.
       <?php endif; ?>
     </p>
     <div class="actions admin-term-actions">
@@ -762,7 +784,7 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
     </div>
     <div>
       <label for="mail_password">Password</label>
-      <input id="mail_password" name="mail_password" type="password" autocomplete="new-password" placeholder="<?= !empty($company['mail_password']) ? 'Saved · leave blank to keep' : 'Hostinger or Titan password' ?>">
+      <?php render_password_toggle_field('mail_password', 'mail_password', !empty($company['mail_password']) ? 'Saved · leave blank to keep' : 'Mailbox or Gmail App Password'); ?>
     </div>
     <div>
       <label for="mail_from_name">From name</label>
@@ -802,8 +824,9 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
     </div>
   </div>
   <div style="padding:0 22px 22px">
-    <p class="hint" style="margin:8px 0 12px">
-      Hostinger hPanel uses smtp.hostinger.com:465 SSL, pop.hostinger.com:995, imap.hostinger.com:993. Titan uses smtp.titan.email with the same ports. The company desk sends quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors and custom mail from this address and cannot edit it.
+    <p class="hint" style="margin:8px 0 8px" data-mail-help><?= h(mail_provider_hint((string) ($company['mail_provider'] ?? 'hostinger'))) ?></p>
+    <p class="hint" style="margin:0 0 12px">
+      The company desk sends quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors and custom mail from this address and cannot edit it.
       <?= company_mail_account($company) ? 'Mailbox is ready to send.' : 'Add the email and password to start sending.' ?>
     </p>
     <div class="actions">
@@ -879,6 +902,7 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
   <input type="hidden" name="id" value="<?= $id ?>">
   <input type="hidden" name="action" value="branding">
   <div class="card-head"><h2><?= icon('palette', 16) ?>Stationery</h2></div>
+  <p class="lede" style="padding:0 22px 0">Logo and two brand colours, matching Settings. Primary paints the desk and the strong bars on documents. Accent marks rails, rules and highlights.</p>
   <div class="form-grid" style="padding:0 22px">
     <div>
       <label for="tagline">Tagline</label>
@@ -953,13 +977,6 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
         <div class="color-row" data-color-pair data-color-role="accent">
           <input type="color" id="brand_accent" name="brand_accent" value="<?= h(parse_hex_color($brand['brand_accent'] ?? '', '#C6A15B')) ?>" data-color-picker>
           <input type="text" maxlength="7" value="<?= h(parse_hex_color($brand['brand_accent'] ?? '', '#C6A15B')) ?>" data-color-hex>
-        </div>
-      </div>
-      <div>
-        <label for="brand_deep">Deep</label>
-        <div class="color-row" data-color-pair data-color-role="deep">
-          <input type="color" id="brand_deep" name="brand_deep" value="<?= h(parse_hex_color($brand['brand_deep'] ?? '', '#1F3A12')) ?>" data-color-picker>
-          <input type="text" maxlength="7" value="<?= h(parse_hex_color($brand['brand_deep'] ?? '', '#1F3A12')) ?>" data-color-hex>
         </div>
       </div>
     </div>

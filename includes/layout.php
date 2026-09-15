@@ -71,6 +71,9 @@ function render_page_loader(): void
 
 function layout_start(string $title, array $user, array $opts = []): void
 {
+    if (function_exists('handle_desk_welcome_dismiss')) {
+        handle_desk_welcome_dismiss();
+    }
     $brand = branding();
     $flash = flash();
     $kind = $opts['kind'] ?? ($_GET['kind'] ?? '');
@@ -575,6 +578,9 @@ $sheetJs = in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['document_view.php
 if ($sheetJs): ?>
 <script src="<?= h(asset('js/sheet-fit.js')) ?>"></script>
 <?php endif; ?>
+<?php if (!$admin && function_exists('render_desk_welcome_pop')) {
+    render_desk_welcome_pop(current_user() ?: []);
+} ?>
 <?= $extra ?>
 </body>
 </html>

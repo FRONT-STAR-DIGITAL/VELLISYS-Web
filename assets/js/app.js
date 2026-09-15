@@ -988,10 +988,12 @@ document.querySelectorAll('[data-add-template]').forEach(function (btn) {
     var p = presets[sel.value];
     if (!p) return;
     Object.keys(p).forEach(function (key) {
-      if (key === 'label') return;
+      if (key === 'label' || key === 'hint') return;
       var el = box.querySelector('[data-mail-field="' + key + '"]');
       if (el) el.value = p[key];
     });
+    var help = box.querySelector('[data-mail-help]');
+    if (help && p.hint) help.textContent = p.hint;
   });
 })();
 
@@ -1449,4 +1451,53 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
       if (currentInp && !box.hidden) place(currentInp);
     });
   }
+})();
+
+(function () {
+  function closeTutLightbox() {
+    var lb = document.querySelector('.tut-lightbox');
+    if (!lb) return;
+    lb.remove();
+    document.body.classList.remove('tut-lightbox-open');
+  }
+  document.addEventListener('click', function (e) {
+    var open = e.target.closest ? e.target.closest('[data-tut-open]') : null;
+    if (open) {
+      e.preventDefault();
+      var img = open.querySelector('img');
+      if (!img) return;
+      closeTutLightbox();
+      var box = document.createElement('div');
+      box.className = 'tut-lightbox';
+      box.setAttribute('role', 'dialog');
+      box.setAttribute('aria-modal', 'true');
+      box.setAttribute('aria-label', img.getAttribute('alt') || 'Screenshot');
+      var close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'tut-lightbox-close';
+      close.setAttribute('data-tut-close', '');
+      close.setAttribute('aria-label', 'Close');
+      close.textContent = '\u00d7';
+      var big = document.createElement('img');
+      big.src = img.currentSrc || img.src;
+      big.alt = img.alt || '';
+      box.appendChild(close);
+      box.appendChild(big);
+      document.body.appendChild(box);
+      document.body.classList.add('tut-lightbox-open');
+      close.focus();
+      return;
+    }
+    if (e.target.classList && e.target.classList.contains('tut-lightbox')) {
+      closeTutLightbox();
+      return;
+    }
+    if (e.target.closest && e.target.closest('[data-tut-close]')) {
+      e.preventDefault();
+      closeTutLightbox();
+    }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeTutLightbox();
+  });
 })();
