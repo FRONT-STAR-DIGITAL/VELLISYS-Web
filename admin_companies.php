@@ -43,6 +43,7 @@ layout_admin_start('Companies', $user);
       <thead>
         <tr>
           <th>Company</th>
+          <th>Country</th>
           <th>Status</th>
           <th>Online</th>
           <th>Last sign-in</th>
@@ -64,6 +65,7 @@ layout_admin_start('Companies', $user);
             ?>
           <tr>
             <td><a href="<?= h(url('admin_company.php?id=' . $c['id'])) ?>"><strong><?= h($c['name']) ?></strong></a></td>
+            <td><?= company_loc($c, 'country') !== '' ? h(company_loc($c, 'country')) : '<span class="muted">-</span>' ?></td>
             <td><span class="pill<?= $c['status'] === 'live' ? '' : ($c['status'] === 'suspended' ? ' bad' : ' warn') ?>"><?= h($c['status']) ?></span></td>
             <td><?php if ($onlineN > 0): ?><span class="pill"><?= $onlineN ?> online</span><?php else: ?><span class="muted">Off</span><?php endif; ?></td>
             <td class="mono"><?= h(format_when($p['last_login_at'] ?? null)) ?></td>

@@ -304,6 +304,7 @@ function layout_admin_start(string $title, array $user): void
         ['admin_signups.php', 'Sign-ups', 'letter'],
         ['admin_questions.php', 'Questions', 'help'],
         ['admin_companies.php', 'Companies', 'building'],
+        ['admin_locations.php', 'Locations', 'pin'],
         ['admin_finances.php', 'Finances', 'bank'],
         ['admin_system.php', 'System', 'clock'],
         ['admin_reports.php', 'Reports', 'file'],

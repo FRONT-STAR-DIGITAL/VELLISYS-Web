@@ -24,7 +24,7 @@ function folio_schema_ready_file(): string
     if (!is_dir($dir)) {
         @mkdir($dir, 0700, true);
     }
-    return $dir . '/schema-44.ok';
+    return $dir . '/schema-45.ok';
 }
 
 function folio_ensure_logo_bg(mysqli $db): void
@@ -477,7 +477,7 @@ function folio_migrate(mysqli $db): void
         return;
     }
     $verRow = @$db->query("SELECT v FROM schema_meta WHERE k='version'");
-    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 44) {
+    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 45) {
         @touch($ready);
         $done = true;
         return;
@@ -492,7 +492,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 44) {
+    if ($ver >= 45) {
         @touch($ready);
         $done = true;
         return;
@@ -729,8 +729,11 @@ function folio_migrate(mysqli $db): void
     if ($ver < 44) {
         folio_migrate_platform_ops($db);
     }
+    if ($ver < 45) {
+        folio_migrate_company_locations($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '44')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '45')");
     @touch($ready);
     $done = true;
 }
@@ -810,6 +813,23 @@ function folio_migrate_platform_ops(mysqli $db): void
     @$db->query("UPDATE landing_cards SET body = REPLACE(REPLACE(body, '—', '-'), '–', '-')");
     if (function_exists('folio_cache_bust')) {
         folio_cache_bust();
+    }
+}
+
+function folio_migrate_company_locations(mysqli $db): void
+{
+    $cols = [
+        'loc_office' => 'VARCHAR(80) NOT NULL DEFAULT \'\'',
+        'loc_street' => 'VARCHAR(160) NOT NULL DEFAULT \'\'',
+        'loc_city' => 'VARCHAR(120) NOT NULL DEFAULT \'\'',
+        'loc_region' => 'VARCHAR(120) NOT NULL DEFAULT \'\'',
+        'loc_country' => 'VARCHAR(80) NOT NULL DEFAULT \'\'',
+    ];
+    foreach ($cols as $col => $def) {
+        if (!db_has_column($db, 'companies', $col)) {
+            $db->query("ALTER TABLE companies ADD COLUMN `$col` $def");
+            db_has_column($db, 'companies', $col, true);
+        }
     }
 }
 

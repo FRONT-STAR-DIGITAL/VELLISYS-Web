@@ -180,6 +180,7 @@ function platform_company_presence(): array
     try {
         $rows = db_all(
             "SELECT c.id, c.name, c.status, c.plan, c.expires_at, c.paid_term, c.paid_unit, c.fee_amount, c.fee_paid, c.fee_currency,
+                    c.loc_office, c.loc_street, c.loc_city, c.loc_region, c.loc_country,
                     (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id AND u.role <> 'platform') AS users,
                     (SELECT COUNT(*) FROM branches b WHERE b.company_id = c.id) AS branches,
                     (SELECT MAX(u.last_login_at) FROM users u WHERE u.company_id = c.id AND u.role <> 'platform') AS last_login_at,
@@ -257,3 +258,115 @@ function format_when(?string $dt): string
     }
     return date('j M Y, H:i', $t);
 }
+
+function platform_countries(): array
+{
+    return [
+        'Uganda',
+        'Kenya',
+        'Tanzania',
+        'Rwanda',
+        'Burundi',
+        'South Sudan',
+        'Democratic Republic of the Congo',
+        'Ethiopia',
+        'Nigeria',
+        'Ghana',
+        'South Africa',
+        'United Arab Emirates',
+        'United Kingdom',
+        'United States',
+    ];
+}
+
+function uganda_regions(): array
+{
+    return ['Central', 'Eastern', 'Northern', 'Western'];
+}
+
+function uganda_districts(): array
+{
+    return [
+        'Kampala', 'Wakiso', 'Mukono', 'Mpigi', 'Luweero', 'Nakasongola', 'Mityana', 'Buikwe',
+        'Jinja', 'Mbale', 'Tororo', 'Soroti', 'Iganga', 'Busia',
+        'Gulu', 'Lira', 'Arua', 'Kitgum', 'Moroto',
+        'Mbarara', 'Fort Portal', 'Kasese', 'Kabale', 'Hoima', 'Masaka', 'Bushenyi',
+    ];
+}
+
+function company_loc(array $company, string $field): string
+{
+    return trim((string) ($company['loc_' . $field] ?? ''));
+}
+
+function company_has_admin_location(array $company): bool
+{
+    return company_loc($company, 'country') !== '' || company_loc($company, 'city') !== '';
+}
+
+function company_location_line(array $company): string
+{
+    $parts = array_values(array_filter([
+        company_loc($company, 'office'),
+        company_loc($company, 'street'),
+        company_loc($company, 'city'),
+        company_loc($company, 'region'),
+        company_loc($company, 'country'),
+    ], static fn ($p) => $p !== ''));
+    return $parts ? implode(', ', $parts) : '';
+}
+
+function posted_admin_location(): array
+{
+    $known = platform_countries();
+    $country = post_plain('loc_country', 80);
+    if ($country === 'other') {
+        $country = post_plain('loc_country_other', 80);
+    }
+    if ($country !== '' && !in_array($country, $known, true)) {
+        $country = mb_substr($country, 0, 80);
+    }
+    $regionUg = post_plain('loc_region_ug', 120);
+    $regionOther = post_plain('loc_region_other', 120);
+    $region = $country === 'Uganda' ? $regionUg : $regionOther;
+    if ($country === '' && $regionUg !== '') {
+        $region = $regionUg;
+    }
+    return [
+        'office' => post_plain('loc_office', 80),
+        'street' => post_plain('loc_street', 160),
+        'city' => post_plain('loc_city', 120),
+        'region' => $region,
+        'country' => $country,
+    ];
+}
+
+function location_place_key(array $company, string $level): string
+{
+    $country = company_loc($company, 'country');
+    $region = company_loc($company, 'region');
+    $city = company_loc($company, 'city');
+    return match ($level) {
+        'region' => ($country !== '' ? $country : 'No country') . ' · ' . ($region !== '' ? $region : 'No region'),
+        'city' => ($city !== '' ? $city : 'No city') . ($region !== '' ? ' · ' . $region : '') . ($country !== '' ? ' · ' . $country : ''),
+        default => $country !== '' ? $country : 'No country set',
+    };
+}
+
+function location_perf_label(array $row): array
+{
+    $health = $row['desk_health'] ?? platform_desk_health($row);
+    $score = (int) ($row['use_score'] ?? 0);
+    $key = (string) ($health['key'] ?? 'slow');
+    if ($key === 'fast' || ($key === 'healthy' && $score >= 8)) {
+        return ['key' => 'fast', 'label' => 'Performing well'];
+    }
+    if ($key === 'healthy') {
+        return ['key' => 'healthy', 'label' => 'Steady'];
+    }
+    if (($health['label'] ?? '') === 'No sign-in yet') {
+        return ['key' => 'slow', 'label' => 'Not started'];
+    }
+    return ['key' => 'slow', 'label' => 'Needs attention'];
+}
+

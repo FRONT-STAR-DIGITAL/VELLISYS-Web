@@ -49,6 +49,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+    if ($action === 'location') {
+        $loc = posted_admin_location();
+        try {
+            db_exec(
+                'UPDATE companies SET loc_office=?, loc_street=?, loc_city=?, loc_region=?, loc_country=? WHERE id=?',
+                'sssssi',
+                [$loc['office'], $loc['street'], $loc['city'], $loc['region'], $loc['country'], $id]
+            );
+            flash('Location saved for ' . $company['name'] . '. Desks do not see this.');
+            redirect('admin_company.php?id=' . $id);
+        } catch (Throwable $e) {
+            $error = 'Could not save the location.';
+        }
+    }
     if ($action === 'branding') {
         $color = parse_hex_color(post('brand_color'), '#82B440');
         $accent = parse_hex_color(post('brand_accent'), '#C6A15B');
@@ -433,6 +447,71 @@ layout_admin_start($company['name'], $user);
   </div>
 </div>
 <p class="hint" style="margin:-8px 0 20px">This snapshot is people and how busy the desk is. What they invoiced their own clients lives on their books, not here. Paid term for Vellisys is further down.</p>
+
+<?php
+$locCountry = company_loc($company, 'country');
+$locRegion = company_loc($company, 'region');
+$locKnownCountry = in_array($locCountry, platform_countries(), true);
+$locUg = $locCountry === 'Uganda' || ($locCountry === '' && in_array($locRegion, uganda_regions(), true));
+$locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
+?>
+<form class="card form-wide" method="post" style="margin-bottom:20px" data-admin-location>
+  <?= csrf_field() ?>
+  <input type="hidden" name="id" value="<?= $id ?>">
+  <input type="hidden" name="action" value="location">
+  <div class="card-head"><h2><?= icon('pin', 16) ?>Location</h2></div>
+  <p class="hint" style="padding:0 22px;margin:0 0 8px">Vellisys only. Used for country and region reports. This is not the printed address on their stationery, and the company desk cannot see or edit it.</p>
+  <div class="form-grid" style="padding:0 22px">
+    <div>
+      <label for="loc_office">Office no</label>
+      <input id="loc_office" name="loc_office" value="<?= h(company_loc($company, 'office')) ?>" placeholder="Plot 12, Suite 3">
+    </div>
+    <div>
+      <label for="loc_street">Street name</label>
+      <input id="loc_street" name="loc_street" value="<?= h(company_loc($company, 'street')) ?>" placeholder="Kampala Road">
+    </div>
+    <div>
+      <label for="loc_city">City / district</label>
+      <input id="loc_city" name="loc_city" list="loc-districts" value="<?= h(company_loc($company, 'city')) ?>" placeholder="Kampala">
+      <datalist id="loc-districts">
+        <?php foreach (uganda_districts() as $d): ?>
+          <option value="<?= h($d) ?>">
+        <?php endforeach; ?>
+      </datalist>
+    </div>
+    <div data-loc-ug <?= $locUg ? '' : 'hidden' ?>>
+      <label for="loc_region_ug">Region (Uganda)</label>
+      <select id="loc_region_ug" name="loc_region_ug">
+        <option value="">Select region</option>
+        <?php foreach (uganda_regions() as $reg): ?>
+          <option value="<?= h($reg) ?>" <?= $locUgRegion === $reg ? 'selected' : '' ?>><?= h($reg) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div data-loc-other <?= $locUg ? 'hidden' : '' ?>>
+      <label for="loc_region_other">Region / state</label>
+      <input id="loc_region_other" name="loc_region_other" value="<?= h($locUg ? '' : $locRegion) ?>" placeholder="County or province">
+    </div>
+    <div>
+      <label for="loc_country">Country</label>
+      <select id="loc_country" name="loc_country" data-loc-country>
+        <option value="">Select country</option>
+        <?php foreach (platform_countries() as $cc): ?>
+          <option value="<?= h($cc) ?>" <?= $locKnownCountry && $locCountry === $cc ? 'selected' : '' ?>><?= h($cc) ?></option>
+        <?php endforeach; ?>
+        <option value="other" <?= $locCountry !== '' && !$locKnownCountry ? 'selected' : '' ?>>Other</option>
+      </select>
+    </div>
+    <div data-loc-country-other <?= $locCountry !== '' && !$locKnownCountry ? '' : 'hidden' ?>>
+      <label for="loc_country_other">Country name</label>
+      <input id="loc_country_other" name="loc_country_other" value="<?= h($locKnownCountry ? '' : $locCountry) ?>">
+    </div>
+  </div>
+  <div class="actions" style="padding:6px 22px 22px">
+    <button class="btn sm" type="submit"><?= icon('check', 14) ?>Save location</button>
+    <a class="btn ghost sm" href="<?= h(url('admin_locations.php')) ?>"><?= icon('reports', 14) ?>Location reports</a>
+  </div>
+</form>
 
 <div class="desk-grid">
   <div class="card">
@@ -903,5 +982,23 @@ $featDefaults = json_encode([
     'books' => desk_feature_defaults('books'),
     'sales' => desk_feature_defaults('sales'),
 ], JSON_UNESCAPED_UNICODE);
-layout_end('<script>window.vellisysFeatureDefaults=' . $featDefaults . ';</script><script src="' . h(asset('js/people-access.js')) . '"></script>');
+layout_end('<script>window.vellisysFeatureDefaults=' . $featDefaults . ';</script><script src="' . h(asset('js/people-access.js')) . '"></script><script>
+(function () {
+  var form = document.querySelector("[data-admin-location]");
+  if (!form) return;
+  var country = form.querySelector("[data-loc-country]");
+  var ug = form.querySelector("[data-loc-ug]");
+  var other = form.querySelector("[data-loc-other]");
+  var otherCountry = form.querySelector("[data-loc-country-other]");
+  function sync() {
+    var v = country ? country.value : "";
+    var isUg = v === "Uganda" || v === "";
+    if (ug) ug.hidden = !isUg;
+    if (other) other.hidden = isUg;
+    if (otherCountry) otherCountry.hidden = v !== "other";
+  }
+  if (country) country.addEventListener("change", sync);
+  sync();
+})();
+</script>');
 ?>

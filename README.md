@@ -35,6 +35,7 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - Super admin **Dashboard**: snapshot of reload speed (fast / healthy / slow), who is on a desk now, people onboard, branches, and money taken in
 - Super admin **Finances**: package payments and paid terms over time, renewals and what each company pays. This is Vellisys income, not a company desk's own books
 - Super admin **System**: health, users, branches, activity in a date range, last sign-ins, who is online, and which companies use the desk most
+- Super admin **Locations**: country, Uganda region, city/district, and where desks are performing well. Set on each company; the company desk cannot see it
 - Super admin **Reports**: onboarding and expiry charts, sign-up funnel, site visits, paid-term renewal letters. Company desk collections and outstanding are not listed here
 - On each company, super admin sets how many **months or years** the client has paid for, the **fee** and **amount paid**, and expiry is calculated from the start date. When a desk is one month from expiry, Reports prepares a professional notice to send
 - Company desk **top bar** shows live date and time, how much of the paid term is left (days and months), and the expiry date
