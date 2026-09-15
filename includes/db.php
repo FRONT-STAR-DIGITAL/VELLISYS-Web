@@ -49,7 +49,7 @@ function db(): mysqli
 function db_prepare(string $sql, string $types = '', array $params = []): mysqli_stmt
 {
     $sql = trim($sql);
-    if ($sql === '' || str_contains($sql, ';')) {
+    if ($sql === '' || str_contains($sql, ';') || str_contains($sql, "\0")) {
         throw new InvalidArgumentException('Invalid SQL.');
     }
     $placeholders = substr_count($sql, '?');

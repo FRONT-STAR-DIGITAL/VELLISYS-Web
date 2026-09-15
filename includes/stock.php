@@ -78,6 +78,23 @@ function stock_item(int $id): ?array
     return db_one('SELECT * FROM stock_items WHERE id = ? AND company_id = ?', 'ii', [$id, current_company_id()]);
 }
 
+function stock_items_by_ids(array $ids): array
+{
+    $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn ($id) => $id > 0)));
+    if (!$ids) {
+        return [];
+    }
+    $cid = current_company_id();
+    $in = implode(',', array_fill(0, count($ids), '?'));
+    $types = 'i' . str_repeat('i', count($ids));
+    $rows = db_all('SELECT * FROM stock_items WHERE company_id = ? AND id IN (' . $in . ')', $types, array_merge([$cid], $ids));
+    $map = [];
+    foreach ($rows as $row) {
+        $map[(int) $row['id']] = $row;
+    }
+    return $map;
+}
+
 function stock_search(string $q, int $limit = 12): array
 {
     $q = trim($q);
@@ -442,12 +459,9 @@ function stock_catalog_payload(): array
             'id' => (int) $row['id'],
             'sku' => (string) $row['sku'],
             'name' => (string) $row['name'],
-            'description' => (string) $row['description'],
-            'unit' => (string) $row['unit'],
             'buy' => (float) $row['buy_price'],
             'sell' => (float) $row['sell_price'],
             'qty' => (float) $row['qty_on_hand'],
-            'reorder' => (float) $row['reorder_level'],
             'taxed' => (int) $row['taxed'] === 1,
         ];
     }
@@ -607,6 +621,11 @@ function stock_post_count(array $counted): array
 function stock_complete_sale(array $input): array
 {
     $lines = $input['lines'] ?? [];
+    $ids = [];
+    foreach ($lines as $line) {
+        $ids[] = (int) ($line['stock_item_id'] ?? 0);
+    }
+    $stockMap = stock_items_by_ids($ids);
     $clean = [];
     $sub = 0.0;
     foreach ($lines as $line) {
@@ -616,7 +635,7 @@ function stock_complete_sale(array $input): array
         if ($sid < 1 || $qty <= 0) {
             continue;
         }
-        $item = stock_item($sid);
+        $item = $stockMap[$sid] ?? null;
         if (!$item) {
             return ['ok' => false, 'error' => 'A product on the list is missing.'];
         }
@@ -675,8 +694,7 @@ function stock_complete_sale(array $input): array
         'payment_method' => $method,
         'items' => $clean,
     ]);
-    $inv = load_document($invoiceId);
-    $grand = (float) ($inv['totals']['total'] ?? 0);
+    $grand = doc_total($clean, $vatRate);
     $receiptId = 0;
     if (!empty($input['pay_all'])) {
         $paid = $grand;
@@ -697,7 +715,7 @@ function stock_complete_sale(array $input): array
         ]);
     }
     if (function_exists('company_backup_maybe')) {
-        company_backup_maybe(true);
+        company_backup_maybe();
     }
     return [
         'ok' => true,
@@ -780,7 +798,7 @@ function stock_complete_purchase(array $input): array
         ]);
     }
     if (function_exists('company_backup_maybe')) {
-        company_backup_maybe(true);
+        company_backup_maybe();
     }
     return ['ok' => true, 'expense_id' => $expenseId, 'receipt_id' => $receiptId, 'balance' => max(0, round($grand - min($paid, $grand), 2))];
 }

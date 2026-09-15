@@ -43,6 +43,9 @@ if (mb_strlen($name) < 2 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
 if (mb_strlen($message) < 20) {
     ask_done(false, 'Write a little more so we know how to help - at least a sentence.');
 }
+if (preg_match('/https?:\/\/|www\.|\bbit\.ly\b|\btinyurl\b|\[url\s*=|href\s*=/i', $name . $message) === 1) {
+    ask_done(true);
+}
 
 $ipHash = visitor_ip_hash();
 $recent = db_one(

@@ -2442,16 +2442,20 @@ input, select, textarea { font-weight: 400; }
   }
   .document-form .lines td {
     display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 6px;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
   }
   .document-form .lines td::before {
+    flex: 0 0 6.4rem;
+    width: 6.4rem;
+    max-width: 38%;
     font-size: 10px;
     font-weight: 700;
     letter-spacing: .05em;
     text-transform: uppercase;
     color: var(--muted);
+    line-height: 1.2;
   }
   .document-form .lines .line-item { padding-right: 44px; }
   .document-form .lines .line-item::before { content: "Item"; }
@@ -2479,7 +2483,9 @@ input, select, textarea { font-weight: 400; }
   .document-form .lines .qty-wrap {
     display: flex;
     align-items: stretch;
-    width: 100%;
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
     max-width: none;
     gap: 0;
     border: 1px solid var(--line);
@@ -2507,25 +2513,39 @@ input, select, textarea { font-weight: 400; }
   }
   .document-form .lines .qty-btn + input { border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
   .document-form .lines .line-rate input,
-  .document-form .lines .line-item input,
+  .document-form .lines .line-item input:not([type="hidden"]),
   .document-form .lines .line-desc textarea {
-    width: 100%;
+    flex: 1 1 auto;
+    width: auto;
     min-width: 0;
-    max-width: 100%;
+    max-width: none;
     box-sizing: border-box;
   }
-  .document-form .lines .line-desc textarea { min-height: 52px; resize: vertical; }
-  .document-form .lines .line-total { font-size: 15px; }
+  .document-form .lines .line-desc { align-items: flex-start; }
+  .document-form .lines .line-desc::before { padding-top: 12px; }
+  .document-form .lines .line-desc textarea { min-height: 42px; resize: vertical; }
+  .document-form .lines .line-total {
+    justify-content: flex-end;
+    font-size: 15px;
+  }
+  .document-form .lines .line-total::before { margin-right: auto; }
+  .document-form .lines .line-total [data-line-total] {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+  }
   .document-form .lines .vat-yn {
     min-height: 42px;
     padding: 0 10px;
     border: 1px solid var(--line);
     border-radius: 12px;
-    width: 100%;
+    flex: 1 1 auto;
+    width: auto;
     justify-content: flex-start;
   }
   .document-form .lines td.right,
   .document-form .lines td.center { text-align: left; }
+  .pos-sale .sticky-save .pos-print-last { display: none; }
   .document-form .lines-preview {
     display: block;
     padding: 12px;
@@ -2635,6 +2655,100 @@ input, select, textarea { font-weight: 400; }
   }
   .tut-lesson h2 { font-size: 20px; }
   .tut-shot { margin-top: 4px; }
+}
+@media (max-width: 1100px) and (min-width: 821px) {
+  .document-form .lines thead { display: none; }
+  .document-form .lines,
+  .document-form .lines tbody,
+  .document-form .lines tr,
+  .document-form .lines td { display: block; width: 100%; }
+  .document-form .lines { border: 0; min-width: 0 !important; table-layout: auto; }
+  .document-form .lines-wrap { overflow: visible; margin: 8px 0; }
+  .document-form .lines tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .document-form .lines tr {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 14px 14px 12px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 1px 0 rgba(8, 20, 58, .03);
+  }
+  .document-form .lines th,
+  .document-form .lines td {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: 100%;
+    padding: 0;
+    border: 0;
+  }
+  .document-form .lines td {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+  .document-form .lines td::before {
+    flex: 0 0 6.4rem;
+    width: 6.4rem;
+    max-width: 38%;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--muted);
+    line-height: 1.2;
+  }
+  .document-form .lines .line-item { padding-right: 44px; }
+  .document-form .lines .line-item::before { content: "Item"; }
+  .document-form .lines .line-desc::before { content: "Description"; }
+  .document-form .lines .line-qty::before { content: "Qty"; }
+  .document-form .lines .line-rate::before { content: "Unit price"; }
+  .document-form .lines .line-total::before { content: "Total"; }
+  .document-form .lines .line-vat::before { content: "VAT"; }
+  .document-form .lines td.lines-del-col {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: auto !important;
+    border: 0;
+    padding: 0;
+  }
+  .document-form .lines td.lines-del-col::before { content: none; }
+  .document-form .lines .qty-wrap {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .document-form .lines .line-rate input,
+  .document-form .lines .line-item input:not([type="hidden"]),
+  .document-form .lines .line-desc textarea,
+  .document-form .lines .vat-yn {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .document-form .lines .line-desc { align-items: flex-start; }
+  .document-form .lines .line-desc::before { padding-top: 12px; }
+  .document-form .lines .line-desc textarea { min-height: 42px; resize: vertical; }
+  .document-form .lines .line-total { justify-content: flex-end; }
+  .document-form .lines .line-total::before { margin-right: auto; }
+  .document-form .lines .vat-yn {
+    min-height: 42px;
+    padding: 0 10px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  .pos-sale .sticky-save .pos-print-last { display: none; }
 }
 @media (max-width: 720px) {
   .top {

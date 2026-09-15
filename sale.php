@@ -144,7 +144,7 @@ layout_start('Sale', $user);
       <button class="btn pos-save" type="submit" name="do_print" value="1" <?= $dayOpen ? '' : 'disabled' ?>><?= icon('printer') ?>Save and print</button>
       <button class="btn" type="submit" <?= $dayOpen ? '' : 'disabled' ?>><?= icon('check') ?>Save sale</button>
       <?php if ($lastPrint): ?>
-        <a class="btn ghost" href="<?= h(url('document_view.php?id=' . $lastPrint . '&print=1')) ?>"><?= icon('printer') ?>Print last</a>
+        <a class="btn ghost pos-print-last" href="<?= h(url('document_view.php?id=' . $lastPrint . '&print=1')) ?>"><?= icon('printer') ?>Print last</a>
       <?php endif; ?>
     </div>
   </div>
