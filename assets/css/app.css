@@ -2643,6 +2643,21 @@ input, select, textarea { font-weight: 400; }
   .admin-body .chart-grid,
   .admin-body .chart-grid.equal { grid-template-columns: 1fr; }
   .admin-body .page-head { flex-direction: column; }
+  .admin-body form .admin-term-actions,
+  .admin-body .admin-term-actions {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    width: 100%;
+    gap: 8px;
+  }
+  .admin-body form .admin-term-actions .btn,
+  .admin-body .admin-term-actions .btn {
+    width: 100%;
+    max-width: 100%;
+    justify-content: center;
+  }
   .admin-body .top {
     position: -webkit-sticky;
     position: sticky;
@@ -3902,15 +3917,6 @@ a.branch-activity-row:hover { text-decoration: none; }
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-  }
-  .admin-term-actions {
-    flex-direction: column;
-    flex-wrap: nowrap;
-    align-items: stretch;
-  }
-  .admin-term-actions .btn {
-    width: 100%;
-    justify-content: center;
   }
   .admin-body .desk-grid {
     display: grid;
