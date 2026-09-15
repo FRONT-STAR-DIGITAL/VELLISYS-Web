@@ -2426,12 +2426,15 @@ function period_range(): array
     $to = trim((string) ($_GET['to'] ?? ''));
     $today = today();
     $monday = date('Y-m-d', strtotime('monday this week'));
+    if ($preset === 'last_month') {
+        $preset = 'this_year';
+    }
     $map = [
         'today' => [$today, $today],
         'this_week' => [$monday, $today],
         'last_week' => [date('Y-m-d', strtotime('monday last week')), date('Y-m-d', strtotime('sunday last week'))],
         'this_month' => [date('Y-m-01'), $today],
-        'last_month' => [date('Y-m-01', strtotime('first day of last month')), date('Y-m-t', strtotime('last day of last month'))],
+        'this_year' => [date('Y-01-01'), $today],
     ];
     if ($from && $to) {
         $preset = 'custom';
@@ -2466,7 +2469,7 @@ function render_filters(string $action, array $keep = [], array $opts = []): voi
         'this_week' => 'This week',
         'last_week' => 'Last week',
         'this_month' => 'This month',
-        'last_month' => 'Last month',
+        'this_year' => 'This year',
     ];
     if (!empty($opts['no_all'])) {
         unset($chips['all']);

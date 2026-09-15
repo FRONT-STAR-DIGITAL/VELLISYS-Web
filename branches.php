@@ -71,6 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+$tab = (($_GET['tab'] ?? '') === 'performance') ? 'performance' : 'list';
 $branches = company_all_branches();
 $members = db_all("SELECT id, name, job_title, email, role, access, branch_id FROM users WHERE company_id = ? AND role <> 'platform' ORDER BY role = 'admin' DESC, name", 'i', [$cid]);
 $seats = company_user_limit();
@@ -78,7 +79,14 @@ $branchCap = company_location_limit();
 $locations = company_location_count($cid);
 $canAddBranch = $admin && company_can_add_named_branch();
 $activityByBranch = [];
-if ($admin) {
+$perf = ['overall' => branch_performance_blank(), 'branches' => []];
+$period = period_range();
+$showProfit = !function_exists('user_can_see_profit') || user_can_see_profit();
+if ($tab === 'performance') {
+    $from = $period['from'] !== '' ? $period['from'] : '1970-01-01';
+    $to = $period['to'] !== '' ? $period['to'] : today();
+    $perf = branch_performance_for_range($from, $to);
+} elseif ($admin) {
     foreach ($branches as $b) {
         $bid = (int) ($b['id'] ?? 0);
         $raw = company_activities(['branch_id' => $bid, 'limit' => 12]);
@@ -105,7 +113,11 @@ layout_start('Branches', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('pin') ?>Branches</h1>
-    <p class="lede">Head office uses the company address in Settings. Named branches print their own address. This package allows up to <?= (int) $branchCap ?> branch<?= $branchCap === 1 ? '' : 'es' ?>, including Head office. Several people can share a branch. Vellisys sets how many users this desk has (<?= (int) $seats ?> of <?= (int) plan_user_limit_max() ?> on <?= h(company_plan_label()) ?>).</p>
+    <p class="lede"><?php if ($tab === 'performance'): ?>
+      Income, spend and collections for each branch, plus overall. Income share is that branch's contribution to invoiced net.
+    <?php else: ?>
+      Head office uses the company address in Settings. Named branches print their own address. This package allows up to <?= (int) $branchCap ?> branch<?= $branchCap === 1 ? '' : 'es' ?>, including Head office. Several people can share a branch. Vellisys sets how many users this desk has (<?= (int) $seats ?> of <?= (int) plan_user_limit_max() ?> on <?= h(company_plan_label()) ?>).
+    <?php endif; ?></p>
   </div>
   <?php if ($admin): ?>
     <div class="actions">
@@ -116,6 +128,155 @@ layout_start('Branches', $user);
 </div>
 
 <?php if ($error): ?><p class="flash flash-err" style="margin:0 0 16px"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
+
+<?php render_branch_subnav($tab); ?>
+
+<?php if ($tab === 'performance'):
+    $overall = $perf['overall'];
+    $perfRows = $perf['branches'];
+    $hasIncome = false;
+    foreach ($perfRows as $row) {
+        if ((float) $row['income'] > 0) {
+            $hasIncome = true;
+            break;
+        }
+    }
+    ?>
+<?php render_filters('branches.php', ['tab' => 'performance']); ?>
+<p class="hint" style="margin:-8px 0 16px">
+  Showing <?= $period['from'] ? h(format_date($period['from']) . ' - ' . format_date($period['to'])) : 'all dates' ?>.
+</p>
+<div class="stats">
+  <div class="card stat"><?= icon('invoice', 20) ?><span>Overall income</span><strong><?= h(ugx($overall['income'])) ?></strong></div>
+  <div class="card stat"><?= icon('receipt', 20) ?><span>Overall collected</span><strong><?= h(ugx($overall['cash_in'])) ?></strong></div>
+  <div class="card stat"><?= icon('expense', 20) ?><span>Overall expenses</span><strong><?= h(ugx($overall['expenses'])) ?></strong></div>
+  <?php if ($showProfit): ?>
+  <div class="card stat"><?= icon('package', 20) ?><span>Overall profit</span><strong><?= h(ugx($overall['profit'])) ?></strong><em>Sell minus buy</em></div>
+  <div class="card stat"><?= icon('reports', 20) ?><span>Overall net</span><strong><?= h(ugx($overall['net'])) ?></strong></div>
+  <?php endif; ?>
+</div>
+<div class="chart-grid">
+  <div class="card chart-box">
+    <div class="card-head"><h2><?= icon('invoice', 16) ?>Income by branch</h2></div>
+    <?php if (!$hasIncome): ?>
+      <p class="empty">No invoiced income in this period.</p>
+    <?php else: ?>
+      <canvas id="chart-branch-income"></canvas>
+    <?php endif; ?>
+  </div>
+  <div class="card chart-box">
+    <div class="card-head"><h2><?= icon('expense', 16) ?>Expenses by branch</h2></div>
+    <?php
+    $hasExp = false;
+    foreach ($perfRows as $row) {
+        if ((float) $row['expenses'] > 0) {
+            $hasExp = true;
+            break;
+        }
+    }
+    ?>
+    <?php if (!$hasExp): ?>
+      <p class="empty">No operating expenses in this period.</p>
+    <?php else: ?>
+      <canvas id="chart-branch-expense"></canvas>
+    <?php endif; ?>
+  </div>
+</div>
+<div class="card" style="margin-bottom:16px">
+  <div class="card-head"><h2><?= icon('reports', 16) ?>All branches</h2></div>
+  <div class="table-scroll">
+  <table class="grid">
+    <thead>
+      <tr>
+        <th>Branch</th>
+        <th class="right">Income</th>
+        <th class="right">Share</th>
+        <th class="right">Collected</th>
+        <th class="right">Expenses</th>
+        <?php if ($showProfit): ?>
+          <th class="right">Profit</th>
+          <th class="right">Net</th>
+        <?php endif; ?>
+        <th class="right">Sheets</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Overall</strong></td>
+        <td class="right mono"><?= h(ugx($overall['income'])) ?></td>
+        <td class="right mono">100%</td>
+        <td class="right mono"><?= h(ugx($overall['cash_in'])) ?></td>
+        <td class="right mono"><?= h(ugx($overall['expenses'])) ?></td>
+        <?php if ($showProfit): ?>
+          <td class="right mono"><?= h(ugx($overall['profit'])) ?></td>
+          <td class="right mono"><?= h(ugx($overall['net'])) ?></td>
+        <?php endif; ?>
+        <td class="right mono"><?= (int) $overall['docs'] ?></td>
+      </tr>
+      <?php foreach ($perfRows as $row): ?>
+        <tr>
+          <td><?= h((string) $row['name']) ?><?= !empty($row['is_head']) ? ' <span class="hint">Head office</span>' : '' ?></td>
+          <td class="right mono"><?= h(ugx($row['income'])) ?></td>
+          <td class="right mono"><?= h(rtrim(rtrim(number_format((float) $row['income_share'], 1, '.', ''), '0'), '.')) ?>%</td>
+          <td class="right mono"><?= h(ugx($row['cash_in'])) ?></td>
+          <td class="right mono"><?= h(ugx($row['expenses'])) ?></td>
+          <?php if ($showProfit): ?>
+            <td class="right mono"><?= h(ugx($row['profit'])) ?></td>
+            <td class="right mono"><?= h(ugx($row['net'])) ?></td>
+          <?php endif; ?>
+          <td class="right mono"><?= (int) $row['docs'] ?></td>
+        </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+  </div>
+</div>
+<?php foreach ($perfRows as $row): ?>
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-head"><h2><?= icon(!empty($row['is_head']) ? 'building' : 'pin', 16) ?><?= h((string) $row['name']) ?></h2></div>
+    <div class="stats" style="margin:0">
+      <div class="card stat"><?= icon('invoice', 20) ?><span>Income</span><strong><?= h(ugx($row['income'])) ?></strong><em><?= h(rtrim(rtrim(number_format((float) $row['income_share'], 1, '.', ''), '0'), '.')) ?>% of overall</em></div>
+      <div class="card stat"><?= icon('receipt', 20) ?><span>Collected</span><strong><?= h(ugx($row['cash_in'])) ?></strong></div>
+      <div class="card stat"><?= icon('expense', 20) ?><span>Expenses</span><strong><?= h(ugx($row['expenses'])) ?></strong><em><?= h(rtrim(rtrim(number_format((float) $row['expense_share'], 1, '.', ''), '0'), '.')) ?>% of spend</em></div>
+      <?php if ($showProfit): ?>
+        <div class="card stat"><?= icon('package', 20) ?><span>Profit</span><strong><?= h(ugx($row['profit'])) ?></strong></div>
+        <div class="card stat"><?= icon('reports', 20) ?><span>Net</span><strong><?= h(ugx($row['net'])) ?></strong></div>
+      <?php endif; ?>
+      <div class="card stat"><?= icon('clients', 20) ?><span>Outstanding</span><strong><?= h(ugx($row['outstanding'])) ?></strong></div>
+    </div>
+    <p class="hint" style="margin:12px 22px 16px"><?= (int) $row['invoices'] ?> invoices · <?= (int) $row['receipts'] ?> receipts · <?= (int) $row['expenses_n'] ?> expenses · <?= (int) $row['quotes'] ?> quotations · supplier payments <?= h(ugx($row['cash_out'])) ?></p>
+  </div>
+<?php endforeach; ?>
+<?php
+    $payload = json_encode([
+        'incomeLabels' => array_column($perfRows, 'name'),
+        'incomeValues' => array_map(static fn ($r) => (float) $r['income'], $perfRows),
+        'expenseValues' => array_map(static fn ($r) => (float) $r['expenses'], $perfRows),
+        'color' => brand_color(),
+        'currency' => default_currency(),
+    ], JSON_UNESCAPED_UNICODE);
+    $extraJs = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script>
+(function(){
+  var d = ' . $payload . ';
+  var brand = d.color || "#82B440";
+  var palette = [brand, "#1f3a12", "#b42318", "#1E4EFF", "#c4a35a", "#4a6fa5", "#66705f", "#82B440"];
+  function pie(id, values) {
+    var el = document.getElementById(id);
+    if (!el || !window.Chart) return;
+    new Chart(el, {
+      type: "pie",
+      data: { labels: d.incomeLabels, datasets: [{ data: values, backgroundColor: palette }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
+    });
+  }
+  pie("chart-branch-income", d.incomeValues);
+  pie("chart-branch-expense", d.expenseValues);
+})();
+</script>';
+    echo '</div>';
+    layout_end($extraJs);
+    return;
+endif; ?>
 
 <div class="branch-list">
   <?php foreach ($branches as $b):

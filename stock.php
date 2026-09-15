@@ -693,7 +693,7 @@ layout_start('Stock', $user);
         'color' => branding()['brand_color'] ?? '#82B440',
         'showProfit' => $showProfit,
     ], JSON_UNESCAPED_UNICODE);
-    $extraJs = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script src="' . h(asset('js/stock-day.js')) . '"></script><script>window.vellisysDayCharts=' . $payload . ';</script>';
+    $extraJs = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script>window.vellisysDayCharts=' . $payload . ';</script><script src="' . h(asset('js/stock-day.js')) . '"></script>';
 endif;
 
 layout_end($extraJs);

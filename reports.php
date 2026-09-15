@@ -3,6 +3,15 @@ declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
 $user = require_desk_admin();
 
+$view = (($_GET['view'] ?? '') === 'annual') ? 'annual' : 'period';
+$year = (int) ($_GET['year'] ?? date('Y'));
+$year = max(2000, min((int) date('Y'), $year));
+if ($view === 'annual') {
+    $_GET['from'] = sprintf('%04d-01-01', $year);
+    $_GET['to'] = $year === (int) date('Y') ? today() : sprintf('%04d-12-31', $year);
+    unset($_GET['range']);
+}
+
 $cid = current_company_id();
 [$extra, $types, $params] = period_sql('d.date');
 $scope = 'd.company_id = ? AND d.status = \'issued\'' . $extra;
@@ -154,7 +163,33 @@ foreach ($receipts as $d) {
     $series[$key]['cash'] += convert_money((float) ($d['allocated_amount'] ?: $d['totals']['total']), doc_currency($d), $base);
 }
 ksort($series);
-if (count($series) > 45) {
+if ($view === 'annual') {
+    $filled = [];
+    $mixFilled = [];
+    for ($m = 1; $m <= 12; $m++) {
+        $key = sprintf('%04d-%02d', $year, $m);
+        $filled[$key] = ['invoiced' => 0, 'expenses' => 0, 'cash' => 0];
+        $mixFilled[$key] = ['quotation' => 0, 'invoice' => 0, 'receipt' => 0, 'expense' => 0, 'letter' => 0];
+    }
+    foreach ($series as $day => $vals) {
+        $k = substr((string) $day, 0, 7);
+        if (isset($filled[$k])) {
+            $filled[$k]['invoiced'] += $vals['invoiced'];
+            $filled[$k]['expenses'] += $vals['expenses'];
+            $filled[$k]['cash'] += $vals['cash'];
+        }
+    }
+    foreach ($mixSeries as $day => $vals) {
+        $k = substr((string) $day, 0, 7);
+        if (isset($mixFilled[$k])) {
+            foreach ($vals as $kindKey => $n) {
+                $mixFilled[$k][$kindKey] = ($mixFilled[$k][$kindKey] ?? 0) + $n;
+            }
+        }
+    }
+    $series = $filled;
+    $mixSeries = $mixFilled;
+} elseif (count($series) > 45) {
     $monthly = [];
     foreach ($series as $day => $vals) {
         $m = substr($day, 0, 7);
@@ -174,10 +209,22 @@ $to = $period['to'] !== '' ? $period['to'] : today();
 $margin = function_exists('stock_range_totals') ? stock_range_totals($from, $to) : ['profit' => $income - $costs, 'net' => $income - $costs, 'cogs' => 0.0];
 $taxReport = report_tax_payable();
 $taxName = company_tax_name();
-$chartLabels = array_keys($series);
+$chartLabels = [];
+foreach (array_keys($series) as $key) {
+    $key = (string) $key;
+    $chartLabels[] = (strlen($key) === 7 && strtotime($key . '-01'))
+        ? date('M Y', strtotime($key . '-01'))
+        : $key;
+}
 $chartInvoiced = array_column($series, 'invoiced');
 $chartExpenses = array_column($series, 'expenses');
 $chartCash = array_column($series, 'cash');
+$yearStart = (int) date('Y');
+$firstDoc = db_one('SELECT MIN(date) AS d FROM documents WHERE company_id = ?', 'i', [$cid]);
+if (!empty($firstDoc['d'])) {
+    $yearStart = min($yearStart, (int) substr((string) $firstDoc['d'], 0, 4));
+}
+$yearStart = max(2018, $yearStart);
 $pieLabels = array_keys($byCat);
 $pieValues = array_values($byCat);
 $barLabels = array_keys($aging);
@@ -188,16 +235,36 @@ layout_start('Reports', $user);
 ?>
 <div class="page-head">
   <div>
-    <h1><?= icon('reports') ?>Reports</h1>
-    <p class="lede">Time series, collections, clients, quotes, aging and <?= h($taxName) ?> payable - for the dates you pick. Mixed currencies convert at <?= h(fx_rate_label()) ?>.</p>
+    <h1><?= icon('reports') ?><?= $view === 'annual' ? 'Annual reports' : 'Reports' ?></h1>
+    <p class="lede"><?= $view === 'annual'
+        ? 'Yearly performance for ' . (int) $year . ': income, collections, expenses and profit by month. Mixed currencies convert at ' . h(fx_rate_label()) . '.'
+        : 'Time series, collections, clients, quotes, aging and ' . h($taxName) . ' payable - for the dates you pick. Mixed currencies convert at ' . h(fx_rate_label()) . '.' ?></p>
   </div>
-  <a class="btn ghost" href="<?= h(export_query('reports')) ?>"><?= icon('download', 16) ?>Export CSV</a>
+  <a class="btn ghost" href="<?= h(export_query('reports', $view === 'annual' ? ['view' => 'annual', 'year' => $year] : [])) ?>"><?= icon('download', 16) ?>Export CSV</a>
 </div>
 
-<?php render_filters('reports.php'); ?>
-<p class="hint" style="margin:-8px 0 16px">
-  Showing <?= $period['from'] ? h(format_date($period['from']) . ' - ' . format_date($period['to'])) : 'all dates' ?>.
-</p>
+<nav class="planner-tabs" aria-label="Report sections">
+  <a class="planner-tab<?= $view === 'period' ? ' is-on' : '' ?>" href="<?= h(url('reports.php')) ?>"><?= icon('calendar', 16) ?><span>Period</span></a>
+  <a class="planner-tab<?= $view === 'annual' ? ' is-on' : '' ?>" href="<?= h(url('reports.php?view=annual&year=' . (int) $year)) ?>"><?= icon('reports', 16) ?><span>Annual</span></a>
+</nav>
+
+<?php if ($view === 'annual'): ?>
+  <div class="filters">
+    <div class="filter-chips">
+      <?php for ($y = (int) date('Y'); $y >= $yearStart; $y--): ?>
+        <a class="chip<?= $year === $y ? ' is-on' : '' ?>" href="<?= h(url('reports.php?view=annual&year=' . $y)) ?>"><?= (int) $y ?></a>
+      <?php endfor; ?>
+    </div>
+  </div>
+  <p class="hint" style="margin:-8px 0 16px">
+    Showing <?= h(format_date($period['from'])) ?> - <?= h(format_date($period['to'])) ?>.
+  </p>
+<?php else: ?>
+  <?php render_filters('reports.php'); ?>
+  <p class="hint" style="margin:-8px 0 16px">
+    Showing <?= $period['from'] ? h(format_date($period['from']) . ' - ' . format_date($period['to'])) : 'all dates' ?>.
+  </p>
+<?php endif; ?>
 
 <div class="stats">
   <div class="card stat"><?= icon('invoice', 20) ?><span>Income (invoiced, net)</span><strong><?= h(ugx($income)) ?></strong></div>
@@ -213,9 +280,47 @@ layout_start('Reports', $user);
   <div class="card stat"><?= icon('bank', 20) ?><span>Supplier payments</span><strong><?= h(ugx($cashOut)) ?></strong></div>
 </div>
 
+<?php if ($view === 'annual'): ?>
+<div class="card" style="margin-bottom:16px">
+  <div class="card-head"><h2><?= icon('calendar', 16) ?>Yearly performance</h2></div>
+  <div class="table-scroll">
+  <table class="grid">
+    <thead>
+      <tr>
+        <th>Month</th>
+        <th class="right">Invoiced</th>
+        <th class="right">Expenses</th>
+        <th class="right">Cash in</th>
+      </tr>
+    </thead>
+    <tbody>
+      <?php foreach ($series as $ym => $vals):
+          $stamp = strtotime((string) $ym . '-01');
+          ?>
+        <tr>
+          <td><?= h($stamp ? date('F Y', $stamp) : (string) $ym) ?></td>
+          <td class="right mono"><?= h(ugx($vals['invoiced'])) ?></td>
+          <td class="right mono"><?= h(ugx($vals['expenses'])) ?></td>
+          <td class="right mono"><?= h(ugx($vals['cash'])) ?></td>
+        </tr>
+      <?php endforeach; ?>
+    </tbody>
+    <tfoot>
+      <tr>
+        <td>Year</td>
+        <td class="right mono"><?= h(ugx(array_sum(array_column($series, 'invoiced')))) ?></td>
+        <td class="right mono"><?= h(ugx(array_sum(array_column($series, 'expenses')))) ?></td>
+        <td class="right mono"><?= h(ugx(array_sum(array_column($series, 'cash')))) ?></td>
+      </tr>
+    </tfoot>
+  </table>
+  </div>
+</div>
+<?php endif; ?>
+
 <div class="chart-grid">
   <div class="card chart-box">
-    <div class="card-head"><h2><?= icon('reports', 16) ?>Activity over time</h2></div>
+    <div class="card-head"><h2><?= icon('reports', 16) ?><?= $view === 'annual' ? 'Months in ' . (int) $year : 'Activity over time' ?></h2></div>
     <?php if (!$series): ?>
       <p class="empty">Nothing in this period to plot.</p>
     <?php else: ?>

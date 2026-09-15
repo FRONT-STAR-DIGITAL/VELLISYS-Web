@@ -240,6 +240,173 @@ function delete_named_branch(int $id): bool
     return true;
 }
 
+function render_branch_subnav(string $active): void
+{
+    ?>
+  <nav class="planner-tabs" aria-label="Branch sections">
+    <a class="planner-tab<?= $active === 'list' ? ' is-on' : '' ?>" href="<?= h(url('branches.php')) ?>"><?= icon('pin', 16) ?><span>Branches</span></a>
+    <a class="planner-tab<?= $active === 'performance' ? ' is-on' : '' ?>" href="<?= h(url('branches.php?tab=performance')) ?>"><?= icon('reports', 16) ?><span>Performance</span></a>
+  </nav>
+    <?php
+}
+
+function document_branch_key(array $doc): int
+{
+    return isset($doc['branch_id']) && (int) $doc['branch_id'] > 0 ? (int) $doc['branch_id'] : 0;
+}
+
+function branch_performance_blank(): array
+{
+    return [
+        'income' => 0.0,
+        'billed' => 0.0,
+        'expenses' => 0.0,
+        'cogs' => 0.0,
+        'profit' => 0.0,
+        'net' => 0.0,
+        'cash_in' => 0.0,
+        'cash_out' => 0.0,
+        'outstanding' => 0.0,
+        'invoices' => 0,
+        'expenses_n' => 0,
+        'receipts' => 0,
+        'quotes' => 0,
+        'docs' => 0,
+        'income_share' => 0.0,
+        'expense_share' => 0.0,
+    ];
+}
+
+function branch_performance_for_range(string $from, string $to): array
+{
+    $cid = current_company_id();
+    $sqlFrom = $from !== '' ? $from : '1970-01-01';
+    $sqlTo = $to !== '' ? $to : today();
+    $base = default_currency();
+    $rows = [];
+    foreach (company_all_branches() as $b) {
+        $id = (int) ($b['id'] ?? 0);
+        $rows[$id] = branch_performance_blank() + [
+            'id' => $id,
+            'name' => (string) ($b['name'] ?? 'Branch'),
+            'is_head' => !empty($b['is_head']),
+        ];
+    }
+
+    $docs = db_all(
+        "SELECT d.*, p.name AS party_name, r.kind AS related_kind
+         FROM documents d
+         LEFT JOIN parties p ON p.id = d.party_id
+         LEFT JOIN documents r ON r.id = d.related_id
+         WHERE d.company_id = ? AND d.status = 'issued' AND d.date >= ? AND d.date <= ?",
+        'iss',
+        [$cid, $sqlFrom, $sqlTo]
+    );
+    if (function_exists('attach_document_totals')) {
+        $docs = attach_document_totals($docs);
+    }
+
+    foreach ($docs as $d) {
+        $bid = document_branch_key($d);
+        if (!isset($rows[$bid])) {
+            $rows[$bid] = branch_performance_blank() + [
+                'id' => $bid,
+                'name' => 'Removed branch',
+                'is_head' => false,
+            ];
+        }
+        $rows[$bid]['docs']++;
+        $kind = (string) ($d['kind'] ?? '');
+        $cur = function_exists('doc_currency') ? doc_currency($d) : $base;
+        if ($kind === 'invoice') {
+            $net = convert_money((float) ($d['totals']['net'] ?? 0), $cur, $base);
+            $billed = convert_money((float) ($d['totals']['total'] ?? 0), $cur, $base);
+            $rows[$bid]['income'] += $net;
+            $rows[$bid]['billed'] += $billed;
+            $rows[$bid]['invoices']++;
+            if ((float) ($d['balance'] ?? 0) > 0) {
+                $rows[$bid]['outstanding'] += convert_money((float) $d['balance'], $cur, $base);
+            }
+        } elseif ($kind === 'expense') {
+            $rows[$bid]['expenses_n']++;
+            if (!function_exists('stock_is_stock_expense') || !stock_is_stock_expense($d)) {
+                $rows[$bid]['expenses'] += convert_money((float) ($d['totals']['net'] ?? 0), $cur, $base);
+            }
+        } elseif ($kind === 'receipt') {
+            $rows[$bid]['receipts']++;
+            $amt = convert_money((float) ($d['allocated_amount'] ?: ($d['totals']['total'] ?? 0)), $cur, $base);
+            if (($d['related_kind'] ?? '') === 'expense') {
+                $rows[$bid]['cash_out'] += $amt;
+            } else {
+                $rows[$bid]['cash_in'] += $amt;
+            }
+        } elseif ($kind === 'quotation') {
+            $rows[$bid]['quotes']++;
+        }
+    }
+
+    $cogsRows = db_all(
+        "SELECT COALESCE(d.branch_id, 0) AS bid, d.currency,
+                COALESCE(SUM(ROUND(i.qty * COALESCE(s.buy_price, 0), 2)), 0) AS cogs
+         FROM documents d
+         JOIN document_items i ON i.document_id = d.id
+         LEFT JOIN stock_items s ON s.id = i.stock_item_id AND s.company_id = d.company_id
+         WHERE d.company_id = ? AND d.status = 'issued' AND d.kind = 'invoice'
+           AND d.date >= ? AND d.date <= ? AND i.stock_item_id IS NOT NULL AND i.stock_item_id > 0
+         GROUP BY COALESCE(d.branch_id, 0), d.currency",
+        'iss',
+        [$cid, $sqlFrom, $sqlTo]
+    );
+    foreach ($cogsRows as $d) {
+        $bid = (int) ($d['bid'] ?? 0);
+        if (!isset($rows[$bid])) {
+            continue;
+        }
+        $fromCur = normalize_currency((string) ($d['currency'] ?? ''), $base);
+        $rows[$bid]['cogs'] += convert_money((float) ($d['cogs'] ?? 0), $fromCur, $base);
+    }
+
+    $overall = branch_performance_blank() + [
+        'id' => -1,
+        'name' => 'Overall',
+        'is_head' => false,
+    ];
+    $sumKeys = ['income', 'billed', 'expenses', 'cogs', 'cash_in', 'cash_out', 'outstanding', 'invoices', 'expenses_n', 'receipts', 'quotes', 'docs'];
+    foreach ($rows as &$row) {
+        if (function_exists('stock_finish_totals')) {
+            $fin = stock_finish_totals([
+                'income' => $row['income'],
+                'cogs' => $row['cogs'],
+                'expense' => $row['expenses'],
+                'tax' => 0,
+            ]);
+            $row['profit'] = $fin['profit'];
+            $row['net'] = $fin['net'];
+        } else {
+            $row['profit'] = round($row['income'] - $row['cogs'], 2);
+            $row['net'] = round($row['profit'] - $row['expenses'], 2);
+        }
+        foreach ($sumKeys as $k) {
+            $overall[$k] += $row[$k];
+        }
+        $overall['profit'] += $row['profit'];
+        $overall['net'] += $row['net'];
+    }
+    unset($row);
+
+    $incTot = (float) $overall['income'];
+    $expTot = (float) $overall['expenses'];
+    foreach ($rows as &$row) {
+        $row['income_share'] = $incTot > 0 ? round(100 * $row['income'] / $incTot, 1) : 0.0;
+        $row['expense_share'] = $expTot > 0 ? round(100 * $row['expenses'] / $expTot, 1) : 0.0;
+    }
+    unset($row);
+    $overall['income_share'] = $incTot > 0 ? 100.0 : 0.0;
+    $overall['expense_share'] = $expTot > 0 ? 100.0 : 0.0;
+
+    return ['overall' => $overall, 'branches' => array_values($rows)];
+}
+
 function render_branch_options(?int $selected = null, bool $includeHead = true, ?int $companyId = null): void
 {
     $selected = $selected === null ? 0 : $selected;
