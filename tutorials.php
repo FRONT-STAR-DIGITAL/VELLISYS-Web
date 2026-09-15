@@ -38,7 +38,7 @@ $lessons = [
         'lead' => 'Activities is on every package. It is the desk history: who issued what, who was paid, which mail left, and when branding was saved. It is not a visitor log of every page click.',
         'points' => [
             'Open Activities from the rail, from Desk, or from the Activities button on the public packages.',
-            'Filter by documents, payments, email, clients, settings or planner. Search a number or a name.',
+            'Filter by documents, payments, email, clients, settings or planner. On a desk with branches, chip a branch, Head office, or the whole company.',
             'Older sheets already on the books are copied in the first time the log is created, so you are not looking at an empty page.',
         ],
     ],
@@ -60,10 +60,10 @@ $lessons = [
         'icon' => 'quotation',
         'title' => 'Quotations',
         'file' => 'quotation.png',
-        'alt' => 'A branded quotation ready to share',
+        'alt' => 'New quotation with client, branch and document lines',
         'lead' => 'A quotation is the offer. Write it in your logo and colours, send it, then convert it when they say yes.',
         'points' => [
-            'New quotation, pick the client, add lines: item, description, qty, unit price, tax Y or N. On a phone, swipe the line sideways. Type an item to pick from stock, or keep a name that is not in stock.',
+            'New quotation, pick the client, add lines: item, description, qty, unit price, tax Y or N. On a phone, swipe the whole line sideways. Type an item to pick from stock, or keep a name that is not in stock.',
             'Share the branded sheet, or Email it in one click. Mail leaves from the company mailbox Vellisys assigned, not your personal inbox.',
             'When they accept, convert the quotation to an invoice. The lines copy across so you do not retype them.',
         ],
@@ -90,6 +90,7 @@ $lessons = [
         'lead' => 'Invoices are what you are owed. Due dates feed Debtors. Part payments stay honest.',
         'points' => [
             'Issue in your currency, or in USD. The rate lives in Settings and on the Desk greeting card so reports can add them up.',
+            'Lines work like a quotation: item, description, qty, unit price and tax on one row. Add row, or tap X to remove a line.',
             'Print, share a link, or email the sheet. The letterhead is yours: logo, two colours, bank details, TIN. On a phone the page is the same A4 sheet, scaled to fit.',
             'Record a receipt against the invoice when money lands. The balance drops. Full or part - both work. Receive is also on the notifications bell when Planner is on.',
         ],
@@ -215,8 +216,8 @@ $lessons = [
         'id' => 'branches',
         'icon' => 'pin',
         'title' => 'Branches',
-        'file' => '',
-        'alt' => '',
+        'file' => 'branches.png',
+        'alt' => 'Branches with Head office, a named shop and a Performance tab',
         'lead' => 'Vellisys Business allows up to 2 branches and Pro up to 3, including Head office. Several people can share a branch. Vellisys Start is Head office only.',
         'points' => [
             'Open Branches on the rail. Add a shop or city name and its address, up to the branch cap on the package.',
@@ -229,16 +230,29 @@ $lessons = [
     [
         'id' => 'stock',
         'icon' => 'package',
-        'title' => 'Stock and Sale',
-        'file' => '',
-        'alt' => '',
+        'title' => 'Stock',
+        'file' => 'stock.png',
+        'alt' => 'Stock Day with This year filter, income, profit and line charts',
         'lead' => 'When Vellisys switches stock on, the rail gets Stock and Sale. Purchases sit as a tab inside Stock. The Ofagros demo already has this on.',
         'points' => [
-            'Open the day: type the cash in the till, then sell. Close with the cash at the end. Today\'s income, spend, net and tax sit on Day.',
+            'Open the day: type the cash in the till, then sell. Close with the cash at the end. Day tot up income, spend, profit (sell minus buy) and net (that profit minus expenses).',
+            'Filter Day with today, this week, this month or this year. Charts follow the dates you pick.',
             'Add products, or download the Excel, fill it and upload. Low stock shows when quantity hits the reorder level.',
-            'Sale: type a product, it fills. Discount and part pay sit under the list. Save prints a receipt. Unpaid sales sit on Debtors.',
             'Purchases become expenses. Unpaid purchases sit on Creditors. Quotes and invoices type from the same products.',
             'Settings has a daily backup you can download or restore.',
+        ],
+    ],
+    [
+        'id' => 'sale',
+        'icon' => 'cart',
+        'title' => 'Sale',
+        'file' => 'sale.png',
+        'alt' => 'Sale till with a product list, totals and Save and print',
+        'lead' => 'Sale is the till. Type a product, it drops onto the list, then save. The day must be open first.',
+        'points' => [
+            'Find a product by name or code. It fills qty, unit price and tax. Tap X on a row to take it off.',
+            'Discount and part pay sit under the list. Leave paid blank to take the full amount. Unpaid sits on Debtors.',
+            'Save and print opens the slip. Save sale stays on the till. Print last reprints the last slip from the page head.',
         ],
     ],
     [
@@ -262,9 +276,23 @@ $lessons = [
         'alt' => 'Profit and loss with income, expenses, net profit and cash movement charts',
         'lead' => 'P&L tot up income, expenses, refunds and returns for the dates you pick, with net profit on one desk. It is on Pro desks for the company admin.',
         'points' => [
-            'Open P&L. Filter the period the same way as Reports. Ledger, Refund and Return sit next to New entry.',
+            'Open P&L. Filter the period the same way as Reports, including this year. Ledger, Savings, Refund and Return sit in the tabs.',
+            'Profit is selling minus buying. Net profit is that profit minus operating expenses. Stock purchases are not counted twice.',
             'Refunds and returns are not on the main rail - they live here so the profit figure stays honest.',
             'If the tab is missing, ask Vellisys to put the desk on Pro, or to switch P&L on.',
+        ],
+    ],
+    [
+        'id' => 'savings',
+        'icon' => 'wallet',
+        'title' => 'Savings',
+        'file' => 'savings.png',
+        'alt' => 'P&L Savings with a target, net profit and amount set aside',
+        'lead' => 'Savings sits under P&L. Set a target, see this period\'s net profit against it, and record what you have put aside.',
+        'points' => [
+            'Open P&L, then Savings. Pick the same date chips as Reports so the profit figure matches the meeting.',
+            'Target is the number you are aiming for. Saved is cash you have already moved aside. Net profit is sell minus buy, then minus expenses.',
+            'Only the company admin opens this tab. If P&L is off, Savings is off too.',
         ],
     ],
     [
@@ -272,14 +300,13 @@ $lessons = [
         'icon' => 'reports',
         'title' => 'Reports',
         'file' => 'reports.png',
-        'alt' => 'Reports with income, expenses, a time series and debtors aging',
+        'alt' => 'Annual reports with year chips, monthly performance and charts',
         'lead' => 'Reports tot up the period you pick: today, this month, this year, or a from/to range. Open Annual for a full calendar year. Only the company admin opens this tab.',
         'points' => [
-            'Income is invoiced net. Expenses are spent net.',
-            'Annual shows a calendar year, month by month, with the same KPIs.',
+            'Period is the chips you already know. Annual is a year: pick 2026, see twelve months of invoiced, expenses and cash.',
+            'Income is invoiced net. Expenses are spent net. Profit is sell minus buy. Net profit is that profit minus expenses.',
             'The tax table lists each taxed item, the sheet it sat on, and the receipt that collected it. Tax payable is output less input.',
             'Export CSV when you need the numbers in a spreadsheet. The charts are for the meeting; the CSV is for the file.',
-            'Filter before you export so you are not sending the whole year by accident.',
         ],
     ],
     [
@@ -292,7 +319,7 @@ $lessons = [
         'points' => [
             'This month is the usual view for a Friday meeting. This year is the running calendar year.',
             'Custom from/to is for a job that crossed months, or a tax quarter.',
-            'The same chips sit on Reports and P&L, so the charts match the table you just filtered.',
+            'The same chips sit on Reports, P&L, Stock Day and Branches performance, so the charts match the table you just filtered.',
         ],
     ],
     [
@@ -318,6 +345,7 @@ $lessons = [
         'points' => [
             'Primary paints the desk and the strong bars. Accent marks rails, rules and highlights. Type on those colours is black or white, whichever reads.',
             'The sending mailbox is assigned by Vellisys. You can see the address. You cannot change the password.',
+            'Backup writes a file of this desk. Download it, or restore one if you need to roll back. Stock desks get a daily copy too.',
             'If a colour or logo is wrong, fix it here. Old documents keep the layout you pick now when you reprint.',
         ],
     ],
@@ -352,7 +380,7 @@ $lessons = [
         'icon' => 'user',
         'title' => 'People on the desk',
         'file' => 'people.png',
-        'alt' => 'Settings People with logins, titles and access',
+        'alt' => 'Settings People with Desk, Sales and document access ticks',
         'lead' => 'Vellisys Start allows up to 2 users, Business up to 3, Pro up to 4. Vellisys sets how many this desk actually gets. Only the admin adds people.',
         'points' => [
             'Settings, People. Add a name, title, email, access and a temporary password. Edit, suspend or delete a login. Tick pages plus editing, deleting and backdating documents.',
