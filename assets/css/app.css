@@ -889,7 +889,7 @@ form.actions, td form { display: inline; margin: 0; }
 @media (max-width: 1100px) {
   .document-form .lines-wrap { margin: 8px 0; }
   .document-form .lines {
-    min-width: 860px;
+    min-width: 920px;
     width: max-content;
     max-width: none;
     table-layout: auto;
@@ -905,10 +905,42 @@ form.actions, td form { display: inline; margin: 0; }
     vertical-align: middle;
   }
   .document-form .lines td::before { content: none !important; }
-  .document-form .lines textarea {
+  .document-form .lines input[type="hidden"] {
+    display: none !important;
+    width: 0 !important;
+    max-width: 0 !important;
+  }
+  .document-form .lines thead th:first-child,
+  .document-form .lines .line-item {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    min-width: 156px;
+    width: 156px;
+    background: #fff;
+    box-shadow: 4px 0 8px rgba(8, 20, 58, .04);
+  }
+  .document-form .lines thead th:first-child { background: var(--paper, #f4f6fb); }
+  .document-form .lines .line-item input:not([type="hidden"]) {
+    width: 140px;
+    min-width: 140px;
+    max-width: none;
+  }
+  .document-form .lines .line-desc { min-width: 168px; }
+  .document-form .lines .line-desc textarea {
     min-height: 42px;
     height: 42px;
+    min-width: 160px;
+    width: 168px;
+    max-width: none;
     resize: none;
+  }
+  .document-form .lines .line-qty { min-width: 128px; }
+  .document-form .lines .line-rate { min-width: 110px; }
+  .document-form .lines .line-rate input {
+    width: 100px;
+    min-width: 100px;
+    max-width: none;
   }
   .document-form .lines td.lines-del-col .btn {
     min-width: 40px;
@@ -2793,6 +2825,12 @@ input, select, textarea { font-weight: 400; }
   .document-form input,
   .document-form select,
   .document-form textarea { width: 100%; max-width: 100%; }
+  .document-form .lines input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  .document-form .lines textarea,
+  .document-form .lines select {
+    width: auto;
+    max-width: none;
+  }
   .document-form input[type="checkbox"],
   .document-form input[type="radio"] {
     width: auto;
@@ -4202,7 +4240,12 @@ a.branch-activity-row:hover { text-decoration: none; }
 }
 .pos-sum strong { font-variant-numeric: tabular-nums; }
 .pos-save { min-height: 48px; font-size: 16px; }
-.stock-line-suggest { max-height: 240px; overflow: auto; }
+.stock-line-suggest {
+  position: fixed;
+  z-index: 90;
+  max-height: 240px;
+  overflow: auto;
+}
 .stock-search {
   display: flex;
   gap: 8px;
