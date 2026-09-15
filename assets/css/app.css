@@ -887,22 +887,45 @@ form.actions, td form { display: inline; margin: 0; }
   max-width: 100%;
 }
 @media (max-width: 1100px) {
-  .document-form .lines-wrap { margin: 8px 0; }
-  .document-form .lines {
-    min-width: 920px;
-    width: max-content;
-    max-width: none;
-    table-layout: auto;
+  .document-form .lines-wrap {
+    margin: 8px 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
-  .document-form .lines { display: table; }
-  .document-form .lines thead { display: table-header-group; }
-  .document-form .lines tbody { display: table-row-group; }
-  .document-form .lines tr { display: table-row; }
+  .document-form .lines {
+    display: block;
+    width: max-content;
+    min-width: 100%;
+    max-width: none;
+    border: 0;
+  }
+  .document-form .lines thead,
+  .document-form .lines tbody {
+    display: flex;
+    flex-direction: column;
+  }
+  .document-form .lines tr {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    width: max-content;
+    min-width: 100%;
+  }
   .document-form .lines th,
   .document-form .lines td {
-    display: table-cell;
-    width: auto;
-    vertical-align: middle;
+    display: flex;
+    align-items: center;
+    flex: 1 1 auto;
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    z-index: auto !important;
+    width: auto !important;
+    min-width: 0;
+    max-width: none;
+    overflow: visible;
+    box-shadow: none !important;
+    background: transparent;
   }
   .document-form .lines td::before { content: none !important; }
   .document-form .lines input[type="hidden"] {
@@ -910,37 +933,55 @@ form.actions, td form { display: inline; margin: 0; }
     width: 0 !important;
     max-width: 0 !important;
   }
-  .document-form .lines thead th:first-child,
+  .document-form .lines thead th:nth-child(1),
   .document-form .lines .line-item {
-    position: sticky;
-    left: 0;
-    z-index: 2;
-    min-width: 156px;
-    width: 156px;
-    background: #fff;
-    box-shadow: 4px 0 8px rgba(8, 20, 58, .04);
+    flex: 1 1 9rem;
+    min-width: 8.5rem;
   }
-  .document-form .lines thead th:first-child { background: var(--paper, #f4f6fb); }
   .document-form .lines .line-item input:not([type="hidden"]) {
-    width: 140px;
-    min-width: 140px;
+    width: 100%;
+    min-width: 0;
     max-width: none;
   }
-  .document-form .lines .line-desc { min-width: 168px; }
+  .document-form .lines thead th:nth-child(2),
+  .document-form .lines .line-desc {
+    flex: 1 1 11rem;
+    min-width: 9rem;
+  }
   .document-form .lines .line-desc textarea {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
     min-height: 42px;
     height: 42px;
-    min-width: 160px;
-    width: 168px;
-    max-width: none;
     resize: none;
   }
-  .document-form .lines .line-qty { min-width: 128px; }
-  .document-form .lines .line-rate { min-width: 110px; }
+  .document-form .lines thead th:nth-child(3),
+  .document-form .lines .line-qty {
+    flex: 0 0 auto;
+    min-width: 8.25rem;
+  }
+  .document-form .lines thead th:nth-child(4),
+  .document-form .lines .line-rate {
+    flex: 1 1 6.5rem;
+    min-width: 6rem;
+  }
   .document-form .lines .line-rate input {
-    width: 100px;
-    min-width: 100px;
+    width: 100%;
+    min-width: 0;
     max-width: none;
+  }
+  .document-form .lines thead th:nth-child(5),
+  .document-form .lines .line-total {
+    flex: 0 1 5.5rem;
+    min-width: 4.75rem;
+  }
+  .document-form .lines thead th:nth-child(6),
+  .document-form .lines .line-vat,
+  .document-form .lines td.lines-del-col,
+  .document-form .lines thead th.lines-del-col {
+    flex: 0 0 auto;
+    min-width: 2.75rem;
   }
   .document-form .lines td.lines-del-col .btn {
     min-width: 40px;
