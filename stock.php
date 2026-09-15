@@ -433,7 +433,7 @@ layout_start('Stock', $user);
 <?php endif; ?>
 <div class="card">
   <div class="card-head"><h2><?= icon('expense', 16) ?>Buy stock</h2></div>
-  <form method="post" class="pad-form pos-sale" data-pos-till data-pos-prefix="p" data-pos-mode="buy">
+  <form method="post" class="pad-form pos-sale" data-pos-till data-pos-prefix="p" data-pos-mode="buy" data-pos-currency="<?= h(default_currency()) ?>">
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="purchase">
     <div class="form-grid">
@@ -477,15 +477,17 @@ layout_start('Stock', $user);
     </div>
     <script type="application/json" id="pos-catalog"><?= json_encode($catalog, JSON_UNESCAPED_UNICODE) ?></script>
     <script type="application/json" id="pos-tax"><?= json_encode(['rate' => company_tax_rate()]) ?></script>
-    <div class="form-grid" style="margin-top:12px">
+    <div class="pos-totals">
       <div>
         <label for="paid">Amount paid now</label>
         <input id="paid" name="paid" inputmode="decimal" data-pos-paid placeholder="0 = full credit" <?= $dayOpen ? '' : 'disabled' ?>>
         <p class="hint">Pay half, or type 0 if you will pay later. Unpaid sits on Creditors.</p>
       </div>
       <div class="pos-sum">
-        <span>Total <strong data-pos-grand>0</strong></span>
-        <span>Due <strong data-pos-due>0</strong></span>
+        <span>Subtotal <strong data-pos-sub><?= h(money_behind(0)) ?></strong></span>
+        <span><?= h($taxName) ?> <strong data-pos-tax><?= h(money_behind(0)) ?></strong></span>
+        <span>Total <strong data-pos-grand><?= h(money_behind(0)) ?></strong></span>
+        <span>Due <strong data-pos-due><?= h(money_behind(0)) ?></strong></span>
       </div>
     </div>
     <div class="actions">

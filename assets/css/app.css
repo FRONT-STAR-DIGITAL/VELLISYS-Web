@@ -1441,6 +1441,51 @@ table.grid tfoot td {
 .lines-preview-head strong { font-size: 13px; }
 .lines-preview-table { min-width: 640px; background: #fff; }
 .lines-preview-table td, .lines-preview-table th { font-size: 12px; }
+.lines-preview-table tfoot { display: table-footer-group; }
+.lines-preview-table tfoot td {
+  font-weight: 700;
+  background: #eef0f8;
+}
+.doc-sum {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 18px;
+  margin: 4px 0 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  font-size: 14.5px;
+}
+.doc-sum span {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.doc-sum strong {
+  font-variant-numeric: tabular-nums;
+  font-size: 16px;
+  white-space: nowrap;
+}
+.doc-sum [data-doc-grand],
+.pos-sum [data-pos-grand] {
+  font-size: 1.05em;
+}
+@media (min-width: 821px) {
+  .doc-sum { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .doc-sum:not(:has([data-doc-due])) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pos-sale .pos-sum { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 820px) {
+  .doc-sum,
+  .pos-sale .pos-sum {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .doc-sum strong,
+  .pos-sum strong { font-size: 14px; }
+}
 .doc-side-to { margin-top: 14px; border-color: color-mix(in srgb, var(--brand) 28%, var(--line)); background: #fff; }
 .expense-wrap { background: transparent; box-shadow: none; padding: 8px 0; }
 .expense-wrap .sheet-stage { overflow: hidden; }
@@ -2544,6 +2589,7 @@ input, select, textarea { font-weight: 400; }
   }
   .document-form .lines-preview-table thead { display: table-header-group; }
   .document-form .lines-preview-table tbody { display: table-row-group; }
+  .document-form .lines-preview-table tfoot { display: table-footer-group; }
   .document-form .lines-preview-table tr {
     display: table-row;
     padding: 0;

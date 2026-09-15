@@ -13,7 +13,13 @@
   var box = form.querySelector('[data-pos-suggest]');
   var body = form.querySelector('[data-pos-body]');
   var n = 0;
-  function money(v) { return (Math.round(v * 100) / 100).toFixed(2); }
+  function currency() { return String(form.getAttribute('data-pos-currency') || '').toUpperCase(); }
+  function money(v) {
+    v = Math.round((Number(v) || 0) * 100) / 100;
+    var formatted = v.toLocaleString('en-US', { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 });
+    var cur = currency();
+    return cur ? (formatted + ' ' + cur) : formatted;
+  }
   function lines() { return Array.prototype.slice.call(body.querySelectorAll('tr[data-pos-line]')); }
   function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
   function totals() {
@@ -156,4 +162,5 @@
       alert('Add a product first.');
     }
   });
+  totals();
 })();

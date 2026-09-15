@@ -315,14 +315,96 @@ function formatPreviewMoney(n) {
   return n.toLocaleString('en-US', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 });
 }
 
+function docCurrencyCode() {
+  var sel = document.querySelector('.document-form #currency, .document-form [name="currency"]');
+  if (sel && sel.value) return String(sel.value).toUpperCase();
+  var form = document.querySelector('.document-form');
+  return form ? String(form.getAttribute('data-fx-home') || '').toUpperCase() : '';
+}
+
+function formatDeskMoney(n, currency) {
+  currency = String(currency || docCurrencyCode() || '').toUpperCase();
+  n = Math.round((Number(n) || 0) * 100) / 100;
+  var text = formatPreviewMoney(n);
+  return currency ? (text + ' ' + currency) : text;
+}
+
+function lineMoneyTotals() {
+  var sub = 0;
+  var taxedNet = 0;
+  document.querySelectorAll('#lines tbody tr').forEach(function (row) {
+    var name = ((row.querySelector('input[name^="item_name"]') || {}).value || '').trim();
+    var desc = ((row.querySelector('textarea[name^="item_desc"]') || {}).value || '').trim();
+    if (!name && !desc) return;
+    var qty = parseFloat(String((row.querySelector('[data-line-qty]') || {}).value || '0').replace(/,/g, ''));
+    var rate = parseFloat(String((row.querySelector('[data-line-rate]') || {}).value || '0').replace(/,/g, ''));
+    if (isNaN(qty)) qty = 0;
+    if (isNaN(rate)) rate = 0;
+    var tot = qty * rate;
+    sub += tot;
+    var taxBox = row.querySelector('[data-vat-box]');
+    if (taxBox && taxBox.checked) taxedNet += tot;
+  });
+  var form = document.querySelector('.document-form');
+  var rate = form ? (parseFloat(form.getAttribute('data-tax-rate') || '0') || 0) : 0;
+  var taxAmt = Math.round(taxedNet * rate * 100) / 100;
+  sub = Math.round(sub * 100) / 100;
+  return { sub: sub, tax: taxAmt, grand: Math.round((sub + taxAmt) * 100) / 100 };
+}
+
+function updateDocRunningTotals() {
+  var box = document.querySelector('[data-doc-sum]');
+  var form = document.querySelector('.document-form');
+  if (!box || !form) return;
+  var t = lineMoneyTotals();
+  var cur = docCurrencyCode();
+  var set = function (sel, v) {
+    var el = box.querySelector(sel);
+    if (el) el.textContent = formatDeskMoney(v, cur);
+  };
+  set('[data-doc-sub]', t.sub);
+  set('[data-doc-tax]', t.tax);
+  set('[data-doc-grand]', t.grand);
+  var dueEl = box.querySelector('[data-doc-due]');
+  var due = t.grand;
+  if (dueEl) {
+    var kind = form.getAttribute('data-doc-kind') || '';
+    if (kind === 'receipt' || kind === 'refund') {
+      var paidInp = form.querySelector('#allocated_amount');
+      var paid = paidInp ? parseFloat(String(paidInp.value || '').replace(/,/g, '')) : NaN;
+      if (!paidInp || paidInp.value === '' || isNaN(paid)) paid = t.grand;
+      var sel = form.querySelector('#related_id');
+      var opt = sel && sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex] : null;
+      var balance = opt ? parseFloat(opt.getAttribute('data-balance') || '') : NaN;
+      var base = !isNaN(balance) ? balance : t.grand;
+      due = Math.max(0, Math.round((base - paid) * 100) / 100);
+    }
+    dueEl.textContent = formatDeskMoney(due, cur);
+  }
+  var foot = document.querySelector('[data-lines-preview-foot]');
+  if (foot) {
+    var taxName = form.getAttribute('data-tax-name') || 'Tax';
+    foot.hidden = false;
+    var rows =
+      '<tr><td colspan="4">Subtotal</td><td class="right mono">' + escapeHtml(formatDeskMoney(t.sub, cur)) + '</td><td></td></tr>' +
+      '<tr><td colspan="4">' + escapeHtml(taxName) + '</td><td class="right mono">' + escapeHtml(formatDeskMoney(t.tax, cur)) + '</td><td></td></tr>' +
+      '<tr><td colspan="4">Total</td><td class="right mono">' + escapeHtml(formatDeskMoney(t.grand, cur)) + '</td><td></td></tr>';
+    if (dueEl) {
+      rows += '<tr><td colspan="4">Due</td><td class="right mono">' + escapeHtml(formatDeskMoney(due, cur)) + '</td><td></td></tr>';
+    }
+    foot.innerHTML = rows;
+  }
+}
+
 function refreshLinesPreview() {
   var body = document.querySelector('[data-lines-preview-body]');
   var panel = document.querySelector('[data-lines-panel]');
-  if (!body || !panel) return;
+  if (body && panel) {
   var delivery = panel.getAttribute('data-delivery') === '1';
   var rows = document.querySelectorAll('#lines tbody tr');
   var html = '';
   var shown = 0;
+  var cur = docCurrencyCode();
   rows.forEach(function (row) {
     var name = ((row.querySelector('input[name^="item_name"]') || {}).value || '').trim();
     var desc = ((row.querySelector('textarea[name^="item_desc"]') || {}).value || '').trim();
@@ -338,8 +420,8 @@ function refreshLinesPreview() {
     html += '<td data-label="Description">' + escapeHtml(desc).replace(/\n/g, '<br>') + '</td>';
     html += '<td class="center mono" data-label="Qty">' + escapeHtml(String(qty || '')) + '</td>';
     if (!delivery) {
-      html += '<td class="right mono" data-label="Unit price">' + escapeHtml(formatPreviewMoney(rate)) + '</td>';
-      html += '<td class="right mono" data-label="Total Amt">' + escapeHtml(formatPreviewMoney(Math.round(qty * rate * 100) / 100)) + '</td>';
+      html += '<td class="right mono" data-label="Unit price">' + escapeHtml(formatDeskMoney(rate, cur)) + '</td>';
+      html += '<td class="right mono" data-label="Total Amt">' + escapeHtml(formatDeskMoney(Math.round(qty * rate * 100) / 100, cur)) + '</td>';
       html += '<td class="center" data-label="VAT">' + (taxed ? 'Y' : 'N') + '</td>';
     }
     html += '</tr>';
@@ -348,6 +430,8 @@ function refreshLinesPreview() {
     html = '<tr class="lines-preview-empty"><td colspan="' + (delivery ? '3' : '6') + '" class="muted">Add an item above to preview the document table.</td></tr>';
   }
   body.innerHTML = html;
+  }
+  updateDocRunningTotals();
 }
 
 function escapeHtml(s) {
@@ -367,6 +451,13 @@ document.addEventListener('input', function (e) {
   }
 });
 
+document.addEventListener('input', function (e) {
+  if (e.target.matches('#allocated_amount, #currency, [name="currency"]')) refreshLinesPreview();
+});
+document.addEventListener('change', function (e) {
+  if (e.target.matches('#related_id, #currency, [name="currency"]')) refreshLinesPreview();
+});
+
 document.addEventListener('change', function (e) {
   if (!e.target.matches('[data-vat-box]')) return;
   var yn = e.target.closest('label') && e.target.closest('label').querySelector('[data-vat-yn]');
@@ -374,7 +465,7 @@ document.addEventListener('change', function (e) {
   refreshLinesPreview();
 });
 
-if (document.querySelector('[data-lines-preview-body]')) {
+if (document.querySelector('[data-lines-preview-body], [data-doc-sum]')) {
   refreshLinesPreview();
 }
 

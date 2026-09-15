@@ -91,6 +91,14 @@ function money($amount, ?string $currency = null): string
     return $currency . ' ' . number_format($n, $dec, '.', ',');
 }
 
+function money_behind($amount, ?string $currency = null): string
+{
+    $currency = normalize_currency((string) ($currency ?: default_currency()), default_currency());
+    $n = (float) $amount;
+    $dec = money_display_decimals($n, $currency);
+    return number_format($n, $dec, '.', ',') . ' ' . $currency;
+}
+
 function fx_ugx_per_usd(): float
 {
     $n = (float) (branding()['fx_ugx_per_usd'] ?? 1);

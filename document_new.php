@@ -251,7 +251,7 @@ layout_start($heading, $user, ['kind' => $kind]);
   <?php endif; ?>
 </div>
 
-<form class="card form-wide document-form" method="post" <?= $kind === 'letter' ? 'data-letter-templates' : '' ?> <?= $kind === 'receipt' ? 'data-receipt-form' : '' ?> data-fx-form data-fx-home="<?= h(default_currency()) ?>" data-tax-rate="<?= h((string) $vatDefault) ?>" data-party-book="<?= h(json_encode($partyBook, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}') ?>">
+<form class="card form-wide document-form" method="post" <?= $kind === 'letter' ? 'data-letter-templates' : '' ?> <?= $kind === 'receipt' ? 'data-receipt-form' : '' ?> data-fx-form data-fx-home="<?= h(default_currency()) ?>" data-tax-rate="<?= h((string) $vatDefault) ?>" data-tax-name="<?= h($taxName) ?>" data-doc-kind="<?= h($kind) ?>" data-party-book="<?= h(json_encode($partyBook, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}') ?>">
   <?= csrf_field() ?>
   <input type="hidden" name="kind" value="<?= h($kind) ?>">
   <?php if ($existing): ?>
@@ -581,6 +581,16 @@ layout_start($heading, $user, ['kind' => $kind]);
           <span class="hint">Type an item. Names in stock appear as you type. Keep typing if it is not in stock. Tick <?= h($taxName) ?> for Y.</span>
         <?php endif; ?>
       </p>
+      <?php if (!in_array($kind, ['delivery', 'return_note'], true)): ?>
+      <div class="doc-sum" data-doc-sum>
+        <span>Subtotal <strong data-doc-sub><?= h(money_behind(0, $docCurrency)) ?></strong></span>
+        <span><?= h($taxName) ?> <strong data-doc-tax><?= h(money_behind(0, $docCurrency)) ?></strong></span>
+        <span>Total <strong data-doc-grand><?= h(money_behind(0, $docCurrency)) ?></strong></span>
+        <?php if (in_array($kind, ['invoice', 'receipt', 'expense', 'refund'], true)): ?>
+          <span data-doc-due-wrap>Due <strong data-doc-due><?= h(money_behind(0, $docCurrency)) ?></strong></span>
+        <?php endif; ?>
+      </div>
+      <?php endif; ?>
       <?php if ($kind !== 'expense'): ?>
       <div class="lines-preview" data-lines-preview>
         <div class="lines-preview-head">
@@ -602,6 +612,9 @@ layout_start($heading, $user, ['kind' => $kind]);
               </tr>
             </thead>
             <tbody data-lines-preview-body></tbody>
+            <?php if ($kind !== 'delivery'): ?>
+            <tfoot data-lines-preview-foot></tfoot>
+            <?php endif; ?>
           </table>
         </div>
       </div>

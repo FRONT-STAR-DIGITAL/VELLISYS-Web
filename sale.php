@@ -81,7 +81,7 @@ layout_start('Sale', $user);
   <p class="flash flash-err">Open the day first. <a href="<?= h(url('stock.php?tab=day')) ?>">Open day</a></p>
 <?php endif; ?>
 
-<form method="post" class="card pos-sale" data-pos-till data-pos-prefix="s" data-pos-mode="sale">
+<form method="post" class="card pos-sale" data-pos-till data-pos-prefix="s" data-pos-mode="sale" data-pos-currency="<?= h(default_currency()) ?>">
   <?= csrf_field() ?>
   <div class="pad-form">
     <div class="form-grid">
@@ -134,10 +134,10 @@ layout_start('Sale', $user);
         <p class="hint">Pay half if they owe. Unpaid sits on Debtors.</p>
       </div>
       <div class="pos-sum">
-        <span>Subtotal <strong data-pos-sub>0</strong></span>
-        <span>Tax <strong data-pos-tax>0</strong></span>
-        <span>Total <strong data-pos-grand>0</strong></span>
-        <span>Due <strong data-pos-due>0</strong></span>
+        <span>Subtotal <strong data-pos-sub><?= h(money_behind(0)) ?></strong></span>
+        <span><?= h($taxName) ?> <strong data-pos-tax><?= h(money_behind(0)) ?></strong></span>
+        <span>Total <strong data-pos-grand><?= h(money_behind(0)) ?></strong></span>
+        <span>Due <strong data-pos-due><?= h(money_behind(0)) ?></strong></span>
       </div>
     </div>
     <div class="actions sticky-save">
