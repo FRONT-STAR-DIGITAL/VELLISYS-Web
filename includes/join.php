@@ -8,15 +8,15 @@ function join_intents(): array
         'register' => [
             'source' => 'register',
             'title' => 'Register for a desk',
-            'kicker' => 'Manual onboarding',
-            'heading' => 'Register. We open the desk.',
-            'lead' => 'Prefer we onboard you instead of paying online? Send the company details. A Vellisys admin sees the registration, calls you, and opens the desk.',
+            'kicker' => 'Request a desk',
+            'heading' => 'Tell us about the company.',
+            'lead' => 'Prefer not to pay online yet? Send the company details. We get in touch, agree the package, and open your desk.',
             'submit' => 'Send registration',
             'note_label' => 'What you need',
             'note_hint' => 'optional',
-            'note_placeholder' => 'Package you have in mind, number of people, or when to call',
+            'note_placeholder' => 'Package you have in mind, number of people, or a time that works',
             'ok_title' => 'We have your registration',
-            'ok_body' => 'Thank you. A confirmation is on its way from {email}. The same mailbox has a copy so we can onboard you.',
+            'ok_body' => 'Thank you. A confirmation is on its way from {email}. We will follow up on that mailbox or the phone you left.',
             'nav' => 'Register',
         ],
         'demo' => [
@@ -24,13 +24,13 @@ function join_intents(): array
             'kicker' => 'See the desk',
             'title' => 'Book a demo',
             'heading' => 'Book a walkthrough of the desk.',
-            'lead' => 'We will show quotations, invoices, receipts and branding on a live desk, then talk through the package that fits.',
+            'lead' => 'See quotations, invoices, receipts and your branding on a live desk, then pick the package that fits.',
             'submit' => 'Book the demo',
-            'note_label' => 'When should we call',
+            'note_label' => 'When should we talk',
             'note_hint' => 'optional',
             'note_placeholder' => 'A morning this week, or a WhatsApp time that works',
             'ok_title' => 'Demo request received',
-            'ok_body' => 'Thank you. We emailed a confirmation from {email}. The team has the same note and will reach you to set a time.',
+            'ok_body' => 'Thank you. We emailed a confirmation from {email}. We will reach you to set a time.',
             'nav' => 'Book a demo',
         ],
     ];
@@ -66,6 +66,9 @@ function join_handle_post(string $intentKey): array
         $noteBits[] = $extra;
     }
     $saved = record_website_signup($source, implode("\n", $noteBits));
+    if (!empty($saved['silent'])) {
+        return ['ok' => true, 'silent' => true];
+    }
     if (empty($saved['ok'])) {
         return ['ok' => false, 'error' => (string) ($saved['error'] ?? 'We could not save that just now.')];
     }
@@ -184,7 +187,7 @@ function join_render_page(array $intent, string $error, bool $ok): void
         <button class="lp-btn lp-btn-solid" type="submit"><?= h($intent['submit']) ?></button>
         <p class="lp-checkout-note">
           <?php if ($source === 'demo'): ?>
-            Ready to start without a call? <a href="<?= h(url('register.php')) ?>">Register for onboarding</a> or <a href="<?= h(url()) ?>#pricing">pay for a package</a>.
+            Ready to start now? <a href="<?= h(url('register.php')) ?>">Request a desk</a> or <a href="<?= h(url()) ?>#pricing">pay for a package</a>.
           <?php else: ?>
             Want a walkthrough first? <a href="<?= h(url('demo.php')) ?>">Book a demo</a>. Or <a href="<?= h(url()) ?>#pricing">pay for a package</a>.
           <?php endif; ?>

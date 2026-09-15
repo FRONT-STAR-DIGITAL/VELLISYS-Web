@@ -52,19 +52,19 @@ $retry = $order
       <?php if ($status === 'paid'): ?>
         <p class="lp-kicker">Paid</p>
         <h1>We have your payment</h1>
-        <p>Thank you. <strong><?= h((string) ($order['company'] ?? '')) ?></strong> paid for <?= h($pkg['name'] ?? 'a desk') ?>. Set the admin email and password you will use. We also emailed this link to <?= h((string) ($order['email'] ?? '')) ?> from <?= h(product_email()) ?>.</p>
+        <p>Thank you. <strong><?= h((string) ($order['company'] ?? '')) ?></strong> paid for <?= h($pkg['name'] ?? 'a desk') ?>. Choose the email and password you will use. We also emailed this link to <?= h((string) ($order['email'] ?? '')) ?> from <?= h(product_email()) ?>.</p>
       <?php elseif ($status === 'cancelled'): ?>
         <p class="lp-kicker">Cancelled</p>
         <h1>Payment was cancelled</h1>
-        <p>We kept the company details. <?= h(product_email()) ?> has been notified. You can pay again, <a href="<?= h(url('register.php')) ?>">register for onboarding</a>, or <a href="<?= h(url('demo.php')) ?>">book a demo</a>.</p>
+        <p>We kept the company details. You can pay again, <a href="<?= h(url('register.php')) ?>">request a desk</a>, or <a href="<?= h(url('demo.php')) ?>">book a demo</a>.</p>
       <?php elseif ($status === 'failed'): ?>
         <p class="lp-kicker">Not paid</p>
         <h1>Payment did not go through</h1>
-        <p>We still have your form. <?= h(product_email()) ?> has been notified and will follow up. You can try again on this page.</p>
+        <p>We still have your form. You can try again on this page, or write to <?= h(product_email()) ?>.</p>
       <?php else: ?>
         <p class="lp-kicker">Waiting</p>
         <h1>Payment is still processing</h1>
-        <p>If money left the account, sit tight. We email <?= h(product_email()) ?> when the payment confirms. Refresh this page in a minute.</p>
+        <p>If money left the account, sit tight. We email you when the payment confirms. Refresh this page in a minute.</p>
       <?php endif; ?>
       <div class="lp-cta">
         <?php if ($status === 'paid' && $order && trim((string) ($order['onboard_token'] ?? '')) !== ''): ?>
@@ -72,7 +72,7 @@ $retry = $order
         <?php endif; ?>
         <?php if ($order && in_array($status, ['failed', 'cancelled', 'pending', 'draft'], true)): ?>
           <a class="lp-btn lp-btn-solid" href="<?= h($retry) ?>">Return to checkout</a>
-          <a class="lp-btn lp-btn-ghost" href="<?= h(url('register.php')) ?>">Register without paying</a>
+          <a class="lp-btn lp-btn-ghost" href="<?= h(url('register.php')) ?>">Request a desk</a>
         <?php endif; ?>
         <a class="lp-btn lp-btn-ghost" href="<?= h($status === 'paid' ? url('login.php') : url()) ?>"><?= $status === 'paid' ? 'Sign in' : 'Back to Vellisys' ?></a>
       </div>

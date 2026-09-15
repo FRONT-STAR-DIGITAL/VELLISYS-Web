@@ -24,7 +24,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title><?= h(product_name()) ?> · Stop losing the books</title>
+  <title><?= h(product_name()) ?> · Your books, in your brand</title>
   <?php product_icons(); ?>
   <?php folio_landing_head(); ?>
   <script src="<?= h(asset('js/pwa-standalone.js')) ?>" data-cfasync="false" defer></script>
@@ -37,8 +37,8 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
   <main>
     <section class="lp-hero">
       <div class="lp-hero-copy" data-reveal>
-        <h1>Lose track of your financial records?</h1>
-        <p class="lp-lead">Receipts in a drawer and invoices in WhatsApp never add up. Vellisys keeps quotations, invoices, receipts and reports on one desk, printed in the client's logo and colours, then shared in a click.</p>
+        <h1>Lose track of the company books?</h1>
+        <p class="lp-lead">Quotes in email, invoices in WhatsApp, receipts in a drawer. Vellisys is one desk for quotations, invoices, receipts, expenses and reports — printed in your logo and colours, then shared in a click.</p>
         <ul class="lp-hero-points">
           <li>Quotations</li>
           <li>Invoices</li>
@@ -46,10 +46,10 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
           <li>Reports</li>
         </ul>
         <div class="lp-cta">
-          <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url()) ?>#pricing">Get my company a desk</a>
+          <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url()) ?>#pricing">Choose a package</a>
           <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('demo.php')) ?>">Book a demo</a>
         </div>
-        <p class="lp-note">Anywhere in the world. <a href="<?= h(url()) ?>#pricing">Pay for a package</a>, <a href="<?= h(url('register.php')) ?>">register for onboarding</a>, or book a demo. Built for East Africa, used across Africa and worldwide.</p>
+        <p class="lp-note">Pay online and open your desk the same day, leave your details if you want us to set it up, or book a short walkthrough first. Built for East Africa, used across Africa and worldwide.</p>
       </div>
 
       <div class="lp-stage" data-reveal>
@@ -155,7 +155,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       <div class="lp-compare-new">
         <p class="lp-kicker">The Vellisys way</p>
         <h2>Your brand. Their copy.</h2>
-        <p class="lp-compare-lead">Documents are printed and sent in the client's branding. Pick from many templates - letterhead, ledger, twin copy and more - so every quotation, invoice and receipt looks like it came from their office, not a generic pad.</p>
+        <p class="lp-compare-lead">Every quotation, invoice and receipt goes out in your logo, colours and letterhead. Pick a layout once — letterhead, ledger, twin copy and more — so the sheet in their hand looks like it came from your office, not a generic pad.</p>
         <figure class="lp-new-shot">
           <img class="lp-new-main" src="<?= h(landing_way_image_url()) ?>" alt="A Vellisys receipt on desktop, laptop and phone" width="1254" height="1254" loading="lazy" decoding="async">
         </figure>
@@ -186,7 +186,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       <div class="lp-send-copy">
         <p class="lp-kicker">From the desk to their phone</p>
         <h2>Generate it. Send it. They have it in a minute.</h2>
-        <p>Raise a quotation, an invoice or a receipt on your desk. The sheet goes out in the client's own logo and colours, from a library of templates you pick once. Share it while they are still with you. One record, one tap, their copy is on the way.</p>
+        <p>Raise a quotation, an invoice or a receipt on your desk. The sheet goes out in your logo and colours, from a layout you pick once. Share it while they are still with you. One record, one tap, their copy is on the way.</p>
         <ul class="lp-send-docs">
           <li>Quotation</li>
           <li>Invoice</li>
@@ -207,7 +207,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
     <section class="lp-manage" id="what-you-manage" data-reveal>
       <p class="lp-kicker">The desk</p>
       <h2>What you get to manage</h2>
-      <p class="lp-manage-lead">Quotations, invoices, receipts and expenses on one desk, in the company's branding. Planner, Profit &amp; Loss, delivery notes, letters, debtors, creditors, and branches on Vellisys Business and Pro sit beside them.</p>
+      <p class="lp-manage-lead">Quotations, invoices, receipts and expenses live together, in the company branding. Planner, profit and loss, delivery notes, letters, who owes you, who you still need to pay, and extra branches on Business and Pro sit beside them.</p>
       <div class="lp-manage-grid">
         <?php foreach ($manage as $item): ?>
           <article>
@@ -224,7 +224,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
     <section class="lp-band lp-path" id="get-a-desk" data-reveal>
       <p class="lp-kicker">Get a desk</p>
       <h2>You are three steps away</h2>
-      <p class="lp-path-lead">Anywhere you are in the world: pay, register, or book a demo. Then we onboard. Then the books go live.</p>
+      <p class="lp-path-lead">Choose a package, pay or leave your details, then sign in and start sending branded documents. A demo is there if you want to see the desk first.</p>
       <ol class="lp-path-steps">
         <?php foreach ($steps as $i => $card): ?>
           <li>
@@ -240,8 +240,8 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
         <?php endforeach; ?>
       </ol>
       <div class="lp-cta lp-cta-band">
-        <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url()) ?>#pricing">Get my company a desk</a>
-        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('register.php')) ?>">Register without paying</a>
+        <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url()) ?>#pricing">Choose a package</a>
+        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('register.php')) ?>">Request a desk</a>
         <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('demo.php')) ?>">Book a demo</a>
       </div>
     </section>
@@ -276,13 +276,13 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
 
     <section class="lp-world lp-pay" id="pay" data-reveal>
       <p class="lp-kicker">Pay</p>
-      <h2>Pick a package. Pay, register, or book a demo.</h2>
-      <p class="lp-world-lead">Choose <?= h(pricing_names_phrase()) ?>, enter the company, then continue to Pesapal in this tab. Mobile money, a card, a bank or a wallet - in the currency you selected. Prefer we open the desk for you? Register without paying. Want a walkthrough first? Book a demo.</p>
+      <h2>Pick a package. Pay. Open your desk.</h2>
+      <p class="lp-world-lead">Choose <?= h(pricing_names_phrase()) ?>, enter the company, then continue to Pesapal in this tab. Mobile money, a card, a bank or a wallet — in the currency you selected. After payment you choose how you sign in. Prefer we set the desk up for you? Request one without paying. Want a walkthrough first? Book a demo.</p>
       <ol class="lp-pay-flow">
         <li><b>1</b><span>Choose a package</span></li>
         <li><b>2</b><span>Enter company details</span></li>
         <li><b>3</b><span>Pay with Pesapal</span></li>
-        <li><b>4</b><span>We onboard the desk</span></li>
+        <li><b>4</b><span>Create your sign-in</span></li>
       </ol>
       <div class="lp-pay-board">
         <div class="lp-pay-col">
@@ -298,7 +298,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
         </div>
         <div class="lp-pay-col">
           <h3>Pay in any currency</h3>
-          <p class="lp-pay-note">Packages on this page are shown and charged in the currency you pick. The company desk can bill clients in any three-letter currency you set in Settings.</p>
+          <p class="lp-pay-note">Packages on this page are shown and charged in the currency you pick. On the desk you can bill your own clients in any three-letter currency you set.</p>
           <ul class="lp-pay-chips lp-pay-ccy">
             <?php foreach (pricing_currencies() as $code => $meta): ?>
               <li><strong><?= h($code) ?></strong> <?= h($meta['name']) ?></li>
@@ -309,7 +309,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       </div>
       <div class="lp-cta lp-cta-band">
         <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url()) ?>#pricing">See packages</a>
-        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('register.php')) ?>">Register without paying</a>
+        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('register.php')) ?>">Request a desk</a>
         <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('demo.php')) ?>">Book a demo</a>
       </div>
     </section>
@@ -318,7 +318,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
       <div class="lp-ask-copy">
         <p class="lp-kicker">Talk to us</p>
         <h2>Have a question?</h2>
-        <p class="lp-ask-lead">Short answers below. If yours is not there, send a note - a Vellisys admin reads every one and replies by email.</p>
+        <p class="lp-ask-lead">Short answers below. If yours is not there, send a note — we reply by email.</p>
         <div class="lp-faqs">
           <?php foreach ($faqs as $i => $faq): ?>
             <details class="lp-faq"<?= $i === 0 ? ' open' : '' ?>>
@@ -334,7 +334,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
             <span class="lp-ask-mark" aria-hidden="true"><?= icon('heart', 26) ?></span>
             <p class="lp-kicker">Thank you</p>
             <h3>We have your note</h3>
-            <p class="lp-ask-ok-lead">A person on the Vellisys team will read it and reply by email. You are not waiting on a ticket queue.</p>
+            <p class="lp-ask-ok-lead">We will read it and reply by email. You are not waiting on a ticket queue.</p>
             <ul class="lp-ask-ok-next">
               <li>
                 <span><?= icon('letter', 18) ?></span>

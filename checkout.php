@@ -74,7 +74,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !platform_signups_open()) {
             exit;
         }
         $error = 'Your session expired. Please submit the form again.';
-    } elseif (form_is_spam('checkout', 0)) {
+    } elseif (form_is_spam('checkout', $action === 'draft' ? 0 : 2) || ($action !== 'draft' && public_form_looks_like_spam([
+        'name' => post_plain('contact_name', 80),
+        'company' => post_plain('company_name', 160),
+        'email' => strtolower(post_plain('contact_email', 190)),
+        'city' => post_plain('city', 80),
+        'country' => post_plain('country', 80),
+    ]))) {
         if ($action === 'draft') {
             header('Content-Type: application/json');
             echo json_encode(['ok' => true, 'public_id' => '']);
@@ -93,12 +99,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !platform_signups_open()) {
         $payload = [
             'plan' => $pkg['key'],
             'currency' => $ccy,
-            'name' => post('contact_name', '', 80),
-            'company' => post('company_name', '', 160),
-            'email' => strtolower(post('contact_email', '', 190)),
-            'phone' => post('contact_phone', '', 40),
-            'city' => post('city', '', 80),
-            'country' => post('country', '', 80),
+            'name' => post_plain('contact_name', 80),
+            'company' => post_plain('company_name', 160),
+            'email' => strtolower(post_plain('contact_email', 190)),
+            'phone' => post_plain('contact_phone', 40),
+            'city' => post_plain('city', 80),
+            'country' => post_plain('country', 80),
             'stock_addon' => !empty($_POST['stock_addon']) ? 1 : 0,
             'status' => $action === 'draft' ? 'draft' : 'pending',
         ];
@@ -124,6 +130,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !platform_signups_open()) {
                 $saved = save_website_order($payload, $id ?: null);
                 $maybeNotifyDraft($saved['order'] ?? null);
                 $error = 'Name, company, email and phone are required before you pay. We kept what you typed.';
+            } elseif (!public_phone_ok($payload['phone'])) {
+                $payload['status'] = 'draft';
+                $saved = save_website_order($payload, $id ?: null);
+                $error = 'Please enter a working phone number, including the country code if you can.';
             } else {
                 $saved = save_website_order($payload, $id ?: null);
                 $order = $saved['order'] ?? null;
@@ -222,7 +232,7 @@ $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'
       <div class="lp-checkout-copy">
         <p class="lp-kicker">Paid</p>
         <h1>We have your payment</h1>
-        <p>Thank you. <strong><?= h((string) ($existing['company'] ?? '')) ?></strong> paid for <?= h($pkg['name']) ?>. Set the admin email and password you will use, then sign in. We emailed the same link to <?= h((string) ($existing['email'] ?? '')) ?> from <?= h(product_email()) ?>.</p>
+        <p>Thank you. <strong><?= h((string) ($existing['company'] ?? '')) ?></strong> paid for <?= h($pkg['name']) ?>. Choose the email and password you will use, then sign in and add your logo. We emailed the same link to <?= h((string) ($existing['email'] ?? '')) ?> from <?= h(product_email()) ?>.</p>
         <div class="lp-cta">
           <?php if (trim((string) ($existing['onboard_token'] ?? '')) !== ''): ?>
             <a class="lp-btn lp-btn-solid" href="<?= h(url('register.php?t=' . rawurlencode((string) $existing['onboard_token']))) ?>">Set up your desk</a>
@@ -248,7 +258,7 @@ $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'
           <span><?= h($termLabel) ?></span>
         </p>
         <p class="lp-check-seats"><?= h($seatLabel) ?> · billed <?= h($termLabel) ?></p>
-        <p><?= h(pricing_swap_legacy_names($pkg['lead'])) ?> After payment confirms you set your own admin email and password, then sign in and finish branding on Settings.</p>
+        <p><?= h(pricing_swap_legacy_names($pkg['lead'])) ?> After payment you choose how you sign in, then add your logo and colours.</p>
         <details class="lp-check-points" open>
           <summary>What is included</summary>
           <ul>
@@ -309,7 +319,7 @@ $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'
             <span>Add stock management for <strong data-ugx="<?= (int) $addonUgx ?>"><?= h($addonNow) ?></strong> a year. Single-branch packages add <?= h(pricing_format(pricing_stock_addon_solo_ugx(), $ccy)) ?> worth; more than one branch adds <?= h(pricing_format(pricing_stock_addon_multi_ugx(), $ccy)) ?> worth, converted to the currency you picked.</span>
           </label>
           <button class="lp-btn lp-btn-solid lp-btn-lg" type="submit" data-pay-btn data-pay-prefix="Continue to pay " data-stock-total data-ugx="<?= (int) $totalUgx ?>">Continue to pay <?= h($payNow) ?></button>
-          <p class="lp-checkout-note">Prefer we onboard you? <a href="<?= h(url('register.php')) ?>">Register without paying</a>. Or <a href="<?= h(url('demo.php')) ?>">book a demo</a>.</p>
+          <p class="lp-checkout-note">Prefer we set the desk up for you? <a href="<?= h(url('register.php')) ?>">Request a desk</a>. Or <a href="<?= h(url('demo.php')) ?>">book a demo</a>.</p>
         </form>
     <?php endif; ?>
   </main>

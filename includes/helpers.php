@@ -680,7 +680,111 @@ function form_honeypot_field(): string
     return '<div class="lp-hp" aria-hidden="true">'
         . '<label>Website<input type="text" name="website" value="" tabindex="-1" autocomplete="off"></label>'
         . '<label>Fax<input type="text" name="company_fax" value="" tabindex="-1" autocomplete="off"></label>'
+        . '<label>Company URL<input type="text" name="company_url" value="" tabindex="-1" autocomplete="off"></label>'
         . '</div>';
+}
+
+function sanitize_public_text(string $value, int $max = 4000, bool $multiline = false): string
+{
+    $value = str_replace("\0", '', $value);
+    $value = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $value) ?? $value;
+    $value = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $value = strip_tags($value);
+    $value = str_replace(["\r\n", "\r"], "\n", $value);
+    if ($multiline) {
+        $value = preg_replace("/[ \t]+\n/", "\n", $value) ?? $value;
+        $value = preg_replace("/\n{3,}/", "\n\n", $value) ?? $value;
+        $value = trim($value);
+    } else {
+        $value = trim(preg_replace('/\s+/u', ' ', $value) ?? $value);
+    }
+    if ($max > 0 && mb_strlen($value) > $max) {
+        $value = mb_substr($value, 0, $max);
+    }
+    return $value;
+}
+
+function post_plain(string $key, int $max = 4000, bool $multiline = false): string
+{
+    return sanitize_public_text((string) ($_POST[$key] ?? ''), $max, $multiline);
+}
+
+function public_text_is_hostile(string $s): bool
+{
+    if ($s === '') {
+        return false;
+    }
+    if (looks_like_html($s)) {
+        return true;
+    }
+    if (preg_match('/javascript\s*:|data\s*:\s*text|vbscript\s*:|on\w+\s*=/i', $s) === 1) {
+        return true;
+    }
+    if (preg_match('/\b(union\s+select|drop\s+table|insert\s+into|delete\s+from|update\s+\w+\s+set|sleep\s*\(|benchmark\s*\(|load_file\s*\(|information_schema)\b/i', $s) === 1) {
+        return true;
+    }
+    return false;
+}
+
+function public_email_is_disposable(string $email): bool
+{
+    $email = strtolower(trim($email));
+    $at = strrpos($email, '@');
+    if ($at === false) {
+        return true;
+    }
+    $host = substr($email, $at + 1);
+    if ($host === '' || !str_contains($host, '.') || str_starts_with($host, '.') || str_ends_with($host, '.')) {
+        return true;
+    }
+    $disposable = [
+        'mailinator.com', 'guerrillamail.com', 'guerrillamail.net', '10minutemail.com',
+        'tempmail.com', 'temp-mail.org', 'trashmail.com', 'yopmail.com', 'sharklasers.com',
+        'getnada.com', 'dispostable.com', 'moakt.com', 'throwawaymail.com', 'mailnesia.com',
+        'getairmail.com', 'fakeinbox.com', 'maildrop.cc', 'discard.email', 'emailondeck.com',
+        'guerrillamailblock.com', 'grr.la', 'spamgourmet.com', 'mintemail.com',
+    ];
+    foreach ($disposable as $bad) {
+        if ($host === $bad || str_ends_with($host, '.' . $bad)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function public_phone_ok(string $phone): bool
+{
+    $digits = preg_replace('/\D+/', '', $phone) ?? '';
+    return strlen($digits) >= 8 && strlen($digits) <= 15;
+}
+
+function public_form_looks_like_spam(array $fields): bool
+{
+    $blob = '';
+    foreach ($fields as $value) {
+        $value = (string) $value;
+        if (public_text_is_hostile($value)) {
+            return true;
+        }
+        $blob .= $value . "\n";
+    }
+    $email = strtolower(trim((string) ($fields['email'] ?? '')));
+    if ($email !== '' && public_email_is_disposable($email)) {
+        return true;
+    }
+    if (preg_match('/https?:\/\/|www\.|\bbit\.ly\b|\btinyurl\b|\bt\.co\b/i', (string) ($fields['name'] ?? '') . (string) ($fields['company'] ?? '')) === 1) {
+        return true;
+    }
+    if (preg_match_all('/https?:\/\//i', $blob) >= 2) {
+        return true;
+    }
+    if (preg_match('/\[url\s*=|href\s*=/i', $blob) === 1) {
+        return true;
+    }
+    if (preg_match('/(.)\1{8,}/u', $blob) === 1) {
+        return true;
+    }
+    return false;
 }
 
 function form_mark_open(string $form): void
@@ -702,6 +806,9 @@ function form_is_spam(string $form, int $minSeconds = 2): bool
     if (trim((string) ($_POST['company_fax'] ?? '')) !== '') {
         return true;
     }
+    if (trim((string) ($_POST['company_url'] ?? '')) !== '') {
+        return true;
+    }
     if ($minSeconds <= 0) {
         return false;
     }
@@ -714,43 +821,12 @@ function form_is_spam(string $form, int $minSeconds = 2): bool
 
 function join_fields_look_like_spam(): bool
 {
-    $name = trim(post('contact_name', '', 80));
-    $company = trim(post('company_name', '', 160));
-    $email = strtolower(trim(post('contact_email', '', 190)));
-    $note = trim(post('join_note', '', 800));
-    $blob = $name . "\n" . $company . "\n" . $note;
-    if (preg_match('/https?:\/\/|www\.|\bbit\.ly\b|\btinyurl\b/i', $name . $company) === 1) {
-        return true;
-    }
-    if (preg_match_all('/https?:\/\//i', $blob) >= 1) {
-        return true;
-    }
-    if (preg_match('/\[url\s*=|href\s*=/i', $blob) === 1) {
-        return true;
-    }
-    if ($email === '') {
-        return false;
-    }
-    $at = strrpos($email, '@');
-    $domain = $at === false ? '' : substr($email, $at + 1);
-    if ($domain === '' || !str_contains($domain, '.') || str_starts_with($domain, '.') || str_ends_with($domain, '.')) {
-        return true;
-    }
-    $host = strtolower($domain);
-    $disposable = [
-        'mailinator.com', 'guerrillamail.com', 'guerrillamail.net', '10minutemail.com',
-        'tempmail.com', 'temp-mail.org', 'trashmail.com', 'yopmail.com', 'sharklasers.com',
-        'getnada.com', 'dispostable.com', 'moakt.com', 'throwawaymail.com',
-    ];
-    foreach ($disposable as $bad) {
-        if ($host === $bad || str_ends_with($host, '.' . $bad)) {
-            return true;
-        }
-    }
-    if (preg_match('/(.)\1{8,}/', $name . $company) === 1) {
-        return true;
-    }
-    return false;
+    return public_form_looks_like_spam([
+        'name' => post_plain('contact_name', 80),
+        'company' => post_plain('company_name', 160),
+        'email' => strtolower(post_plain('contact_email', 190)),
+        'note' => post_plain('join_note', 800, true),
+    ]);
 }
 
 function form_rate_blocked(string $bucket, int $max, int $seconds = 3600): bool
@@ -1216,16 +1292,18 @@ function csrf_check(): void
 
 function record_website_signup(string $source, string $note = ''): array
 {
-    $name = post('contact_name', '', 80);
-    $company = post('company_name', '', 160);
-    $email = strtolower(post('contact_email', '', 190));
-    $phone = post('contact_phone', '', 40);
-    $note = mb_substr($note, 0, 2000);
+    $name = post_plain('contact_name', 80);
+    $company = post_plain('company_name', 160);
+    $email = strtolower(post_plain('contact_email', 190));
+    $phone = post_plain('contact_phone', 40);
+    $note = sanitize_public_text($note, 2000, true);
+    if (public_form_looks_like_spam(['name' => $name, 'company' => $company, 'email' => $email, 'note' => $note, 'phone' => $phone])) {
+        return ['ok' => true, 'silent' => true];
+    }
     if ($name === '' || $company === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || $phone === '') {
         return ['ok' => false, 'error' => 'Your name, company, email and phone are enough - please fill those in.'];
     }
-    $digits = preg_replace('/\D+/', '', $phone) ?? '';
-    if (strlen($digits) < 8 || strlen($digits) > 15) {
+    if (!public_phone_ok($phone)) {
         return ['ok' => false, 'error' => 'Please enter a working phone number, including the country code if you can.'];
     }
     try {
@@ -1233,7 +1311,7 @@ function record_website_signup(string $source, string $note = ''): array
             return ['ok' => false, 'error' => 'That email already has a Vellisys login. Sign in, or use another mailbox.'];
         }
         if (db_one("SELECT id FROM signups WHERE email = ? AND status IN ('new','contacted')", 's', [$email])) {
-            return ['ok' => false, 'error' => 'We already have this request. A Vellisys admin will call you.'];
+            return ['ok' => false, 'error' => 'We already have this request. We will be in touch on that email or phone.'];
         }
         $kind = in_array($source, ['quote', 'demo', 'register', 'checkout'], true) ? $source : 'register';
         try {
@@ -2993,7 +3071,7 @@ function public_footer(): void
     <div class="lp-foot-grid">
       <div class="lp-foot-brand">
         <img class="lp-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
-        <p>Books you can share in one click - branded to each client, in their currency, with many templates to choose from. Anywhere in the world. A product of <?= h(product_maker_name()) ?>.</p>
+        <p>Books you can share in one click — in your logo and colours, in your currency, with layouts you pick once. Anywhere in the world. A product of <?= h(product_maker_name()) ?>.</p>
       </div>
       <div>
         <h3>Talk to us</h3>
@@ -3546,20 +3624,20 @@ function landing_reviews(): array
 function desk_manage_items(): array
 {
     return [
-        ['icon' => 'quotation', 'title' => 'Quotations', 'body' => 'Raise a quote, share it branded, convert it to an invoice when they say yes.'],
+        ['icon' => 'quotation', 'title' => 'Quotations', 'body' => 'Raise a quote, share it in your branding, turn it into an invoice when they say yes.'],
         ['icon' => 'invoice', 'title' => 'Invoices', 'body' => 'Issue full or part-paid invoices. Balances stay visible until they are cleared.'],
         ['icon' => 'receipt', 'title' => 'Receipts', 'body' => 'Record what came in. RECEIVED and DUE print on the sheet, in your currency.'],
         ['icon' => 'expense', 'title' => 'Expenses', 'body' => 'Log what the company spent - fuel, rent, suppliers - with your tax and currency on the same desk as the sales books.'],
         ['icon' => 'calendar', 'title' => 'Planner', 'body' => 'Notes, budget targets and a calendar for programmes, appointments and deadlines, with priority when it matters.'],
         ['icon' => 'reports', 'title' => 'Profit & Loss', 'body' => 'See net profit for any date range. Record other income and costs, refunds and return notes beside invoices and expenses.'],
         ['icon' => 'truck', 'title' => 'Delivery notes', 'body' => 'List what left the store, with quantities. No prices - goods out, not a bill.'],
-        ['icon' => 'file', 'title' => 'Custom documents', 'body' => 'A form you define at onboarding - fields, a body, or both - on the same branded paper.'],
+        ['icon' => 'file', 'title' => 'Custom documents', 'body' => 'A form you set up once - fields, a body, or both - on the same branded paper as the rest of the books.'],
         ['icon' => 'clients', 'title' => 'Debtors', 'body' => 'See who still owes you. Send a reminder from the row, from the company mailbox.'],
         ['icon' => 'bank', 'title' => 'Creditors', 'body' => 'Track suppliers you still need to pay. Note a payment or write to them from the desk.'],
         ['icon' => 'letter', 'title' => 'Letters', 'body' => 'Headed letters on the same document design as the books. Print, email, or download a Word letterhead and type your own content.'],
         ['icon' => 'send', 'title' => 'Send emails', 'body' => 'Quotations, invoices, receipts, letters and reminders leave from your assigned mailbox.'],
         ['icon' => 'palette', 'title' => '15 layouts', 'body' => 'Pick Folio, page borders, an 80mm thermal roll, Twin copy, watermarks and more. The whole books follow that layout.'],
-        ['icon' => 'image', 'title' => 'Your company branding', 'body' => 'Logo, three colours, letterhead. Vellisys Business allows up to 2 branches and Pro up to 3; several people can share a shop, and documents print that address.'],
+        ['icon' => 'image', 'title' => 'Your company branding', 'body' => 'Logo, three colours, letterhead. Business allows up to 2 branches and Pro up to 3; several people can share a shop, and documents print that address.'],
     ];
 }
 
@@ -3568,19 +3646,19 @@ function landing_faqs(): array
     return [
         [
             'q' => 'How do I get a desk?',
-            'a' => 'Pay for a package, register for us to onboard you, or book a demo first. After an online payment confirms you set the admin email and password, then sign in and finish branding on Settings.',
+            'a' => 'Choose a package and pay online, request a desk if you would rather we set it up, or book a demo first. After an online payment you pick the email and password you will use, then sign in and add your logo and colours.',
         ],
         [
             'q' => 'How is Vellisys different?',
-            'a' => 'Vellisys is branded books software. Quotations, invoices and receipts leave in your logo, colours and currency, from one desk. Teams that want that stationery look use it as their books desk.',
+            'a' => 'Vellisys is branded books software. Quotations, invoices and receipts leave in your logo, colours and currency, from one desk — not a generic PDF pad.',
         ],
         [
             'q' => 'Are the documents in our branding?',
-            'a' => 'Yes. Every quotation, invoice, receipt, delivery note, expense, headed letter and custom document uses the company logo, three brand colours, and one of the templates you pick in Settings.',
+            'a' => 'Yes. Every quotation, invoice, receipt, delivery note, expense, headed letter and custom document uses the company logo, three brand colours, and the layout you pick.',
         ],
         [
             'q' => 'Can we work in our own currency?',
-            'a' => 'Yes. In Settings you enter the currency you bill in - UGX, KES, EUR, USD or any other three-letter code. Documents can also be in USD; set how many of your currency equal one dollar so reports can add them up.',
+            'a' => 'Yes. You enter the currency you bill in — UGX, KES, EUR, USD or any other three-letter code. Documents can also be in USD; set how many of your currency equal one dollar so reports can add them up.',
         ],
         [
             'q' => 'Can we set our own tax?',
@@ -3588,7 +3666,7 @@ function landing_faqs(): array
         ],
         [
             'q' => 'How do I pay for a package?',
-            'a' => 'Choose a package, enter the company, then continue to the secure Pesapal page in this tab (mobile money, cards, bank or wallet). When payment finishes you return here. The charge is in the currency you picked on this page. The desk itself can still bill your clients in any currency you set in Settings.',
+            'a' => 'Choose a package, enter the company, then continue to the secure Pesapal page in this tab (mobile money, cards, bank or wallet). When payment finishes you return here to create your sign-in. The charge is in the currency you picked on this page.',
             'link' => ['href' => '#pay', 'label' => 'See how payment works'],
         ],
         [
@@ -3596,7 +3674,7 @@ function landing_faqs(): array
             'a' => (static function (): string {
                 $names = array_values(array_filter(array_map(static fn (array $p): string => trim((string) ($p['name'] ?? '')), pricing_packages())));
                 $list = $names ? implode(', ', $names) : 'the packages on this page';
-                return 'Packages on this page: ' . $list . '. Billed per year. Pay online, register for manual onboarding, or book a demo. After an online payment you set your admin email and password and finish branding on Settings.';
+                return 'Packages on this page: ' . $list . '. Billed per year. Pay online, request a desk, or book a demo.';
             })(),
             'link' => ['href' => '#pricing', 'label' => 'See packages'],
         ],
@@ -3606,7 +3684,7 @@ function landing_faqs(): array
         ],
         [
             'q' => 'Who sees the books?',
-            'a' => 'Only users on that company desk. Platform admin can open a desk to help onboard. Clients who receive a share link see that one sheet, not the rest of the books.',
+            'a' => 'Only people you add on that company desk. Someone who receives a share link sees that one sheet, not the rest of the books.',
         ],
         [
             'q' => 'Can we run more than one shop?',
@@ -3614,11 +3692,11 @@ function landing_faqs(): array
         ],
         [
             'q' => 'How many people can sign in?',
-            'a' => 'Vellisys Start allows up to 2 users, Business up to 3, and Pro up to 4. Vellisys sets how many logins your desk actually gets when you are onboarded.',
+            'a' => 'Vellisys Start allows up to 2 people, Business up to 3, and Pro up to 4.',
         ],
         [
             'q' => 'How do I ask something the list does not cover?',
-            'a' => 'Use the form on this page. A Vellisys admin reads it and replies by email. Do not send passwords or payment details here.',
+            'a' => 'Use the form on this page. We reply by email. Do not send passwords or payment details here.',
         ],
     ];
 }
@@ -3638,9 +3716,9 @@ function landing_ticker_defaults(): array
 {
     return [
         ['body' => 'Join 100+ businesses and corporate companies using Vellisys', 'sort' => 10],
-        ['body' => 'Stop losing the books. Share them branded, in one click.', 'sort' => 20],
+        ['body' => 'Quotations, invoices and receipts in your brand, shared in one click.', 'sort' => 20],
         ['body' => 'Built for East Africa. Used across Africa and worldwide.', 'sort' => 30],
-        ['body' => 'Branded books for companies anywhere in the world.', 'sort' => 40],
+        ['body' => 'A company desk for the books — anywhere you work.', 'sort' => 40],
     ];
 }
 
@@ -3723,12 +3801,12 @@ function landing_card_defaults(): array
         ['slot' => 'familiar_1', 'section' => 'familiar', 'sort' => 1, 'image_path' => 'assets/img/landing/landing-receipts.png', 'title' => 'Still stuffing receipts in a drawer?', 'body' => 'Slips, phone photos, part payments in whatever currency you actually use. By month-end you are guessing what is still owed.'],
         ['slot' => 'familiar_2', 'section' => 'familiar', 'sort' => 2, 'image_path' => 'assets/img/landing/landing-whatsapp.png', 'title' => 'Did that invoice vanish into WhatsApp?', 'body' => 'Quotes in email. Invoices in a chat. Nobody has one number for who still owes the company.'],
         ['slot' => 'familiar_3', 'section' => 'familiar', 'sort' => 3, 'image_path' => 'assets/img/landing/landing-office.png', 'title' => 'Can you only open the books at the office?', 'body' => 'If you are on the road, the PC is off, or the accountant is out, the records are out of reach.'],
-        ['slot' => 'help_1', 'section' => 'help', 'sort' => 4, 'image_path' => 'assets/img/landing/landing-share.png', 'title' => 'Your client\'s brand. Many templates.', 'body' => 'Every quotation, invoice and receipt is customised to the client\'s logo and colours. Choose from many templates, then email, WhatsApp or print the sheet.'],
-        ['slot' => 'help_2', 'section' => 'help', 'sort' => 5, 'image_path' => 'assets/img/landing/landing-anywhere.png', 'title' => 'Open the books from wherever you are.', 'body' => 'Anywhere in the world. Sign in and this month is there - invoices, receipts, expenses, reports - on the screen in front of you.'],
-        ['slot' => 'help_3', 'section' => 'help', 'sort' => 6, 'image_path' => 'assets/img/landing/landing-desk.png', 'title' => 'Quotes, invoices, receipts. One desk.', 'body' => 'Pick a template once. The whole books print in that layout, in the company colours. Quotations convert to invoices. Invoices take full or part receipts.'],
-        ['slot' => 'steps_1', 'section' => 'steps', 'sort' => 7, 'image_path' => 'assets/img/landing/landing-form.png', 'title' => 'Register', 'body' => 'Name, company, email, phone. That is the whole form. No password to invent. From any country.'],
-        ['slot' => 'steps_2', 'section' => 'steps', 'sort' => 8, 'image_path' => 'assets/img/landing/landing-call.png', 'title' => 'We call you', 'body' => 'A Vellisys admin sees the sign-up and reaches out to onboard the company.'],
-        ['slot' => 'steps_3', 'section' => 'steps', 'sort' => 9, 'image_path' => 'assets/img/landing/landing-live.png', 'title' => 'Get onboarded', 'body' => 'You get a login. The books are yours, in your currency, on any device, any time.'],
+        ['slot' => 'help_1', 'section' => 'help', 'sort' => 4, 'image_path' => 'assets/img/landing/landing-share.png', 'title' => 'Your brand. Many layouts.', 'body' => 'Every quotation, invoice and receipt uses your logo and colours. Choose a layout once, then email, WhatsApp or print the sheet.'],
+        ['slot' => 'help_2', 'section' => 'help', 'sort' => 5, 'image_path' => 'assets/img/landing/landing-anywhere.png', 'title' => 'Open the books from wherever you are.', 'body' => 'Sign in and this month is there — invoices, receipts, expenses, reports — on the screen in front of you.'],
+        ['slot' => 'help_3', 'section' => 'help', 'sort' => 6, 'image_path' => 'assets/img/landing/landing-desk.png', 'title' => 'Quotes, invoices, receipts. One desk.', 'body' => 'Pick a layout once. The whole books print in that design, in the company colours. Quotations convert to invoices. Invoices take full or part receipts.'],
+        ['slot' => 'steps_1', 'section' => 'steps', 'sort' => 7, 'image_path' => 'assets/img/landing/landing-form.png', 'title' => 'Choose a package', 'body' => 'Start, Business or Pro. Pay online, request a desk if you would rather we set it up, or book a demo first.'],
+        ['slot' => 'steps_2', 'section' => 'steps', 'sort' => 8, 'image_path' => 'assets/img/landing/landing-call.png', 'title' => 'Pay or leave your details', 'body' => 'Online payment opens the desk the same day. If you request a desk instead, we follow up on the email and phone you left.'],
+        ['slot' => 'steps_3', 'section' => 'steps', 'sort' => 9, 'image_path' => 'assets/img/landing/landing-live.png', 'title' => 'Sign in and start', 'body' => 'Choose how you sign in, add your logo and colours, and send the first branded sheet from any device.'],
     ];
 }
 

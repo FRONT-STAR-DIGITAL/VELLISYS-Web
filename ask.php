@@ -21,14 +21,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 csrf_check();
 
-if (form_is_spam('ask')) {
+if (form_is_spam('ask', 3)) {
     ask_done(true);
 }
 
-$name = mb_substr(post('ask_name', '', 80), 0, 80);
-$email = strtolower(mb_substr(post('ask_email', '', 190), 0, 190));
-$phone = mb_substr(post('ask_phone', '', 40), 0, 40);
-$message = mb_substr(post('ask_message', '', 2000), 0, 2000);
+$name = post_plain('ask_name', 80);
+$email = strtolower(post_plain('ask_email', 190));
+$phone = post_plain('ask_phone', 40);
+$message = post_plain('ask_message', 2000, true);
 
 $_SESSION['ask_draft'] = [
     'name' => $name,
@@ -37,14 +37,17 @@ $_SESSION['ask_draft'] = [
     'message' => $message,
 ];
 
+if (public_form_looks_like_spam(['name' => $name, 'email' => $email, 'message' => $message, 'phone' => $phone])) {
+    ask_done(true);
+}
 if (mb_strlen($name) < 2 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
     ask_done(false, 'Your name and a valid email are required.');
 }
+if ($phone !== '' && !public_phone_ok($phone)) {
+    ask_done(false, 'Please enter a working phone number, or leave it blank.');
+}
 if (mb_strlen($message) < 20) {
     ask_done(false, 'Write a little more so we know how to help - at least a sentence.');
-}
-if (preg_match('/https?:\/\/|www\.|\bbit\.ly\b|\btinyurl\b|\[url\s*=|href\s*=/i', $name . $message) === 1) {
-    ask_done(true);
 }
 
 $ipHash = visitor_ip_hash();

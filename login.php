@@ -23,9 +23,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $remember = post('remember') === '1';
     if (!csrf_valid()) {
         $error = 'Your session expired. Please sign in again.';
+    } elseif (form_is_spam('login', 0)) {
+        $error = 'Please try again.';
     } elseif (form_rate_blocked('login', 8, 900)) {
         $error = 'Please wait a few minutes before trying again.';
-    } elseif (attempt_login(post('email', '', 190), post('password', '', 256))) {
+    } elseif (attempt_login(strtolower(post_plain('email', 190)), post('password', '', 256))) {
         remember_login($remember);
         $user = current_user();
         if (($user['role'] ?? '') === 'platform') {
@@ -73,6 +75,7 @@ $showDemoKeys = !folio_is_live_host();
     <?php render_gate_card_mark(); ?>
     <form class="gate-box" method="post" action="<?= h(url('login.php')) ?>">
       <?= csrf_field() ?>
+      <?= form_honeypot_field() ?>
       <?php if (desk_safe_next((string) ($_GET['next'] ?? post('next'))) !== 'dashboard.php' || post('next') !== ''): ?>
         <input type="hidden" name="next" value="<?= h(desk_safe_next((string) ($_GET['next'] ?? post('next')))) ?>">
       <?php endif; ?>

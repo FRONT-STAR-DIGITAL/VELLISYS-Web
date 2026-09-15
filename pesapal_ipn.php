@@ -16,7 +16,10 @@ if (!$order && $ref !== '') {
     $order = order_by_merchant($ref);
 }
 if ($order) {
-    refresh_order_from_pesapal($order);
+    $order = refresh_order_from_pesapal($order);
+    if (($order['status'] ?? '') === 'paid') {
+        provision_paid_order($order);
+    }
 }
 
 header('Content-Type: application/json');

@@ -39,9 +39,9 @@ function pricing_package_defaults(): array
             'price_ugx' => 150000,
             'was_ugx' => 200000,
             'cta' => 'Select Vellisys Start',
-            'lead' => 'Up to 2 users. Head office only. The books in your colours. Vellisys sets how many logins this desk actually gets.',
+            'lead' => 'Up to 2 people on the desk. Head office only. The books in your colours.',
             'points' => [
-                'Up to 2 users: company admin plus one. Vellisys sets the number',
+                'Up to 2 people on the desk',
                 'Head office only (no extra branches)',
                 'Branded quotations, invoices and receipts',
                 'Clients, debtors and share by email or WhatsApp',
@@ -61,9 +61,9 @@ function pricing_package_defaults(): array
             'price_ugx' => 200000,
             'was_ugx' => 280000,
             'cta' => 'Select Vellisys Business',
-            'lead' => 'Up to 3 users and up to 2 branches. Access levels and the full sales loop. Vellisys sets how many logins this desk actually gets.',
+            'lead' => 'Up to 3 people on the desk and up to 2 branches. Access levels and the full sales loop.',
             'points' => [
-                'Up to 3 users: admin plus two. Vellisys sets the number',
+                'Up to 3 people on the desk',
                 'Access levels: Books or Sales',
                 'Everything in Vellisys Start',
                 'Expenses, creditors and delivery notes',
@@ -83,9 +83,9 @@ function pricing_package_defaults(): array
             'price_ugx' => 250000,
             'was_ugx' => 350000,
             'cta' => 'Select Vellisys Pro',
-            'lead' => 'Up to 4 users and up to 3 branches. Every document the desk can print. Vellisys sets how many logins this desk actually gets.',
+            'lead' => 'Up to 4 people on the desk and up to 3 branches. Every document the desk can print.',
             'points' => [
-                'Up to 4 users: admin plus three. Vellisys sets the number',
+                'Up to 4 people on the desk',
                 'Access levels for each extra seat',
                 'Everything in Vellisys Business',
                 'Custom documents and all letter layouts',
@@ -103,10 +103,10 @@ function pricing_section_defaults(): array
     return [
         'kicker' => 'Packages',
         'heading' => 'Onboard as the discount lasts',
-        'lead' => 'Billed per year, shown in {currency}. Change currency in the header. Pay, then set your admin email and password and finish branding on Settings.',
+        'lead' => 'Billed per year, shown in {currency}. Change currency in the header. Pay online, choose how you will sign in, then add your logo and colours.',
         'clock_label' => 'Discount ends in',
         'term_label' => 'per year',
-        'register_copy' => 'Prefer we onboard you? {register}. You can also {demo}.',
+        'register_copy' => 'Want us to open the desk for you? {register}. You can also {demo}.',
         'register_label' => 'register without paying',
         'countdown_days' => 3,
         'countdown_hours' => 12,
@@ -588,7 +588,7 @@ function render_landing_pricing(): void
         <p class="lp-pricing-register"><?= $register ?></p>
       <?php endif; ?>
       <div class="lp-cta lp-cta-band lp-join-cta">
-        <a class="lp-btn lp-btn-ghost" href="<?= h(url('register.php')) ?>">Register without paying</a>
+        <a class="lp-btn lp-btn-ghost" href="<?= h(url('register.php')) ?>">Request a desk</a>
         <a class="lp-btn lp-btn-ghost" href="<?= h(url('demo.php')) ?>">Book a demo</a>
       </div>
     </section>

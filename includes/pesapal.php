@@ -282,12 +282,12 @@ function save_website_order(array $data, ?int $id = null): array
     if (!isset(pricing_currencies()[$currency])) {
         $currency = 'UGX';
     }
-    $name = mb_substr(trim((string) ($data['name'] ?? '')), 0, 80);
-    $company = mb_substr(trim((string) ($data['company'] ?? '')), 0, 160);
-    $email = strtolower(mb_substr(trim((string) ($data['email'] ?? '')), 0, 190));
-    $phone = mb_substr(trim((string) ($data['phone'] ?? '')), 0, 40);
-    $city = mb_substr(trim((string) ($data['city'] ?? '')), 0, 80);
-    $country = mb_substr(trim((string) ($data['country'] ?? '')), 0, 80);
+    $name = sanitize_public_text((string) ($data['name'] ?? ''), 80);
+    $company = sanitize_public_text((string) ($data['company'] ?? ''), 160);
+    $email = strtolower(sanitize_public_text((string) ($data['email'] ?? ''), 190));
+    $phone = sanitize_public_text((string) ($data['phone'] ?? ''), 40);
+    $city = sanitize_public_text((string) ($data['city'] ?? ''), 80);
+    $country = sanitize_public_text((string) ($data['country'] ?? ''), 80);
     $status = (string) ($data['status'] ?? 'draft');
     if (!in_array($status, ['draft', 'pending', 'paid', 'failed', 'cancelled'], true)) {
         $status = 'draft';

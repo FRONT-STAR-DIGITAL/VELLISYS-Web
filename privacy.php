@@ -29,8 +29,8 @@ require __DIR__ . '/includes/bootstrap.php';
       <div class="gate-box">
         <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
         <h2>Privacy</h2>
-        <p class="gate-lead">Vellisys keeps the company name, people, and documents you put on the desk so quotations, invoices and receipts can be issued in your brand. Sign-in uses the mailbox issued at onboarding.</p>
-        <p class="gate-lead">Public forms (register, demo, questions) send the name, company, email and phone you type to <?= h(product_email()) ?> so we can onboard you or answer. Checkout continues to Pesapal in this tab to take payment, then returns you here.</p>
+        <p class="gate-lead">Vellisys keeps the company name, people, and documents you put on the desk so quotations, invoices and receipts can be issued in your brand. Sign-in uses the email you choose when you open the desk.</p>
+        <p class="gate-lead">Public forms (request a desk, demo, questions) send the name, company, email and phone you type to <?= h(product_email()) ?> so we can open the desk or answer. Checkout continues to Pesapal in this tab to take payment, then returns you here.</p>
         <p class="gate-lead">Write <?= h(product_email()) ?> if you need a copy of what we hold, or to ask us to close a desk.</p>
         <a class="gate-submit" href="<?= h(url('login.php')) ?>">Back to Sign In <?= icon('arrow-right', 18) ?></a>
         <?php render_gate_legal(); ?>

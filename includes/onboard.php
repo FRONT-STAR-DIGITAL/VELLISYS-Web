@@ -150,12 +150,21 @@ function complete_self_onboard(array $order, array $fields): array
     }
     $existing = db_one("SELECT id FROM users WHERE company_id = ? AND role = 'admin'", 'i', [$cid]);
     if ($existing) {
-        return ['ok' => false, 'error' => 'This desk already has an admin login. Sign in with the email you set.', 'ready' => true];
+        return ['ok' => false, 'error' => 'This desk already has a login. Sign in with the email you set.', 'ready' => true];
+    }
+    $name = sanitize_public_text((string) ($fields['name'] ?? ''), 80);
+    $email = strtolower(sanitize_public_text((string) ($fields['email'] ?? ''), 190));
+    $password = (string) ($fields['password'] ?? '');
+    if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return ['ok' => false, 'error' => 'Name and a valid email are required.'];
+    }
+    if (public_form_looks_like_spam(['name' => $name, 'email' => $email])) {
+        return ['ok' => false, 'error' => 'Please check the name and email and try again.'];
     }
     $made = create_desk_user($cid, [
-        'name' => $fields['name'] ?? '',
-        'email' => $fields['email'] ?? '',
-        'password' => $fields['password'] ?? '',
+        'name' => $name,
+        'email' => $email,
+        'password' => $password,
         'job_title' => 'Administrator',
         'access' => 'admin',
     ]);

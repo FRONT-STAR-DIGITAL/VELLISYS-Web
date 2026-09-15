@@ -9,6 +9,10 @@ if ($user = current_user()) {
 }
 
 $token = trim((string) ($_GET['t'] ?? post('t', '', 64)));
+$token = preg_replace('/[^a-fA-F0-9]/', '', $token) ?? '';
+if (strlen($token) > 64) {
+    $token = substr($token, 0, 64);
+}
 $order = $token !== '' ? order_by_onboard_token($token) : null;
 if ($order && ($order['status'] ?? '') !== 'paid') {
     $order = null;
@@ -18,12 +22,18 @@ if ($token === '' || !$order) {
 }
 if ($order) {
     $order = provision_paid_order($order);
+    if ((int) ($order['company_id'] ?? 0) < 1) {
+        $order = provision_paid_order($order);
+    }
 }
 
 $error = '';
 $ready = false;
 if ($order) {
     $cid = (int) ($order['company_id'] ?? 0);
+    if ($cid < 1) {
+        $error = 'We have your payment. Refresh this page in a moment, or write to ' . product_email() . '.';
+    }
     $hasAdmin = $cid > 0 && db_one("SELECT id FROM users WHERE company_id = ? AND role = 'admin'", 'i', [$cid]);
     $ready = (bool) $hasAdmin;
 }
@@ -32,22 +42,29 @@ form_mark_open('register');
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $order && !$ready) {
     if (!csrf_valid()) {
         $error = 'Your session expired. Please submit the form again.';
-    } elseif (form_is_spam('register', 1)) {
+    } elseif (form_is_spam('register', 1) || public_form_looks_like_spam([
+        'name' => post_plain('contact_name', 80),
+        'email' => strtolower(post_plain('contact_email', 190)),
+    ])) {
         redirect('login.php');
     } elseif (form_rate_blocked('register', 8)) {
         $error = 'Please wait a bit before trying again.';
     } else {
         $pass = post('password', '', 256);
         $again = post('password_confirm', '', 256);
-        if ($pass === '' || strlen($pass) < 8) {
+        $name = post_plain('contact_name', 80);
+        $email = strtolower(post_plain('contact_email', 190));
+        if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $error = 'Name and a valid email are required.';
+        } elseif ($pass === '' || strlen($pass) < 8) {
             $error = 'Password must be at least 8 characters.';
         } elseif ($pass !== $again) {
             $error = 'The two passwords do not match.';
         } else {
             form_rate_hit('register');
             $made = complete_self_onboard($order, [
-                'name' => post('contact_name', '', 80),
-                'email' => strtolower(post('contact_email', '', 190)),
+                'name' => $name,
+                'email' => $email,
                 'password' => $pass,
             ]);
             if (!empty($made['ok'])) {
@@ -75,7 +92,7 @@ $pkg = $order ? pricing_package((string) $order['plan']) : null;
 <div class="gate-shell">
   <?php gate_art(
       'Your desk is paid. Choose how you sign in.',
-      'After Pesapal confirms payment, this page is where you set the admin email and password for the company.',
+      'After payment confirms, this page is where you choose the email and password for the company desk.',
       '',
       [
           'heading_html' => 'Your desk is paid.<br><em>Choose how you sign in.</em>',
@@ -90,8 +107,16 @@ $pkg = $order ? pricing_package((string) $order['plan']) : null;
       <div class="gate-box gate-ok">
         <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
         <h2>This desk already has a login</h2>
-        <p class="gate-lead">Sign in with the admin email and password you created for <?= h((string) ($order['company'] ?? 'your company')) ?>.</p>
+        <p class="gate-lead">Sign in with the email and password you created for <?= h((string) ($order['company'] ?? 'your company')) ?>.</p>
         <a class="gate-submit" href="<?= h(url('login.php?email=' . rawurlencode((string) ($order['email'] ?? '')))) ?>">Sign in</a>
+        <?php render_gate_legal(); ?>
+      </div>
+    <?php elseif ((int) ($order['company_id'] ?? 0) < 1): ?>
+      <div class="gate-box gate-ok">
+        <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
+        <h2>We have your payment</h2>
+        <p class="gate-lead"><?= h($error !== '' ? $error : 'Refresh this page in a moment to create your sign-in.') ?></p>
+        <a class="gate-submit" href="<?= h(url('register.php?t=' . rawurlencode($token))) ?>">Refresh</a>
         <?php render_gate_legal(); ?>
       </div>
     <?php else: ?>
@@ -100,13 +125,13 @@ $pkg = $order ? pricing_package((string) $order['plan']) : null;
         <?= form_honeypot_field() ?>
         <input type="hidden" name="t" value="<?= h($token) ?>">
         <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
-        <h2>Create your admin login</h2>
+        <h2>Create your sign-in</h2>
         <p class="gate-lead">
           <?= h((string) ($order['company'] ?? 'Your company')) ?> paid for <?= h($pkg['name'] ?? 'a desk') ?>.
           Set the name, email and password you will use to sign in. Enter the password twice.
         </p>
         <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
-        <label class="gate-field" for="contact_name">Admin name
+        <label class="gate-field" for="contact_name">Your name
           <input id="contact_name" name="contact_name" required maxlength="80" autocomplete="name" value="<?= h(post('contact_name') ?: (string) ($order['name'] ?? '')) ?>" placeholder="Jane Okello">
         </label>
         <label class="gate-field" for="contact_email">Sign-in email

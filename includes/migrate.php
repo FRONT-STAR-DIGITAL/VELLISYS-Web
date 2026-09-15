@@ -21,7 +21,7 @@ function folio_schema_ready_file(): string
     if (!is_dir($dir)) {
         @mkdir($dir, 0700, true);
     }
-    return $dir . '/schema-41.ok';
+    return $dir . '/schema-42.ok';
 }
 
 function folio_ensure_logo_bg(mysqli $db): void
@@ -474,7 +474,7 @@ function folio_migrate(mysqli $db): void
         return;
     }
     $verRow = @$db->query("SELECT v FROM schema_meta WHERE k='version'");
-    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 41) {
+    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 42) {
         @touch($ready);
         $done = true;
         return;
@@ -489,7 +489,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 41) {
+    if ($ver >= 42) {
         @touch($ready);
         $done = true;
         return;
@@ -720,8 +720,11 @@ function folio_migrate(mysqli $db): void
         folio_migrate_desk_activity($db);
         folio_migrate_planner_goals($db);
     }
+    if ($ver < 42) {
+        folio_migrate_public_voice($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '41')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '42')");
     @touch($ready);
     $done = true;
 }
@@ -1141,15 +1144,62 @@ function folio_migrate_landing_cards(mysqli $db): void
 function folio_refresh_landing_copy(mysqli $db): void
 {
     foreach (landing_card_defaults() as $c) {
-        if (!in_array($c['slot'], ['help_1', 'help_3', 'familiar_1', 'help_2', 'steps_1', 'steps_2', 'steps_3'], true)) {
-            continue;
-        }
         $stmt = $db->prepare('UPDATE landing_cards SET title = ?, body = ? WHERE slot = ?');
         if (!$stmt) {
             continue;
         }
         $stmt->bind_param('sss', $c['title'], $c['body'], $c['slot']);
         $stmt->execute();
+    }
+}
+
+function folio_migrate_public_voice(mysqli $db): void
+{
+    folio_refresh_landing_copy($db);
+    require_once ROOT_PATH . '/includes/pricing.php';
+    $s = pricing_section_defaults();
+    $stmt = $db->prepare('UPDATE landing_pricing SET lead = ?, register_copy = ?, register_label = ? WHERE id = 1');
+    if ($stmt) {
+        $lead = $s['lead'];
+        $copy = $s['register_copy'];
+        $label = $s['register_label'];
+        $stmt->bind_param('sss', $lead, $copy, $label);
+        $stmt->execute();
+    }
+    $tickers = landing_ticker_defaults();
+    $res = @$db->query('SELECT id, body FROM landing_ticker ORDER BY sort, id');
+    if ($res) {
+        $i = 0;
+        while ($row = $res->fetch_assoc()) {
+            $next = $tickers[$i]['body'] ?? '';
+            $i++;
+            $body = (string) ($row['body'] ?? '');
+            if ($next === '' || $body === $next) {
+                continue;
+            }
+            if (stripos($body, 'admin') !== false || stripos($body, 'Stop losing') !== false || stripos($body, 'Branded books for companies') !== false) {
+                $up = $db->prepare('UPDATE landing_ticker SET body = ? WHERE id = ?');
+                if ($up) {
+                    $id = (int) $row['id'];
+                    $up->bind_param('si', $next, $id);
+                    $up->execute();
+                }
+            }
+        }
+    }
+    $pkgs = pricing_package_defaults();
+    foreach ($pkgs as $pkg) {
+        $key = (string) $pkg['key'];
+        $lead = (string) $pkg['lead'];
+        $points = implode("\n", $pkg['points']);
+        $up = $db->prepare('UPDATE landing_packages SET lead = ?, points = ? WHERE pkg_key = ?');
+        if ($up) {
+            $up->bind_param('sss', $lead, $points, $key);
+            $up->execute();
+        }
+    }
+    if (function_exists('folio_cache_bust')) {
+        folio_cache_bust();
     }
 }
 

@@ -16,9 +16,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (form_is_spam('forgot', 1)) {
         redirect('forgot.php?ok=1');
     } else {
-        $email = strtolower(mb_substr(post('email', '', 190), 0, 190));
+        $email = strtolower(post_plain('email', 190));
         $emailValue = $email;
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || public_email_is_disposable($email)) {
             $error = 'Enter the personal email on your desk login.';
         } elseif (form_rate_blocked('forgot', 3)) {
             $error = 'Please wait a bit before sending another request.';
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="gate-shell">
   <?php gate_art(
       'We can get you back on the desk.',
-      'Enter the personal email on your desk login. A Vellisys admin will send you a reset password.',
+      'Enter the email on your desk login. We will follow up at that address.',
       '',
       [
           'heading_html' => 'We can get you<br>back on the desk.',
@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <div class="gate-box gate-ok">
         <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
         <h2>We have your request</h2>
-        <p class="gate-lead">A Vellisys admin will send a reset password to that personal email. If you need us today, write to <?= h(product_email()) ?> or call <?= h(implode(' or ', product_phones())) ?>.</p>
+        <p class="gate-lead">We will follow up at that email. If you need us today, write to <?= h(product_email()) ?> or call <?= h(implode(' or ', product_phones())) ?>.</p>
         <a class="gate-submit" href="<?= h(url('login.php')) ?>">Back to Sign In <?= icon('arrow-right', 18) ?></a>
         <?php render_gate_legal(); ?>
       </div>
@@ -69,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?= form_honeypot_field() ?>
         <img class="gate-logo" src="<?= h(product_original_logo_url()) ?>" alt="<?= h(product_name()) ?>">
         <h2>Forgot password?</h2>
-        <p class="gate-lead">Enter your personal email. This asks a Vellisys admin to send you a reset password. <?= h(product_email()) ?> gets the request as soon as you send it.</p>
+        <p class="gate-lead">Enter the email on your desk login. We will follow up at that address. <?= h(product_email()) ?> receives the request as soon as you send it.</p>
         <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
         <label class="gate-field" for="email">Personal email</label>
         <div class="gate-control">
