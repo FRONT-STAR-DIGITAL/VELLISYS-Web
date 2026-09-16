@@ -1179,28 +1179,78 @@ table.grid tr.is-muted td { color: var(--muted); }
 .welcome-pop {
   position: fixed;
   inset: 0;
-  z-index: 80;
-  background: rgba(8, 20, 58, .46);
+  z-index: 240;
+  background: rgba(8, 20, 58, .55);
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: 16px 16px calc(28px + var(--app-tabbar-h, 0px));
 }
 .welcome-pop-card {
   background: #fff;
   border: 1px solid #08143A;
-  border-radius: 16px;
+  border-radius: 18px;
   padding: 22px 20px 18px;
-  width: min(440px, 100%);
-  max-height: min(90vh, 640px);
+  width: min(480px, 100%);
+  max-height: min(88dvh, 640px);
   overflow: auto;
-  box-shadow: 0 18px 50px rgba(8, 20, 58, .2);
+  box-shadow: 0 18px 50px rgba(8, 20, 58, .24);
 }
-.welcome-pop-card h2 { margin: 0 0 8px; font-size: 20px; color: #08143A; }
-.welcome-pop-card p { margin: 0 0 12px; color: #000; font-size: 14.5px; line-height: 1.45; }
-.welcome-pop-card .actions { flex-wrap: wrap; }
-@media (min-width: 720px) {
-  .welcome-pop { align-items: center; }
+.welcome-kicker {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #1E4EFF;
+}
+.welcome-pop-card h2 { margin: 0 0 8px; font-size: 22px; line-height: 1.2; color: #08143A; }
+.welcome-lead { margin: 0 0 14px; color: #000; font-size: 14.5px; line-height: 1.45; }
+.welcome-steps {
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+  counter-reset: welcome-step;
+}
+.welcome-steps li {
+  counter-increment: welcome-step;
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 4px 10px;
+  padding: 10px 0;
+  border-top: 1px solid #E8E6DC;
+}
+.welcome-steps li::before {
+  content: counter(welcome-step);
+  grid-row: 1 / span 2;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #1E4EFF;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.welcome-steps strong { font-size: 14px; color: #08143A; }
+.welcome-steps span { grid-column: 2; font-size: 13.5px; line-height: 1.4; color: #334; }
+.welcome-help { margin: 0 0 14px; font-size: 13px; line-height: 1.4; color: #445; }
+.welcome-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.welcome-actions form,
+.welcome-actions .btn { width: 100%; }
+.welcome-actions .btn { justify-content: center; }
+@media (min-width: 560px) {
+  .welcome-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .welcome-actions form { width: auto; flex: 1 1 auto; }
 }
 td.row-actions {
   width: 1%;
@@ -1874,6 +1924,7 @@ table.grid tfoot td {
 .logo-preview { margin-top: 10px; border: 1px solid var(--line); border-radius: 5px; padding: 10px; display: inline-block; background: #fff; }
 .logo-preview img { height: 40px; width: auto; }
 .sig-block { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); }
+.sig-upload { margin-top: 16px; }
 .sig-block h3 { margin: 0 0 6px; font-size: 15px; }
 .sig-canvas {
   display: block;
@@ -3041,6 +3092,11 @@ input, select, textarea { font-weight: 400; }
   min-height: 480px;
   border: 0;
   display: block;
+}
+.mail-body {
+  padding: 16px 18px;
+  min-height: 0;
+  overflow-wrap: anywhere;
 }
 .receipt-preview summary {
   cursor: pointer;

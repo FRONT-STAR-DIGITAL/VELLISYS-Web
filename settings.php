@@ -133,6 +133,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $error = $e->getMessage();
         }
+    } elseif ($action === 'upload_signature') {
+        try {
+            save_company_signature_upload($_FILES['signature_file'] ?? []);
+            flash('Signature image saved.');
+            redirect('settings.php#appearance');
+        } catch (Throwable $e) {
+            $error = $e->getMessage();
+        }
     } elseif ($action === 'clear_signature') {
         $wantsJson = str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json')
             || post('ajax') === '1';
@@ -221,7 +229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$payload) {
                 $error = 'That file is not a Vellisys backup.';
             } else {
-                $res = company_backup_restore_payload($payload);
+                $res = company_backup_restore_payload($payload, $cid, ['branding' => true]);
                 if (empty($res['ok'])) {
                     $error = (string) ($res['error'] ?? 'Could not restore.');
                 } else {
@@ -234,7 +242,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $b = branding();
-$showWelcome = isset($_GET['welcome']) || !empty($_SESSION['branding_welcome']);
 layout_start('Settings', $user);
 ?>
 <div class="page-head">
@@ -541,7 +548,7 @@ layout_start('Settings', $user);
       </div>
       <div class="sig-block" data-signature-pad data-sig-url="<?= h(url('settings.php')) ?>">
         <h3>Signature</h3>
-        <p class="hint">Write with a finger or mouse. Cancel clears the pad only. Retake lets you draw again without dropping the stored mark until you approve the new one. Remove deletes the saved signature.</p>
+        <p class="hint">Write with a finger or mouse, or upload a small signature image (PNG, JPG, GIF or WebP, under 400 KB). Cancel clears the pad only. Retake lets you draw again without dropping the stored mark until you approve the new one. Remove deletes the saved signature.</p>
         <?php $sigUrl = company_signature_url($b); ?>
         <div class="sig-preview" data-sig-preview <?= $sigUrl === '' ? 'hidden' : '' ?>>
           <?php if ($sigUrl !== ''): ?>
@@ -557,6 +564,12 @@ layout_start('Settings', $user);
           <button class="btn sm" type="button" data-sig-approve>Approve signature</button>
         </div>
         <p class="hint" data-sig-status></p>
+      </div>
+      <div class="sig-upload">
+        <label for="signature_file">Upload a signature image</label>
+        <input id="signature_file" name="signature_file" type="file" accept="image/png,image/jpeg,image/gif,image/webp">
+        <p class="hint">A small scan or photo of the sign-off. PNG, JPG, GIF or WebP, under 400 KB.</p>
+        <button class="btn ghost sm" type="submit" name="action" value="upload_signature"><?= icon('check', 14) ?>Save image</button>
       </div>
       <div class="palette-swatches" aria-hidden="true">
         <span style="background:var(--brand)"></span>
@@ -813,22 +826,6 @@ Accounts
 {company}</textarea>
   </div>
 </template>
-<?php if ($showWelcome && !is_acting_admin()): ?>
-  <div class="welcome-pop" role="dialog" aria-labelledby="welcome-title">
-    <div class="welcome-pop-card">
-      <h2 id="welcome-title">Finish company branding</h2>
-      <p>Welcome to your desk. Open Settings on this page and set the company name, logo, colours, TIN, bank and currency so every sheet leaves in your brand.</p>
-      <p>If you need help, call <?= h(implode(' or ', product_phones())) ?> and a Vellisys agent will walk you through it.</p>
-      <div class="actions">
-        <form method="post">
-          <?= csrf_field() ?>
-          <input type="hidden" name="action" value="dismiss_welcome">
-          <button class="btn" type="submit"><?= icon('check', 16) ?>I'll finish branding</button>
-        </form>
-      </div>
-    </div>
-  </div>
-<?php endif; ?>
 <?php
 $featDefaults = json_encode([
     'books' => desk_feature_defaults('books'),

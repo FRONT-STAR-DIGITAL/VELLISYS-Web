@@ -120,17 +120,19 @@ function company_backup_list(?int $cid = null): array
     return $out;
 }
 
-function company_backup_send(string $file): void
+function company_backup_send(string $file, ?int $cid = null): void
 {
     $base = basename($file);
+    $admin = $cid !== null && $cid > 0;
+    $fail = $admin ? ('admin_company.php?id=' . $cid) : 'settings.php#backup';
     if (!preg_match('/^\d{4}-\d{2}-\d{2}\.json\.gz$/', $base)) {
         flash('That backup file is not allowed.', 'err');
-        redirect('settings.php#backup');
+        redirect($fail);
     }
-    $path = company_backup_dir() . '/' . $base;
+    $path = company_backup_dir($cid) . '/' . $base;
     if (!is_file($path)) {
         flash('Backup not found.', 'err');
-        redirect('settings.php#backup');
+        redirect($fail);
     }
     header('Content-Type: application/gzip');
     header('Content-Disposition: attachment; filename="vellisys-backup-' . $base . '"');
@@ -172,7 +174,7 @@ function backup_insert_row(string $table, array $row, array $skip = ['id']): int
     return db_exec($sql, $types, $vals);
 }
 
-function company_backup_restore_payload(array $data): array
+function company_backup_restore_payload(array $data, ?int $cid = null, array $opts = []): array
 {
     if (($data['app'] ?? '') !== 'vellisys' && (int) ($data['v'] ?? 0) < 1) {
         return ['ok' => false, 'error' => 'This file is not a Vellisys backup.'];
@@ -181,7 +183,11 @@ function company_backup_restore_payload(array $data): array
     if (!is_array($tables)) {
         return ['ok' => false, 'error' => 'Backup is missing desk data.'];
     }
-    $cid = current_company_id();
+    $cid = $cid ?? (function_exists('current_company_id') ? current_company_id() : 0);
+    if ($cid < 1) {
+        return ['ok' => false, 'error' => 'No company to restore into.'];
+    }
+    $restoreBrand = !empty($opts['branding']);
     $db = db();
     $db->begin_transaction();
     try {
@@ -278,7 +284,7 @@ function company_backup_restore_payload(array $data): array
             backup_insert_row('stock_days', $row);
         }
         $brand = $data['branding'] ?? null;
-        if (is_array($brand)) {
+        if ($restoreBrand && is_array($brand)) {
             unset($brand['id'], $brand['company_id'], $brand['logo_path'], $brand['logo_blob'], $brand['letterhead_blob']);
             foreach (['name', 'tagline', 'tin', 'vat_no', 'address', 'city', 'phone', 'email', 'website', 'bank_name', 'account_name', 'account_number', 'payment_note', 'invoice_comments', 'currency'] as $col) {
                 if (array_key_exists($col, $brand)) {
@@ -293,4 +299,146 @@ function company_backup_restore_payload(array $data): array
     }
     branding(true);
     return ['ok' => true];
+}
+
+function company_reset_scopes(): array
+{
+    return [
+        'documents' => 'Documents (quotations, invoices, receipts, expenses, letters and their lines)',
+        'stock' => 'Stock (items, counts, day close, and movements)',
+        'clients' => 'Clients and suppliers',
+        'mail' => 'Desk email log for this company',
+        'activities' => 'Activity log',
+        'planner' => 'Planner (notes, tasks, budget, calendar)',
+        'pnl' => 'Profit & Loss entries and savings',
+    ];
+}
+
+function company_reset_has_table(string $table): bool
+{
+    $db = db();
+    $t = $db->real_escape_string($table);
+    $res = @$db->query("SHOW TABLES LIKE '$t'");
+    return $res && $res->num_rows > 0;
+}
+
+function company_reset_ids(string $sql, string $types, array $params): array
+{
+    return array_map(static fn ($r) => (int) $r['id'], db_all($sql, $types, $params));
+}
+
+function company_reset_in(string $sqlPrefix, array $ids): void
+{
+    if (!$ids) {
+        return;
+    }
+    $in = implode(',', array_fill(0, count($ids), '?'));
+    $types = str_repeat('i', count($ids));
+    db_prepare($sqlPrefix . ' (' . $in . ')', $types, $ids)->execute();
+}
+
+function company_reset_training_data(int $cid, array $scopes): array
+{
+    if ($cid < 1) {
+        return ['ok' => false, 'error' => 'Company not found.'];
+    }
+    $allowed = array_keys(company_reset_scopes());
+    $picked = [];
+    foreach ($scopes as $key) {
+        $key = (string) $key;
+        if (in_array($key, $allowed, true)) {
+            $picked[] = $key;
+        }
+    }
+    $picked = array_values(array_unique($picked));
+    if (!$picked) {
+        return ['ok' => false, 'error' => 'Tick at least one item to clear.'];
+    }
+    if (in_array('clients', $picked, true) && !in_array('documents', $picked, true)) {
+        $picked[] = 'documents';
+    }
+    $db = db();
+    $db->begin_transaction();
+    try {
+        $cleared = [];
+        if (in_array('documents', $picked, true)) {
+            $docIds = company_reset_ids('SELECT id FROM documents WHERE company_id = ?', 'i', [$cid]);
+            if ($docIds && company_reset_has_table('emails')) {
+                company_reset_in('DELETE FROM emails WHERE document_id IN', $docIds);
+            }
+            if ($docIds) {
+                company_reset_in('DELETE FROM document_items WHERE document_id IN', $docIds);
+            }
+            db_exec('DELETE FROM documents WHERE company_id = ?', 'i', [$cid]);
+            $cleared[] = 'documents';
+        }
+        if (in_array('stock', $picked, true) && company_reset_has_table('stock_items')) {
+            $countIds = company_reset_has_table('stock_counts')
+                ? company_reset_ids('SELECT id FROM stock_counts WHERE company_id = ?', 'i', [$cid])
+                : [];
+            if ($countIds && company_reset_has_table('stock_count_lines')) {
+                company_reset_in('DELETE FROM stock_count_lines WHERE count_id IN', $countIds);
+            }
+            if (company_reset_has_table('stock_counts')) {
+                db_exec('DELETE FROM stock_counts WHERE company_id = ?', 'i', [$cid]);
+            }
+            if (company_reset_has_table('stock_moves')) {
+                db_exec('DELETE FROM stock_moves WHERE company_id = ?', 'i', [$cid]);
+            }
+            if (company_reset_has_table('stock_days')) {
+                db_exec('DELETE FROM stock_days WHERE company_id = ?', 'i', [$cid]);
+            }
+            db_exec('DELETE FROM stock_items WHERE company_id = ?', 'i', [$cid]);
+            $cleared[] = 'stock';
+        }
+        if (in_array('clients', $picked, true)) {
+            db_exec('DELETE FROM parties WHERE company_id = ?', 'i', [$cid]);
+            $cleared[] = 'clients';
+        }
+        if (in_array('mail', $picked, true) && company_reset_has_table('emails')) {
+            $users = db_all('SELECT id FROM users WHERE company_id = ?', 'i', [$cid]);
+            $uids = array_map(static fn ($u) => (int) $u['id'], $users);
+            $co = db_one('SELECT mail_email FROM companies WHERE id = ?', 'i', [$cid]);
+            $box = strtolower(trim((string) ($co['mail_email'] ?? '')));
+            if ($uids) {
+                company_reset_in('DELETE FROM emails WHERE document_id IS NULL AND user_id IN', $uids);
+            }
+            if ($box !== '') {
+                db_exec('DELETE FROM emails WHERE from_email = ? AND document_id IS NULL', 's', [$box]);
+            }
+            $cleared[] = 'mail';
+        }
+        if (in_array('activities', $picked, true) && company_reset_has_table('company_activities')) {
+            db_exec('DELETE FROM company_activities WHERE company_id = ?', 'i', [$cid]);
+            $cleared[] = 'activities';
+        }
+        if (in_array('planner', $picked, true)) {
+            foreach (['planner_notes', 'planner_goals', 'planner_budget_items', 'planner_events'] as $table) {
+                if (company_reset_has_table($table)) {
+                    db_exec('DELETE FROM `' . $table . '` WHERE company_id = ?', 'i', [$cid]);
+                }
+            }
+            $cleared[] = 'planner';
+        }
+        if (in_array('pnl', $picked, true)) {
+            foreach (['pnl_entries', 'pnl_savings'] as $table) {
+                if (company_reset_has_table($table)) {
+                    db_exec('DELETE FROM `' . $table . '` WHERE company_id = ?', 'i', [$cid]);
+                }
+            }
+            $cleared[] = 'pnl';
+        }
+        $db->commit();
+    } catch (Throwable $e) {
+        $db->rollback();
+        return ['ok' => false, 'error' => 'Could not clear that desk. ' . $e->getMessage()];
+    }
+    if (function_exists('record_company_activity')) {
+        record_company_activity('settings', 'Training data cleared', [
+            'company_id' => $cid,
+            'detail' => implode(', ', $cleared),
+            'href' => 'admin_company.php?id=' . $cid,
+        ]);
+    }
+    return ['ok' => true, 'cleared' => $cleared];
 }

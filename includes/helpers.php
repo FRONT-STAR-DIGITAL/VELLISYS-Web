@@ -2488,6 +2488,60 @@ function save_company_signature_png(string $dataUrl): string
     return $rel;
 }
 
+function save_company_signature_upload(array $file): string
+{
+    if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+        throw new RuntimeException('Choose a signature image to upload.');
+    }
+    if ((int) ($file['size'] ?? 0) > 400_000) {
+        throw new RuntimeException('Signature image must be under 400 KB.');
+    }
+    $bin = (string) file_get_contents($file['tmp_name']);
+    if (strlen($bin) < 40) {
+        throw new RuntimeException('That signature file is empty.');
+    }
+    $info = @getimagesizefromstring($bin);
+    if (!$info || empty($info['mime'])) {
+        throw new RuntimeException('Upload a PNG, JPG, GIF or WebP signature.');
+    }
+    $mime = (string) $info['mime'];
+    $ext = match ($mime) {
+        'image/png' => 'png',
+        'image/jpeg' => 'jpg',
+        'image/gif' => 'gif',
+        'image/webp' => 'webp',
+        default => '',
+    };
+    if ($ext === '') {
+        throw new RuntimeException('Upload a PNG, JPG, GIF or WebP signature.');
+    }
+    $w = (int) ($info[0] ?? 0);
+    $h = (int) ($info[1] ?? 0);
+    if ($w > 1600 || $h > 800) {
+        throw new RuntimeException('Signature image is too large. Use a small scan, under 1600×800 pixels.');
+    }
+    $dir = ROOT_PATH . '/uploads/signatures';
+    if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
+        throw new RuntimeException('Could not save the signature.');
+    }
+    $cid = current_company_id();
+    $rel = 'uploads/signatures/sig-' . $cid . '-' . date('YmdHis') . '.' . $ext;
+    if (file_put_contents(ROOT_PATH . '/' . $rel, $bin) === false) {
+        throw new RuntimeException('Could not save the signature.');
+    }
+    $old = ltrim((string) (branding()['signature_path'] ?? ''), '/');
+    db_exec('UPDATE branding SET signature_path=? WHERE company_id=?', 'si', [$rel, $cid]);
+    persist_branding_asset($cid, 'signature', $rel);
+    if ($old !== '' && $old !== $rel && str_contains($old, 'uploads/signatures/')) {
+        $full = ROOT_PATH . '/' . $old;
+        if (is_file($full)) {
+            @unlink($full);
+        }
+    }
+    branding(true);
+    return $rel;
+}
+
 function clear_company_signature(): void
 {
     $cid = current_company_id();
@@ -3638,7 +3692,11 @@ function handle_desk_welcome_dismiss(): void
         return;
     }
     mark_desk_welcome_seen((int) ($user['id'] ?? 0));
-    redirect(basename($_SERVER['SCRIPT_NAME'] ?? 'dashboard.php'));
+    unset($_SESSION['branding_welcome']);
+    $next = function_exists('desk_safe_next')
+        ? desk_safe_next(post('next') ?: basename($_SERVER['SCRIPT_NAME'] ?? 'dashboard.php'))
+        : 'dashboard.php';
+    redirect($next);
 }
 
 function render_desk_welcome_pop(array $user): void
@@ -3647,18 +3705,46 @@ function render_desk_welcome_pop(array $user): void
         return;
     }
     $who = explode(' ', trim((string) ($user['name'] ?? '')))[0] ?: 'there';
+    $phones = implode(' or ', product_phones());
     ?>
   <div class="welcome-pop" role="dialog" aria-modal="true" aria-labelledby="desk-welcome-title">
     <div class="welcome-pop-card">
-      <h2 id="desk-welcome-title">Welcome to your Vellisys desk</h2>
-      <p>Dear <?= h($who) ?>, we wish you the best experience on this portal. Open Tutorials for a walk-through of every tab, or write to us if you need an agent.</p>
-      <p>This note appears only once.</p>
-      <div class="actions">
-        <a class="btn ghost" href="<?= h(url('tutorials.php')) ?>"><?= icon('book', 16) ?>Tutorials</a>
+      <p class="welcome-kicker">First sign-in</p>
+      <h2 id="desk-welcome-title">Welcome, <?= h($who) ?></h2>
+      <p class="welcome-lead">Your Vellisys desk is ready. We wish you the best experience. This note appears only once.</p>
+      <ol class="welcome-steps">
+        <li>
+          <strong>Brand the desk</strong>
+          <span>Open Settings for the company name, logo, two colours, TIN, bank and currency, so every sheet leaves in your brand.</span>
+        </li>
+        <li>
+          <strong>Learn the loop</strong>
+          <span>Tutorials show every tab: quote, invoice, receipt, expenses and mail.</span>
+        </li>
+        <li>
+          <strong>Keep the login private</strong>
+          <span>Change the temporary password under Account when you have a moment.</span>
+        </li>
+      </ol>
+      <p class="welcome-help">Need an agent? Call <?= h($phones) ?> or write <?= h(product_email()) ?>.</p>
+      <div class="welcome-actions">
         <form method="post">
           <?= csrf_field() ?>
           <input type="hidden" name="action" value="dismiss_desk_welcome">
+          <input type="hidden" name="next" value="dashboard.php">
           <button class="btn" type="submit"><?= icon('check', 16) ?>Get started</button>
+        </form>
+        <form method="post">
+          <?= csrf_field() ?>
+          <input type="hidden" name="action" value="dismiss_desk_welcome">
+          <input type="hidden" name="next" value="settings.php">
+          <button class="btn ghost" type="submit"><?= icon('palette', 16) ?>Open Settings</button>
+        </form>
+        <form method="post">
+          <?= csrf_field() ?>
+          <input type="hidden" name="action" value="dismiss_desk_welcome">
+          <input type="hidden" name="next" value="tutorials.php">
+          <button class="btn ghost" type="submit"><?= icon('book', 16) ?>Tutorials</button>
         </form>
       </div>
     </div>

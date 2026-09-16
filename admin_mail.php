@@ -94,11 +94,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('admin_mail.php' . ($companyId ? '?company=' . $companyId : ''));
 }
 
-$recent = db_all(
-    "SELECT * FROM emails WHERE document_id IS NULL AND (from_email = '' OR from_email = ?) ORDER BY id DESC LIMIT 30",
-    's',
-    [product_email()]
-);
+$q = trim((string) ($_GET['q'] ?? ''));
+$viewId = (int) ($_GET['id'] ?? 0);
+$view = null;
+if ($viewId > 0) {
+    $view = db_one(
+        'SELECT * FROM emails WHERE id = ? AND (from_email = ? OR (from_email = \'\' AND document_id IS NULL))',
+        'is',
+        [$viewId, product_email()]
+    );
+}
+
+$recentSql = 'SELECT * FROM emails WHERE from_email = ? OR (from_email = \'\' AND document_id IS NULL)';
+$recentTypes = 's';
+$recentArgs = [product_email()];
+if ($q !== '') {
+    $like = '%' . $q . '%';
+    $recentSql .= ' AND (to_email LIKE ? OR subject LIKE ? OR body LIKE ?)';
+    $recentTypes .= 'sss';
+    $recentArgs[] = $like;
+    $recentArgs[] = $like;
+    $recentArgs[] = $like;
+}
+$recentSql .= ' ORDER BY id DESC LIMIT 200';
+$recent = db_all($recentSql, $recentTypes, $recentArgs);
 $cfg = mail_config();
 
 layout_admin_start('Email', $user);
@@ -106,7 +125,7 @@ layout_admin_start('Email', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('send') ?>Email</h1>
-    <p class="lede">Send a custom Vellisys letter from <strong><?= h(product_email()) ?></strong>. A copy of every letter that leaves Vellisys or a company desk also arrives here, with Reply-To set to the client so you can answer from the copy. Clients receive from this mailbox when they submit a question, register, pay (receipt), go live, or get a renewal reminder. Pick a company to send the payment receipt template: term started, expiry, currency, amount received, thanks, and a wait for onboarding credentials when the desk is not live yet.</p>
+    <p class="lede">Send a custom Vellisys letter from <strong><?= h(product_email()) ?></strong>. Open any letter that left this mailbox. A copy of every letter that leaves Vellisys or a company desk also arrives here, with Reply-To set to the client so you can answer from the copy. Clients receive from this mailbox when they submit a question, register, pay (receipt), go live, or get a renewal reminder. Pick a company to send the payment receipt template: term started, expiry, currency, amount received, thanks, and a wait for onboarding credentials when the desk is not live yet.</p>
   </div>
   <form method="post">
     <?= csrf_field() ?>
@@ -121,6 +140,27 @@ layout_admin_start('Email', $user);
   <div class="card stat"><?= icon('lock', 20) ?><span>SMTP security</span><strong><?= h(strtoupper((string) $cfg['secure'])) ?></strong></div>
   <div class="card stat"><?= icon('letter', 20) ?><span>POP / IMAP</span><strong><?= h($cfg['pop_host'] . ':' . $cfg['pop_port']) ?></strong></div>
 </div>
+
+<?php if ($view): ?>
+<div class="card form-wide" style="margin-bottom:24px">
+  <div class="card-head">
+    <h2><?= icon('letter', 16) ?>Letter</h2>
+    <a class="btn ghost sm" href="<?= h(url('admin_mail.php')) ?>">Back to log</a>
+  </div>
+  <div style="padding:0 22px 22px">
+    <p class="hint" style="margin:0 0 8px">From <?= h(($view['from_email'] ?? '') !== '' ? $view['from_email'] : product_email()) ?> · <?= h(substr((string) $view['created_at'], 0, 16)) ?> · <?= h($view['status']) ?></p>
+    <p style="margin:0 0 6px"><strong>To</strong> <?= h($view['to_email']) ?></p>
+    <p style="margin:0 0 14px"><strong>Subject</strong> <?= h($view['subject']) ?></p>
+    <?php if (!empty($view['error'])): ?>
+      <p class="flash flash-err"><?= h($view['error']) ?></p>
+    <?php endif; ?>
+    <div class="mail-preview">
+      <div class="mail-preview-head"><?= h($view['subject']) ?></div>
+      <div class="mail-body"><?= nl2br(h((string) ($view['body'] ?? ''))) ?></div>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
 
 <div class="card form-wide" style="margin-bottom:24px">
   <div class="card-head"><h2><?= icon('send', 16) ?>Compose</h2></div>
@@ -168,7 +208,14 @@ layout_admin_start('Email', $user);
 </div>
 
 <div class="card">
-  <div class="card-head"><h2><?= icon('letter', 16) ?>Platform mail log</h2></div>
+  <div class="card-head"><h2><?= icon('letter', 16) ?>Letters from <?= h(product_email()) ?></h2></div>
+  <form method="get" class="form-wide" style="padding:0 22px 12px">
+    <label for="mail_q">Find a letter</label>
+    <div class="actions" style="align-items:center;gap:8px;flex-wrap:wrap">
+      <input id="mail_q" name="q" value="<?= h($q) ?>" placeholder="To, subject or words in the letter" style="flex:1;min-width:180px">
+      <button class="btn ghost sm" type="submit"><?= icon('letter', 14) ?>Search</button>
+    </div>
+  </form>
   <?php if (!$recent): ?>
     <p class="empty">Nothing sent from <?= h(product_email()) ?> yet. Questions, sign-ups, welcome letters and this tab all land here.</p>
   <?php else: ?>
@@ -180,6 +227,7 @@ layout_admin_start('Email', $user);
           <th>To</th>
           <th>Subject</th>
           <th>Status</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -192,6 +240,7 @@ layout_admin_start('Email', $user);
               <span class="pill<?= $row['status'] === 'queued' ? ' warn' : '' ?>"><?= h($row['status']) ?></span>
               <?php if ($row['error']): ?><div class="hint"><?= h($row['error']) ?></div><?php endif; ?>
             </td>
+            <td><a class="btn ghost sm" href="<?= h(url('admin_mail.php?id=' . (int) $row['id'])) ?>">View</a></td>
           </tr>
         <?php endforeach; ?>
       </tbody>

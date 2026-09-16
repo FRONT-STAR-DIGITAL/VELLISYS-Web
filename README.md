@@ -27,10 +27,11 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - **What you get to manage** on the landing page: quotations, invoices, receipts, expenses, delivery notes, custom documents, debtors, creditors, headed letters, email, 15 document layouts (including page borders and an 80mm thermal roll), branding, and branches on Business and Pro
 - A navy **top bar** above the header. Super admin edits the scrolling statements under **Landing**. Lines are separated by a blue |
 - Super admin **onboarding**: tick only the documents that company needs (quotations, invoices, receipts, delivery notes, headed letters, custom). Custom documents are a form with fields and/or a body, not a letter. **Send login credentials** emails the desk email and a temporary password from `info@vellisys.com` and asks the client to change it after they sign in
+- After training, super admin can **reset selected desk data** (documents, stock, clients, mail log, activities, planner, P&L) so the same login is as good as new for official books. A Vellisys **backup file** can be restored on that company page
 - Super admin **payment receipt**: on create company, or after recording a paid term, send a thanks-and-welcome receipt from `info@vellisys.com` with the amount received and the subscribed period
 - Super admin **onboarding checklist** on each company: package paid, receipt email, admin credentials, first sign-in, branding saved, mailbox, welcome email, desk live, and client confirms login
 - **Have a question** form on the landing page. Super admin sees each note under **Questions**, opens the full message on its own page, and a copy is emailed to `info@vellisys.com`. The person who sent the question also gets a confirmation from that mailbox
-- Super admin **Email** tab: send a custom Vellisys letter from `info@vellisys.com`
+- Super admin **Email** tab: send a custom Vellisys letter from `info@vellisys.com`, and **open any letter** that left that mailbox
 - Super admin **Settings**: stock add-on amounts, the default temporary desk password, whether public register / demo / checkout is open, and the **currency for super-admin figures**. A Settings button sits in the admin header and in the rail. Edit, reset password, suspend and delete desk logins on each company page.
 - Super admin **Dashboard**: snapshot of reload speed (fast / healthy / slow), who is on a desk now, people onboard, branches, and money taken in
 - Super admin **Finances**: package payments and paid terms over time, renewals and what each company pays. This is Vellisys income, not a company desk's own books
@@ -58,7 +59,7 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - Quotations convert to invoices; invoices take full or **part receipts**; unpaid balances stay on Debtors
 - Every document can be edited after it is saved
 - Print and share a clean sheet - no desk chrome, dates or page URLs around the paper. On a phone, print uses a blank sheet so Safari does not stamp the desk link at the bottom
-- Logo and signature stay in MySQL as well as files, so a settings save does not replace them unless you upload a new logo or approve or remove a signature
+- Logo and signature stay in MySQL as well as files. In Settings you can draw a signature or **upload a small image** (under 400 KB)
 - Phone menu sits flush under the header and hugs the links, with Accounts directly under the last item
 - Line items are **Item**, **Description** (paragraph), **Qty**, **Unit price**, **Total Amt**, and **tax** as Y or N. If every line is N, tax is left off the printed sheet
 - Receipts show **RECEIVED** and **DUE**. The Receipts tab lists cleared and partially cleared payments

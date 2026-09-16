@@ -15,6 +15,10 @@ $error = '';
 $editUserId = (int) ($_GET['edit_user'] ?? 0);
 $editMember = $editUserId ? load_desk_user($id, $editUserId) : null;
 
+if (isset($_GET['backup'])) {
+    company_backup_send((string) $_GET['backup'], $id);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
     $action = post('action');
@@ -363,6 +367,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+    if ($action === 'reset_training') {
+        $confirm = trim(post('reset_confirm'));
+        $scopes = $_POST['reset_scope'] ?? [];
+        if (!is_array($scopes)) {
+            $scopes = [];
+        }
+        if (post('reset_all') !== '') {
+            $scopes = array_keys(company_reset_scopes());
+        }
+        if (strcasecmp($confirm, (string) $company['name']) !== 0) {
+            $error = 'Type the company name exactly to confirm the reset.';
+        } else {
+            $done = company_reset_training_data($id, $scopes);
+            if (empty($done['ok'])) {
+                $error = (string) ($done['error'] ?? 'Could not reset that desk.');
+            } else {
+                flash($company['name'] . ' is ready for official use. Cleared: ' . implode(', ', $done['cleared'] ?? []) . '. Logins, branding, mailbox and paid term were kept.');
+                redirect('admin_company.php?id=' . $id);
+            }
+        }
+    }
+    if ($action === 'restore_backup') {
+        $file = $_FILES['backup'] ?? [];
+        if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+            $error = 'Choose a Vellisys backup file to restore.';
+        } else {
+            $payload = company_backup_read_file($file['tmp_name']);
+            if (!$payload) {
+                $error = 'That file is not a Vellisys backup.';
+            } else {
+                $res = company_backup_restore_payload($payload, $id, ['branding' => post('restore_branding') !== '']);
+                if (empty($res['ok'])) {
+                    $error = (string) ($res['error'] ?? 'Could not restore that backup.');
+                } else {
+                    flash('Backup restored onto ' . $company['name'] . '. The desk is no longer empty.');
+                    redirect('admin_company.php?id=' . $id);
+                }
+            }
+        }
+    }
 }
 
 $company = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$id]);
@@ -398,6 +442,30 @@ try {
 } catch (Throwable $e) {
 }
 $deskHealth = platform_desk_health(['last_seen_at' => $lastSeen, 'last_login_at' => $lastLogin]);
+$resetScopes = company_reset_scopes();
+$deskBackups = company_backup_list($id);
+$deskEmails = [];
+$toList = [];
+foreach ($members as $m) {
+    $em = strtolower(trim((string) ($m['email'] ?? '')));
+    if ($em !== '') {
+        $toList[] = $em;
+    }
+}
+$brandMail = strtolower(trim((string) ($brand['email'] ?? '')));
+if ($brandMail !== '') {
+    $toList[] = $brandMail;
+}
+$toList = array_values(array_unique($toList));
+if ($toList) {
+    $in = implode(',', array_fill(0, count($toList), '?'));
+    $types = 's' . str_repeat('s', count($toList));
+    $deskEmails = db_all(
+        'SELECT * FROM emails WHERE from_email = ? AND to_email IN (' . $in . ') ORDER BY id DESC LIMIT 12',
+        $types,
+        array_merge([product_email()], $toList)
+    );
+}
 
 layout_admin_start($company['name'], $user);
 ?>
@@ -994,6 +1062,94 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
     </div>
   </div>
 </form>
+
+<div class="card form-wide" style="margin-top:16px" id="reset">
+  <div class="card-head"><h2><?= icon('alert', 16) ?>Training reset</h2></div>
+  <div style="padding:0 22px 8px">
+    <p class="lede">After a training run, clear practice data so this desk is as good as new for official books. Logins, branding, mailbox and paid term stay. Tick what to delete.</p>
+    <form method="post">
+      <?= csrf_field() ?>
+      <input type="hidden" name="id" value="<?= $id ?>">
+      <input type="hidden" name="action" value="reset_training">
+      <label class="check" style="margin-bottom:10px"><input type="checkbox" name="reset_all" value="1" data-reset-all> Everything listed below</label>
+      <div class="form-grid">
+        <?php foreach ($resetScopes as $key => $label): ?>
+          <label class="check"><input type="checkbox" name="reset_scope[]" value="<?= h($key) ?>" data-reset-scope> <?= h($label) ?></label>
+        <?php endforeach; ?>
+      </div>
+      <p class="hint">Clients also clears documents, because sheets hang off client records.</p>
+      <label for="reset_confirm">Type <?= h($company['name']) ?> to confirm</label>
+      <input id="reset_confirm" name="reset_confirm" required autocomplete="off" placeholder="<?= h($company['name']) ?>">
+      <div class="actions" style="margin:12px 0 8px">
+        <button class="btn danger" type="submit" onclick="return confirm('Clear the selected practice data on <?= h($company['name']) ?>? This cannot be undone except by restoring a backup.');"><?= icon('alert', 16) ?>Reset selected data</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card form-wide" style="margin-top:16px" id="backup">
+  <div class="card-head"><h2><?= icon('file', 16) ?>Backup restore</h2></div>
+  <div style="padding:0 22px 22px">
+    <p class="lede">If they saved a Vellisys backup before the reset, upload it here to put documents, clients and stock back.</p>
+    <?php if ($deskBackups): ?>
+      <div class="table-scroll" style="margin-bottom:16px">
+        <table class="grid">
+          <thead><tr><th>File</th><th>When</th><th></th></tr></thead>
+          <tbody>
+            <?php foreach ($deskBackups as $bfile): ?>
+              <tr>
+                <td class="mono"><?= h($bfile['file']) ?></td>
+                <td><?= h(date('j M Y H:i', $bfile['mtime'])) ?></td>
+                <td><a class="btn ghost sm" href="<?= h(url('admin_company.php?id=' . $id . '&backup=' . rawurlencode($bfile['file']))) ?>">Download</a></td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    <?php else: ?>
+      <p class="hint">No automatic backups on file for this desk yet.</p>
+    <?php endif; ?>
+    <form method="post" enctype="multipart/form-data">
+      <?= csrf_field() ?>
+      <input type="hidden" name="id" value="<?= $id ?>">
+      <input type="hidden" name="action" value="restore_backup">
+      <label for="backup_file">Upload backup</label>
+      <input id="backup_file" name="backup" type="file" accept=".gz,.json,application/gzip" required>
+      <label class="check" style="margin-top:10px"><input type="checkbox" name="restore_branding" value="1"> Also restore letterhead fields from the file</label>
+      <p class="hint">Restores clients, stock and documents. Stationery stays unless you tick the box.</p>
+      <div class="actions" style="margin-top:12px">
+        <button class="btn" type="submit"><?= icon('check') ?>Restore backup</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px" id="vellisys-mail">
+  <div class="card-head">
+    <h2><?= icon('letter', 16) ?>Letters from <?= h(product_email()) ?></h2>
+    <a class="btn ghost sm" href="<?= h(url('admin_mail.php')) ?>">All platform mail</a>
+  </div>
+  <?php if (!$deskEmails): ?>
+    <p class="empty">No letters from <?= h(product_email()) ?> to this desk yet.</p>
+  <?php else: ?>
+    <div class="table-scroll">
+      <table class="grid">
+        <thead><tr><th>When</th><th>To</th><th>Subject</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          <?php foreach ($deskEmails as $row): ?>
+            <tr>
+              <td class="mono"><?= h(substr((string) $row['created_at'], 0, 16)) ?></td>
+              <td class="mono"><?= h($row['to_email']) ?></td>
+              <td><?= h($row['subject']) ?></td>
+              <td><span class="pill<?= $row['status'] === 'queued' ? ' warn' : '' ?>"><?= h($row['status']) ?></span></td>
+              <td><a class="btn ghost sm" href="<?= h(url('admin_mail.php?id=' . (int) $row['id'])) ?>">View</a></td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+  <?php endif; ?>
+</div>
 <?php
 $featDefaults = json_encode([
     'books' => desk_feature_defaults('books'),
@@ -1016,6 +1172,14 @@ layout_end('<script>window.vellisysFeatureDefaults=' . $featDefaults . ';</scrip
   }
   if (country) country.addEventListener("change", sync);
   sync();
+})();
+(function () {
+  var all = document.querySelector("[data-reset-all]");
+  var boxes = document.querySelectorAll("[data-reset-scope]");
+  if (!all || !boxes.length) return;
+  all.addEventListener("change", function () {
+    boxes.forEach(function (b) { b.checked = all.checked; });
+  });
 })();
 </script>');
 ?>
