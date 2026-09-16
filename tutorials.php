@@ -346,6 +346,7 @@ $lessons = [
             'Primary paints the desk and the strong bars. Accent marks rails, rules and highlights. Type on those colours is black or white, whichever reads.',
             'The sending mailbox is assigned by Vellisys. You can see the address. You cannot change the password.',
             'Backup writes a file of this desk. Download it, or restore one if you need to roll back. Stock desks get a daily copy too.',
+            'Bring in books (Settings) is how you load old clients, invoices, receipts and sales from Excel after onboarding. Download a template, fill it, upload. Vellisys adds to this desk; it does not wipe what is already issued.',
             'If a colour or logo is wrong, fix it here. Old documents keep the layout you pick now when you reprint.',
         ],
     ],

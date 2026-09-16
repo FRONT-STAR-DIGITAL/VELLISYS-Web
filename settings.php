@@ -17,6 +17,10 @@ if (isset($_GET['backup'])) {
     company_backup_send((string) $_GET['backup']);
 }
 
+if (isset($_GET['import_template'])) {
+    import_send_template((string) $_GET['import_template']);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
     $action = post('action');
@@ -238,6 +242,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         }
+    } elseif ($action === 'import_history') {
+        $kind = post('import_kind');
+        $file = $_FILES['import_file'] ?? [];
+        if (!isset(import_kinds()[$kind])) {
+            $error = 'Choose which template you are uploading: clients, documents, receipts, sales'
+                . (company_stock_enabled() ? ' or stock.' : '.');
+        } elseif (empty($file['tmp_name']) || !is_uploaded_file((string) $file['tmp_name'])) {
+            $error = 'Choose the filled Excel or CSV file to upload.';
+        } elseif ((int) ($file['size'] ?? 0) > 4 * 1024 * 1024) {
+            $error = 'That file is larger than 4 MB. Split the sheet and upload again.';
+        } else {
+            $res = import_run($kind, (string) $file['tmp_name'], (string) ($file['name'] ?? 'upload.xlsx'));
+            if (empty($res['ok'])) {
+                $error = (string) ($res['error'] ?? 'Could not import that file.');
+            } else {
+                flash(import_flash_message($res));
+                redirect('settings.php#import');
+            }
+        }
+        if ($error !== '') {
+            flash($error, 'err');
+            redirect('settings.php#import');
+        }
     }
 }
 
@@ -264,6 +291,7 @@ layout_start('Settings', $user);
     <a href="#bank"><?= icon('bank', 16) ?>Bank</a>
     <a href="#documents"><?= icon('invoice', 16) ?>Documents</a>
     <a href="#templates"><?= icon('palette', 16) ?>Templates</a>
+    <a href="#import"><?= icon('upload', 16) ?>Bring in books</a>
     <a href="#backup"><?= icon('download', 16) ?>Backup</a>
   </aside>
 
@@ -760,6 +788,47 @@ layout_start('Settings', $user);
       </div>
     </section>
     </form>
+    <section class="card settings-card" id="import">
+      <h2><?= icon('upload') ?>Bring in books</h2>
+      <p class="lede">After onboarding, drop in clients, old invoices, receipts and sales from a spreadsheet. Vellisys <strong>adds</strong> them to this desk. It does not replace what you have already issued, and it is not a backup restore.</p>
+      <ol class="import-steps">
+        <li>Download the matching Excel template. Keep the header row. Sample rows show the shape — delete them before you upload, or leave them if they are real.</li>
+        <li>Copy from your old books, a notebook, or another system. Dates as <span class="mono">YYYY-MM-DD</span> (for example 2025-06-15). On documents and sales, the same <strong>Group</strong> number means one sheet with several lines.</li>
+        <li>Upload one file at a time. Start with <strong>Clients</strong>, then <strong>Documents</strong> or <strong>Sales</strong>, then <strong>Receipts</strong> so payments can sit against invoices you just brought in.</li>
+        <li>Open Clients, Invoices and Receipts to check. If a document number is already on this desk, that row is skipped. Blank numbers get the next Vellisys number.</li>
+      </ol>
+      <div class="import-packs">
+        <?php foreach (import_kinds() as $ikey => $ipack): ?>
+          <article class="import-pack">
+            <h3><?= icon($ipack['icon'], 16) ?><?= h($ipack['title']) ?></h3>
+            <p><?= h($ipack['lead']) ?></p>
+            <a class="btn ghost sm" href="<?= h(url('settings.php?import_template=' . urlencode($ikey))) ?>"><?= icon('download', 14) ?>Download <?= class_exists('ZipArchive') ? 'Excel' : 'CSV' ?></a>
+          </article>
+        <?php endforeach; ?>
+      </div>
+      <form method="post" enctype="multipart/form-data" class="import-upload">
+        <?= csrf_field() ?>
+        <input type="hidden" name="action" value="import_history">
+        <div class="form-grid">
+          <div>
+            <label for="import_kind">This file is</label>
+            <select id="import_kind" name="import_kind" required>
+              <?php foreach (import_kinds() as $ikey => $ipack): ?>
+                <option value="<?= h($ikey) ?>"><?= h($ipack['title']) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div>
+            <label for="import_file">Filled file</label>
+            <input id="import_file" name="import_file" type="file" accept=".xlsx,.csv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" required>
+          </div>
+        </div>
+        <p class="hint">Excel (.xlsx) or CSV. Maximum 4 MB and about 2,500 rows. Matching client names are reused, not duplicated. Stock opening quantities only apply to new products.</p>
+        <div class="actions" style="margin-top:12px">
+          <button class="btn" type="submit"><?= icon('upload') ?>Upload and add to this desk</button>
+        </div>
+      </form>
+    </section>
     <section class="card settings-card" id="backup">
       <h2><?= icon('download') ?>Backup</h2>
       <p class="lede">A copy of this desk is saved each day. Download it, or upload a copy to restore products, sales, purchases and documents. Logins are not replaced.</p>

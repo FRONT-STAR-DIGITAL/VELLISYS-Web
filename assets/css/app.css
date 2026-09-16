@@ -1856,6 +1856,42 @@ table.grid tfoot td {
   color: var(--muted);
   line-height: 1.45;
 }
+.import-steps {
+  margin: 0 0 18px;
+  padding: 0 0 0 1.2rem;
+  max-width: 44rem;
+  color: var(--ink);
+  line-height: 1.5;
+}
+.import-steps li { margin: 0 0 8px; }
+.import-packs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 18px;
+}
+.import-pack {
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  border-radius: 12px;
+  padding: 14px 14px 16px;
+  background: color-mix(in srgb, var(--paper) 88%, white);
+  min-width: 0;
+}
+.import-pack h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.import-pack p {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.import-upload { margin-top: 4px; }
 .settings-account-actions {
   display: flex;
   flex-wrap: wrap;
@@ -3025,6 +3061,7 @@ input, select, textarea { font-weight: 400; }
   }
   .people-reset input { width: 100%; min-width: 0; }
   .settings-card { padding: 18px 16px 22px; }
+  .import-packs { grid-template-columns: 1fr; }
 }
 @media (max-width: 420px) {
   .page-head > .actions,
