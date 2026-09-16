@@ -130,6 +130,7 @@ function desk_feature_catalog(): array
         'email' => 'Email',
         'edit_documents' => 'Editing documents',
         'delete_documents' => 'Deleting documents',
+        'delete_stock' => 'Deleting products',
         'backdate_documents' => 'Creating backdated documents',
     ];
 }
@@ -160,7 +161,14 @@ function parse_user_features(mixed $raw, string $access = 'books'): array
             $out[] = $key;
         }
     }
-    return array_values(array_unique($out));
+    $out = array_values(array_unique($out));
+    if ($access !== 'sales' && in_array('stock', $out, true) && !in_array('delete_stock', $out, true)) {
+        $legacy = array_values(array_diff($allowed, ['delete_stock']));
+        if (array_diff($legacy, $out) === []) {
+            $out[] = 'delete_stock';
+        }
+    }
+    return $out;
 }
 
 function posted_user_features(string $access): array
@@ -211,6 +219,14 @@ function user_can_delete_documents(?array $user = null): bool
     return is_desk_admin($user) || user_can_feature('delete_documents', $user);
 }
 
+function user_can_delete_stock(?array $user = null): bool
+{
+    if (function_exists('company_stock_enabled') && !company_stock_enabled()) {
+        return false;
+    }
+    return is_desk_admin($user) || user_can_feature('delete_stock', $user);
+}
+
 function user_can_backdate_documents(?array $user = null): bool
 {
     return is_desk_admin($user) || user_can_feature('backdate_documents', $user);
@@ -238,7 +254,7 @@ function render_desk_feature_checks(array $selected, string $name = 'features[]'
     <input type="hidden" name="features_posted" value="1">
     <div class="feature-checks">
       <?php foreach (desk_feature_catalog() as $key => $label): ?>
-        <?php if (in_array($key, ['sale', 'stock', 'purchases'], true) && !$stockOn) { continue; } ?>
+        <?php if (in_array($key, ['sale', 'stock', 'purchases', 'delete_stock'], true) && !$stockOn) { continue; } ?>
         <label class="check">
           <input type="checkbox" name="<?= h($name) ?>" value="<?= h($key) ?>" <?= in_array($key, $selected, true) ? 'checked' : '' ?>>
           <?= h($label) ?>

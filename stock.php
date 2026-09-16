@@ -43,6 +43,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('stock.php?tab=items');
         }
         $tab = 'items';
+    } elseif ($action === 'delete_item') {
+        $id = (int) post('item_id');
+        $gone = stock_delete_item($id);
+        if (empty($gone['ok'])) {
+            $error = (string) ($gone['error'] ?? 'Could not delete that product.');
+        } else {
+            flash('Deleted ' . $gone['name'] . '.');
+            redirect('stock.php?tab=items');
+        }
+        $tab = 'items';
     } elseif ($action === 'import') {
         $file = $_FILES['file'] ?? [];
         if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
@@ -246,7 +256,10 @@ layout_start('Stock', $user);
             <td><?= h($row['name']) ?></td>
             <td class="right mono"><?= h(stock_qty_label((float) $row['qty_on_hand'])) ?></td>
             <td class="right mono"><?= h(stock_qty_label((float) $row['reorder_level'])) ?></td>
-            <td class="row-actions"><a class="btn ghost sm" href="<?= h(url('stock.php?tab=items&edit=' . (int) $row['id'])) ?>"><?= icon('pencil', 14) ?>Edit</a></td>
+            <td class="row-actions">
+              <a class="btn ghost sm" href="<?= h(url('stock.php?tab=items&edit=' . (int) $row['id'])) ?>"><?= icon('pencil', 14) ?>Edit</a>
+              <?php stock_delete_button((int) $row['id']); ?>
+            </td>
           </tr>
         <?php endforeach; ?>
       </tbody>
@@ -304,6 +317,9 @@ layout_start('Stock', $user);
       <div class="actions" style="margin-top:12px">
         <button class="btn" type="submit"><?= icon('check') ?>Save product</button>
         <?php if ($edit): ?><a class="btn ghost" href="<?= h(url('stock.php?tab=items')) ?>">Cancel</a><?php endif; ?>
+        <?php if ($edit && user_can_delete_stock()): ?>
+          <button class="btn danger" type="submit" name="action" value="delete_item" formnovalidate onclick="return confirm('Delete this product? Sheets already issued keep the name. This cannot be undone.');"><?= icon('trash') ?>Delete product</button>
+        <?php endif; ?>
       </div>
     </form>
   </div>
@@ -352,6 +368,7 @@ layout_start('Stock', $user);
               <td><?= !empty($row['taxed']) ? 'Y' : 'N' ?></td>
               <td class="row-actions">
                 <a class="btn ghost sm" href="<?= h(url('stock.php?tab=items&edit=' . (int) $row['id'])) ?>"><?= icon('pencil', 14) ?>Edit</a>
+                <?php stock_delete_button((int) $row['id']); ?>
                 <a class="btn ghost sm" href="<?= h(url('sale.php')) ?>"><?= icon('cart', 14) ?>Sell</a>
               </td>
             </tr>
@@ -679,7 +696,10 @@ layout_start('Stock', $user);
             <td class="right mono"><?= h(stock_qty_label((float) $row['qty_on_hand'])) ?></td>
             <td class="right mono"><?= h(money((float) $row['qty_on_hand'] * (float) $row['buy_price'])) ?></td>
             <td class="right mono"><?= h(money((float) $row['qty_on_hand'] * (float) $row['sell_price'])) ?></td>
-            <td class="row-actions"><a class="btn ghost sm" href="<?= h(url('stock.php?tab=items&edit=' . (int) $row['id'])) ?>"><?= icon('pencil', 14) ?>Edit</a></td>
+            <td class="row-actions">
+              <a class="btn ghost sm" href="<?= h(url('stock.php?tab=items&edit=' . (int) $row['id'])) ?>"><?= icon('pencil', 14) ?>Edit</a>
+              <?php stock_delete_button((int) $row['id']); ?>
+            </td>
           </tr>
         <?php endforeach; ?>
       </tbody>

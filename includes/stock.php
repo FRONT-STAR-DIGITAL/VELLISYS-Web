@@ -184,6 +184,52 @@ function stock_save_item(array $fields, ?int $id = null): array
     return ['ok' => true, 'id' => (int) $newId];
 }
 
+function stock_delete_item(int $id): array
+{
+    if (function_exists('user_can_delete_stock') && !user_can_delete_stock()) {
+        return ['ok' => false, 'error' => 'Your login cannot delete products.'];
+    }
+    $row = stock_item($id);
+    if (!$row) {
+        return ['ok' => false, 'error' => 'That product is not on this desk.'];
+    }
+    $cid = current_company_id();
+    db_exec(
+        'UPDATE document_items di INNER JOIN documents d ON d.id = di.document_id SET di.stock_item_id = NULL WHERE di.stock_item_id = ? AND d.company_id = ?',
+        'ii',
+        [$id, $cid]
+    );
+    db_exec(
+        'DELETE cl FROM stock_count_lines cl INNER JOIN stock_counts c ON c.id = cl.count_id WHERE cl.item_id = ? AND c.company_id = ?',
+        'ii',
+        [$id, $cid]
+    );
+    db_exec('DELETE FROM stock_moves WHERE item_id = ? AND company_id = ?', 'ii', [$id, $cid]);
+    db_exec('DELETE FROM stock_items WHERE id = ? AND company_id = ?', 'ii', [$id, $cid]);
+    if (function_exists('record_company_activity')) {
+        record_company_activity('stock', 'Product deleted', [
+            'detail' => (string) $row['name'],
+            'href' => 'stock.php?tab=items',
+        ]);
+    }
+    return ['ok' => true, 'name' => (string) $row['name']];
+}
+
+function stock_delete_button(int $id, string $class = 'btn danger sm'): void
+{
+    if ($id <= 0 || (function_exists('user_can_delete_stock') && !user_can_delete_stock())) {
+        return;
+    }
+    ?>
+    <form method="post" onsubmit="return confirm('Delete this product from the list? Sheets already issued keep the name. This cannot be undone.');">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="delete_item">
+      <input type="hidden" name="item_id" value="<?= $id ?>">
+      <button class="<?= h($class) ?>" type="submit"><?= icon('trash', 14) ?>Delete</button>
+    </form>
+    <?php
+}
+
 function stock_move(int $itemId, string $kind, float $qty, float $unitCost = 0, ?int $documentId = null, string $note = ''): void
 {
     if ($qty == 0.0) {
