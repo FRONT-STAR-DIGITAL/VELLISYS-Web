@@ -1715,12 +1715,15 @@ function current_company_id(): int
     return (int) ($_SESSION['company_id'] ?? 0);
 }
 
-function current_company(): ?array
+function current_company(bool $refresh = false): ?array
 {
     static $cache = [];
     $id = current_company_id();
     if ($id <= 0) {
         return null;
+    }
+    if ($refresh) {
+        unset($cache[$id]);
     }
     if (!array_key_exists($id, $cache)) {
         $cache[$id] = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$id]);
@@ -1728,9 +1731,74 @@ function current_company(): ?array
     return $cache[$id];
 }
 
+function company_timezone_identifiers(): array
+{
+    static $ids = null;
+    if ($ids === null) {
+        $ids = DateTimeZone::listIdentifiers(DateTimeZone::ALL);
+    }
+    return $ids;
+}
+
+function sanitize_company_timezone(string $id): string
+{
+    $id = trim($id);
+    if ($id !== '' && in_array($id, company_timezone_identifiers(), true)) {
+        return $id;
+    }
+    return 'Africa/Kampala';
+}
+
+function company_timezone_id(?array $company = null): string
+{
+    $company = $company ?? current_company();
+    return sanitize_company_timezone((string) ($company['timezone'] ?? ''));
+}
+
+function desk_timezone_groups(): array
+{
+    $groups = [];
+    foreach (company_timezone_identifiers() as $id) {
+        $slash = strpos($id, '/');
+        $region = $slash === false ? 'Other' : substr($id, 0, $slash);
+        $groups[$region][] = $id;
+    }
+    ksort($groups);
+    return $groups;
+}
+
+function company_timezone_label(string $id): string
+{
+    $name = str_replace('_', ' ', $id);
+    try {
+        $now = new DateTimeImmutable('now', new DateTimeZone($id));
+        return 'GMT' . $now->format('P') . ' · ' . $name;
+    } catch (Throwable $e) {
+        return $name;
+    }
+}
+
+function apply_desk_timezone(): void
+{
+    if (($_SESSION['role'] ?? '') === 'platform') {
+        date_default_timezone_set('Africa/Kampala');
+        return;
+    }
+    if (current_company_id() <= 0) {
+        return;
+    }
+    date_default_timezone_set(company_timezone_id());
+}
+
 function desk_now(): DateTimeImmutable
 {
-    return new DateTimeImmutable('now', new DateTimeZone('Africa/Kampala'));
+    $name = (($_SESSION['role'] ?? '') === 'platform') ? 'Africa/Kampala' : company_timezone_id();
+    try {
+        $tz = new DateTimeZone($name);
+    } catch (Throwable $e) {
+        $tz = new DateTimeZone('Africa/Kampala');
+    }
+    return new DateTimeImmutable('now', $tz);
 }
 
 function is_platform(?array $user = null): bool

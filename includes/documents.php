@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 function today(): string
 {
-    return date('Y-m-d');
+    return desk_now()->format('Y-m-d');
 }
 
 function line_amount(array $item): float

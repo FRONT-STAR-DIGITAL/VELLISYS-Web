@@ -1004,8 +1004,9 @@ document.querySelectorAll('[data-add-template]').forEach(function (btn) {
   if (!dateEl) return;
   function partsOf(now) {
     try {
+      var zone = root.getAttribute('data-timezone') || 'Africa/Kampala';
       var fmt = new Intl.DateTimeFormat('en-GB', {
-        timeZone: 'Africa/Kampala',
+        timeZone: zone,
         weekday: 'short',
         day: 'numeric',
         month: 'short',

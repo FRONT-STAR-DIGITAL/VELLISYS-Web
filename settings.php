@@ -205,9 +205,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tpl = array_key_exists(post('doc_template'), doc_templates()) ? post('doc_template') : 'folio';
         db_exec('UPDATE documents SET doc_template = ? WHERE company_id = ?', 'si', [$tpl, current_company_id()]);
         branding(true);
+        $tz = company_timezone_id();
+        if (db_has_column(db(), 'companies', 'timezone')) {
+            $tz = sanitize_company_timezone(post('timezone'));
+            db_exec('UPDATE companies SET timezone = ? WHERE id = ?', 'si', [$tz, current_company_id()]);
+            current_company(true);
+            apply_desk_timezone();
+        }
         unset($_SESSION['branding_welcome']);
         mark_branding_saved($cid, $user);
-        flash('Settings saved. This design now prints on every document. USD converts at your ' . default_currency() . ' rate.');
+        flash('Settings saved. Desk dates use ' . str_replace('_', ' ', $tz) . '. This design now prints on every document. USD converts at your ' . default_currency() . ' rate.');
         if (function_exists('record_company_activity')) {
             record_company_activity('settings', 'Letterhead and colours saved', [
                 'detail' => 'Document layout ' . $tpl,
@@ -644,6 +651,20 @@ layout_start('Settings', $user);
         <div style="grid-column:1 / -1">
           <label for="address">Address</label>
           <input id="address" name="address" value="<?= h($b['address']) ?>">
+        </div>
+        <div style="grid-column:1 / -1">
+          <label for="timezone">Time zone</label>
+          <?php $deskTz = company_timezone_id($deskCompany ?: null); ?>
+          <select id="timezone" name="timezone">
+            <?php foreach (desk_timezone_groups() as $region => $zones): ?>
+              <optgroup label="<?= h($region) ?>">
+                <?php foreach ($zones as $zoneId): ?>
+                  <option value="<?= h($zoneId) ?>"<?= $zoneId === $deskTz ? ' selected' : '' ?>><?= h(company_timezone_label($zoneId)) ?></option>
+                <?php endforeach; ?>
+              </optgroup>
+            <?php endforeach; ?>
+          </select>
+          <p class="hint">The desk clock, “today” on new sheets, and dated reports use this zone. Vellisys headquarters stays on Africa/Kampala.</p>
         </div>
       </div>
       <?php $settings_save(); ?>

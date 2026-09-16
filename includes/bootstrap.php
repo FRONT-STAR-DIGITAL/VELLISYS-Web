@@ -68,3 +68,11 @@ require_once ROOT_PATH . '/includes/docx.php';
 require_once ROOT_PATH . '/includes/pdf.php';
 require_once ROOT_PATH . '/includes/layout.php';
 require_once ROOT_PATH . '/includes/push.php';
+
+if (function_exists('apply_desk_timezone')) {
+    try {
+        apply_desk_timezone();
+    } catch (Throwable $e) {
+        date_default_timezone_set('Africa/Kampala');
+    }
+}

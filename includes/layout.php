@@ -4,8 +4,12 @@ declare(strict_types=1);
 function render_top_clock(): void
 {
     $now = desk_now();
+    $tz = company_timezone_id();
+    if (($_SESSION['role'] ?? '') === 'platform') {
+        $tz = 'Africa/Kampala';
+    }
     ?>
-    <div class="top-clock" data-clock>
+    <div class="top-clock" data-clock data-timezone="<?= h($tz) ?>" title="<?= h(str_replace('_', ' ', $tz)) ?>">
       <?= icon('calendar', 18) ?>
       <span data-clock-date><?= h($now->format('D j M Y')) ?></span>
     </div>

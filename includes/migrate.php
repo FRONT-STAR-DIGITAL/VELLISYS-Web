@@ -24,7 +24,7 @@ function folio_schema_ready_file(): string
     if (!is_dir($dir)) {
         @mkdir($dir, 0700, true);
     }
-    return $dir . '/schema-46.ok';
+    return $dir . '/schema-47.ok';
 }
 
 function folio_ensure_logo_bg(mysqli $db): void
@@ -477,7 +477,7 @@ function folio_migrate(mysqli $db): void
         return;
     }
     $verRow = @$db->query("SELECT v FROM schema_meta WHERE k='version'");
-    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 46) {
+    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 47) {
         @touch($ready);
         $done = true;
         return;
@@ -492,7 +492,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 46) {
+    if ($ver >= 47) {
         @touch($ready);
         $done = true;
         return;
@@ -735,8 +735,11 @@ function folio_migrate(mysqli $db): void
     if ($ver < 46) {
         folio_migrate_term_and_welcome($db);
     }
+    if ($ver < 47) {
+        folio_migrate_company_timezone($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '46')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '47')");
     @touch($ready);
     $done = true;
 }
@@ -1181,6 +1184,14 @@ function folio_migrate_term_and_welcome(mysqli $db): void
         $db->query('ALTER TABLE users ADD COLUMN welcome_pop_seen_at DATETIME NULL');
         $db->query("UPDATE users SET welcome_pop_seen_at = COALESCE(first_login_at, created_at, NOW()) WHERE welcome_pop_seen_at IS NULL AND role <> 'platform' AND first_login_at IS NOT NULL");
         db_has_column($db, 'users', 'welcome_pop_seen_at', true);
+    }
+}
+
+function folio_migrate_company_timezone(mysqli $db): void
+{
+    if (!db_has_column($db, 'companies', 'timezone')) {
+        $db->query("ALTER TABLE companies ADD COLUMN timezone VARCHAR(64) NOT NULL DEFAULT 'Africa/Kampala'");
+        db_has_column($db, 'companies', 'timezone', true);
     }
 }
 
