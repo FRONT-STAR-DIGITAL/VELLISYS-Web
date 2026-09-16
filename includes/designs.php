@@ -86,8 +86,16 @@ function render_settlement(array $d): void
     <?php
 }
 
+function sheet_shows_money(array $d): bool
+{
+    return kind_shows_money((string) ($d['doc']['kind'] ?? ''));
+}
+
 function render_fx_equiv(array $d, $amount = null): void
 {
+    if (!sheet_shows_money($d)) {
+        return;
+    }
     $amt = $amount === null ? (float) $d['total'] : (float) $amount;
     $alt = $d['alt_cur'] ?? other_currency($d['cur']);
     $home = $d['home_cur'] ?? default_currency();
@@ -528,17 +536,21 @@ function render_sheet_ledger(array $d): void
     <?php render_line_table($doc, $d['color'], $d['tint']); ?>
     <div class="ledger-bottom">
       <table class="ledger-acct">
+        <?php if (sheet_shows_money($d)): ?>
         <tr><th>Acct.</th><td><?= h($brand['account_number'] ?: '-') ?></td></tr>
         <?php if ($doc['kind'] === 'receipt'): ?>
           <tr><th>RECEIVED:</th><td><?= h(money($d['settlement']['received'] ?? $d['total'], $d['cur'])) ?></td></tr>
           <tr><th>DUE:</th><td><?= h(money($d['settlement']['balance'] ?? 0, $d['cur'])) ?></td></tr>
         <?php endif; ?>
+        <?php endif; ?>
       </table>
+      <?php if (sheet_shows_money($d)): ?>
       <div class="ledger-pay">
         <?php foreach (['cash' => 'Cash', 'cheque' => 'Cheque', 'mobile-money' => 'Mobile money', 'bank-transfer' => 'Bank'] as $k => $label): ?>
           <span class="tick <?= sheet_tick($d['method'], $k) ?>"><?= h($label) ?></span>
         <?php endforeach; ?>
       </div>
+      <?php endif; ?>
       <div class="ledger-sign">
         <div><span>From</span><b><?= h($brand['name']) ?></b></div>
         <div><span>To</span><b><?= h($doc['party_name'] ?? '') ?></b></div>
@@ -584,7 +596,7 @@ function render_sheet_bill(array $d, string $variant): void
       <div class="dot">Date <b><?= h(format_date($doc['date'])) ?></b></div>
       <div class="dot">Email <b><?= h($doc['party_email'] ?? '-') ?></b></div>
       <?php if (!empty($doc['due_date'])): ?><div class="dot">Due <b><?= h(format_date($doc['due_date'])) ?></b></div><?php endif; ?>
-      <div class="dot">Currency <b><?= h($d['cur']) ?></b></div>
+      <?php if (sheet_shows_money($d)): ?><div class="dot">Currency <b><?= h($d['cur']) ?></b></div><?php endif; ?>
     </div>
   </div>
   <?php if ($doc['kind'] === 'letter'): ?>
@@ -592,6 +604,7 @@ function render_sheet_bill(array $d, string $variant): void
     <?php render_letter_body($doc); ?>
   <?php else: ?>
     <?php render_line_table($doc, $primary, $variant === 'amber' ? $d['accent_tint'] : $d['tint'], ['serial' => true, 'class' => 'bill-lines']); ?>
+    <?php if (sheet_shows_money($d)): ?>
     <div class="bill-foot">
       <div class="bill-words"><span>In words</span><b><?= h(amount_in_words($d['total'], $d['cur'])) ?></b></div>
       <div class="bill-sums">
@@ -602,6 +615,7 @@ function render_sheet_bill(array $d, string $variant): void
         <?php render_settlement($d); ?>
       </div>
     </div>
+    <?php endif; ?>
     <div class="bill-signs">
       <div>Received by</div>
       <div>Authorized by</div>
@@ -630,9 +644,11 @@ function render_twin_half(array $d, string $label): void
       <div class="twin-meta">Receipt No. <b><?= h($doc['number']) ?></b> · Date <b><?= h(format_date($doc['date'])) ?></b></div>
       <div class="twin-fields">
         <div><span>Name</span><b><?= h($doc['party_name'] ?? '') ?></b></div>
+        <?php if (sheet_shows_money($d)): ?>
         <div><span>Amount</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
         <?php render_fx_equiv($d); ?>
         <div><span>Paid how</span><b><?= h($d['methods'][$d['method']] ?? ($d['method'] ?: '-')) ?></b></div>
+        <?php endif; ?>
       </div>
       <?php if ($doc['kind'] === 'letter'): ?>
         <?php render_letter_subject($doc); ?>
@@ -641,11 +657,13 @@ function render_twin_half(array $d, string $label): void
         <?php render_line_table($doc, $d['deep'], $d['accent_tint'], ['min' => 3, 'class' => 'tiny twin-lines', 'compact' => true]); ?>
         <?php render_settlement($d); ?>
       <?php endif; ?>
+      <?php if (sheet_shows_money($d)): ?>
       <div class="twin-pay">
         <?php foreach (['cash' => 'CASH', 'cheque' => 'CHEQUE', 'bank-transfer' => 'BANK', 'mobile-money' => 'MOMO'] as $k => $lab): ?>
           <span class="tick <?= sheet_tick($d['method'], $k) ?>"><?= h($lab) ?></span>
         <?php endforeach; ?>
       </div>
+      <?php endif; ?>
       <div class="twin-sign">Authorized signature</div>
     </div>
     <?php
@@ -702,7 +720,7 @@ function render_sheet_stripe(array $d): void
       <div><span>Number</span><b><?= h($doc['number']) ?></b></div>
       <div><span>Date</span><b><?= h(format_date($doc['date'])) ?></b></div>
       <?php if (!empty($doc['due_date'])): ?><div><span>Due</span><b><?= h(format_date($doc['due_date'])) ?></b></div><?php endif; ?>
-      <div><span>Currency</span><b><?= h($d['cur']) ?></b></div>
+      <?php if (sheet_shows_money($d)): ?><div><span>Currency</span><b><?= h($d['cur']) ?></b></div><?php endif; ?>
     </div>
     <?php if ($doc['kind'] === 'letter'): ?>
       <?php render_letter_subject($doc); ?>
@@ -710,6 +728,7 @@ function render_sheet_stripe(array $d): void
     <?php else: ?>
       <p class="stripe-h">Line details</p>
       <?php render_line_table($doc, $d['color'], $d['accent_tint']); ?>
+      <?php if (sheet_shows_money($d)): ?>
       <div class="stripe-payrow">
         <div>
           <span>Payment method</span>
@@ -723,6 +742,7 @@ function render_sheet_stripe(array $d): void
           <?php render_fx_equiv($d); ?>
         </div>
       </div>
+      <?php endif; ?>
     <?php endif; ?>
   </div>
 </article>
@@ -758,7 +778,7 @@ function render_sheet_estate(array $d): void
     <div>
       <span>Date</span><b><?= h(format_date($doc['date'])) ?></b>
       <?php if (!empty($doc['due_date'])): ?><span>Due</span><b><?= h(format_date($doc['due_date'])) ?></b><?php endif; ?>
-      <span>Currency</span><b><?= h($d['cur']) ?></b>
+      <?php if (sheet_shows_money($d)): ?><span>Currency</span><b><?= h($d['cur']) ?></b><?php endif; ?>
     </div>
   </div>
   <?php if ($doc['kind'] === 'letter'): ?>
@@ -771,12 +791,14 @@ function render_sheet_estate(array $d): void
         <p><?= h($d['comments'] ?: ($brand['payment_note'] ?? '')) ?></p>
         <?php render_settlement($d); ?>
       </div>
+      <?php if (sheet_shows_money($d)): ?>
       <div class="estate-total">
         <span>Total</span>
         <b><?= h(money($d['total'], $d['cur'])) ?></b>
         <?php render_fx_equiv($d); ?>
         <small><?= h(amount_in_words($d['total'], $d['cur'])) ?></small>
       </div>
+      <?php endif; ?>
     </div>
   <?php endif; ?>
 </article>
@@ -808,7 +830,7 @@ function render_sheet_night(array $d): void
       <div>
         <span>Reference</span>
         <strong><?= h($doc['number']) ?></strong>
-        <p><?= h(format_date($doc['date'])) ?> · <?= h($d['cur']) ?>
+        <p><?= h(format_date($doc['date'])) ?><?php if (sheet_shows_money($d)): ?> · <?= h($d['cur']) ?><?php endif; ?>
           <?php if (!empty($doc['due_date'])): ?><br>Due <?= h(format_date($doc['due_date'])) ?><?php endif; ?>
         </p>
       </div>
@@ -818,6 +840,7 @@ function render_sheet_night(array $d): void
       <?php render_letter_body($doc); ?>
     <?php else: ?>
       <?php render_line_table($doc, $d['color'], '#ffffff', ['serial' => true]); ?>
+      <?php if (sheet_shows_money($d)): ?>
       <div class="night-total">
         <div>
           <span>In words</span>
@@ -829,6 +852,7 @@ function render_sheet_night(array $d): void
           <?php render_fx_equiv($d); ?>
         </div>
       </div>
+      <?php endif; ?>
     <?php endif; ?>
     <p class="night-foot"><?= h($brand['phone']) ?> · <?= h($brand['email']) ?> · <?= h($brand['website']) ?></p>
   </div>
@@ -853,7 +877,7 @@ function render_sheet_atelier(array $d): void
       <strong><?= h($doc['number']) ?></strong>
       <span>Issued <?= h(format_date($doc['date'])) ?></span>
       <?php if (!empty($doc['due_date'])): ?><span>Due <?= h(format_date($doc['due_date'])) ?></span><?php endif; ?>
-      <span><?= h($d['cur']) ?></span>
+      <?php if (sheet_shows_money($d)): ?><span><?= h($d['cur']) ?></span><?php endif; ?>
     </div>
   </header>
   <hr class="atelier-rule">
@@ -873,6 +897,7 @@ function render_sheet_atelier(array $d): void
         <span>Notes</span>
         <p><?= h($d['comments'] ?: ($brand['payment_note'] ?? '')) ?></p>
       </div>
+      <?php if (sheet_shows_money($d)): ?>
       <div class="atelier-sums">
         <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
         <?php if (!empty($d['show_vat'])): ?><div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
@@ -880,6 +905,7 @@ function render_sheet_atelier(array $d): void
         <?php render_fx_equiv($d); ?>
         <?php render_settlement($d); ?>
       </div>
+      <?php endif; ?>
     </div>
   <?php endif; ?>
   <footer class="atelier-foot">
@@ -910,7 +936,7 @@ function render_sheet_seal(array $d): void
     <div><span>Reference</span><b><?= h($doc['number']) ?></b></div>
     <div><span>Date</span><b><?= h(format_date($doc['date'])) ?></b></div>
     <?php if (!empty($doc['due_date'])): ?><div><span>Due</span><b><?= h(format_date($doc['due_date'])) ?></b></div><?php endif; ?>
-    <div><span>Currency</span><b><?= h($d['cur']) ?></b></div>
+    <?php if (sheet_shows_money($d)): ?><div><span>Currency</span><b><?= h($d['cur']) ?></b></div><?php endif; ?>
   </div>
   <p class="seal-for"><span class="<?= $doc['kind'] === 'letter' ? 'd-to-word' : '' ?>"><?= $doc['kind'] === 'letter' ? 'To' : 'In account with' ?></span> <strong><?= h($doc['party_name'] ?? '') ?></strong></p>
   <?php if ($doc['kind'] === 'letter'): ?>
@@ -920,6 +946,7 @@ function render_sheet_seal(array $d): void
     <?php render_line_table($doc, $d['deep'], $d['tint']); ?>
     <div class="seal-end">
       <p><?= h($d['comments'] ?: ($brand['payment_note'] ?? '')) ?></p>
+      <?php if (sheet_shows_money($d)): ?>
       <aside>
         <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
         <?php if (!empty($d['show_vat'])): ?><div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
@@ -927,6 +954,7 @@ function render_sheet_seal(array $d): void
         <?php render_fx_equiv($d); ?>
         <?php render_settlement($d); ?>
       </aside>
+      <?php endif; ?>
     </div>
   <?php endif; ?>
   <footer class="seal-sign">
@@ -957,7 +985,7 @@ function render_sheet_mark(array $d): void
       <p class="mark-kind"><?= h($d['heading']) ?></p>
       <div><span>Date</span><b><?= h(format_date($doc['date'])) ?></b></div>
       <div><span>No.</span><b><?= h($doc['number']) ?></b></div>
-      <div><span>Currency</span><b><?= h($d['cur']) ?></b></div>
+      <?php if (sheet_shows_money($d)): ?><div><span>Currency</span><b><?= h($d['cur']) ?></b></div><?php endif; ?>
     </div>
   </header>
   <hr class="mark-rule">
@@ -975,6 +1003,7 @@ function render_sheet_mark(array $d): void
       <div class="d-notes">
         <div class="d-notes-body"><?= h($d['comments'] ?: ($brand['payment_note'] ?? '')) ?></div>
       </div>
+      <?php if (sheet_shows_money($d)): ?>
       <div class="d-sums">
         <div class="d-sum"><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
         <?php if (!empty($d['show_vat'])): ?><div class="d-sum"><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
@@ -982,6 +1011,7 @@ function render_sheet_mark(array $d): void
         <?php render_fx_equiv($d); ?>
         <?php render_settlement($d); ?>
       </div>
+      <?php endif; ?>
     </div>
   <?php endif; ?>
 </article>
@@ -1022,6 +1052,7 @@ function render_sheet_bond(array $d): void
     <?php render_line_table($doc, $d['deep'], '#ffffff', ['class' => 'bond-lines', 'compact' => true]); ?>
     <div class="bond-end">
       <p><?= h($d['comments'] ?: ($brand['payment_note'] ?? '')) ?></p>
+      <?php if (sheet_shows_money($d)): ?>
       <aside>
         <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
         <?php if (!empty($d['show_vat'])): ?><div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
@@ -1029,6 +1060,7 @@ function render_sheet_bond(array $d): void
         <?php render_fx_equiv($d); ?>
         <?php render_settlement($d); ?>
       </aside>
+      <?php endif; ?>
     </div>
   <?php endif; ?>
   <footer class="bond-foot"><?= h($brand['website'] ?: $brand['email']) ?></footer>

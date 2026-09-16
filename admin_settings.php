@@ -97,7 +97,7 @@ layout_admin_start('Settings', $user);
     <div>
       <label for="alert_email">Your Gmail (password resets and mailbox tests)</label>
       <input id="alert_email" name="alert_email" type="email" value="<?= h($alertEmail) ?>" placeholder="you@gmail.com" autocomplete="off">
-      <p class="hint">Vellisys letters still leave from <?= h(product_email()) ?>. Hostinger often files mail to that address in Spam, and Spam is not forwarded to Gmail. Put the Gmail you actually open here. Password-reset requests and a copy of Send test will go there as well. On webmail.hostinger.com, open Inbox (not Spam) and mark Vellisys as not spam once.</p>
+      <p class="hint">Vellisys letters still leave from <?= h(product_email()) ?> to clients. Hostinger files mail from info@ to info@ as Spam, and Spam is not forwarded to Gmail. Put the Gmail you actually open here for password-reset requests and copies of Vellisys letters. Company Send test goes to the company mailbox, not to info@.</p>
     </div>
   </div>
   <div class="actions" style="padding:6px 22px 22px">
