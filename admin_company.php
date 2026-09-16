@@ -234,31 +234,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $error = 'Save a mailbox email and password before testing.';
                 } else {
                     $coBrand = branding_for($id);
-                    $watch = product_email();
                     $from = (string) $acct['from_email'];
-                    $fromName = (string) ($acct['from_name'] ?? $company['name']);
-                    $html = branded_company_wrap($coBrand, '<p style="margin:0;color:#000000">Vellisys connected this mailbox for <strong>' . h($company['name']) . '</strong>. Quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors and custom mail will leave from this address, with your logo on white.</p><p style="margin:14px 0 0;color:#000000">This test was sent so a Vellisys admin can see how the desk mail looks.</p>', 'Mailbox connected');
-                    $text = 'Vellisys connected this mailbox for ' . $company['name'] . '.';
+                    $html = branded_company_wrap($coBrand, '<p style="margin:0 0 14px;color:#000000">This is a test from <strong>' . h($company['name']) . '</strong>.</p><p style="margin:0 0 14px;color:#000000">Reminders, custom letters, quotations, invoices and receipts leave from <strong>' . h($from) . '</strong> in these colours, with this logo and these contact details.</p><p style="margin:0;color:#000000">If you can read this, the company mailbox is sending.</p>', 'Mailbox test');
+                    $text = 'Mailbox test from ' . $company['name'] . ' (' . $from . ").\n\nSent from Vellisys system";
                     $inlines = company_logo_inlines($coBrand);
-                    $test = deliver_mail($acct, $watch, 'Mailbox test: ' . $company['name'], $html, $text, $from, $inlines);
-                    $inbox = false;
-                    if (function_exists('mail_deliver_to_platform_inbox')) {
-                        $inbox = mail_deliver_to_platform_inbox($from, $fromName, $watch, 'Mailbox test: ' . $company['name'], $html, $text, $from, $inlines);
+                    $targets = [$from];
+                    $alert = platform_alert_email();
+                    if ($alert !== '' && !emails_same($alert, $from)) {
+                        $targets[] = $alert;
                     }
-                    $also = [];
+                    $okTo = [];
+                    $err = '';
                     $prevCopy = $GLOBALS['folio_skip_platform_copy'] ?? null;
                     $GLOBALS['folio_skip_platform_copy'] = true;
-                    if (!emails_same($from, $watch)) {
-                        $self = deliver_mail($acct, $from, 'Mailbox test: ' . $company['name'], $html, $text, $from, $inlines);
-                        if (!empty($self['ok'])) {
-                            $also[] = $from;
-                        }
-                    }
-                    $alert = platform_alert_email();
-                    if ($alert !== '' && !emails_same($alert, $watch) && !emails_same($alert, $from)) {
-                        $extra = deliver_mail($acct, $alert, 'Mailbox test: ' . $company['name'], $html, $text, $from, $inlines);
-                        if (!empty($extra['ok'])) {
-                            $also[] = $alert;
+                    foreach ($targets as $toAddr) {
+                        $test = deliver_mail($acct, $toAddr, 'Mailbox test: ' . $company['name'], $html, $text, $from, $inlines);
+                        log_email(null, (int) $user['id'], $toAddr, 'Mailbox test: ' . $company['name'], $text, !empty($test['ok']), (string) ($test['error'] ?? ''), $from);
+                        if (!empty($test['ok'])) {
+                            $okTo[] = $toAddr;
+                        } else {
+                            $err = (string) ($test['error'] ?? 'SMTP did not accept the message.');
                         }
                     }
                     if ($prevCopy === null) {
@@ -266,18 +261,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     } else {
                         $GLOBALS['folio_skip_platform_copy'] = $prevCopy;
                     }
-                    log_email(null, (int) $user['id'], $watch, 'Mailbox test: ' . $company['name'], 'From ' . $from . "\n\nVellisys connected this mailbox for " . $company['name'] . '.', !empty($test['ok']) || $inbox, (string) ($test['error'] ?? ''), $from);
-                    $where = [$watch];
-                    if ($inbox) {
-                        $where[0] .= ' Inbox';
-                    }
-                    foreach ($also as $addr) {
-                        $where[] = $addr;
-                    }
-                    if (!empty($test['ok']) || $inbox || $also) {
-                        flash('Test sent from ' . $from . ' to ' . implode(' and ', $where) . '. If Hostinger webmail still hides it, open Inbox (not Spam). Spam is not forwarded to Gmail.');
+                    if ($okTo) {
+                        flash('Company test sent from ' . $from . ' (their logo and colours) to ' . implode(' and ', $okTo) . '. Open that inbox - not info@vellisys.com.');
                     } else {
-                        flash('Test queued for ' . $watch . ': ' . ($test['error'] ?? 'SMTP did not accept the message.'), 'err');
+                        flash('Company test was not sent from ' . $from . ': ' . ($err !== '' ? $err : 'SMTP did not accept the message.') . ' Check the Gmail App Password (16 characters) and that the provider is Gmail.', 'err');
                     }
                     redirect('admin_company.php?id=' . $id);
                 }
@@ -926,7 +913,7 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
     <p class="hint" style="margin:8px 0 8px" data-mail-help><?= h(mail_provider_hint((string) ($company['mail_provider'] ?? 'hostinger'))) ?></p>
     <p class="hint" style="margin:0 0 12px">
       The company desk sends quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors and custom mail from this address and cannot edit it.
-      Send test delivers a branded sample to <?= h(product_email()) ?> (placed in Inbox, not only Spam) and also to the Gmail or mailbox you saved above, so you can open that inbox and see how the desk mail looks.
+      Send test sends a sample in the company's colours, logo and contact details from the company mailbox to that mailbox (and to Your Gmail in super-admin Settings). It does not use the Vellisys letterhead and it is not sent to <?= h(product_email()) ?>.
       <?= company_mail_account($company) ? 'Mailbox is ready to send.' : 'Add the email and password to start sending.' ?>
     </p>
     <div class="actions">

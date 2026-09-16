@@ -54,8 +54,12 @@ function email_html_preview(string $html): string
 function branded_company_wrap(array $brand, string $innerHtml, string $kicker = ''): string
 {
     $name = (string) ($brand['name'] ?? 'Your company');
-    $blue = parse_hex_color($brand['brand_color'] ?? '', '#1E4EFF');
-    $navy = parse_hex_color($brand['brand_deep'] ?? '', '#08143A');
+    $primary = parse_hex_color($brand['brand_color'] ?? '', '#82B440');
+    $accent = parse_hex_color($brand['brand_accent'] ?? '', $primary);
+    $deep = parse_hex_color($brand['brand_deep'] ?? '', '');
+    if ($deep === '') {
+        $deep = function_exists('hex_shade') ? hex_shade($primary, 0.52) : '#08143A';
+    }
     $white = '#FFFFFF';
     $black = '#000000';
     $kicker = $kicker !== '' ? $kicker : $name;
@@ -63,33 +67,51 @@ function branded_company_wrap(array $brand, string $innerHtml, string $kicker = 
     $fullLogo = $path !== '' ? ROOT_PATH . '/' . ltrim($path, '/') : '';
     $logoHtml = ($fullLogo !== '' && is_file($fullLogo))
         ? '<img src="cid:company-logo" alt="' . h($name) . '" width="160" style="display:inline-block;margin:0 auto;border:0;outline:none;max-height:56px;width:auto;background:' . $white . ';">'
-        : '<p style="margin:0;font-size:20px;font-weight:700;color:' . $navy . ';text-align:center;">' . h($name) . '</p>';
+        : '<p style="margin:0;font-size:20px;font-weight:700;color:' . $deep . ';text-align:center;">' . h($name) . '</p>';
     $phone = trim((string) ($brand['phone'] ?? ''));
     $email = trim((string) ($brand['email'] ?? ''));
-    $foot = '<p style="margin:0;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:13px;line-height:1.7;color:' . $white . ';">' . h($name);
+    $address = trim((string) ($brand['address'] ?? ''));
+    $city = trim((string) ($brand['city'] ?? ''));
+    $website = trim((string) ($brand['website'] ?? ''));
+    $tagline = trim((string) ($brand['tagline'] ?? ''));
+    $lines = [h($name)];
+    if ($tagline !== '') {
+        $lines[] = h($tagline);
+    }
     if ($email !== '') {
-        $foot .= '<br><a href="mailto:' . h($email) . '" style="color:' . $white . ';text-decoration:none;">' . h($email) . '</a>';
+        $lines[] = '<a href="mailto:' . h($email) . '" style="color:' . $white . ';text-decoration:none;">' . h($email) . '</a>';
     }
     if ($phone !== '') {
-        $foot .= '<br>' . h($phone);
+        $lines[] = h($phone);
     }
-    $foot .= '</p>';
+    $place = trim($address . ($address !== '' && $city !== '' ? ', ' : '') . $city);
+    if ($place !== '') {
+        $lines[] = h($place);
+    }
+    if ($website !== '') {
+        $href = preg_match('#^https?://#i', $website) ? $website : ('https://' . $website);
+        $lines[] = '<a href="' . h($href) . '" style="color:' . $white . ';text-decoration:none;">' . h($website) . '</a>';
+    }
+    $foot = '<p style="margin:0;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:13px;line-height:1.7;color:' . $white . ';">'
+        . implode('<br>', $lines) . '</p>';
 
     return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . h($name) . '</title></head>'
         . '<body style="margin:0;padding:0;background:' . $white . ';-webkit-text-size-adjust:100%;">'
         . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:' . $white . ';margin:0;padding:0;">'
         . '<tr><td align="center" style="padding:28px 12px;">'
-        . '<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background:' . $white . ';border:1px solid ' . $navy . ';">'
-        . '<tr><td style="height:8px;line-height:8px;font-size:0;background:' . $blue . ';">&nbsp;</td></tr>'
+        . '<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background:' . $white . ';border:1px solid ' . $deep . ';">'
+        . '<tr><td style="height:8px;line-height:8px;font-size:0;background:' . $primary . ';">&nbsp;</td></tr>'
+        . '<tr><td style="height:4px;line-height:4px;font-size:0;background:' . $accent . ';">&nbsp;</td></tr>'
         . '<tr><td align="center" style="padding:24px 32px 18px;background:' . $white . ';text-align:center;">' . $logoHtml . '</td></tr>'
-        . '<tr><td align="center" style="background:' . $navy . ';padding:13px 32px;text-align:center;">'
+        . '<tr><td align="center" style="background:' . $deep . ';padding:13px 32px;text-align:center;">'
         . '<p style="margin:0;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:' . $white . ';font-weight:700;text-align:center;">' . h($kicker) . '</p>'
         . '</td></tr>'
         . '<tr><td style="padding:28px 32px 16px;background:' . $white . ';color:' . $black . ';font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:15px;line-height:1.65;">'
         . $innerHtml
         . '</td></tr>'
-        . '<tr><td style="background:' . $navy . ';padding:24px 32px;">' . $foot . '</td></tr>'
+        . '<tr><td style="background:' . $deep . ';padding:24px 32px;">' . $foot . '</td></tr>'
         . '</table>'
+        . '<p style="margin:14px 8px 0;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:11px;color:#666666;text-align:center;">Sent from Vellisys system</p>'
         . '</td></tr></table></body></html>';
 }
 
@@ -167,10 +189,29 @@ function copy_outbound_to_platform(string $to, string $subject, string $html, st
         return;
     }
     $from = $fromEmail !== '' ? $fromEmail : $watch;
+    // Company mailboxes send their own branded letters. Copying them through
+    // info@ (same From and To) is what Hostinger has been filing as Spam.
+    if (!emails_same($from, $watch)) {
+        return;
+    }
     $copySubject = preg_match('/^copy\s*-/i', $subject) ? $subject : ('Copy - ' . $subject);
     $copyHtml = html_with_platform_copy_banner($html, $from, $to);
     $copyText = "Copy for Vellisys. The client received this from {$from}. Reply to write to {$to}.\n\n" . $text;
-    send_platform_email($watch, $copySubject, $copyHtml, $copyText, 0, $to);
+    $account = platform_mail_account();
+    $fromName = (string) ($account['from_name'] ?? product_from_name());
+    if (function_exists('mail_deliver_to_platform_inbox')) {
+        try {
+            mail_deliver_to_platform_inbox($watch, $fromName, $watch, $copySubject, $copyHtml, $copyText, $to, mail_inlines_for_html($copyHtml));
+        } catch (Throwable $e) {
+            error_log('Vellisys copy inbox: ' . $e->getMessage());
+        }
+    }
+    $alert = platform_alert_email();
+    if ($alert !== '') {
+        $GLOBALS['folio_skip_platform_copy'] = true;
+        send_platform_email($alert, $copySubject, $copyHtml, $copyText, 0, $to);
+        unset($GLOBALS['folio_skip_platform_copy']);
+    }
 }
 
 function deliver_mail(array $account, string $to, string $subject, string $html, string $text, string $replyTo = '', array $inlines = []): array
@@ -187,7 +228,7 @@ function deliver_mail(array $account, string $to, string $subject, string $html,
     if (empty($result['error'])) {
         $result['error'] = $result['ok'] ? '' : 'The mailbox did not accept this message.';
     }
-    if (!empty($result['ok']) && (microtime(true) - (float) ($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true))) < 0.8) {
+    if (!empty($result['ok'])) {
         try {
             copy_outbound_to_platform($to, $subject, $html, $text, (string) $result['from']);
         } catch (Throwable $e) {
@@ -219,8 +260,41 @@ function log_email(?int $documentId, int $userId, string $to, string $subject, s
 function send_platform_email(string $to, string $subject, string $html, string $text, int $userId = 0, string $replyTo = ''): array
 {
     $account = platform_mail_account();
-    $from = (string) ($account['from_email'] ?? '');
-    $result = deliver_mail($account, $to, $subject, $html, $text, $replyTo !== '' ? $replyTo : $from);
+    $from = (string) ($account['from_email'] ?? product_email());
+    $fromName = (string) ($account['from_name'] ?? product_from_name());
+    $reply = $replyTo !== '' ? $replyTo : $from;
+    $inlines = mail_inlines_for_html($html);
+    if (emails_same($to, $from) || emails_same($to, product_email())) {
+        $inbox = false;
+        if (function_exists('mail_deliver_to_platform_inbox')) {
+            try {
+                $inbox = mail_deliver_to_platform_inbox($from, $fromName, product_email(), $subject, $html, $text, $reply, $inlines);
+            } catch (Throwable $e) {
+                error_log('Vellisys platform inbox: ' . $e->getMessage());
+            }
+        }
+        $alert = platform_alert_email();
+        $result = ['ok' => $inbox, 'from' => $from, 'error' => $inbox ? '' : 'Could not place the letter in the info@ Inbox.'];
+        if ($alert !== '') {
+            $prev = $GLOBALS['folio_skip_platform_copy'] ?? null;
+            $GLOBALS['folio_skip_platform_copy'] = true;
+            $extra = deliver_mail($account, $alert, $subject, $html, $text, $reply, $inlines);
+            if ($prev === null) {
+                unset($GLOBALS['folio_skip_platform_copy']);
+            } else {
+                $GLOBALS['folio_skip_platform_copy'] = $prev;
+            }
+            if (!empty($extra['ok'])) {
+                $result = $extra;
+                $result['alert'] = $alert;
+            }
+        } elseif (!$inbox) {
+            $result = deliver_mail($account, $to, $subject, $html, $text, $reply, $inlines);
+        }
+        log_email(null, $userId, $to, $subject, $text, !empty($result['ok']), (string) ($result['error'] ?? ''), $from);
+        return $result;
+    }
+    $result = deliver_mail($account, $to, $subject, $html, $text, $reply, $inlines);
     log_email(null, $userId, $to, $subject, $text, $result['ok'], (string) ($result['error'] ?? ''), $from);
     return $result;
 }
@@ -264,7 +338,11 @@ function retry_queued_platform_mail(): array
             continue;
         }
         $html = vellisys_email_wrap('<p style="margin:0 0 14px">' . nl2br(h($text)) . '</p>');
-        $result = deliver_mail(platform_mail_account(), $to, $subject, $html, $text, product_email());
+        if (emails_same($to, $from)) {
+            $result = send_platform_email($to, $subject, $html, $text, 0, product_email());
+        } else {
+            $result = deliver_mail(platform_mail_account(), $to, $subject, $html, $text, product_email());
+        }
         if (!empty($result['ok'])) {
             db_exec("UPDATE emails SET status = 'sent', error = '' WHERE id = ?", 'i', [(int) $row['id']]);
             $ok++;
@@ -286,33 +364,7 @@ function notify_platform(string $subject, string $html, string $text, string $re
     if (!str_contains($html, 'font-family:Montserrat')) {
         $inner = vellisys_email_wrap($html);
     }
-    $watch = product_email();
-    $account = platform_mail_account();
-    $from = (string) ($account['from_email'] ?? $watch);
-    $fromName = (string) ($account['from_name'] ?? product_from_name());
-    $result = send_platform_email($watch, $subject, $inner, $text, $userId, $replyTo);
-    if (function_exists('mail_deliver_to_platform_inbox')) {
-        try {
-            mail_deliver_to_platform_inbox($from, $fromName, $watch, $subject, $inner, $text, $replyTo !== '' ? $replyTo : $from, mail_inlines_for_html($inner));
-        } catch (Throwable $e) {
-            error_log('Vellisys platform inbox: ' . $e->getMessage());
-        }
-    }
-    $alert = platform_alert_email();
-    if ($alert !== '') {
-        $prev = $GLOBALS['folio_skip_platform_copy'] ?? null;
-        $GLOBALS['folio_skip_platform_copy'] = true;
-        $extra = send_platform_email($alert, $subject, $inner, $text, $userId, $replyTo);
-        if ($prev === null) {
-            unset($GLOBALS['folio_skip_platform_copy']);
-        } else {
-            $GLOBALS['folio_skip_platform_copy'] = $prev;
-        }
-        if (!empty($extra['ok'])) {
-            $result['alert'] = $alert;
-        }
-    }
-    return $result;
+    return send_platform_email(product_email(), $subject, $inner, $text, $userId, $replyTo);
 }
 
 function company_logo_inlines(array $brand): array
@@ -329,19 +381,7 @@ function send_document_email(array $user, array $doc, string $to, string $subjec
 {
     $meta = kind_meta((string) ($doc['kind'] ?? ''));
     $kicker = trim($meta['singular'] . ' ' . (string) ($doc['number'] ?? ''));
-    $result = send_company_email($user, $to, $subject, $message, $doc, $kicker);
-    if (($result['from'] ?? '') !== '') {
-        $brand = branding();
-        notify_platform(
-            'Sent: ' . $meta['singular'] . ' ' . $doc['number'] . ' from ' . $brand['name'],
-            '<p style="margin:0 0 12px"><strong>' . h($brand['name']) . '</strong> sent ' . h(strtolower($meta['singular'])) . ' <strong>' . h($doc['number']) . '</strong> to ' . h($to) . ' from ' . h((string) $result['from']) . '.</p>'
-                . '<p style="margin:0">Status: ' . (!empty($result['ok']) ? 'sent' : 'queued') . '.</p>',
-            $brand['name'] . ' sent ' . $meta['singular'] . ' ' . $doc['number'] . ' to ' . $to . '.',
-            (string) $result['from'],
-            (int) $user['id']
-        );
-    }
-    return $result;
+    return send_company_email($user, $to, $subject, $message, $doc, $kicker);
 }
 
 function send_company_email(array $user, string $to, string $subject, string $message, ?array $doc = null, string $kicker = ''): array
@@ -371,7 +411,15 @@ function send_company_email(array $user, string $to, string $subject, string $me
     if ($link !== '') {
         $text .= "\n\n" . $link;
     }
+    $text .= "\n\nSent from Vellisys system";
+    $prev = $GLOBALS['folio_skip_platform_copy'] ?? null;
+    $GLOBALS['folio_skip_platform_copy'] = true;
     $result = deliver_mail($account, $to, $subject, $html, $text, $from, company_logo_inlines($brand));
+    if ($prev === null) {
+        unset($GLOBALS['folio_skip_platform_copy']);
+    } else {
+        $GLOBALS['folio_skip_platform_copy'] = $prev;
+    }
     log_email($docId > 0 ? $docId : null, (int) $user['id'], $to, $subject, $message, $result['ok'], (string) ($result['error'] ?? ''), $from);
     $result['from'] = $from;
     if (function_exists('record_company_activity') && $cid > 0) {
