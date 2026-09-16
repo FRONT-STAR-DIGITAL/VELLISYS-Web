@@ -148,7 +148,7 @@ function layout_start(string $title, array $user, array $opts = []): void
   <?php folio_font_links(); ?>
   <style>:root { <?= brand_css_vars() ?> }</style>
 </head>
-<body class="desk-body">
+<body class="desk-body<?= $here === 'settings.php' ? ' settings-page' : '' ?>">
 <?php render_page_loader(); ?>
 <div class="app">
   <div class="nav-scrim" data-nav-scrim hidden></div>

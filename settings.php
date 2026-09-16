@@ -269,6 +269,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $b = branding();
+$settings_save = static function (): void {
+    echo '<div class="actions settings-section-save"><button class="btn sm" type="submit">' . icon('check', 14) . 'Save settings</button></div>';
+};
 layout_start('Settings', $user);
 ?>
 <div class="page-head">
@@ -607,6 +610,7 @@ layout_start('Settings', $user);
         <span>Navigation preview</span>
         <strong><?= h($b['name']) ?></strong>
       </div>
+      <?php $settings_save(); ?>
     </section>
 
     <section class="card settings-card" id="company">
@@ -642,6 +646,7 @@ layout_start('Settings', $user);
           <input id="address" name="address" value="<?= h($b['address']) ?>">
         </div>
       </div>
+      <?php $settings_save(); ?>
     </section>
 
     <section class="card settings-card" id="tax">
@@ -689,6 +694,7 @@ layout_start('Settings', $user);
           <p class="hint">Use <code>{prefix}</code>, <code>{kind}</code> (INV, QTN, RCT…), <code>{yyyy}</code> or <code>{yy}</code>, and <code>{seq:4}</code>. Example now: <strong><?= h(format_document_number('invoice', 1, $b)) ?></strong></p>
         </div>
       </div>
+      <?php $settings_save(); ?>
     </section>
 
     <section class="card settings-card" id="bank">
@@ -708,6 +714,7 @@ layout_start('Settings', $user);
           <input id="account_number" name="account_number" value="<?= h($b['account_number'] ?? '') ?>">
         </div>
       </div>
+      <?php $settings_save(); ?>
     </section>
 
     <section class="card settings-card" id="documents">
@@ -716,6 +723,7 @@ layout_start('Settings', $user);
       <textarea id="payment_note" name="payment_note" rows="2"><?= h($b['payment_note'] ?? '') ?></textarea>
       <label for="invoice_comments">Default invoice comments</label>
       <textarea id="invoice_comments" name="invoice_comments" rows="4"><?= h($b['invoice_comments'] ?? '') ?></textarea>
+      <?php $settings_save(); ?>
     </section>
 
     <section class="card settings-card" id="templates">
@@ -783,10 +791,11 @@ layout_start('Settings', $user);
         <button class="btn ghost sm" type="button" data-add-template><?= icon('plus', 14) ?>Add template</button>
         Clear a custom title and save to remove it.
       </p>
-      <div class="actions sticky-save">
-        <button class="btn" type="submit"><?= icon('check') ?>Save settings</button>
-      </div>
+      <?php $settings_save(); ?>
     </section>
+    <div class="settings-save-dock">
+      <button class="btn" type="submit"><?= icon('check') ?>Save settings</button>
+    </div>
     </form>
     <section class="card settings-card" id="import">
       <h2><?= icon('upload') ?>Bring in books</h2>
