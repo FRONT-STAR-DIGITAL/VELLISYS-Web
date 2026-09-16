@@ -132,6 +132,8 @@ If SMTP is refused (firewall, wrong password), Vellisys still **logs the email a
 
 **A copy of every outbound letter** also arrives at **`info@vellisys.com`**, including company-desk mail (quotations, invoices, receipts, letters, reminders). The copy is marked for Vellisys and Reply-To is the client, so the team can answer from that inbox. Letters that were already addressed to `info@vellisys.com` are not copied again.
 
+Hostinger often files mail addressed to `info@vellisys.com` in **Spam**. Gmail forwarding does not copy the Spam folder, so those letters never reach Gmail. Super admin **Settings** has **Your Gmail** for password-reset requests and mailbox tests. Send test also delivers to the company mailbox you saved (the Gmail or Hostinger address on the company page) and drops a copy in the `info@` **Inbox**. On webmail.hostinger.com, open Inbox, not Spam, and mark Vellisys as not spam once.
+
 Print uses the browser print dialog. **Download** saves the branded document immediately. CSV exports the full document (header, client, lines and totals). Dates print as 20 Jun 2026. On a phone, document actions sit in two columns. Settings is in the top bar.
 
 ## Local PHP (without XAMPP)

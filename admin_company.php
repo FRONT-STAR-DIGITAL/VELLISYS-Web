@@ -235,11 +235,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     $coBrand = branding_for($id);
                     $watch = product_email();
-                    $html = branded_company_wrap($coBrand, '<p style="margin:0;color:#000000">Vellisys connected this mailbox for <strong>' . h($company['name']) . '</strong>. Quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors and custom mail will leave from this address, with your logo on white.</p><p style="margin:14px 0 0;color:#000000">This test was delivered to <strong>' . h($watch) . '</strong> so a Vellisys admin can see how the desk mail looks.</p>', 'Mailbox connected');
-                    $test = deliver_mail($acct, $watch, 'Mailbox test: ' . $company['name'], $html, 'Vellisys connected this mailbox for ' . $company['name'] . '. Test delivered to ' . $watch . '.', $acct['from_email'], company_logo_inlines($coBrand));
-                    log_email(null, (int) $user['id'], $watch, 'Mailbox test: ' . $company['name'], 'From ' . $acct['from_email'] . "\n\nVellisys connected this mailbox for " . $company['name'] . '.', !empty($test['ok']), (string) ($test['error'] ?? ''), $acct['from_email']);
-                    if ($test['ok']) {
-                        flash('Test sent from ' . $acct['from_email'] . ' to ' . $watch . '. Open that inbox to see how the desk mail looks.');
+                    $from = (string) $acct['from_email'];
+                    $fromName = (string) ($acct['from_name'] ?? $company['name']);
+                    $html = branded_company_wrap($coBrand, '<p style="margin:0;color:#000000">Vellisys connected this mailbox for <strong>' . h($company['name']) . '</strong>. Quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors and custom mail will leave from this address, with your logo on white.</p><p style="margin:14px 0 0;color:#000000">This test was sent so a Vellisys admin can see how the desk mail looks.</p>', 'Mailbox connected');
+                    $text = 'Vellisys connected this mailbox for ' . $company['name'] . '.';
+                    $inlines = company_logo_inlines($coBrand);
+                    $test = deliver_mail($acct, $watch, 'Mailbox test: ' . $company['name'], $html, $text, $from, $inlines);
+                    $inbox = false;
+                    if (function_exists('mail_deliver_to_platform_inbox')) {
+                        $inbox = mail_deliver_to_platform_inbox($from, $fromName, $watch, 'Mailbox test: ' . $company['name'], $html, $text, $from, $inlines);
+                    }
+                    $also = [];
+                    $prevCopy = $GLOBALS['folio_skip_platform_copy'] ?? null;
+                    $GLOBALS['folio_skip_platform_copy'] = true;
+                    if (!emails_same($from, $watch)) {
+                        $self = deliver_mail($acct, $from, 'Mailbox test: ' . $company['name'], $html, $text, $from, $inlines);
+                        if (!empty($self['ok'])) {
+                            $also[] = $from;
+                        }
+                    }
+                    $alert = platform_alert_email();
+                    if ($alert !== '' && !emails_same($alert, $watch) && !emails_same($alert, $from)) {
+                        $extra = deliver_mail($acct, $alert, 'Mailbox test: ' . $company['name'], $html, $text, $from, $inlines);
+                        if (!empty($extra['ok'])) {
+                            $also[] = $alert;
+                        }
+                    }
+                    if ($prevCopy === null) {
+                        unset($GLOBALS['folio_skip_platform_copy']);
+                    } else {
+                        $GLOBALS['folio_skip_platform_copy'] = $prevCopy;
+                    }
+                    log_email(null, (int) $user['id'], $watch, 'Mailbox test: ' . $company['name'], 'From ' . $from . "\n\nVellisys connected this mailbox for " . $company['name'] . '.', !empty($test['ok']) || $inbox, (string) ($test['error'] ?? ''), $from);
+                    $where = [$watch];
+                    if ($inbox) {
+                        $where[0] .= ' Inbox';
+                    }
+                    foreach ($also as $addr) {
+                        $where[] = $addr;
+                    }
+                    if (!empty($test['ok']) || $inbox || $also) {
+                        flash('Test sent from ' . $from . ' to ' . implode(' and ', $where) . '. If Hostinger webmail still hides it, open Inbox (not Spam). Spam is not forwarded to Gmail.');
                     } else {
                         flash('Test queued for ' . $watch . ': ' . ($test['error'] ?? 'SMTP did not accept the message.'), 'err');
                     }
@@ -890,7 +926,7 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
     <p class="hint" style="margin:8px 0 8px" data-mail-help><?= h(mail_provider_hint((string) ($company['mail_provider'] ?? 'hostinger'))) ?></p>
     <p class="hint" style="margin:0 0 12px">
       The company desk sends quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors and custom mail from this address and cannot edit it.
-      Send test delivers a branded sample to <?= h(product_email()) ?> so you can open that inbox and see how the desk mail looks.
+      Send test delivers a branded sample to <?= h(product_email()) ?> (placed in Inbox, not only Spam) and also to the Gmail or mailbox you saved above, so you can open that inbox and see how the desk mail looks.
       <?= company_mail_account($company) ? 'Mailbox is ready to send.' : 'Add the email and password to start sending.' ?>
     </p>
     <div class="actions">

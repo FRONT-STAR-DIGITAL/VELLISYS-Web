@@ -792,7 +792,7 @@ layout_start('Settings', $user);
       <h2><?= icon('upload') ?>Bring in books</h2>
       <p class="lede">After onboarding, drop in clients, old invoices, receipts and sales from a spreadsheet. Vellisys <strong>adds</strong> them to this desk. It does not replace what you have already issued, and it is not a backup restore.</p>
       <ol class="import-steps">
-        <li>Download the matching Excel template. Keep the header row. Sample rows show the shape — delete them before you upload, or leave them if they are real.</li>
+        <li>Download the matching Excel template. Keep the header row. Sample rows show the shape - delete them before you upload, or leave them if they are real.</li>
         <li>Copy from your old books, a notebook, or another system. Dates as <span class="mono">YYYY-MM-DD</span> (for example 2025-06-15). On documents and sales, the same <strong>Group</strong> number means one sheet with several lines.</li>
         <li>Upload one file at a time. Start with <strong>Clients</strong>, then <strong>Documents</strong> or <strong>Sales</strong>, then <strong>Receipts</strong> so payments can sit against invoices you just brought in.</li>
         <li>Open Clients, Invoices and Receipts to check. If a document number is already on this desk, that row is skipped. Blank numbers get the next Vellisys number.</li>

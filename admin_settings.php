@@ -9,6 +9,7 @@ $multi = platform_setting_int('stock_addon_multi_ugx', 100000);
 $tempPass = default_desk_password();
 $signupsOpen = platform_setting('signups_open', '1') !== '0';
 $adminCcy = platform_currency();
+$alertEmail = platform_alert_email();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
@@ -17,11 +18,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $tempPass = trim(post('default_desk_password'));
     $signupsOpen = !empty($_POST['signups_open']);
     $picked = posted_currency('admin_currency', $adminCcy);
+    $alertEmail = strtolower(trim(post('alert_email')));
     $allowed = array_keys(pricing_currencies());
     if (!in_array($picked, $allowed, true)) {
         $picked = 'USD';
     }
-    if (strlen($tempPass) < 8) {
+    if ($alertEmail !== '' && !filter_var($alertEmail, FILTER_VALIDATE_EMAIL)) {
+        $error = 'Alert Gmail must be a valid email, or leave it blank.';
+    } elseif (strlen($tempPass) < 8) {
         $error = 'The default desk password must be at least 8 characters.';
     } else {
         save_platform_setting('stock_addon_solo_ugx', (string) $solo);
@@ -29,6 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         save_platform_setting('default_desk_password', $tempPass);
         save_platform_setting('signups_open', $signupsOpen ? '1' : '0');
         save_platform_setting('admin_currency', $picked);
+        save_platform_setting('alert_email', $alertEmail);
         flash('Platform settings saved.');
         redirect('admin_settings.php');
     }
@@ -85,6 +90,14 @@ layout_admin_start('Settings', $user);
         Accept website register, demo and checkout forms
       </label>
       <p class="hint">Turn this off if you need to pause new public requests. Existing desks still sign in. You can still create companies here.</p>
+    </div>
+  </div>
+  <div class="card-head"><h2><?= icon('send', 16) ?>Where alerts arrive</h2></div>
+  <div class="form-grid" style="padding:0 22px">
+    <div>
+      <label for="alert_email">Your Gmail (password resets and mailbox tests)</label>
+      <input id="alert_email" name="alert_email" type="email" value="<?= h($alertEmail) ?>" placeholder="you@gmail.com" autocomplete="off">
+      <p class="hint">Vellisys letters still leave from <?= h(product_email()) ?>. Hostinger often files mail to that address in Spam, and Spam is not forwarded to Gmail. Put the Gmail you actually open here. Password-reset requests and a copy of Send test will go there as well. On webmail.hostinger.com, open Inbox (not Spam) and mark Vellisys as not spam once.</p>
     </div>
   </div>
   <div class="actions" style="padding:6px 22px 22px">

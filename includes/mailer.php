@@ -142,8 +142,23 @@ function html_with_platform_copy_banner(string $html, string $fromEmail, string 
     return $banner . $html;
 }
 
+function platform_alert_email(): string
+{
+    $raw = strtolower(trim(platform_setting('alert_email', '')));
+    if ($raw === '' || !filter_var($raw, FILTER_VALIDATE_EMAIL)) {
+        return '';
+    }
+    if (function_exists('emails_same') && emails_same($raw, product_email())) {
+        return '';
+    }
+    return $raw;
+}
+
 function copy_outbound_to_platform(string $to, string $subject, string $html, string $text, string $fromEmail): void
 {
+    if (!empty($GLOBALS['folio_skip_platform_copy'])) {
+        return;
+    }
     $watch = product_email();
     if (!filter_var($watch, FILTER_VALIDATE_EMAIL) || !filter_var($to, FILTER_VALIDATE_EMAIL)) {
         return;
@@ -271,7 +286,33 @@ function notify_platform(string $subject, string $html, string $text, string $re
     if (!str_contains($html, 'font-family:Montserrat')) {
         $inner = vellisys_email_wrap($html);
     }
-    return send_platform_email(product_email(), $subject, $inner, $text, $userId, $replyTo);
+    $watch = product_email();
+    $account = platform_mail_account();
+    $from = (string) ($account['from_email'] ?? $watch);
+    $fromName = (string) ($account['from_name'] ?? product_from_name());
+    $result = send_platform_email($watch, $subject, $inner, $text, $userId, $replyTo);
+    if (function_exists('mail_deliver_to_platform_inbox')) {
+        try {
+            mail_deliver_to_platform_inbox($from, $fromName, $watch, $subject, $inner, $text, $replyTo !== '' ? $replyTo : $from, mail_inlines_for_html($inner));
+        } catch (Throwable $e) {
+            error_log('Vellisys platform inbox: ' . $e->getMessage());
+        }
+    }
+    $alert = platform_alert_email();
+    if ($alert !== '') {
+        $prev = $GLOBALS['folio_skip_platform_copy'] ?? null;
+        $GLOBALS['folio_skip_platform_copy'] = true;
+        $extra = send_platform_email($alert, $subject, $inner, $text, $userId, $replyTo);
+        if ($prev === null) {
+            unset($GLOBALS['folio_skip_platform_copy']);
+        } else {
+            $GLOBALS['folio_skip_platform_copy'] = $prev;
+        }
+        if (!empty($extra['ok'])) {
+            $result['alert'] = $alert;
+        }
+    }
+    return $result;
 }
 
 function company_logo_inlines(array $brand): array
@@ -438,23 +479,22 @@ function notify_password_reset_request(string $email): array
         : ($found ? 'No company on this login' : 'Unknown');
 
     $html = vellisys_email_wrap(
-        '<p style="margin:0 0 14px;font-weight:700;color:#b42318;letter-spacing:.08em;text-transform:uppercase;">Urgent</p>'
-        . '<p style="margin:0 0 14px">Someone requires a password reset on a Vellisys desk. Please help them today.</p>'
+        '<p style="margin:0 0 14px">A client asked Vellisys to reset a desk password. Please help them today.</p>'
         . '<p style="margin:0 0 8px"><strong>Personal email:</strong> ' . h($email) . '</p>'
         . '<p style="margin:0 0 8px"><strong>Desk user:</strong> ' . $matchLine . '</p>'
         . '<p style="margin:0 0 8px"><strong>Company:</strong> ' . $companyLine . '</p>'
         . '<p style="margin:16px 0 0">Reset the password on the company page (People), then send it to this mailbox. Do not post the new password in a public place.</p>'
         . '<p style="margin:16px 0 0"><a href="' . h($deskLink) . '" style="color:#1E4EFF">Open the company</a></p>',
-        'Urgent password reset'
+        'Password reset'
     );
-    $text = "URGENT: someone requires a password reset.\n\n"
+    $text = "A client asked Vellisys to reset a desk password.\n\n"
         . "Personal email: {$email}\n"
         . 'Desk user: ' . ($found ? (($who !== '' ? $who : $email) . ' (' . $role . ')') : 'no matching desk login') . "\n"
         . 'Company: ' . strip_tags($companyLine) . "\n\n"
         . "Reset the password on the desk, then send it to this mailbox.\n"
         . $deskLink;
 
-    return notify_platform('URGENT: password reset required - ' . $email, $html, $text, $email, $uid);
+    return notify_platform('Password reset requested - ' . $email, $html, $text, $email, $uid);
 }
 
 function notify_admin_order(array $order, string $event): void

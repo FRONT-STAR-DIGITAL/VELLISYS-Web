@@ -172,11 +172,12 @@ function smtp_send(array $account, string $to, string $subject, string $html, st
         return ['ok' => false, 'error' => 'Mail is not sent during page load.'];
     }
     static $sent = 0;
-    if ($sent >= 2) {
+    $budget = max(2, (int) ($GLOBALS['folio_mail_budget'] ?? 8));
+    if ($sent >= $budget) {
         return ['ok' => false, 'error' => 'Mail deferred so the site stays fast.'];
     }
     $sent++;
-    $timeout = 2;
+    $timeout = 12;
     $remote = ($secure === 'ssl' ? 'ssl://' : 'tcp://') . $host . ':' . $port;
     $ctx = stream_context_create([
         'ssl' => [
@@ -279,7 +280,8 @@ function smtp_send(array $account, string $to, string $subject, string $html, st
     }
 
     $payload = smtp_build_message($from, $fromName, $to, $subject, $html, $text, $replyTo, $inlines);
-    fwrite($fp, $payload . "\r\n.\r\n");
+    $wired = preg_replace('/^\./m', '..', $payload) ?? $payload;
+    fwrite($fp, $wired . "\r\n.\r\n");
     $err = $expect($read(), [250]);
     if ($err) {
         return ['ok' => false, 'error' => $err];
@@ -303,6 +305,8 @@ function smtp_build_message(string $from, string $fromName, string $to, string $
     $fromHeader = sprintf('%s <%s>', $enc($fromName), $from);
     $reply = $replyTo !== '' && filter_var($replyTo, FILTER_VALIDATE_EMAIL) ? $replyTo : $from;
     $plain = $text !== '' ? $text : trim(html_entity_decode(strip_tags($html), ENT_QUOTES, 'UTF-8'));
+    $fromDomain = strtolower((string) substr(strrchr($from, '@') ?: '@vellisys.com', 1)) ?: 'vellisys.com';
+    $messageId = '<vellisys.' . bin2hex(random_bytes(8)) . '.' . time() . '@' . $fromDomain . '>';
     $alt = '--' . $altBoundary . "\r\n"
         . "Content-Type: text/plain; charset=UTF-8\r\n"
         . "Content-Transfer-Encoding: base64\r\n\r\n"
@@ -328,16 +332,11 @@ function smtp_build_message(string $from, string $fromName, string $to, string $
         'From: ' . $fromHeader,
         'To: ' . $to,
         'Reply-To: ' . $reply,
+        'Message-ID: ' . $messageId,
         'Subject: ' . $enc($subject),
         'MIME-Version: 1.0',
-        'X-Mailer: Vellisys',
+        'Content-Language: en',
     ];
-    if (preg_match('/\burgent\b/i', $subject)) {
-        $headers[] = 'Importance: high';
-        $headers[] = 'Priority: urgent';
-        $headers[] = 'X-Priority: 1 (Highest)';
-        $headers[] = 'X-MSMail-Priority: High';
-    }
     if (!$usable) {
         $headers[] = 'Content-Type: multipart/alternative; boundary="' . $altBoundary . '"';
         $raw = implode("\r\n", $headers) . "\r\n\r\n" . $alt;
@@ -366,6 +365,107 @@ function smtp_build_message(string $from, string $fromName, string $to, string $
         $body .= '--' . $relBoundary . "--\r\n";
         $raw = implode("\r\n", $headers) . "\r\n\r\n" . $body;
     }
-    $raw = preg_replace('/^\./m', '..', $raw) ?? $raw;
     return str_replace("\n", "\r\n", str_replace("\r\n", "\n", $raw));
+}
+
+function platform_imap_account(): ?array
+{
+    $c = mail_config();
+    $user = trim((string) ($c['username'] ?? ''));
+    $pass = (string) ($c['password'] ?? '');
+    $host = trim((string) ($c['imap_host'] ?? 'imap.hostinger.com'));
+    $port = (int) ($c['imap_port'] ?? 993);
+    if ($user === '' || $pass === '' || $host === '') {
+        return null;
+    }
+    return [
+        'host' => $host,
+        'port' => $port > 0 ? $port : 993,
+        'username' => $user,
+        'password' => $pass,
+    ];
+}
+
+function mail_imap_append_inbox(array $account, string $rfc822): bool
+{
+    $host = trim((string) ($account['host'] ?? ''));
+    $port = (int) ($account['port'] ?? 993);
+    $user = (string) ($account['username'] ?? '');
+    $pass = (string) ($account['password'] ?? '');
+    $rfc822 = str_replace("\n", "\r\n", str_replace("\r\n", "\n", $rfc822));
+    if ($host === '' || $user === '' || $pass === '' || $rfc822 === '') {
+        return false;
+    }
+    $timeout = 12;
+    $remote = 'ssl://' . $host . ':' . $port;
+    $ctx = stream_context_create([
+        'ssl' => [
+            'verify_peer' => true,
+            'verify_peer_name' => true,
+            'allow_self_signed' => false,
+            'SNI_enabled' => true,
+            'peer_name' => $host,
+        ],
+    ]);
+    $fp = @stream_socket_client($remote, $errno, $errstr, $timeout, STREAM_CLIENT_CONNECT, $ctx);
+    if (!$fp) {
+        return false;
+    }
+    stream_set_timeout($fp, $timeout);
+    $readLine = static function () use ($fp): ?string {
+        $line = fgets($fp, 8192);
+        return $line === false ? null : $line;
+    };
+    $readUntilTag = static function (string $tag) use ($fp, $readLine): string {
+        $data = '';
+        while (!feof($fp)) {
+            $line = $readLine();
+            if ($line === null) {
+                break;
+            }
+            $data .= $line;
+            if (str_starts_with($line, $tag . ' ') || str_starts_with($line, '+')) {
+                break;
+            }
+        }
+        return $data;
+    };
+    $greet = $readLine();
+    if ($greet === null || !str_contains(strtoupper($greet), 'OK')) {
+        fclose($fp);
+        return false;
+    }
+    fwrite($fp, 'A1 LOGIN "' . str_replace(['\\', '"'], ['\\\\', '\\"'], $user) . '" "' . str_replace(['\\', '"'], ['\\\\', '\\"'], $pass) . "\"\r\n");
+    $login = $readUntilTag('A1');
+    if (!preg_match('/^A1 OK/im', $login)) {
+        fclose($fp);
+        return false;
+    }
+    $size = strlen($rfc822);
+    fwrite($fp, 'A2 APPEND INBOX (\\Seen) {' . $size . "}\r\n");
+    $cont = $readUntilTag('A2');
+    if (!str_contains($cont, '+')) {
+        fclose($fp);
+        return false;
+    }
+    fwrite($fp, $rfc822);
+    $done = $readUntilTag('A2');
+    fwrite($fp, "A3 LOGOUT\r\n");
+    fclose($fp);
+    return (bool) preg_match('/^A2 OK/im', $done);
+}
+
+function mail_deliver_to_platform_inbox(string $from, string $fromName, string $to, string $subject, string $html, string $text, string $replyTo = '', array $inlines = []): bool
+{
+    $imap = platform_imap_account();
+    if (!$imap) {
+        return false;
+    }
+    try {
+        $rfc822 = smtp_build_message($from, $fromName, $to, $subject, $html, $text, $replyTo, $inlines);
+        return mail_imap_append_inbox($imap, $rfc822);
+    } catch (Throwable $e) {
+        error_log('Vellisys IMAP inbox: ' . $e->getMessage());
+        return false;
+    }
 }
