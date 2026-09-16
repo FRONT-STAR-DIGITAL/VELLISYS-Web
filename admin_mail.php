@@ -99,15 +99,15 @@ $viewId = (int) ($_GET['id'] ?? 0);
 $view = null;
 if ($viewId > 0) {
     $view = db_one(
-        'SELECT * FROM emails WHERE id = ? AND (from_email = ? OR (from_email = \'\' AND document_id IS NULL))',
-        'is',
-        [$viewId, product_email()]
+        'SELECT * FROM emails WHERE id = ? AND (from_email = ? OR to_email = ? OR (from_email = \'\' AND document_id IS NULL))',
+        'iss',
+        [$viewId, product_email(), product_email()]
     );
 }
 
-$recentSql = 'SELECT * FROM emails WHERE from_email = ? OR (from_email = \'\' AND document_id IS NULL)';
-$recentTypes = 's';
-$recentArgs = [product_email()];
+$recentSql = 'SELECT * FROM emails WHERE from_email = ? OR to_email = ? OR (from_email = \'\' AND document_id IS NULL)';
+$recentTypes = 'ss';
+$recentArgs = [product_email(), product_email()];
 if ($q !== '') {
     $like = '%' . $q . '%';
     $recentSql .= ' AND (to_email LIKE ? OR subject LIKE ? OR body LIKE ?)';

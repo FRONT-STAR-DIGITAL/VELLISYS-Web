@@ -234,19 +234,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $error = 'Save a mailbox email and password before testing.';
                 } else {
                     $coBrand = branding_for($id);
-                    $html = branded_company_wrap($coBrand, '<p style="margin:0;color:#000000">Vellisys connected this mailbox for <strong>' . h($company['name']) . '</strong>. Quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors and custom mail will leave from this address, with your logo on white.</p>', 'Mailbox connected');
-                    $test = deliver_mail($acct, $acct['from_email'], 'Vellisys connected your sending mailbox', $html, 'Vellisys connected this mailbox for ' . $company['name'] . '.', $acct['from_email'], company_logo_inlines($coBrand));
-                    notify_platform(
-                        'Mailbox test: ' . $company['name'],
-                        '<p style="margin:0">' . h($company['name']) . ' mailbox ' . h($acct['from_email']) . ' test was ' . ($test['ok'] ? 'sent' : 'queued') . '.</p>',
-                        'Mailbox test for ' . $company['name'],
-                        $acct['from_email'],
-                        (int) $user['id']
-                    );
+                    $watch = product_email();
+                    $html = branded_company_wrap($coBrand, '<p style="margin:0;color:#000000">Vellisys connected this mailbox for <strong>' . h($company['name']) . '</strong>. Quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors and custom mail will leave from this address, with your logo on white.</p><p style="margin:14px 0 0;color:#000000">This test was delivered to <strong>' . h($watch) . '</strong> so a Vellisys admin can see how the desk mail looks.</p>', 'Mailbox connected');
+                    $test = deliver_mail($acct, $watch, 'Mailbox test: ' . $company['name'], $html, 'Vellisys connected this mailbox for ' . $company['name'] . '. Test delivered to ' . $watch . '.', $acct['from_email'], company_logo_inlines($coBrand));
+                    log_email(null, (int) $user['id'], $watch, 'Mailbox test: ' . $company['name'], 'From ' . $acct['from_email'] . "\n\nVellisys connected this mailbox for " . $company['name'] . '.', !empty($test['ok']), (string) ($test['error'] ?? ''), $acct['from_email']);
                     if ($test['ok']) {
-                        flash('Test sent from ' . $acct['from_email'] . '. Check that inbox.');
+                        flash('Test sent from ' . $acct['from_email'] . ' to ' . $watch . '. Open that inbox to see how the desk mail looks.');
                     } else {
-                        flash('Test queued: ' . ($test['error'] ?? 'SMTP did not accept the message.'), 'err');
+                        flash('Test queued for ' . $watch . ': ' . ($test['error'] ?? 'SMTP did not accept the message.'), 'err');
                     }
                     redirect('admin_company.php?id=' . $id);
                 }
@@ -895,6 +890,7 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
     <p class="hint" style="margin:8px 0 8px" data-mail-help><?= h(mail_provider_hint((string) ($company['mail_provider'] ?? 'hostinger'))) ?></p>
     <p class="hint" style="margin:0 0 12px">
       The company desk sends quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors and custom mail from this address and cannot edit it.
+      Send test delivers a branded sample to <?= h(product_email()) ?> so you can open that inbox and see how the desk mail looks.
       <?= company_mail_account($company) ? 'Mailbox is ready to send.' : 'Add the email and password to start sending.' ?>
     </p>
     <div class="actions">
