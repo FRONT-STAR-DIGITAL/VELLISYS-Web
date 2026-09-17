@@ -515,7 +515,7 @@ function format_client_extra_value(array $field, mixed $value): string
             if ($to === '') {
                 return $from;
             }
-            return $from . ' – ' . $to;
+            return $from . ' - ' . $to;
         }
         return trim((string) $value);
     }

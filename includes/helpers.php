@@ -450,7 +450,7 @@ function doc_templates(): array
         ],
         'booklet' => [
             'name' => 'Counter booklet',
-            'blurb' => 'Folded slip like a receipt book. Dotted fill-in lines, no item table. Prints your To fields.',
+            'blurb' => 'Receipt-book slip on one sheet. Dotted fill-in lines, no item table. Prints your To fields.',
         ],
         'chit' => [
             'name' => 'Pad chit',

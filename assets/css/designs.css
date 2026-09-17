@@ -824,20 +824,21 @@
 .mini-booklet::before {
   content: "";
   position: absolute;
-  left: 50%;
-  top: 8px;
-  bottom: 8px;
-  border-left: 1px dashed #bbb;
+  left: 12px;
+  top: 16px;
+  width: 42%;
+  height: 10px;
+  background: #111;
 }
 .mini-booklet::after {
   content: "";
   position: absolute;
-  left: 10px;
-  top: 16px;
-  width: 28%;
-  height: 10px;
-  background: #111;
-  box-shadow: 58px 0 0 0 var(--brand), 10px 28px 0 0 #e8e8e8, 10px 40px 0 0 #e8e8e8, 58px 28px 0 0 #e8e8e8;
+  left: 12px;
+  right: 12px;
+  top: 36px;
+  height: 2px;
+  background: #e8e8e8;
+  box-shadow: 0 12px 0 0 #e8e8e8, 0 24px 0 0 #e8e8e8;
 }
 .mini-chit { background: #fff; box-shadow: inset 0 0 0 2px #111; }
 .mini-chit::before {
@@ -998,26 +999,37 @@
 .thermal-thanks { text-align: center; font-weight: 700; margin: 14px 0 4px; font-size: 12px; }
 .thermal-foot { text-align: center; font-size: 9px; color: #444; margin: 0; }
 
-/* Counter booklet — folded slip, no item table */
+/* Counter booklet - one-sheet receipt book, no item table */
 .invoice-sheet.sheet-booklet {
   font-family: "Times New Roman", Times, Georgia, serif;
-  padding: 10mm 8mm;
+  padding: 10mm 12mm;
 }
 .booklet-page {
+  border: 1px solid #222;
+  padding: 10mm 11mm 12mm;
+  min-height: calc(297mm - 20mm);
+  box-sizing: border-box;
+}
+.booklet-head { margin-bottom: 8px; }
+.booklet-logo { margin-bottom: 8px; }
+.booklet-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px 24px;
+  margin: 8px 0 14px;
+}
+.booklet-meta .slip-no { margin: 0; }
+.booklet-meta .slip-line { margin: 0; min-width: 180px; }
+.booklet-payrow,
+.booklet-footrow {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  min-height: calc(297mm - 20mm);
-  border: 1px solid #222;
+  gap: 16px;
+  align-items: end;
 }
-.booklet-left,
-.booklet-right {
-  padding: 10mm 9mm 12mm;
-  min-width: 0;
-}
-.booklet-left {
-  border-right: 1px dashed #888;
-}
-.booklet-logo { margin-bottom: 8px; }
+.booklet-footrow { margin-top: 8px; }
 .slip-brand,
 .slip-trade,
 .chit-name {
