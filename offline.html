@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08143A">
+  <meta name="robots" content="noindex">
+  <title>You’re offline · Vellisys</title>
+  <style>
+    :root { --navy:#08143A; --blue:#1E4EFF; --paper:#f5f7fc; --ink:#10182c; --muted:#5b6478; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 28px 20px;
+      font-family: Montserrat, "Segoe UI", system-ui, sans-serif;
+      color: var(--ink);
+      background: var(--paper);
+    }
+    .card {
+      width: min(440px, 100%);
+      background: #fff;
+      border: 1px solid rgba(8, 20, 58, .08);
+      border-radius: 20px;
+      padding: 36px 28px 28px;
+      text-align: center;
+      box-shadow: 0 18px 50px rgba(8, 20, 58, .08);
+    }
+    .mark {
+      width: 64px; height: 64px; margin: 0 auto 18px;
+      border-radius: 16px;
+      background: var(--navy);
+      display: grid; place-items: center;
+    }
+    h1 { margin: 0 0 8px; font-size: 1.45rem; letter-spacing: -.02em; color: var(--navy); }
+    p { margin: 0 0 22px; line-height: 1.55; color: var(--muted); font-size: .98rem; }
+    .actions { display: flex; flex-direction: column; gap: 10px; }
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 12px;
+      padding: 13px 18px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    #reload { background: var(--blue); color: #fff; }
+    #reload:hover { filter: brightness(1.06); }
+    #reload:disabled { opacity: .7; cursor: wait; }
+    .hint { margin: 16px 0 0; font-size: .82rem; color: #8a93a6; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="mark" aria-hidden="true">
+      <svg width="34" height="34" viewBox="0 0 32 32" fill="none">
+        <path d="M8 7h16l-8 18L8 7z" fill="#1E4EFF"/>
+        <path d="M12.2 7h7.6L16 16.8 12.2 7z" fill="#8EB0FF"/>
+      </svg>
+    </div>
+    <h1>You’re offline</h1>
+    <p>The internet dropped, or the connection is unstable. Vellisys needs a live connection to open the desk and your books.</p>
+    <div class="actions">
+      <button type="button" id="reload">Try again</button>
+    </div>
+    <p class="hint">When the network is back, tap Try again. This page does not use your books until you are online.</p>
+  </main>
+  <script>
+    (function () {
+      var btn = document.getElementById('reload');
+      function retry() {
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = 'Connecting…';
+        }
+        location.reload();
+      }
+      if (btn) btn.addEventListener('click', retry);
+      window.addEventListener('online', retry);
+    })();
+  </script>
+</body>
+</html>

@@ -21,6 +21,7 @@ if ($uri !== '/' && is_file($file) && !str_contains($uri, '..')) {
         'jpeg' => 'image/jpeg',
         'gif' => 'image/gif',
         'svg' => 'image/svg+xml',
+        'html' => 'text/html; charset=utf-8',
         'webp' => 'image/webp',
         'ico' => 'image/x-icon',
         'pdf' => 'application/pdf',
@@ -44,7 +45,7 @@ if ($uri !== '/' && is_file($file) && !str_contains($uri, '..')) {
             }
         }
         header('Content-Type: ' . $type);
-        if (basename($file) === 'sw.js') {
+        if (basename($file) === 'sw.js' || $ext === 'html') {
             header('Cache-Control: no-cache');
         } elseif ($ext === 'pdf') {
             header('Content-Disposition: inline; filename="' . basename($file) . '"');

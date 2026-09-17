@@ -1,9 +1,12 @@
-/* Vellisys service worker: cache images/fonts/css only. Never intercept pages or form posts. */
-const CACHE = 'vellisys-shell-v6';
+/* Vellisys service worker: cache shell assets, and a branded offline page for failed navigations. Never intercept form posts. */
+const CACHE = 'vellisys-shell-v7';
+const OFFLINE_URL = new URL('offline.html', self.registration.scope).href;
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
-  event.waitUntil(caches.open(CACHE));
+  event.waitUntil(
+    caches.open(CACHE).then((cache) => cache.add(new Request(OFFLINE_URL, { cache: 'reload' })).catch(() => {}))
+  );
 });
 
 self.addEventListener('activate', (event) => {
@@ -19,9 +22,24 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') {
     return;
   }
+
   if (req.mode === 'navigate' || req.destination === 'document') {
+    event.respondWith(
+      fetch(req).catch(() =>
+        caches.match(OFFLINE_URL, { ignoreSearch: true }).then((cached) => {
+          if (cached) {
+            return cached;
+          }
+          return new Response(
+            '<!DOCTYPE html><title>Offline</title><p>You’re offline.</p><p><button onclick="location.reload()">Try again</button></p>',
+            { headers: { 'Content-Type': 'text/html; charset=utf-8' }, status: 503 }
+          );
+        })
+      )
+    );
     return;
   }
+
   let url;
   try {
     url = new URL(req.url);

@@ -20,7 +20,7 @@ $askedOk = isset($_GET['asked']);
 $askDraft = $_SESSION['ask_draft'] ?? [];
 ?>
 <!DOCTYPE html>
-<html lang="en" data-pwa-login="<?= h(url('login.php')) ?>">
+<html lang="en" data-sw="<?= h(url('sw.js')) ?>" data-pwa-login="<?= h(url('login.php')) ?>">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -380,5 +380,6 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
 
   <?php public_footer(); ?>
   <script src="<?= h(asset('js/landing.js')) ?>" defer></script>
+  <script src="<?= h(asset('js/pwa.js')) ?>" defer></script>
 </body>
 </html>
