@@ -458,17 +458,19 @@ function render_letter_to_label(string $label = 'To'): void
     <?php
 }
 
+function document_has_e_signature(array $doc): bool
+{
+    return !empty($doc['add_signature']) && company_signature_url() !== '';
+}
+
 function render_company_signature(array $doc): void
 {
-    if (empty($doc['add_signature'])) {
+    if (!document_has_e_signature($doc)) {
         return;
     }
     $src = company_signature_url();
-    if ($src === '') {
-        return;
-    }
     ?>
-    <div class="d-sign">
+    <div class="d-sign has-stamp">
       <img src="<?= h($src) ?>" alt="Signature">
     </div>
     <?php
@@ -485,7 +487,7 @@ function render_authorized_signoff(array $doc, string $label = 'Authorized by'):
         return;
     }
     ?>
-    <div class="auth-sign">
+    <div class="auth-sign<?= document_has_e_signature($doc) ? ' has-stamp' : '' ?>">
       <?php render_company_signature($doc); ?>
       <p><?= h($label) ?></p>
     </div>
@@ -806,7 +808,7 @@ function render_sheet_bill(array $d, string $variant): void
     <?php endif; ?>
     <div class="bill-signs">
       <div>Received by</div>
-      <div><?php render_company_signature($doc); ?>Authorized by</div>
+      <div<?= document_has_e_signature($doc) ? ' class="has-stamp"' : '' ?>><?php render_company_signature($doc); ?>Authorized by</div>
     </div>
   <?php endif; ?>
   </div>
@@ -853,7 +855,7 @@ function render_twin_half(array $d, string $label): void
         <?php endforeach; ?>
       </div>
       <?php endif; ?>
-      <div class="twin-sign"><?php if (($doc['kind'] ?? '') !== 'letter') { render_company_signature($doc); } ?>Authorized signature</div>
+      <div class="twin-sign<?= (($doc['kind'] ?? '') !== 'letter' && document_has_e_signature($doc)) ? ' has-stamp' : '' ?>"><?php if (($doc['kind'] ?? '') !== 'letter') { render_company_signature($doc); } ?>Authorized signature</div>
     </div>
     <?php
 }
@@ -1152,7 +1154,7 @@ function render_sheet_seal(array $d): void
   <?php endif; ?>
   <footer class="seal-sign">
     <div>For and on behalf of <?= h($brand['name']) ?></div>
-    <div><?php if (($doc['kind'] ?? '') !== 'letter') { render_company_signature($doc); } ?>Authorised</div>
+    <div<?= (($doc['kind'] ?? '') !== 'letter' && document_has_e_signature($doc)) ? ' class="has-stamp"' : '' ?>><?php if (($doc['kind'] ?? '') !== 'letter') { render_company_signature($doc); } ?>Authorised</div>
   </footer>
 </article>
 <?php
@@ -1472,7 +1474,7 @@ function render_sheet_booklet(array $d): void
           <b><?= h(money($d['total'], $d['cur'])) ?></b>
         </div>
         <?php endif; ?>
-        <div class="slip-sign">
+        <div class="slip-sign<?= document_has_e_signature($doc) ? ' has-stamp' : '' ?>">
           <span>Signature</span>
           <?php render_letter_signature($doc); ?>
           <p class="slip-for">For: <?= h((string) $brand['name']) ?></p>
@@ -1556,14 +1558,14 @@ function render_sheet_chit(array $d): void
             <span><?= h(slip_cash_label((string) $d['cur'])) ?></span>
             <b><?= h(money($d['total'], $d['cur'])) ?></b>
           </div>
-          <div class="slip-sign">
+          <div class="slip-sign<?= document_has_e_signature($doc) ? ' has-stamp' : '' ?>">
             <span>Signature</span>
             <?php render_letter_signature($doc); ?>
             <p class="slip-for">For: <?= h((string) $brand['name']) ?></p>
           </div>
         </div>
       <?php else: ?>
-        <div class="slip-sign">
+        <div class="slip-sign<?= document_has_e_signature($doc) ? ' has-stamp' : '' ?>">
           <span>Signature</span>
           <?php render_letter_signature($doc); ?>
           <p class="slip-for">For: <?= h((string) $brand['name']) ?></p>
