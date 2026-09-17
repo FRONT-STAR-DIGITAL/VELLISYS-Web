@@ -2867,7 +2867,8 @@ function documents_sum(array $rows, string $field = 'total'): float
 function export_query(string $type, array $extra = []): string
 {
     $p = period_range();
-    return url('export.php?' . http_build_query(array_merge([
+    $keep = function_exists('pnl_branch_keep') ? pnl_branch_keep() : [];
+    return url('export.php?' . http_build_query(array_merge($keep, [
         'type' => $type,
         'range' => $p['preset'],
         'from' => $p['from'],

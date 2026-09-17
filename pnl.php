@@ -12,17 +12,18 @@ layout_start('Profit & Loss', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('reports') ?>Profit &amp; Loss</h1>
-    <p class="lede">Income, expenses, refunds and returns for the dates you pick, with net profit on one desk.</p>
+    <p class="lede">Income, expenses, refunds and returns for the dates you pick, with net profit on one desk.<?= h(pnl_branch_lede()) ?></p>
   </div>
   <div class="actions page-actions">
-    <a class="btn ghost" href="<?= h(url('pnl_entries.php')) ?>"><?= icon('bank', 16) ?>Ledger</a>
+    <a class="btn ghost" href="<?= h(pnl_href('pnl_entries.php')) ?>"><?= icon('bank', 16) ?>Ledger</a>
     <a class="btn ghost" href="<?= h(url('document_new.php?kind=refund')) ?>"><?= icon('wallet', 16) ?>Refund</a>
     <a class="btn ghost" href="<?= h(url('document_new.php?kind=return_note')) ?>"><?= icon('truck', 16) ?>Return</a>
-    <a class="btn" href="<?= h(url('pnl_entries.php?new=1')) ?>"><?= icon('plus', 16) ?>Entry</a>
+    <a class="btn" href="<?= h(pnl_href('pnl_entries.php', ['new' => '1'])) ?>"><?= icon('plus', 16) ?>Entry</a>
   </div>
 </div>
 <?php render_pnl_subnav('pnl.php'); ?>
-<?php render_filters('pnl.php'); ?>
+<?php render_pnl_branch_chips('pnl.php'); ?>
+<?php render_filters('pnl.php', pnl_branch_keep()); ?>
 
 <div class="stats">
   <div class="card stat"><?= icon('invoice', 20) ?><span>Income</span><strong><?= h(money($summary['income_total'], $ccy)) ?></strong></div>

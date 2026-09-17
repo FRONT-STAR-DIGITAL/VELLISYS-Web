@@ -472,6 +472,7 @@ function folio_migrate(mysqli $db): void
     folio_ensure_access_addons($db);
     folio_migrate_client_profile($db);
     folio_ensure_banking($db);
+    folio_ensure_pnl_branch_books($db);
     $ready = folio_schema_ready_file();
     if (is_file($ready) && filemtime($ready) > time() - 86400) {
         $done = true;
@@ -1811,6 +1812,7 @@ function folio_ensure_banking(mysqli $db): void
     $db->query("CREATE TABLE IF NOT EXISTS bank_accounts (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       company_id INT UNSIGNED NOT NULL,
+      branch_id INT UNSIGNED NOT NULL DEFAULT 0,
       name VARCHAR(120) NOT NULL,
       bank_name VARCHAR(160) NOT NULL DEFAULT '',
       account_number VARCHAR(80) NOT NULL DEFAULT '',
@@ -1818,11 +1820,13 @@ function folio_ensure_banking(mysqli $db): void
       notes VARCHAR(500) NOT NULL DEFAULT '',
       is_active TINYINT(1) NOT NULL DEFAULT 1,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      KEY company_id (company_id)
+      KEY company_id (company_id),
+      KEY bank_accounts_branch (company_id, branch_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     $db->query("CREATE TABLE IF NOT EXISTS bank_transactions (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       company_id INT UNSIGNED NOT NULL,
+      branch_id INT UNSIGNED NOT NULL DEFAULT 0,
       account_id INT UNSIGNED NOT NULL,
       kind VARCHAR(20) NOT NULL,
       txn_date DATE NOT NULL,
@@ -1834,11 +1838,13 @@ function folio_ensure_banking(mysqli $db): void
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       KEY company_date (company_id, txn_date),
       KEY account (account_id),
-      KEY company_kind (company_id, kind)
+      KEY company_kind (company_id, kind),
+      KEY bank_transactions_branch (company_id, branch_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     $db->query("CREATE TABLE IF NOT EXISTS pnl_savings_moves (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       company_id INT UNSIGNED NOT NULL,
+      branch_id INT UNSIGNED NOT NULL DEFAULT 0,
       kind VARCHAR(20) NOT NULL,
       move_date DATE NOT NULL,
       amount DECIMAL(14,2) NOT NULL DEFAULT 0,
@@ -1848,7 +1854,8 @@ function folio_ensure_banking(mysqli $db): void
       user_id INT UNSIGNED NOT NULL DEFAULT 0,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       KEY company_date (company_id, move_date),
-      KEY company_kind (company_id, kind)
+      KEY company_kind (company_id, kind),
+      KEY pnl_savings_moves_branch (company_id, branch_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     $savings = @$db->query('SELECT company_id, saved_amount, note, updated_at FROM pnl_savings WHERE saved_amount > 0');
     if (!$savings) {
@@ -1878,6 +1885,38 @@ function folio_ensure_banking(mysqli $db): void
         $note = trim((string) ($row['note'] ?? '')) ?: 'Amount already set aside';
         $ins->bind_param('issdsss', $cid, $kind, $when, $amt, $person, $purpose, $note);
         $ins->execute();
+    }
+}
+
+function folio_ensure_pnl_branch_books(mysqli $db): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    $tables = [
+        'pnl_entries' => 'AFTER company_id',
+        'pnl_savings' => 'AFTER company_id',
+        'pnl_savings_moves' => 'AFTER company_id',
+        'bank_accounts' => 'AFTER company_id',
+        'bank_transactions' => 'AFTER company_id',
+    ];
+    foreach ($tables as $table => $after) {
+        if (!db_has_column($db, $table, 'branch_id')) {
+            @$db->query("ALTER TABLE `{$table}` ADD COLUMN branch_id INT UNSIGNED NOT NULL DEFAULT 0 {$after}");
+            @$db->query("ALTER TABLE `{$table}` ADD KEY `{$table}_branch` (company_id, branch_id)");
+        }
+    }
+    $pk = @$db->query("SHOW INDEX FROM pnl_savings WHERE Key_name = 'PRIMARY'");
+    $pkCols = [];
+    if ($pk) {
+        while ($row = $pk->fetch_assoc()) {
+            $pkCols[] = (string) ($row['Column_name'] ?? '');
+        }
+    }
+    if ($pkCols === ['company_id'] || (count($pkCols) === 1 && ($pkCols[0] ?? '') === 'company_id')) {
+        @$db->query('ALTER TABLE pnl_savings DROP PRIMARY KEY, ADD PRIMARY KEY (company_id, branch_id)');
     }
 }
 

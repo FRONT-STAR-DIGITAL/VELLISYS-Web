@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'delete_move') {
             pnl_savings_move_delete((int) post('id'));
             flash('Savings line removed.');
-            redirect('pnl_savings.php');
+            pnl_redirect('pnl_savings.php');
         }
         if ($action === 'move') {
             pnl_savings_move_save([
@@ -21,16 +21,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'person_name' => post('person_name'),
                 'purpose' => post('purpose'),
                 'notes' => post('notes'),
+                'branch_id' => post('branch_id'),
             ]);
             flash(post('kind') === 'withdraw' ? 'Withdrawal recorded.' : 'Deposit recorded.');
-            redirect('pnl_savings.php');
+            pnl_redirect('pnl_savings.php');
         }
         pnl_savings_save([
             'target_amount' => money_parse(post('target_amount')),
             'note' => post('note'),
+            'branch_id' => post('branch_id'),
         ]);
         flash('Savings target saved.');
-        redirect('pnl_savings.php');
+        pnl_redirect('pnl_savings.php');
     } catch (Throwable $e) {
         $error = $e->getMessage();
     }
@@ -40,7 +42,14 @@ $summary = pnl_summary();
 $goal = pnl_savings_get();
 $ccy = $summary['currency'];
 $net = (float) $summary['net'];
-$target = (float) $goal['target_amount'];
+if (!empty($goal['all'])) {
+    $target = 0.0;
+    foreach ($goal['targets'] ?? [] as $t) {
+        $target += (float) ($t['target_amount'] ?? 0);
+    }
+} else {
+    $target = (float) $goal['target_amount'];
+}
 $saved = (float) $goal['saved_amount'];
 $progressNet = $target > 0 ? min(100, max(0, round(($net / $target) * 100, 1))) : 0;
 $progressSaved = $target > 0 ? min(100, max(0, round(($saved / $target) * 100, 1))) : 0;
@@ -62,15 +71,16 @@ layout_start('Savings', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('wallet') ?>Savings</h1>
-    <p class="lede">Set a target, then deposit and withdraw against the amount set aside. Profit here is selling minus buying. Net profit is that profit minus expenses for <?= h($rangeLabel) ?>.</p>
+    <p class="lede">Set a target, then deposit and withdraw against the amount set aside. Profit here is selling minus buying. Net profit is that profit minus expenses for <?= h($rangeLabel) ?>.<?= h(pnl_branch_lede()) ?></p>
   </div>
   <div class="actions page-actions">
     <?php render_csv_link('savings', 'Export CSV'); ?>
-    <a class="btn ghost" href="<?= h(url('pnl_banking.php')) ?>"><?= icon('bank', 16) ?>Banking</a>
+    <a class="btn ghost" href="<?= h(pnl_href('pnl_banking.php')) ?>"><?= icon('bank', 16) ?>Banking</a>
   </div>
 </div>
 <?php render_pnl_subnav('pnl_savings.php'); ?>
-<?php render_filters('pnl_savings.php'); ?>
+<?php render_pnl_branch_chips('pnl_savings.php'); ?>
+<?php render_filters('pnl_savings.php', pnl_branch_keep()); ?>
 <?php if ($error): ?><p class="flash flash-err"><?= h($error) ?></p><?php endif; ?>
 
 <div class="stats">
@@ -111,12 +121,40 @@ layout_start('Savings', $user);
       <input id="target_amount" name="target_amount" inputmode="decimal" value="<?= h($target > 0 ? (string) $target : '') ?>" placeholder="0">
       <label for="note">Note</label>
       <input id="note" name="note" value="<?= h($goal['note']) ?>" maxlength="500" placeholder="School fees, stock float, tax">
+      <?php render_pnl_branch_field(isset($goal['branch_id']) ? (int) $goal['branch_id'] : null, 'target_branch'); ?>
       <div class="actions" style="margin-top:12px">
         <button class="btn" type="submit"><?= icon('check') ?>Save target</button>
       </div>
     </form>
   </div>
 </div>
+<?php if (!empty($goal['all']) && !empty($goal['targets'])): ?>
+<div class="card" style="margin-top:16px">
+  <div class="card-head"><h2><?= icon('pin', 16) ?>By branch</h2></div>
+  <div class="table-scroll">
+    <table class="grid">
+      <thead>
+        <tr>
+          <th>Branch</th>
+          <th class="right">Target</th>
+          <th class="right">Set aside</th>
+          <th>Note</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($goal['targets'] as $t): ?>
+          <tr>
+            <td><?= h((string) $t['branch_name']) ?></td>
+            <td class="right mono"><?= h(money((float) $t['target_amount'], $ccy)) ?></td>
+            <td class="right mono"><?= h(money((float) $t['saved_amount'], $ccy)) ?></td>
+            <td><?= h((string) $t['note']) ?></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+</div>
+<?php endif; ?>
 
 <div class="desk-grid stock-split" style="margin-top:16px">
   <div class="card">
@@ -133,6 +171,7 @@ layout_start('Savings', $user);
       <input id="dep_person" name="person_name" required maxlength="160" placeholder="Who is putting this aside">
       <label for="dep_notes">Note</label>
       <input id="dep_notes" name="notes" maxlength="500" placeholder="Optional">
+      <?php render_pnl_branch_field(null, 'dep_branch'); ?>
       <div class="actions" style="margin-top:12px">
         <button class="btn" type="submit"><?= icon('check') ?>Record deposit</button>
       </div>
@@ -154,6 +193,7 @@ layout_start('Savings', $user);
       <input id="w_purpose" name="purpose" required maxlength="255" placeholder="School fees, stock, tax">
       <label for="w_notes">Note</label>
       <input id="w_notes" name="notes" maxlength="500" placeholder="Optional">
+      <?php render_pnl_branch_field(null, 'w_branch'); ?>
       <div class="actions" style="margin-top:12px">
         <button class="btn" type="submit"><?= icon('check') ?>Record withdrawal</button>
       </div>
@@ -174,6 +214,7 @@ layout_start('Savings', $user);
         <thead>
           <tr>
             <th>Date</th>
+            <?php if (pnl_show_branch_col()): ?><th>Branch</th><?php endif; ?>
             <th>Type</th>
             <th>Person</th>
             <th>Purpose</th>
@@ -185,6 +226,7 @@ layout_start('Savings', $user);
           <?php foreach ($moves as $m): ?>
             <tr>
               <td><?= h(format_date($m['move_date'])) ?></td>
+              <?php if (pnl_show_branch_col()): ?><td><?= h(pnl_branch_name($m['branch_id'] ?? 0)) ?></td><?php endif; ?>
               <td><?= ($m['kind'] ?? '') === 'withdraw' ? 'Withdrawal' : 'Deposit' ?></td>
               <td><?= h((string) $m['person_name']) ?></td>
               <td><?= h((string) ($m['purpose'] ?: ($m['notes'] ?? ''))) ?></td>

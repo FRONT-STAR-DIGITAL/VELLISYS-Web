@@ -9,6 +9,10 @@ if (!in_array($view, ['accounts', 'activity', 'reports'], true)) {
 }
 $editId = (int) ($_GET['edit'] ?? 0);
 $editing = $editId ? bank_account($editId) : null;
+if ($editing && !bank_account_allowed($editing)) {
+    $editing = null;
+    $editId = 0;
+}
 $ccy = default_currency();
 $error = '';
 
@@ -25,9 +29,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'opening_balance' => post('opening_balance'),
                 'notes' => post('notes'),
                 'is_active' => (int) post('id') === 0 || post('is_active') === '1',
+                'branch_id' => post('branch_id'),
             ], (int) post('id'));
             flash((int) post('id') ? 'Bank account updated.' : 'Bank account added.');
-            redirect('pnl_banking.php?view=accounts');
+            pnl_redirect('pnl_banking.php', ['view' => 'accounts']);
         }
         if ($action === 'archive_account') {
             $row = bank_account((int) post('id'));
@@ -41,14 +46,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'opening_balance' => $row['opening_balance'],
                 'notes' => $row['notes'],
                 'is_active' => 0,
+                'branch_id' => $row['branch_id'] ?? 0,
             ], (int) $row['id']);
             flash('Account archived.');
-            redirect('pnl_banking.php?view=accounts');
+            pnl_redirect('pnl_banking.php', ['view' => 'accounts']);
         }
         if ($action === 'delete_account') {
             bank_account_delete((int) post('id'));
             flash('Bank account removed.');
-            redirect('pnl_banking.php?view=accounts');
+            pnl_redirect('pnl_banking.php', ['view' => 'accounts']);
         }
         if ($action === 'txn') {
             bank_transaction_save([
@@ -61,12 +67,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'notes' => post('notes'),
             ]);
             flash(post('kind') === 'withdraw' ? 'Withdrawal recorded.' : 'Deposit recorded.');
-            redirect('pnl_banking.php?view=activity');
+            pnl_redirect('pnl_banking.php', ['view' => 'activity']);
         }
         if ($action === 'delete_txn') {
             bank_transaction_delete((int) post('id'));
             flash('Bank line removed.');
-            redirect('pnl_banking.php?view=activity');
+            pnl_redirect('pnl_banking.php', ['view' => 'activity']);
         }
     } catch (Throwable $e) {
         $error = $e->getMessage();
@@ -94,21 +100,22 @@ layout_start('Banking', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('bank') ?>Banking</h1>
-    <p class="lede">Bank accounts, deposits and withdrawals for <?= h($rangeLabel) ?>, with daily, weekly or monthly reports.</p>
+    <p class="lede">Bank accounts, deposits and withdrawals for <?= h($rangeLabel) ?>, with daily, weekly or monthly reports.<?= h(pnl_branch_lede()) ?></p>
   </div>
   <div class="actions page-actions">
     <?php if ($view === 'accounts'): ?>
       <?php render_csv_link('bank_accounts', 'Export CSV'); ?>
     <?php elseif ($view === 'reports'): ?>
-      <?php render_csv_link('bank_report', 'Export CSV', ['bucket' => $bucket]); ?>
+      <?php render_csv_link('bank_report', 'Export CSV', ['bucket' => $bucket, 'view' => 'reports']); ?>
     <?php else: ?>
       <?php render_csv_link('banking', 'Export CSV'); ?>
     <?php endif; ?>
   </div>
 </div>
 <?php render_pnl_subnav('pnl_banking.php'); ?>
+<?php render_pnl_branch_chips('pnl_banking.php', ['view' => $view]); ?>
 <?php render_banking_subnav($view); ?>
-<?php render_filters('pnl_banking.php', ['view' => $view, 'bucket' => $bucket]); ?>
+<?php render_filters('pnl_banking.php', array_merge(pnl_branch_keep(), ['view' => $view, 'bucket' => $bucket])); ?>
 <?php if ($view === 'reports'): ?>
   <?php render_pnl_bucket_chips('pnl_banking.php', ['view' => 'reports']); ?>
 <?php endif; ?>
@@ -140,6 +147,7 @@ layout_start('Banking', $user);
       <input id="opening_balance" name="opening_balance" inputmode="decimal" value="<?= h(isset($editing['opening_balance']) ? (string) $editing['opening_balance'] : '0') ?>">
       <label for="acct_notes">Note</label>
       <input id="acct_notes" name="notes" maxlength="500" value="<?= h((string) ($editing['notes'] ?? '')) ?>">
+      <?php render_pnl_branch_field(isset($editing['branch_id']) ? (int) $editing['branch_id'] : null, 'acct_branch'); ?>
       <?php if ($editing): ?>
         <label class="check" style="margin-top:10px">
           <input type="checkbox" name="is_active" value="1" <?= (int) ($editing['is_active'] ?? 1) === 1 ? 'checked' : '' ?>> Active
@@ -148,7 +156,7 @@ layout_start('Banking', $user);
       <div class="actions" style="margin-top:12px">
         <button class="btn" type="submit"><?= icon('check') ?><?= $editing ? 'Save account' : 'Add account' ?></button>
         <?php if ($editing): ?>
-          <a class="btn ghost" href="<?= h(url('pnl_banking.php?view=accounts')) ?>">Cancel</a>
+          <a class="btn ghost" href="<?= h(pnl_href('pnl_banking.php', ['view' => 'accounts'])) ?>">Cancel</a>
         <?php endif; ?>
       </div>
     </form>
@@ -166,6 +174,7 @@ layout_start('Banking', $user);
           <thead>
             <tr>
               <th>Account</th>
+              <?php if (pnl_show_branch_col()): ?><th>Branch</th><?php endif; ?>
               <th>Bank</th>
               <th>Number</th>
               <th class="right">Balance</th>
@@ -178,11 +187,12 @@ layout_start('Banking', $user);
                 ?>
               <tr class="<?= (int) ($a['is_active'] ?? 1) === 1 ? '' : 'is-muted' ?>">
                 <td><?= h($a['name']) ?><?= (int) ($a['is_active'] ?? 1) === 1 ? '' : ' (archived)' ?></td>
+                <?php if (pnl_show_branch_col()): ?><td><?= h(pnl_branch_name($a['branch_id'] ?? 0)) ?></td><?php endif; ?>
                 <td><?= h((string) $a['bank_name']) ?></td>
                 <td class="mono"><?= h((string) $a['account_number']) ?></td>
                 <td class="right mono"><?= h(money($bal, $ccy)) ?></td>
                 <td class="row-actions">
-                  <a class="btn ghost sm" href="<?= h(url('pnl_banking.php?view=accounts&edit=' . (int) $a['id'])) ?>">Edit</a>
+                  <a class="btn ghost sm" href="<?= h(pnl_href('pnl_banking.php', ['view' => 'accounts', 'edit' => (int) $a['id']])) ?>">Edit</a>
                   <?php if ((int) ($a['is_active'] ?? 1) === 1): ?>
                     <form method="post">
                       <?= csrf_field() ?>
@@ -346,6 +356,33 @@ layout_start('Banking', $user);
     </div>
   </div>
 </div>
+<?php if (pnl_show_branch_col() && !empty($report['by_branch'])): ?>
+<div class="card" style="margin-top:16px">
+  <div class="card-head"><h2>By branch</h2></div>
+  <div class="table-scroll">
+    <table class="grid">
+      <thead>
+        <tr>
+          <th>Branch</th>
+          <th class="right">Deposits</th>
+          <th class="right">Withdrawals</th>
+          <th class="right">Net</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($report['by_branch'] as $name => $row): ?>
+          <tr>
+            <td><?= h((string) $name) ?></td>
+            <td class="right mono"><?= h(money($row['deposits'], $ccy)) ?></td>
+            <td class="right mono"><?= h(money($row['withdrawals'], $ccy)) ?></td>
+            <td class="right mono"><?= h(money($row['deposits'] - $row['withdrawals'], $ccy)) ?></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+</div>
+<?php endif; ?>
 
 <div class="desk-grid stock-split" style="margin-top:16px">
   <div class="card">
@@ -461,7 +498,7 @@ endif; ?>
 
 <?php if (!$activeAccounts): ?>
   <div class="card">
-    <p class="empty">Add a bank account first, then record deposits and withdrawals. <a href="<?= h(url('pnl_banking.php?view=accounts')) ?>">Open accounts</a></p>
+    <p class="empty">Add a bank account first, then record deposits and withdrawals. <a href="<?= h(pnl_href('pnl_banking.php', ['view' => 'accounts'])) ?>">Open accounts</a></p>
   </div>
 <?php else: ?>
 <div class="desk-grid stock-split">
@@ -475,7 +512,7 @@ endif; ?>
       <label for="dep_account">Bank account</label>
       <select id="dep_account" name="account_id" required>
         <?php foreach ($activeAccounts as $a): ?>
-          <option value="<?= (int) $a['id'] ?>"><?= h($a['name']) ?><?= $a['bank_name'] ? ' · ' . h($a['bank_name']) : '' ?></option>
+          <option value="<?= (int) $a['id'] ?>"><?= h($a['name']) ?><?= $a['bank_name'] ? ' · ' . h($a['bank_name']) : '' ?><?= pnl_show_branch_col() ? ' · ' . h(pnl_branch_name($a['branch_id'] ?? 0)) : '' ?></option>
         <?php endforeach; ?>
       </select>
       <label for="dep_date">Date</label>
@@ -501,7 +538,7 @@ endif; ?>
       <label for="w_account">Bank account</label>
       <select id="w_account" name="account_id" required>
         <?php foreach ($activeAccounts as $a): ?>
-          <option value="<?= (int) $a['id'] ?>"><?= h($a['name']) ?><?= $a['bank_name'] ? ' · ' . h($a['bank_name']) : '' ?></option>
+          <option value="<?= (int) $a['id'] ?>"><?= h($a['name']) ?><?= $a['bank_name'] ? ' · ' . h($a['bank_name']) : '' ?><?= pnl_show_branch_col() ? ' · ' . h(pnl_branch_name($a['branch_id'] ?? 0)) : '' ?></option>
         <?php endforeach; ?>
       </select>
       <label for="w_date">Date</label>
@@ -535,6 +572,7 @@ endif; ?>
         <thead>
           <tr>
             <th>Date</th>
+            <?php if (pnl_show_branch_col()): ?><th>Branch</th><?php endif; ?>
             <th>Type</th>
             <th>Account</th>
             <th>Person</th>
@@ -547,6 +585,7 @@ endif; ?>
           <?php foreach ($txns as $t): ?>
             <tr>
               <td><?= h(format_date($t['txn_date'])) ?></td>
+              <?php if (pnl_show_branch_col()): ?><td><?= h(pnl_branch_name($t['branch_id'] ?? $t['account_branch_id'] ?? 0)) ?></td><?php endif; ?>
               <td><?= ($t['kind'] ?? '') === 'withdraw' ? 'Withdrawal' : 'Deposit' ?></td>
               <td><?= h((string) $t['account_name']) ?></td>
               <td><?= h((string) $t['person_name']) ?></td>

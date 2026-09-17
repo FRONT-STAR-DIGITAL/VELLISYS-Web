@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'delete') {
         pnl_entry_delete((int) post('id'));
         flash('Entry removed.');
-        redirect('pnl_entries.php');
+        pnl_redirect('pnl_entries.php');
     }
     try {
         pnl_entry_save([
@@ -23,9 +23,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'amount' => post('amount'),
             'entry_date' => post('entry_date'),
             'notes' => post('notes'),
+            'branch_id' => post('branch_id'),
         ], (int) post('id'));
         flash('Entry saved.');
-        redirect('pnl_entries.php');
+        pnl_redirect('pnl_entries.php');
     } catch (Throwable $e) {
         flash($e->getMessage(), 'err');
         $showForm = true;
@@ -40,15 +41,16 @@ layout_start('P&L ledger', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('bank') ?>P&amp;L ledger</h1>
-    <p class="lede">Other income and costs that sit beside invoices, expenses, receipts, refunds and returns.</p>
+    <p class="lede">Other income and costs that sit beside invoices, expenses, receipts, refunds and returns.<?= h(pnl_branch_lede()) ?></p>
   </div>
   <div class="actions page-actions">
-    <a class="btn ghost" href="<?= h(url('pnl.php')) ?>"><?= icon('reports', 16) ?>Overview</a>
-    <a class="btn" href="<?= h(url('pnl_entries.php?new=1')) ?>"><?= icon('plus', 16) ?>New entry</a>
+    <a class="btn ghost" href="<?= h(pnl_href('pnl.php')) ?>"><?= icon('reports', 16) ?>Overview</a>
+    <a class="btn" href="<?= h(pnl_href('pnl_entries.php', ['new' => '1'])) ?>"><?= icon('plus', 16) ?>New entry</a>
   </div>
 </div>
 <?php render_pnl_subnav('pnl_entries.php'); ?>
-<?php render_filters('pnl_entries.php'); ?>
+<?php render_pnl_branch_chips('pnl_entries.php'); ?>
+<?php render_filters('pnl_entries.php', pnl_branch_keep()); ?>
 
 <?php if ($showForm): ?>
 <form class="card form-grid" method="post" style="margin-bottom:16px">
@@ -87,9 +89,12 @@ layout_start('P&L ledger', $user);
     <label for="notes">Notes</label>
     <textarea id="notes" name="notes" rows="2"><?= h(post('notes') ?: ($editing['notes'] ?? '')) ?></textarea>
   </div>
+  <div>
+    <?php render_pnl_branch_field(isset($editing['branch_id']) ? (int) $editing['branch_id'] : null, 'entry_branch'); ?>
+  </div>
   <div class="actions" style="grid-column:1/-1">
     <button class="btn" type="submit"><?= icon('check', 16) ?>Save entry</button>
-    <a class="btn ghost" href="<?= h(url('pnl_entries.php')) ?>">Cancel</a>
+    <a class="btn ghost" href="<?= h(pnl_href('pnl_entries.php')) ?>">Cancel</a>
   </div>
 </form>
 <?php endif; ?>
@@ -101,17 +106,18 @@ layout_start('P&L ledger', $user);
   <?php else: ?>
     <div class="table-wrap">
       <table class="grid">
-        <thead><tr><th>Date</th><th>Type</th><th>Title</th><th>Category</th><th>Amount</th><th></th></tr></thead>
+        <thead><tr><th>Date</th><?php if (pnl_show_branch_col()): ?><th>Branch</th><?php endif; ?><th>Type</th><th>Title</th><th>Category</th><th>Amount</th><th></th></tr></thead>
         <tbody>
         <?php foreach ($entries as $row): ?>
           <tr>
             <td><?= h(format_date($row['entry_date'])) ?></td>
+            <?php if (pnl_show_branch_col()): ?><td><?= h(pnl_branch_name($row['branch_id'] ?? 0)) ?></td><?php endif; ?>
             <td><?= $row['kind'] === 'income' ? 'Income' : 'Expense' ?></td>
             <td><?= h($row['title']) ?></td>
             <td><?= h($row['category']) ?></td>
             <td><?= h(money((float) $row['amount'])) ?></td>
             <td class="row-actions">
-              <a class="btn ghost sm" href="<?= h(url('pnl_entries.php?edit=' . (int) $row['id'])) ?>">Edit</a>
+              <a class="btn ghost sm" href="<?= h(pnl_href('pnl_entries.php', ['edit' => (int) $row['id']])) ?>">Edit</a>
               <form method="post" onsubmit="return confirm('Remove this entry?')">
                 <?= csrf_field() ?>
                 <input type="hidden" name="action" value="delete">

@@ -38,6 +38,186 @@ function require_pnl(): array
     return $user;
 }
 
+function pnl_view_branch(): array
+{
+    $user = current_user() ?: [];
+    $admin = is_desk_admin($user);
+    $enabled = function_exists('company_branches_enabled') && company_branches_enabled();
+    if (!$enabled) {
+        return ['enabled' => false, 'all' => true, 'id' => 0, 'label' => '', 'admin' => $admin];
+    }
+    if (!$admin) {
+        $id = (int) ($user['branch_id'] ?? 0);
+        return [
+            'enabled' => true,
+            'all' => false,
+            'id' => $id,
+            'label' => company_branch_label($id),
+            'admin' => false,
+        ];
+    }
+    $raw = (string) ($_GET['branch'] ?? 'all');
+    if ($raw === '' || $raw === 'all') {
+        return ['enabled' => true, 'all' => true, 'id' => 0, 'label' => 'Every branch', 'admin' => true];
+    }
+    $id = (int) $raw;
+    if ($id > 0 && function_exists('normalize_branch_id') && !normalize_branch_id($id)) {
+        $id = 0;
+    }
+    return [
+        'enabled' => true,
+        'all' => false,
+        'id' => $id,
+        'label' => company_branch_label($id),
+        'admin' => true,
+    ];
+}
+
+function pnl_branch_keep(): array
+{
+    $scope = pnl_view_branch();
+    if (!$scope['enabled']) {
+        return [];
+    }
+    return ['branch' => $scope['all'] ? 'all' : (string) $scope['id']];
+}
+
+function pnl_branch_sql(string $column): array
+{
+    $scope = pnl_view_branch();
+    if (!$scope['enabled'] || $scope['all']) {
+        return ['', '', []];
+    }
+    $id = (int) $scope['id'];
+    if ($id < 1) {
+        return [" AND ({$column} IS NULL OR {$column} = 0)", '', []];
+    }
+    return [" AND {$column} = ?", 'i', [$id]];
+}
+
+function pnl_posted_branch_id(): int
+{
+    $scope = pnl_view_branch();
+    $user = current_user() ?: [];
+    if ($scope['enabled'] && !$scope['admin']) {
+        return (int) ($user['branch_id'] ?? 0);
+    }
+    if (array_key_exists('branch_id', $_POST)) {
+        $raw = (int) post('branch_id');
+        if ($raw < 1) {
+            return 0;
+        }
+        return function_exists('normalize_branch_id') ? (int) (normalize_branch_id($raw) ?? 0) : $raw;
+    }
+    if ($scope['enabled'] && !$scope['all']) {
+        return (int) $scope['id'];
+    }
+    return (int) ($user['branch_id'] ?? 0);
+}
+
+function pnl_redirect(string $script, array $extra = []): void
+{
+    $p = period_range();
+    $qs = array_merge(pnl_branch_keep(), [
+        'range' => $p['preset'],
+        'from' => $p['from'],
+        'to' => $p['to'],
+        'bucket' => pnl_report_bucket(),
+    ], $extra);
+    redirect($script . '?' . http_build_query($qs));
+}
+
+function render_pnl_branch_chips(string $action, array $keep = []): void
+{
+    $scope = pnl_view_branch();
+    if (!$scope['enabled'] || !$scope['admin']) {
+        return;
+    }
+    $p = period_range();
+    $base = array_merge($keep, [
+        'range' => $p['preset'],
+        'from' => $p['from'],
+        'to' => $p['to'],
+        'bucket' => pnl_report_bucket(),
+    ]);
+    ?>
+  <div class="filter-chips" style="margin:0 0 12px">
+    <a class="chip<?= $scope['all'] ? ' is-on' : '' ?>" href="<?= h(url($action . '?' . http_build_query(array_merge($base, ['branch' => 'all'])))) ?>">Every branch</a>
+    <?php foreach (company_all_branches() as $b):
+        $bid = (int) ($b['id'] ?? 0);
+        $on = !$scope['all'] && (int) $scope['id'] === $bid;
+        ?>
+      <a class="chip<?= $on ? ' is-on' : '' ?>" href="<?= h(url($action . '?' . http_build_query(array_merge($base, ['branch' => (string) $bid])))) ?>"><?= h((string) $b['name']) ?></a>
+    <?php endforeach; ?>
+  </div>
+    <?php
+}
+
+function render_pnl_branch_field(?int $selected = null, string $id = 'branch_id'): void
+{
+    if (!function_exists('company_branches_enabled') || !company_branches_enabled()) {
+        echo '<input type="hidden" name="branch_id" value="0">';
+        return;
+    }
+    $scope = pnl_view_branch();
+    if (!$scope['admin']) {
+        echo '<input type="hidden" name="branch_id" value="' . (int) $scope['id'] . '">';
+        return;
+    }
+    if (!$scope['all']) {
+        echo '<input type="hidden" name="branch_id" value="' . (int) $scope['id'] . '">';
+        return;
+    }
+    $selected = $selected ?? (int) (current_user()['branch_id'] ?? 0);
+    ?>
+      <label for="<?= h($id) ?>">Branch</label>
+      <select id="<?= h($id) ?>" name="branch_id" required>
+        <?php render_branch_options($selected); ?>
+      </select>
+    <?php
+}
+
+function pnl_branch_name(mixed $id): string
+{
+    return company_branch_label((int) ($id ?? 0));
+}
+
+function pnl_show_branch_col(): bool
+{
+    $scope = pnl_view_branch();
+    return !empty($scope['enabled']) && !empty($scope['all']);
+}
+
+function pnl_branch_lede(): string
+{
+    $scope = pnl_view_branch();
+    if (empty($scope['enabled'])) {
+        return '';
+    }
+    if (!empty($scope['all'])) {
+        return ' Combined across every branch. Each location keeps its own savings, bank accounts and ledger, so a branch can run a different line of business from Head office.';
+    }
+    return ' Books for ' . (string) $scope['label'] . ' only. Other branches keep separate figures.';
+}
+
+function pnl_href(string $script, array $extra = []): string
+{
+    $p = period_range();
+    $file = (string) strtok($script, '?');
+    $existing = [];
+    $qpos = strpos($script, '?');
+    if ($qpos !== false) {
+        parse_str((string) substr($script, $qpos + 1), $existing);
+    }
+    $qs = array_merge(pnl_branch_keep(), [
+        'range' => $p['preset'],
+        'from' => $p['from'],
+        'to' => $p['to'],
+        'bucket' => pnl_report_bucket(),
+    ], $existing, $extra);
+    return url($file . '?' . http_build_query($qs));
+}
+
 function pnl_income_categories(): array
 {
     return ['Sales', 'Services', 'Interest', 'Other income', 'Supplier refund', 'Adjustment'];
@@ -70,6 +250,10 @@ function pnl_entry_save(array $data, int $id = 0): int
         $date = today();
     }
     $notes = trim((string) ($data['notes'] ?? ''));
+    $branchId = array_key_exists('branch_id', $data) ? (int) $data['branch_id'] : pnl_posted_branch_id();
+    if ($branchId < 0) {
+        $branchId = 0;
+    }
     if ($title === '') {
         throw new RuntimeException('Give this entry a title.');
     }
@@ -82,16 +266,16 @@ function pnl_entry_save(array $data, int $id = 0): int
             throw new RuntimeException('Entry not found.');
         }
         db_exec(
-            'UPDATE pnl_entries SET entry_date=?, kind=?, category=?, title=?, amount=?, notes=? WHERE id=? AND company_id=?',
-            'ssssdsii',
-            [$date, $kind, $category, $title, $amount, $notes !== '' ? $notes : null, $id, $cid]
+            'UPDATE pnl_entries SET entry_date=?, kind=?, category=?, title=?, amount=?, notes=?, branch_id=? WHERE id=? AND company_id=?',
+            'ssssdsiii',
+            [$date, $kind, $category, $title, $amount, $notes !== '' ? $notes : null, $branchId, $id, $cid]
         );
         return $id;
     }
     return db_exec(
-        'INSERT INTO pnl_entries (company_id, user_id, entry_date, kind, category, title, amount, notes) VALUES (?,?,?,?,?,?,?,?)',
-        'iissssds',
-        [$cid, $uid, $date, $kind, $category, $title, $amount, $notes !== '' ? $notes : null]
+        'INSERT INTO pnl_entries (company_id, user_id, entry_date, kind, category, title, amount, notes, branch_id) VALUES (?,?,?,?,?,?,?,?,?)',
+        'iissssdsi',
+        [$cid, $uid, $date, $kind, $category, $title, $amount, $notes !== '' ? $notes : null, $branchId]
     );
 }
 
@@ -104,9 +288,10 @@ function pnl_entries(?string $kind = null): array
 {
     $cid = current_company_id();
     [$extra, $types, $params] = period_sql('e.entry_date');
-    $sql = 'SELECT e.* FROM pnl_entries e WHERE e.company_id = ?' . $extra;
-    $bind = 'i' . $types;
-    $args = array_merge([$cid], $params);
+    [$bSql, $bTypes, $bArgs] = pnl_branch_sql('e.branch_id');
+    $sql = 'SELECT e.* FROM pnl_entries e WHERE e.company_id = ?' . $extra . $bSql;
+    $bind = 'i' . $types . $bTypes;
+    $args = array_merge([$cid], $params, $bArgs);
     if ($kind === 'income' || $kind === 'expense') {
         $sql .= ' AND e.kind = ?';
         $bind .= 's';
@@ -147,6 +332,31 @@ function pnl_return_direction(array $doc): string
     return 'out';
 }
 
+function pnl_cogs_amount(string $from, string $to): float
+{
+    $cid = current_company_id();
+    $base = default_currency();
+    [$bSql, $bTypes, $bArgs] = pnl_branch_sql('d.branch_id');
+    $rows = db_all(
+        "SELECT d.currency,
+                COALESCE(SUM(ROUND(i.qty * COALESCE(s.buy_price, 0), 2)), 0) AS cogs
+         FROM documents d
+         JOIN document_items i ON i.document_id = d.id
+         LEFT JOIN stock_items s ON s.id = i.stock_item_id AND s.company_id = d.company_id
+         WHERE d.company_id = ? AND d.status = 'issued' AND d.kind = 'invoice'
+           AND d.date >= ? AND d.date <= ?
+           AND i.stock_item_id IS NOT NULL AND i.stock_item_id > 0" . $bSql . '
+         GROUP BY d.id, d.currency',
+        'iss' . $bTypes,
+        array_merge([$cid, $from, $to], $bArgs)
+    );
+    $cogs = 0.0;
+    foreach ($rows as $d) {
+        $cogs += convert_money((float) $d['cogs'], doc_currency($d), $base);
+    }
+    return round($cogs, 2);
+}
+
 function pnl_doc_amount(array $doc): float
 {
     $base = default_currency();
@@ -165,9 +375,10 @@ function pnl_summary(): array
 {
     $cid = current_company_id();
     [$extra, $types, $params] = period_sql('d.date');
-    $scope = "d.company_id = ? AND d.status = 'issued'" . $extra;
-    $bind = 'i' . $types;
-    $args = array_merge([$cid], $params);
+    [$bSql, $bTypes, $bArgs] = pnl_branch_sql('d.branch_id');
+    $scope = "d.company_id = ? AND d.status = 'issued'" . $extra . $bSql;
+    $bind = 'i' . $types . $bTypes;
+    $args = array_merge([$cid], $params, $bArgs);
     $base = default_currency();
 
     $invoices = attach_document_totals(db_all(
@@ -265,8 +476,7 @@ function pnl_summary(): array
     $p = period_range();
     $from = $p['from'] !== '' ? $p['from'] : '1970-01-01';
     $to = $p['to'] !== '' ? $p['to'] : today();
-    $margin = function_exists('stock_range_totals') ? stock_range_totals($from, $to) : ['cogs' => 0.0, 'profit' => $sales, 'expense' => $operatingCosts];
-    $cogs = (float) ($margin['cogs'] ?? 0);
+    $cogs = pnl_cogs_amount($from, $to);
     $profit = round($sales - $cogs, 2);
     $expenseTotal = $operatingCosts + $manualExpense + $refundOut;
     $net = round($profit + $manualIncome + $refundIn - $expenseTotal, 2);
@@ -322,6 +532,7 @@ function pnl_chart_data(?array $summary = null): array
     }
     $from = $anchor->modify('-11 months')->format('Y-m-01');
     $to = $anchor->modify('last day of this month')->format('Y-m-d');
+    [$bSql, $bTypes, $bArgs] = pnl_branch_sql('d.branch_id');
 
     $docs = attach_document_totals(db_all(
         "SELECT d.*, r.kind AS related_kind
@@ -329,9 +540,9 @@ function pnl_chart_data(?array $summary = null): array
          LEFT JOIN documents r ON r.id = d.related_id
          WHERE d.company_id = ? AND d.status = 'issued'
            AND d.date >= ? AND d.date <= ?
-           AND d.kind IN ('invoice','expense','receipt','refund')",
-        'iss',
-        [$cid, $from, $to]
+           AND d.kind IN ('invoice','expense','receipt','refund')" . $bSql,
+        'iss' . $bTypes,
+        array_merge([$cid, $from, $to], $bArgs)
     ));
     foreach ($docs as $d) {
         $key = substr((string) $d['date'], 0, 7);
@@ -361,11 +572,12 @@ function pnl_chart_data(?array $summary = null): array
         }
     }
 
+    [$eSql, $eTypes, $eArgs] = pnl_branch_sql('branch_id');
     $ledger = db_all(
         'SELECT entry_date, kind, amount FROM pnl_entries
-         WHERE company_id = ? AND entry_date >= ? AND entry_date <= ?',
-        'iss',
-        [$cid, $from, $to]
+         WHERE company_id = ? AND entry_date >= ? AND entry_date <= ?' . $eSql,
+        'iss' . $eTypes,
+        array_merge([$cid, $from, $to], $eArgs)
     );
     foreach ($ledger as $row) {
         $key = substr((string) ($row['entry_date'] ?? ''), 0, 7);
@@ -414,58 +626,94 @@ function pnl_chart_data(?array $summary = null): array
 function pnl_savings_get(): array
 {
     $cid = current_company_id();
-    $row = db_one('SELECT * FROM pnl_savings WHERE company_id = ?', 'i', [$cid]);
+    $scope = pnl_view_branch();
     $saved = pnl_savings_balance();
+    if ($scope['enabled'] && $scope['all']) {
+        $targets = [];
+        foreach (company_all_branches() as $b) {
+            $id = (int) ($b['id'] ?? 0);
+            $row = db_one('SELECT * FROM pnl_savings WHERE company_id = ? AND branch_id = ?', 'ii', [$cid, $id]);
+            $targets[] = [
+                'branch_id' => $id,
+                'branch_name' => (string) ($b['name'] ?? pnl_branch_name($id)),
+                'target_amount' => (float) ($row['target_amount'] ?? 0),
+                'saved_amount' => pnl_savings_balance($id),
+                'note' => (string) ($row['note'] ?? ''),
+            ];
+        }
+        return [
+            'target_amount' => 0.0,
+            'saved_amount' => $saved,
+            'note' => '',
+            'all' => true,
+            'targets' => $targets,
+        ];
+    }
+    $bid = $scope['enabled'] ? (int) $scope['id'] : 0;
+    $row = db_one('SELECT * FROM pnl_savings WHERE company_id = ? AND branch_id = ?', 'ii', [$cid, $bid]);
     return [
         'target_amount' => (float) ($row['target_amount'] ?? 0),
         'saved_amount' => $saved,
         'note' => (string) ($row['note'] ?? ''),
+        'all' => false,
+        'branch_id' => $bid,
     ];
 }
 
-function pnl_savings_balance(): float
+function pnl_savings_balance(?int $branchId = null): float
 {
     $cid = current_company_id();
+    $sql = "SELECT COALESCE(SUM(CASE WHEN kind = 'deposit' THEN amount ELSE 0 END), 0)
+                   - COALESCE(SUM(CASE WHEN kind = 'withdraw' THEN amount ELSE 0 END), 0) AS bal
+            FROM pnl_savings_moves WHERE company_id = ?";
+    $bind = 'i';
+    $args = [$cid];
+    if ($branchId !== null) {
+        $sql .= ' AND branch_id = ?';
+        $bind .= 'i';
+        $args[] = $branchId;
+    } else {
+        [$bSql, $bTypes, $bArgs] = pnl_branch_sql('branch_id');
+        $sql .= $bSql;
+        $bind .= $bTypes;
+        $args = array_merge($args, $bArgs);
+    }
     try {
-        $row = db_one(
-            "SELECT COALESCE(SUM(CASE WHEN kind = 'deposit' THEN amount ELSE 0 END), 0)
-                    - COALESCE(SUM(CASE WHEN kind = 'withdraw' THEN amount ELSE 0 END), 0) AS bal
-             FROM pnl_savings_moves WHERE company_id = ?",
-            'i',
-            [$cid]
-        );
+        $row = db_one($sql, $bind, $args);
         return round((float) ($row['bal'] ?? 0), 2);
     } catch (Throwable $e) {
-        $row = db_one('SELECT saved_amount FROM pnl_savings WHERE company_id = ?', 'i', [$cid]);
-        return round((float) ($row['saved_amount'] ?? 0), 2);
+        $row = db_one('SELECT SUM(saved_amount) AS bal FROM pnl_savings WHERE company_id = ?', 'i', [$cid]);
+        return round((float) ($row['bal'] ?? 0), 2);
     }
 }
 
 function pnl_savings_save(array $data): void
 {
     $cid = current_company_id();
+    $bid = array_key_exists('branch_id', $data) ? (int) $data['branch_id'] : pnl_posted_branch_id();
     $target = max(0, round((float) ($data['target_amount'] ?? 0), 2));
-    $saved = pnl_savings_balance();
+    $saved = pnl_savings_balance($bid);
     $note = mb_substr(trim((string) ($data['note'] ?? '')), 0, 500);
     $now = desk_now()->format('Y-m-d H:i:s');
     db_exec(
-        'INSERT INTO pnl_savings (company_id, target_amount, saved_amount, note, updated_at) VALUES (?,?,?,?,?)
+        'INSERT INTO pnl_savings (company_id, branch_id, target_amount, saved_amount, note, updated_at) VALUES (?,?,?,?,?,?)
          ON DUPLICATE KEY UPDATE target_amount=VALUES(target_amount), saved_amount=VALUES(saved_amount), note=VALUES(note), updated_at=VALUES(updated_at)',
-        'iddss',
-        [$cid, $target, $saved, $note, $now]
+        'iiddss',
+        [$cid, $bid, $target, $saved, $note, $now]
     );
 }
 
-function pnl_savings_sync_total(): void
+function pnl_savings_sync_total(?int $branchId = null): void
 {
     $cid = current_company_id();
-    $saved = pnl_savings_balance();
+    $bid = $branchId ?? pnl_posted_branch_id();
+    $saved = pnl_savings_balance($bid);
     $now = desk_now()->format('Y-m-d H:i:s');
     db_exec(
-        'INSERT INTO pnl_savings (company_id, target_amount, saved_amount, note, updated_at) VALUES (?,0,?,?,?)
+        'INSERT INTO pnl_savings (company_id, branch_id, target_amount, saved_amount, note, updated_at) VALUES (?,?,0,?,?,?)
          ON DUPLICATE KEY UPDATE saved_amount=VALUES(saved_amount), updated_at=VALUES(updated_at)',
-        'idss',
-        [$cid, $saved, '', $now]
+        'iidss',
+        [$cid, $bid, $saved, '', $now]
     );
 }
 
@@ -482,10 +730,11 @@ function pnl_savings_moves(): array
 {
     $cid = current_company_id();
     [$extra, $types, $params] = period_sql('m.move_date');
+    [$bSql, $bTypes, $bArgs] = pnl_branch_sql('m.branch_id');
     return db_all(
-        'SELECT m.* FROM pnl_savings_moves m WHERE m.company_id = ?' . $extra . ' ORDER BY m.move_date DESC, m.id DESC',
-        'i' . $types,
-        array_merge([$cid], $params)
+        'SELECT m.* FROM pnl_savings_moves m WHERE m.company_id = ?' . $extra . $bSql . ' ORDER BY m.move_date DESC, m.id DESC',
+        'i' . $types . $bTypes,
+        array_merge([$cid], $params, $bArgs)
     );
 }
 
@@ -493,6 +742,10 @@ function pnl_savings_move_save(array $data, int $id = 0): int
 {
     $cid = current_company_id();
     $uid = (int) (current_user()['id'] ?? 0);
+    $bid = array_key_exists('branch_id', $data) ? (int) $data['branch_id'] : pnl_posted_branch_id();
+    if ($bid < 0) {
+        $bid = 0;
+    }
     $kind = (string) ($data['kind'] ?? 'deposit');
     if (!in_array($kind, ['deposit', 'withdraw'], true)) {
         $kind = 'deposit';
@@ -511,7 +764,7 @@ function pnl_savings_move_save(array $data, int $id = 0): int
     if ($kind === 'withdraw' && $purpose === '') {
         throw new RuntimeException('Give a purpose for the withdrawal.');
     }
-    $current = pnl_savings_balance();
+    $current = pnl_savings_balance($bid);
     $prior = 0.0;
     if ($id > 0) {
         $row = db_one('SELECT * FROM pnl_savings_moves WHERE id = ? AND company_id = ?', 'ii', [$id, $cid]);
@@ -519,6 +772,10 @@ function pnl_savings_move_save(array $data, int $id = 0): int
             throw new RuntimeException('That savings line was not found.');
         }
         $prior = (string) $row['kind'] === 'withdraw' ? -((float) $row['amount']) : (float) $row['amount'];
+        if (!array_key_exists('branch_id', $data)) {
+            $bid = (int) ($row['branch_id'] ?? 0);
+            $current = pnl_savings_balance($bid);
+        }
     }
     $next = $current - $prior + ($kind === 'withdraw' ? -$amount : $amount);
     if ($next < -0.009) {
@@ -526,36 +783,39 @@ function pnl_savings_move_save(array $data, int $id = 0): int
     }
     if ($id > 0) {
         db_exec(
-            'UPDATE pnl_savings_moves SET kind=?, move_date=?, amount=?, person_name=?, purpose=?, notes=? WHERE id=? AND company_id=?',
-            'ssdsssii',
-            [$kind, $date, $amount, $person, $purpose, $notes, $id, $cid]
+            'UPDATE pnl_savings_moves SET kind=?, move_date=?, amount=?, person_name=?, purpose=?, notes=?, branch_id=? WHERE id=? AND company_id=?',
+            'ssdsssiii',
+            [$kind, $date, $amount, $person, $purpose, $notes, $bid, $id, $cid]
         );
-        pnl_savings_sync_total();
+        pnl_savings_sync_total($bid);
         return $id;
     }
     $newId = db_exec(
-        'INSERT INTO pnl_savings_moves (company_id, kind, move_date, amount, person_name, purpose, notes, user_id) VALUES (?,?,?,?,?,?,?,?)',
-        'issdsssi',
-        [$cid, $kind, $date, $amount, $person, $purpose, $notes, $uid]
+        'INSERT INTO pnl_savings_moves (company_id, branch_id, kind, move_date, amount, person_name, purpose, notes, user_id) VALUES (?,?,?,?,?,?,?,?,?)',
+        'iissdsssi',
+        [$cid, $bid, $kind, $date, $amount, $person, $purpose, $notes, $uid]
     );
-    pnl_savings_sync_total();
+    pnl_savings_sync_total($bid);
     return $newId;
 }
 
 function pnl_savings_move_delete(int $id): void
 {
-    db_exec('DELETE FROM pnl_savings_moves WHERE id = ? AND company_id = ?', 'ii', [$id, current_company_id()]);
-    pnl_savings_sync_total();
+    $cid = current_company_id();
+    $row = db_one('SELECT branch_id FROM pnl_savings_moves WHERE id = ? AND company_id = ?', 'ii', [$id, $cid]);
+    db_exec('DELETE FROM pnl_savings_moves WHERE id = ? AND company_id = ?', 'ii', [$id, $cid]);
+    pnl_savings_sync_total((int) ($row['branch_id'] ?? 0));
 }
 
 function bank_accounts(bool $activeOnly = false): array
 {
-    $sql = 'SELECT * FROM bank_accounts WHERE company_id = ?';
+    [$bSql, $bTypes, $bArgs] = pnl_branch_sql('branch_id');
+    $sql = 'SELECT * FROM bank_accounts WHERE company_id = ?' . $bSql;
     if ($activeOnly) {
         $sql .= ' AND is_active = 1';
     }
     $sql .= ' ORDER BY is_active DESC, name';
-    return db_all($sql, 'i', [current_company_id()]);
+    return db_all($sql, 'i' . $bTypes, array_merge([current_company_id()], $bArgs));
 }
 
 function bank_account(int $id): ?array
@@ -572,6 +832,10 @@ function bank_account_save(array $data, int $id = 0): int
     $opening = round((float) preg_replace('/[^0-9.\-]/', '', (string) ($data['opening_balance'] ?? '0')), 2);
     $notes = mb_substr(trim((string) ($data['notes'] ?? '')), 0, 500);
     $active = !empty($data['is_active']) ? 1 : 0;
+    $bid = array_key_exists('branch_id', $data) ? (int) $data['branch_id'] : pnl_posted_branch_id();
+    if ($bid < 0) {
+        $bid = 0;
+    }
     if ($name === '') {
         throw new RuntimeException('Name this bank account.');
     }
@@ -580,23 +844,34 @@ function bank_account_save(array $data, int $id = 0): int
         if (!$row) {
             throw new RuntimeException('Bank account not found.');
         }
+        if (!bank_account_allowed($row)) {
+            throw new RuntimeException('That account belongs to another branch.');
+        }
         db_exec(
-            'UPDATE bank_accounts SET name=?, bank_name=?, account_number=?, opening_balance=?, notes=?, is_active=? WHERE id=? AND company_id=?',
-            'sssdsiii',
-            [$name, $bank, $number, $opening, $notes, $active, $id, $cid]
+            'UPDATE bank_accounts SET name=?, bank_name=?, account_number=?, opening_balance=?, notes=?, is_active=?, branch_id=? WHERE id=? AND company_id=?',
+            'sssdsiiii',
+            [$name, $bank, $number, $opening, $notes, $active, $bid, $id, $cid]
         );
+        db_exec('UPDATE bank_transactions SET branch_id=? WHERE account_id=? AND company_id=?', 'iii', [$bid, $id, $cid]);
         return $id;
     }
     return db_exec(
-        'INSERT INTO bank_accounts (company_id, name, bank_name, account_number, opening_balance, notes, is_active) VALUES (?,?,?,?,?,?,1)',
-        'isssds',
-        [$cid, $name, $bank, $number, $opening, $notes]
+        'INSERT INTO bank_accounts (company_id, branch_id, name, bank_name, account_number, opening_balance, notes, is_active) VALUES (?,?,?,?,?,?,?,1)',
+        'iisssds',
+        [$cid, $bid, $name, $bank, $number, $opening, $notes]
     );
 }
 
 function bank_account_delete(int $id): void
 {
     $cid = current_company_id();
+    $acct = bank_account($id);
+    if (!$acct) {
+        throw new RuntimeException('Bank account not found.');
+    }
+    if (!bank_account_allowed($acct)) {
+        throw new RuntimeException('That account belongs to another branch.');
+    }
     $used = db_one('SELECT id FROM bank_transactions WHERE account_id = ? AND company_id = ? LIMIT 1', 'ii', [$id, $cid]);
     if ($used) {
         throw new RuntimeException('This account has deposits or withdrawals. Archive it instead of deleting.');
@@ -624,12 +899,13 @@ function bank_transactions(?int $accountId = null): array
 {
     $cid = current_company_id();
     [$extra, $types, $params] = period_sql('t.txn_date');
-    $sql = 'SELECT t.*, a.name AS account_name, a.bank_name
+    [$bSql, $bTypes, $bArgs] = pnl_branch_sql('t.branch_id');
+    $sql = 'SELECT t.*, a.name AS account_name, a.bank_name, a.branch_id AS account_branch_id
             FROM bank_transactions t
             JOIN bank_accounts a ON a.id = t.account_id AND a.company_id = t.company_id
-            WHERE t.company_id = ?' . $extra;
-    $bind = 'i' . $types;
-    $args = array_merge([$cid], $params);
+            WHERE t.company_id = ?' . $extra . $bSql;
+    $bind = 'i' . $types . $bTypes;
+    $args = array_merge([$cid], $params, $bArgs);
     if ($accountId && $accountId > 0) {
         $sql .= ' AND t.account_id = ?';
         $bind .= 'i';
@@ -637,6 +913,19 @@ function bank_transactions(?int $accountId = null): array
     }
     $sql .= ' ORDER BY t.txn_date DESC, t.id DESC';
     return db_all($sql, $bind, $args);
+}
+
+function bank_account_allowed(array $acct): bool
+{
+    $scope = pnl_view_branch();
+    if (empty($scope['enabled'])) {
+        return true;
+    }
+    $bid = (int) ($acct['branch_id'] ?? 0);
+    if (!empty($scope['admin']) && !empty($scope['all'])) {
+        return true;
+    }
+    return $bid === (int) $scope['id'];
 }
 
 function bank_transaction_save(array $data, int $id = 0): int
@@ -648,6 +937,10 @@ function bank_transaction_save(array $data, int $id = 0): int
     if (!$acct) {
         throw new RuntimeException('Pick a bank account.');
     }
+    if (!bank_account_allowed($acct)) {
+        throw new RuntimeException('That account belongs to another branch.');
+    }
+    $bid = (int) ($acct['branch_id'] ?? 0);
     $kind = (string) ($data['kind'] ?? 'deposit');
     if (!in_array($kind, ['deposit', 'withdraw'], true)) {
         $kind = 'deposit';
@@ -683,16 +976,16 @@ function bank_transaction_save(array $data, int $id = 0): int
     }
     if ($id > 0) {
         db_exec(
-            'UPDATE bank_transactions SET account_id=?, kind=?, txn_date=?, amount=?, person_name=?, purpose=?, notes=? WHERE id=? AND company_id=?',
-            'issdssiii',
-            [$accountId, $kind, $date, $amount, $person, $purpose, $notes, $id, $cid]
+            'UPDATE bank_transactions SET account_id=?, kind=?, txn_date=?, amount=?, person_name=?, purpose=?, notes=?, branch_id=? WHERE id=? AND company_id=?',
+            'issdssiiii',
+            [$accountId, $kind, $date, $amount, $person, $purpose, $notes, $bid, $id, $cid]
         );
         return $id;
     }
     return db_exec(
-        'INSERT INTO bank_transactions (company_id, account_id, kind, txn_date, amount, person_name, purpose, notes, user_id) VALUES (?,?,?,?,?,?,?,?,?)',
-        'iissdsssi',
-        [$cid, $accountId, $kind, $date, $amount, $person, $purpose, $notes, $uid]
+        'INSERT INTO bank_transactions (company_id, branch_id, account_id, kind, txn_date, amount, person_name, purpose, notes, user_id) VALUES (?,?,?,?,?,?,?,?,?,?)',
+        'iiissdsssi',
+        [$cid, $bid, $accountId, $kind, $date, $amount, $person, $purpose, $notes, $uid]
     );
 }
 
@@ -740,7 +1033,7 @@ function render_pnl_bucket_chips(string $action, array $keep = []): void
     ?>
   <nav class="planner-tabs" aria-label="Report grouping">
     <?php foreach ($chips as $key => $label):
-        $qs = http_build_query(array_merge($keep, [
+        $qs = http_build_query(array_merge(pnl_branch_keep(), $keep, [
             'bucket' => $key,
             'range' => $p['preset'],
             'from' => $p['from'],
@@ -755,7 +1048,7 @@ function render_pnl_bucket_chips(string $action, array $keep = []): void
 
 function render_csv_link(string $type, string $label = 'Export CSV', array $extra = []): void
 {
-    echo '<a class="btn ghost sm" href="' . h(export_query($type, $extra)) . '">' . icon('download', 16) . h($label) . '</a>';
+    echo '<a class="btn ghost sm" href="' . h(export_query($type, array_merge(pnl_branch_keep(), $extra))) . '">' . icon('download', 16) . h($label) . '</a>';
 }
 
 function render_chart_download(string $canvasId, string $file = ''): void
@@ -803,6 +1096,7 @@ function bank_report_series(array $txns, string $bucket): array
     $series = [];
     $byAccount = [];
     $byPurpose = [];
+    $byBranch = [];
     foreach ($txns as $t) {
         $key = pnl_bucket_key((string) $t['txn_date'], $bucket);
         if (!isset($series[$key])) {
@@ -825,6 +1119,15 @@ function bank_report_series(array $txns, string $bucket): array
         } else {
             $byAccount[$acct]['deposits'] += $amt;
         }
+        $branch = pnl_branch_name($t['branch_id'] ?? $t['account_branch_id'] ?? 0);
+        if (!isset($byBranch[$branch])) {
+            $byBranch[$branch] = ['deposits' => 0.0, 'withdrawals' => 0.0];
+        }
+        if (($t['kind'] ?? '') === 'withdraw') {
+            $byBranch[$branch]['withdrawals'] += $amt;
+        } else {
+            $byBranch[$branch]['deposits'] += $amt;
+        }
     }
     ksort($series);
     arsort($byPurpose);
@@ -832,6 +1135,7 @@ function bank_report_series(array $txns, string $bucket): array
         'series' => $series,
         'by_account' => $byAccount,
         'by_purpose' => $byPurpose,
+        'by_branch' => $byBranch,
     ];
 }
 
@@ -876,7 +1180,7 @@ function render_pnl_subnav(string $active): void
             $on = true;
         }
         ?>
-      <a class="planner-tab<?= $on ? ' is-on' : '' ?>" href="<?= h(url($href)) ?>"><?= icon($iconName, 16) ?><span><?= h($label) ?></span></a>
+      <a class="planner-tab<?= $on ? ' is-on' : '' ?>" href="<?= h(pnl_href($href)) ?>"><?= icon($iconName, 16) ?><span><?= h($label) ?></span></a>
     <?php endforeach; ?>
   </nav>
     <?php
@@ -893,13 +1197,13 @@ function render_banking_subnav(string $view): void
     ?>
   <nav class="planner-tabs" aria-label="Banking sections">
     <?php foreach ($tabs as $key => $label):
-        $qs = http_build_query([
+        $qs = http_build_query(array_merge(pnl_branch_keep(), [
             'view' => $key,
             'range' => $p['preset'],
             'from' => $p['from'],
             'to' => $p['to'],
             'bucket' => pnl_report_bucket(),
-        ]);
+        ]));
         ?>
       <a class="planner-tab<?= $view === $key ? ' is-on' : '' ?>" href="<?= h(url('pnl_banking.php?' . $qs)) ?>"><?= h($label) ?></a>
     <?php endforeach; ?>
