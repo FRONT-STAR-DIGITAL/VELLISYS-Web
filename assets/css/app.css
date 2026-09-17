@@ -1249,7 +1249,7 @@ form.actions, td form { display: inline; margin: 0; }
   margin-top: 12px;
 }
 
-.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 0 0 24px; }
+.docs-extra { margin: 0 0 16px; }
 .stats.six { grid-template-columns: repeat(6, 1fr); }
 .chart-grid.equal { grid-template-columns: 1fr 1fr; }
 .stat {
@@ -2788,6 +2788,92 @@ input, select, textarea { font-weight: 400; }
   .admin-body .chart-grid,
   .admin-body .chart-grid.equal { grid-template-columns: 1fr 1fr; }
 }
+@media (min-width: 821px) {
+  .desk-body .page-head {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
+  }
+  .desk-body .page-head > .actions,
+  .desk-body .page-head > .page-actions {
+    display: flex;
+    flex-wrap: nowrap;
+    width: auto;
+    max-width: none;
+    grid-template-columns: none;
+  }
+  .desk-body .page-head > .actions > .btn,
+  .desk-body .page-head > .page-actions > .btn {
+    width: auto;
+    min-height: 0;
+    white-space: nowrap;
+  }
+  .desk-body .filters {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    gap: 10px 12px;
+    margin: 0 0 10px;
+    padding: 8px 10px;
+  }
+  .desk-body .filters .filter-chips {
+    display: flex;
+    flex-wrap: nowrap;
+    width: auto;
+    grid-template-columns: none;
+    overflow-x: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 6px;
+  }
+  .desk-body .filters .filter-chips .chip {
+    flex: 0 0 auto;
+    justify-content: center;
+  }
+  .desk-body .filters .filter-dates {
+    display: flex;
+    flex: 0 1 280px;
+    width: auto;
+    min-width: 220px;
+    gap: 8px;
+  }
+  .desk-body .filters .filter-apply {
+    width: auto !important;
+    min-height: 0 !important;
+    flex: 0 0 auto;
+  }
+  .docs-extra {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 10px;
+    margin: 0 0 14px;
+  }
+  .docs-extra .stats {
+    display: flex;
+    flex: 1 1 auto;
+    grid-template-columns: none;
+    margin: 0;
+    gap: 10px;
+  }
+  .docs-extra .stats .stat,
+  .docs-extra .stats .card.stat {
+    flex: 1 1 0;
+    padding: 10px 14px;
+  }
+  .docs-extra .filter-chips {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    margin: 0 !important;
+    flex: 0 1 auto;
+  }
+}
 @media (max-width: 820px) {
   .app { flex-direction: column; }
   .nav-toggle { display: inline-flex; }
@@ -3052,7 +3138,7 @@ input, select, textarea { font-weight: 400; }
   }
   .to-order-row select { grid-column: 2; }
   .search-page-row { flex-wrap: wrap; }
-}
+  .top {
     flex-wrap: nowrap;
     padding: 8px 12px;
     gap: 8px;

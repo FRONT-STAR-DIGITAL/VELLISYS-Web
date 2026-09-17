@@ -77,15 +77,17 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
 <?php render_filters('documents.php', ['kind' => $kind]); ?>
 
 <?php if ($kind === 'receipt'): ?>
-  <div class="stats">
-    <div class="card stat"><?= icon('receipt', 20) ?><span>Cleared</span><strong><?= count($clearedRows) ?></strong></div>
-    <div class="card stat"><?= icon('alert', 20) ?><span>Partially cleared</span><strong><?= count($partialRows) ?></strong></div>
+  <div class="docs-extra">
+    <div class="stats">
+      <div class="card stat"><?= icon('receipt', 20) ?><span>Cleared</span><strong><?= count($clearedRows) ?></strong></div>
+      <div class="card stat"><?= icon('alert', 20) ?><span>Partially cleared</span><strong><?= count($partialRows) ?></strong></div>
+    </div>
+    <p class="filter-chips">
+      <a class="chip<?= $clearFilter === 'all' ? ' is-on' : '' ?>" href="<?= h(url('documents.php?' . $receiptQs('all'))) ?>">All</a>
+      <a class="chip<?= $clearFilter === 'cleared' ? ' is-on' : '' ?>" href="<?= h(url('documents.php?' . $receiptQs('cleared'))) ?>">Cleared</a>
+      <a class="chip<?= $clearFilter === 'partial' ? ' is-on' : '' ?>" href="<?= h(url('documents.php?' . $receiptQs('partial'))) ?>">Partially cleared</a>
+    </p>
   </div>
-  <p class="filter-chips" style="margin:0 0 16px">
-    <a class="chip<?= $clearFilter === 'all' ? ' is-on' : '' ?>" href="<?= h(url('documents.php?' . $receiptQs('all'))) ?>">All</a>
-    <a class="chip<?= $clearFilter === 'cleared' ? ' is-on' : '' ?>" href="<?= h(url('documents.php?' . $receiptQs('cleared'))) ?>">Cleared</a>
-    <a class="chip<?= $clearFilter === 'partial' ? ' is-on' : '' ?>" href="<?= h(url('documents.php?' . $receiptQs('partial'))) ?>">Partially cleared</a>
-  </p>
 <?php endif; ?>
 
 <div class="card">
