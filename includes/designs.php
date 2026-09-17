@@ -241,6 +241,155 @@ function render_amount_words(array $d): void
     echo '<p class="d-words">Amount in words: <b>' . h($words) . '</b></p>';
 }
 
+function booklet_name_parts(array $brand): array
+{
+    $name = trim((string) ($brand['name'] ?? ''));
+    $tag = trim((string) ($brand['tagline'] ?? ''));
+    $words = preg_split('/\s+/', $name, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    if (count($words) >= 2) {
+        $left = $words[0];
+        $right = implode(' ', array_slice($words, 1));
+        return [$left, $right, $tag !== '' && strcasecmp($tag, $right) !== 0 ? $tag : ''];
+    }
+    return [$name, $tag, ''];
+}
+
+function slip_item_summary(array $doc): string
+{
+    $parts = [];
+    foreach ($doc['items'] ?? [] as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $name = function_exists('line_item_name') ? trim((string) line_item_name($item)) : trim((string) ($item['item_name'] ?? ''));
+        $desc = function_exists('line_item_description') ? trim((string) line_item_description($item)) : trim((string) ($item['description'] ?? ''));
+        $bit = $name;
+        if ($desc !== '' && strcasecmp($desc, $name) !== 0) {
+            $bit = $bit === '' ? $desc : $bit . ' — ' . $desc;
+        }
+        if ($bit !== '') {
+            $parts[] = $bit;
+        }
+    }
+    return implode('; ', $parts);
+}
+
+function slip_cash_label(string $cur): string
+{
+    $cur = strtoupper(trim($cur));
+    return match ($cur) {
+        'UGX' => 'Shs.',
+        'KES' => 'KSh',
+        'TZS' => 'TSh',
+        default => $cur !== '' ? $cur : 'Amt',
+    };
+}
+
+function slip_to_lines(array $doc): array
+{
+    $filled = function_exists('document_party_to_lines') ? document_party_to_lines($doc) : [];
+    $byLabel = [];
+    foreach ($filled as $line) {
+        $byLabel[mb_strtolower(trim((string) ($line['label'] ?? '')))] = $line;
+    }
+    $entity = function_exists('party_entity') ? party_entity([
+        'entity' => (string) ($doc['party_entity'] ?? ''),
+        'tin' => (string) ($doc['party_tin'] ?? ''),
+        'contact_person' => (string) ($doc['party_contact'] ?? ''),
+        'name' => (string) ($doc['party_name'] ?? ''),
+    ]) : 'person';
+    $profileKey = function_exists('entity_to_client_profile') ? entity_to_client_profile($entity) : 'people';
+    $addrLabel = $profileKey === 'people' ? 'Residence' : 'Address';
+    $labelForKey = [
+        'contact_person' => 'Attn',
+        'tin' => 'TIN',
+        'phone' => 'Tel',
+        'phone2' => 'Tel 2',
+        'email' => 'Email',
+        'address' => $addrLabel,
+        'city' => 'City',
+        'country' => 'Country',
+    ];
+    $out = [];
+    $seen = [];
+    $out[] = $byLabel['name'] ?? ['label' => 'Name', 'value' => trim((string) ($doc['party_name'] ?? ''))];
+    $seen['name'] = true;
+    if (!function_exists('client_to_order')) {
+        return $filled ?: $out;
+    }
+    foreach (client_to_order(null, $profileKey) as $item) {
+        if (($item['kind'] ?? '') === 'extra') {
+            $lab = trim((string) ($item['label'] ?? ''));
+            if ($lab === '') {
+                continue;
+            }
+            $key = mb_strtolower($lab);
+            $out[] = $byLabel[$key] ?? ['label' => $lab, 'value' => '', 'nl' => false];
+            $seen[$key] = true;
+            continue;
+        }
+        $k = (string) ($item['key'] ?? '');
+        $lab = $labelForKey[$k] ?? '';
+        if ($lab === '') {
+            continue;
+        }
+        $key = mb_strtolower($lab);
+        $out[] = $byLabel[$key] ?? ['label' => $lab, 'value' => '', 'nl' => $k === 'address'];
+        $seen[$key] = true;
+    }
+    foreach ($filled as $line) {
+        $key = mb_strtolower(trim((string) ($line['label'] ?? '')));
+        if ($key === '' || !empty($seen[$key])) {
+            continue;
+        }
+        $out[] = $line;
+        $seen[$key] = true;
+    }
+    return $out;
+}
+
+function render_slip_dot(string $label, string $value, string $cls = ''): void
+{
+    $label = trim($label);
+    echo '<p class="slip-line' . ($cls !== '' ? ' ' . $cls : '') . '">';
+    if ($label !== '') {
+        echo '<b>' . h($label) . '</b> ';
+    }
+    echo '<span>' . h($value) . '</span></p>';
+}
+
+function render_slip_field_grid(array $lines): void
+{
+    $n = count($lines);
+    $split = $n > 1 ? (int) ceil($n / 2) : $n;
+    $cols = $n > 1 ? [array_slice($lines, 0, $split), array_slice($lines, $split)] : [$lines];
+    echo '<div class="slip-fields' . ($n > 1 ? ' is-cols' : '') . '">';
+    foreach ($cols as $col) {
+        echo '<div class="slip-col">';
+        foreach ($col as $line) {
+            render_slip_dot((string) ($line['label'] ?? ''), (string) ($line['value'] ?? ''));
+        }
+        echo '</div>';
+    }
+    echo '</div>';
+}
+
+function slip_money_bits(array $d): array
+{
+    $doc = $d['doc'];
+    $kind = (string) ($doc['kind'] ?? '');
+    $paid = (float) ($kind === 'receipt'
+        ? (($doc['settlement']['received'] ?? $doc['allocated_amount'] ?? $d['total']))
+        : ($doc['paid'] ?? 0));
+    if ($kind === 'invoice' && $paid <= 0 && !empty($d['paid'])) {
+        $paid = (float) $d['paid'];
+    }
+    $due = max(0, round((float) $d['total'] - $paid, 2));
+    $how = trim((string) (($d['methods'][$d['method'] ?? ''] ?? '') ?: ($d['method'] ?? '')));
+    $words = function_exists('amount_in_words') ? trim((string) amount_in_words($d['total'] ?? 0, $d['cur'] ?? null)) : '';
+    return [$paid, $due, $how, $words];
+}
+
 function format_letter_html(string $body): string
 {
     $html = sanitize_rich_html($body);
@@ -1230,6 +1379,201 @@ function render_sheet_inset(array $d): void
 <?php
 }
 
+function render_sheet_booklet(array $d): void
+{
+    $brand = $d['brand'];
+    $doc = $d['doc'];
+    [$leftName, $rightName, $motto] = booklet_name_parts($brand);
+    $lines = slip_to_lines($doc);
+    $from = '';
+    $rest = [];
+    foreach ($lines as $line) {
+        if ($from === '' && mb_strtolower((string) ($line['label'] ?? '')) === 'name') {
+            $from = (string) ($line['value'] ?? '');
+            continue;
+        }
+        $rest[] = $line;
+    }
+    $kind = (string) ($doc['kind'] ?? '');
+    $qtyOnly = in_array($kind, ['delivery', 'return_note'], true);
+    $showMoney = sheet_shows_money($d) && !$qtyOnly;
+    [$paid, $due, $how, $words] = slip_money_bits($d);
+    unset($paid);
+    $contact = array_filter([
+        (string) ($brand['address'] ?? ''),
+        trim((string) ($brand['city'] ?? '')),
+        (string) ($brand['phone'] ?? ''),
+        (string) ($brand['email'] ?? ''),
+        (string) ($brand['website'] ?? ''),
+    ], static fn ($v) => trim($v) !== '');
+    $leftFields = $rest;
+    $rightFields = [];
+    if (count($rest) > 3) {
+        $cut = (int) ceil(count($rest) / 2);
+        $leftFields = array_slice($rest, 0, $cut);
+        $rightFields = array_slice($rest, $cut);
+    }
+    ?>
+<article class="invoice-sheet sheet-booklet" style="<?= h($d['vars']) ?>">
+  <div class="booklet-page">
+    <div class="booklet-left">
+      <?php if (!empty($d['logo'])): ?><img src="<?= h($d['logo']) ?>" alt="" class="d-logo sm booklet-logo"><?php endif; ?>
+      <h1 class="slip-brand"><?= h($leftName) ?></h1>
+      <p class="slip-no"><span>No.</span> <b><?= h((string) $doc['number']) ?></b></p>
+      <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID</p><?php endif; ?>
+      <?php render_slip_dot('RECEIVED with thanks from', $from, 'slip-lead'); ?>
+      <?php foreach ($leftFields as $line): ?>
+        <?php render_slip_dot((string) ($line['label'] ?? ''), (string) ($line['value'] ?? '')); ?>
+      <?php endforeach; ?>
+      <?php if ($kind === 'letter'): ?>
+        <?php render_letter_subject($doc); ?>
+        <?php render_letter_body($doc); ?>
+      <?php else: ?>
+        <?php if ($showMoney): ?>
+          <?php render_slip_dot('The sum of', $words, 'slip-wide'); ?>
+        <?php endif; ?>
+        <?php render_slip_dot('Being payment of', slip_item_summary($doc), 'slip-wide'); ?>
+        <?php render_slip_dot('Cash / Cheque', $how); ?>
+        <?php if ($showMoney): ?>
+        <div class="slip-cashbox">
+          <span><?= h(slip_cash_label((string) $d['cur'])) ?></span>
+          <b><?= h(money($d['total'], $d['cur'])) ?></b>
+        </div>
+        <?php endif; ?>
+      <?php endif; ?>
+      <p class="slip-thanks">Thank You</p>
+    </div>
+    <div class="booklet-right">
+      <?php if ($rightName !== ''): ?><h2 class="slip-trade"><?= h($rightName) ?></h2><?php endif; ?>
+      <?php if ($motto !== ''): ?><p class="slip-motto"><?= h($motto) ?></p><?php endif; ?>
+      <div class="slip-co">
+        <?php foreach ($contact as $row): ?><div><?= h($row) ?></div><?php endforeach; ?>
+        <?php if (!empty($brand['tin'])): ?><div>TIN <?= h($brand['tin']) ?></div><?php endif; ?>
+      </div>
+      <?php render_slip_dot('Date', format_date($doc['date'])); ?>
+      <?php if (!empty($doc['due_date'])): ?>
+        <?php render_slip_dot('Due', format_date($doc['due_date'])); ?>
+      <?php endif; ?>
+      <?php foreach ($rightFields as $line): ?>
+        <?php render_slip_dot((string) ($line['label'] ?? ''), (string) ($line['value'] ?? '')); ?>
+      <?php endforeach; ?>
+      <?php if ($showMoney && $kind !== 'letter'): ?>
+        <?php render_slip_dot('Balance', $due > 0.009 ? money($due, $d['cur']) : money(0, $d['cur'])); ?>
+        <?php if (!empty($d['show_vat'])): ?>
+          <?php render_slip_dot((string) $d['tax_label'], money($d['vat'], $d['cur'])); ?>
+        <?php endif; ?>
+        <?php render_fx_equiv($d); ?>
+      <?php endif; ?>
+      <div class="slip-sign">
+        <span>Signature</span>
+        <?php render_letter_signature($doc); ?>
+      </div>
+      <p class="slip-for">For: <?= h((string) $brand['name']) ?></p>
+      <?php
+      $note = trim((string) ($d['comments'] ?? ''));
+      $pay = trim((string) ($brand['payment_note'] ?? ''));
+      if ($note !== ''): ?>
+        <p class="slip-foot-note"><?= h($note) ?></p>
+      <?php elseif ($pay !== ''): ?>
+        <p class="slip-foot-note"><?= h($pay) ?></p>
+      <?php endif; ?>
+    </div>
+  </div>
+</article>
+<?php
+}
+
+function render_sheet_chit(array $d): void
+{
+    $brand = $d['brand'];
+    $doc = $d['doc'];
+    $kind = (string) ($doc['kind'] ?? '');
+    $qtyOnly = in_array($kind, ['delivery', 'return_note'], true);
+    $showMoney = sheet_shows_money($d) && !$qtyOnly;
+    [$paid, $due, $how, $words] = slip_money_bits($d);
+    unset($paid);
+    $contact = array_filter([
+        (string) ($brand['address'] ?? ''),
+        trim((string) ($brand['city'] ?? '')),
+        (string) ($brand['phone'] ?? ''),
+        (string) ($brand['email'] ?? ''),
+    ], static fn ($v) => trim($v) !== '');
+    $rest = [];
+    foreach (slip_to_lines($doc) as $line) {
+        if (mb_strtolower((string) ($line['label'] ?? '')) === 'name') {
+            continue;
+        }
+        $rest[] = $line;
+    }
+    ?>
+<article class="invoice-sheet sheet-chit" style="<?= h($d['vars']) ?>">
+  <div class="chit-page">
+    <header class="chit-head">
+      <?php if (!empty($d['logo'])): ?><img src="<?= h($d['logo']) ?>" alt="" class="d-logo sm"><?php endif; ?>
+      <h1 class="chit-name"><?= h((string) $brand['name']) ?></h1>
+      <?php if (!empty($brand['tagline'])): ?><p class="chit-tag"><?= h((string) $brand['tagline']) ?></p><?php endif; ?>
+      <div class="chit-co">
+        <?php foreach ($contact as $row): ?><div><?= h($row) ?></div><?php endforeach; ?>
+        <?php if (!empty($brand['tin'])): ?><div>TIN <?= h($brand['tin']) ?></div><?php endif; ?>
+      </div>
+    </header>
+    <div class="chit-meta">
+      <p class="slip-no"><span>No.</span> <b><?= h((string) $doc['number']) ?></b></p>
+      <p class="chit-kind"><?= h((string) $d['heading']) ?></p>
+      <?php render_slip_dot('Date', format_date($doc['date'])); ?>
+    </div>
+    <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID</p><?php endif; ?>
+    <?php render_slip_dot('RECEIVED with thanks from', (string) ($doc['party_name'] ?? ''), 'slip-lead'); ?>
+    <?php render_slip_field_grid($rest); ?>
+    <?php if ($kind === 'letter'): ?>
+      <?php render_letter_subject($doc); ?>
+      <?php render_letter_body($doc); ?>
+    <?php else: ?>
+      <?php if ($showMoney): ?>
+        <?php render_slip_dot('The sum of', $words, 'slip-wide'); ?>
+      <?php endif; ?>
+      <?php render_slip_dot('Being payment of', slip_item_summary($doc), 'slip-wide'); ?>
+      <div class="chit-payrow">
+        <?php render_slip_dot('Cash / Cheque', $how); ?>
+        <?php if ($showMoney): ?>
+          <?php render_slip_dot('Balance', $due > 0.009 ? money($due, $d['cur']) : money(0, $d['cur'])); ?>
+        <?php endif; ?>
+      </div>
+      <?php if ($showMoney && !empty($d['show_vat'])): ?>
+        <?php render_slip_dot((string) $d['tax_label'], money($d['vat'], $d['cur'])); ?>
+      <?php endif; ?>
+      <?php if ($showMoney): ?>
+        <?php render_fx_equiv($d); ?>
+        <div class="chit-footrow">
+          <div class="slip-cashbox">
+            <span><?= h(slip_cash_label((string) $d['cur'])) ?></span>
+            <b><?= h(money($d['total'], $d['cur'])) ?></b>
+          </div>
+          <div class="slip-sign">
+            <span>Signature</span>
+            <?php render_letter_signature($doc); ?>
+            <p class="slip-for">For: <?= h((string) $brand['name']) ?></p>
+          </div>
+        </div>
+      <?php else: ?>
+        <div class="slip-sign">
+          <span>Signature</span>
+          <?php render_letter_signature($doc); ?>
+          <p class="slip-for">For: <?= h((string) $brand['name']) ?></p>
+        </div>
+      <?php endif; ?>
+    <?php endif; ?>
+    <p class="slip-thanks">Thank You</p>
+    <?php
+    $note = trim((string) ($d['comments'] ?? ''));
+    if ($note !== ''): ?>
+      <p class="slip-foot-note"><?= h($note) ?></p>
+    <?php endif; ?>
+  </div>
+</article>
+<?php
+}
+
 function render_sheet_thermal(array $d): void
 {
     $brand = $d['brand'];
@@ -1413,6 +1757,8 @@ function render_sheet(array $brand, array $doc): void
             'frame' => render_sheet_frame($d),
             'inset' => render_sheet_inset($d),
             'thermal' => render_sheet_thermal($d),
+            'booklet' => render_sheet_booklet($d),
+            'chit' => render_sheet_chit($d),
             default => render_sheet_folio($d),
         };
     }

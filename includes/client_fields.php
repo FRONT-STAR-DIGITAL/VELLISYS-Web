@@ -546,6 +546,8 @@ function company_client_extras_all(?array $company = null): array
     }
     return $out ?: (array) ($cfg['extras'] ?? []);
 }
+
+function posted_to_extras(?array $company = null): array
 {
     $out = [];
     $posted = $_POST['to_extra'] ?? [];

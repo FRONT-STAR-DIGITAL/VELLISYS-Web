@@ -24,7 +24,7 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - Public landing page in three sections, with pictures on every card. Super admin can replace those pictures under **Landing**, and add **Clients who trust us** names and logos
 - **Clients who trust us** and **What clients say** keep auto-scrolling. You can drag either strip; after you stop, auto-scroll continues from there. Super admin edits them under Landing
 - Landing page on a phone stays in the screen - no sideways page scroll
-- **What you get to manage** on the landing page: quotations, invoices, receipts, expenses, delivery notes, custom documents, debtors, creditors, headed letters, email, 15 document layouts (including page borders and an 80mm thermal roll), branding, and branches on Business and Pro
+- **What you get to manage** on the landing page: quotations, invoices, receipts, expenses, delivery notes, custom documents, debtors, creditors, headed letters, email, 17 document layouts (including a folded counter slip, a pad chit, page borders and an 80mm thermal roll), branding, and branches on Business and Pro
 - A navy **top bar** above the header. Super admin edits the scrolling statements under **Landing**. Lines are separated by a blue |
 - Super admin **onboarding**: tick only the documents that company needs (quotations, invoices, receipts, delivery notes, headed letters, custom). Custom documents are a form with fields and/or a body, not a letter. **Send login credentials** emails the desk email and a temporary password from `info@vellisys.com` and asks the client to change it after they sign in
 - After training, super admin can **reset selected desk data** (documents, stock, clients, mail log, activities, planner, P&L) so the same login is as good as new for official books. A Vellisys **backup file** can be restored on that company page
@@ -52,7 +52,7 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - Header on the public site stays put when you scroll up, and tucks away when you scroll down. The WhatsApp button stays a round green mark in the corner
 - Sign-in with a **show password** control
 - **Any currency** on the desk - the company enters UGX, KES, EUR, USD or another three-letter code in Settings. Documents can also be in USD; the rate is 1 USD = n of the home currency
-- **One document design** for the whole desk - the layout you pick in Settings prints on every invoice, quotation, receipt, expense and headed note
+- **One document design** for the whole desk - the layout you pick in Settings prints on every invoice, quotation, receipt, expense and headed note. **Counter booklet** and **Pad chit** are fill-in slips (no item table) that still print whatever To fields the company uses
 - **Two brand colours** (primary and accent) that paint the desk and every document design. Deep is derived from primary.
 - **CSV export** on invoices, quotations, receipts, expenses, letters, debtors, creditors, clients, reports, and on a single document's lines
 - Clients have **Active / Inactive** status and a **Delete** action. Inactive names stay off new documents; deleted names leave the list while their issued documents stay in the books. Document tables use the same delete (void) icon

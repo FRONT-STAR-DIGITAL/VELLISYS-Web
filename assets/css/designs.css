@@ -49,7 +49,8 @@
 .invoice-sheet.is-letter .thermal-kind,
 .invoice-sheet.is-letter .twin-copy h3,
 .invoice-sheet.is-letter .corr-kind,
-.invoice-sheet.is-letter .estate-no span { display: none; }
+.invoice-sheet.is-letter .estate-no span,
+.invoice-sheet.is-letter .chit-kind { display: none; }
 .d-meta-box { min-width: 220px; }
 .d-void { color: #b42318; font-weight: 700; }
 .d-words {
@@ -351,6 +352,11 @@
 .invoice-sheet.sheet-frame,
 .invoice-sheet.sheet-inset,
 .invoice-sheet.sheet-thermal {
+  background: #fff !important;
+  color: #111 !important;
+}
+.invoice-sheet.sheet-booklet,
+.invoice-sheet.sheet-chit {
   background: #fff !important;
   color: #111 !important;
 }
@@ -814,6 +820,44 @@
 }
 .mini-thermal::before { content: ""; position: absolute; left: 18%; right: 18%; top: 10px; height: 8px; background: var(--brand); }
 .mini-thermal::after { content: ""; position: absolute; left: 14%; right: 14%; top: 26px; bottom: 12px; border-top: 1px dashed #bbb; border-bottom: 1px dashed #bbb; }
+.mini-booklet { background: #fff; }
+.mini-booklet::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  bottom: 8px;
+  border-left: 1px dashed #bbb;
+}
+.mini-booklet::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 16px;
+  width: 28%;
+  height: 10px;
+  background: #111;
+  box-shadow: 58px 0 0 0 var(--brand), 10px 28px 0 0 #e8e8e8, 10px 40px 0 0 #e8e8e8, 58px 28px 0 0 #e8e8e8;
+}
+.mini-chit { background: #fff; box-shadow: inset 0 0 0 2px #111; }
+.mini-chit::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 14px;
+  height: 8px;
+  background: #111;
+}
+.mini-chit::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  bottom: 14px;
+  width: 28%;
+  height: 18px;
+  border: 1.5px solid #111;
+}
 
 /* Page frame — double rule around A4 */
 .invoice-sheet.sheet-frame {
@@ -953,6 +997,179 @@
 .thermal-note { font-size: 10px; white-space: pre-wrap; margin: 10px 0 0; }
 .thermal-thanks { text-align: center; font-weight: 700; margin: 14px 0 4px; font-size: 12px; }
 .thermal-foot { text-align: center; font-size: 9px; color: #444; margin: 0; }
+
+/* Counter booklet — folded slip, no item table */
+.invoice-sheet.sheet-booklet {
+  font-family: "Times New Roman", Times, Georgia, serif;
+  padding: 10mm 8mm;
+}
+.booklet-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  min-height: calc(297mm - 20mm);
+  border: 1px solid #222;
+}
+.booklet-left,
+.booklet-right {
+  padding: 10mm 9mm 12mm;
+  min-width: 0;
+}
+.booklet-left {
+  border-right: 1px dashed #888;
+}
+.booklet-logo { margin-bottom: 8px; }
+.slip-brand,
+.slip-trade,
+.chit-name {
+  margin: 0 0 6px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #111;
+  line-height: 1.1;
+}
+.slip-motto,
+.chit-tag {
+  margin: 0 0 8px;
+  font-style: italic;
+  color: #333;
+}
+.slip-co,
+.chit-co {
+  margin: 0 0 14px;
+  line-height: 1.4;
+}
+.slip-no {
+  margin: 10px 0 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.slip-no span { font-weight: 700; }
+.slip-no b {
+  color: #b42318;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+.slip-line {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+.slip-line b {
+  font-weight: 700;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.slip-line span {
+  flex: 1 1 auto;
+  min-width: 2em;
+  border-bottom: 1px dotted #333;
+  min-height: 1.2em;
+}
+.slip-line.slip-wide { flex-wrap: wrap; }
+.slip-line.slip-wide span { min-width: 40%; }
+.slip-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0 18px;
+}
+.slip-fields.is-cols {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.slip-cashbox {
+  display: flex;
+  align-items: stretch;
+  width: min(100%, 220px);
+  margin: 16px 0 10px;
+  border: 2px solid #111;
+  min-height: 48px;
+}
+.slip-cashbox span {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  border-right: 2px solid #111;
+  font-weight: 800;
+}
+.slip-cashbox b {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 6px 10px;
+  font-weight: 700;
+}
+.slip-thanks {
+  margin: 18px 0 0;
+  font-weight: 700;
+  text-align: center;
+}
+.slip-sign {
+  margin-top: 28px;
+}
+.slip-sign > span {
+  display: block;
+  font-weight: 700;
+  border-bottom: 1px dotted #333;
+  min-height: 28px;
+  margin-bottom: 6px;
+}
+.slip-sign .d-sign { margin-top: -26px; }
+.slip-sign .d-sign img { max-height: 42px; }
+.slip-for {
+  margin: 8px 0 0;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+.slip-foot-note {
+  margin: 12px 0 0;
+  white-space: pre-wrap;
+}
+
+/* Pad chit — single sheet, boxed amount */
+.invoice-sheet.sheet-chit {
+  font-family: "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  padding: 12mm 14mm;
+}
+.chit-page {
+  border: 2.5px solid #111;
+  padding: 10mm 11mm 12mm;
+  min-height: calc(297mm - 24mm);
+  box-sizing: border-box;
+}
+.chit-head { text-align: center; margin-bottom: 10px; }
+.chit-head .d-logo { margin: 0 auto 8px; }
+.chit-meta {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: end;
+  gap: 12px;
+  margin: 8px 0 14px;
+  border-top: 1px solid #111;
+  border-bottom: 1px solid #111;
+  padding: 8px 0;
+}
+.chit-meta .slip-no { margin: 0; }
+.chit-kind {
+  margin: 0;
+  text-align: center;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.chit-meta .slip-line { margin: 0; justify-content: flex-end; }
+.chit-payrow,
+.chit-footrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: end;
+}
+.chit-footrow { margin-top: 8px; }
 
 /* Atelier - quiet studio letter */
 .sheet-atelier { color: #111; }
@@ -1314,7 +1531,7 @@
     page-break-after: avoid;
     break-after: avoid;
   }
-  .sheet-ledger, .sheet-estate, .sheet-twin, .sheet-night, .sheet-bill, .sheet-stripe, .sheet-folio, .sheet-mark, .sheet-bond, .sheet-frame, .sheet-inset, .sheet-thermal {
+  .sheet-ledger, .sheet-estate, .sheet-twin, .sheet-night, .sheet-bill, .sheet-stripe, .sheet-folio, .sheet-mark, .sheet-bond, .sheet-frame, .sheet-inset, .sheet-thermal, .sheet-booklet, .sheet-chit {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -1349,7 +1566,10 @@
 .invoice-sheet .estate-no > span,
 .invoice-sheet .twin-copy h3,
 .invoice-sheet .corr-kind,
-.invoice-sheet .bond-stamp em {
+.invoice-sheet .bond-stamp em,
+.invoice-sheet .slip-brand,
+.invoice-sheet .slip-trade,
+.invoice-sheet .chit-name {
   font-size: 24px !important;
   line-height: 1.15 !important;
   font-weight: 700;
@@ -1413,7 +1633,11 @@
 .invoice-sheet .thermal-to,
 .invoice-sheet .thermal-kind,
 .invoice-sheet .d-letter-sub,
-.invoice-sheet .d-letter-to {
+.invoice-sheet .d-letter-to,
+.invoice-sheet .slip-line,
+.invoice-sheet .slip-fields,
+.invoice-sheet .chit-meta,
+.invoice-sheet .chit-head {
   margin-top: 0;
   margin-bottom: var(--sheet-section);
 }
