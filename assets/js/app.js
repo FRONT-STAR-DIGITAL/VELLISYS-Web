@@ -214,7 +214,10 @@ document.addEventListener('click', function (e) {
       }
     });
     var total = row.querySelector('[data-line-total]');
-    if (total) total.textContent = '0';
+    if (total) {
+      if (total.tagName === 'INPUT') total.value = '';
+      else total.textContent = '0';
+    }
     tbody.appendChild(row);
     var focus = row.querySelector('input[name^="item_name"], textarea[name^="item_desc"]');
     if (focus) focus.focus();
@@ -242,7 +245,10 @@ document.addEventListener('click', function (e) {
         }
       });
       var total = row.querySelector('[data-line-total]');
-      if (total) total.textContent = '0';
+      if (total) {
+        if (total.tagName === 'INPUT') total.value = '';
+        else total.textContent = '0';
+      }
     } else {
       row.remove();
       renumberLines();
@@ -330,14 +336,35 @@ function renumberLines() {
   });
 }
 
-function updateLineTotal(row) {
-  var qty = parseFloat(String((row.querySelector('[data-line-qty]') || {}).value || '0').replace(/,/g, ''));
-  var rate = parseFloat(String((row.querySelector('[data-line-rate]') || {}).value || '0').replace(/,/g, ''));
-  if (isNaN(qty)) qty = 0;
-  if (isNaN(rate)) rate = 0;
-  var n = Math.round(qty * rate * 100) / 100;
-  var out = row.querySelector('[data-line-total]');
-  if (out) out.textContent = n ? n.toLocaleString('en-US', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }) : '0';
+function parseLineNumber(v) {
+  var n = parseFloat(String(v || '').replace(/,/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+
+function setLineTotalDisplay(el, n) {
+  if (!el) return;
+  var text = n ? String(Math.round(n * 100) / 100) : '';
+  if (el.tagName === 'INPUT') el.value = text;
+  else el.textContent = n ? n.toLocaleString('en-US', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }) : '0';
+}
+
+function updateLineTotal(row, fromTotal) {
+  var qtyEl = row.querySelector('[data-line-qty]');
+  var rateEl = row.querySelector('[data-line-rate]');
+  var totEl = row.querySelector('[data-line-total]');
+  if (fromTotal && totEl) {
+    var total = parseLineNumber(totEl.value !== undefined ? totEl.value : totEl.textContent);
+    var qty = parseLineNumber(qtyEl && qtyEl.value);
+    if (!qty) {
+      qty = 1;
+      if (qtyEl) qtyEl.value = '1';
+    }
+    if (rateEl) rateEl.value = String(Math.round((total / qty) * 100) / 100);
+    return;
+  }
+  var qty = parseLineNumber(qtyEl && qtyEl.value);
+  var rate = parseLineNumber(rateEl && rateEl.value);
+  setLineTotalDisplay(totEl, Math.round(qty * rate * 100) / 100);
 }
 
 function formatPreviewMoney(n) {
@@ -518,7 +545,8 @@ document.addEventListener('input', function (e) {
   var row = e.target.closest && e.target.closest('#lines tr');
   if (!row) return;
   if (e.target.matches('[data-line-qty], [data-line-rate]')) updateLineTotal(row);
-  if (e.target.matches('input[name^="item_name"], textarea[name^="item_desc"], [data-line-qty], [data-line-rate]')) {
+  if (e.target.matches('[data-line-total]')) updateLineTotal(row, true);
+  if (e.target.matches('input[name^="item_name"], textarea[name^="item_desc"], [data-line-qty], [data-line-rate], [data-line-total]')) {
     refreshLinesPreview();
   }
 });

@@ -216,7 +216,7 @@ function render_party_contact(array $doc): void
             $cls = 'd-party-row' . (!empty($line['nl']) ? ' d-party-addr' : '');
             echo '<div class="' . $cls . '">';
             if ($label !== '') {
-                echo '<b class="d-party-k">' . h($label) . ':</b> ';
+                echo '<b class="d-party-k">' . h($label) . ':</b>';
             }
             echo '<span class="d-party-v">' . (!empty($line['nl']) ? nl2br(h($text)) : h($text)) . '</span>';
             echo '</div>';
@@ -224,6 +224,21 @@ function render_party_contact(array $doc): void
         echo '</div>';
     }
     echo '</div>';
+}
+
+function render_amount_words(array $d): void
+{
+    if (!function_exists('sheet_shows_money') || !sheet_shows_money($d)) {
+        return;
+    }
+    if (!function_exists('amount_in_words')) {
+        return;
+    }
+    $words = trim((string) amount_in_words($d['total'] ?? 0, $d['cur'] ?? null));
+    if ($words === '') {
+        return;
+    }
+    echo '<p class="d-words">Amount in words: <b>' . h($words) . '</b></p>';
 }
 
 function format_letter_html(string $body): string
@@ -491,6 +506,7 @@ function render_sheet_folio(array $d): void
         <div class="d-total"><span>Total</span><span><?= h(money($d['total'], $d['cur'])) ?></span></div>
         <?php render_fx_equiv($d); ?>
         <?php render_settlement($d); ?>
+        <?php render_amount_words($d); ?>
         <p class="d-payhint"><?= h($brand['payment_note'] ?? '') ?></p>
       </div>
       <?php endif; ?>
@@ -668,6 +684,7 @@ function render_twin_half(array $d, string $label): void
       <?php else: ?>
         <?php render_line_table($doc, $d['deep'], $d['accent_tint'], ['min' => 3, 'class' => 'tiny twin-lines', 'compact' => true]); ?>
         <?php render_settlement($d); ?>
+        <?php render_amount_words($d); ?>
       <?php endif; ?>
       <?php if (sheet_shows_money($d)): ?>
       <div class="twin-pay">
@@ -719,6 +736,8 @@ function render_sheet_stripe(array $d): void
       </div>
       <div>
         <span>To</span>
+      </div>
+      <div class="stripe-to-fields">
         <?php render_party_contact($doc); ?>
       </div>
     </div>
@@ -749,6 +768,7 @@ function render_sheet_stripe(array $d): void
           <?php render_fx_equiv($d); ?>
         </div>
       </div>
+      <?php render_amount_words($d); ?>
       <?php endif; ?>
     <?php endif; ?>
   </div>
@@ -777,15 +797,15 @@ function render_sheet_estate(array $d): void
   <div class="estate-gold"></div>
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
   <div class="estate-who">
-    <div>
+    <div class="estate-who-bar">
       <span>Prepared for</span>
-      <?php render_party_contact($doc); ?>
+      <div class="estate-who-meta">
+        <div><span>Date</span><b><?= h(format_date($doc['date'])) ?></b></div>
+        <?php if (!empty($doc['due_date'])): ?><div><span>Due</span><b><?= h(format_date($doc['due_date'])) ?></b></div><?php endif; ?>
+        <?php if (sheet_shows_money($d)): ?><div><span>Currency</span><b><?= h($d['cur']) ?></b></div><?php endif; ?>
+      </div>
     </div>
-    <div>
-      <span>Date</span><b><?= h(format_date($doc['date'])) ?></b>
-      <?php if (!empty($doc['due_date'])): ?><span>Due</span><b><?= h(format_date($doc['due_date'])) ?></b><?php endif; ?>
-      <?php if (sheet_shows_money($d)): ?><span>Currency</span><b><?= h($d['cur']) ?></b><?php endif; ?>
-    </div>
+    <?php render_party_contact($doc); ?>
   </div>
   <?php if ($doc['kind'] === 'letter'): ?>
     <?php render_letter_subject($doc); ?>
@@ -828,17 +848,17 @@ function render_sheet_night(array $d): void
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
   <div class="night-body">
     <div class="night-pair">
-      <div>
+      <div class="night-pair-bar">
         <span class="<?= ($doc['kind'] ?? '') === 'letter' ? 'd-to-word' : '' ?>"><?= ($doc['kind'] ?? '') === 'letter' ? 'To' : 'Client' ?></span>
-        <?php render_party_contact($doc); ?>
+        <div class="night-pair-ref">
+          <span>Reference</span>
+          <strong><?= h($doc['number']) ?></strong>
+          <p><?= h(format_date($doc['date'])) ?><?php if (sheet_shows_money($d)): ?> · <?= h($d['cur']) ?><?php endif; ?>
+            <?php if (!empty($doc['due_date'])): ?><br>Due <?= h(format_date($doc['due_date'])) ?><?php endif; ?>
+          </p>
+        </div>
       </div>
-      <div>
-        <span>Reference</span>
-        <strong><?= h($doc['number']) ?></strong>
-        <p><?= h(format_date($doc['date'])) ?><?php if (sheet_shows_money($d)): ?> · <?= h($d['cur']) ?><?php endif; ?>
-          <?php if (!empty($doc['due_date'])): ?><br>Due <?= h(format_date($doc['due_date'])) ?><?php endif; ?>
-        </p>
-      </div>
+      <?php render_party_contact($doc); ?>
     </div>
     <?php if ($doc['kind'] === 'letter'): ?>
       <?php render_letter_subject($doc); ?>
@@ -909,6 +929,7 @@ function render_sheet_atelier(array $d): void
         <?php render_fx_equiv($d); ?>
         <?php render_settlement($d); ?>
       </div>
+      <?php render_amount_words($d); ?>
       <?php endif; ?>
     </div>
   <?php endif; ?>
@@ -961,6 +982,7 @@ function render_sheet_seal(array $d): void
         <?php render_fx_equiv($d); ?>
         <?php render_settlement($d); ?>
       </aside>
+      <?php render_amount_words($d); ?>
       <?php endif; ?>
     </div>
   <?php endif; ?>
@@ -1018,6 +1040,7 @@ function render_sheet_mark(array $d): void
         <?php render_fx_equiv($d); ?>
         <?php render_settlement($d); ?>
       </div>
+      <?php render_amount_words($d); ?>
       <?php endif; ?>
     </div>
   <?php endif; ?>
@@ -1066,6 +1089,7 @@ function render_sheet_bond(array $d): void
         <?php render_fx_equiv($d); ?>
         <?php render_settlement($d); ?>
       </aside>
+      <?php render_amount_words($d); ?>
       <?php endif; ?>
     </div>
   <?php endif; ?>
@@ -1131,6 +1155,7 @@ function render_sheet_frame(array $d): void
             <?php render_fx_equiv($d); ?>
             <?php render_settlement($d); ?>
           </div>
+          <?php render_amount_words($d); ?>
           <?php endif; ?>
         </div>
       <?php endif; ?>
@@ -1196,6 +1221,7 @@ function render_sheet_inset(array $d): void
           <?php render_fx_equiv($d); ?>
           <?php render_settlement($d); ?>
         </div>
+        <?php render_amount_words($d); ?>
         <?php endif; ?>
       </div>
     <?php endif; ?>
@@ -1282,6 +1308,7 @@ function render_sheet_thermal(array $d): void
         <?php endif; ?>
       <?php endif; ?>
     </div>
+    <?php render_amount_words($d); ?>
     <?php endif; ?>
     <?php if (trim($comment) !== ''): ?>
       <p class="thermal-note"><?= h($comment) ?></p>

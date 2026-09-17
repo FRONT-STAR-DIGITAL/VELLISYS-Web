@@ -1000,7 +1000,14 @@ form.actions, td form { display: inline; margin: 0; }
 .lines th:nth-child(4), .lines td:nth-child(4) { width: 120px; min-width: 110px; }
 .lines th:nth-child(5), .lines td:nth-child(5) { width: 110px; min-width: 96px; }
 .lines th:nth-child(6), .lines td:nth-child(6) { width: 64px; min-width: 56px; }
-.lines textarea { min-height: 56px; resize: vertical; line-height: 1.45; width: 100%; }
+.lines .line-total input {
+  width: 100%;
+  min-width: 6.5rem;
+  max-width: 10rem;
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
 .lines-wrap {
   overflow-x: auto;
   margin: 12px 0 8px;
@@ -2928,7 +2935,7 @@ input, select, textarea { font-weight: 400; }
   .login-art { min-height: 240px; padding: 28px; }
   .login-still { height: 96px; }
   .template-grid, .chart-grid, .chart-grid.equal, .expense-meta { grid-template-columns: 1fr; }
-  .card:has(table.grid) { overflow-x: auto; }
+  .card:has(table.grid):not(:has(.document-form)) { overflow-x: auto; }
   .admin-body .stats { grid-template-columns: 1fr 1fr; }
   .admin-body .chart-grid,
   .admin-body .chart-grid.equal { grid-template-columns: 1fr; }

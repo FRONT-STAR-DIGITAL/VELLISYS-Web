@@ -554,7 +554,7 @@ layout_start($heading, $user, ['kind' => $kind]);
                 <input type="hidden" name="item_rate[<?= $i ?>]" value="<?= h((string) ($line['rate'] ?? '0')) ?>" data-line-rate>
                 <?php endif; ?>
                 <?php if ($colTotal): ?>
-                <td class="line-total right mono"><span data-line-total><?= $lineTotal ? h(number_format($lineTotal, money_display_decimals($lineTotal, 'USD'), '.', ',')) : '0' ?></span></td>
+                <td class="line-total right"><input name="item_total[<?= $i ?>]" inputmode="decimal" placeholder="0" value="<?= $lineTotal ? h(rtrim(rtrim(number_format($lineTotal, 2, '.', ''), '0'), '.')) : '' ?>" data-line-total autocomplete="off"></td>
                 <?php endif; ?>
                 <?php if ($colVat): ?>
                 <td class="line-vat center">
