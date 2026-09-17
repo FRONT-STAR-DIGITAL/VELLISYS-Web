@@ -6,8 +6,10 @@
   <meta name="theme-color" content="#08143A">
   <meta name="robots" content="noindex">
   <title>You’re offline · Vellisys</title>
+  <link rel="icon" href="assets/img/pwa-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="assets/img/pwa-180.png">
   <style>
-    :root { --navy:#08143A; --blue:#1E4EFF; --paper:#f5f7fc; --ink:#10182c; --muted:#5b6478; }
+    :root { --navy:#08143a; --blue:#1E4EFF; --ink:#10182c; --muted:#5b6478; }
     * { box-sizing: border-box; }
     html, body { margin: 0; min-height: 100%; }
     body {
@@ -15,27 +17,60 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 28px 20px;
+      padding: max(18px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(28px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
       font-family: Montserrat, "Segoe UI", system-ui, sans-serif;
       color: var(--ink);
-      background: var(--paper);
+      background:
+        radial-gradient(ellipse 90% 55% at 86% 0%, rgba(30, 78, 255, .38) 0%, transparent 58%),
+        radial-gradient(ellipse 70% 45% at 8% 100%, rgba(30, 78, 255, .16) 0%, transparent 52%),
+        #08143a;
+      overflow-x: hidden;
+      position: relative;
+    }
+    .watermark {
+      position: absolute;
+      right: -22%;
+      top: -6%;
+      width: min(145%, 580px);
+      height: auto;
+      opacity: .42;
+      pointer-events: none;
+      z-index: 0;
+      object-fit: contain;
+      filter: brightness(1.12) saturate(1.05);
     }
     .card {
-      width: min(440px, 100%);
+      width: min(420px, 100%);
       background: #fff;
-      border: 1px solid rgba(8, 20, 58, .08);
-      border-radius: 20px;
+      border-radius: 24px;
       padding: 36px 28px 28px;
       text-align: center;
-      box-shadow: 0 18px 50px rgba(8, 20, 58, .08);
+      box-shadow: 0 18px 50px rgba(8, 20, 58, .18);
+      position: relative;
+      z-index: 1;
+      overflow: hidden;
     }
-    .mark {
-      width: 64px; height: 64px; margin: 0 auto 18px;
-      border-radius: 16px;
-      background: var(--navy);
-      display: grid; place-items: center;
+    .card-mark {
+      position: absolute;
+      right: -16%;
+      bottom: -22%;
+      width: min(78%, 280px);
+      height: auto;
+      opacity: .14;
+      pointer-events: none;
+      z-index: 0;
+      object-fit: contain;
     }
-    h1 { margin: 0 0 8px; font-size: 1.45rem; letter-spacing: -.02em; color: var(--navy); }
+    .stack { position: relative; z-index: 1; }
+    .logo {
+      display: block;
+      height: 40px;
+      width: auto;
+      max-width: 200px;
+      margin: 0 auto 22px;
+      object-fit: contain;
+    }
+    h1 { margin: 0 0 8px; font-size: 1.45rem; letter-spacing: -.02em; color: var(--navy); font-weight: 800; }
     p { margin: 0 0 22px; line-height: 1.55; color: var(--muted); font-size: .98rem; }
     .actions { display: flex; flex-direction: column; gap: 10px; }
     button {
@@ -54,19 +89,18 @@
   </style>
 </head>
 <body>
+  <img class="watermark" src="assets/img/v-mark.png" alt="" decoding="async">
   <main class="card">
-    <div class="mark" aria-hidden="true">
-      <svg width="34" height="34" viewBox="0 0 32 32" fill="none">
-        <path d="M8 7h16l-8 18L8 7z" fill="#1E4EFF"/>
-        <path d="M12.2 7h7.6L16 16.8 12.2 7z" fill="#8EB0FF"/>
-      </svg>
+    <img class="card-mark" src="assets/img/v-mark.png" alt="" decoding="async">
+    <div class="stack">
+      <img class="logo" src="assets/img/vellisys-logo.png" alt="Vellisys" decoding="async">
+      <h1>You’re offline</h1>
+      <p>The internet dropped, or the connection is unstable. Vellisys needs a live connection to open the desk and your books.</p>
+      <div class="actions">
+        <button type="button" id="reload">Try again</button>
+      </div>
+      <p class="hint">When the network is back, tap Try again. This page does not use your books until you are online.</p>
     </div>
-    <h1>You’re offline</h1>
-    <p>The internet dropped, or the connection is unstable. Vellisys needs a live connection to open the desk and your books.</p>
-    <div class="actions">
-      <button type="button" id="reload">Try again</button>
-    </div>
-    <p class="hint">When the network is back, tap Try again. This page does not use your books until you are online.</p>
   </main>
   <script>
     (function () {

@@ -1,11 +1,22 @@
 /* Vellisys service worker: cache shell assets, and a branded offline page for failed navigations. Never intercept form posts. */
-const CACHE = 'vellisys-shell-v8';
+const CACHE = 'vellisys-shell-v9';
 const OFFLINE_URL = new URL('offline.html', self.registration.scope).href;
+const SHELL = [
+  OFFLINE_URL,
+  new URL('assets/img/pwa-192.png', self.registration.scope).href,
+  new URL('assets/img/pwa-180.png', self.registration.scope).href,
+  new URL('assets/img/vellisys-logo.png', self.registration.scope).href,
+  new URL('assets/img/v-mark.png', self.registration.scope).href,
+];
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.add(new Request(OFFLINE_URL, { cache: 'reload' })).catch(() => {}))
+    caches.open(CACHE).then((cache) =>
+      Promise.all(
+        SHELL.map((url) => cache.add(new Request(url, { cache: 'reload' })).catch(() => {}))
+      )
+    )
   );
 });
 
