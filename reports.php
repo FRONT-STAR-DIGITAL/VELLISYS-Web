@@ -324,7 +324,7 @@ layout_start('Reports', $user);
     <?php if (!$series): ?>
       <p class="empty">Nothing in this period to plot.</p>
     <?php else: ?>
-      <canvas id="chart-series"></canvas>
+      <div class="chart-frame"><canvas id="chart-series"></canvas></div>
     <?php endif; ?>
   </div>
   <div class="card chart-box">
@@ -332,14 +332,14 @@ layout_start('Reports', $user);
     <?php if (!$byCat): ?>
       <p class="empty">No expenses recorded.</p>
     <?php else: ?>
-      <canvas id="chart-pie"></canvas>
+      <div class="chart-frame"><canvas id="chart-pie"></canvas></div>
     <?php endif; ?>
   </div>
 </div>
 
 <div class="card chart-box" style="margin-bottom:16px">
   <div class="card-head"><h2><?= icon('clients', 16) ?>Debtors aging</h2></div>
-  <canvas id="chart-bar" height="90"></canvas>
+  <div class="chart-frame"><canvas id="chart-bar"></canvas></div>
 </div>
 
 <div class="chart-grid equal">
@@ -348,7 +348,7 @@ layout_start('Reports', $user);
     <?php if ($cashIn <= 0 && $outstanding <= 0): ?>
       <p class="empty">No collections or open balances in this period.</p>
     <?php else: ?>
-      <canvas id="chart-collect"></canvas>
+      <div class="chart-frame"><canvas id="chart-collect"></canvas></div>
     <?php endif; ?>
   </div>
   <div class="card chart-box">
@@ -356,7 +356,7 @@ layout_start('Reports', $user);
     <?php if (!$quotes): ?>
       <p class="empty">No quotations in this period.</p>
     <?php else: ?>
-      <canvas id="chart-quotes"></canvas>
+      <div class="chart-frame"><canvas id="chart-quotes"></canvas></div>
     <?php endif; ?>
   </div>
 </div>
@@ -367,7 +367,7 @@ layout_start('Reports', $user);
     <?php if (!$topClients): ?>
       <p class="empty">No invoices in this period.</p>
     <?php else: ?>
-      <canvas id="chart-clients"></canvas>
+      <div class="chart-frame"><canvas id="chart-clients"></canvas></div>
     <?php endif; ?>
   </div>
   <div class="card chart-box">
@@ -375,7 +375,7 @@ layout_start('Reports', $user);
     <?php if (!$mixSeries): ?>
       <p class="empty">Nothing issued in this period.</p>
     <?php else: ?>
-      <canvas id="chart-mix"></canvas>
+      <div class="chart-frame"><canvas id="chart-mix"></canvas></div>
     <?php endif; ?>
   </div>
 </div>

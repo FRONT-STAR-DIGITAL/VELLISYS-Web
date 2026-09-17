@@ -1754,7 +1754,18 @@ table.grid tfoot td {
   margin: 0 0 16px;
 }
 .chart-box { padding: 16px 18px 22px; min-height: 300px; position: relative; overflow: hidden; }
-.chart-box canvas { max-width: 100%; max-height: 260px; display: block; }
+.chart-frame {
+  height: 260px;
+  position: relative;
+  overflow: hidden;
+}
+.chart-box canvas {
+  max-width: 100%;
+  max-height: 260px;
+  display: block;
+  position: relative;
+  z-index: 0;
+}
 .expense-card {
   max-width: 640px;
   margin: 0 auto;
@@ -4695,7 +4706,8 @@ a.branch-activity-row:hover { text-decoration: none; }
   .desk-body .top {
     position: sticky;
     top: 0;
-    z-index: 80;
+    z-index: 200;
+    isolation: isolate;
     background: #fff;
     padding-top: max(10px, env(safe-area-inset-top, 0px));
     padding-left: max(12px, env(safe-area-inset-left, 0px));

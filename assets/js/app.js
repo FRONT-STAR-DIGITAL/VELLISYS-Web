@@ -50,6 +50,14 @@ function closeNav() {
 }
 
 document.addEventListener('click', function (e) {
+  var toggle = closestEl(e, '[data-nav-toggle]');
+  if (!toggle) return;
+  e.preventDefault();
+  e.stopPropagation();
+  setNavOpen(!document.body.classList.contains('nav-open'));
+}, true);
+
+document.addEventListener('click', function (e) {
   if (closestEl(e, '[data-print-pdf]')) {
     e.preventDefault();
     window.print();
@@ -90,10 +98,7 @@ document.addEventListener('click', function (e) {
     setQuick(false);
   }
 
-  var toggle = closestEl(e, '[data-nav-toggle]');
-  if (toggle) {
-    e.preventDefault();
-    setNavOpen(!document.body.classList.contains('nav-open'));
+  if (closestEl(e, '[data-nav-toggle]')) {
     return;
   }
   if (closestEl(e, '[data-nav-scrim]')) {
