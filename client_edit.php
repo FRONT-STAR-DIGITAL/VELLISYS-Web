@@ -28,12 +28,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $country = post('country') ?: null;
     $notes = post('party_notes') ?: null;
     $status = party_normalize_status(post('status'));
+    $entity = function_exists('normalize_party_entity') ? normalize_party_entity(post('to_entity') ?: post('entity') ?: '') : 'person';
+    $profileJson = function_exists('posted_to_extras')
+        ? json_encode(compact_party_extras(merge_party_profile($party ? party_profile($party) : [], posted_to_extras())), JSON_UNESCAPED_UNICODE)
+        : null;
     if ($id && $party) {
         db_exec(
             'UPDATE parties SET name=?, kind=?, status=?, tin=?, contact_person=?, phone=?, phone2=?, email=?, address=?, city=?, country=?, notes=? WHERE id=? AND company_id=?',
             'ssssssssssssii',
             [$name, $kind, $status, $tin, $contact, $phone, $phone2, $email, $address, $city, $country, $notes, $id, $cid]
         );
+        if (function_exists('persist_party_client_fields')) {
+            persist_party_client_fields($id, ['entity' => $entity, 'profile' => $profileJson]);
+        }
         flash('Client updated.');
         if (function_exists('record_company_activity')) {
             record_company_activity('client', 'Updated ' . $name, [
@@ -49,6 +56,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'issssssssssss',
         [$cid, $name, $kind, $status, $tin, $contact, $phone, $phone2, $email, $address, $city, $country, $notes]
     );
+    if (function_exists('persist_party_client_fields')) {
+        persist_party_client_fields((int) $newId, ['entity' => $entity, 'profile' => $profileJson]);
+    }
     flash('Client added.');
     if (function_exists('record_company_activity')) {
         record_company_activity('client', 'Added ' . $name, [
@@ -87,6 +97,16 @@ layout_start($party ? 'Edit client' : 'New client', $user);
         <?php endforeach; ?>
       </select>
     </div>
+    <?php if (function_exists('company_client_audience') && company_client_audience() === 'both'): ?>
+    <div>
+      <label for="to_entity">Person or organisation</label>
+      <select id="to_entity" name="to_entity">
+        <?php $ent = $party ? party_entity($party) : 'person'; ?>
+        <option value="person" <?= $ent === 'person' ? 'selected' : '' ?>>Person</option>
+        <option value="organisation" <?= $ent === 'organisation' ? 'selected' : '' ?>>Company / organisation</option>
+      </select>
+    </div>
+    <?php endif; ?>
     <div>
       <label for="status">Status</label>
       <select id="status" name="status">
@@ -126,6 +146,7 @@ layout_start($party ? 'Edit client' : 'New client', $user);
   </div>
   <label for="address">Address</label>
   <textarea id="address" name="address" rows="5" placeholder="Street, building, P.O. Box…"><?= h($party['address'] ?? '') ?></textarea>
+  <?php if (function_exists('render_client_edit_extras')) { render_client_edit_extras($party ?? []); } ?>
   <label for="party_notes">Notes</label>
   <textarea id="party_notes" name="party_notes" rows="4" placeholder="Delivery hours, gate codes, who to copy on email…"><?= h($party['notes'] ?? '') ?></textarea>
   <div class="actions" style="margin-top:16px">

@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $plannerOn = planner_resolve_enabled($plan, !empty($_POST['planner_enabled']), $company);
             $pnlOn = pnl_resolve_enabled($plan, !empty($_POST['pnl_enabled']), $company);
             try {
-                db_exec('UPDATE companies SET name=?, status=?, plan=?, notes=?, enabled_kinds=?, custom_doc=?, user_limit=?, planner_enabled=?, pnl_enabled=?, stock_enabled=? WHERE id=?', 'ssssssiiiii', [$name, $status, $plan, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), $limit, $plannerOn, $pnlOn, !empty($_POST['stock_enabled']) ? 1 : 0, $id]);
+                db_exec('UPDATE companies SET name=?, status=?, plan=?, notes=?, enabled_kinds=?, custom_doc=?, nature_of_business=?, client_audience=?, client_fields=?, user_limit=?, planner_enabled=?, pnl_enabled=?, stock_enabled=? WHERE id=?', 'sssssssssiiiii', [$name, $status, $plan, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), sanitize_nature_of_business(post('nature_of_business')), posted_client_fields()['audience'], posted_client_fields_json(), $limit, $plannerOn, $pnlOn, !empty($_POST['stock_enabled']) ? 1 : 0, $id]);
                 db_exec('UPDATE branding SET name=? WHERE company_id=?', 'si', [$name, $id]);
             } catch (Throwable $e) {
                 $error = 'Could not save the company profile. Check the form and try again.';
@@ -504,7 +504,7 @@ layout_admin_start($company['name'], $user);
 <div class="page-head">
   <div>
     <h1><?= icon('building') ?><?= h($company['name']) ?></h1>
-    <p class="lede"><?= h(ucfirst((string) $company['status'])) ?> · <?= h($brand['currency'] ?? 'UGX') ?> · <?= count($members) ?> / <?= (int) company_user_limit($company) ?> user<?= count($members) === 1 ? '' : 's' ?> · <?= h(company_term_label($company)) ?><?php if (company_expires_on($company)): ?> · <?= h(company_remaining_phrase($company)) ?> · <?= h(company_expiry_date_label($company)) ?><?php endif; ?></p>
+    <p class="lede"><?= h(ucfirst((string) $company['status'])) ?> · <?= h($brand['currency'] ?? 'UGX') ?> · <?= count($members) ?> / <?= (int) company_user_limit($company) ?> user<?= count($members) === 1 ? '' : 's' ?> · <?= h(company_term_label($company)) ?><?php if (company_expires_on($company)): ?> · <?= h(company_remaining_phrase($company)) ?> · <?= h(company_expiry_date_label($company)) ?><?php endif; ?><?php $nob = trim((string) ($company['nature_of_business'] ?? '')); if ($nob !== ''): ?> · <?= h($nob) ?><?php endif; ?></p>
   </div>
   <div class="actions">
     <a class="btn" href="<?= h(url('admin_desk.php?id=' . $id)) ?>"><?= icon('desk') ?>Open desk</a>
@@ -949,6 +949,9 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
       <input id="name" name="name" required value="<?= h($company['name']) ?>">
     </div>
     <div>
+      <?php render_nature_of_business_field((string) ($company['nature_of_business'] ?? '')); ?>
+    </div>
+    <div>
       <label for="status">Status</label>
       <select id="status" name="status">
         <?php foreach (['onboarding' => 'Onboarding', 'live' => 'Live', 'suspended' => 'Suspended'] as $k => $label): ?>
@@ -991,6 +994,7 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
   <div style="padding:0 22px 22px">
     <label for="notes">Internal notes</label>
     <textarea id="notes" name="notes" rows="3"><?= h((string) $company['notes']) ?></textarea>
+    <?php render_client_fields_admin($company); ?>
     <?php render_desk_kinds_fields($company); ?>
     <div class="actions" style="margin-top:12px">
       <button class="btn" type="submit"><?= icon('check') ?>Save company</button>

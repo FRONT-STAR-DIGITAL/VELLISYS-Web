@@ -100,6 +100,9 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
       <input id="name" name="name" required value="<?= h($pref('name')) ?>" placeholder="Harbour &amp; Co.">
     </div>
     <div>
+      <?php render_nature_of_business_field((string) (post('nature_of_business') ?: ($signup['nature_of_business'] ?? ''))); ?>
+    </div>
+    <div>
       <label for="status">Status</label>
       <select id="status" name="status">
         <?php $statusPick = post('status') ?: 'onboarding'; ?>
@@ -239,6 +242,7 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
   </div>
 
   <div style="padding:8px 22px 0">
+    <?php render_client_fields_admin(); ?>
     <?php render_desk_kinds_fields(); ?>
   </div>
 

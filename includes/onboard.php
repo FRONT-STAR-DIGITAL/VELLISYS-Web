@@ -107,6 +107,18 @@ function create_company_from_paid_order(array $order): int
     if (!empty($order['stock_addon'])) {
         db_exec('UPDATE companies SET stock_enabled = 1 WHERE id = ?', 'i', [$cid]);
     }
+    $nature = '';
+    $signupId = (int) ($order['signup_id'] ?? 0);
+    if ($signupId > 0) {
+        $signup = db_one('SELECT nature_of_business FROM signups WHERE id = ?', 'i', [$signupId]);
+        $nature = sanitize_nature_of_business((string) ($signup['nature_of_business'] ?? ''));
+    }
+    if ($nature === '') {
+        $nature = sanitize_nature_of_business((string) ($order['nature_of_business'] ?? ''));
+    }
+    if ($nature !== '') {
+        db_exec('UPDATE companies SET nature_of_business=? WHERE id=?', 'si', [$nature, $cid]);
+    }
     $email = strtolower(trim((string) ($order['email'] ?? '')));
     $phone = trim((string) ($order['phone'] ?? ''));
     $city = trim((string) ($order['city'] ?? ''));

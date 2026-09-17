@@ -287,6 +287,9 @@ $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'
             <label for="company_name">Company
               <input id="company_name" name="company_name" required maxlength="160" autocomplete="organization" value="<?= h($take('company', $take('company_name'))) ?>" placeholder="Okello Traders Ltd">
             </label>
+            <label for="nature_of_business">Nature of business <span>(optional)</span>
+              <input id="nature_of_business" name="nature_of_business" maxlength="120" list="nature-of-business" value="<?= h($take('nature_of_business')) ?>" placeholder="Shop, driving school, law firm…">
+            </label>
             <label for="contact_email">Email
               <input id="contact_email" name="contact_email" type="email" required maxlength="190" autocomplete="email" value="<?= h($take('email', $take('contact_email'))) ?>" placeholder="accounts@company.com">
             </label>
@@ -313,6 +316,11 @@ $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'
             <option value="South Africa">
             <option value="United Kingdom">
             <option value="United States">
+          </datalist>
+          <datalist id="nature-of-business">
+            <?php foreach (function_exists('nature_of_business_suggestions') ? nature_of_business_suggestions() : [] as $n): ?>
+              <option value="<?= h($n) ?>">
+            <?php endforeach; ?>
           </datalist>
           <label class="lp-stock-addon" for="stock_addon">
             <input id="stock_addon" name="stock_addon" type="checkbox" value="1" <?= $stockOn ? 'checked' : '' ?> data-stock-addon data-package-ugx="<?= (int) $pkg['price_ugx'] ?>" data-stock-ugx="<?= (int) $addonUgx ?>">

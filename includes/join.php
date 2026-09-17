@@ -65,6 +65,10 @@ function join_handle_post(string $intentKey): array
     if ($extra !== '') {
         $noteBits[] = $extra;
     }
+    $nature = function_exists('sanitize_nature_of_business') ? sanitize_nature_of_business(post('nature_of_business')) : '';
+    if ($nature !== '') {
+        $noteBits[] = 'Nature of business: ' . $nature;
+    }
     $saved = record_website_signup($source, implode("\n", $noteBits));
     if (!empty($saved['silent'])) {
         return ['ok' => true, 'silent' => true];
@@ -165,6 +169,14 @@ function join_render_page(array $intent, string $error, bool $ok): void
         <label for="company_name">Company
           <input id="company_name" name="company_name" required maxlength="160" autocomplete="organization" value="<?= h(post('company_name') ?: (string) ($draft['company'] ?? '')) ?>" placeholder="Okello Traders Ltd">
         </label>
+        <label for="nature_of_business">Nature of business <span>(optional)</span>
+          <input id="nature_of_business" name="nature_of_business" maxlength="120" list="nature-of-business" value="<?= h(post('nature_of_business')) ?>" placeholder="Shop, driving school, law firm…">
+        </label>
+        <datalist id="nature-of-business">
+          <?php foreach (function_exists('nature_of_business_suggestions') ? nature_of_business_suggestions() : [] as $n): ?>
+            <option value="<?= h($n) ?>">
+          <?php endforeach; ?>
+        </datalist>
         <label for="contact_email">Email
           <input id="contact_email" name="contact_email" type="email" required maxlength="190" autocomplete="email" value="<?= h(post('contact_email') ?: (string) ($draft['email'] ?? '')) ?>" placeholder="accounts@company.com">
         </label>

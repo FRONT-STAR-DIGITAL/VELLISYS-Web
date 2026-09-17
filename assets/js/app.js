@@ -274,6 +274,28 @@ document.addEventListener('click', function (e) {
     if (inp) inp.focus();
     return;
   }
+  var addClientField = e.target.closest('[data-add-client-field]');
+  if (addClientField) {
+    e.preventDefault();
+    var box = document.querySelector('[data-client-fields]');
+    if (!box) return;
+    var row = document.createElement('div');
+    row.className = 'custom-field-row client-extra-row';
+    row.innerHTML = '<input name="client_extra_label[]" placeholder="e.g. Vehicle no">' +
+      '<select name="client_extra_type[]">' +
+      '<option value="text">Short text</option>' +
+      '<option value="tel">Phone</option>' +
+      '<option value="date">Date</option>' +
+      '<option value="number">Number</option>' +
+      '<option value="textarea">Long text</option>' +
+      '<option value="period">Period (from–to)</option>' +
+      '</select>' +
+      '<input type="hidden" name="client_extra_key[]" value="">';
+    box.appendChild(row);
+    var inp2 = row.querySelector('input');
+    if (inp2) inp2.focus();
+    return;
+  }
   var qtyBtn = e.target.closest('[data-qty-delta]');
   if (!qtyBtn) return;
   e.preventDefault();
@@ -1059,12 +1081,34 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
     var map = {
       to_name: row.name || search.value,
       to_phone: row.phone || '',
+      to_phone2: row.phone2 || '',
       to_email: row.email || '',
-      to_address: row.address || ''
+      to_address: row.address || '',
+      to_contact: row.contact || '',
+      to_tin: row.tin || '',
+      to_city: row.city || '',
+      to_country: row.country || '',
+      to_entity: row.entity || ''
     };
     Object.keys(map).forEach(function (name) {
       var el = form.querySelector('[name="' + name + '"]');
-      if (el) el.value = map[name];
+      if (el && map[name] !== '') el.value = map[name];
+      else if (el && name !== 'to_name') el.value = map[name];
+    });
+    var extras = row.extras || {};
+    form.querySelectorAll('[data-to-extra]').forEach(function (el) {
+      var key = el.getAttribute('data-to-extra');
+      var part = el.getAttribute('data-to-extra-part');
+      var val = extras[key];
+      if (part) {
+        el.value = (val && typeof val === 'object') ? (val[part] || '') : '';
+        return;
+      }
+      if (val == null || typeof val === 'object') {
+        el.value = '';
+        return;
+      }
+      el.value = String(val);
     });
     party.value = id ? String(id) : '';
   }

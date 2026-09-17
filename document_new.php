@@ -121,6 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             apply_fx_rate(post('fx_ugx_per_usd'));
         }
         $payload['doc_template'] = doc_template_key();
+        $payload['party_extras'] = function_exists('posted_to_extras') ? posted_to_extras() : [];
         $postedDate = (string) ($payload['date'] ?? today());
         $today = today();
         if (!user_can_backdate_documents()) {
@@ -214,6 +215,8 @@ foreach ($parties as $p) {
         'address' => (string) ($p['address'] ?? ''),
         'city' => (string) ($p['city'] ?? ''),
         'country' => (string) ($p['country'] ?? ''),
+        'entity' => function_exists('party_entity') ? party_entity($p) : 'person',
+        'extras' => function_exists('party_profile') ? party_profile($p) : [],
     ];
 }
 
@@ -348,36 +351,7 @@ layout_start($heading, $user, ['kind' => $kind]);
       <p class="hint">Pick a saved payee or type a new name. <a href="<?= h(url('client_edit.php')) ?>">Open the full client form</a></p>
     </div>
     <?php else: ?>
-    <div class="doc-client-block doc-span">
-      <h2 class="doc-client-title">Customer information</h2>
-      <div class="form-grid doc-client-grid" data-to-fields>
-        <div>
-          <label for="to_name">Customer name</label>
-          <div class="client-combo" data-client-combo>
-            <input type="hidden" id="party_id" name="party_id" value="<?= $prefillParty ?: '' ?>">
-            <input id="to_name" name="to_name" required autocomplete="off" placeholder="Start typing customer name…" value="<?= h((string) ($toParty['name'] ?? '')) ?>" data-client-search>
-            <div class="client-combo-panel" data-client-panel hidden>
-              <button type="button" class="client-combo-scroll" data-client-scroll="-1" aria-label="Scroll client list up"><?= icon('chevron-up', 16) ?></button>
-              <ul class="client-combo-list" data-client-list></ul>
-              <button type="button" class="client-combo-scroll" data-client-scroll="1" aria-label="Scroll client list down"><?= icon('chevron-down', 16) ?></button>
-            </div>
-          </div>
-          <p class="hint">Choose a saved client or type a new one. They are added when you save.</p>
-        </div>
-        <div>
-          <label for="to_address">Customer address</label>
-          <input id="to_address" name="to_address" value="<?= h((string) ($toParty['address'] ?? '')) ?>">
-        </div>
-        <div>
-          <label for="to_phone">Customer contact</label>
-          <input id="to_phone" name="to_phone" value="<?= h((string) ($toParty['phone'] ?? '')) ?>">
-        </div>
-        <div>
-          <label for="to_email">Email</label>
-          <input id="to_email" name="to_email" type="email" value="<?= h((string) ($toParty['email'] ?? '')) ?>">
-        </div>
-      </div>
-    </div>
+    <?php render_document_to_fields($toParty, $existing); ?>
     <?php endif; ?>
     <?php if (kind_shows_money($kind)): ?>
       <div>

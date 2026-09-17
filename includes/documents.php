@@ -211,10 +211,49 @@ function ensure_document_party(string $kind): int
     $phone = trim((string) ($_POST['to_phone'] ?? '')) ?: null;
     $email = trim((string) ($_POST['to_email'] ?? '')) ?: null;
     $address = trim((string) ($_POST['to_address'] ?? '')) ?: null;
-    return db_exec(
+    $contact = trim((string) ($_POST['to_contact'] ?? '')) ?: null;
+    $tin = trim((string) ($_POST['to_tin'] ?? '')) ?: null;
+    $phone2 = trim((string) ($_POST['to_phone2'] ?? '')) ?: null;
+    $city = trim((string) ($_POST['to_city'] ?? '')) ?: null;
+    $country = trim((string) ($_POST['to_country'] ?? '')) ?: null;
+    $entity = function_exists('normalize_party_entity') ? normalize_party_entity((string) ($_POST['to_entity'] ?? '')) : 'person';
+    $profile = function_exists('posted_to_extras') ? json_encode(posted_to_extras(), JSON_UNESCAPED_UNICODE) : null;
+    $id = db_exec(
         'INSERT INTO parties (company_id, name, kind, tin, contact_person, phone, phone2, email, address, city, country, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
         'isssssssssss',
-        [$cid, $name, $partyKind, null, null, $phone, null, $email, $address, null, null, null]
+        [$cid, $name, $partyKind, $tin, $contact, $phone, $phone2, $email, $address, $city, $country, null]
+    );
+    persist_party_client_fields((int) $id, [
+        'entity' => $entity,
+        'profile' => $profile,
+    ]);
+    return (int) $id;
+}
+
+function persist_party_client_fields(int $partyId, array $fields): void
+{
+    if ($partyId < 1 || !function_exists('db_has_column')) {
+        return;
+    }
+    $db = db();
+    $cid = current_company_id();
+    if (isset($fields['entity']) && db_has_column($db, 'parties', 'entity')) {
+        db_exec('UPDATE parties SET entity=? WHERE id=? AND company_id=?', 'sii', [(string) $fields['entity'], $partyId, $cid]);
+    }
+    if (array_key_exists('profile', $fields) && db_has_column($db, 'parties', 'profile')) {
+        db_exec('UPDATE parties SET profile=? WHERE id=? AND company_id=?', 'sii', [$fields['profile'], $partyId, $cid]);
+    }
+}
+
+function persist_document_party_extras(int $docId, array $extras): void
+{
+    if ($docId < 1 || !function_exists('db_has_column') || !db_has_column(db(), 'documents', 'party_extras')) {
+        return;
+    }
+    db_exec(
+        'UPDATE documents SET party_extras=? WHERE id=? AND company_id=?',
+        'sii',
+        [json_encode(function_exists('compact_party_extras') ? compact_party_extras($extras) : $extras, JSON_UNESCAPED_UNICODE) ?: '{}', $docId, current_company_id()]
     );
 }
 
@@ -238,17 +277,39 @@ function apply_posted_party(int $partyId): void
     $phone = array_key_exists('to_phone', $_POST)
         ? (trim((string) $_POST['to_phone']) ?: null)
         : ($party['phone'] ?? null);
+    $phone2 = array_key_exists('to_phone2', $_POST)
+        ? (trim((string) $_POST['to_phone2']) ?: null)
+        : ($party['phone2'] ?? null);
     $email = array_key_exists('to_email', $_POST)
         ? (trim((string) $_POST['to_email']) ?: null)
         : ($party['email'] ?? null);
     $address = array_key_exists('to_address', $_POST)
         ? (trim((string) $_POST['to_address']) ?: null)
         : ($party['address'] ?? null);
+    $contact = array_key_exists('to_contact', $_POST)
+        ? (trim((string) $_POST['to_contact']) ?: null)
+        : ($party['contact_person'] ?? null);
+    $tin = array_key_exists('to_tin', $_POST)
+        ? (trim((string) $_POST['to_tin']) ?: null)
+        : ($party['tin'] ?? null);
+    $city = array_key_exists('to_city', $_POST)
+        ? (trim((string) $_POST['to_city']) ?: null)
+        : ($party['city'] ?? null);
+    $country = array_key_exists('to_country', $_POST)
+        ? (trim((string) $_POST['to_country']) ?: null)
+        : ($party['country'] ?? null);
     db_exec(
-        'UPDATE parties SET name=?, phone=?, email=?, address=? WHERE id=? AND company_id=?',
-        'ssssii',
-        [$name, $phone, $email, $address, $partyId, $cid]
+        'UPDATE parties SET name=?, phone=?, phone2=?, email=?, address=?, contact_person=?, tin=?, city=?, country=? WHERE id=? AND company_id=?',
+        'sssssssssii',
+        [$name, $phone, $phone2, $email, $address, $contact, $tin, $city, $country, $partyId, $cid]
     );
+    if (function_exists('posted_to_extras')) {
+        $merged = merge_party_profile(party_profile($party), posted_to_extras());
+        persist_party_client_fields($partyId, [
+            'entity' => normalize_party_entity((string) ($_POST['to_entity'] ?? ($party['entity'] ?? ''))),
+            'profile' => json_encode(compact_party_extras($merged), JSON_UNESCAPED_UNICODE) ?: '{}',
+        ]);
+    }
 }
 
 function apply_efris_mark(int $id, string $number, string $date, $grand): void
@@ -323,6 +384,10 @@ function create_document(array $data): int
         'isisssidsssssissdssiissi',
         [$cid, $kind, $seq, $number, $date, $due, $party, $rate, $notes, $subject, $body, $customValues, $status, $related, $method, $ref, $alloc, $cat, $tpl, $userId, $branchId, $currency, $docTpl, $addSig]
     );
+
+    if (function_exists('persist_document_party_extras')) {
+        persist_document_party_extras((int) $id, is_array($data['party_extras'] ?? null) ? $data['party_extras'] : []);
+    }
 
     insert_document_items($id, $items);
     if (function_exists('stock_apply_document')) {
@@ -468,6 +533,9 @@ function update_document(int $id, array $data): void
         'issdssssissdssssiiii',
         [$party, $date, $due, $rate, $notes, $subject, $body, $customValues, $related, $method, $ref, $alloc, $cat, $tpl, $currency, $docTpl, $addSig, $branchId, $id, current_company_id()]
     );
+    if (function_exists('persist_document_party_extras') && array_key_exists('party_extras', $data)) {
+        persist_document_party_extras($id, is_array($data['party_extras']) ? $data['party_extras'] : []);
+    }
     db_exec('DELETE FROM document_items WHERE document_id = ?', 'i', [$id]);
     if (function_exists('stock_reverse_document')) {
         stock_reverse_document($id);
@@ -484,6 +552,11 @@ function hydrate_document(array $doc): array
     $doc['items'] = db_all('SELECT * FROM document_items WHERE document_id = ? ORDER BY id', 'i', [$id]);
     $rawCustom = $doc['custom_values'] ?? '';
     $doc['custom_values'] = is_array($rawCustom) ? $rawCustom : (json_decode((string) $rawCustom, true) ?: []);
+    $rawExtras = $doc['party_extras'] ?? '';
+    $doc['party_extras'] = is_array($rawExtras) ? $rawExtras : (json_decode((string) $rawExtras, true) ?: []);
+    if (!$doc['party_extras'] && !empty($doc['party_profile'])) {
+        $doc['party_extras'] = parse_party_profile($doc['party_profile']);
+    }
     $doc['totals'] = document_totals($doc);
     if ($doc['kind'] === 'invoice') {
         $doc['paid'] = invoice_paid((int) $doc['id']);
@@ -506,7 +579,7 @@ function hydrate_document(array $doc): array
 function load_document(int $id): ?array
 {
     $doc = db_one(
-        'SELECT d.*, p.name AS party_name, p.email AS party_email, p.phone AS party_phone, p.phone2 AS party_phone2, p.address AS party_address, p.city AS party_city, p.country AS party_country, p.contact_person AS party_contact, p.tin AS party_tin, p.kind AS party_kind
+        'SELECT d.*, p.name AS party_name, p.email AS party_email, p.phone AS party_phone, p.phone2 AS party_phone2, p.address AS party_address, p.city AS party_city, p.country AS party_country, p.contact_person AS party_contact, p.tin AS party_tin, p.kind AS party_kind, p.profile AS party_profile, p.entity AS party_entity
          FROM documents d JOIN parties p ON p.id = d.party_id WHERE d.id = ? AND d.company_id = ?',
         'ii',
         [$id, current_company_id()]

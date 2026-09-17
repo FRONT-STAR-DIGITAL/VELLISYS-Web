@@ -808,6 +808,11 @@ form.actions, td form { display: inline; margin: 0; }
 }
 .custom-doc-box h3 { margin: 0 0 6px; font-size: 15px; }
 .custom-field-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 10px; margin: 0 0 8px; }
+.client-extra-row { grid-template-columns: minmax(0, 1.4fr) minmax(140px, .8fr); }
+.client-fields-box { margin: 16px 0 8px; padding: 0; border: 0; }
+.client-fields-box legend { font-weight: 800; font-size: 15px; margin: 0 0 6px; }
+.to-period { align-items: center; gap: 8px; }
+.to-period span { color: var(--muted, #5b6478); font-size: 13px; }
 .letter-body-field { min-height: 18em; }
 .rich-editor {
   border: 1px solid var(--line);

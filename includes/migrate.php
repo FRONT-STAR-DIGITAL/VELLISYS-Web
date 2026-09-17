@@ -24,7 +24,7 @@ function folio_schema_ready_file(): string
     if (!is_dir($dir)) {
         @mkdir($dir, 0700, true);
     }
-    return $dir . '/schema-47.ok';
+    return $dir . '/schema-48.ok';
 }
 
 function folio_ensure_logo_bg(mysqli $db): void
@@ -467,6 +467,7 @@ function folio_migrate(mysqli $db): void
     folio_ensure_ofagros_pro_plan($db);
     folio_ensure_stock($db);
     folio_ensure_access_addons($db);
+    folio_migrate_client_profile($db);
     $ready = folio_schema_ready_file();
     if (is_file($ready) && filemtime($ready) > time() - 86400) {
         $done = true;
@@ -477,7 +478,7 @@ function folio_migrate(mysqli $db): void
         return;
     }
     $verRow = @$db->query("SELECT v FROM schema_meta WHERE k='version'");
-    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 47) {
+    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 48) {
         @touch($ready);
         $done = true;
         return;
@@ -492,7 +493,7 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 47) {
+    if ($ver >= 48) {
         @touch($ready);
         $done = true;
         return;
@@ -738,8 +739,11 @@ function folio_migrate(mysqli $db): void
     if ($ver < 47) {
         folio_migrate_company_timezone($db);
     }
+    if ($ver < 48) {
+        folio_migrate_client_profile($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '47')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '48')");
     @touch($ready);
     $done = true;
 }
@@ -1192,6 +1196,43 @@ function folio_migrate_company_timezone(mysqli $db): void
     if (!db_has_column($db, 'companies', 'timezone')) {
         $db->query("ALTER TABLE companies ADD COLUMN timezone VARCHAR(64) NOT NULL DEFAULT 'Africa/Kampala'");
         db_has_column($db, 'companies', 'timezone', true);
+    }
+}
+
+function folio_migrate_client_profile(mysqli $db): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    if (!db_has_column($db, 'companies', 'nature_of_business')) {
+        @$db->query("ALTER TABLE companies ADD COLUMN nature_of_business VARCHAR(120) NOT NULL DEFAULT ''");
+        db_has_column($db, 'companies', 'nature_of_business', true);
+    }
+    if (!db_has_column($db, 'companies', 'client_audience')) {
+        @$db->query("ALTER TABLE companies ADD COLUMN client_audience VARCHAR(20) NOT NULL DEFAULT 'both'");
+        db_has_column($db, 'companies', 'client_audience', true);
+    }
+    if (!db_has_column($db, 'companies', 'client_fields')) {
+        @$db->query('ALTER TABLE companies ADD COLUMN client_fields TEXT NULL');
+        db_has_column($db, 'companies', 'client_fields', true);
+    }
+    if (!db_has_column($db, 'parties', 'entity')) {
+        @$db->query("ALTER TABLE parties ADD COLUMN entity VARCHAR(20) NOT NULL DEFAULT 'person'");
+        db_has_column($db, 'parties', 'entity', true);
+    }
+    if (!db_has_column($db, 'parties', 'profile')) {
+        @$db->query('ALTER TABLE parties ADD COLUMN profile TEXT NULL');
+        db_has_column($db, 'parties', 'profile', true);
+    }
+    if (!db_has_column($db, 'documents', 'party_extras')) {
+        @$db->query('ALTER TABLE documents ADD COLUMN party_extras TEXT NULL');
+        db_has_column($db, 'documents', 'party_extras', true);
+    }
+    if (!db_has_column($db, 'signups', 'nature_of_business')) {
+        @$db->query("ALTER TABLE signups ADD COLUMN nature_of_business VARCHAR(120) NOT NULL DEFAULT ''");
+        db_has_column($db, 'signups', 'nature_of_business', true);
     }
 }
 

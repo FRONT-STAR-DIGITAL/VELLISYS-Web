@@ -1296,6 +1296,7 @@ function record_website_signup(string $source, string $note = ''): array
     $company = post_plain('company_name', 160);
     $email = strtolower(post_plain('contact_email', 190));
     $phone = post_plain('contact_phone', 40);
+    $nature = function_exists('sanitize_nature_of_business') ? sanitize_nature_of_business(post_plain('nature_of_business', 120)) : '';
     $note = sanitize_public_text($note, 2000, true);
     if (public_form_looks_like_spam(['name' => $name, 'company' => $company, 'email' => $email, 'note' => $note, 'phone' => $phone])) {
         return ['ok' => true, 'silent' => true];
@@ -1314,25 +1315,34 @@ function record_website_signup(string $source, string $note = ''): array
             return ['ok' => false, 'error' => 'We already have this request. We will be in touch on that email or phone.'];
         }
         $kind = in_array($source, ['quote', 'demo', 'register', 'checkout'], true) ? $source : 'register';
+        $signupId = 0;
         try {
-            db_exec(
-                'INSERT INTO signups (name, company, email, phone, status, source, note) VALUES (?,?,?,?,?,?,?)',
-                'sssssss',
-                [$name, $company, $email, $phone, 'new', $kind, $note]
+            $signupId = (int) db_exec(
+                'INSERT INTO signups (name, company, email, phone, status, source, note, nature_of_business) VALUES (?,?,?,?,?,?,?,?)',
+                'ssssssss',
+                [$name, $company, $email, $phone, 'new', $kind, $note, $nature]
             );
         } catch (Throwable $e) {
             try {
-                db_exec(
-                    'INSERT INTO signups (name, company, email, phone, status, source) VALUES (?,?,?,?,?,?)',
-                    'ssssss',
-                    [$name, $company, $email, $phone, 'new', $kind]
+                $signupId = (int) db_exec(
+                    'INSERT INTO signups (name, company, email, phone, status, source, note) VALUES (?,?,?,?,?,?,?)',
+                    'sssssss',
+                    [$name, $company, $email, $phone, 'new', $kind, $note]
                 );
             } catch (Throwable $e2) {
-                db_exec(
-                    'INSERT INTO signups (name, company, email, phone, status) VALUES (?,?,?,?,?)',
-                    'sssss',
-                    [$name, $company, $email, $phone, 'new']
-                );
+                try {
+                    $signupId = (int) db_exec(
+                        'INSERT INTO signups (name, company, email, phone, status, source) VALUES (?,?,?,?,?,?)',
+                        'ssssss',
+                        [$name, $company, $email, $phone, 'new', $kind]
+                    );
+                } catch (Throwable $e3) {
+                    $signupId = (int) db_exec(
+                        'INSERT INTO signups (name, company, email, phone, status) VALUES (?,?,?,?,?)',
+                        'sssss',
+                        [$name, $company, $email, $phone, 'new']
+                    );
+                }
             }
         }
     } catch (Throwable $e) {
@@ -1348,6 +1358,7 @@ function record_website_signup(string $source, string $note = ''): array
             'phone' => $phone,
             'source' => in_array($source, ['quote', 'demo', 'register', 'checkout'], true) ? $source : 'register',
             'note' => $note,
+            'nature_of_business' => $nature,
         ],
     ];
 }
@@ -2239,6 +2250,14 @@ function platform_create_company(?int $signupId = null): array
         'ssssssiii',
         [$name, $status, $plan, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), $limit, $plannerOn, $pnlOn]
     );
+    if (function_exists('posted_client_fields')) {
+        $cfg = posted_client_fields();
+        db_exec(
+            'UPDATE companies SET nature_of_business=?, client_audience=?, client_fields=? WHERE id=?',
+            'sssi',
+            [sanitize_nature_of_business(post('nature_of_business')), $cfg['audience'], json_encode($cfg, JSON_UNESCAPED_UNICODE) ?: '{}', $cid]
+        );
+    }
     db_exec('UPDATE companies SET stock_enabled = ? WHERE id = ?', 'ii', [!empty($_POST['stock_enabled']) ? 1 : 0, $cid]);
 
     $hasPaidTerm = false;

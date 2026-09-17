@@ -93,7 +93,7 @@ function sheet_shows_money(array $d): bool
 
 function render_fx_equiv(array $d, $amount = null): void
 {
-    if (!sheet_shows_money($d)) {
+    if (!sheet_shows_fx($d)) {
         return;
     }
     $amt = $amount === null ? (float) $d['total'] : (float) $amount;
@@ -212,6 +212,17 @@ function render_party_contact(array $doc): void
       <?php if ($phones): ?><div><?= h(implode(' · ', $phones)) ?></div><?php endif; ?>
       <?php if ($email !== ''): ?><div><?= h($email) ?></div><?php endif; ?>
       <?php if (!empty($doc['party_tin'])): ?><div>TIN <?= h((string) $doc['party_tin']) ?></div><?php endif; ?>
+      <?php
+        $extras = function_exists('document_party_extras') ? document_party_extras($doc) : [];
+        $fields = function_exists('company_client_fields') ? company_client_fields()['extras'] : [];
+        foreach ($fields as $field) {
+            $shown = format_client_extra_value($field, $extras[$field['key']] ?? '');
+            if ($shown === '') {
+                continue;
+            }
+            echo '<div>' . h($field['label']) . ': ' . h($shown) . '</div>';
+        }
+      ?>
     </div>
     <?php
 }

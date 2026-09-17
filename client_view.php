@@ -61,6 +61,18 @@ layout_start($party['name'], $user);
         $addrBits = array_filter([trim((string) ($party['address'] ?? '')), $place]);
       ?>
       <?php if ($addrBits): ?><div class="party-brief-wide"><dt>Address</dt><dd><?= h(implode(', ', $addrBits)) ?></dd></div><?php endif; ?>
+      <?php
+        if (function_exists('company_client_fields')) {
+            $extras = party_profile($party);
+            foreach (company_client_fields()['extras'] as $field) {
+                $shown = format_client_extra_value($field, $extras[$field['key']] ?? '');
+                if ($shown === '') {
+                    continue;
+                }
+                echo '<div><dt>' . h($field['label']) . '</dt><dd>' . h($shown) . '</dd></div>';
+            }
+        }
+      ?>
     </dl>
   </div>
   <div class="actions page-actions">
