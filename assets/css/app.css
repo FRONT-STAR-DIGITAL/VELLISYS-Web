@@ -382,7 +382,7 @@ summary {
 .nav-scrim {
   position: fixed;
   inset: 0;
-  z-index: 35;
+  z-index: 250;
   background: rgba(8, 20, 58, .32);
   border: 0;
   padding: 0;
@@ -2966,7 +2966,7 @@ input, select, textarea { font-weight: 400; }
   .desk-body.nav-open .nav:focus-within {
     transform: translateX(0);
     box-shadow: 12px 0 28px rgba(8, 20, 58, .12);
-    z-index: 55;
+    z-index: 260;
     pointer-events: auto;
   }
   .nav .brand { padding: 8px 0 6px; }

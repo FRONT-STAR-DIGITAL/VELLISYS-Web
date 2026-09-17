@@ -39,6 +39,45 @@ function render_top_term(?array $company): void
     <?php
 }
 
+function render_nav_boot_script(): void
+{
+    ?>
+<script>
+(function () {
+  function navScrim() { return document.querySelector('[data-nav-scrim]'); }
+  function setNav(open) {
+    open = !!open;
+    document.body.classList.toggle('nav-open', open);
+    document.querySelectorAll('[data-nav-toggle]').forEach(function (btn) {
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    var scrim = navScrim();
+    if (scrim) scrim.hidden = !open;
+  }
+  window.vellisysSetNav = setNav;
+  document.addEventListener('click', function (e) {
+    var el = e.target;
+    if (el && el.nodeType === 3) el = el.parentElement;
+    if (!el || !el.closest) return;
+    if (el.closest('[data-nav-toggle]')) {
+      e.preventDefault();
+      e.stopPropagation();
+      setNav(!document.body.classList.contains('nav-open'));
+      return;
+    }
+    if (el.closest('[data-nav-scrim]')) {
+      setNav(false);
+      return;
+    }
+    if (el.closest('[data-nav] a') && window.matchMedia('(max-width: 820px)').matches) {
+      setNav(false);
+    }
+  }, true);
+})();
+</script>
+    <?php
+}
+
 function render_page_loader(): void
 {
     ?>
@@ -151,6 +190,7 @@ function layout_start(string $title, array $user, array $opts = []): void
   <?php folio_css_links(); ?>
   <?php folio_font_links(); ?>
   <style>:root { <?= brand_css_vars() ?> }</style>
+  <?php render_nav_boot_script(); ?>
 </head>
 <body class="desk-body<?= $here === 'settings.php' ? ' settings-page' : '' ?>">
 <?php render_page_loader(); ?>
@@ -337,6 +377,7 @@ function layout_admin_start(string $title, array $user): void
   <?php folio_css_links(); ?>
   <?php folio_font_links(); ?>
   <style>:root { <?= product_css_vars() ?> }</style>
+  <?php render_nav_boot_script(); ?>
 </head>
 <body class="desk-body admin-body">
 <?php render_page_loader(); ?>

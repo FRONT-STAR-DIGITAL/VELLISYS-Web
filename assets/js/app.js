@@ -38,6 +38,10 @@ function navScrim() {
   return document.querySelector('[data-nav-scrim]');
 }
 function setNavOpen(open) {
+  if (typeof window.vellisysSetNav === 'function') {
+    window.vellisysSetNav(open);
+    return;
+  }
   document.body.classList.toggle('nav-open', !!open);
   document.querySelectorAll('[data-nav-toggle]').forEach(function (btn) {
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -48,14 +52,6 @@ function setNavOpen(open) {
 function closeNav() {
   setNavOpen(false);
 }
-
-document.addEventListener('click', function (e) {
-  var toggle = closestEl(e, '[data-nav-toggle]');
-  if (!toggle) return;
-  e.preventDefault();
-  e.stopPropagation();
-  setNavOpen(!document.body.classList.contains('nav-open'));
-}, true);
 
 document.addEventListener('click', function (e) {
   if (closestEl(e, '[data-print-pdf]')) {

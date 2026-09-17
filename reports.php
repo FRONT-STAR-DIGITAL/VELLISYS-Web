@@ -558,7 +558,8 @@ $payload = json_encode([
     'color' => $color,
     'currency' => default_currency(),
 ], JSON_UNESCAPED_UNICODE);
-$script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script>
+$script = '<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script>
+document.addEventListener("DOMContentLoaded", function () {
 (function(){
   var d = ' . $payload . ';
   var brand = d.color || "#82B440";
@@ -652,6 +653,7 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
     });
   }
 })();
+});
 </script>';
 layout_end($script);
 ?>
