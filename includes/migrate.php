@@ -86,6 +86,9 @@ function folio_ensure_company_tax(mysqli $db): void
     if (!db_has_column($db, 'branding', 'tax_rate')) {
         @$db->query('ALTER TABLE branding ADD COLUMN tax_rate DECIMAL(8,4) NOT NULL DEFAULT 0.1800');
     }
+    if (!db_has_column($db, 'branding', 'tax_default')) {
+        @$db->query('ALTER TABLE branding ADD COLUMN tax_default TINYINT(1) NOT NULL DEFAULT 0');
+    }
 }
 
 function folio_ensure_company_admins(mysqli $db): void

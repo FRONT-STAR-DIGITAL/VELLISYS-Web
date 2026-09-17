@@ -151,7 +151,7 @@ layout_start('Sale', $user);
 </form>
 <span hidden data-pos-x><?= icon('x', 14) ?></span>
 <script type="application/json" id="pos-catalog"><?= json_encode($catalog, JSON_UNESCAPED_UNICODE) ?></script>
-<script type="application/json" id="pos-tax"><?= json_encode(['rate' => company_tax_rate(), 'name' => $taxName]) ?></script>
+<script type="application/json" id="pos-tax"><?= json_encode(['rate' => company_tax_rate(), 'name' => $taxName, 'default' => company_tax_default()]) ?></script>
 
 <div class="card" style="margin-top:16px">
   <div class="card-head">

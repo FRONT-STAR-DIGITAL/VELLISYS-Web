@@ -188,6 +188,20 @@ document.addEventListener('click', function (e) {
   togglePasswordButton(btn);
 });
 
+function companyTaxDefaultOn() {
+  var lines = document.querySelector('#lines');
+  return !!(lines && lines.getAttribute('data-tax-default') === '1');
+}
+
+function applyLineTaxDefault(row) {
+  if (!row) return;
+  var on = companyTaxDefaultOn();
+  var inp = row.querySelector('[data-vat-box]');
+  if (inp) inp.checked = on;
+  var yn = row.querySelector('[data-vat-yn]');
+  if (yn) yn.textContent = on ? 'Y' : 'N';
+}
+
 document.addEventListener('click', function (e) {
   var add = e.target.closest('[data-add-line]');
   if (add) {
@@ -201,9 +215,7 @@ document.addEventListener('click', function (e) {
     row.querySelectorAll('input, textarea').forEach(function (inp) {
       if (inp.name) inp.name = inp.name.replace(/\[\d+\]/, '[' + i + ']');
       if (inp.type === 'checkbox') {
-        inp.checked = false;
-        var yn = row.querySelector('[data-vat-yn]');
-        if (yn) yn.textContent = 'N';
+        applyLineTaxDefault(row);
         return;
       } else if (inp.name && inp.name.indexOf('item_qty') !== -1) {
         inp.value = '1';
@@ -233,9 +245,7 @@ document.addEventListener('click', function (e) {
     if (tbody.querySelectorAll('tr').length <= 1) {
       row.querySelectorAll('input, textarea').forEach(function (inp) {
         if (inp.type === 'checkbox') {
-          inp.checked = false;
-          var yn = row.querySelector('[data-vat-yn]');
-          if (yn) yn.textContent = 'N';
+          applyLineTaxDefault(row);
         } else if (inp.name && inp.name.indexOf('item_qty') !== -1) {
           inp.value = '1';
         } else if (inp.name && inp.name.indexOf('item_stock_id') !== -1) {

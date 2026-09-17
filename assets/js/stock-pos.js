@@ -123,7 +123,7 @@
     box.addEventListener('click', function (e) {
       var neu = e.target.closest('[data-new]');
       if (neu) {
-        addItem({ id: 0, name: neu.getAttribute('data-new'), taxed: true }, true);
+        addItem({ id: 0, name: neu.getAttribute('data-new'), taxed: !!tax.default }, true);
         if (q) q.value = '';
         show([]);
         if (q) q.focus();

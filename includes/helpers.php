@@ -244,6 +244,13 @@ function company_tax_percent(?array $brand = null): float
     return round(company_tax_rate($brand) * 100, 4);
 }
 
+/** Whether new products and blank document lines start with tax on. Per-item boxes stay free. */
+function company_tax_default(?array $brand = null): int
+{
+    $brand = $brand ?? branding();
+    return !empty($brand['tax_default']) ? 1 : 0;
+}
+
 function format_tax_percent(float $rate): string
 {
     $pct = $rate > 1 ? $rate : $rate * 100;
@@ -974,6 +981,7 @@ function folio_defaults(): array
         'fx_ugx_per_usd' => 3700,
         'tax_name' => 'VAT',
         'tax_rate' => 0.18,
+        'tax_default' => 0,
         'signature_path' => '',
     ];
 }

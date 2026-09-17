@@ -74,7 +74,7 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - **Planner** (Business and Pro) includes a Tasks tab for goals to hit, with due dates in the notification bell
 - **Branches** (Vellisys Business and Pro): Head office is the company address; Business allows up to 2 branches, Pro up to 3; several people can share a branch; Vellisys sets how many users the desk has (Start 2, Business 3, Pro 4)
 - **Push notifications** on the installed app: allow them in Settings → Notifications. The same prompt appears after you install the app. Desk alerts then pop up on the device, including notices already in the bell.
-- Each company sets its **own tax name and rate** in Settings (VAT 18%, GST 16%, SST 8%…). New taxed lines use that rate; older sheets keep the rate they were saved with
+- Each company sets its **own tax name and rate** in Settings (VAT 18%, GST 16%, SST 8%…). Tick whether new products and document lines should start with tax on; you can still mark Y or N on each item. Older sheets keep the rate they were saved with
 - **Stock management** (switched on per desk by Vellisys, any package): Stock (items, counts, purchases, open/close day) and Sale. Quotes pick products from stock. Daily backup and restore live in Settings. The Ofagros demo (`accounts@ofagros.org`) has stock on
 - Desk **Settings → Bring in books**: download Excel templates for clients, documents, receipts, sales (and stock when that add-on is on). Fill the sheet from old books and upload. Vellisys **adds** the rows to the current desk (matching client names are reused; duplicate document numbers are skipped). This is not a backup restore and does not wipe issued sheets
 - Email sends **From** the signed-in account

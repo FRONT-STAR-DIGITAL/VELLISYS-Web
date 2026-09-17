@@ -691,7 +691,7 @@ function render_nature_of_business_field(string $value, string $id = 'nature_of_
         <option value="<?= h($n) ?>">
       <?php endforeach; ?>
     </datalist>
-    <p class="hint">What this company does. Used to choose which client details appear on quotations and invoices.</p>
+    <p class="hint">What this company does. Super admin then sets To fields for individuals, companies, and other on this page.</p>
     <?php
 }
 

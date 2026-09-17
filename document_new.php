@@ -35,6 +35,7 @@ if ($existing && (float) ($existing['vat_rate'] ?? 0) > 0) {
     $vatDefault = (float) $existing['vat_rate'];
 }
 $taxName = company_tax_name();
+$taxLineDefault = company_tax_default();
 $openInvoices = $kind === 'receipt' ? outstanding_invoices(null, $related ?: null) : [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -184,7 +185,7 @@ if ($existing && $kind === 'letter') {
 $lines = kind_uses_lines($kind) ? ($existing['items'] ?? []) : [];
 $minLines = $existing ? max(1, count($existing['items'] ?? [])) : 1;
 while (kind_uses_lines($kind) && count($lines) < $minLines) {
-    $lines[] = ['item_name' => '', 'description' => '', 'qty' => 1, 'unit' => 'lot', 'rate' => '', 'taxed' => 0];
+    $lines[] = ['item_name' => '', 'description' => '', 'qty' => 1, 'unit' => 'lot', 'rate' => '', 'taxed' => $taxLineDefault];
 }
 $heading = $existing ? 'Edit ' . strtolower($meta['singular']) : $meta['verb'];
 $docCurrency = $existing ? doc_currency($existing) : default_currency();
@@ -501,7 +502,7 @@ layout_start($heading, $user, ['kind' => $kind]);
         }
       ?>
       <div class="lines-wrap">
-      <table class="grid lines" id="lines" data-lines<?= (function_exists('company_stock_enabled') && company_stock_enabled()) ? ' data-stock-catalog="1"' : '' ?>>
+      <table class="grid lines" id="lines" data-lines data-tax-default="<?= (int) $taxLineDefault ?>"<?= (function_exists('company_stock_enabled') && company_stock_enabled()) ? ' data-stock-catalog="1"' : '' ?>>
         <thead>
           <tr>
             <?php if ($colItem): ?><th>Item</th><?php endif; ?>

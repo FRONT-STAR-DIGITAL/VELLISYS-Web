@@ -169,8 +169,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if ($error === '') {
         db_exec(
-            'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, currency=?, fx_ugx_per_usd=?, letter_templates=?, doc_template=?, number_format=?, logo_bg=?, tax_name=?, tax_rate=? WHERE company_id=?',
-            'ssssssssssssssssssssdsssisdi',
+            'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, currency=?, fx_ugx_per_usd=?, letter_templates=?, doc_template=?, number_format=?, logo_bg=?, tax_name=?, tax_rate=?, tax_default=? WHERE company_id=?',
+            'ssssssssssssssssssssdsssisdii',
             [
                 post('name'),
                 post('tagline'),
@@ -199,6 +199,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 (isset($_POST['logo_bg']) && (is_array($_POST['logo_bg']) ? in_array('1', $_POST['logo_bg'], true) : (string) $_POST['logo_bg'] === '1')) ? 1 : 0,
                 sanitize_tax_name(post('tax_name')),
                 parse_tax_rate_percent(post('tax_rate_percent'), company_tax_percent()),
+                post('tax_default') === '1' ? 1 : 0,
                 current_company_id(),
             ]
         );
@@ -672,7 +673,7 @@ layout_start('Settings', $user);
 
     <section class="card settings-card" id="tax">
       <h2><?= icon('hash') ?>Tax</h2>
-      <p class="lede">TIN and the tax number print on stationery. Name the tax your country uses and the percent charged on taxed lines. Sheets already issued keep the rate they were saved with.</p>
+      <p class="lede">TIN and the tax number print on stationery. Name the tax your country uses and the percent charged on taxed lines. Choose whether new products and lines start with tax on; each item still has its own Y/N box. Sheets already issued keep the rate they were saved with.</p>
       <div class="form-grid">
         <div>
           <label for="tin">TIN</label>
@@ -691,6 +692,13 @@ layout_start('Settings', $user);
           <label for="tax_rate_percent">Tax rate (%)</label>
           <input id="tax_rate_percent" name="tax_rate_percent" inputmode="decimal" value="<?= h(rtrim(rtrim(number_format(company_tax_percent($b), 4, '.', ''), '0'), '.')) ?>">
           <p class="hint">Enter a percent, for example 18 for 18%. New documents use this on lines marked Y.</p>
+        </div>
+        <div style="grid-column:1 / -1">
+          <label class="check" for="tax_default">
+            <input id="tax_default" type="checkbox" name="tax_default" value="1" <?= company_tax_default($b) ? 'checked' : '' ?>>
+            Tax new products and services by default
+          </label>
+          <p class="hint">New stock items and blank document lines start with the tax box <?= company_tax_name($b) ?> <?= company_tax_default($b) ? 'on (Y)' : 'off (N)' ?>. You can still tick or untick tax on each product and each line.</p>
         </div>
         <div>
           <label for="currency-pick">Currency</label>

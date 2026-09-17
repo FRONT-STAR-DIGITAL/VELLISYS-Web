@@ -310,7 +310,7 @@ layout_start('Stock', $user);
         </div>
         <?php endif; ?>
       </div>
-      <label class="check"><input type="checkbox" name="taxed" value="1" <?= !$edit || !empty($edit['taxed']) ? 'checked' : '' ?>> <?= h($taxName) ?> on this item</label>
+      <label class="check"><input type="checkbox" name="taxed" value="1" <?= $edit ? (!empty($edit['taxed']) ? 'checked' : '') : (company_tax_default() ? 'checked' : '') ?>> <?= h($taxName) ?> on this item</label>
       <?php if ($edit): ?>
         <label class="check"><input type="checkbox" name="active" value="0" <?= empty($edit['active']) ? 'checked' : '' ?>> Hide from sales</label>
       <?php endif; ?>
@@ -493,7 +493,7 @@ layout_start('Stock', $user);
       </table>
     </div>
     <script type="application/json" id="pos-catalog"><?= json_encode($catalog, JSON_UNESCAPED_UNICODE) ?></script>
-    <script type="application/json" id="pos-tax"><?= json_encode(['rate' => company_tax_rate()]) ?></script>
+    <script type="application/json" id="pos-tax"><?= json_encode(['rate' => company_tax_rate(), 'default' => company_tax_default()]) ?></script>
     <div class="pos-totals">
       <div>
         <label for="paid">Amount paid now</label>

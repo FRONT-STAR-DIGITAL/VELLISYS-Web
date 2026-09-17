@@ -603,7 +603,12 @@ function stock_import_rows(array $rows): array
         if (!$existing) {
             $existing = db_one('SELECT id FROM stock_items WHERE company_id = ? AND name = ?', 'is', [current_company_id(), $name]);
         }
-        $taxRaw = strtoupper(trim((string) ($r[8] ?? 'Y')));
+        $taxRaw = strtoupper(trim((string) ($r[8] ?? '')));
+        if ($taxRaw === '') {
+            $taxed = company_tax_default();
+        } else {
+            $taxed = in_array($taxRaw, ['N', 'NO', '0'], true) ? 0 : 1;
+        }
         $fields = [
             'sku' => $sku,
             'name' => $name,
@@ -613,7 +618,7 @@ function stock_import_rows(array $rows): array
             'sell_price' => (float) str_replace(',', '', (string) ($r[5] ?? 0)),
             'reorder_level' => (float) str_replace(',', '', (string) ($r[6] ?? 0)),
             'qty_on_hand' => (float) str_replace(',', '', (string) ($r[7] ?? 0)),
-            'taxed' => in_array($taxRaw, ['N', 'NO', '0'], true) ? 0 : 1,
+            'taxed' => $taxed,
         ];
         if ($existing) {
             unset($fields['qty_on_hand']);
