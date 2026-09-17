@@ -1612,6 +1612,8 @@ table.grid tfoot td {
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #f7f8fc;
+  min-width: 0;
+  max-width: 100%;
 }
 .lines-preview-head {
   display: flex;
@@ -1620,9 +1622,27 @@ table.grid tfoot td {
   margin: 0 0 10px;
 }
 .lines-preview-head strong { font-size: 12px; }
-.lines-preview-table { min-width: 640px; background: #fff; }
-.lines-preview-table td, .lines-preview-table th { font-size: 12px; }
+.lines-preview .table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  max-width: 100%;
+  min-width: 0;
+}
+.lines-preview-table {
+  display: table;
+  min-width: 640px;
+  width: max-content;
+  max-width: none;
+  table-layout: auto;
+  background: #fff;
+}
+.lines-preview-table thead { display: table-header-group; }
+.lines-preview-table tbody { display: table-row-group; }
 .lines-preview-table tfoot { display: table-footer-group; }
+.lines-preview-table tr { display: table-row; }
+.lines-preview-table th,
+.lines-preview-table td { display: table-cell; font-size: 12px; }
 .lines-preview-table tfoot td {
   font-weight: 700;
   background: #eef0f8;

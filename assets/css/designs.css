@@ -497,30 +497,6 @@
 .twin-copy .twin-desc { display: block; font-weight: 500; color: #444; }
 .twin-copy .twin-vat { display: block; font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: #667; }
 
-@media screen and (max-width: 820px) {
-  .invoice-sheet.sheet-twin {
-    width: 100%;
-    max-width: 100%;
-    min-height: 0;
-    padding: 10px;
-  }
-  .twin-wrap {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 14px;
-    min-height: 0;
-  }
-  .twin-perf {
-    display: block;
-    width: 100%;
-    height: 0;
-    border-left: 0;
-    border-top: 2px dashed var(--brand-3);
-    opacity: .55;
-  }
-  .twin-copy h3 { text-align: left; font-size: 16px; }
-  .stripe-parties { grid-template-columns: 1fr; }
-}
-
 /* Accent stripe */
 .sheet-stripe { padding: 0; overflow: hidden; display: flex; }
 .stripe-rail { width: 14px; background: var(--brand-2); flex-shrink: 0; }
@@ -1291,6 +1267,28 @@
 .invoice-sheet * {
   font-size: 12px !important;
   line-height: var(--sheet-line) !important;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+.invoice-sheet .d-title,
+.invoice-sheet .d-title *,
+.invoice-sheet .bill-pill,
+.invoice-sheet .bill-pill *,
+.invoice-sheet .stripe-banner,
+.invoice-sheet .stripe-banner *,
+.invoice-sheet .ledger-top h1,
+.invoice-sheet .night-sky h1,
+.invoice-sheet .mark-kind,
+.invoice-sheet .thermal-kind,
+.invoice-sheet .atelier-meta em,
+.invoice-sheet .seal-title strong,
+.invoice-sheet .estate-no > span,
+.invoice-sheet .twin-copy h3,
+.invoice-sheet .corr-kind,
+.invoice-sheet .bond-stamp em {
+  font-size: 24px !important;
+  line-height: 1.15 !important;
+  font-weight: 700;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
