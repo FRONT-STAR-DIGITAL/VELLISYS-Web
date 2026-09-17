@@ -280,11 +280,11 @@
   width: auto;
   max-width: 168px;
   object-fit: contain;
-  padding: 0 4px 0 0;
+  padding: 0 4px 4px 0;
+  border-bottom: 1px solid #111;
 }
 .d-sign.has-stamp img {
-  border: 0;
-  padding-bottom: 0;
+  border-bottom: 1px solid #111;
 }
 .auth-sign {
   margin-top: 28px;
@@ -294,8 +294,6 @@
   margin: 0 0 2px;
 }
 .auth-sign .d-sign img {
-  border-bottom: 0;
-  padding-bottom: 0;
   height: 42px;
 }
 .auth-sign p {
@@ -325,8 +323,6 @@
 .twin-sign .d-sign img,
 .seal-sign .d-sign img,
 .ledger-sign .d-sign img {
-  border-bottom: 0;
-  padding-bottom: 0;
   height: 40px;
   margin-left: auto;
   margin-right: auto;
@@ -1195,7 +1191,6 @@
 .slip-sign .d-sign { margin-top: -26px; }
 .slip-sign.has-stamp .d-sign { margin-top: 0; }
 .slip-sign .d-sign img { max-height: 42px; }
-.slip-sign.has-stamp .d-sign img { border: 0; }
 .slip-for {
   margin: 8px 0 0;
   font-weight: 800;
@@ -1732,10 +1727,15 @@
 .invoice-sheet .has-stamp,
 .invoice-sheet .has-stamp > span,
 .invoice-sheet .has-stamp p,
-.invoice-sheet .d-sign.has-stamp,
+.invoice-sheet .d-sign.has-stamp {
+  border-top: 0 !important;
+  box-shadow: none !important;
+}
+.invoice-sheet .has-stamp > span,
+.invoice-sheet .has-stamp p {
+  border-bottom: 0 !important;
+}
 .invoice-sheet .d-sign.has-stamp img {
   border: 0 !important;
-  border-top: 0 !important;
-  border-bottom: 0 !important;
-  box-shadow: none !important;
+  border-bottom: 1px solid #111 !important;
 }
