@@ -1483,8 +1483,8 @@ input:focus, select:focus, textarea:focus {
   color: #000;
   padding: 14mm 16mm;
   font-family: "Montserrat", Arial, Helvetica, sans-serif;
-  font-size: 11px;
-  line-height: 1.4;
+  font-size: 12px;
+  line-height: 1.35;
   page-break-inside: auto;
   box-sizing: border-box;
   box-shadow: 0 12px 36px rgba(8, 20, 58, .12);
@@ -1511,7 +1511,7 @@ input:focus, select:focus, textarea:focus {
   max-width: 80mm;
   min-height: 0;
   padding: 6mm 4.5mm 8mm;
-  font-size: 11px;
+  font-size: 12px;
 }
 table.grid tfoot td {
   font-weight: 700;
@@ -1619,9 +1619,9 @@ table.grid tfoot td {
   gap: 2px;
   margin: 0 0 10px;
 }
-.lines-preview-head strong { font-size: 11px; }
+.lines-preview-head strong { font-size: 12px; }
 .lines-preview-table { min-width: 640px; background: #fff; }
-.lines-preview-table td, .lines-preview-table th { font-size: 11px; }
+.lines-preview-table td, .lines-preview-table th { font-size: 12px; }
 .lines-preview-table tfoot { display: table-footer-group; }
 .lines-preview-table tfoot td {
   font-weight: 700;

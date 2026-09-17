@@ -1265,9 +1265,60 @@
 }
 
 .invoice-sheet {
-  font-size: 11px !important;
-  line-height: 1.4;
+  --sheet-line: 1.35;
+  --sheet-section: 18px;
+  font-size: 12px !important;
+  line-height: var(--sheet-line) !important;
 }
 .invoice-sheet :where(*) {
-  font-size: 11px !important;
+  font-size: 12px !important;
+  line-height: var(--sheet-line) !important;
+}
+.invoice-sheet .d-party-block {
+  row-gap: 3px;
+}
+.invoice-sheet .d-party {
+  padding-top: 10px;
+  padding-bottom: var(--sheet-section);
+}
+.invoice-sheet .d-row,
+.invoice-sheet .corr-head,
+.invoice-sheet .d-split,
+.invoice-sheet .d-foot,
+.invoice-sheet .corr-to,
+.invoice-sheet .corr-subject,
+.invoice-sheet .corr-rule,
+.invoice-sheet .mark-who,
+.invoice-sheet .mark-rule,
+.invoice-sheet .inset-to,
+.invoice-sheet .bill-who,
+.invoice-sheet .stripe-parties,
+.invoice-sheet .stripe-meta,
+.invoice-sheet .stripe-h,
+.invoice-sheet .estate-who,
+.invoice-sheet .night-pair,
+.invoice-sheet .atelier-party,
+.invoice-sheet .atelier-rule,
+.invoice-sheet .seal-for,
+.invoice-sheet .seal-meta,
+.invoice-sheet .bond-who,
+.invoice-sheet .ledger-grid,
+.invoice-sheet .ledger-words,
+.invoice-sheet .twin-fields,
+.invoice-sheet .thermal-to,
+.invoice-sheet .thermal-kind,
+.invoice-sheet .d-letter-sub,
+.invoice-sheet .d-letter-to {
+  margin-top: 0;
+  margin-bottom: var(--sheet-section);
+}
+.invoice-sheet .d-lines {
+  margin-top: var(--sheet-section);
+  margin-bottom: 0;
+}
+.invoice-sheet .d-lines th,
+.invoice-sheet .d-lines td {
+  padding-top: 5px;
+  padding-bottom: 5px;
+  line-height: var(--sheet-line) !important;
 }
