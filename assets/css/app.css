@@ -59,6 +59,25 @@ a:hover { text-decoration: underline; }
 .muted { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
 img { max-width: 100%; display: block; }
 .icon { display: block; flex-shrink: 0; }
+button .icon,
+a .icon,
+summary .icon,
+.app-tab .icon,
+label .icon,
+.nav-toggle .icon,
+.header-settings .icon {
+  pointer-events: none;
+}
+button,
+a.btn,
+.app-tab,
+.nav-toggle,
+.header-settings,
+.chip,
+.planner-tab,
+summary {
+  touch-action: manipulation;
+}
 
 .page-loader {
   position: fixed;
@@ -1734,8 +1753,8 @@ table.grid tfoot td {
   gap: 16px;
   margin: 0 0 16px;
 }
-.chart-box { padding: 16px 18px 22px; min-height: 300px; }
-.chart-box canvas { max-height: 260px; }
+.chart-box { padding: 16px 18px 22px; min-height: 300px; position: relative; overflow: hidden; }
+.chart-box canvas { max-width: 100%; max-height: 260px; display: block; }
 .expense-card {
   max-width: 640px;
   margin: 0 auto;
@@ -2876,8 +2895,10 @@ input, select, textarea { font-weight: 400; }
 }
 @media (max-width: 820px) {
   .app { flex-direction: column; }
-  .nav-toggle { display: inline-flex; }
-  .nav {
+  .nav-toggle { display: inline-flex; position: relative; z-index: 2; pointer-events: auto; }
+  .nav,
+  .nav:hover,
+  .nav:focus-within {
     width: min(var(--open), 100vw);
     top: var(--desk-top-h, 58px);
     bottom: auto;
@@ -2891,7 +2912,12 @@ input, select, textarea { font-weight: 400; }
     border-radius: 0;
     padding-bottom: 0;
     z-index: 55;
+    pointer-events: none;
     transition: transform .32s cubic-bezier(.22, 1, .36, 1), box-shadow .32s ease;
+  }
+  .nav:hover ~ .main > .top,
+  .nav:focus-within ~ .main > .top {
+    padding-left: 16px;
   }
   .nav nav {
     flex: 0 1 auto;
@@ -2923,10 +2949,13 @@ input, select, textarea { font-weight: 400; }
     margin-left: auto;
     box-shadow: none;
   }
-  .desk-body.nav-open .nav {
+  .desk-body.nav-open .nav,
+  .desk-body.nav-open .nav:hover,
+  .desk-body.nav-open .nav:focus-within {
     transform: translateX(0);
     box-shadow: 12px 0 28px rgba(8, 20, 58, .12);
     z-index: 55;
+    pointer-events: auto;
   }
   .nav .brand { padding: 8px 0 6px; }
   .nav nav a {
@@ -4706,6 +4735,7 @@ a.branch-activity-row:hover { text-decoration: none; }
     right: 0;
     bottom: 0;
     z-index: 50;
+    pointer-events: auto;
     height: var(--app-tabbar-h);
     min-height: var(--app-tabbar-h);
     padding: 2px 6px env(safe-area-inset-bottom, 0px);
