@@ -370,3 +370,96 @@ function location_perf_label(array $row): array
     return ['key' => 'slow', 'label' => 'Needs attention'];
 }
 
+function platform_delete_company(int $id): array
+{
+    if ($id < 1) {
+        return ['ok' => false, 'error' => 'Company not found.'];
+    }
+    $company = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$id]);
+    if (!$company) {
+        return ['ok' => false, 'error' => 'Company not found.'];
+    }
+    $name = (string) $company['name'];
+    $db = db();
+    $userIds = array_map(static fn ($r) => (int) $r['id'], db_all("SELECT id FROM users WHERE company_id = ? AND role <> 'platform'", 'i', [$id]));
+    $docIds = function_exists('company_reset_ids')
+        ? company_reset_ids('SELECT id FROM documents WHERE company_id = ?', 'i', [$id])
+        : [];
+    $countIds = (function_exists('company_reset_has_table') && company_reset_has_table('stock_counts'))
+        ? company_reset_ids('SELECT id FROM stock_counts WHERE company_id = ?', 'i', [$id])
+        : [];
+
+    $db->begin_transaction();
+    try {
+        if ($docIds && company_reset_has_table('emails')) {
+            company_reset_in('DELETE FROM emails WHERE document_id IN', $docIds);
+        }
+        if ($docIds) {
+            company_reset_in('DELETE FROM document_items WHERE document_id IN', $docIds);
+        }
+        if ($countIds && company_reset_has_table('stock_count_lines')) {
+            company_reset_in('DELETE FROM stock_count_lines WHERE count_id IN', $countIds);
+        }
+        if ($userIds && company_reset_has_table('notification_dismissals')) {
+            company_reset_in('DELETE FROM notification_dismissals WHERE user_id IN', $userIds);
+        }
+        if ($userIds && company_reset_has_table('push_sent')) {
+            company_reset_in('DELETE FROM push_sent WHERE user_id IN', $userIds);
+        }
+        if ($userIds && company_reset_has_table('push_subscriptions')) {
+            company_reset_in('DELETE FROM push_subscriptions WHERE user_id IN', $userIds);
+        }
+        if ($userIds && company_reset_has_table('emails')) {
+            company_reset_in('DELETE FROM emails WHERE document_id IS NULL AND user_id IN', $userIds);
+        }
+
+        $keep = ['companies', 'signups', 'website_orders', 'platform_fee_ledger'];
+        $res = $db->query('SHOW TABLES');
+        $tables = [];
+        if ($res) {
+            while ($row = $res->fetch_row()) {
+                $tables[] = (string) $row[0];
+            }
+        }
+        foreach ($tables as $table) {
+            if (in_array($table, $keep, true)) {
+                continue;
+            }
+            if ($table === 'users') {
+                continue;
+            }
+            if (!function_exists('db_has_column') || !db_has_column($db, $table, 'company_id')) {
+                continue;
+            }
+            $safe = '`' . str_replace('`', '', $table) . '`';
+            db_exec("DELETE FROM {$safe} WHERE company_id = ?", 'i', [$id]);
+        }
+        db_exec("DELETE FROM users WHERE company_id = ? AND role <> 'platform'", 'i', [$id]);
+        if (company_reset_has_table('signups') && db_has_column($db, 'signups', 'company_id')) {
+            db_exec('UPDATE signups SET company_id = NULL WHERE company_id = ?', 'i', [$id]);
+        }
+        if (company_reset_has_table('website_orders') && db_has_column($db, 'website_orders', 'company_id')) {
+            db_exec('UPDATE website_orders SET company_id = NULL WHERE company_id = ?', 'i', [$id]);
+        }
+        db_exec('DELETE FROM companies WHERE id = ?', 'i', [$id]);
+        $db->commit();
+    } catch (Throwable $e) {
+        $db->rollback();
+        return ['ok' => false, 'error' => 'Could not delete that company. ' . $e->getMessage()];
+    }
+
+    $backupDir = ROOT_PATH . '/uploads/backups/' . $id;
+    if (is_dir($backupDir)) {
+        $files = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($backupDir, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($files as $file) {
+            $file->isDir() ? @rmdir($file->getPathname()) : @unlink($file->getPathname());
+        }
+        @rmdir($backupDir);
+    }
+
+    return ['ok' => true, 'name' => $name];
+}
+

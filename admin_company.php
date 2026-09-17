@@ -425,6 +425,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+    if ($action === 'delete_company') {
+        $confirm = trim(post('delete_confirm'));
+        if (strcasecmp($confirm, (string) $company['name']) !== 0) {
+            $error = 'Type the company name exactly to delete it.';
+        } else {
+            $gone = platform_delete_company($id);
+            if (empty($gone['ok'])) {
+                $error = (string) ($gone['error'] ?? 'Could not delete that company.');
+            } else {
+                flash('Deleted ' . $gone['name'] . '. The desk and its logins are gone.');
+                redirect('admin_companies.php');
+            }
+        }
+    }
 }
 
 $company = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$id]);
@@ -1168,6 +1182,23 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
       </table>
     </div>
   <?php endif; ?>
+</div>
+
+<div class="card form-wide" style="margin-top:16px" id="delete-company">
+  <div class="card-head"><h2><?= icon('trash', 16) ?>Delete company</h2></div>
+  <div style="padding:0 22px 22px">
+    <p class="lede">Remove this desk from Vellisys. Logins, books, stock, branding and the assigned mailbox leave with it. Super-admin fee history stays. This cannot be undone.</p>
+    <form method="post">
+      <?= csrf_field() ?>
+      <input type="hidden" name="id" value="<?= $id ?>">
+      <input type="hidden" name="action" value="delete_company">
+      <label for="delete_confirm">Type <?= h($company['name']) ?> to confirm</label>
+      <input id="delete_confirm" name="delete_confirm" required autocomplete="off" placeholder="<?= h($company['name']) ?>">
+      <div class="actions" style="margin:12px 0 0">
+        <button class="btn danger" type="submit" onclick="return confirm('Delete this company permanently? The desk and its logins cannot be recovered.');"><?= icon('trash', 16) ?>Delete company</button>
+      </div>
+    </form>
+  </div>
 </div>
 <?php
 $featDefaults = json_encode([
