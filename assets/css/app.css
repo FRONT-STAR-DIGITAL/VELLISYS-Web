@@ -1765,6 +1765,7 @@ table.grid tfoot td {
   display: block;
   position: relative;
   z-index: 0;
+  pointer-events: none;
 }
 .expense-card {
   max-width: 640px;
