@@ -59,7 +59,7 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - Quotations convert to invoices; invoices take full or **part receipts**; unpaid balances stay on Debtors
 - Every document can be edited after it is saved
 - Print and share a clean sheet - no desk chrome, dates or page URLs around the paper. On a phone, print uses a blank sheet so Safari does not stamp the desk link at the bottom
-- Logo and signature stay in MySQL as well as files. In Settings you can draw a signature or **upload a small image** (under 400 KB)
+- Logo and signature stay in MySQL as well as files. In Settings you can draw a signature or **upload a small image** (under 400 KB). On a quotation, invoice, receipt or letter, tick **Add signature** to stamp that mark on Authorized by and company sign-off lines
 - Phone menu sits flush under the header and hugs the links, with Accounts directly under the last item
 - Line items are **Item**, **Description** (paragraph), **Qty**, **Unit price**, **Total Amt**, and **tax** as Y or N. If every line is N, tax is left off the printed sheet
 - Receipts show **RECEIVED** and **DUE**. The Receipts tab lists cleared and partially cleared payments
