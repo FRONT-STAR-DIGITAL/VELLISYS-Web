@@ -280,20 +280,24 @@ document.addEventListener('click', function (e) {
     if (inp) inp.focus();
     return;
   }
-  var toOrder = document.querySelector('[data-to-order]');
   var addClientField = e.target.closest('[data-add-client-field]');
-  if (addClientField && toOrder) {
+  if (addClientField) {
     e.preventDefault();
-    toOrder.appendChild(buildToOrderExtraRow());
-    var inp2 = toOrder.lastElementChild && toOrder.lastElementChild.querySelector('input[name="to_label[]"]');
+    var list = addClientField.closest('[data-to-tab-panel]');
+    var toOrder = (list && list.querySelector('[data-to-order]')) || document.querySelector('[data-to-order]');
+    if (!toOrder) return;
+    var profile = toOrder.getAttribute('data-to-order') || 'people';
+    toOrder.appendChild(buildToOrderExtraRow(profile));
+    var inp2 = toOrder.lastElementChild && toOrder.lastElementChild.querySelector('input[name^="to_label"]');
     if (inp2) inp2.focus();
     return;
   }
   var moveTo = e.target.closest('[data-to-move]');
-  if (moveTo && toOrder) {
+  if (moveTo) {
     e.preventDefault();
     var row = moveTo.closest('[data-to-order-row]');
-    if (!row) return;
+    var toOrder = row && row.closest('[data-to-order]');
+    if (!row || !toOrder) return;
     var dir = parseInt(moveTo.getAttribute('data-to-move'), 10) || 0;
     if (dir < 0 && row.previousElementSibling) {
       toOrder.insertBefore(row, row.previousElementSibling);
@@ -303,11 +307,12 @@ document.addEventListener('click', function (e) {
     return;
   }
   var removeTo = e.target.closest('[data-to-remove]');
-  if (removeTo && toOrder) {
+  if (removeTo) {
     e.preventDefault();
     var gone = removeTo.closest('[data-to-order-row]');
+    var host = gone && gone.closest('[data-to-tab-panel]');
     if (gone) gone.remove();
-    syncToCoreSelect();
+    syncToCoreSelect(host);
     return;
   }
   var qtyBtn = e.target.closest('[data-qty-delta]');
@@ -1169,10 +1174,12 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
       to_entity: row.entity || ''
     };
     Object.keys(map).forEach(function (name) {
-      var el = form.querySelector('[name="' + name + '"]');
-      if (el && map[name] !== '') el.value = map[name];
-      else if (el && name !== 'to_name') el.value = map[name];
+      form.querySelectorAll('[name="' + name + '"]').forEach(function (el) {
+        if (el && map[name] !== '') el.value = map[name];
+        else if (el && name !== 'to_name') el.value = map[name];
+      });
     });
+    if (map.to_entity) applyToEntityProfile();
     var extras = row.extras || {};
     form.querySelectorAll('[data-to-extra]').forEach(function (el) {
       var key = el.getAttribute('data-to-extra');
@@ -1639,16 +1646,21 @@ function toOrderRemoveBtn() {
     '<svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>';
 }
 
-function buildToOrderExtraRow() {
+function toProfileName(profile, field) {
+  return field + '[' + profile + '][]';
+}
+
+function buildToOrderExtraRow(profile) {
+  profile = profile || 'people';
   var row = document.createElement('div');
   row.className = 'to-order-row';
   row.setAttribute('data-to-order-row', '');
   row.setAttribute('data-to-kind', 'extra');
   row.innerHTML = toOrderMoveBtns() +
-    '<input type="hidden" name="to_kind[]" value="extra">' +
-    '<input type="hidden" name="to_key[]" value="">' +
-    '<input name="to_label[]" value="" placeholder="e.g. Vehicle no" aria-label="Field label">' +
-    '<select name="to_type[]" aria-label="Field type">' +
+    '<input type="hidden" name="' + toProfileName(profile, 'to_kind') + '" value="extra">' +
+    '<input type="hidden" name="' + toProfileName(profile, 'to_key') + '" value="">' +
+    '<input name="' + toProfileName(profile, 'to_label') + '" value="" placeholder="e.g. Vehicle no" aria-label="Field label">' +
+    '<select name="' + toProfileName(profile, 'to_type') + '" aria-label="Field type">' +
     '<option value="text">Short text</option>' +
     '<option value="tel">Phone</option>' +
     '<option value="date">Date</option>' +
@@ -1660,7 +1672,8 @@ function buildToOrderExtraRow() {
   return row;
 }
 
-function buildToOrderCoreRow(key, label) {
+function buildToOrderCoreRow(key, label, profile) {
+  profile = profile || 'people';
   var row = document.createElement('div');
   row.className = 'to-order-row';
   row.setAttribute('data-to-order-row', '');
@@ -1669,22 +1682,23 @@ function buildToOrderCoreRow(key, label) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
   };
   row.innerHTML = toOrderMoveBtns() +
-    '<input type="hidden" name="to_kind[]" value="core">' +
-    '<input type="hidden" name="to_key[]" value="' + esc(key) + '">' +
-    '<input type="hidden" name="to_label[]" value="' + esc(label) + '">' +
-    '<input type="hidden" name="to_type[]" value="text">' +
+    '<input type="hidden" name="' + toProfileName(profile, 'to_kind') + '" value="core">' +
+    '<input type="hidden" name="' + toProfileName(profile, 'to_key') + '" value="' + esc(key) + '">' +
+    '<input type="hidden" name="' + toProfileName(profile, 'to_label') + '" value="' + esc(label) + '">' +
+    '<input type="hidden" name="' + toProfileName(profile, 'to_type') + '" value="text">' +
     '<span class="to-order-label">' + esc(label) + '</span>' +
     '<span class="to-order-kind">Usual</span>' +
     toOrderRemoveBtn();
   return row;
 }
 
-function syncToCoreSelect() {
+function syncToCoreSelect(panel) {
+  var root = panel || document;
   var used = {};
-  document.querySelectorAll('[data-to-order-row][data-to-kind="core"] input[name="to_key[]"]').forEach(function (el) {
+  root.querySelectorAll('[data-to-order-row][data-to-kind="core"] input[name*="to_key"]').forEach(function (el) {
     used[el.value] = true;
   });
-  var sel = document.querySelector('[data-to-add-core]');
+  var sel = root.querySelector('[data-to-add-core]');
   if (!sel) return;
   Array.prototype.forEach.call(sel.options, function (opt) {
     if (!opt.value) return;
@@ -1697,12 +1711,54 @@ document.querySelectorAll('[data-to-add-core]').forEach(function (sel) {
     var key = sel.value;
     if (!key) return;
     var opt = sel.options[sel.selectedIndex];
-    var box = document.querySelector('[data-to-order]');
-    if (box) box.appendChild(buildToOrderCoreRow(key, opt.textContent || key));
+    var panel = sel.closest('[data-to-tab-panel]');
+    var box = panel && panel.querySelector('[data-to-order]');
+    var profile = (box && box.getAttribute('data-to-order')) || 'people';
+    if (box) box.appendChild(buildToOrderCoreRow(key, opt.textContent || key, profile));
     sel.value = '';
-    syncToCoreSelect();
+    syncToCoreSelect(panel);
   });
 });
+
+(function () {
+  var tabs = document.querySelector('[data-to-field-tabs]');
+  if (!tabs) return;
+  tabs.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-to-tab]');
+    if (!btn) return;
+    var key = btn.getAttribute('data-to-tab');
+    tabs.querySelectorAll('[data-to-tab]').forEach(function (b) {
+      b.classList.toggle('is-on', b === btn);
+    });
+    document.querySelectorAll('[data-to-tab-panel]').forEach(function (p) {
+      p.hidden = p.getAttribute('data-to-tab-panel') !== key;
+    });
+  });
+})();
+
+function applyToEntityProfile() {
+  var sel = document.querySelector('[data-to-entity]');
+  if (!sel) return;
+  var entity = sel.value || 'person';
+  var profile = entity === 'organisation' ? 'organisations' : (entity === 'other' ? 'other' : 'people');
+  var labels = { person: 'Client name', organisation: 'Company name', other: 'Name' };
+  var nameLab = document.querySelector('[data-to-name-label]');
+  if (nameLab) nameLab.textContent = labels[entity] || 'Name';
+  document.querySelectorAll('[data-to-profile]').forEach(function (box) {
+    var on = box.getAttribute('data-to-profile') === profile;
+    box.hidden = !on;
+    box.querySelectorAll('input, select, textarea').forEach(function (el) {
+      el.disabled = !on;
+    });
+  });
+}
+
+document.addEventListener('change', function (e) {
+  if (e.target && e.target.matches('[data-to-entity]')) applyToEntityProfile();
+});
+if (document.querySelector('[data-to-entity], [data-to-profile]')) {
+  applyToEntityProfile();
+}
 
 (function () {
   var wrap = document.querySelector('[data-top-search]');

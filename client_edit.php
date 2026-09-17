@@ -97,16 +97,15 @@ layout_start($party ? 'Edit client' : 'New client', $user);
         <?php endforeach; ?>
       </select>
     </div>
-    <?php if (function_exists('company_client_audience') && company_client_audience() === 'both'): ?>
     <div>
-      <label for="to_entity">Person or organisation</label>
-      <select id="to_entity" name="to_entity">
+      <label for="to_entity">Person, company or other</label>
+      <select id="to_entity" name="to_entity" data-to-entity>
         <?php $ent = $party ? party_entity($party) : 'person'; ?>
-        <option value="person" <?= $ent === 'person' ? 'selected' : '' ?>>Person</option>
+        <option value="person" <?= $ent === 'person' ? 'selected' : '' ?>>Individual</option>
         <option value="organisation" <?= $ent === 'organisation' ? 'selected' : '' ?>>Company / organisation</option>
+        <option value="other" <?= $ent === 'other' ? 'selected' : '' ?>>Other</option>
       </select>
     </div>
-    <?php endif; ?>
     <div>
       <label for="status">Status</label>
       <select id="status" name="status">

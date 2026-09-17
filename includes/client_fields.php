@@ -87,27 +87,80 @@ function default_client_core_fields(string $audience): array
     return ['phone', 'email', 'address', 'country'];
 }
 
-function default_client_fields(string $audience = 'both'): array
+function client_profile_keys(): array
 {
-    $audience = normalize_client_audience($audience);
+    return [
+        'people' => 'To individuals',
+        'organisations' => 'To company / organisation',
+        'other' => 'Other',
+    ];
+}
+
+function normalize_client_profile(string $raw): string
+{
+    $raw = strtolower(trim($raw));
+    if ($raw === 'organisations' || $raw === 'organisation' || $raw === 'organization' || $raw === 'company') {
+        return 'organisations';
+    }
+    if ($raw === 'other') {
+        return 'other';
+    }
+    return 'people';
+}
+
+function entity_to_client_profile(string $entity): string
+{
+    return match (strtolower(trim($entity))) {
+        'organisation', 'organization', 'company' => 'organisations',
+        'other' => 'other',
+        default => 'people',
+    };
+}
+
+function client_profile_to_entity(string $profile): string
+{
+    return match (normalize_client_profile($profile)) {
+        'organisations' => 'organisation',
+        'other' => 'other',
+        default => 'person',
+    };
+}
+
+function default_client_field_set(string $profile): array
+{
+    $profile = normalize_client_profile($profile);
+    $audience = $profile === 'organisations' ? 'organisations' : ($profile === 'people' ? 'people' : 'both');
     $core = default_client_core_fields($audience);
     return [
-        'audience' => $audience,
         'core' => $core,
         'extras' => [],
         'order' => array_map(static fn (string $k): array => ['kind' => 'core', 'key' => $k], $core),
     ];
 }
 
-function parse_client_fields(mixed $raw, string $audienceFallback = 'both'): array
+function default_client_fields(string $audience = 'both'): array
 {
-    $base = default_client_fields($audienceFallback);
-    $data = is_array($raw) ? $raw : json_decode((string) $raw, true);
-    if (!is_array($data)) {
-        return $base;
-    }
-    $audience = normalize_client_audience((string) ($data['audience'] ?? $audienceFallback));
-    $base['audience'] = $audience;
+    $audience = normalize_client_audience($audience);
+    $profiles = [
+        'people' => default_client_field_set('people'),
+        'organisations' => default_client_field_set('organisations'),
+        'other' => default_client_field_set('other'),
+    ];
+    $pick = $audience === 'organisations' ? 'organisations' : 'people';
+    $legacy = $profiles[$pick];
+    return [
+        'audience' => $audience,
+        'core' => $legacy['core'],
+        'extras' => $legacy['extras'],
+        'order' => $legacy['order'],
+        'profiles' => $profiles,
+    ];
+}
+
+function parse_client_field_set(mixed $raw, string $profile): array
+{
+    $base = default_client_field_set($profile);
+    $data = is_array($raw) ? $raw : [];
     $allowedCore = array_keys(client_core_field_defs());
     $core = [];
     if (isset($data['core']) && is_array($data['core'])) {
@@ -155,7 +208,13 @@ function parse_client_fields(mixed $raw, string $audienceFallback = 'both'): arr
     $base['extras'] = $extras;
     $order = [];
     $orderIn = $data['order'] ?? null;
-    if (is_array($orderIn) && $orderIn !== []) {
+    if (is_array($orderIn)) {
+        if ($orderIn === []) {
+            $base['core'] = [];
+            $base['extras'] = [];
+            $base['order'] = [];
+            return $base;
+        }
         $extraByKey = [];
         foreach ($extras as $ex) {
             $extraByKey[$ex['key']] = $ex;
@@ -213,6 +272,41 @@ function parse_client_fields(mixed $raw, string $audienceFallback = 'both'): arr
     return $base;
 }
 
+function parse_client_fields(mixed $raw, string $audienceFallback = 'both'): array
+{
+    $base = default_client_fields($audienceFallback);
+    $data = is_array($raw) ? $raw : json_decode((string) $raw, true);
+    if (!is_array($data)) {
+        return $base;
+    }
+    $audience = normalize_client_audience((string) ($data['audience'] ?? $audienceFallback));
+    $base['audience'] = $audience;
+    $profilesIn = $data['profiles'] ?? null;
+    if (is_array($profilesIn)) {
+        foreach (array_keys(client_profile_keys()) as $pk) {
+            $base['profiles'][$pk] = parse_client_field_set($profilesIn[$pk] ?? [], $pk);
+        }
+        $pick = $audience === 'organisations' ? 'organisations' : 'people';
+        $base['core'] = $base['profiles'][$pick]['core'];
+        $base['extras'] = $base['profiles'][$pick]['extras'];
+        $base['order'] = $base['profiles'][$pick]['order'];
+        return $base;
+    }
+    $legacy = parse_client_field_set($data, $audience === 'organisations' ? 'organisations' : 'people');
+    if ($audience === 'organisations') {
+        $base['profiles']['organisations'] = $legacy;
+        $base['profiles']['people'] = default_client_field_set('people');
+    } else {
+        $base['profiles']['people'] = $legacy;
+        $base['profiles']['organisations'] = default_client_field_set('organisations');
+    }
+    $base['profiles']['other'] = default_client_field_set('other');
+    $base['core'] = $legacy['core'];
+    $base['extras'] = $legacy['extras'];
+    $base['order'] = $legacy['order'];
+    return $base;
+}
+
 function company_client_fields(?array $company = null): array
 {
     $company = $company ?? current_company();
@@ -233,8 +327,29 @@ function company_uses_core_client_field(string $key, ?array $company = null): bo
 function posted_client_fields(): array
 {
     $audience = normalize_client_audience(post('client_audience') ?: 'both');
+    $kindsBag = $_POST['to_kind'] ?? null;
+    $hasProfiles = is_array($kindsBag) && $kindsBag !== [] && !is_int(array_key_first($kindsBag));
+    if (isset($_POST['to_order_present']) && $hasProfiles) {
+        $profiles = [];
+        foreach (array_keys(client_profile_keys()) as $pk) {
+            $order = [];
+            foreach ((array) ($kindsBag[$pk] ?? []) as $i => $kind) {
+                $order[] = [
+                    'kind' => (string) $kind,
+                    'key' => (string) ($_POST['to_key'][$pk][$i] ?? ''),
+                    'label' => (string) ($_POST['to_label'][$pk][$i] ?? ''),
+                    'type' => (string) ($_POST['to_type'][$pk][$i] ?? 'text'),
+                ];
+            }
+            $profiles[$pk] = ['order' => $order];
+        }
+        return parse_client_fields([
+            'audience' => $audience,
+            'profiles' => $profiles,
+        ], $audience);
+    }
     $kinds = $_POST['to_kind'] ?? null;
-    if (isset($_POST['to_order_present']) || (is_array($kinds) && $kinds !== [])) {
+    if (isset($_POST['to_order_present']) || (is_array($kinds) && $kinds !== [] && is_int(array_key_first($kinds)))) {
         $order = [];
         foreach ((array) $kinds as $i => $kind) {
             $order[] = [
@@ -276,9 +391,13 @@ function posted_client_fields(): array
     ], $audience);
 }
 
-function client_to_order(?array $cfg = null): array
+function client_to_order(?array $cfg = null, ?string $profile = null): array
 {
     $cfg = $cfg ?? company_client_fields();
+    $profile = $profile !== null && $profile !== '' ? normalize_client_profile($profile) : '';
+    if ($profile !== '' && isset($cfg['profiles'][$profile]['order']) && is_array($cfg['profiles'][$profile]['order'])) {
+        return $cfg['profiles'][$profile]['order'];
+    }
     return is_array($cfg['order'] ?? null) ? $cfg['order'] : default_client_fields($cfg['audience'] ?? 'both')['order'];
 }
 
@@ -303,20 +422,13 @@ function party_profile(array $party): array
 
 function party_entity(array $party, ?array $company = null): string
 {
-    $raw = strtolower(trim((string) ($party['entity'] ?? '')));
-    if (in_array($raw, ['person', 'organisation'], true)) {
+    $raw = strtolower(trim((string) ($party['entity'] ?? $party['party_entity'] ?? '')));
+    if (in_array($raw, ['person', 'organisation', 'other'], true)) {
         return $raw;
-    }
-    $audience = company_client_audience($company);
-    if ($audience === 'organisations') {
-        return 'organisation';
-    }
-    if ($audience === 'people') {
-        return 'person';
     }
     $tin = trim((string) ($party['tin'] ?? ''));
     $contact = trim((string) ($party['contact_person'] ?? ''));
-    $name = trim((string) ($party['name'] ?? ''));
+    $name = trim((string) ($party['name'] ?? $party['party_name'] ?? ''));
     if ($tin !== '' || $contact !== '' || preg_match('/\b(ltd|limited|llc|inc|plc|llp|company|co\.|org|ngo|trust)\b/i', $name)) {
         return 'organisation';
     }
@@ -325,14 +437,14 @@ function party_entity(array $party, ?array $company = null): string
 
 function normalize_party_entity(string $raw, ?array $company = null): string
 {
-    $audience = company_client_audience($company);
-    if ($audience === 'people') {
-        return 'person';
-    }
-    if ($audience === 'organisations') {
+    $raw = strtolower(trim($raw));
+    if (in_array($raw, ['organisation', 'organization', 'company'], true)) {
         return 'organisation';
     }
-    return strtolower(trim($raw)) === 'organisation' ? 'organisation' : 'person';
+    if ($raw === 'other') {
+        return 'other';
+    }
+    return 'person';
 }
 
 function document_party_extras(array $doc): array
@@ -352,10 +464,15 @@ function document_party_to_lines(array $doc): array
         $lines[] = ['label' => 'Name', 'value' => $name, 'span' => false];
     }
     $extras = document_party_extras($doc);
-    $addrLabel = function_exists('company_client_audience') && company_client_audience() === 'people'
-        ? 'Residence'
-        : 'Address';
-    foreach (client_to_order() as $item) {
+    $entity = party_entity([
+        'entity' => (string) ($doc['party_entity'] ?? ''),
+        'tin' => (string) ($doc['party_tin'] ?? ''),
+        'contact_person' => (string) ($doc['party_contact'] ?? ''),
+        'name' => (string) ($doc['party_name'] ?? ''),
+    ]);
+    $profileKey = entity_to_client_profile($entity);
+    $addrLabel = $profileKey === 'people' ? 'Residence' : 'Address';
+    foreach (client_to_order(null, $profileKey) as $item) {
         if (($item['kind'] ?? '') === 'extra') {
             $shown = format_client_extra_value($item, $extras[$item['key']] ?? '');
             if ($shown !== '') {
@@ -412,14 +529,30 @@ function format_client_extra_value(array $field, mixed $value): string
     return $s;
 }
 
-function posted_to_extras(?array $company = null): array
+function company_client_extras_all(?array $company = null): array
+{
+    $cfg = company_client_fields($company);
+    $out = [];
+    $seen = [];
+    foreach (($cfg['profiles'] ?? []) as $set) {
+        foreach (($set['extras'] ?? []) as $field) {
+            $k = (string) ($field['key'] ?? '');
+            if ($k === '' || isset($seen[$k])) {
+                continue;
+            }
+            $seen[$k] = true;
+            $out[] = $field;
+        }
+    }
+    return $out ?: (array) ($cfg['extras'] ?? []);
+}
 {
     $out = [];
     $posted = $_POST['to_extra'] ?? [];
     if (!is_array($posted)) {
         $posted = [];
     }
-    foreach (company_client_fields($company)['extras'] as $field) {
+    foreach (company_client_extras_all($company) as $field) {
         $key = $field['key'];
         $raw = $posted[$key] ?? null;
         if ($field['type'] === 'period') {
@@ -462,7 +595,7 @@ function merge_party_profile(array $existing, array $incoming): array
     foreach ($incoming as $k => $v) {
         $existing[$k] = $v;
     }
-    foreach (company_client_fields()['extras'] as $field) {
+    foreach (company_client_extras_all() as $field) {
         $key = $field['key'];
         if (!array_key_exists($key, $incoming)) {
             continue;
@@ -539,12 +672,12 @@ function sheet_shows_fx(array $d): bool
     return party_is_international($d['doc'] ?? [], function_exists('current_company') ? current_company() : null);
 }
 
-function client_to_name_label(?array $company = null): string
+function client_to_name_label(?array $company = null, string $entity = 'person'): string
 {
-    return match (company_client_audience($company)) {
-        'people' => 'Client name',
-        'organisations' => 'Company name',
-        default => 'Customer name',
+    return match (normalize_party_entity($entity, $company)) {
+        'person' => 'Client name',
+        'organisation' => 'Company name',
+        default => 'Name',
     };
 }
 
@@ -562,30 +695,32 @@ function render_nature_of_business_field(string $value, string $id = 'nature_of_
     <?php
 }
 
-function render_to_order_row(array $item): void
+function render_to_order_row(array $item, string $profile = 'people'): void
 {
     $kind = (($item['kind'] ?? '') === 'extra') ? 'extra' : 'core';
     $key = (string) ($item['key'] ?? '');
     $cores = client_core_field_defs();
     $label = $kind === 'core' ? ($cores[$key] ?? $key) : (string) ($item['label'] ?? '');
     $type = (string) ($item['type'] ?? 'text');
+    $profile = normalize_client_profile($profile);
+    $n = '[' . $profile . '][]';
     ?>
     <div class="to-order-row" data-to-order-row data-to-kind="<?= h($kind) ?>">
       <div class="to-order-move">
         <button class="btn ghost sm to-order-btn" type="button" data-to-move="-1" aria-label="Move up"><?= icon('chevron-up', 16) ?></button>
         <button class="btn ghost sm to-order-btn" type="button" data-to-move="1" aria-label="Move down"><?= icon('chevron-down', 16) ?></button>
       </div>
-      <input type="hidden" name="to_kind[]" value="<?= h($kind) ?>">
+      <input type="hidden" name="to_kind<?= $n ?>" value="<?= h($kind) ?>">
       <?php if ($kind === 'core'): ?>
-        <input type="hidden" name="to_key[]" value="<?= h($key) ?>">
-        <input type="hidden" name="to_label[]" value="<?= h($label) ?>">
-        <input type="hidden" name="to_type[]" value="text">
+        <input type="hidden" name="to_key<?= $n ?>" value="<?= h($key) ?>">
+        <input type="hidden" name="to_label<?= $n ?>" value="<?= h($label) ?>">
+        <input type="hidden" name="to_type<?= $n ?>" value="text">
         <span class="to-order-label"><?= h($label) ?></span>
         <span class="to-order-kind">Usual</span>
       <?php else: ?>
-        <input type="hidden" name="to_key[]" value="<?= h($key) ?>">
-        <input name="to_label[]" value="<?= h($label) ?>" placeholder="e.g. Vehicle no" aria-label="Field label">
-        <select name="to_type[]" aria-label="Field type">
+        <input type="hidden" name="to_key<?= $n ?>" value="<?= h($key) ?>">
+        <input name="to_label<?= $n ?>" value="<?= h($label) ?>" placeholder="e.g. Vehicle no" aria-label="Field label">
+        <select name="to_type<?= $n ?>" aria-label="Field type">
           <?php foreach (client_extra_field_types() as $tk => $tl): ?>
             <option value="<?= h($tk) ?>" <?= $type === $tk ? 'selected' : '' ?>><?= h($tl) ?></option>
           <?php endforeach; ?>
@@ -600,52 +735,64 @@ function render_client_fields_admin(?array $company = null): void
 {
     $cfg = $company ? company_client_fields($company) : posted_client_fields();
     if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !$company) {
-        $cfg = default_client_fields(post('client_audience') ?: 'both');
+        $cfg = default_client_fields('both');
     }
-    $order = client_to_order($cfg);
-    $usedCores = [];
-    foreach ($order as $item) {
-        if (($item['kind'] ?? '') === 'core') {
-            $usedCores[] = (string) $item['key'];
-        }
-    }
+    $active = normalize_client_profile((string) ($_GET['to_tab'] ?? 'people'));
     ?>
     <fieldset class="client-fields-box">
       <legend>Client details on the To section</legend>
-      <p class="hint">Name is always first. Add the fields this desk fills, then move a row up or down so the sheet matches how they write (driving school: date, tel, occupation, residence…).</p>
-      <label for="client_audience">Who they invoice</label>
-      <select id="client_audience" name="client_audience">
-        <?php foreach (client_audience_options() as $k => $label): ?>
-          <option value="<?= h($k) ?>" <?= $cfg['audience'] === $k ? 'selected' : '' ?>><?= h($label) ?></option>
-        <?php endforeach; ?>
-      </select>
-      <p class="hint">Pick both when a firm bills companies and individuals. The desk then chooses person or organisation on each client.</p>
-      <p class="hint" style="margin-top:10px"><strong>Order on the document</strong></p>
+      <p class="hint">Set a different To block for individuals, companies, and anything else. On a new document the desk picks a category and only that tab’s fields appear. Name is always first.</p>
+      <input type="hidden" name="client_audience" value="both">
       <input type="hidden" name="to_order_present" value="1">
-      <div class="to-order-list" data-client-fields data-to-order>
-        <?php foreach ($order as $item): ?>
-          <?php render_to_order_row($item); ?>
+      <div class="to-field-tabs" data-to-field-tabs>
+        <?php foreach (client_profile_keys() as $pk => $label): ?>
+          <button class="to-field-tab<?= $pk === $active ? ' is-on' : '' ?>" type="button" data-to-tab="<?= h($pk) ?>"><?= h($label) ?></button>
         <?php endforeach; ?>
       </div>
-      <div class="to-order-add">
-        <label class="sr-only" for="to_add_core">Add a usual field</label>
-        <select id="to_add_core" data-to-add-core>
-          <option value="">Add usual field…</option>
-          <?php foreach (client_core_field_defs() as $key => $label): ?>
-            <option value="<?= h($key) ?>" <?= in_array($key, $usedCores, true) ? 'disabled' : '' ?>><?= h($label) ?></option>
-          <?php endforeach; ?>
-        </select>
-        <button class="btn ghost sm" type="button" data-add-client-field><?= icon('plus', 14) ?>Add open field</button>
-      </div>
+      <?php foreach (client_profile_keys() as $pk => $label):
+          $set = $cfg['profiles'][$pk] ?? default_client_field_set($pk);
+          $order = is_array($set['order'] ?? null) ? $set['order'] : default_client_field_set($pk)['order'];
+          $usedCores = [];
+          foreach ($order as $item) {
+              if (($item['kind'] ?? '') === 'core') {
+                  $usedCores[] = (string) $item['key'];
+              }
+          }
+          ?>
+        <div class="to-tab-panel" data-to-tab-panel="<?= h($pk) ?>" <?= $pk === $active ? '' : 'hidden' ?>>
+          <p class="hint"><?php
+            echo match ($pk) {
+                'people' => 'Fields for a person: student, patient, walk-in buyer.',
+                'organisations' => 'Usual company fields: contact person, TIN, address, country.',
+                default => 'A third set when the client is neither a person nor a registered firm.',
+            };
+          ?></p>
+          <div class="to-order-list" data-client-fields data-to-order="<?= h($pk) ?>">
+            <?php foreach ($order as $item): ?>
+              <?php render_to_order_row($item, $pk); ?>
+            <?php endforeach; ?>
+          </div>
+          <div class="to-order-add">
+            <label class="sr-only" for="to_add_core_<?= h($pk) ?>">Add a usual field</label>
+            <select id="to_add_core_<?= h($pk) ?>" data-to-add-core>
+              <option value="">Add usual field…</option>
+              <?php foreach (client_core_field_defs() as $key => $clabel): ?>
+                <option value="<?= h($key) ?>" <?= in_array($key, $usedCores, true) ? 'disabled' : '' ?>><?= h($clabel) ?></option>
+              <?php endforeach; ?>
+            </select>
+            <button class="btn ghost sm" type="button" data-add-client-field><?= icon('plus', 14) ?>Add open field</button>
+          </div>
+        </div>
+      <?php endforeach; ?>
     </fieldset>
     <?php
 }
 
-function render_to_extra_input(array $field, mixed $value): void
+function render_to_extra_input(array $field, mixed $value, string $profile = ''): void
 {
     $key = $field['key'];
     $name = 'to_extra[' . $key . ']';
-    $id = 'to_extra_' . $key;
+    $id = 'to_extra_' . $key . ($profile !== '' ? '_' . $profile : '');
     $type = $field['type'];
     if ($type === 'period') {
         $from = is_array($value) ? (string) ($value['from'] ?? '') : '';
@@ -682,72 +829,73 @@ function render_to_extra_input(array $field, mixed $value): void
     <?php
 }
 
-function render_to_core_input(string $key, ?array $party): void
+function render_to_core_input(string $key, ?array $party, string $profile = ''): void
 {
     $party = $party ?? [];
     $val = static fn (string $col): string => (string) ($party[$col] ?? '');
+    $sid = $profile !== '' ? '_' . $profile : '';
     switch ($key) {
         case 'contact_person':
             ?>
             <div>
-              <label for="to_contact">Contact person</label>
-              <input id="to_contact" name="to_contact" value="<?= h($val('contact_person')) ?>">
+              <label for="to_contact<?= h($sid) ?>">Contact person</label>
+              <input id="to_contact<?= h($sid) ?>" name="to_contact" value="<?= h($val('contact_person')) ?>">
             </div>
             <?php
             return;
         case 'tin':
             ?>
             <div>
-              <label for="to_tin">TIN</label>
-              <input id="to_tin" name="to_tin" value="<?= h($val('tin')) ?>">
+              <label for="to_tin<?= h($sid) ?>">TIN</label>
+              <input id="to_tin<?= h($sid) ?>" name="to_tin" value="<?= h($val('tin')) ?>">
             </div>
             <?php
             return;
         case 'address':
             ?>
             <div>
-              <label for="to_address"><?= company_client_audience() === 'people' ? 'Residence / address' : 'Address' ?></label>
-              <input id="to_address" name="to_address" value="<?= h($val('address')) ?>">
+              <label for="to_address<?= h($sid) ?>"><?= $profile === 'people' ? 'Residence / address' : 'Address' ?></label>
+              <input id="to_address<?= h($sid) ?>" name="to_address" value="<?= h($val('address')) ?>">
             </div>
             <?php
             return;
         case 'phone':
             ?>
             <div>
-              <label for="to_phone">Tel</label>
-              <input id="to_phone" name="to_phone" value="<?= h($val('phone')) ?>">
+              <label for="to_phone<?= h($sid) ?>">Tel</label>
+              <input id="to_phone<?= h($sid) ?>" name="to_phone" value="<?= h($val('phone')) ?>">
             </div>
             <?php
             return;
         case 'phone2':
             ?>
             <div>
-              <label for="to_phone2">Second phone</label>
-              <input id="to_phone2" name="to_phone2" value="<?= h($val('phone2')) ?>">
+              <label for="to_phone2<?= h($sid) ?>">Second phone</label>
+              <input id="to_phone2<?= h($sid) ?>" name="to_phone2" value="<?= h($val('phone2')) ?>">
             </div>
             <?php
             return;
         case 'email':
             ?>
             <div>
-              <label for="to_email">Email</label>
-              <input id="to_email" name="to_email" type="email" value="<?= h($val('email')) ?>">
+              <label for="to_email<?= h($sid) ?>">Email</label>
+              <input id="to_email<?= h($sid) ?>" name="to_email" type="email" value="<?= h($val('email')) ?>">
             </div>
             <?php
             return;
         case 'city':
             ?>
             <div>
-              <label for="to_city">City</label>
-              <input id="to_city" name="to_city" value="<?= h($val('city')) ?>">
+              <label for="to_city<?= h($sid) ?>">City</label>
+              <input id="to_city<?= h($sid) ?>" name="to_city" value="<?= h($val('city')) ?>">
             </div>
             <?php
             return;
         case 'country':
             ?>
             <div>
-              <label for="to_country">Country</label>
-              <input id="to_country" name="to_country" value="<?= h($val('country')) ?>" placeholder="Leave blank if local">
+              <label for="to_country<?= h($sid) ?>">Country</label>
+              <input id="to_country<?= h($sid) ?>" name="to_country" value="<?= h($val('country')) ?>" placeholder="Leave blank if local">
               <p class="hint">Fill this only for a foreign client. Local sheets do not show a USD conversion.</p>
             </div>
             <?php
@@ -765,25 +913,23 @@ function render_document_to_fields(?array $party, ?array $doc = null): void
     if (!$profile && $party) {
         $profile = party_profile($party);
     }
-    $entity = $party ? party_entity($party) : normalize_party_entity(post('to_entity') ?: '', null);
-    $nameLabel = client_to_name_label();
+    $entity = $party ? party_entity($party) : normalize_party_entity(post('to_entity') ?: 'person', null);
+    $nameLabel = client_to_name_label(null, $entity);
+    $activeProfile = entity_to_client_profile($entity);
     ?>
     <div class="doc-client-block doc-span">
       <h2 class="doc-client-title">To</h2>
       <div class="form-grid doc-client-grid" data-to-fields>
-        <?php if ($cfg['audience'] === 'both'): ?>
-          <div>
-            <label for="to_entity">This client is</label>
-            <select id="to_entity" name="to_entity">
-              <option value="person" <?= $entity === 'person' ? 'selected' : '' ?>>A person</option>
-              <option value="organisation" <?= $entity === 'organisation' ? 'selected' : '' ?>>A company / organisation</option>
-            </select>
-          </div>
-        <?php else: ?>
-          <input type="hidden" name="to_entity" value="<?= h($cfg['audience'] === 'organisations' ? 'organisation' : 'person') ?>">
-        <?php endif; ?>
         <div>
-          <label for="to_name"><?= h($nameLabel) ?></label>
+          <label for="to_entity">This client is</label>
+          <select id="to_entity" name="to_entity" data-to-entity>
+            <option value="person" <?= $entity === 'person' ? 'selected' : '' ?>>An individual</option>
+            <option value="organisation" <?= $entity === 'organisation' ? 'selected' : '' ?>>A company / organisation</option>
+            <option value="other" <?= $entity === 'other' ? 'selected' : '' ?>>Other</option>
+          </select>
+        </div>
+        <div>
+          <label for="to_name" data-to-name-label><?= h($nameLabel) ?></label>
           <div class="client-combo" data-client-combo>
             <input type="hidden" id="party_id" name="party_id" value="<?= $party ? (int) $party['id'] : '' ?>">
             <input id="to_name" name="to_name" required autocomplete="off" placeholder="Start typing a name…" value="<?= h((string) ($party['name'] ?? '')) ?>" data-client-search>
@@ -795,12 +941,21 @@ function render_document_to_fields(?array $party, ?array $doc = null): void
           </div>
           <p class="hint">Choose a saved client or type a new one. They are added when you save.</p>
         </div>
-        <?php foreach (client_to_order($cfg) as $item): ?>
-          <?php if (($item['kind'] ?? '') === 'extra'): ?>
-            <?php render_to_extra_input($item, $profile[$item['key']] ?? ''); ?>
-          <?php else: ?>
-            <?php render_to_core_input((string) ($item['key'] ?? ''), $party); ?>
-          <?php endif; ?>
+        <?php foreach (client_profile_keys() as $pk => $plabel):
+            $on = $pk === $activeProfile;
+            $order = client_to_order($cfg, $pk);
+            ?>
+          <div class="doc-span to-profile-fields" data-to-profile="<?= h($pk) ?>" <?= $on ? '' : 'hidden' ?>>
+            <div class="form-grid doc-client-grid">
+              <?php foreach ($order as $item): ?>
+                <?php if (($item['kind'] ?? '') === 'extra'): ?>
+                  <?php render_to_extra_input($item, $profile[$item['key']] ?? '', $pk); ?>
+                <?php else: ?>
+                  <?php render_to_core_input((string) ($item['key'] ?? ''), $party, $pk); ?>
+                <?php endif; ?>
+              <?php endforeach; ?>
+            </div>
+          </div>
         <?php endforeach; ?>
       </div>
     </div>
@@ -810,14 +965,30 @@ function render_document_to_fields(?array $party, ?array $doc = null): void
 function render_client_edit_extras(array $party): void
 {
     $cfg = company_client_fields();
-    if (!$cfg['extras']) {
+    $profile = party_profile($party);
+    $entity = party_entity($party);
+    $active = entity_to_client_profile($entity);
+    $any = false;
+    foreach ($cfg['profiles'] ?? [] as $set) {
+        if (!empty($set['extras'])) {
+            $any = true;
+            break;
+        }
+    }
+    if (!$any) {
         return;
     }
-    $profile = party_profile($party);
     echo '<h2 class="doc-client-title" style="margin:18px 0 8px">Details this business collects</h2>';
-    echo '<div class="form-grid">';
-    foreach ($cfg['extras'] as $field) {
-        render_to_extra_input($field, $profile[$field['key']] ?? '');
+    foreach (client_profile_keys() as $pk => $plabel) {
+        $extras = $cfg['profiles'][$pk]['extras'] ?? [];
+        if (!$extras) {
+            continue;
+        }
+        $on = $pk === $active;
+        echo '<div class="form-grid to-profile-fields" data-to-profile="' . h($pk) . '"' . ($on ? '' : ' hidden') . '>';
+        foreach ($extras as $field) {
+            render_to_extra_input($field, $profile[$field['key']] ?? '', $pk);
+        }
+        echo '</div>';
     }
-    echo '</div>';
 }
