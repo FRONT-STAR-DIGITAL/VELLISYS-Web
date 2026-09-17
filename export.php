@@ -173,6 +173,97 @@ if ($type === 'reports') {
     csv_download('reports.csv', ['Kind', 'Number', 'Party', 'Date', 'Net', 'VAT', 'Total', 'Balance', 'Status', 'Currency'], $rows);
 }
 
+if ($type === 'savings' || $type === 'banking' || $type === 'bank_accounts' || $type === 'bank_report') {
+    require_pnl();
+    $ccy = default_currency();
+    if ($type === 'savings') {
+        $rows = [];
+        foreach (pnl_savings_moves() as $m) {
+            $rows[] = [
+                format_date($m['move_date']),
+                ($m['kind'] ?? '') === 'withdraw' ? 'Withdrawal' : 'Deposit',
+                $m['person_name'] ?? '',
+                $m['purpose'] ?? '',
+                $m['notes'] ?? '',
+                (float) $m['amount'],
+                $ccy,
+            ];
+        }
+        csv_download('savings.csv', ['Date', 'Type', 'Person', 'Purpose', 'Note', 'Amount', 'Currency'], $rows);
+    }
+    if ($type === 'bank_accounts') {
+        $rows = [];
+        foreach (bank_accounts() as $a) {
+            $rows[] = [
+                $a['name'],
+                $a['bank_name'] ?? '',
+                $a['account_number'] ?? '',
+                (float) $a['opening_balance'],
+                bank_account_balance((int) $a['id']),
+                (int) ($a['is_active'] ?? 1) === 1 ? 'Active' : 'Archived',
+                $a['notes'] ?? '',
+                $ccy,
+            ];
+        }
+        csv_download('bank-accounts.csv', ['Account', 'Bank', 'Number', 'Opening', 'Balance', 'Status', 'Note', 'Currency'], $rows);
+    }
+    if ($type === 'bank_report') {
+        $txns = bank_transactions();
+        $bucket = pnl_report_bucket();
+        $report = bank_report_series($txns, $bucket);
+        $totals = bank_period_totals($txns);
+        $out = [];
+        $out[] = ['Period', 'Deposits', 'Withdrawals', 'Net', 'Currency'];
+        foreach ($report['series'] as $key => $vals) {
+            $out[] = [
+                pnl_bucket_label((string) $key, $bucket),
+                $vals['deposits'],
+                $vals['withdrawals'],
+                $vals['deposits'] - $vals['withdrawals'],
+                $ccy,
+            ];
+        }
+        $out[] = ['Total', $totals['deposits'], $totals['withdrawals'], $totals['net'], $ccy];
+        $out[] = [];
+        $out[] = ['Account', 'Deposits', 'Withdrawals', 'Net', 'Balance now'];
+        foreach (bank_accounts() as $a) {
+            $name = (string) $a['name'];
+            $row = $report['by_account'][$name] ?? ['deposits' => 0, 'withdrawals' => 0];
+            $out[] = [$name, $row['deposits'], $row['withdrawals'], $row['deposits'] - $row['withdrawals'], bank_account_balance((int) $a['id'])];
+        }
+        $out[] = [];
+        $out[] = ['Depositor', 'Amount'];
+        foreach ($totals['depositors'] as $name => $amt) {
+            $out[] = [$name, $amt];
+        }
+        $out[] = [];
+        $out[] = ['Withdrawer', 'Amount'];
+        foreach ($totals['withdrawers'] as $name => $amt) {
+            $out[] = [$name, $amt];
+        }
+        $out[] = [];
+        $out[] = ['Purpose', 'Amount'];
+        foreach ($report['by_purpose'] as $purpose => $amt) {
+            $out[] = [$purpose, $amt];
+        }
+        csv_download('banking-report.csv', [], $out);
+    }
+    $rows = [];
+    foreach (bank_transactions() as $t) {
+        $rows[] = [
+            format_date($t['txn_date']),
+            ($t['kind'] ?? '') === 'withdraw' ? 'Withdrawal' : 'Deposit',
+            $t['account_name'] ?? '',
+            $t['person_name'] ?? '',
+            $t['purpose'] ?? '',
+            $t['notes'] ?? '',
+            (float) $t['amount'],
+            $ccy,
+        ];
+    }
+    csv_download('banking.csv', ['Date', 'Type', 'Account', 'Person', 'Purpose', 'Note', 'Amount', 'Currency'], $rows);
+}
+
 if (!in_array($kind, desk_kind_list(), true)) {
     $kind = 'invoice';
 }

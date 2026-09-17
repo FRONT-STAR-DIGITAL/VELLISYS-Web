@@ -415,18 +415,37 @@ function pnl_savings_get(): array
 {
     $cid = current_company_id();
     $row = db_one('SELECT * FROM pnl_savings WHERE company_id = ?', 'i', [$cid]);
+    $saved = pnl_savings_balance();
     return [
         'target_amount' => (float) ($row['target_amount'] ?? 0),
-        'saved_amount' => (float) ($row['saved_amount'] ?? 0),
+        'saved_amount' => $saved,
         'note' => (string) ($row['note'] ?? ''),
     ];
+}
+
+function pnl_savings_balance(): float
+{
+    $cid = current_company_id();
+    try {
+        $row = db_one(
+            "SELECT COALESCE(SUM(CASE WHEN kind = 'deposit' THEN amount ELSE 0 END), 0)
+                    - COALESCE(SUM(CASE WHEN kind = 'withdraw' THEN amount ELSE 0 END), 0) AS bal
+             FROM pnl_savings_moves WHERE company_id = ?",
+            'i',
+            [$cid]
+        );
+        return round((float) ($row['bal'] ?? 0), 2);
+    } catch (Throwable $e) {
+        $row = db_one('SELECT saved_amount FROM pnl_savings WHERE company_id = ?', 'i', [$cid]);
+        return round((float) ($row['saved_amount'] ?? 0), 2);
+    }
 }
 
 function pnl_savings_save(array $data): void
 {
     $cid = current_company_id();
     $target = max(0, round((float) ($data['target_amount'] ?? 0), 2));
-    $saved = max(0, round((float) ($data['saved_amount'] ?? 0), 2));
+    $saved = pnl_savings_balance();
     $note = mb_substr(trim((string) ($data['note'] ?? '')), 0, 500);
     $now = desk_now()->format('Y-m-d H:i:s');
     db_exec(
@@ -437,12 +456,411 @@ function pnl_savings_save(array $data): void
     );
 }
 
+function pnl_savings_sync_total(): void
+{
+    $cid = current_company_id();
+    $saved = pnl_savings_balance();
+    $now = desk_now()->format('Y-m-d H:i:s');
+    db_exec(
+        'INSERT INTO pnl_savings (company_id, target_amount, saved_amount, note, updated_at) VALUES (?,0,?,?,?)
+         ON DUPLICATE KEY UPDATE saved_amount=VALUES(saved_amount), updated_at=VALUES(updated_at)',
+        'idss',
+        [$cid, $saved, '', $now]
+    );
+}
+
+function pnl_valid_date(?string $date): string
+{
+    $date = trim((string) $date);
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+        return today();
+    }
+    return $date;
+}
+
+function pnl_savings_moves(): array
+{
+    $cid = current_company_id();
+    [$extra, $types, $params] = period_sql('m.move_date');
+    return db_all(
+        'SELECT m.* FROM pnl_savings_moves m WHERE m.company_id = ?' . $extra . ' ORDER BY m.move_date DESC, m.id DESC',
+        'i' . $types,
+        array_merge([$cid], $params)
+    );
+}
+
+function pnl_savings_move_save(array $data, int $id = 0): int
+{
+    $cid = current_company_id();
+    $uid = (int) (current_user()['id'] ?? 0);
+    $kind = (string) ($data['kind'] ?? 'deposit');
+    if (!in_array($kind, ['deposit', 'withdraw'], true)) {
+        $kind = 'deposit';
+    }
+    $amount = round((float) preg_replace('/[^0-9.\-]/', '', (string) ($data['amount'] ?? '0')), 2);
+    $date = pnl_valid_date($data['move_date'] ?? today());
+    $person = mb_substr(trim((string) ($data['person_name'] ?? '')), 0, 160);
+    $purpose = mb_substr(trim((string) ($data['purpose'] ?? '')), 0, 255);
+    $notes = mb_substr(trim((string) ($data['notes'] ?? '')), 0, 500);
+    if ($amount <= 0) {
+        throw new RuntimeException('Enter an amount greater than zero.');
+    }
+    if ($person === '') {
+        throw new RuntimeException($kind === 'withdraw' ? 'Name the person withdrawing.' : 'Name the depositor.');
+    }
+    if ($kind === 'withdraw' && $purpose === '') {
+        throw new RuntimeException('Give a purpose for the withdrawal.');
+    }
+    $current = pnl_savings_balance();
+    $prior = 0.0;
+    if ($id > 0) {
+        $row = db_one('SELECT * FROM pnl_savings_moves WHERE id = ? AND company_id = ?', 'ii', [$id, $cid]);
+        if (!$row) {
+            throw new RuntimeException('That savings line was not found.');
+        }
+        $prior = (string) $row['kind'] === 'withdraw' ? -((float) $row['amount']) : (float) $row['amount'];
+    }
+    $next = $current - $prior + ($kind === 'withdraw' ? -$amount : $amount);
+    if ($next < -0.009) {
+        throw new RuntimeException('There is not enough set aside for that withdrawal.');
+    }
+    if ($id > 0) {
+        db_exec(
+            'UPDATE pnl_savings_moves SET kind=?, move_date=?, amount=?, person_name=?, purpose=?, notes=? WHERE id=? AND company_id=?',
+            'ssdsssii',
+            [$kind, $date, $amount, $person, $purpose, $notes, $id, $cid]
+        );
+        pnl_savings_sync_total();
+        return $id;
+    }
+    $newId = db_exec(
+        'INSERT INTO pnl_savings_moves (company_id, kind, move_date, amount, person_name, purpose, notes, user_id) VALUES (?,?,?,?,?,?,?,?)',
+        'issdsssi',
+        [$cid, $kind, $date, $amount, $person, $purpose, $notes, $uid]
+    );
+    pnl_savings_sync_total();
+    return $newId;
+}
+
+function pnl_savings_move_delete(int $id): void
+{
+    db_exec('DELETE FROM pnl_savings_moves WHERE id = ? AND company_id = ?', 'ii', [$id, current_company_id()]);
+    pnl_savings_sync_total();
+}
+
+function bank_accounts(bool $activeOnly = false): array
+{
+    $sql = 'SELECT * FROM bank_accounts WHERE company_id = ?';
+    if ($activeOnly) {
+        $sql .= ' AND is_active = 1';
+    }
+    $sql .= ' ORDER BY is_active DESC, name';
+    return db_all($sql, 'i', [current_company_id()]);
+}
+
+function bank_account(int $id): ?array
+{
+    return db_one('SELECT * FROM bank_accounts WHERE id = ? AND company_id = ?', 'ii', [$id, current_company_id()]) ?: null;
+}
+
+function bank_account_save(array $data, int $id = 0): int
+{
+    $cid = current_company_id();
+    $name = mb_substr(trim((string) ($data['name'] ?? '')), 0, 120);
+    $bank = mb_substr(trim((string) ($data['bank_name'] ?? '')), 0, 160);
+    $number = mb_substr(trim((string) ($data['account_number'] ?? '')), 0, 80);
+    $opening = round((float) preg_replace('/[^0-9.\-]/', '', (string) ($data['opening_balance'] ?? '0')), 2);
+    $notes = mb_substr(trim((string) ($data['notes'] ?? '')), 0, 500);
+    $active = !empty($data['is_active']) ? 1 : 0;
+    if ($name === '') {
+        throw new RuntimeException('Name this bank account.');
+    }
+    if ($id > 0) {
+        $row = bank_account($id);
+        if (!$row) {
+            throw new RuntimeException('Bank account not found.');
+        }
+        db_exec(
+            'UPDATE bank_accounts SET name=?, bank_name=?, account_number=?, opening_balance=?, notes=?, is_active=? WHERE id=? AND company_id=?',
+            'sssdsiii',
+            [$name, $bank, $number, $opening, $notes, $active, $id, $cid]
+        );
+        return $id;
+    }
+    return db_exec(
+        'INSERT INTO bank_accounts (company_id, name, bank_name, account_number, opening_balance, notes, is_active) VALUES (?,?,?,?,?,?,1)',
+        'isssds',
+        [$cid, $name, $bank, $number, $opening, $notes]
+    );
+}
+
+function bank_account_delete(int $id): void
+{
+    $cid = current_company_id();
+    $used = db_one('SELECT id FROM bank_transactions WHERE account_id = ? AND company_id = ? LIMIT 1', 'ii', [$id, $cid]);
+    if ($used) {
+        throw new RuntimeException('This account has deposits or withdrawals. Archive it instead of deleting.');
+    }
+    db_exec('DELETE FROM bank_accounts WHERE id = ? AND company_id = ?', 'ii', [$id, $cid]);
+}
+
+function bank_account_balance(int $accountId): float
+{
+    $acct = bank_account($accountId);
+    if (!$acct) {
+        return 0.0;
+    }
+    $row = db_one(
+        "SELECT COALESCE(SUM(CASE WHEN kind = 'deposit' THEN amount ELSE 0 END), 0)
+                - COALESCE(SUM(CASE WHEN kind = 'withdraw' THEN amount ELSE 0 END), 0) AS moved
+         FROM bank_transactions WHERE company_id = ? AND account_id = ?",
+        'ii',
+        [current_company_id(), $accountId]
+    );
+    return round((float) $acct['opening_balance'] + (float) ($row['moved'] ?? 0), 2);
+}
+
+function bank_transactions(?int $accountId = null): array
+{
+    $cid = current_company_id();
+    [$extra, $types, $params] = period_sql('t.txn_date');
+    $sql = 'SELECT t.*, a.name AS account_name, a.bank_name
+            FROM bank_transactions t
+            JOIN bank_accounts a ON a.id = t.account_id AND a.company_id = t.company_id
+            WHERE t.company_id = ?' . $extra;
+    $bind = 'i' . $types;
+    $args = array_merge([$cid], $params);
+    if ($accountId && $accountId > 0) {
+        $sql .= ' AND t.account_id = ?';
+        $bind .= 'i';
+        $args[] = $accountId;
+    }
+    $sql .= ' ORDER BY t.txn_date DESC, t.id DESC';
+    return db_all($sql, $bind, $args);
+}
+
+function bank_transaction_save(array $data, int $id = 0): int
+{
+    $cid = current_company_id();
+    $uid = (int) (current_user()['id'] ?? 0);
+    $accountId = (int) ($data['account_id'] ?? 0);
+    $acct = bank_account($accountId);
+    if (!$acct) {
+        throw new RuntimeException('Pick a bank account.');
+    }
+    $kind = (string) ($data['kind'] ?? 'deposit');
+    if (!in_array($kind, ['deposit', 'withdraw'], true)) {
+        $kind = 'deposit';
+    }
+    $amount = round((float) preg_replace('/[^0-9.\-]/', '', (string) ($data['amount'] ?? '0')), 2);
+    $date = pnl_valid_date($data['txn_date'] ?? today());
+    $person = mb_substr(trim((string) ($data['person_name'] ?? '')), 0, 160);
+    $purpose = mb_substr(trim((string) ($data['purpose'] ?? '')), 0, 255);
+    $notes = mb_substr(trim((string) ($data['notes'] ?? '')), 0, 500);
+    if ($amount <= 0) {
+        throw new RuntimeException('Enter an amount greater than zero.');
+    }
+    if ($person === '') {
+        throw new RuntimeException($kind === 'withdraw' ? 'Name the person withdrawing.' : 'Name the depositor.');
+    }
+    if ($kind === 'withdraw' && $purpose === '') {
+        throw new RuntimeException('Give a purpose for the withdrawal.');
+    }
+    $balance = bank_account_balance($accountId);
+    $prior = 0.0;
+    if ($id > 0) {
+        $row = db_one('SELECT * FROM bank_transactions WHERE id = ? AND company_id = ?', 'ii', [$id, $cid]);
+        if (!$row) {
+            throw new RuntimeException('That bank line was not found.');
+        }
+        if ((int) $row['account_id'] === $accountId) {
+            $prior = (string) $row['kind'] === 'withdraw' ? -((float) $row['amount']) : (float) $row['amount'];
+        }
+    }
+    $next = $balance - $prior + ($kind === 'withdraw' ? -$amount : $amount);
+    if ($next < -0.009) {
+        throw new RuntimeException('That withdrawal is more than the account balance.');
+    }
+    if ($id > 0) {
+        db_exec(
+            'UPDATE bank_transactions SET account_id=?, kind=?, txn_date=?, amount=?, person_name=?, purpose=?, notes=? WHERE id=? AND company_id=?',
+            'issdssiii',
+            [$accountId, $kind, $date, $amount, $person, $purpose, $notes, $id, $cid]
+        );
+        return $id;
+    }
+    return db_exec(
+        'INSERT INTO bank_transactions (company_id, account_id, kind, txn_date, amount, person_name, purpose, notes, user_id) VALUES (?,?,?,?,?,?,?,?,?)',
+        'iissdsssi',
+        [$cid, $accountId, $kind, $date, $amount, $person, $purpose, $notes, $uid]
+    );
+}
+
+function bank_transaction_delete(int $id): void
+{
+    db_exec('DELETE FROM bank_transactions WHERE id = ? AND company_id = ?', 'ii', [$id, current_company_id()]);
+}
+
+function pnl_report_bucket(): string
+{
+    $b = (string) ($_GET['bucket'] ?? 'month');
+    return in_array($b, ['day', 'week', 'month'], true) ? $b : 'month';
+}
+
+function pnl_bucket_key(string $date, string $bucket): string
+{
+    $t = strtotime($date . ' 12:00:00') ?: time();
+    if ($bucket === 'week') {
+        $n = (int) date('N', $t);
+        return date('Y-m-d', $t - (($n - 1) * 86400));
+    }
+    if ($bucket === 'month') {
+        return date('Y-m-01', $t);
+    }
+    return date('Y-m-d', $t);
+}
+
+function pnl_bucket_label(string $key, string $bucket): string
+{
+    if ($bucket === 'month') {
+        $t = strtotime($key . ' 12:00:00');
+        return $t ? date('F Y', $t) : $key;
+    }
+    if ($bucket === 'week') {
+        return 'Week of ' . format_date($key);
+    }
+    return format_date($key);
+}
+
+function render_pnl_bucket_chips(string $action, array $keep = []): void
+{
+    $on = pnl_report_bucket();
+    $chips = ['day' => 'Daily', 'week' => 'Weekly', 'month' => 'Monthly'];
+    $p = period_range();
+    ?>
+  <nav class="planner-tabs" aria-label="Report grouping">
+    <?php foreach ($chips as $key => $label):
+        $qs = http_build_query(array_merge($keep, [
+            'bucket' => $key,
+            'range' => $p['preset'],
+            'from' => $p['from'],
+            'to' => $p['to'],
+        ]));
+        ?>
+      <a class="planner-tab<?= $on === $key ? ' is-on' : '' ?>" href="<?= h(url($action . '?' . $qs)) ?>"><?= h($label) ?></a>
+    <?php endforeach; ?>
+  </nav>
+    <?php
+}
+
+function render_csv_link(string $type, string $label = 'Export CSV', array $extra = []): void
+{
+    echo '<a class="btn ghost sm" href="' . h(export_query($type, $extra)) . '">' . icon('download', 16) . h($label) . '</a>';
+}
+
+function render_chart_download(string $canvasId, string $file = ''): void
+{
+    $file = $file !== '' ? $file : ($canvasId . '.png');
+    echo '<button class="btn ghost sm" type="button" data-chart-download="' . h($canvasId) . '" data-chart-file="' . h($file) . '">' . icon('download', 16) . 'Download</button>';
+}
+
+function bank_period_totals(array $txns): array
+{
+    $in = 0.0;
+    $out = 0.0;
+    $depositors = [];
+    $withdrawers = [];
+    foreach ($txns as $t) {
+        $amt = (float) $t['amount'];
+        if (($t['kind'] ?? '') === 'withdraw') {
+            $out += $amt;
+            $name = trim((string) ($t['person_name'] ?? ''));
+            if ($name !== '') {
+                $withdrawers[$name] = ($withdrawers[$name] ?? 0) + $amt;
+            }
+        } else {
+            $in += $amt;
+            $name = trim((string) ($t['person_name'] ?? ''));
+            if ($name !== '') {
+                $depositors[$name] = ($depositors[$name] ?? 0) + $amt;
+            }
+        }
+    }
+    arsort($depositors);
+    arsort($withdrawers);
+    return [
+        'deposits' => round($in, 2),
+        'withdrawals' => round($out, 2),
+        'net' => round($in - $out, 2),
+        'count' => count($txns),
+        'depositors' => $depositors,
+        'withdrawers' => $withdrawers,
+    ];
+}
+
+function bank_report_series(array $txns, string $bucket): array
+{
+    $series = [];
+    $byAccount = [];
+    $byPurpose = [];
+    foreach ($txns as $t) {
+        $key = pnl_bucket_key((string) $t['txn_date'], $bucket);
+        if (!isset($series[$key])) {
+            $series[$key] = ['deposits' => 0.0, 'withdrawals' => 0.0];
+        }
+        $amt = (float) $t['amount'];
+        if (($t['kind'] ?? '') === 'withdraw') {
+            $series[$key]['withdrawals'] += $amt;
+            $purpose = trim((string) ($t['purpose'] ?? '')) ?: 'Unspecified';
+            $byPurpose[$purpose] = ($byPurpose[$purpose] ?? 0) + $amt;
+        } else {
+            $series[$key]['deposits'] += $amt;
+        }
+        $acct = (string) ($t['account_name'] ?? 'Account');
+        if (!isset($byAccount[$acct])) {
+            $byAccount[$acct] = ['deposits' => 0.0, 'withdrawals' => 0.0];
+        }
+        if (($t['kind'] ?? '') === 'withdraw') {
+            $byAccount[$acct]['withdrawals'] += $amt;
+        } else {
+            $byAccount[$acct]['deposits'] += $amt;
+        }
+    }
+    ksort($series);
+    arsort($byPurpose);
+    return [
+        'series' => $series,
+        'by_account' => $byAccount,
+        'by_purpose' => $byPurpose,
+    ];
+}
+
+function savings_report_series(array $moves, string $bucket): array
+{
+    $series = [];
+    foreach ($moves as $t) {
+        $key = pnl_bucket_key((string) $t['move_date'], $bucket);
+        if (!isset($series[$key])) {
+            $series[$key] = ['deposits' => 0.0, 'withdrawals' => 0.0];
+        }
+        $amt = (float) $t['amount'];
+        if (($t['kind'] ?? '') === 'withdraw') {
+            $series[$key]['withdrawals'] += $amt;
+        } else {
+            $series[$key]['deposits'] += $amt;
+        }
+    }
+    ksort($series);
+    return $series;
+}
+
 function render_pnl_subnav(string $active): void
 {
     $tabs = [
         ['pnl.php', 'Overview', 'reports'],
         ['pnl_entries.php', 'Ledger', 'bank'],
         ['pnl_savings.php', 'Savings', 'wallet'],
+        ['pnl_banking.php', 'Banking', 'bank'],
         ['documents.php?kind=refund', 'Refunds', 'wallet'],
         ['documents.php?kind=return_note', 'Returns', 'truck'],
     ];
@@ -463,6 +881,32 @@ function render_pnl_subnav(string $active): void
   </nav>
     <?php
 }
+
+function render_banking_subnav(string $view): void
+{
+    $p = period_range();
+    $tabs = [
+        'accounts' => 'Accounts',
+        'activity' => 'Deposits & withdrawals',
+        'reports' => 'Reports',
+    ];
+    ?>
+  <nav class="planner-tabs" aria-label="Banking sections">
+    <?php foreach ($tabs as $key => $label):
+        $qs = http_build_query([
+            'view' => $key,
+            'range' => $p['preset'],
+            'from' => $p['from'],
+            'to' => $p['to'],
+            'bucket' => pnl_report_bucket(),
+        ]);
+        ?>
+      <a class="planner-tab<?= $view === $key ? ' is-on' : '' ?>" href="<?= h(url('pnl_banking.php?' . $qs)) ?>"><?= h($label) ?></a>
+    <?php endforeach; ?>
+  </nav>
+    <?php
+}
+
 
 function notification_dismiss_key(array $n): string
 {

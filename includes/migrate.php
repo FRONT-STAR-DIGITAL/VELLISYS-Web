@@ -471,6 +471,7 @@ function folio_migrate(mysqli $db): void
     folio_ensure_stock($db);
     folio_ensure_access_addons($db);
     folio_migrate_client_profile($db);
+    folio_ensure_banking($db);
     $ready = folio_schema_ready_file();
     if (is_file($ready) && filemtime($ready) > time() - 86400) {
         $done = true;
@@ -481,7 +482,7 @@ function folio_migrate(mysqli $db): void
         return;
     }
     $verRow = @$db->query("SELECT v FROM schema_meta WHERE k='version'");
-    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 48) {
+    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 49) {
         @touch($ready);
         $done = true;
         return;
@@ -745,8 +746,11 @@ function folio_migrate(mysqli $db): void
     if ($ver < 48) {
         folio_migrate_client_profile($db);
     }
+    if ($ver < 49) {
+        folio_ensure_banking($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '48')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '49')");
     @touch($ready);
     $done = true;
 }
@@ -1794,6 +1798,86 @@ function folio_migrate_desk_activity(mysqli $db): void
             $stmt->bind_param('iisssssis', $cid, $uid, $actKind, $label, $detail, $href, $refType, $refId, $when);
             $stmt->execute();
         }
+    }
+}
+
+function folio_ensure_banking(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    $db->query("CREATE TABLE IF NOT EXISTS bank_accounts (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      company_id INT UNSIGNED NOT NULL,
+      name VARCHAR(120) NOT NULL,
+      bank_name VARCHAR(160) NOT NULL DEFAULT '',
+      account_number VARCHAR(80) NOT NULL DEFAULT '',
+      opening_balance DECIMAL(14,2) NOT NULL DEFAULT 0,
+      notes VARCHAR(500) NOT NULL DEFAULT '',
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY company_id (company_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $db->query("CREATE TABLE IF NOT EXISTS bank_transactions (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      company_id INT UNSIGNED NOT NULL,
+      account_id INT UNSIGNED NOT NULL,
+      kind VARCHAR(20) NOT NULL,
+      txn_date DATE NOT NULL,
+      amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+      person_name VARCHAR(160) NOT NULL DEFAULT '',
+      purpose VARCHAR(255) NOT NULL DEFAULT '',
+      notes VARCHAR(500) NOT NULL DEFAULT '',
+      user_id INT UNSIGNED NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY company_date (company_id, txn_date),
+      KEY account (account_id),
+      KEY company_kind (company_id, kind)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $db->query("CREATE TABLE IF NOT EXISTS pnl_savings_moves (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      company_id INT UNSIGNED NOT NULL,
+      kind VARCHAR(20) NOT NULL,
+      move_date DATE NOT NULL,
+      amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+      person_name VARCHAR(160) NOT NULL DEFAULT '',
+      purpose VARCHAR(255) NOT NULL DEFAULT '',
+      notes VARCHAR(500) NOT NULL DEFAULT '',
+      user_id INT UNSIGNED NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY company_date (company_id, move_date),
+      KEY company_kind (company_id, kind)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $savings = @$db->query('SELECT company_id, saved_amount, note, updated_at FROM pnl_savings WHERE saved_amount > 0');
+    if (!$savings) {
+        return;
+    }
+    $check = $db->prepare('SELECT id FROM pnl_savings_moves WHERE company_id = ? LIMIT 1');
+    $ins = $db->prepare('INSERT INTO pnl_savings_moves (company_id, kind, move_date, amount, person_name, purpose, notes, user_id) VALUES (?,?,?,?,?,?,?,0)');
+    if (!$check || !$ins) {
+        return;
+    }
+    while ($row = $savings->fetch_assoc()) {
+        $cid = (int) $row['company_id'];
+        $check->bind_param('i', $cid);
+        $check->execute();
+        $got = $check->get_result();
+        if ($got && $got->num_rows > 0) {
+            continue;
+        }
+        $kind = 'deposit';
+        $when = substr((string) ($row['updated_at'] ?? date('Y-m-d')), 0, 10);
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $when)) {
+            $when = date('Y-m-d');
+        }
+        $amt = (float) $row['saved_amount'];
+        $person = 'Opening balance';
+        $purpose = '';
+        $note = trim((string) ($row['note'] ?? '')) ?: 'Amount already set aside';
+        $ins->bind_param('issdsss', $cid, $kind, $when, $amt, $person, $purpose, $note);
+        $ins->execute();
     }
 }
 

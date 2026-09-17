@@ -34,29 +34,41 @@ layout_start('Profit & Loss', $user);
 
 <div class="chart-grid equal">
   <div class="card chart-box">
-    <div class="card-head"><h2><?= icon('reports', 16) ?>Income, costs and profit</h2></div>
-    <canvas id="pnl-chart-trend" height="120"></canvas>
+    <div class="card-head">
+      <h2><?= icon('reports', 16) ?>Income, costs and profit</h2>
+      <?php render_chart_download('pnl-chart-trend', 'pnl-trend.png'); ?>
+    </div>
+    <div class="chart-frame"><canvas id="pnl-chart-trend"></canvas></div>
   </div>
   <div class="card chart-box">
-    <div class="card-head"><h2><?= icon('bank', 16) ?>Cash movement</h2></div>
-    <canvas id="pnl-chart-cash" height="120"></canvas>
+    <div class="card-head">
+      <h2><?= icon('bank', 16) ?>Cash movement</h2>
+      <?php render_chart_download('pnl-chart-cash', 'pnl-cash.png'); ?>
+    </div>
+    <div class="chart-frame"><canvas id="pnl-chart-cash"></canvas></div>
   </div>
 </div>
 <div class="chart-grid equal">
   <div class="card chart-box">
-    <div class="card-head"><h2><?= icon('invoice', 16) ?>Income mix</h2></div>
+    <div class="card-head">
+      <h2><?= icon('invoice', 16) ?>Income mix</h2>
+      <?php if (!empty($charts['incomeCatValues'])): render_chart_download('pnl-chart-income', 'pnl-income.png'); endif; ?>
+    </div>
     <?php if (empty($charts['incomeCatValues'])): ?>
       <p class="empty">No income in this period to chart.</p>
     <?php else: ?>
-      <canvas id="pnl-chart-income" height="120"></canvas>
+      <div class="chart-frame"><canvas id="pnl-chart-income"></canvas></div>
     <?php endif; ?>
   </div>
   <div class="card chart-box">
-    <div class="card-head"><h2><?= icon('wallet', 16) ?>Cost mix</h2></div>
+    <div class="card-head">
+      <h2><?= icon('wallet', 16) ?>Cost mix</h2>
+      <?php if (!empty($charts['expenseCatValues'])): render_chart_download('pnl-chart-expense', 'pnl-costs.png'); endif; ?>
+    </div>
     <?php if (empty($charts['expenseCatValues'])): ?>
       <p class="empty">No costs in this period to chart.</p>
     <?php else: ?>
-      <canvas id="pnl-chart-expense" height="120"></canvas>
+      <div class="chart-frame"><canvas id="pnl-chart-expense"></canvas></div>
     <?php endif; ?>
   </div>
 </div>
@@ -232,7 +244,8 @@ layout_start('Profit & Loss', $user);
   </div>
 </div>
 <?php
-$script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script>
+$script = '<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script>
+document.addEventListener("DOMContentLoaded", function () {
 (function(){
   var d = ' . $chartPayload . ';
   if (!window.Chart || !d) return;
@@ -299,6 +312,7 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
     });
   }
 })();
+});
 </script>';
 layout_end($script);
 ?>

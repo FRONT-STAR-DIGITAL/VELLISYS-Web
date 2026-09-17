@@ -310,7 +310,7 @@ function company_reset_scopes(): array
         'mail' => 'Desk email log for this company',
         'activities' => 'Activity log',
         'planner' => 'Planner (notes, tasks, budget, calendar)',
-        'pnl' => 'Profit & Loss entries and savings',
+        'pnl' => 'Profit & Loss entries, savings and banking',
     ];
 }
 
@@ -421,7 +421,7 @@ function company_reset_training_data(int $cid, array $scopes): array
             $cleared[] = 'planner';
         }
         if (in_array('pnl', $picked, true)) {
-            foreach (['pnl_entries', 'pnl_savings'] as $table) {
+            foreach (['pnl_entries', 'pnl_savings', 'pnl_savings_moves', 'bank_transactions', 'bank_accounts'] as $table) {
                 if (company_reset_has_table($table)) {
                     db_exec('DELETE FROM `' . $table . '` WHERE company_id = ?', 'i', [$cid]);
                 }

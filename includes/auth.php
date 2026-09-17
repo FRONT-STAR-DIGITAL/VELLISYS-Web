@@ -308,7 +308,7 @@ function user_can_open(string $script, string $kind = ''): bool
     if ($script === 'notify_action.php' || $script === 'activities.php') {
         return is_desk_admin();
     }
-    $pnlScripts = ['pnl.php', 'pnl_entries.php', 'pnl_savings.php'];
+    $pnlScripts = ['pnl.php', 'pnl_entries.php', 'pnl_savings.php', 'pnl_banking.php'];
     if (in_array($script, $pnlScripts, true)) {
         return company_pnl_enabled() && is_desk_admin();
     }

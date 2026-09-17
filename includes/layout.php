@@ -517,7 +517,7 @@ function render_app_tabbar(): void
     $reportsHref = function_exists('user_can_open') && user_can_open('reports.php') ? 'reports.php' : 'debtors.php';
     $homeOn = $here === 'dashboard.php';
     $clientsOn = in_array($here, ['clients.php', 'client_view.php', 'client_edit.php'], true);
-    $repOn = in_array($here, ['reports.php', 'pnl.php', 'pnl_entries.php', 'debtors.php', 'creditors.php'], true)
+    $repOn = in_array($here, ['reports.php', 'pnl.php', 'pnl_entries.php', 'pnl_savings.php', 'pnl_banking.php', 'debtors.php', 'creditors.php'], true)
         || in_array($kind, ['refund', 'return_note'], true);
     ?>
 <nav class="app-tabbar" aria-label="App">

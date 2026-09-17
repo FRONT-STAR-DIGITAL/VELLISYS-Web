@@ -1867,3 +1867,30 @@ if (document.querySelector('[data-to-entity], [data-to-profile]')) {
   }
 })();
 
+document.addEventListener('click', function (e) {
+  var btn = closestEl(e, '[data-chart-download]');
+  if (!btn) return;
+  e.preventDefault();
+  var id = btn.getAttribute('data-chart-download');
+  var canvas = id ? document.getElementById(id) : null;
+  if (!canvas || !canvas.toDataURL) return;
+  var tmp = document.createElement('canvas');
+  tmp.width = canvas.width || canvas.offsetWidth;
+  tmp.height = canvas.height || canvas.offsetHeight;
+  var ctx = tmp.getContext('2d');
+  if (!ctx) return;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, tmp.width, tmp.height);
+  ctx.drawImage(canvas, 0, 0);
+  var name = btn.getAttribute('data-chart-file') || (id + '.png');
+  tmp.toBlob(function (blob) {
+    if (!blob) return;
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  });
+});
+
