@@ -2631,7 +2631,25 @@ function letter_template_needs_signature(?string $key): bool
 
 function doc_template_has_signoff(?array $doc = null): bool
 {
-    return in_array(doc_template_key($doc), ['ledger', 'crimson', 'amber', 'twin', 'seal', 'bond'], true);
+    $key = doc_template_key($doc);
+    return $key !== '';
+}
+
+function render_add_signature_checkbox(?array $existing = null, bool $preferOn = false): void
+{
+    $hasSig = company_signature_path() !== '';
+    $on = !empty($existing['add_signature']) || ($preferOn && $hasSig && !$existing);
+    ?>
+    <label class="kinds-opt" data-sign-box>
+      <input type="checkbox" name="add_signature" value="1" <?= $hasSig ? '' : 'disabled' ?> <?= $on ? 'checked' : '' ?>>
+      <span>Add signature</span>
+    </label>
+    <?php if ($hasSig): ?>
+      <p class="hint" data-sign-hint>Stamps the approved signature from Settings on Authorized by and company sign-off lines.</p>
+    <?php else: ?>
+      <p class="hint" data-sign-need>Approve a signature in Settings first. It will stamp here when you tick Add signature.</p>
+    <?php endif; ?>
+    <?php
 }
 
 function save_company_signature_png(string $dataUrl): string

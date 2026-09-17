@@ -590,10 +590,11 @@ document.querySelectorAll('[data-letter-templates]').forEach(function (form) {
   var signBox = form.querySelector('[data-sign-box]');
   var signHint = form.querySelector('[data-sign-hint]');
   function applySign(needsSign) {
-    if (signBox) signBox.hidden = !needsSign;
-    if (signHint) signHint.hidden = !!needsSign;
     var cb = signBox && signBox.querySelector('input[name="add_signature"]');
-    if (cb && !cb.disabled) cb.checked = !!needsSign;
+    if (!cb || cb.disabled) return;
+    var id = form.querySelector('[name="document_id"]');
+    if (id && id.value) return;
+    cb.checked = !!needsSign;
   }
   form.querySelectorAll('input[name="letter_template"]').forEach(function (radio) {
     radio.addEventListener('change', function () {
@@ -633,7 +634,7 @@ document.addEventListener('click', function (e) {
   var date = form.querySelector('#date');
   if (date && date.value) add('date', date.value);
   var sig = form.querySelector('[data-sign-box] input[name="add_signature"]');
-  add('add_signature', sig && !sig.closest('[hidden]') && sig.checked ? '1' : '0');
+  add('add_signature', sig && sig.checked ? '1' : '0');
   var party = form.querySelector('#party_id');
   if (party) add('party_id', party.value);
   document.body.appendChild(post);

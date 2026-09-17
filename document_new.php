@@ -457,16 +457,7 @@ layout_start($heading, $user, ['kind' => $kind]);
     <input id="subject" name="subject" required value="<?= h($prefillTpl['subject']) ?>">
     <label for="body">Body</label>
     <?php render_rich_editor('body', 'body', (string) $prefillTpl['body'], ['rows' => 16, 'required' => true, 'placeholder' => 'Write the letter. Use the toolbar for bold, lists and alignment.']); ?>
-    <?php $hasSig = company_signature_path() !== ''; ?>
-    <label class="kinds-opt" data-sign-box <?= $tplKey === 'none' && empty($existing['add_signature']) ? 'hidden' : '' ?>>
-      <input type="checkbox" name="add_signature" value="1" <?= $hasSig ? '' : 'disabled' ?> <?= !empty($existing['add_signature']) || ($tplKey !== 'none' && $hasSig && !$existing) ? 'checked' : '' ?>>
-      <span>Add signature</span>
-    </label>
-    <?php if ($hasSig): ?>
-      <p class="hint" data-sign-hint <?= $tplKey === 'none' && empty($existing['add_signature']) ? '' : 'hidden' ?>>Starting texts that close with a sign-off can stamp the approved signature from Settings.</p>
-    <?php else: ?>
-      <p class="hint" data-sign-need>Approve a signature in Settings first. It will stamp here when you tick Add signature.</p>
-    <?php endif; ?>
+    <?php render_add_signature_checkbox($existing, $tplKey !== 'none'); ?>
   <?php elseif ($kind === 'custom'): ?>
     <?php $savedCustom = is_array($existing['custom_values'] ?? null) ? $existing['custom_values'] : []; ?>
     <?php if ($customDef['fields']): ?>
@@ -487,6 +478,7 @@ layout_start($heading, $user, ['kind' => $kind]);
     <?php endif; ?>
     <label for="notes">Internal note (not printed)</label>
     <textarea id="notes" name="notes" rows="3"><?= h((string) ($existing['notes'] ?? '')) ?></textarea>
+    <?php render_add_signature_checkbox($existing); ?>
   <?php else: ?>
     <div class="lines-panel" data-lines-panel data-delivery="<?= in_array($kind, ['delivery', 'return_note'], true) ? '1' : '0' ?>" data-line-cols="<?= h(json_encode(company_document_line_columns(), JSON_UNESCAPED_UNICODE) ?: '[]') ?>">
       <?php
@@ -626,6 +618,7 @@ layout_start($heading, $user, ['kind' => $kind]);
     </div>
     <label for="notes"><?= $kind === 'expense' ? 'Notes' : 'Comments on the document' ?></label>
     <textarea id="notes" name="notes" rows="4" placeholder="<?= $kind === 'expense' ? 'Optional note for your records.' : 'Payment is due by the date shown above.' ?>"><?= h((string) ($existing['notes'] ?? ($kind === 'invoice' ? (string) branding()['invoice_comments'] : ''))) ?></textarea>
+    <?php if ($kind !== 'expense') { render_add_signature_checkbox($existing); } ?>
   <?php endif; ?>
 
   <div class="actions sticky-save">

@@ -458,7 +458,7 @@ function render_letter_to_label(string $label = 'To'): void
     <?php
 }
 
-function render_letter_signature(array $doc): void
+function render_company_signature(array $doc): void
 {
     if (empty($doc['add_signature'])) {
         return;
@@ -470,6 +470,24 @@ function render_letter_signature(array $doc): void
     ?>
     <div class="d-sign">
       <img src="<?= h($src) ?>" alt="Signature">
+    </div>
+    <?php
+}
+
+function render_letter_signature(array $doc): void
+{
+    render_company_signature($doc);
+}
+
+function render_authorized_signoff(array $doc, string $label = 'Authorized by'): void
+{
+    if (($doc['kind'] ?? '') === 'letter') {
+        return;
+    }
+    ?>
+    <div class="auth-sign">
+      <?php render_company_signature($doc); ?>
+      <p><?= h($label) ?></p>
     </div>
     <?php
 }
@@ -654,6 +672,7 @@ function render_sheet_folio(array $d): void
     </div>
   <?php endif; ?>
   <?php endif; ?>
+  <?php render_authorized_signoff($doc); ?>
   <footer class="d-foot">
     <p>If you have questions, contact <?= h($brand['phone']) ?> or <?= h($brand['email']) ?>.</p>
     <p class="thanks">Thank You For Your Business!</p>
@@ -726,7 +745,7 @@ function render_sheet_ledger(array $d): void
       <div class="ledger-sign">
         <div><span>From</span><b><?= h($brand['name']) ?></b></div>
         <div><span>To</span><b><?= h($doc['party_name'] ?? '') ?></b></div>
-        <div><span>By</span><b><?= h($brand['account_name'] ?: 'Accounts') ?></b></div>
+        <div><span>By</span><?php render_company_signature($doc); ?><b><?= h($brand['account_name'] ?: 'Accounts') ?></b></div>
       </div>
     </div>
   <?php endif; ?>
@@ -787,7 +806,7 @@ function render_sheet_bill(array $d, string $variant): void
     <?php endif; ?>
     <div class="bill-signs">
       <div>Received by</div>
-      <div>Authorized by</div>
+      <div><?php render_company_signature($doc); ?>Authorized by</div>
     </div>
   <?php endif; ?>
   </div>
@@ -834,7 +853,7 @@ function render_twin_half(array $d, string $label): void
         <?php endforeach; ?>
       </div>
       <?php endif; ?>
-      <div class="twin-sign">Authorized signature</div>
+      <div class="twin-sign"><?php if (($doc['kind'] ?? '') !== 'letter') { render_company_signature($doc); } ?>Authorized signature</div>
     </div>
     <?php
 }
@@ -912,6 +931,7 @@ function render_sheet_stripe(array $d): void
       <?php render_amount_words($d); ?>
       <?php endif; ?>
     <?php endif; ?>
+    <?php render_authorized_signoff($doc); ?>
   </div>
 </article>
 <?php
@@ -968,6 +988,7 @@ function render_sheet_estate(array $d): void
       <?php endif; ?>
     </div>
   <?php endif; ?>
+  <?php render_authorized_signoff($doc); ?>
 </article>
 <?php
 }
@@ -1020,6 +1041,7 @@ function render_sheet_night(array $d): void
       </div>
       <?php endif; ?>
     <?php endif; ?>
+    <?php render_authorized_signoff($doc); ?>
     <p class="night-foot"><?= h($brand['phone']) ?> · <?= h($brand['email']) ?> · <?= h($brand['website']) ?></p>
   </div>
 </article>
@@ -1074,6 +1096,7 @@ function render_sheet_atelier(array $d): void
       <?php endif; ?>
     </div>
   <?php endif; ?>
+  <?php render_authorized_signoff($doc); ?>
   <footer class="atelier-foot">
     <?= h($brand['phone']) ?> · <?= h($brand['email']) ?> · <?= h($brand['website']) ?>
   </footer>
@@ -1129,7 +1152,7 @@ function render_sheet_seal(array $d): void
   <?php endif; ?>
   <footer class="seal-sign">
     <div>For and on behalf of <?= h($brand['name']) ?></div>
-    <div>Authorised</div>
+    <div><?php if (($doc['kind'] ?? '') !== 'letter') { render_company_signature($doc); } ?>Authorised</div>
   </footer>
 </article>
 <?php
@@ -1185,6 +1208,7 @@ function render_sheet_mark(array $d): void
       <?php endif; ?>
     </div>
   <?php endif; ?>
+  <?php render_authorized_signoff($doc); ?>
 </article>
 <?php
 }
@@ -1234,6 +1258,7 @@ function render_sheet_bond(array $d): void
       <?php endif; ?>
     </div>
   <?php endif; ?>
+  <?php render_authorized_signoff($doc); ?>
   <footer class="bond-foot"><?= h($brand['website'] ?: $brand['email']) ?></footer>
 </article>
 <?php
@@ -1300,6 +1325,7 @@ function render_sheet_frame(array $d): void
           <?php endif; ?>
         </div>
       <?php endif; ?>
+      <?php render_authorized_signoff($doc); ?>
       <footer class="d-foot">
         <p><?= h($brand['phone']) ?> · <?= h($brand['email']) ?></p>
         <p class="thanks">Thank You For Your Business!</p>
@@ -1366,6 +1392,7 @@ function render_sheet_inset(array $d): void
         <?php endif; ?>
       </div>
     <?php endif; ?>
+    <?php render_authorized_signoff($doc); ?>
   </div>
 </article>
 <?php
@@ -1638,6 +1665,7 @@ function render_sheet_thermal(array $d): void
       <p class="thermal-note"><?= h($comment) ?></p>
     <?php endif; ?>
   <?php endif; ?>
+  <?php render_authorized_signoff($doc); ?>
   <p class="thermal-thanks">Thank you</p>
   <p class="thermal-foot"><?= h($brand['email']) ?></p>
 </article>

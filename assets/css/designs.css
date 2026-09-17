@@ -283,6 +283,49 @@
   padding: 0 4px 6px 0;
   border-bottom: 1px solid #1a1a1a;
 }
+.auth-sign {
+  margin-top: 28px;
+  max-width: 240px;
+}
+.auth-sign .d-sign {
+  margin: 0 0 2px;
+}
+.auth-sign .d-sign img {
+  border-bottom: 0;
+  padding-bottom: 0;
+  height: 42px;
+}
+.auth-sign p {
+  margin: 0;
+  border-top: 1px solid #111;
+  padding-top: 6px;
+  font-weight: 700;
+}
+.bill-signs div,
+.seal-sign div {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 56px;
+}
+.bill-signs .d-sign,
+.twin-sign .d-sign,
+.seal-sign .d-sign,
+.ledger-sign .d-sign {
+  margin: 0 auto 4px;
+}
+.bill-signs .d-sign img,
+.twin-sign .d-sign img,
+.seal-sign .d-sign img,
+.ledger-sign .d-sign img {
+  border-bottom: 0;
+  padding-bottom: 0;
+  height: 40px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.twin-sign { min-height: 52px; }
+.ledger-sign .d-sign { margin-left: 0; }
 .d-lines td.desc,
 .d-lines .twin-desc {
   white-space: pre-wrap;
