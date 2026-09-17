@@ -1274,7 +1274,7 @@ table.grid th {
 }
 table.grid tbody tr:last-child td { border-bottom: 0; }
 table.grid tbody tr:hover { background: color-mix(in srgb, var(--brand-tint) 70%, #fff); }
-table.grid:not(.lines) td:not(.row-actions):not(.right) {
+table.grid:not(.lines):not(.lines-preview-table) td:not(.row-actions):not(.right) {
   max-width: 11rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1614,6 +1614,8 @@ table.grid tfoot td {
   background: #f7f8fc;
   min-width: 0;
   max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
 }
 .lines-preview-head {
   display: flex;
@@ -1649,7 +1651,7 @@ table.grid tfoot td {
 }
 .doc-sum {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px 18px;
   margin: 4px 0 16px;
   padding: 14px 16px;
@@ -1657,18 +1659,25 @@ table.grid tfoot td {
   border-radius: 14px;
   background: #fff;
   font-size: 14.5px;
+  min-width: 0;
+  max-width: 100%;
 }
 .doc-sum span {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
+  width: 100%;
 }
 .doc-sum strong {
   font-variant-numeric: tabular-nums;
   font-size: 16px;
   white-space: nowrap;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .doc-sum [data-doc-grand],
 .pos-sum [data-pos-grand] {
@@ -1682,10 +1691,10 @@ table.grid tfoot td {
 @media (max-width: 820px) {
   .doc-sum,
   .pos-sale .pos-sum {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
   .doc-sum strong,
-  .pos-sum strong { font-size: 14px; }
+  .pos-sum strong { font-size: 15px; }
 }
 .doc-side-to { margin-top: 14px; border-color: color-mix(in srgb, var(--brand) 28%, var(--line)); background: #fff; }
 .expense-wrap { background: transparent; box-shadow: none; padding: 8px 0; }
@@ -2849,28 +2858,34 @@ input, select, textarea { font-weight: 400; }
     display: block;
     padding: 12px;
     margin-top: 4px;
+    min-width: 0;
+    max-width: 100%;
   }
   .document-form .lines-preview .table-scroll {
-    overflow-x: auto;
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto !important;
+    overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-x: contain;
-    max-width: 100%;
   }
   .document-form .lines-preview-table,
   .document-form .lines-preview .table-scroll table.grid {
-    display: table;
-    width: max-content;
+    display: table !important;
+    width: max-content !important;
     min-width: 720px !important;
-    max-width: none;
-    table-layout: auto;
+    max-width: none !important;
+    table-layout: auto !important;
     border-collapse: collapse;
     background: #fff;
   }
-  .document-form .lines-preview-table thead { display: table-header-group; }
-  .document-form .lines-preview-table tbody { display: table-row-group; }
-  .document-form .lines-preview-table tfoot { display: table-footer-group; }
+  .document-form .lines-preview-table thead { display: table-header-group !important; }
+  .document-form .lines-preview-table tbody { display: table-row-group !important; }
+  .document-form .lines-preview-table tfoot { display: table-footer-group !important; }
   .document-form .lines-preview-table tr {
-    display: table-row;
+    display: table-row !important;
     padding: 0;
     border: 0;
     border-radius: 0;
@@ -2880,15 +2895,16 @@ input, select, textarea { font-weight: 400; }
   }
   .document-form .lines-preview-table th,
   .document-form .lines-preview-table td {
-    display: table-cell;
+    display: table-cell !important;
     width: auto;
     min-width: max-content;
-    max-width: none;
+    max-width: none !important;
     padding: 8px 10px;
     border-bottom: 1px solid var(--line);
     font-size: 12px;
     vertical-align: top;
     overflow: visible;
+    text-overflow: unset;
     white-space: nowrap;
   }
   .document-form .lines-preview-table th {
@@ -3263,7 +3279,18 @@ input, select, textarea { font-weight: 400; }
     overflow: hidden;
     -webkit-overflow-scrolling: touch;
   }
-  table.grid:not(.lines) { min-width: 720px; }
+  .card:has(.document-form) {
+    overflow: visible;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .document-form,
+  .document-form [data-lines-panel] {
+    min-width: 0;
+    max-width: 100%;
+  }
+  table.grid:not(.lines):not(.lines-preview-table) { min-width: 720px; }
+  table.grid.lines-preview-table { min-width: 720px; width: max-content; }
   .date-cell { white-space: nowrap; min-width: 7.5rem; }
   .form-grid > div { min-width: 0; }
   .color-row { flex-wrap: wrap; }
@@ -4235,8 +4262,21 @@ a.branch-activity-row:hover { text-decoration: none; }
   .desk-body .content .card { border-radius: 14px; }
   .desk-body .table-wrap,
   .desk-body .card:has(table.grid) { overflow: hidden; -webkit-overflow-scrolling: touch; }
+  .desk-body .card:has(.document-form) {
+    overflow: visible;
+    min-width: 0;
+  }
   .desk-body .table-scroll { overflow-x: auto; max-width: 100%; }
+  .desk-body .document-form .lines-preview .table-scroll {
+    overflow-x: auto !important;
+    width: 100%;
+    max-width: 100%;
+  }
   .desk-body table.grid { min-width: 720px; }
+  .desk-body table.grid.lines-preview-table {
+    display: table !important;
+    width: max-content !important;
+  }
   .desk-body .filters {
     display: grid;
     gap: 10px;
