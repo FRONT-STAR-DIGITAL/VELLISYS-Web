@@ -271,12 +271,6 @@ function letter_docx_bytes(?array $doc = null): string
     $ref = $doc ? (string) ($doc['number'] ?? '') : '';
     $subject = $doc ? trim((string) ($doc['subject'] ?? '')) : '';
     $body = $doc ? trim((string) ($doc['body'] ?? '')) : '';
-    $toName = $doc ? trim((string) ($doc['party_name'] ?? '')) : '';
-    $toAddr = $doc ? trim((string) ($doc['party_address'] ?? '')) : '';
-    $toContact = $doc ? trim(implode("\n", array_filter([
-        (string) ($doc['party_phone'] ?? ''),
-        (string) ($doc['party_email'] ?? ''),
-    ]))) : '';
     $stampSign = $doc && !empty($doc['add_signature']);
 
     $logoPath = logo_file($brand);
@@ -338,10 +332,19 @@ function letter_docx_bytes(?array $doc = null): string
     }
 
     $dateLine = $date . ($ref !== '' ? '    Ref: ' . $ref : '');
-    $toXml = docx_p('To', ['size' => 22, 'bold' => true, 'after' => 40])
-        . ($toName !== '' ? docx_p($toName, array_merge($bodySize, ['after' => 40])) : docx_p('', ['after' => 40]))
-        . ($toAddr !== '' ? docx_p($toAddr, array_merge($bodySize, ['after' => 40])) : '')
-        . ($toContact !== '' ? docx_p($toContact, array_merge($bodySize, ['after' => 200])) : docx_p('', ['after' => 200]));
+    $toXml = docx_p('To', ['size' => 22, 'bold' => true, 'after' => 40]);
+    $partyLines = ($doc && function_exists('document_party_to_lines')) ? document_party_to_lines($doc) : [];
+    if ($partyLines) {
+        $last = count($partyLines) - 1;
+        foreach ($partyLines as $i => $line) {
+            $label = trim((string) ($line['label'] ?? ''));
+            $text = trim((string) ($line['value'] ?? ''));
+            $shown = $label !== '' ? ($label . ': ' . $text) : $text;
+            $toXml .= docx_p($shown, array_merge($bodySize, ['after' => $i === $last ? 200 : 40]));
+        }
+    } else {
+        $toXml .= docx_p('', ['after' => 200]);
+    }
     $subjectXml = $subject === ''
         ? docx_p_wrap(docx_text_run('Subject: ', ['size' => 28, 'bold' => true]), ['after' => 240])
         : docx_p_wrap(

@@ -112,10 +112,10 @@ function document_pdf_bytes(array $brand, array $doc): string
     $rgb($blue);
     $fill($m, $h - 32, $w - $m * 2, 14);
     $add("1 1 1 rg\n");
-    $text($m + 8, $h - 27, strtoupper($kind), 10, 'F2');
+    $text($m + 8, $h - 27, strtoupper($kind), 11, 'F2');
     $y = $h - 52;
     $rgb($navy);
-    $put($m, $y, $name, 16, 'F2');
+    $put($m, $y, $name, 11, 'F2');
     $rgb('#333333');
     foreach (array_filter([
         (string) ($brand['tagline'] ?? ''),
@@ -125,32 +125,43 @@ function document_pdf_bytes(array $brand, array $doc): string
         (string) ($brand['website'] ?? ''),
     ]) as $line) {
         foreach (vellisys_pdf_wrap($line, 90) as $wrap) {
-            $put($m, $y, $wrap, 9);
+            $put($m, $y, $wrap, 11);
         }
     }
     $y -= 6;
     $rgb($blue);
-    $put($m, $y, (string) $doc['number'], 13, 'F2');
+    $put($m, $y, (string) $doc['number'], 11, 'F2');
     $rgb('#000000');
-    $put($m, $y, 'Date ' . format_date((string) ($doc['date'] ?? '')), 10);
+    $put($m, $y, 'Date ' . format_date((string) ($doc['date'] ?? '')), 11);
     if (!empty($doc['due_date'])) {
-        $put($m, $y, 'Due ' . format_date((string) $doc['due_date']), 10);
+        $put($m, $y, 'Due ' . format_date((string) $doc['due_date']), 11);
     }
     $y -= 4;
     $rgb($navy);
-    $put($m, $y, 'To', 9, 'F2');
+    $put($m, $y, 'To', 11, 'F2');
     $rgb('#000000');
-    $put($m, $y, (string) ($doc['party_name'] ?? ''), 12, 'F2');
-    foreach (array_filter([
-        !empty($doc['party_contact']) ? 'Attn ' . $doc['party_contact'] : '',
-        (string) ($doc['party_address'] ?? ''),
-        party_place_line($doc),
-        trim(implode(' · ', array_filter([(string) ($doc['party_phone'] ?? ''), (string) ($doc['party_phone2'] ?? '')]))),
-        (string) ($doc['party_email'] ?? ''),
-        !empty($doc['party_tin']) ? 'TIN ' . $doc['party_tin'] : '',
-    ]) as $line) {
-        foreach (vellisys_pdf_wrap((string) $line, 90) as $wrap) {
-            $put($m, $y, $wrap, 9);
+    if (function_exists('document_party_to_lines')) {
+        foreach (document_party_to_lines($doc) as $line) {
+            $label = trim((string) ($line['label'] ?? ''));
+            $text = trim((string) ($line['value'] ?? ''));
+            $shown = $label !== '' ? ($label . ': ' . $text) : $text;
+            foreach (vellisys_pdf_wrap($shown, 90) as $wrap) {
+                $put($m, $y, $wrap, 11);
+            }
+        }
+    } else {
+        $put($m, $y, (string) ($doc['party_name'] ?? ''), 11, 'F2');
+        foreach (array_filter([
+            !empty($doc['party_contact']) ? 'Attn: ' . $doc['party_contact'] : '',
+            (string) ($doc['party_address'] ?? ''),
+            party_place_line($doc),
+            trim(implode(' · ', array_filter([(string) ($doc['party_phone'] ?? ''), (string) ($doc['party_phone2'] ?? '')]))),
+            (string) ($doc['party_email'] ?? ''),
+            !empty($doc['party_tin']) ? 'TIN: ' . $doc['party_tin'] : '',
+        ]) as $line) {
+            foreach (vellisys_pdf_wrap((string) $line, 90) as $wrap) {
+                $put($m, $y, $wrap, 11);
+            }
         }
     }
     $y -= 8;
@@ -159,13 +170,13 @@ function document_pdf_bytes(array $brand, array $doc): string
     if ($isLetter) {
         if (trim((string) ($doc['subject'] ?? '')) !== '') {
             $rgb($navy);
-            $put($m, $y, 'Subject: ' . (string) $doc['subject'], 12, 'F2');
+            $put($m, $y, 'Subject: ' . (string) $doc['subject'], 11, 'F2');
             $y -= 2;
         }
         $rgb('#000000');
         foreach (vellisys_pdf_wrap(html_to_plain((string) ($doc['body'] ?? '')), 88) as $wrap) {
             $ensure(16);
-            $put($m, $y, $wrap, 10);
+            $put($m, $y, $wrap, 11);
         }
     } else {
         $cols = [28, 120, 190, 40, 70, 70];
@@ -175,7 +186,7 @@ function document_pdf_bytes(array $brand, array $doc): string
         $add("1 1 1 rg\n");
         $x = $m + 4;
         foreach ($headers as $i => $label) {
-            $text($x, $y, $label, 8, 'F2');
+            $text($x, $y, $label, 11, 'F2');
             $x += $cols[$i];
         }
         $y -= 20;
@@ -186,17 +197,17 @@ function document_pdf_bytes(array $brand, array $doc): string
             $need = 16 + (count($descLines) - 1) * 11;
             $ensure($need);
             $rgb('#000000');
-            $text($m + 4, $y, (string) $n, 8);
-            $text($m + 4 + $cols[0], $y, mb_substr(line_item_name($item) ?: '-', 0, 22), 8, 'F2');
-            $text($m + 4 + $cols[0] + $cols[1], $y, $descLines[0], 8);
-            $text($m + 4 + $cols[0] + $cols[1] + $cols[2], $y, rtrim(rtrim(number_format((float) ($item['qty'] ?? 0), 2, '.', ''), '0'), '.') ?: '0', 8);
-            $text($m + 4 + $cols[0] + $cols[1] + $cols[2] + $cols[3], $y, money((float) ($item['rate'] ?? 0), $ccy), 8);
-            $text($m + 4 + $cols[0] + $cols[1] + $cols[2] + $cols[3] + $cols[4], $y, money(line_amount($item), $ccy), 8);
-            $y -= 12;
+            $text($m + 4, $y, (string) $n, 11);
+            $text($m + 4 + $cols[0], $y, mb_substr(line_item_name($item) ?: '-', 0, 22), 11, 'F2');
+            $text($m + 4 + $cols[0] + $cols[1], $y, $descLines[0], 11);
+            $text($m + 4 + $cols[0] + $cols[1] + $cols[2], $y, rtrim(rtrim(number_format((float) ($item['qty'] ?? 0), 2, '.', ''), '0'), '.') ?: '0', 11);
+            $text($m + 4 + $cols[0] + $cols[1] + $cols[2] + $cols[3], $y, money((float) ($item['rate'] ?? 0), $ccy), 11);
+            $text($m + 4 + $cols[0] + $cols[1] + $cols[2] + $cols[3] + $cols[4], $y, money(line_amount($item), $ccy), 11);
+            $y -= 14;
             for ($di = 1; $di < count($descLines); $di++) {
                 $ensure(14);
-                $text($m + 4 + $cols[0] + $cols[1], $y, $descLines[$di], 8);
-                $y -= 11;
+                $text($m + 4 + $cols[0] + $cols[1], $y, $descLines[$di], 11);
+                $y -= 13;
             }
             $add("0.85 0.87 0.9 RG\n");
             $stroke($m, $y + 8, $w - $m, $y + 8);
@@ -205,31 +216,31 @@ function document_pdf_bytes(array $brand, array $doc): string
         $y -= 8;
         $ensure(80);
         $rgb($navy);
-        $text($w - $m - 200, $y, 'Net', 10);
-        $text($w - $m - 90, $y, money((float) ($totals['net'] ?? 0), $ccy), 10, 'F2');
+        $text($w - $m - 200, $y, 'Net', 11);
+        $text($w - $m - 90, $y, money((float) ($totals['net'] ?? 0), $ccy), 11, 'F2');
         $y -= 14;
         if ((float) ($totals['vat'] ?? 0) > 0) {
-            $text($w - $m - 200, $y, tax_rate_label((float) ($doc['vat_rate'] ?? 0), $brand), 10);
-            $text($w - $m - 90, $y, money((float) $totals['vat'], $ccy), 10, 'F2');
+            $text($w - $m - 200, $y, tax_rate_label((float) ($doc['vat_rate'] ?? 0), $brand), 11);
+            $text($w - $m - 90, $y, money((float) $totals['vat'], $ccy), 11, 'F2');
             $y -= 14;
         }
-        $text($w - $m - 200, $y, 'Total', 12, 'F2');
-        $text($w - $m - 90, $y, money((float) ($totals['total'] ?? 0), $ccy), 12, 'F2');
+        $text($w - $m - 200, $y, 'Total', 11, 'F2');
+        $text($w - $m - 90, $y, money((float) ($totals['total'] ?? 0), $ccy), 11, 'F2');
         $y -= 16;
         if (($doc['kind'] ?? '') === 'receipt') {
             $s = $doc['settlement'] ?? [];
-            $text($w - $m - 200, $y, 'Received', 10);
-            $text($w - $m - 90, $y, money((float) ($s['received'] ?? $doc['paid'] ?? 0), $ccy), 10, 'F2');
+            $text($w - $m - 200, $y, 'Received', 11);
+            $text($w - $m - 90, $y, money((float) ($s['received'] ?? $doc['paid'] ?? 0), $ccy), 11, 'F2');
             $y -= 14;
-            $text($w - $m - 200, $y, 'Due', 10);
-            $text($w - $m - 90, $y, money((float) ($s['balance'] ?? $doc['balance'] ?? 0), $ccy), 10, 'F2');
+            $text($w - $m - 200, $y, 'Due', 11);
+            $text($w - $m - 90, $y, money((float) ($s['balance'] ?? $doc['balance'] ?? 0), $ccy), 11, 'F2');
             $y -= 16;
         } elseif (isset($doc['paid']) && (float) $doc['paid'] > 0) {
-            $text($w - $m - 200, $y, 'Paid', 10);
-            $text($w - $m - 90, $y, money((float) $doc['paid'], $ccy), 10, 'F2');
+            $text($w - $m - 200, $y, 'Paid', 11);
+            $text($w - $m - 90, $y, money((float) $doc['paid'], $ccy), 11, 'F2');
             $y -= 14;
-            $text($w - $m - 200, $y, 'Balance', 10);
-            $text($w - $m - 90, $y, money((float) ($doc['balance'] ?? 0), $ccy), 10, 'F2');
+            $text($w - $m - 200, $y, 'Balance', 11);
+            $text($w - $m - 90, $y, money((float) ($doc['balance'] ?? 0), $ccy), 11, 'F2');
             $y -= 16;
         }
     }
@@ -250,7 +261,7 @@ function document_pdf_bytes(array $brand, array $doc): string
         foreach ($extra as $block) {
             foreach (vellisys_pdf_wrap((string) $block, 90) as $wrap) {
                 $ensure(14);
-                $put($m, $y, $wrap, 9);
+                $put($m, $y, $wrap, 11);
             }
             $y -= 4;
         }

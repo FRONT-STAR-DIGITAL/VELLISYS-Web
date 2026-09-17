@@ -52,9 +52,32 @@
 .invoice-sheet.is-letter .estate-no span { display: none; }
 .d-meta-box { min-width: 220px; }
 .d-void { color: #b42318; font-weight: 700; }
-.d-party { padding: 14px 8px 20px; line-height: 1.55; }
-.d-party-block { display: grid; gap: 4px; }
-.d-party-addr { white-space: pre-wrap; line-height: 1.5; }
+.d-party { padding: 8px 4px 12px; line-height: 1.35; }
+.d-party-block {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 18px;
+  row-gap: 2px;
+  align-items: start;
+}
+.d-party-row {
+  min-width: 0;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.d-party-k {
+  font-weight: 700;
+  font-style: normal;
+}
+.d-party-v { font-weight: 400; }
+.d-party-span { grid-column: 1 / -1; }
+.d-party-addr { white-space: pre-wrap; line-height: 1.4; }
+.sheet-thermal .d-party-block,
+.sheet-twin .d-party-block {
+  grid-template-columns: 1fr;
+}
+.ledger-party span { display: block; margin-bottom: 4px; }
+.ledger-party .d-party-block { font-weight: 400; }
 .d-letter-body, .corr-body { line-height: 1.45; page-break-inside: auto; }
 .d-letter-body p.corr-p,
 .corr-body p.corr-p {
@@ -372,6 +395,7 @@
 .sheet-amber .bill-pill { background: var(--brand-2); color: var(--on-brand-2); }
 .bill-who { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; margin-bottom: 14px; font-size: 12px; }
 .bill-who .dot { padding: 4px 0; border-bottom: 1px dotted #999; }
+.bill-who .d-party-block { grid-column: 1 / -1; }
 .bill-foot { display: flex; justify-content: space-between; gap: 16px; margin-top: 12px; align-items: end; }
 .bill-words { flex: 1; font-size: 12px; }
 .bill-words span { display: block; font-size: 11px; color: #666; font-weight: 700; }
@@ -1238,4 +1262,12 @@
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+}
+
+.invoice-sheet {
+  font-size: 11px !important;
+  line-height: 1.4;
+}
+.invoice-sheet :where(*) {
+  font-size: 11px !important;
 }

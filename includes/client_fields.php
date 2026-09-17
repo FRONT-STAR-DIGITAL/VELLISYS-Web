@@ -349,14 +349,17 @@ function document_party_to_lines(array $doc): array
     $lines = [];
     $name = trim((string) ($doc['party_name'] ?? ''));
     if ($name !== '') {
-        $lines[] = ['label' => '', 'value' => $name, 'strong' => true];
+        $lines[] = ['label' => 'Name', 'value' => $name, 'span' => false];
     }
     $extras = document_party_extras($doc);
+    $addrLabel = function_exists('company_client_audience') && company_client_audience() === 'people'
+        ? 'Residence'
+        : 'Address';
     foreach (client_to_order() as $item) {
         if (($item['kind'] ?? '') === 'extra') {
             $shown = format_client_extra_value($item, $extras[$item['key']] ?? '');
             if ($shown !== '') {
-                $lines[] = ['label' => (string) $item['label'], 'value' => $shown, 'strong' => false];
+                $lines[] = ['label' => (string) $item['label'], 'value' => $shown, 'span' => ($item['type'] ?? '') === 'textarea' || ($item['type'] ?? '') === 'period'];
             }
             continue;
         }
@@ -364,18 +367,18 @@ function document_party_to_lines(array $doc): array
         [$label, $value] = match ($key) {
             'contact_person' => ['Attn', trim((string) ($doc['party_contact'] ?? ''))],
             'tin' => ['TIN', trim((string) ($doc['party_tin'] ?? ''))],
-            'phone' => ['', trim((string) ($doc['party_phone'] ?? ''))],
-            'phone2' => ['', trim((string) ($doc['party_phone2'] ?? ''))],
-            'email' => ['', trim((string) ($doc['party_email'] ?? ''))],
-            'address' => ['', trim((string) ($doc['party_address'] ?? ''))],
-            'city' => ['', trim((string) ($doc['party_city'] ?? $doc['city'] ?? ''))],
-            'country' => ['', trim((string) ($doc['party_country'] ?? $doc['country'] ?? ''))],
+            'phone' => ['Tel', trim((string) ($doc['party_phone'] ?? ''))],
+            'phone2' => ['Tel 2', trim((string) ($doc['party_phone2'] ?? ''))],
+            'email' => ['Email', trim((string) ($doc['party_email'] ?? ''))],
+            'address' => [$addrLabel, trim((string) ($doc['party_address'] ?? ''))],
+            'city' => ['City', trim((string) ($doc['party_city'] ?? $doc['city'] ?? ''))],
+            'country' => ['Country', trim((string) ($doc['party_country'] ?? $doc['country'] ?? ''))],
             default => ['', ''],
         };
         if ($value === '') {
             continue;
         }
-        $lines[] = ['label' => $label, 'value' => $value, 'strong' => false, 'nl' => $key === 'address'];
+        $lines[] = ['label' => $label, 'value' => $value, 'span' => $key === 'address', 'nl' => $key === 'address'];
     }
     return $lines;
 }
