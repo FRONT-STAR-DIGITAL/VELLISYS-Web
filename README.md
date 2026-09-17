@@ -159,7 +159,7 @@ export FOLIO_DB_PASS=
 
 The public website still opens on the **landing page**. Sign in at `login.php`. That page has the **Install the Vellisys app** button and the iPhone / computer instructions.
 
-When someone installs the web app, the icon opens **login**, not the landing page. After they sign in, they go to the desk as usual. A browser tab on the domain is unchanged. If the network drops, the app shows a Vellisys offline page with **Try again** instead of the browser’s default error screen (Chrome dinosaur, Safari cannot connect). They must have opened the site once while online so the page can be stored.
+When someone installs the web app, the icon opens **login**, not the landing page. After they sign in, they go to the desk as usual. A browser tab on the domain is unchanged. Waiting desk notices put a number on the installed app icon (iPhone, many Androids, Windows), like Gmail. If the network drops, the app shows a Vellisys offline page with **Try again** instead of the browser’s default error screen (Chrome dinosaur, Safari cannot connect). They must have opened the site once while online so the page can be stored.
 
 ## Hostinger (`www.vellisys.com`)
 

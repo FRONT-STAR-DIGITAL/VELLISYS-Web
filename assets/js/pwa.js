@@ -45,6 +45,24 @@
     }).catch(function () {});
   }
 
+  function applyAppBadge(count) {
+    var n = parseInt(count, 10);
+    if (!isFinite(n) || n < 0) n = 0;
+    try {
+      if (n > 0 && typeof navigator.setAppBadge === 'function') {
+        navigator.setAppBadge(n);
+      } else if (typeof navigator.clearAppBadge === 'function') {
+        navigator.clearAppBadge();
+      }
+    } catch (err) {}
+  }
+
+  if (html.hasAttribute('data-badge')) {
+    applyAppBadge(html.getAttribute('data-badge'));
+  } else {
+    applyAppBadge(0);
+  }
+
   var wrap = document.querySelector('[data-pwa-install]');
   if (!wrap) {
     return;

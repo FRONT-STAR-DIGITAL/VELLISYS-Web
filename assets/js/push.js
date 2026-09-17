@@ -99,6 +99,11 @@
           throw new Error((res && res.error) || 'Could not save this device.');
         }
         return showLocalItems(reg, res.items || []).then(function () {
+          try {
+            var n = (res.items || []).length;
+            if (n > 0 && navigator.setAppBadge) navigator.setAppBadge(n);
+            else if (navigator.clearAppBadge) navigator.clearAppBadge();
+          } catch (err) {}
           return res;
         });
       });

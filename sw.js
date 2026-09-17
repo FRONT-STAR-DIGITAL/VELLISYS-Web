@@ -1,5 +1,5 @@
 /* Vellisys service worker: cache shell assets, and a branded offline page for failed navigations. Never intercept form posts. */
-const CACHE = 'vellisys-shell-v7';
+const CACHE = 'vellisys-shell-v8';
 const OFFLINE_URL = new URL('offline.html', self.registration.scope).href;
 
 self.addEventListener('install', (event) => {
@@ -72,6 +72,15 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
+function applyPushBadge(count) {
+  var n = Number(count);
+  if (!isFinite(n) || n < 0) n = 0;
+  if (typeof self.registration.setAppBadge === 'function') {
+    return n > 0 ? self.registration.setAppBadge(n) : self.registration.clearAppBadge();
+  }
+  return Promise.resolve();
+}
+
 self.addEventListener('push', (event) => {
   let data = {};
   try {
@@ -89,7 +98,11 @@ self.addEventListener('push', (event) => {
     data: { url: data.url || '/dashboard.php' },
     vibrate: [140, 70, 140],
   };
-  event.waitUntil(self.registration.showNotification(title, opts));
+  const count = data.badge != null ? data.badge : 1;
+  event.waitUntil(Promise.all([
+    self.registration.showNotification(title, opts),
+    applyPushBadge(count),
+  ]));
 });
 
 self.addEventListener('notificationclick', (event) => {

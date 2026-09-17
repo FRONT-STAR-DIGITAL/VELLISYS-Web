@@ -117,6 +117,11 @@ function folio_html_root_attrs(): string
         if ($pub !== '') {
             $attrs .= ' data-vapid="' . h($pub) . '" data-push="' . h(url('push_subscribe.php')) . '" data-csrf="' . h(csrf_token()) . '"';
         }
+        $badge = 0;
+        if (function_exists('push_current_items_for_user')) {
+            $badge = count(push_current_items_for_user());
+        }
+        $attrs .= ' data-badge="' . (int) $badge . '"';
     }
     return $attrs;
 }
@@ -341,17 +346,19 @@ function push_audience_user_ids(string $scope, int $companyId = 0): array
 
 function push_deliver(array $userIds, string $title, string $body, string $url, string $tag): void
 {
-    $payload = [
-        'title' => $title,
-        'body' => $body,
-        'url' => $url,
-        'tag' => $tag !== '' ? $tag : 'vellisys',
-    ];
     foreach (array_unique(array_filter($userIds)) as $uid) {
         $uid = (int) $uid;
         if ($tag !== '' && push_already_sent($uid, $tag)) {
             continue;
         }
+        $owner = db_one('SELECT * FROM users WHERE id = ?', 'i', [$uid]);
+        $payload = [
+            'title' => $title,
+            'body' => $body,
+            'url' => $url,
+            'tag' => $tag !== '' ? $tag : 'vellisys',
+            'badge' => $owner ? count(push_current_items_for_user($owner)) : 1,
+        ];
         $sent = false;
         foreach (push_subscriptions_for_user($uid) as $sub) {
             if (push_send_to_subscription($sub, $payload)) {
@@ -446,7 +453,7 @@ function render_push_settings_card(): void
     ?>
     <section class="card settings-card" id="notifications">
       <h2><?= icon('bell') ?>Notifications</h2>
-      <p class="lede">Allow alerts on this phone or computer. Existing desk notices appear on the installed app, and new ones pop up like a WhatsApp message. Use the installed app for the most reliable alerts.</p>
+      <p class="lede">Allow alerts on this phone or computer. Existing desk notices appear on the installed app, and new ones pop up like a WhatsApp message. On the installed app, the home-screen icon also shows how many are waiting, the way Gmail does. Use the installed app for the most reliable alerts.</p>
       <div class="push-settings" data-push-panel>
         <p class="muted" data-push-status>Checking this device…</p>
         <div class="settings-account-actions">
