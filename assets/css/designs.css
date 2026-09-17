@@ -55,10 +55,18 @@
 .d-party { padding: 8px 4px 12px; line-height: 1.35; }
 .d-party-block {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  column-gap: 18px;
-  row-gap: 2px;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 28px;
   align-items: start;
+}
+.d-party-block.d-party-cols {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.d-party-col {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  align-content: start;
 }
 .d-party-row {
   min-width: 0;
@@ -70,8 +78,7 @@
   font-style: normal;
 }
 .d-party-v { font-weight: 400; }
-.d-party-span { grid-column: 1 / -1; }
-.d-party-addr { white-space: pre-wrap; line-height: 1.4; }
+.d-party-addr { white-space: pre-wrap; line-height: 1.35; }
 .sheet-thermal .d-party-block,
 .sheet-twin .d-party-block {
   grid-template-columns: 1fr;
@@ -1275,7 +1282,10 @@
   line-height: var(--sheet-line) !important;
 }
 .invoice-sheet .d-party-block {
-  row-gap: 3px;
+  column-gap: 28px;
+}
+.invoice-sheet .d-party-col {
+  gap: 3px;
 }
 .invoice-sheet .d-party {
   padding-top: 10px;

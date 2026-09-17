@@ -204,17 +204,23 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
 function render_party_contact(array $doc): void
 {
     $lines = function_exists('document_party_to_lines') ? document_party_to_lines($doc) : [];
-    echo '<div class="d-party-block">';
-    foreach ($lines as $line) {
-        $label = trim((string) ($line['label'] ?? ''));
-        $text = (string) ($line['value'] ?? '');
-        $span = !empty($line['span']) || !empty($line['nl']);
-        $cls = 'd-party-row' . ($span ? ' d-party-span' : '') . (!empty($line['nl']) ? ' d-party-addr' : '');
-        echo '<div class="' . $cls . '">';
-        if ($label !== '') {
-            echo '<b class="d-party-k">' . h($label) . ':</b> ';
+    $n = count($lines);
+    $split = $n > 1 ? (int) ceil($n / 2) : $n;
+    $cols = $n > 1 ? [array_slice($lines, 0, $split), array_slice($lines, $split)] : [$lines];
+    echo '<div class="d-party-block' . ($n > 1 ? ' d-party-cols' : '') . '">';
+    foreach ($cols as $col) {
+        echo '<div class="d-party-col">';
+        foreach ($col as $line) {
+            $label = trim((string) ($line['label'] ?? ''));
+            $text = (string) ($line['value'] ?? '');
+            $cls = 'd-party-row' . (!empty($line['nl']) ? ' d-party-addr' : '');
+            echo '<div class="' . $cls . '">';
+            if ($label !== '') {
+                echo '<b class="d-party-k">' . h($label) . ':</b> ';
+            }
+            echo '<span class="d-party-v">' . (!empty($line['nl']) ? nl2br(h($text)) : h($text)) . '</span>';
+            echo '</div>';
         }
-        echo '<span class="d-party-v">' . (!empty($line['nl']) ? nl2br(h($text)) : h($text)) . '</span>';
         echo '</div>';
     }
     echo '</div>';
