@@ -227,6 +227,7 @@ function format_letter_html(string $body): string
         return '';
     }
     $html = preg_replace('/<p(\s|>)/i', '<p class="corr-p"$1', $html) ?? $html;
+    $html = preg_replace('/font-size\s*:\s*[^;"]+;?/i', '', $html) ?? $html;
     if (!preg_match('/<(p|ul|ol|div)\b/i', $html)) {
         $html = '<p class="corr-p">' . $html . '</p>';
     }
