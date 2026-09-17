@@ -73,12 +73,15 @@
   font-weight: 400;
   overflow-wrap: anywhere;
 }
+.d-party-v,
+.d-party-addr,
 .d-party-k {
-  font-weight: 700;
-  font-style: normal;
+  font-size: 12px;
+  font-weight: inherit;
 }
+.d-party-k { font-weight: 700; }
 .d-party-v { font-weight: 400; }
-.d-party-addr { white-space: pre-wrap; line-height: 1.35; }
+.d-party-addr { white-space: pre-wrap; }
 .sheet-thermal .d-party-block,
 .sheet-twin .d-party-block {
   grid-template-columns: 1fr;
@@ -251,7 +254,13 @@
   padding: 0 4px 6px 0;
   border-bottom: 1px solid #1a1a1a;
 }
-.d-lines td.desc { white-space: pre-wrap; word-break: break-word; line-height: 1.45; }
+.d-lines td.desc,
+.d-lines .twin-desc {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  font-weight: 400;
+}
 /* Receipt settlement: amount due always below amount received, never side-by-side */
 .d-rd {
   display: block !important;
@@ -1276,8 +1285,25 @@
   --sheet-section: 18px;
   font-size: 12px !important;
   line-height: var(--sheet-line) !important;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
-.invoice-sheet :where(*) {
+.invoice-sheet * {
+  font-size: 12px !important;
+  line-height: var(--sheet-line) !important;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+.invoice-sheet .d-party-k,
+.invoice-sheet .d-party-v,
+.invoice-sheet .d-party-addr,
+.invoice-sheet .d-party-row,
+.invoice-sheet .d-lines,
+.invoice-sheet .d-lines th,
+.invoice-sheet .d-lines td,
+.invoice-sheet .d-lines td.desc,
+.invoice-sheet .d-lines .item,
+.invoice-sheet .d-lines .twin-desc {
   font-size: 12px !important;
   line-height: var(--sheet-line) !important;
 }

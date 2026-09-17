@@ -359,7 +359,7 @@ function document_party_to_lines(array $doc): array
         if (($item['kind'] ?? '') === 'extra') {
             $shown = format_client_extra_value($item, $extras[$item['key']] ?? '');
             if ($shown !== '') {
-                $lines[] = ['label' => (string) $item['label'], 'value' => $shown, 'span' => ($item['type'] ?? '') === 'textarea' || ($item['type'] ?? '') === 'period'];
+                $lines[] = ['label' => (string) $item['label'], 'value' => $shown, 'nl' => str_contains($shown, "\n")];
             }
             continue;
         }
@@ -378,7 +378,7 @@ function document_party_to_lines(array $doc): array
         if ($value === '') {
             continue;
         }
-        $lines[] = ['label' => $label, 'value' => $value, 'span' => $key === 'address', 'nl' => $key === 'address'];
+            $lines[] = ['label' => $label, 'value' => $value, 'nl' => $key === 'address' && str_contains($value, "\n")];
     }
     return $lines;
 }
