@@ -203,6 +203,23 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
 
 function render_party_contact(array $doc): void
 {
+    if (function_exists('document_party_to_lines')) {
+        $lines = document_party_to_lines($doc);
+        echo '<div class="d-party-block">';
+        foreach ($lines as $line) {
+            $text = (string) $line['value'];
+            $label = (string) ($line['label'] ?? '');
+            $shown = $label !== '' ? ($label . ': ' . $text) : $text;
+            if (!empty($line['strong'])) {
+                echo '<strong>' . h($text) . '</strong>';
+                continue;
+            }
+            $cls = !empty($line['nl']) ? ' class="d-party-addr"' : '';
+            echo '<div' . $cls . '>' . (!empty($line['nl']) ? nl2br(h($shown)) : h($shown)) . '</div>';
+        }
+        echo '</div>';
+        return;
+    }
     $phones = array_values(array_filter([
         trim((string) ($doc['party_phone'] ?? '')),
         trim((string) ($doc['party_phone2'] ?? '')),
@@ -220,17 +237,6 @@ function render_party_contact(array $doc): void
       <?php if ($phones): ?><div><?= h(implode(' · ', $phones)) ?></div><?php endif; ?>
       <?php if ($email !== ''): ?><div><?= h($email) ?></div><?php endif; ?>
       <?php if (!empty($doc['party_tin'])): ?><div>TIN <?= h((string) $doc['party_tin']) ?></div><?php endif; ?>
-      <?php
-        $extras = function_exists('document_party_extras') ? document_party_extras($doc) : [];
-        $fields = function_exists('company_client_fields') ? company_client_fields()['extras'] : [];
-        foreach ($fields as $field) {
-            $shown = format_client_extra_value($field, $extras[$field['key']] ?? '');
-            if ($shown === '') {
-                continue;
-            }
-            echo '<div>' . h($field['label']) . ': ' . h($shown) . '</div>';
-        }
-      ?>
     </div>
     <?php
 }

@@ -312,6 +312,9 @@ function user_can_open(string $script, string $kind = ''): bool
     if (in_array($script, $pnlScripts, true)) {
         return company_pnl_enabled() && is_desk_admin();
     }
+    if (in_array($script, ['search.php', 'search_api.php'], true)) {
+        return true;
+    }
     if (in_array($script, ['stock.php', 'sale.php', 'stock_search.php'], true)) {
         if (!company_stock_enabled()) {
             return false;

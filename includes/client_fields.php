@@ -90,10 +90,12 @@ function default_client_core_fields(string $audience): array
 function default_client_fields(string $audience = 'both'): array
 {
     $audience = normalize_client_audience($audience);
+    $core = default_client_core_fields($audience);
     return [
         'audience' => $audience,
-        'core' => default_client_core_fields($audience),
+        'core' => $core,
         'extras' => [],
+        'order' => array_map(static fn (string $k): array => ['kind' => 'core', 'key' => $k], $core),
     ];
 }
 
@@ -151,6 +153,63 @@ function parse_client_fields(mixed $raw, string $audienceFallback = 'both'): arr
         ];
     }
     $base['extras'] = $extras;
+    $order = [];
+    $orderIn = $data['order'] ?? null;
+    if (is_array($orderIn) && $orderIn !== []) {
+        $extraByKey = [];
+        foreach ($extras as $ex) {
+            $extraByKey[$ex['key']] = $ex;
+        }
+        $coreFromOrder = [];
+        $extrasFromOrder = [];
+        $seen = [];
+        foreach ($orderIn as $i => $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $kind = (($row['kind'] ?? '') === 'extra') ? 'extra' : 'core';
+            $key = trim((string) ($row['key'] ?? ''));
+            if ($kind === 'core') {
+                if (!in_array($key, $allowedCore, true) || isset($seen['c' . $key])) {
+                    continue;
+                }
+                $seen['c' . $key] = true;
+                $coreFromOrder[] = $key;
+                $order[] = ['kind' => 'core', 'key' => $key];
+                continue;
+            }
+            $label = trim((string) ($row['label'] ?? ($extraByKey[$key]['label'] ?? '')));
+            $type = strtolower(trim((string) ($row['type'] ?? ($extraByKey[$key]['type'] ?? 'text'))));
+            if ($label === '') {
+                continue;
+            }
+            if (!isset(client_extra_field_types()[$type])) {
+                $type = 'text';
+            }
+            if ($key === '') {
+                $key = strtolower(trim((string) preg_replace('/[^a-z0-9]+/i', '_', $label), '_'));
+            }
+            $key = strtolower(trim((string) preg_replace('/[^a-z0-9_]+/i', '_', $key), '_'));
+            if ($key === '' || isset($seen['e' . $key]) || in_array($key, $allowedCore, true)) {
+                $key = 'field_' . ($i + 1);
+            }
+            $seen['e' . $key] = true;
+            $item = ['key' => mb_substr($key, 0, 40), 'label' => mb_substr($label, 0, 80), 'type' => $type];
+            $extrasFromOrder[] = $item;
+            $order[] = $item + ['kind' => 'extra'];
+        }
+        $base['core'] = $coreFromOrder;
+        $base['extras'] = $extrasFromOrder;
+        $base['order'] = $order;
+        return $base;
+    }
+    foreach ($base['core'] as $key) {
+        $order[] = ['kind' => 'core', 'key' => $key];
+    }
+    foreach ($extras as $ex) {
+        $order[] = $ex + ['kind' => 'extra'];
+    }
+    $base['order'] = $order;
     return $base;
 }
 
@@ -174,6 +233,22 @@ function company_uses_core_client_field(string $key, ?array $company = null): bo
 function posted_client_fields(): array
 {
     $audience = normalize_client_audience(post('client_audience') ?: 'both');
+    $kinds = $_POST['to_kind'] ?? null;
+    if (isset($_POST['to_order_present']) || (is_array($kinds) && $kinds !== [])) {
+        $order = [];
+        foreach ((array) $kinds as $i => $kind) {
+            $order[] = [
+                'kind' => (string) $kind,
+                'key' => (string) ($_POST['to_key'][$i] ?? ''),
+                'label' => (string) ($_POST['to_label'][$i] ?? ''),
+                'type' => (string) ($_POST['to_type'][$i] ?? 'text'),
+            ];
+        }
+        return parse_client_fields([
+            'audience' => $audience,
+            'order' => $order,
+        ], $audience);
+    }
     $corePosted = $_POST['client_core'] ?? null;
     if (!is_array($corePosted)) {
         $core = default_client_core_fields($audience);
@@ -199,6 +274,12 @@ function posted_client_fields(): array
         'core' => $core,
         'extras' => $extras,
     ], $audience);
+}
+
+function client_to_order(?array $cfg = null): array
+{
+    $cfg = $cfg ?? company_client_fields();
+    return is_array($cfg['order'] ?? null) ? $cfg['order'] : default_client_fields($cfg['audience'] ?? 'both')['order'];
 }
 
 function posted_client_fields_json(): string
@@ -261,6 +342,42 @@ function document_party_extras(array $doc): array
         return $fromDoc;
     }
     return parse_party_profile($doc['party_profile'] ?? '');
+}
+
+function document_party_to_lines(array $doc): array
+{
+    $lines = [];
+    $name = trim((string) ($doc['party_name'] ?? ''));
+    if ($name !== '') {
+        $lines[] = ['label' => '', 'value' => $name, 'strong' => true];
+    }
+    $extras = document_party_extras($doc);
+    foreach (client_to_order() as $item) {
+        if (($item['kind'] ?? '') === 'extra') {
+            $shown = format_client_extra_value($item, $extras[$item['key']] ?? '');
+            if ($shown !== '') {
+                $lines[] = ['label' => (string) $item['label'], 'value' => $shown, 'strong' => false];
+            }
+            continue;
+        }
+        $key = (string) ($item['key'] ?? '');
+        [$label, $value] = match ($key) {
+            'contact_person' => ['Attn', trim((string) ($doc['party_contact'] ?? ''))],
+            'tin' => ['TIN', trim((string) ($doc['party_tin'] ?? ''))],
+            'phone' => ['', trim((string) ($doc['party_phone'] ?? ''))],
+            'phone2' => ['', trim((string) ($doc['party_phone2'] ?? ''))],
+            'email' => ['', trim((string) ($doc['party_email'] ?? ''))],
+            'address' => ['', trim((string) ($doc['party_address'] ?? ''))],
+            'city' => ['', trim((string) ($doc['party_city'] ?? $doc['city'] ?? ''))],
+            'country' => ['', trim((string) ($doc['party_country'] ?? $doc['country'] ?? ''))],
+            default => ['', ''],
+        };
+        if ($value === '') {
+            continue;
+        }
+        $lines[] = ['label' => $label, 'value' => $value, 'strong' => false, 'nl' => $key === 'address'];
+    }
+    return $lines;
 }
 
 function format_client_extra_value(array $field, mixed $value): string
@@ -442,20 +559,57 @@ function render_nature_of_business_field(string $value, string $id = 'nature_of_
     <?php
 }
 
+function render_to_order_row(array $item): void
+{
+    $kind = (($item['kind'] ?? '') === 'extra') ? 'extra' : 'core';
+    $key = (string) ($item['key'] ?? '');
+    $cores = client_core_field_defs();
+    $label = $kind === 'core' ? ($cores[$key] ?? $key) : (string) ($item['label'] ?? '');
+    $type = (string) ($item['type'] ?? 'text');
+    ?>
+    <div class="to-order-row" data-to-order-row data-to-kind="<?= h($kind) ?>">
+      <div class="to-order-move">
+        <button class="btn ghost sm to-order-btn" type="button" data-to-move="-1" aria-label="Move up"><?= icon('chevron-up', 16) ?></button>
+        <button class="btn ghost sm to-order-btn" type="button" data-to-move="1" aria-label="Move down"><?= icon('chevron-down', 16) ?></button>
+      </div>
+      <input type="hidden" name="to_kind[]" value="<?= h($kind) ?>">
+      <?php if ($kind === 'core'): ?>
+        <input type="hidden" name="to_key[]" value="<?= h($key) ?>">
+        <input type="hidden" name="to_label[]" value="<?= h($label) ?>">
+        <input type="hidden" name="to_type[]" value="text">
+        <span class="to-order-label"><?= h($label) ?></span>
+        <span class="to-order-kind">Usual</span>
+      <?php else: ?>
+        <input type="hidden" name="to_key[]" value="<?= h($key) ?>">
+        <input name="to_label[]" value="<?= h($label) ?>" placeholder="e.g. Vehicle no" aria-label="Field label">
+        <select name="to_type[]" aria-label="Field type">
+          <?php foreach (client_extra_field_types() as $tk => $tl): ?>
+            <option value="<?= h($tk) ?>" <?= $type === $tk ? 'selected' : '' ?>><?= h($tl) ?></option>
+          <?php endforeach; ?>
+        </select>
+      <?php endif; ?>
+      <button class="btn ghost sm to-order-remove" type="button" data-to-remove aria-label="Remove"><?= icon('x', 14) ?></button>
+    </div>
+    <?php
+}
+
 function render_client_fields_admin(?array $company = null): void
 {
     $cfg = $company ? company_client_fields($company) : posted_client_fields();
     if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !$company) {
         $cfg = default_client_fields(post('client_audience') ?: 'both');
     }
-    $extras = $cfg['extras'];
-    while (count($extras) < 2) {
-        $extras[] = ['key' => '', 'label' => '', 'type' => 'text'];
+    $order = client_to_order($cfg);
+    $usedCores = [];
+    foreach ($order as $item) {
+        if (($item['kind'] ?? '') === 'core') {
+            $usedCores[] = (string) $item['key'];
+        }
     }
     ?>
     <fieldset class="client-fields-box">
       <legend>Client details on the To section</legend>
-      <p class="hint">Shops, driving schools and law firms do not collect the same facts. Tick the usual fields, then type any extra labels this desk should fill on each sheet (occupation, vehicle no, period, fee terms…).</p>
+      <p class="hint">Name is always first. Add the fields this desk fills, then move a row up or down so the sheet matches how they write (driving school: date, tel, occupation, residence…).</p>
       <label for="client_audience">Who they invoice</label>
       <select id="client_audience" name="client_audience">
         <?php foreach (client_audience_options() as $k => $label): ?>
@@ -463,30 +617,23 @@ function render_client_fields_admin(?array $company = null): void
         <?php endforeach; ?>
       </select>
       <p class="hint">Pick both when a firm bills companies and individuals. The desk then chooses person or organisation on each client.</p>
-      <p class="hint" style="margin-top:10px"><strong>Standard fields</strong> on the document To section (name is always there).</p>
-      <div class="kinds-grid">
-        <?php foreach (client_core_field_defs() as $key => $label): ?>
-          <label class="kinds-opt">
-            <input type="checkbox" name="client_core[]" value="<?= h($key) ?>" <?= in_array($key, $cfg['core'], true) ? 'checked' : '' ?>>
-            <span><?= h($label) ?></span>
-          </label>
+      <p class="hint" style="margin-top:10px"><strong>Order on the document</strong></p>
+      <input type="hidden" name="to_order_present" value="1">
+      <div class="to-order-list" data-client-fields data-to-order>
+        <?php foreach ($order as $item): ?>
+          <?php render_to_order_row($item); ?>
         <?php endforeach; ?>
       </div>
-      <p class="hint" style="margin-top:12px"><strong>Open fields</strong> — type the label the company needs. Values fill on the sheet and stay with the client for next time.</p>
-      <div class="custom-fields" data-client-fields>
-        <?php foreach ($extras as $field): ?>
-          <div class="custom-field-row client-extra-row">
-            <input name="client_extra_label[]" value="<?= h($field['label']) ?>" placeholder="e.g. Vehicle no">
-            <select name="client_extra_type[]">
-              <?php foreach (client_extra_field_types() as $tk => $tl): ?>
-                <option value="<?= h($tk) ?>" <?= ($field['type'] ?? 'text') === $tk ? 'selected' : '' ?>><?= h($tl) ?></option>
-              <?php endforeach; ?>
-            </select>
-            <input type="hidden" name="client_extra_key[]" value="<?= h($field['key']) ?>">
-          </div>
-        <?php endforeach; ?>
+      <div class="to-order-add">
+        <label class="sr-only" for="to_add_core">Add a usual field</label>
+        <select id="to_add_core" data-to-add-core>
+          <option value="">Add usual field…</option>
+          <?php foreach (client_core_field_defs() as $key => $label): ?>
+            <option value="<?= h($key) ?>" <?= in_array($key, $usedCores, true) ? 'disabled' : '' ?>><?= h($label) ?></option>
+          <?php endforeach; ?>
+        </select>
+        <button class="btn ghost sm" type="button" data-add-client-field><?= icon('plus', 14) ?>Add open field</button>
       </div>
-      <button class="btn ghost sm" type="button" data-add-client-field><?= icon('plus', 14) ?>Add field</button>
     </fieldset>
     <?php
 }
@@ -532,6 +679,79 @@ function render_to_extra_input(array $field, mixed $value): void
     <?php
 }
 
+function render_to_core_input(string $key, ?array $party): void
+{
+    $party = $party ?? [];
+    $val = static fn (string $col): string => (string) ($party[$col] ?? '');
+    switch ($key) {
+        case 'contact_person':
+            ?>
+            <div>
+              <label for="to_contact">Contact person</label>
+              <input id="to_contact" name="to_contact" value="<?= h($val('contact_person')) ?>">
+            </div>
+            <?php
+            return;
+        case 'tin':
+            ?>
+            <div>
+              <label for="to_tin">TIN</label>
+              <input id="to_tin" name="to_tin" value="<?= h($val('tin')) ?>">
+            </div>
+            <?php
+            return;
+        case 'address':
+            ?>
+            <div>
+              <label for="to_address"><?= company_client_audience() === 'people' ? 'Residence / address' : 'Address' ?></label>
+              <input id="to_address" name="to_address" value="<?= h($val('address')) ?>">
+            </div>
+            <?php
+            return;
+        case 'phone':
+            ?>
+            <div>
+              <label for="to_phone">Tel</label>
+              <input id="to_phone" name="to_phone" value="<?= h($val('phone')) ?>">
+            </div>
+            <?php
+            return;
+        case 'phone2':
+            ?>
+            <div>
+              <label for="to_phone2">Second phone</label>
+              <input id="to_phone2" name="to_phone2" value="<?= h($val('phone2')) ?>">
+            </div>
+            <?php
+            return;
+        case 'email':
+            ?>
+            <div>
+              <label for="to_email">Email</label>
+              <input id="to_email" name="to_email" type="email" value="<?= h($val('email')) ?>">
+            </div>
+            <?php
+            return;
+        case 'city':
+            ?>
+            <div>
+              <label for="to_city">City</label>
+              <input id="to_city" name="to_city" value="<?= h($val('city')) ?>">
+            </div>
+            <?php
+            return;
+        case 'country':
+            ?>
+            <div>
+              <label for="to_country">Country</label>
+              <input id="to_country" name="to_country" value="<?= h($val('country')) ?>" placeholder="Leave blank if local">
+              <p class="hint">Fill this only for a foreign client. Local sheets do not show a USD conversion.</p>
+            </div>
+            <?php
+            return;
+    }
+}
+
 function render_document_to_fields(?array $party, ?array $doc = null): void
 {
     $cfg = company_client_fields();
@@ -572,57 +792,12 @@ function render_document_to_fields(?array $party, ?array $doc = null): void
           </div>
           <p class="hint">Choose a saved client or type a new one. They are added when you save.</p>
         </div>
-        <?php if (company_uses_core_client_field('contact_person')): ?>
-          <div>
-            <label for="to_contact">Contact person</label>
-            <input id="to_contact" name="to_contact" value="<?= h((string) ($party['contact_person'] ?? '')) ?>">
-          </div>
-        <?php endif; ?>
-        <?php if (company_uses_core_client_field('tin')): ?>
-          <div>
-            <label for="to_tin">TIN</label>
-            <input id="to_tin" name="to_tin" value="<?= h((string) ($party['tin'] ?? '')) ?>">
-          </div>
-        <?php endif; ?>
-        <?php if (company_uses_core_client_field('address')): ?>
-          <div>
-            <label for="to_address"><?= company_client_audience() === 'people' ? 'Residence / address' : 'Address' ?></label>
-            <input id="to_address" name="to_address" value="<?= h((string) ($party['address'] ?? '')) ?>">
-          </div>
-        <?php endif; ?>
-        <?php if (company_uses_core_client_field('phone')): ?>
-          <div>
-            <label for="to_phone">Tel</label>
-            <input id="to_phone" name="to_phone" value="<?= h((string) ($party['phone'] ?? '')) ?>">
-          </div>
-        <?php endif; ?>
-        <?php if (company_uses_core_client_field('phone2')): ?>
-          <div>
-            <label for="to_phone2">Second phone</label>
-            <input id="to_phone2" name="to_phone2" value="<?= h((string) ($party['phone2'] ?? '')) ?>">
-          </div>
-        <?php endif; ?>
-        <?php if (company_uses_core_client_field('email')): ?>
-          <div>
-            <label for="to_email">Email</label>
-            <input id="to_email" name="to_email" type="email" value="<?= h((string) ($party['email'] ?? '')) ?>">
-          </div>
-        <?php endif; ?>
-        <?php if (company_uses_core_client_field('city')): ?>
-          <div>
-            <label for="to_city">City</label>
-            <input id="to_city" name="to_city" value="<?= h((string) ($party['city'] ?? '')) ?>">
-          </div>
-        <?php endif; ?>
-        <?php if (company_uses_core_client_field('country')): ?>
-          <div>
-            <label for="to_country">Country</label>
-            <input id="to_country" name="to_country" value="<?= h((string) ($party['country'] ?? '')) ?>" placeholder="Leave blank if local">
-            <p class="hint">Fill this only for a foreign client. Local sheets do not show a USD conversion.</p>
-          </div>
-        <?php endif; ?>
-        <?php foreach ($cfg['extras'] as $field): ?>
-          <?php render_to_extra_input($field, $profile[$field['key']] ?? ''); ?>
+        <?php foreach (client_to_order($cfg) as $item): ?>
+          <?php if (($item['kind'] ?? '') === 'extra'): ?>
+            <?php render_to_extra_input($item, $profile[$item['key']] ?? ''); ?>
+          <?php else: ?>
+            <?php render_to_core_input((string) ($item['key'] ?? ''), $party); ?>
+          <?php endif; ?>
         <?php endforeach; ?>
       </div>
     </div>

@@ -274,26 +274,34 @@ document.addEventListener('click', function (e) {
     if (inp) inp.focus();
     return;
   }
+  var toOrder = document.querySelector('[data-to-order]');
   var addClientField = e.target.closest('[data-add-client-field]');
-  if (addClientField) {
+  if (addClientField && toOrder) {
     e.preventDefault();
-    var box = document.querySelector('[data-client-fields]');
-    if (!box) return;
-    var row = document.createElement('div');
-    row.className = 'custom-field-row client-extra-row';
-    row.innerHTML = '<input name="client_extra_label[]" placeholder="e.g. Vehicle no">' +
-      '<select name="client_extra_type[]">' +
-      '<option value="text">Short text</option>' +
-      '<option value="tel">Phone</option>' +
-      '<option value="date">Date</option>' +
-      '<option value="number">Number</option>' +
-      '<option value="textarea">Long text</option>' +
-      '<option value="period">Period (from–to)</option>' +
-      '</select>' +
-      '<input type="hidden" name="client_extra_key[]" value="">';
-    box.appendChild(row);
-    var inp2 = row.querySelector('input');
+    toOrder.appendChild(buildToOrderExtraRow());
+    var inp2 = toOrder.lastElementChild && toOrder.lastElementChild.querySelector('input[name="to_label[]"]');
     if (inp2) inp2.focus();
+    return;
+  }
+  var moveTo = e.target.closest('[data-to-move]');
+  if (moveTo && toOrder) {
+    e.preventDefault();
+    var row = moveTo.closest('[data-to-order-row]');
+    if (!row) return;
+    var dir = parseInt(moveTo.getAttribute('data-to-move'), 10) || 0;
+    if (dir < 0 && row.previousElementSibling) {
+      toOrder.insertBefore(row, row.previousElementSibling);
+    } else if (dir > 0 && row.nextElementSibling) {
+      toOrder.insertBefore(row.nextElementSibling, row);
+    }
+    return;
+  }
+  var removeTo = e.target.closest('[data-to-remove]');
+  if (removeTo && toOrder) {
+    e.preventDefault();
+    var gone = removeTo.closest('[data-to-order-row]');
+    if (gone) gone.remove();
+    syncToCoreSelect();
     return;
   }
   var qtyBtn = e.target.closest('[data-qty-delta]');
@@ -1588,3 +1596,169 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
     if (e.key === 'Escape') closeTutLightbox();
   });
 })();
+
+function toOrderMoveBtns() {
+  return '<div class="to-order-move">' +
+    '<button class="btn ghost sm to-order-btn" type="button" data-to-move="-1" aria-label="Move up">' +
+    '<svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg></button>' +
+    '<button class="btn ghost sm to-order-btn" type="button" data-to-move="1" aria-label="Move down">' +
+    '<svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>' +
+    '</div>';
+}
+
+function toOrderRemoveBtn() {
+  return '<button class="btn ghost sm to-order-remove" type="button" data-to-remove aria-label="Remove">' +
+    '<svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>';
+}
+
+function buildToOrderExtraRow() {
+  var row = document.createElement('div');
+  row.className = 'to-order-row';
+  row.setAttribute('data-to-order-row', '');
+  row.setAttribute('data-to-kind', 'extra');
+  row.innerHTML = toOrderMoveBtns() +
+    '<input type="hidden" name="to_kind[]" value="extra">' +
+    '<input type="hidden" name="to_key[]" value="">' +
+    '<input name="to_label[]" value="" placeholder="e.g. Vehicle no" aria-label="Field label">' +
+    '<select name="to_type[]" aria-label="Field type">' +
+    '<option value="text">Short text</option>' +
+    '<option value="tel">Phone</option>' +
+    '<option value="date">Date</option>' +
+    '<option value="number">Number</option>' +
+    '<option value="textarea">Long text</option>' +
+    '<option value="period">Period (from–to)</option>' +
+    '</select>' +
+    toOrderRemoveBtn();
+  return row;
+}
+
+function buildToOrderCoreRow(key, label) {
+  var row = document.createElement('div');
+  row.className = 'to-order-row';
+  row.setAttribute('data-to-order-row', '');
+  row.setAttribute('data-to-kind', 'core');
+  var esc = function (s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  };
+  row.innerHTML = toOrderMoveBtns() +
+    '<input type="hidden" name="to_kind[]" value="core">' +
+    '<input type="hidden" name="to_key[]" value="' + esc(key) + '">' +
+    '<input type="hidden" name="to_label[]" value="' + esc(label) + '">' +
+    '<input type="hidden" name="to_type[]" value="text">' +
+    '<span class="to-order-label">' + esc(label) + '</span>' +
+    '<span class="to-order-kind">Usual</span>' +
+    toOrderRemoveBtn();
+  return row;
+}
+
+function syncToCoreSelect() {
+  var used = {};
+  document.querySelectorAll('[data-to-order-row][data-to-kind="core"] input[name="to_key[]"]').forEach(function (el) {
+    used[el.value] = true;
+  });
+  var sel = document.querySelector('[data-to-add-core]');
+  if (!sel) return;
+  Array.prototype.forEach.call(sel.options, function (opt) {
+    if (!opt.value) return;
+    opt.disabled = !!used[opt.value];
+  });
+}
+
+document.querySelectorAll('[data-to-add-core]').forEach(function (sel) {
+  sel.addEventListener('change', function () {
+    var key = sel.value;
+    if (!key) return;
+    var opt = sel.options[sel.selectedIndex];
+    var box = document.querySelector('[data-to-order]');
+    if (box) box.appendChild(buildToOrderCoreRow(key, opt.textContent || key));
+    sel.value = '';
+    syncToCoreSelect();
+  });
+});
+
+(function () {
+  var wrap = document.querySelector('[data-top-search]');
+  if (!wrap) return;
+  var form = wrap.querySelector('[data-search-form]');
+  var input = wrap.querySelector('[data-search-input]');
+  var live = wrap.querySelector('[data-search-live]');
+  var toggle = wrap.querySelector('[data-search-toggle]');
+  var closeBtn = wrap.querySelector('[data-search-close]');
+  var timer = 0;
+  function apiUrl() {
+    var action = (form && form.getAttribute('action')) || 'search.php';
+    return action.replace(/search\.php.*$/, 'search_api.php');
+  }
+  function openSearch() {
+    wrap.classList.add('is-open');
+    if (input) {
+      input.focus();
+      input.select();
+    }
+  }
+  function closeSearch() {
+    wrap.classList.remove('is-open');
+    if (live) {
+      live.hidden = true;
+      live.innerHTML = '';
+    }
+  }
+  if (toggle) {
+    toggle.addEventListener('click', function () {
+      if (wrap.classList.contains('is-open')) closeSearch();
+      else openSearch();
+    });
+  }
+  if (closeBtn) closeBtn.addEventListener('click', closeSearch);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeSearch();
+  });
+  document.addEventListener('click', function (e) {
+    if (!wrap.contains(e.target)) {
+      if (live) live.hidden = true;
+    }
+  });
+  function renderHits(data) {
+    if (!live) return;
+    var hits = (data && data.hits) || [];
+    if (!hits.length) {
+      live.innerHTML = '<p class="muted">No matches. Press Enter to search the full list.</p>';
+      live.hidden = false;
+      return;
+    }
+    var html = '<ul>';
+    hits.forEach(function (hit) {
+      var badge = hit.badge ? '<em>' + String(hit.badge).replace(/</g, '') + '</em>' : '';
+      html += '<li><a href="' + String(hit.href || '#').replace(/"/g, '') + '"><strong>' +
+        String(hit.title || '').replace(/</g, '&lt;') + '</strong><span>' +
+        String(hit.subtitle || '').replace(/</g, '&lt;') + '</span>' + badge + '</a></li>';
+    });
+    html += '</ul>';
+    live.innerHTML = html;
+    live.hidden = false;
+  }
+  if (input) {
+    input.addEventListener('input', function () {
+      var q = input.value.trim();
+      window.clearTimeout(timer);
+      if (q.length < 2) {
+        if (live) {
+          live.hidden = true;
+          live.innerHTML = '';
+        }
+        return;
+      }
+      timer = window.setTimeout(function () {
+        fetch(apiUrl() + '?q=' + encodeURIComponent(q), { credentials: 'same-origin', cache: 'no-store' })
+          .then(function (r) { return r.json(); })
+          .then(renderHits)
+          .catch(function () {});
+      }, 180);
+    });
+    input.addEventListener('focus', function () {
+      wrap.classList.add('is-open');
+      if (live && live.innerHTML) live.hidden = false;
+    });
+  }
+})();
+

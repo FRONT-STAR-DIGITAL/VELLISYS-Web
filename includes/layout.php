@@ -232,6 +232,7 @@ function layout_start(string $title, array $user, array $opts = []): void
         <?php render_top_clock(); ?>
       </div>
       <div class="top-actions">
+        <?php render_top_search(); ?>
         <a class="header-settings<?= in_array($here, ['settings.php', 'branding.php'], true) ? ' is-on' : '' ?>" href="<?= h(url('settings.php')) ?>" title="Settings" aria-label="Settings"><?= icon('settings', 20) ?></a>
         <?php if (company_planner_enabled() && is_desk_admin()): ?>
           <details class="top-bell">
@@ -298,6 +299,7 @@ function layout_start(string $title, array $user, array $opts = []): void
 
 function layout_admin_start(string $title, array $user): void
 {
+    $GLOBALS['folio_layout_admin'] = true;
     $flash = flash();
     $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
     $signupNew = new_signup_count();
@@ -373,6 +375,7 @@ function layout_admin_start(string $title, array $user): void
         <?php render_top_clock(); ?>
       </div>
       <div class="top-actions">
+        <?php render_top_search(); ?>
         <a class="header-settings<?= $here === 'admin_settings.php' ? ' is-on' : '' ?>" href="<?= h(url('admin_settings.php')) ?>" title="Settings" aria-label="Settings"><?= icon('settings', 20) ?></a>
         <details class="top-bell">
           <summary class="header-settings<?= $noteCount ? ' has-badge' : '' ?>" title="Notifications" aria-label="Notifications">
@@ -497,9 +500,28 @@ function render_app_tabbar(): void
     <?php
 }
 
+function render_top_search(): void
+{
+    $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
+    $q = function_exists('search_query') ? search_query() : trim((string) ($_GET['q'] ?? ''));
+    $placeholder = function_exists('search_placeholder') ? search_placeholder() : 'Search…';
+    $on = $here === 'search.php';
+    ?>
+    <div class="top-search<?= $on && $q !== '' ? ' is-open' : '' ?>" data-top-search>
+      <button class="header-settings top-search-toggle" type="button" data-search-toggle aria-label="Search" title="Search"><?= icon('search', 20) ?></button>
+      <form class="top-search-form" action="<?= h(url('search.php')) ?>" method="get" role="search" data-search-form>
+        <span class="top-search-icon" aria-hidden="true"><?= icon('search', 16) ?></span>
+        <input class="top-search-input" type="search" name="q" value="<?= h($q) ?>" placeholder="<?= h($placeholder) ?>" autocomplete="off" data-search-input aria-label="Search">
+        <button class="top-search-close" type="button" data-search-close aria-label="Close search"><?= icon('x', 16) ?></button>
+        <div class="top-search-live" data-search-live hidden></div>
+      </form>
+    </div>
+    <?php
+}
+
 function layout_end(string $extra = ''): void
 {
-    $admin = str_starts_with(basename($_SERVER['SCRIPT_NAME'] ?? ''), 'admin_');
+    $admin = !empty($GLOBALS['folio_layout_admin']) || str_starts_with(basename($_SERVER['SCRIPT_NAME'] ?? ''), 'admin_');
     ?>
     </div>
   </div>

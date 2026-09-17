@@ -47,6 +47,7 @@ function asset(string $path): string
 require_once ROOT_PATH . '/includes/db.php';
 require_once ROOT_PATH . '/includes/helpers.php';
 require_once ROOT_PATH . '/includes/client_fields.php';
+require_once ROOT_PATH . '/includes/search.php';
 require_once ROOT_PATH . '/includes/pricing.php';
 require_once ROOT_PATH . '/includes/auth.php';
 require_once ROOT_PATH . '/includes/icons.php';

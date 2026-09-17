@@ -20,4 +20,8 @@ if (!$company) {
 $_SESSION['acting_company_id'] = $id;
 $_SESSION['company_id'] = $id;
 flash('Working the desk for ' . $company['name'] . '. You can convert quotes, take receipts, and edit documents.');
+$next = (string) ($_GET['next'] ?? '');
+if (preg_match('/^document_view\.php\?id=\d+$/', $next) || preg_match('/^client_view\.php\?id=\d+$/', $next)) {
+    redirect($next);
+}
 redirect('dashboard.php');
