@@ -487,19 +487,29 @@ layout_start($heading, $user, ['kind' => $kind]);
     <label for="notes">Internal note (not printed)</label>
     <textarea id="notes" name="notes" rows="3"><?= h((string) ($existing['notes'] ?? '')) ?></textarea>
   <?php else: ?>
-    <div class="lines-panel" data-lines-panel data-delivery="<?= in_array($kind, ['delivery', 'return_note'], true) ? '1' : '0' ?>">
+    <div class="lines-panel" data-lines-panel data-delivery="<?= in_array($kind, ['delivery', 'return_note'], true) ? '1' : '0' ?>" data-line-cols="<?= h(json_encode(company_document_line_columns(), JSON_UNESCAPED_UNICODE) ?: '[]') ?>">
+      <?php
+        $qtyOnly = in_array($kind, ['delivery', 'return_note'], true);
+        $colItem = company_shows_line_col('item');
+        $colDesc = company_shows_line_col('description');
+        $colQty = company_shows_line_col('qty');
+        $colRate = !$qtyOnly && company_shows_line_col('rate');
+        $colTotal = !$qtyOnly && company_shows_line_col('total');
+        $colVat = !$qtyOnly && company_shows_line_col('vat');
+        if (!$colItem && !$colDesc) {
+            $colItem = true;
+        }
+      ?>
       <div class="lines-wrap">
       <table class="grid lines" id="lines" data-lines<?= (function_exists('company_stock_enabled') && company_stock_enabled()) ? ' data-stock-catalog="1"' : '' ?>>
         <thead>
           <tr>
-            <th>Item</th>
-            <th>Description</th>
-            <th>Qty</th>
-            <?php if ($kind !== 'delivery'): ?>
-              <th class="right">Unit price</th>
-              <th class="right">Total Amt</th>
-              <th class="center"><?= h($taxName) ?></th>
-            <?php endif; ?>
+            <?php if ($colItem): ?><th>Item</th><?php endif; ?>
+            <?php if ($colDesc): ?><th>Description</th><?php endif; ?>
+            <?php if ($colQty): ?><th>Qty</th><?php endif; ?>
+            <?php if ($colRate): ?><th class="right">Unit price</th><?php endif; ?>
+            <?php if ($colTotal): ?><th class="right">Total Amt</th><?php endif; ?>
+            <?php if ($colVat): ?><th class="center"><?= h($taxName) ?></th><?php endif; ?>
             <th class="center lines-del-col"> </th>
           </tr>
         </thead>
@@ -510,11 +520,21 @@ layout_start($heading, $user, ['kind' => $kind]);
               $lineTotal = $qty * $rate;
               ?>
             <tr>
+              <?php if ($colItem): ?>
               <td class="line-item">
                 <input type="hidden" name="item_stock_id[<?= $i ?>]" value="<?= (int) ($line['stock_item_id'] ?? 0) ?>">
                 <input name="item_name[<?= $i ?>]" placeholder="Item" value="<?= h((string) ($line['item_name'] ?? '')) ?>" autocomplete="off">
               </td>
+              <?php else: ?>
+                <input type="hidden" name="item_stock_id[<?= $i ?>]" value="<?= (int) ($line['stock_item_id'] ?? 0) ?>">
+                <input type="hidden" name="item_name[<?= $i ?>]" value="<?= h((string) ($line['item_name'] ?? '')) ?>">
+              <?php endif; ?>
+              <?php if ($colDesc): ?>
               <td class="line-desc"><textarea name="item_desc[<?= $i ?>]" rows="2" placeholder="Description"><?= h((string) ($line['description'] ?? '')) ?></textarea></td>
+              <?php else: ?>
+                <input type="hidden" name="item_desc[<?= $i ?>]" value="<?= h((string) ($line['description'] ?? '')) ?>">
+              <?php endif; ?>
+              <?php if ($colQty): ?>
               <td class="line-qty">
                 <div class="qty-wrap">
                   <button type="button" class="qty-btn" data-qty-delta="-1" aria-label="Decrease quantity">-</button>
@@ -522,17 +542,28 @@ layout_start($heading, $user, ['kind' => $kind]);
                   <button type="button" class="qty-btn" data-qty-delta="1" aria-label="Increase quantity">+</button>
                 </div>
               </td>
-              <?php if ($kind !== 'delivery'): ?>
+              <?php else: ?>
+                <input type="hidden" name="item_qty[<?= $i ?>]" value="<?= h((string) ($line['qty'] ?? 1)) ?>" data-line-qty>
+              <?php endif; ?>
+              <?php if ($qtyOnly): ?>
+                <input type="hidden" name="item_rate[<?= $i ?>]" value="0">
+              <?php else: ?>
+                <?php if ($colRate): ?>
                 <td class="line-rate"><input name="item_rate[<?= $i ?>]" type="number" min="0" step="any" inputmode="decimal" placeholder="0" value="<?= h((string) ($line['rate'] ?? '')) ?>" data-line-rate></td>
+                <?php else: ?>
+                <input type="hidden" name="item_rate[<?= $i ?>]" value="<?= h((string) ($line['rate'] ?? '0')) ?>" data-line-rate>
+                <?php endif; ?>
+                <?php if ($colTotal): ?>
                 <td class="line-total right mono"><span data-line-total><?= $lineTotal ? h(number_format($lineTotal, money_display_decimals($lineTotal, 'USD'), '.', ',')) : '0' ?></span></td>
+                <?php endif; ?>
+                <?php if ($colVat): ?>
                 <td class="line-vat center">
                   <label class="vat-yn">
                     <input type="checkbox" name="item_taxed[<?= $i ?>]" value="1" <?= !empty($line['taxed']) ? 'checked' : '' ?> data-vat-box>
                     <span data-vat-yn><?= !empty($line['taxed']) ? 'Y' : 'N' ?></span>
                   </label>
                 </td>
-              <?php else: ?>
-                <input type="hidden" name="item_rate[<?= $i ?>]" value="0">
+                <?php endif; ?>
               <?php endif; ?>
               <td class="center lines-del-col">
                 <button type="button" class="btn ghost sm icon-only" data-remove-line title="Remove" aria-label="Remove"><?= icon('x', 14) ?></button>
@@ -575,18 +606,16 @@ layout_start($heading, $user, ['kind' => $kind]);
           <table class="grid lines-preview-table">
             <thead>
               <tr>
-                <th>Item</th>
-                <th>Description</th>
-                <th class="center">Qty</th>
-                <?php if ($kind !== 'delivery'): ?>
-                  <th class="right">Unit price</th>
-                  <th class="right">Total Amt</th>
-                  <th class="center"><?= h($taxName) ?></th>
-                <?php endif; ?>
+                <?php if ($colItem): ?><th>Item</th><?php endif; ?>
+                <?php if ($colDesc): ?><th>Description</th><?php endif; ?>
+                <?php if ($colQty): ?><th class="center">Qty</th><?php endif; ?>
+                <?php if ($colRate): ?><th class="right">Unit price</th><?php endif; ?>
+                <?php if ($colTotal): ?><th class="right">Total Amt</th><?php endif; ?>
+                <?php if ($colVat): ?><th class="center"><?= h($taxName) ?></th><?php endif; ?>
               </tr>
             </thead>
             <tbody data-lines-preview-body></tbody>
-            <?php if ($kind !== 'delivery'): ?>
+            <?php if (!$qtyOnly && ($colTotal || $colRate)): ?>
             <tfoot data-lines-preview-foot></tfoot>
             <?php endif; ?>
           </table>

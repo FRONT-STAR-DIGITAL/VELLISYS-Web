@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS companies (
   nature_of_business VARCHAR(120) NOT NULL DEFAULT '',
   client_audience VARCHAR(20) NOT NULL DEFAULT 'both',
   client_fields TEXT NULL,
+  line_columns TEXT NULL,
   smtp_host VARCHAR(190) NOT NULL DEFAULT 'smtp.hostinger.com',
   smtp_port INT UNSIGNED NOT NULL DEFAULT 465,
   smtp_secure VARCHAR(10) NOT NULL DEFAULT 'ssl',

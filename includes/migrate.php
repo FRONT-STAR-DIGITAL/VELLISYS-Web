@@ -1218,6 +1218,10 @@ function folio_migrate_client_profile(mysqli $db): void
         @$db->query('ALTER TABLE companies ADD COLUMN client_fields TEXT NULL');
         db_has_column($db, 'companies', 'client_fields', true);
     }
+    if (!db_has_column($db, 'companies', 'line_columns')) {
+        @$db->query('ALTER TABLE companies ADD COLUMN line_columns TEXT NULL');
+        db_has_column($db, 'companies', 'line_columns', true);
+    }
     if (!db_has_column($db, 'parties', 'entity')) {
         @$db->query("ALTER TABLE parties ADD COLUMN entity VARCHAR(20) NOT NULL DEFAULT 'person'");
         db_has_column($db, 'parties', 'entity', true);

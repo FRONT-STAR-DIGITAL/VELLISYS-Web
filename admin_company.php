@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $plannerOn = planner_resolve_enabled($plan, !empty($_POST['planner_enabled']), $company);
             $pnlOn = pnl_resolve_enabled($plan, !empty($_POST['pnl_enabled']), $company);
             try {
-                db_exec('UPDATE companies SET name=?, status=?, plan=?, notes=?, enabled_kinds=?, custom_doc=?, nature_of_business=?, client_audience=?, client_fields=?, user_limit=?, planner_enabled=?, pnl_enabled=?, stock_enabled=? WHERE id=?', 'sssssssssiiiii', [$name, $status, $plan, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), sanitize_nature_of_business(post('nature_of_business')), posted_client_fields()['audience'], posted_client_fields_json(), $limit, $plannerOn, $pnlOn, !empty($_POST['stock_enabled']) ? 1 : 0, $id]);
+                db_exec('UPDATE companies SET name=?, status=?, plan=?, notes=?, enabled_kinds=?, custom_doc=?, nature_of_business=?, client_audience=?, client_fields=?, line_columns=?, user_limit=?, planner_enabled=?, pnl_enabled=?, stock_enabled=? WHERE id=?', 'ssssssssssiiiii', [$name, $status, $plan, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), sanitize_nature_of_business(post('nature_of_business')), posted_client_fields()['audience'], posted_client_fields_json(), posted_document_line_columns(), $limit, $plannerOn, $pnlOn, !empty($_POST['stock_enabled']) ? 1 : 0, $id]);
                 db_exec('UPDATE branding SET name=? WHERE company_id=?', 'si', [$name, $id]);
             } catch (Throwable $e) {
                 $error = 'Could not save the company profile. Check the form and try again.';

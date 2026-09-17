@@ -123,30 +123,38 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
     $serial = !empty($opts['serial']);
     $cls = $opts['class'] ?? '';
     $qtyOnly = in_array(($doc['kind'] ?? ''), ['delivery', 'return_note'], true);
-    $showVat = !$qtyOnly && doc_shows_vat($doc);
+    $showVat = !$qtyOnly && doc_shows_vat($doc) && company_shows_line_col('vat');
     $taxName = trim((string) ($opts['tax_name'] ?? ''));
     if ($taxName === '') {
         $taxName = company_tax_name();
     }
     $compact = !empty($opts['compact']);
+    $colItem = company_shows_line_col('item');
+    $colDesc = company_shows_line_col('description');
+    $colQty = company_shows_line_col('qty');
+    $colRate = !$qtyOnly && company_shows_line_col('rate');
+    $colTotal = !$qtyOnly && company_shows_line_col('total');
+    $colDetails = $colItem || $colDesc;
+    if (!$colDetails) {
+        $colDetails = true;
+        $colItem = true;
+    }
     ?>
     <table class="d-lines <?= h($cls) ?>">
       <thead>
         <tr style="background:<?= h($color) ?>;color:#fff">
           <?php if ($compact): ?>
-            <th>Details</th>
-            <th class="c" style="width:12%">Qty</th>
-            <?php if (!$qtyOnly): ?><th class="r" style="width:28%">Amount</th><?php endif; ?>
+            <?php if ($colDetails): ?><th>Details</th><?php endif; ?>
+            <?php if ($colQty): ?><th class="c" style="width:12%">Qty</th><?php endif; ?>
+            <?php if ($colTotal): ?><th class="r" style="width:28%">Amount</th><?php elseif ($colRate): ?><th class="r" style="width:28%">Unit price</th><?php endif; ?>
           <?php else: ?>
             <?php if ($serial): ?><th class="c" style="width:44px">No.</th><?php endif; ?>
-            <th style="width:22%">Item</th>
-            <th>Description</th>
-            <th class="c" style="width:64px">Qty</th>
-            <?php if (!$qtyOnly): ?>
-              <th class="r" style="width:110px">Unit price</th>
-              <th class="r" style="width:120px">Total Amt</th>
-              <?php if ($showVat): ?><th class="c" style="width:44px"><?= h($taxName) ?></th><?php endif; ?>
-            <?php endif; ?>
+            <?php if ($colItem): ?><th style="width:22%">Item</th><?php endif; ?>
+            <?php if ($colDesc): ?><th>Description</th><?php endif; ?>
+            <?php if ($colQty): ?><th class="c" style="width:64px">Qty</th><?php endif; ?>
+            <?php if ($colRate): ?><th class="r" style="width:110px">Unit price</th><?php endif; ?>
+            <?php if ($colTotal): ?><th class="r" style="width:120px">Total Amt</th><?php endif; ?>
+            <?php if ($showVat): ?><th class="c" style="width:44px"><?= h($taxName) ?></th><?php endif; ?>
           <?php endif; ?>
         </tr>
       </thead>
@@ -154,12 +162,13 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
         <?php foreach ($rows as $i => $item): ?>
           <tr style="background:<?= $i % 2 ? h($tint) : '#fff' ?>">
             <?php if ($compact): ?>
+              <?php if ($colDetails): ?>
               <td class="desc"><?php
                 if (!$item) {
                     echo '&nbsp;';
                 } else {
-                    $name = line_item_name($item);
-                    $desc = line_item_description($item);
+                    $name = $colItem ? line_item_name($item) : '';
+                    $desc = $colDesc ? line_item_description($item) : '';
                     $parts = [];
                     if ($name !== '') {
                         $parts[] = '<span class="item">' . h($name) . '</span>';
@@ -167,24 +176,23 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
                     if ($desc !== '') {
                         $parts[] = '<span class="twin-desc">' . nl2br(h($desc), false) . '</span>';
                     }
-                    echo implode(' ', $parts);
+                    echo $parts ? implode(' ', $parts) : '&nbsp;';
                     if ($showVat && !empty($item['taxed'])) {
                         echo '<span class="twin-vat"> ' . h($taxName) . '</span>';
                     }
                 }
               ?></td>
-              <td class="c"><?= $item ? h(format_qty($item['qty'])) : '' ?></td>
-              <?php if (!$qtyOnly): ?><td class="r"><?= $item ? h(money(line_amount($item), $cur)) : '' ?></td><?php endif; ?>
+              <?php endif; ?>
+              <?php if ($colQty): ?><td class="c"><?= $item ? h(format_qty($item['qty'])) : '' ?></td><?php endif; ?>
+              <?php if ($colTotal): ?><td class="r"><?= $item ? h(money(line_amount($item), $cur)) : '' ?></td><?php elseif ($colRate): ?><td class="r"><?= $item ? h(money($item['rate'], $cur)) : '' ?></td><?php endif; ?>
             <?php else: ?>
               <?php if ($serial): ?><td class="c"><?= $item ? (string) ($i + 1) : '' ?></td><?php endif; ?>
-              <td class="item"><?= $item && line_item_name($item) !== '' ? h(line_item_name($item)) : ($item ? '&nbsp;' : '&nbsp;') ?></td>
-              <td class="desc"><?= $item && line_item_description($item) !== '' ? nl2br(h(line_item_description($item))) : '&nbsp;' ?></td>
-              <td class="c"><?= $item ? h(format_qty($item['qty'])) : '' ?></td>
-              <?php if (!$qtyOnly): ?>
-                <td class="r"><?= $item ? h(money($item['rate'], $cur)) : '' ?></td>
-                <td class="r"><?= $item ? h(money(line_amount($item), $cur)) : '' ?></td>
-                <?php if ($showVat): ?><td class="c"><?= $item ? (!empty($item['taxed']) ? 'Y' : 'N') : '' ?></td><?php endif; ?>
-              <?php endif; ?>
+              <?php if ($colItem): ?><td class="item"><?= $item && line_item_name($item) !== '' ? h(line_item_name($item)) : ($item ? '&nbsp;' : '&nbsp;') ?></td><?php endif; ?>
+              <?php if ($colDesc): ?><td class="desc"><?= $item && line_item_description($item) !== '' ? nl2br(h(line_item_description($item))) : '&nbsp;' ?></td><?php endif; ?>
+              <?php if ($colQty): ?><td class="c"><?= $item ? h(format_qty($item['qty'])) : '' ?></td><?php endif; ?>
+              <?php if ($colRate): ?><td class="r"><?= $item ? h(money($item['rate'], $cur)) : '' ?></td><?php endif; ?>
+              <?php if ($colTotal): ?><td class="r"><?= $item ? h(money(line_amount($item), $cur)) : '' ?></td><?php endif; ?>
+              <?php if ($showVat): ?><td class="c"><?= $item ? (!empty($item['taxed']) ? 'Y' : 'N') : '' ?></td><?php endif; ?>
             <?php endif; ?>
           </tr>
         <?php endforeach; ?>

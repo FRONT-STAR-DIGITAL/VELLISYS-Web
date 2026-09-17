@@ -406,16 +406,58 @@ function updateDocRunningTotals() {
   var foot = document.querySelector('[data-lines-preview-foot]');
   if (foot) {
     var taxName = form.getAttribute('data-tax-name') || 'Tax';
+    var cols = lineColumnFlags();
+    var lead = previewLeadSpan(cols);
+    var after = cols.vat ? '<td></td>' : '';
     foot.hidden = false;
     var rows =
-      '<tr><td colspan="4">Subtotal</td><td class="right mono">' + escapeHtml(formatDeskMoney(t.sub, cur)) + '</td><td></td></tr>' +
-      '<tr><td colspan="4">' + escapeHtml(taxName) + '</td><td class="right mono">' + escapeHtml(formatDeskMoney(t.tax, cur)) + '</td><td></td></tr>' +
-      '<tr><td colspan="4">Total</td><td class="right mono">' + escapeHtml(formatDeskMoney(t.grand, cur)) + '</td><td></td></tr>';
+      '<tr><td colspan="' + lead + '">Subtotal</td><td class="right mono">' + escapeHtml(formatDeskMoney(t.sub, cur)) + '</td>' + after + '</tr>' +
+      '<tr><td colspan="' + lead + '">' + escapeHtml(taxName) + '</td><td class="right mono">' + escapeHtml(formatDeskMoney(t.tax, cur)) + '</td>' + after + '</tr>' +
+      '<tr><td colspan="' + lead + '">Total</td><td class="right mono">' + escapeHtml(formatDeskMoney(t.grand, cur)) + '</td>' + after + '</tr>';
     if (dueEl) {
-      rows += '<tr><td colspan="4">Due</td><td class="right mono">' + escapeHtml(formatDeskMoney(due, cur)) + '</td><td></td></tr>';
+      rows += '<tr><td colspan="' + lead + '">Due</td><td class="right mono">' + escapeHtml(formatDeskMoney(due, cur)) + '</td>' + after + '</tr>';
     }
     foot.innerHTML = rows;
   }
+}
+
+function lineColumnFlags() {
+  var panel = document.querySelector('[data-lines-panel]');
+  var delivery = panel && panel.getAttribute('data-delivery') === '1';
+  var cols = { item: true, description: true, qty: true, rate: !delivery, total: !delivery, vat: !delivery };
+  if (panel) {
+    try {
+      var parsed = JSON.parse(panel.getAttribute('data-line-cols') || '[]');
+      if (Array.isArray(parsed) && parsed.length) {
+        cols.item = parsed.indexOf('item') !== -1;
+        cols.description = parsed.indexOf('description') !== -1;
+        cols.qty = parsed.indexOf('qty') !== -1;
+        cols.rate = !delivery && parsed.indexOf('rate') !== -1;
+        cols.total = !delivery && parsed.indexOf('total') !== -1;
+        cols.vat = !delivery && parsed.indexOf('vat') !== -1;
+      }
+    } catch (err) {}
+  }
+  if (!cols.item && !cols.description) cols.item = true;
+  return cols;
+}
+
+function previewColCount(cols) {
+  var n = 0;
+  if (cols.item) n++;
+  if (cols.description) n++;
+  if (cols.qty) n++;
+  if (cols.rate) n++;
+  if (cols.total) n++;
+  if (cols.vat) n++;
+  return Math.max(n, 1);
+}
+
+function previewLeadSpan(cols) {
+  var n = previewColCount(cols);
+  if (cols.vat) n -= 1;
+  if (cols.total || cols.rate) n -= 1;
+  return Math.max(n, 1);
 }
 
 function refreshLinesPreview() {
@@ -423,13 +465,15 @@ function refreshLinesPreview() {
   var panel = document.querySelector('[data-lines-panel]');
   if (body && panel) {
   var delivery = panel.getAttribute('data-delivery') === '1';
+  var cols = lineColumnFlags();
   var rows = document.querySelectorAll('#lines tbody tr');
   var html = '';
   var shown = 0;
   var cur = docCurrencyCode();
   rows.forEach(function (row) {
     var name = ((row.querySelector('input[name^="item_name"]') || {}).value || '').trim();
-    var desc = ((row.querySelector('textarea[name^="item_desc"]') || {}).value || '').trim();
+    var descEl = row.querySelector('textarea[name^="item_desc"]') || row.querySelector('input[name^="item_desc"]');
+    var desc = ((descEl || {}).value || '').trim();
     if (!name && !desc) return;
     shown += 1;
     var qty = parseFloat(String((row.querySelector('[data-line-qty]') || {}).value || '0').replace(/,/g, ''));
@@ -438,18 +482,16 @@ function refreshLinesPreview() {
     if (isNaN(rate)) rate = 0;
     var taxed = !!(row.querySelector('[data-vat-box]') || {}).checked;
     html += '<tr>';
-    html += '<td data-label="Item">' + escapeHtml(name || '-') + '</td>';
-    html += '<td data-label="Description">' + escapeHtml(desc).replace(/\n/g, '<br>') + '</td>';
-    html += '<td class="center mono" data-label="Qty">' + escapeHtml(String(qty || '')) + '</td>';
-    if (!delivery) {
-      html += '<td class="right mono" data-label="Unit price">' + escapeHtml(formatDeskMoney(rate, cur)) + '</td>';
-      html += '<td class="right mono" data-label="Total Amt">' + escapeHtml(formatDeskMoney(Math.round(qty * rate * 100) / 100, cur)) + '</td>';
-      html += '<td class="center" data-label="VAT">' + (taxed ? 'Y' : 'N') + '</td>';
-    }
+    if (cols.item) html += '<td data-label="Item">' + escapeHtml(name || '-') + '</td>';
+    if (cols.description) html += '<td data-label="Description">' + escapeHtml(desc).replace(/\n/g, '<br>') + '</td>';
+    if (cols.qty) html += '<td class="center mono" data-label="Qty">' + escapeHtml(String(qty || '')) + '</td>';
+    if (cols.rate) html += '<td class="right mono" data-label="Unit price">' + escapeHtml(formatDeskMoney(rate, cur)) + '</td>';
+    if (cols.total) html += '<td class="right mono" data-label="Total Amt">' + escapeHtml(formatDeskMoney(Math.round(qty * rate * 100) / 100, cur)) + '</td>';
+    if (cols.vat) html += '<td class="center" data-label="VAT">' + (taxed ? 'Y' : 'N') + '</td>';
     html += '</tr>';
   });
   if (!shown) {
-    html = '<tr class="lines-preview-empty"><td colspan="' + (delivery ? '3' : '6') + '" class="muted">Add an item above to preview the document table.</td></tr>';
+    html = '<tr class="lines-preview-empty"><td colspan="' + previewColCount(cols) + '" class="muted">Add an item above to preview the document table.</td></tr>';
   }
   body.innerHTML = html;
   }

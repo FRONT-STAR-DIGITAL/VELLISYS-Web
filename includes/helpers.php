@@ -1651,6 +1651,65 @@ function posted_party_contacts(): array
     ];
 }
 
+function document_line_column_defs(): array
+{
+    return [
+        'item' => 'Item',
+        'description' => 'Description',
+        'qty' => 'Qty',
+        'rate' => 'Unit price',
+        'total' => 'Total Amt',
+        'vat' => 'Tax (Y/N)',
+    ];
+}
+
+function default_document_line_columns(): array
+{
+    return ['item', 'description', 'qty', 'rate', 'total', 'vat'];
+}
+
+function parse_document_line_columns(mixed $raw): array
+{
+    $allowed = array_keys(document_line_column_defs());
+    $data = is_array($raw) ? $raw : json_decode((string) $raw, true);
+    $cols = [];
+    if (is_array($data)) {
+        foreach ($data as $key) {
+            $key = (string) $key;
+            if (in_array($key, $allowed, true) && !in_array($key, $cols, true)) {
+                $cols[] = $key;
+            }
+        }
+    }
+    if (!$cols) {
+        return default_document_line_columns();
+    }
+    if (!in_array('item', $cols, true) && !in_array('description', $cols, true)) {
+        array_unshift($cols, 'item');
+    }
+    return $cols;
+}
+
+function company_document_line_columns(?array $company = null): array
+{
+    $company = $company ?? (function_exists('current_company') ? current_company() : null);
+    return parse_document_line_columns($company['line_columns'] ?? '');
+}
+
+function company_shows_line_col(string $key, ?array $company = null): bool
+{
+    return in_array($key, company_document_line_columns($company), true);
+}
+
+function posted_document_line_columns(): string
+{
+    $posted = $_POST['line_columns'] ?? null;
+    if (!is_array($posted)) {
+        return json_encode(default_document_line_columns(), JSON_UNESCAPED_UNICODE) ?: '[]';
+    }
+    return json_encode(parse_document_line_columns($posted), JSON_UNESCAPED_UNICODE) ?: '[]';
+}
+
 function render_desk_kinds_fields(?array $company = null): void
 {
     $enabled = $company ? company_enabled_kinds($company) : default_enabled_kinds();
@@ -1691,6 +1750,24 @@ function render_desk_kinds_fields(?array $company = null): void
           <?php endforeach; ?>
         </div>
         <button class="btn ghost sm" type="button" data-add-custom-field><?= icon('plus', 14) ?>Add field</button>
+      </div>
+      <?php
+        $lineCols = $company ? company_document_line_columns($company) : parse_document_line_columns($_POST['line_columns'] ?? null);
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !$company) {
+            $lineCols = default_document_line_columns();
+        }
+      ?>
+      <div class="client-fields-box" style="margin-top:16px">
+        <h3>Columns on document tables</h3>
+        <p class="hint">Tick what prints on quotations, invoices, receipts and delivery notes. Sale and Stock keep their own tables.</p>
+        <div class="kinds-grid">
+          <?php foreach (document_line_column_defs() as $key => $label): ?>
+            <label class="kinds-opt">
+              <input type="checkbox" name="line_columns[]" value="<?= h($key) ?>" <?= in_array($key, $lineCols, true) ? 'checked' : '' ?>>
+              <span><?= h($label) ?></span>
+            </label>
+          <?php endforeach; ?>
+        </div>
       </div>
     </fieldset>
     <?php
@@ -2253,9 +2330,9 @@ function platform_create_company(?int $signupId = null): array
     if (function_exists('posted_client_fields')) {
         $cfg = posted_client_fields();
         db_exec(
-            'UPDATE companies SET nature_of_business=?, client_audience=?, client_fields=? WHERE id=?',
-            'sssi',
-            [sanitize_nature_of_business(post('nature_of_business')), $cfg['audience'], json_encode($cfg, JSON_UNESCAPED_UNICODE) ?: '{}', $cid]
+            'UPDATE companies SET nature_of_business=?, client_audience=?, client_fields=?, line_columns=? WHERE id=?',
+            'ssssi',
+            [sanitize_nature_of_business(post('nature_of_business')), $cfg['audience'], json_encode($cfg, JSON_UNESCAPED_UNICODE) ?: '{}', posted_document_line_columns(), $cid]
         );
     }
     db_exec('UPDATE companies SET stock_enabled = ? WHERE id = ?', 'ii', [!empty($_POST['stock_enabled']) ? 1 : 0, $cid]);
