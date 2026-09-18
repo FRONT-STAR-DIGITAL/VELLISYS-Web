@@ -1785,7 +1785,12 @@ table.grid tfoot td {
   gap: 16px;
   align-items: flex-start;
 }
-.expense-card-top span { display: block; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; opacity: .85; font-weight: 600; }
+.expense-card-top .d-logo {
+  background: #fff;
+  padding: 4px 6px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
 .expense-card-top strong { display: block; font-size: 22px; margin-top: 4px; }
 .expense-card-body { padding: 20px 22px 24px; }
 .expense-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; margin-bottom: 16px; }

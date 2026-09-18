@@ -63,6 +63,16 @@ function sheet_data(array $brand, array $doc): array
     ];
 }
 
+function render_sheet_logo(array $d, string $class = 'd-logo'): void
+{
+    $src = trim((string) ($d['logo'] ?? ''));
+    if ($src === '') {
+        return;
+    }
+    $alt = (string) ($d['brand']['name'] ?? '');
+    echo '<img src="' . h($src) . '" alt="' . h($alt) . '" class="' . h($class) . '">';
+}
+
 function render_settlement(array $d): void
 {
     if (($d['doc']['kind'] ?? '') !== 'receipt') {
@@ -553,7 +563,7 @@ function render_sheet_correspondence(array $d): void
 <article class="invoice-sheet sheet-corr<?= $wm && in_array(doc_template_key($doc), ['mark', 'bond'], true) ? ' sheet-' . h(doc_template_key($doc)) : '' ?>" style="<?= h($d['vars']) ?>">
   <header class="corr-head">
     <div class="corr-brand">
-      <img src="<?= h($d['logo']) ?>" alt="" class="d-logo">
+      <?php render_sheet_logo($d); ?>
       <div class="corr-co">
         <strong><?= h($brand['name']) ?></strong>
         <?php if (!empty($brand['tagline'])): ?><div><?= h($brand['tagline']) ?></div><?php endif; ?>
@@ -615,7 +625,7 @@ function render_sheet_folio(array $d): void
 <article class="invoice-sheet sheet-folio" style="<?= h($d['vars']) ?>">
   <header class="d-row">
     <div>
-      <img src="<?= h($d['logo']) ?>" alt="" class="d-logo">
+      <?php render_sheet_logo($d); ?>
       <div class="d-co">
         <div><?= h($brand['address']) ?></div>
         <div><?= h($brand['phone']) ?></div>
@@ -692,7 +702,7 @@ function render_sheet_ledger(array $d): void
 <article class="invoice-sheet sheet-ledger" style="<?= h($d['vars']) ?>">
   <div class="ledger-top">
     <div class="ledger-brand">
-      <img src="<?= h($d['logo']) ?>" alt="" class="d-logo sm">
+      <?php render_sheet_logo($d, 'd-logo sm'); ?>
       <div><?= h($brand['address']) ?><br><?= h($brand['email']) ?><br><?= h($brand['phone']) ?></div>
     </div>
     <h1><?= h($d['heading']) ?></h1>
@@ -767,7 +777,7 @@ function render_sheet_bill(array $d, string $variant): void
   <div class="bill-corner br" aria-hidden="true"></div>
   <div class="bill-pad">
   <header class="bill-head">
-    <img src="<?= h($d['logo']) ?>" alt="" class="d-logo sm">
+    <?php render_sheet_logo($d, 'd-logo sm'); ?>
     <div>
       <h2><?= h($brand['name']) ?></h2>
       <p><?= h($brand['address']) ?> · <?= h($brand['phone']) ?> · <?= h($brand['email']) ?></p>
@@ -824,7 +834,7 @@ function render_twin_half(array $d, string $label): void
     <div class="twin-copy">
       <div class="twin-label"><?= h($label) ?></div>
       <div class="twin-head">
-        <img src="<?= h($d['logo']) ?>" alt="" class="d-logo xs">
+        <?php render_sheet_logo($d, 'd-logo xs'); ?>
         <div>
           <strong><?= h($brand['name']) ?></strong>
           <span><?= h($brand['address']) ?></span>
@@ -883,7 +893,10 @@ function render_sheet_stripe(array $d): void
 <article class="invoice-sheet sheet-stripe" style="<?= h($d['vars']) ?>">
   <div class="stripe-rail"></div>
   <div class="stripe-inner">
-    <div class="stripe-banner"><span><?= h($d['heading']) ?></span></div>
+    <div class="stripe-banner">
+      <?php render_sheet_logo($d, 'd-logo invert'); ?>
+      <span><?= h($d['heading']) ?></span>
+    </div>
     <div class="stripe-parties">
       <div>
         <span>From</span>
@@ -946,7 +959,7 @@ function render_sheet_estate(array $d): void
     ?>
 <article class="invoice-sheet sheet-estate" style="<?= h($d['vars']) ?>">
   <div class="estate-band">
-    <img src="<?= h($d['logo']) ?>" alt="" class="d-logo">
+    <?php render_sheet_logo($d); ?>
     <div>
       <em><?= h($brand['tagline'] ?: 'Estate books') ?></em>
       <h1><?= h($brand['name']) ?></h1>
@@ -1003,7 +1016,7 @@ function render_sheet_night(array $d): void
 <article class="invoice-sheet sheet-night" style="<?= h($d['vars']) ?>">
   <div class="night-sky">
     <div>
-      <img src="<?= h($d['logo']) ?>" alt="" class="d-logo invert">
+      <?php render_sheet_logo($d, 'd-logo invert'); ?>
       <p><?= h($brand['name']) ?></p>
     </div>
     <h1><?= h($d['heading']) ?></h1>
@@ -1058,7 +1071,7 @@ function render_sheet_atelier(array $d): void
 <article class="invoice-sheet sheet-atelier" style="<?= h($d['vars']) ?>">
   <header class="atelier-head">
     <div class="atelier-brand">
-      <img src="<?= h($d['logo']) ?>" alt="" class="d-logo">
+      <?php render_sheet_logo($d); ?>
       <p class="atelier-kicker"><?= h($brand['name']) ?></p>
       <p><?= h($brand['address']) ?><?= !empty($brand['tin']) ? ' · TIN ' . h($brand['tin']) : '' ?></p>
     </div>
@@ -1113,7 +1126,7 @@ function render_sheet_seal(array $d): void
     ?>
 <article class="invoice-sheet sheet-seal" style="<?= h($d['vars']) ?>">
   <header class="seal-head">
-    <img src="<?= h($d['logo']) ?>" alt="" class="d-logo">
+    <?php render_sheet_logo($d); ?>
     <h1><?= h($brand['name']) ?></h1>
     <p><?= h($brand['address']) ?> · <?= h($brand['phone']) ?> · <?= h($brand['email']) ?></p>
     <div class="seal-title">
@@ -1168,7 +1181,7 @@ function render_sheet_mark(array $d): void
 <article class="invoice-sheet sheet-mark" style="<?= h($d['vars']) ?>">
   <header class="mark-head">
     <div>
-      <img src="<?= h($d['logo']) ?>" alt="" class="d-logo">
+      <?php render_sheet_logo($d); ?>
       <div class="d-co">
         <strong><?= h($brand['name']) ?></strong>
         <div><?= h($brand['address']) ?></div>
@@ -1223,7 +1236,7 @@ function render_sheet_bond(array $d): void
 <article class="invoice-sheet sheet-bond" style="<?= h($d['vars']) ?>">
   <header class="bond-head">
     <div class="bond-brand">
-      <img src="<?= h($d['logo']) ?>" alt="" class="d-logo sm">
+      <?php render_sheet_logo($d, 'd-logo sm'); ?>
       <div>
         <strong><?= h($brand['name']) ?></strong>
         <p><?= h($brand['address']) ?></p>
@@ -1276,7 +1289,7 @@ function render_sheet_frame(array $d): void
     <div class="page-frame-inner">
       <header class="d-row">
         <div>
-          <img src="<?= h($d['logo']) ?>" alt="" class="d-logo">
+          <?php render_sheet_logo($d); ?>
           <div class="d-co">
             <strong><?= h($brand['name']) ?></strong>
             <div><?= h($brand['address']) ?></div>
@@ -1347,7 +1360,7 @@ function render_sheet_inset(array $d): void
   <div class="page-inset">
     <header class="d-row">
       <div>
-        <img src="<?= h($d['logo']) ?>" alt="" class="d-logo">
+        <?php render_sheet_logo($d); ?>
         <div class="d-co">
           <strong><?= h($brand['name']) ?></strong>
           <div><?= h($brand['address']) ?></div>
@@ -1429,7 +1442,7 @@ function render_sheet_booklet(array $d): void
 <article class="invoice-sheet sheet-booklet" style="<?= h($d['vars']) ?>">
   <div class="booklet-page">
     <header class="booklet-head">
-      <?php if (!empty($d['logo'])): ?><img src="<?= h($d['logo']) ?>" alt="" class="d-logo sm booklet-logo"><?php endif; ?>
+      <?php render_sheet_logo($d, 'd-logo sm booklet-logo'); ?>
       <h1 class="slip-brand"><?= h((string) $brand['name']) ?></h1>
       <?php if (!empty($brand['tagline'])): ?><p class="slip-motto"><?= h((string) $brand['tagline']) ?></p><?php endif; ?>
       <div class="slip-co">
@@ -1518,7 +1531,7 @@ function render_sheet_chit(array $d): void
 <article class="invoice-sheet sheet-chit" style="<?= h($d['vars']) ?>">
   <div class="chit-page">
     <header class="chit-head">
-      <?php if (!empty($d['logo'])): ?><img src="<?= h($d['logo']) ?>" alt="" class="d-logo sm"><?php endif; ?>
+      <?php render_sheet_logo($d, 'd-logo sm'); ?>
       <h1 class="chit-name"><?= h((string) $brand['name']) ?></h1>
       <?php if (!empty($brand['tagline'])): ?><p class="chit-tag"><?= h((string) $brand['tagline']) ?></p><?php endif; ?>
       <div class="chit-co">
@@ -1623,7 +1636,7 @@ function render_sheet_thermal(array $d): void
     ?>
 <article class="invoice-sheet sheet-thermal" style="<?= h($d['vars']) ?>">
   <header class="thermal-head">
-    <img src="<?= h($d['logo']) ?>" alt="" class="d-logo xs">
+    <?php render_sheet_logo($d, 'd-logo xs'); ?>
     <strong><?= h($brand['name']) ?></strong>
     <p><?= h($brand['address']) ?></p>
     <p><?= h($brand['phone']) ?></p>
@@ -1686,6 +1699,7 @@ function render_expense_card(array $brand, array $doc): void
 <div class="expense-card">
   <div class="expense-card-top">
     <div>
+      <?php render_sheet_logo($d, 'd-logo sm'); ?>
       <span>Expense</span>
       <strong><?= h((string) $doc['number']) ?></strong>
     </div>
