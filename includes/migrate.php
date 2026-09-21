@@ -188,12 +188,17 @@ function folio_ensure_stock(mysqli $db): void
       sell_price DECIMAL(14,2) NOT NULL DEFAULT 0,
       reorder_level DECIMAL(14,2) NOT NULL DEFAULT 0,
       qty_on_hand DECIMAL(14,2) NOT NULL DEFAULT 0,
+      is_service TINYINT(1) NOT NULL DEFAULT 0,
       taxed TINYINT(1) NOT NULL DEFAULT 1,
       active TINYINT(1) NOT NULL DEFAULT 1,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       KEY company_name (company_id, name),
       KEY company_sku (company_id, sku)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    if (!db_has_column($db, 'stock_items', 'is_service')) {
+        @$db->query('ALTER TABLE stock_items ADD COLUMN is_service TINYINT(1) NOT NULL DEFAULT 0 AFTER qty_on_hand');
+        db_has_column($db, 'stock_items', 'is_service', true);
+    }
     $db->query("CREATE TABLE IF NOT EXISTS stock_moves (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       company_id INT UNSIGNED NOT NULL,

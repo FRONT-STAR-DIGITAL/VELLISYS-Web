@@ -63,6 +63,16 @@ function render_stock_subnav(string $active): void
     <?php
 }
 
+function stock_item_is_service(array $row): bool
+{
+    return (int) ($row['is_service'] ?? 0) === 1;
+}
+
+function stock_goods_only(array $items): array
+{
+    return array_values(array_filter($items, static fn ($row) => !stock_item_is_service($row)));
+}
+
 function stock_items(bool $activeOnly = false): array
 {
     $sql = 'SELECT * FROM stock_items WHERE company_id = ?';
@@ -114,10 +124,10 @@ function stock_stats(): array
 {
     $cid = current_company_id();
     $row = db_one(
-        'SELECT COUNT(*) AS n,
-                COALESCE(SUM(qty_on_hand * buy_price), 0) AS cost,
-                COALESCE(SUM(qty_on_hand * sell_price), 0) AS sell,
-                COALESCE(SUM(CASE WHEN reorder_level > 0 AND qty_on_hand <= reorder_level THEN 1 ELSE 0 END), 0) AS low
+        'SELECT COALESCE(SUM(CASE WHEN COALESCE(is_service, 0) = 0 THEN 1 ELSE 0 END), 0) AS n,
+                COALESCE(SUM(CASE WHEN COALESCE(is_service, 0) = 0 THEN qty_on_hand * buy_price ELSE 0 END), 0) AS cost,
+                COALESCE(SUM(CASE WHEN COALESCE(is_service, 0) = 0 THEN qty_on_hand * sell_price ELSE 0 END), 0) AS sell,
+                COALESCE(SUM(CASE WHEN COALESCE(is_service, 0) = 0 AND reorder_level > 0 AND qty_on_hand <= reorder_level THEN 1 ELSE 0 END), 0) AS low
          FROM stock_items WHERE company_id = ? AND active = 1',
         'i',
         [$cid]
@@ -133,7 +143,7 @@ function stock_stats(): array
 function stock_low_items(): array
 {
     return db_all(
-        'SELECT * FROM stock_items WHERE company_id = ? AND active = 1 AND reorder_level > 0 AND qty_on_hand <= reorder_level ORDER BY qty_on_hand, name',
+        'SELECT * FROM stock_items WHERE company_id = ? AND active = 1 AND COALESCE(is_service, 0) = 0 AND reorder_level > 0 AND qty_on_hand <= reorder_level ORDER BY qty_on_hand, name',
         'i',
         [current_company_id()]
     );
@@ -149,11 +159,13 @@ function stock_save_item(array $fields, ?int $id = null): array
     $sku = mb_substr(trim((string) ($fields['sku'] ?? '')), 0, 80);
     $desc = mb_substr(trim((string) ($fields['description'] ?? '')), 0, 500);
     $unit = mb_substr(trim((string) ($fields['unit'] ?? 'pc')), 0, 40) ?: 'pc';
-    $buy = round((float) ($fields['buy_price'] ?? 0), 2);
+    $isService = !empty($fields['is_service']);
+    $buy = $isService ? 0.0 : round((float) ($fields['buy_price'] ?? 0), 2);
     $sell = round((float) ($fields['sell_price'] ?? 0), 2);
-    $reorder = round((float) ($fields['reorder_level'] ?? 0), 2);
+    $reorder = $isService ? 0.0 : round((float) ($fields['reorder_level'] ?? 0), 2);
     $taxed = empty($fields['taxed']) ? 0 : 1;
     $active = isset($fields['active']) && (int) $fields['active'] === 0 ? 0 : 1;
+    $svc = $isService ? 1 : 0;
     if ($sku !== '') {
         $dup = db_one('SELECT id FROM stock_items WHERE company_id = ? AND sku = ? AND id <> ?', 'isi', [$cid, $sku, (int) ($id ?? 0)]);
         if ($dup) {
@@ -165,18 +177,21 @@ function stock_save_item(array $fields, ?int $id = null): array
         if (!$row) {
             return ['ok' => false, 'error' => 'That product is not on this desk.'];
         }
+        if ($isService && !stock_item_is_service($row) && (float) ($row['qty_on_hand'] ?? 0) != 0.0) {
+            stock_move($id, 'adjust', -(float) $row['qty_on_hand'], 0, null, 'Converted to service');
+        }
         db_exec(
-            'UPDATE stock_items SET sku=?, name=?, description=?, unit=?, buy_price=?, sell_price=?, reorder_level=?, taxed=?, active=? WHERE id=? AND company_id=?',
-            'ssssdddiiii',
-            [$sku, $name, $desc, $unit, $buy, $sell, $reorder, $taxed, $active, $id, $cid]
+            'UPDATE stock_items SET sku=?, name=?, description=?, unit=?, buy_price=?, sell_price=?, reorder_level=?, taxed=?, active=?, is_service=? WHERE id=? AND company_id=?',
+            'ssssdddiiiii',
+            [$sku, $name, $desc, $unit, $buy, $sell, $reorder, $taxed, $active, $svc, $id, $cid]
         );
         return ['ok' => true, 'id' => $id];
     }
-    $qty = round((float) ($fields['qty_on_hand'] ?? 0), 2);
+    $qty = $isService ? 0.0 : round((float) ($fields['qty_on_hand'] ?? 0), 2);
     $newId = db_exec(
-        'INSERT INTO stock_items (company_id, sku, name, description, unit, buy_price, sell_price, reorder_level, qty_on_hand, taxed, active) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-        'issssddddii',
-        [$cid, $sku, $name, $desc, $unit, $buy, $sell, $reorder, 0, $taxed, $active]
+        'INSERT INTO stock_items (company_id, sku, name, description, unit, buy_price, sell_price, reorder_level, qty_on_hand, taxed, active, is_service) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+        'issssddddiii',
+        [$cid, $sku, $name, $desc, $unit, $buy, $sell, $reorder, 0, $taxed, $active, $svc]
     );
     if ($qty > 0) {
         stock_move((int) $newId, 'in', $qty, $buy, null, 'Opening quantity');
@@ -237,7 +252,7 @@ function stock_move(int $itemId, string $kind, float $qty, float $unitCost = 0, 
     }
     $cid = current_company_id();
     $item = stock_item($itemId);
-    if (!$item) {
+    if (!$item || stock_item_is_service($item)) {
         return;
     }
     $delta = in_array($kind, ['out', 'sale'], true) ? -abs($qty) : abs($qty);
@@ -282,6 +297,9 @@ function stock_apply_document(int $documentId, string $kind, array $items): void
             continue;
         }
         $row = stock_item($sid) ?: [];
+        if (stock_item_is_service($row)) {
+            continue;
+        }
         $cost = $moveKind === 'sale'
             ? (float) ($row['buy_price'] ?? 0)
             : (float) ($item['rate'] ?? ($row['buy_price'] ?? 0));
@@ -507,8 +525,9 @@ function stock_catalog_payload(): array
             'name' => (string) $row['name'],
             'buy' => (float) $row['buy_price'],
             'sell' => (float) $row['sell_price'],
-            'qty' => (float) $row['qty_on_hand'],
+            'qty' => stock_item_is_service($row) ? null : (float) $row['qty_on_hand'],
             'taxed' => (int) $row['taxed'] === 1,
+            'service' => stock_item_is_service($row),
         ];
     }
     return $out;
@@ -517,9 +536,9 @@ function stock_catalog_payload(): array
 function stock_import_template_rows(): array
 {
     return [
-        ['SKU', 'Name', 'Description', 'Unit', 'Buying price', 'Selling price', 'Reorder level', 'Opening qty', 'Tax Y/N'],
-        ['RICE25', 'Rice 25kg', 'Local grain', 'bag', '90000', '110000', '5', '20', 'Y'],
-        ['SOAP', 'Bar soap', 'Household', 'pc', '1500', '2500', '10', '40', 'Y'],
+        ['SKU', 'Name', 'Description', 'Unit', 'Type', 'Buying price', 'Selling price', 'Reorder level', 'Opening qty', 'Tax Y/N'],
+        ['RICE25', 'Rice 25kg', 'Local grain', 'bag', 'product', '90000', '110000', '5', '20', 'Y'],
+        ['LESSON', 'Driving lesson', 'One hour', 'hr', 'service', '', '80000', '', '', 'Y'],
     ];
 }
 
@@ -604,6 +623,21 @@ function stock_import_rows(array $rows): array
             $existing = db_one('SELECT id FROM stock_items WHERE company_id = ? AND name = ?', 'is', [current_company_id(), $name]);
         }
         $taxRaw = strtoupper(trim((string) ($r[8] ?? '')));
+        $col4 = trim((string) ($r[4] ?? ''));
+        $typed = (bool) preg_match('/^(product|products|good|goods|item|service|services|svc)$/i', $col4);
+        $isService = $typed && (bool) preg_match('/^serv/i', $col4);
+        if ($typed) {
+            $buy = (float) str_replace(',', '', (string) ($r[5] ?? 0));
+            $sell = (float) str_replace(',', '', (string) ($r[6] ?? 0));
+            $reorder = (float) str_replace(',', '', (string) ($r[7] ?? 0));
+            $qty = (float) str_replace(',', '', (string) ($r[8] ?? 0));
+            $taxRaw = strtoupper(trim((string) ($r[9] ?? '')));
+        } else {
+            $buy = (float) str_replace(',', '', $col4);
+            $sell = (float) str_replace(',', '', (string) ($r[5] ?? 0));
+            $reorder = (float) str_replace(',', '', (string) ($r[6] ?? 0));
+            $qty = (float) str_replace(',', '', (string) ($r[7] ?? 0));
+        }
         if ($taxRaw === '') {
             $taxed = company_tax_default();
         } else {
@@ -614,10 +648,11 @@ function stock_import_rows(array $rows): array
             'name' => $name,
             'description' => (string) ($r[2] ?? ''),
             'unit' => (string) ($r[3] ?? 'pc'),
-            'buy_price' => (float) str_replace(',', '', (string) ($r[4] ?? 0)),
-            'sell_price' => (float) str_replace(',', '', (string) ($r[5] ?? 0)),
-            'reorder_level' => (float) str_replace(',', '', (string) ($r[6] ?? 0)),
-            'qty_on_hand' => (float) str_replace(',', '', (string) ($r[7] ?? 0)),
+            'is_service' => $isService ? 1 : 0,
+            'buy_price' => $buy,
+            'sell_price' => $sell,
+            'reorder_level' => $reorder,
+            'qty_on_hand' => $qty,
             'taxed' => $taxed,
         ];
         if ($existing) {
@@ -651,7 +686,7 @@ function stock_post_count(array $counted): array
     foreach ($counted as $itemId => $qty) {
         $itemId = (int) $itemId;
         $item = stock_item($itemId);
-        if (!$item) {
+        if (!$item || stock_item_is_service($item)) {
             continue;
         }
         $newQty = round((float) $qty, 2);
@@ -690,7 +725,7 @@ function stock_complete_sale(array $input): array
         if (!$item) {
             return ['ok' => false, 'error' => 'A product on the list is missing.'];
         }
-        if ($qty - (float) $item['qty_on_hand'] > 0.0001) {
+        if (!stock_item_is_service($item) && $qty - (float) $item['qty_on_hand'] > 0.0001) {
             return ['ok' => false, 'error' => $item['name'] . ' has only ' . rtrim(rtrim(number_format((float) $item['qty_on_hand'], 2, '.', ''), '0'), '.') . ' left.'];
         }
         $taxed = !empty($line['taxed']);
@@ -794,6 +829,9 @@ function stock_complete_purchase(array $input): array
         $item = stock_item($sid);
         if (!$item) {
             return ['ok' => false, 'error' => 'A product on the list is missing.'];
+        }
+        if (stock_item_is_service($item)) {
+            continue;
         }
         $clean[] = [
             'stock_item_id' => $sid,
@@ -1076,6 +1114,7 @@ function stock_performance_range(string $from, string $to): array
          LEFT JOIN stock_items s ON s.id = i.stock_item_id AND s.company_id = d.company_id
          WHERE d.company_id = ? AND d.status = 'issued' AND d.kind = 'invoice'
            AND d.date >= ? AND d.date <= ? AND i.stock_item_id IS NOT NULL AND i.stock_item_id > 0
+           AND COALESCE(s.is_service, 0) = 0
          GROUP BY d.id, d.date, d.currency",
         'iss',
         [$cid, $from, $to]

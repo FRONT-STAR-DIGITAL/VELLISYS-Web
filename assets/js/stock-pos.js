@@ -76,7 +76,7 @@
       '<input type="hidden" name="' + prefix + '_item[' + i + ']" value="' + (p.id || '') + '" data-sid>' +
       '<input type="hidden" name="' + prefix + '_name[' + i + ']" value="' + esc(p.name) + '">' +
       '<strong>' + esc(p.name) + '</strong>' +
-      '<div class="muted">' + esc(p.sku || (isNew ? 'New product' : '')) + (p.qty != null && !isNew ? ' · ' + p.qty + ' left' : '') + '</div></td>' +
+      '<div class="muted">' + esc(p.sku || (isNew ? 'New product' : '')) + (p.service ? ' · Service' : (p.qty != null && !isNew ? ' · ' + p.qty + ' left' : '')) + '</div></td>' +
       '<td class="line-qty"><input name="' + prefix + '_qty[' + i + ']" type="number" min="0" step="any" value="1" data-line-qty></td>' +
       '<td class="line-rate"><input name="' + prefix + '_price[' + i + ']" type="number" min="0" step="any" value="' + price + '" data-line-rate></td>' +
       '<td class="right mono"><span data-line-total>' + money(price) + '</span></td>' +
@@ -90,7 +90,7 @@
   function show(list, typed) {
     if (!box) return;
     var html = list.map(function (p) {
-      return '<button type="button" class="pos-opt" data-id="' + p.id + '"><strong>' + esc(p.name) + '</strong><span>' + esc(p.sku || '') + ' · ' + (p.qty != null ? p.qty + ' · ' : '') + money(mode === 'buy' ? p.buy : p.sell) + '</span></button>';
+      return '<button type="button" class="pos-opt" data-id="' + p.id + '"><strong>' + esc(p.name) + '</strong><span>' + esc(p.sku || '') + ' · ' + (p.service ? 'Service · ' : (p.qty != null ? p.qty + ' · ' : '')) + money(mode === 'buy' ? p.buy : p.sell) + '</span></button>';
     }).join('');
     if (mode === 'buy' && typed) {
       var exact = list.some(function (p) { return String(p.name).toLowerCase() === typed.toLowerCase(); });
@@ -107,6 +107,7 @@
       var s = q.value.trim().toLowerCase();
       if (!s) { show([]); return; }
       var list = cat.filter(function (p) {
+        if (mode === 'buy' && p.service) return false;
         return String(p.name).toLowerCase().indexOf(s) !== -1 || String(p.sku).toLowerCase().indexOf(s) !== -1;
       }).slice(0, 8);
       show(list, q.value.trim());

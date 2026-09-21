@@ -1562,7 +1562,7 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
       return String(p.name).toLowerCase().indexOf(s) !== -1 || String(p.sku).toLowerCase().indexOf(s) !== -1;
     }).slice(0, 8);
     var html = list.map(function (p) {
-      return '<button type="button" class="pos-opt" data-id="' + p.id + '"><strong>' + esc(p.name) + '</strong><span>' + esc(p.sku || '') + (p.qty != null ? ' · ' + p.qty + ' left' : '') + ' · ' + esc(p.sell) + '</span></button>';
+      return '<button type="button" class="pos-opt" data-id="' + p.id + '"><strong>' + esc(p.name) + '</strong><span>' + esc(p.sku || '') + (p.service ? ' · Service' : (p.qty != null ? ' · ' + p.qty + ' left' : '')) + ' · ' + esc(p.sell) + '</span></button>';
     }).join('');
     var exact = list.some(function (p) { return String(p.name).toLowerCase() === s; });
     if (!exact) {

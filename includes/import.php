@@ -32,7 +32,7 @@ function import_kinds(): array
     if (company_stock_enabled()) {
         $kinds['stock'] = [
             'title' => 'Stock',
-            'lead' => 'Products, prices and opening quantities. Same sheet as Stock → Items.',
+            'lead' => 'Products and services. Type is product or service. Services skip buying price and opening quantity.',
             'icon' => 'package',
             'file' => 'stock-template',
         ];
@@ -886,7 +886,7 @@ function import_flash_message(array $res): string
             $parts[] = $updated . ' already on the desk (details filled where blank)';
         }
     } elseif ($kind === 'stock') {
-        $parts[] = $added . ' new product' . ($added === 1 ? '' : 's');
+        $parts[] = $added . ' new item' . ($added === 1 ? '' : 's');
         if ($updated) {
             $parts[] = $updated . ' updated';
         }

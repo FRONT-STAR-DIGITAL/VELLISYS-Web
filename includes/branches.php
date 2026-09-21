@@ -359,6 +359,7 @@ function branch_performance_for_range(string $from, string $to): array
          LEFT JOIN stock_items s ON s.id = i.stock_item_id AND s.company_id = d.company_id
          WHERE d.company_id = ? AND d.status = 'issued' AND d.kind = 'invoice'
            AND d.date >= ? AND d.date <= ? AND i.stock_item_id IS NOT NULL AND i.stock_item_id > 0
+           AND COALESCE(s.is_service, 0) = 0
          GROUP BY COALESCE(d.branch_id, 0), d.currency",
         'iss',
         [$cid, $sqlFrom, $sqlTo]
