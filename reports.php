@@ -18,11 +18,11 @@ $scope = 'd.company_id = ? AND d.status = \'issued\'' . $extra;
 $bind = 'i' . $types;
 $args = array_merge([$cid], $params);
 
-$invoices = attach_document_totals(db_all("SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id WHERE {$scope} AND d.kind = 'invoice'", $bind, $args));
-$expenses = attach_document_totals(db_all("SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id WHERE {$scope} AND d.kind = 'expense'", $bind, $args));
+$invoices = attach_document_totals(db_all("SELECT d.*, p.name AS party_name FROM documents d LEFT JOIN parties p ON p.id = d.party_id WHERE {$scope} AND d.kind = 'invoice'", $bind, $args));
+$expenses = attach_document_totals(db_all("SELECT d.*, p.name AS party_name FROM documents d LEFT JOIN parties p ON p.id = d.party_id WHERE {$scope} AND d.kind = 'expense'", $bind, $args));
 $receipts = attach_document_totals(db_all(
     "SELECT d.*, p.name AS party_name, r.kind AS related_kind
-     FROM documents d JOIN parties p ON p.id = d.party_id
+     FROM documents d LEFT JOIN parties p ON p.id = d.party_id
      LEFT JOIN documents r ON r.id = d.related_id
      WHERE {$scope} AND d.kind = 'receipt'",
     $bind,
@@ -108,7 +108,7 @@ arsort($byClient);
 $topClients = array_slice($byClient, 0, 8, true);
 
 $quotes = db_all(
-    "SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id WHERE {$scope} AND d.kind = 'quotation'",
+    "SELECT d.*, p.name AS party_name FROM documents d LEFT JOIN parties p ON p.id = d.party_id WHERE {$scope} AND d.kind = 'quotation'",
     $bind,
     $args
 );
@@ -234,6 +234,7 @@ $period = period_range();
 $from = $period['from'] !== '' ? $period['from'] : '1970-01-01';
 $to = $period['to'] !== '' ? $period['to'] : today();
 $cashProfit = round($cashIn - $costs, 2);
+$performance = report_performance_statement();
 $taxReport = report_tax_payable();
 $taxName = company_tax_name();
 $chartLabels = [];
@@ -306,6 +307,82 @@ layout_start('Reports', $user);
   <div class="card stat"><?= icon('hash', 20) ?><span><?= h($taxName) ?> payable</span><strong><?= h(ugx($taxReport['payable'])) ?></strong></div>
   <div class="card stat"><?= icon('quotation', 20) ?><span>Quotes converted</span><strong><?= (int) $quoteConverted ?> / <?= count($quotes) ?></strong></div>
   <div class="card stat"><?= icon('bank', 20) ?><span>Supplier payments</span><strong><?= h(ugx($cashOut)) ?></strong></div>
+</div>
+
+<?php
+$perfTitle = ($period['preset'] ?? '') === 'today' ? "Today's performance" : "This period's performance";
+$kindLabel = static fn (string $k): string => match ($k) {
+    'product' => 'Product',
+    'service' => 'Service',
+    'expense' => 'Expense',
+    default => 'Other',
+};
+?>
+<div class="card" style="margin-bottom:16px">
+  <div class="card-head"><h2><?= icon('reports', 16) ?><?= h($perfTitle) ?></h2></div>
+  <p class="hint" style="margin:0 22px 12px">Products and services sold, then expenses, then net profit (sold minus expenses).</p>
+  <?php if (!$performance['income'] && !$performance['expenses']): ?>
+    <p class="empty">Nothing sold or spent in this period.</p>
+  <?php else: ?>
+  <div class="table-scroll">
+    <table class="grid">
+      <thead>
+        <tr>
+          <th>Source</th>
+          <th>Kind</th>
+          <th class="right">Qty</th>
+          <th class="right">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td colspan="4"><strong>Income</strong></td>
+        </tr>
+        <?php if (!$performance['income']): ?>
+          <tr><td colspan="4" class="muted">No products or services sold.</td></tr>
+        <?php else: ?>
+          <?php foreach ($performance['income'] as $row): ?>
+            <tr>
+              <td><?= h($row['name']) ?></td>
+              <td><?= h($kindLabel($row['kind'])) ?></td>
+              <td class="right mono"><?= h(format_qty($row['qty'])) ?></td>
+              <td class="right mono"><?= h(ugx($row['amount'])) ?></td>
+            </tr>
+          <?php endforeach; ?>
+        <?php endif; ?>
+        <tr>
+          <td colspan="3"><strong>Income total</strong></td>
+          <td class="right mono"><strong><?= h(ugx($performance['income_total'])) ?></strong></td>
+        </tr>
+        <tr>
+          <td colspan="4"><strong>Expenses</strong></td>
+        </tr>
+        <?php if (!$performance['expenses']): ?>
+          <tr><td colspan="4" class="muted">No expenses.</td></tr>
+        <?php else: ?>
+          <?php foreach ($performance['expenses'] as $row): ?>
+            <tr>
+              <td><?= h($row['name']) ?></td>
+              <td>Expense</td>
+              <td class="right mono"><?= h(format_qty($row['qty'])) ?></td>
+              <td class="right mono"><?= h(ugx($row['amount'])) ?></td>
+            </tr>
+          <?php endforeach; ?>
+        <?php endif; ?>
+        <tr>
+          <td colspan="3"><strong>Expenses total</strong></td>
+          <td class="right mono"><strong><?= h(ugx($performance['expense_total'])) ?></strong></td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="3">Net profit</td>
+          <td class="right mono"><?= h(ugx($performance['net'])) ?></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  <?php endif; ?>
 </div>
 
 <?php if ($view === 'annual'): ?>

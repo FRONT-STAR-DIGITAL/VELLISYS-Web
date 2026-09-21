@@ -38,7 +38,11 @@ if ($doc['kind'] === 'invoice') {
   <div>
     <h1><?= icon($doc['kind']) ?><?= h($doc['number']) ?></h1>
     <p class="lede">
-      <a href="<?= h(url('client_view.php?id=' . $doc['party_id'])) ?>"><?= h($doc['party_name']) ?></a>
+      <?php if ((int) ($doc['party_id'] ?? 0) > 0): ?>
+        <a href="<?= h(url('client_view.php?id=' . $doc['party_id'])) ?>"><?= h($doc['party_name']) ?></a>
+      <?php else: ?>
+        <?= $doc['kind'] === 'expense' ? 'No payee' : 'No client' ?>
+      <?php endif; ?>
       · <?= h(invoice_status_label($doc)) ?>
       <?php if (company_branches_enabled()): ?>
         · <?= h(company_branch_label(isset($doc['branch_id']) ? (int) $doc['branch_id'] : 0)) ?>

@@ -127,9 +127,9 @@ $lessons = [
         'title' => 'Expenses',
         'file' => 'expenses.png',
         'alt' => 'Expense list with suppliers, categories and amounts',
-        'lead' => 'Money out is an expense. Log the supplier, the category, the tax and the date so Reports can tot it up.',
+        'lead' => 'Money out is an expense. The payee is optional. Log the category, the tax and the date so Reports can tot it up.',
         'points' => [
-            'Record expense from the menu or Quick add. Pick or add the supplier, then the lines.',
+            'Record expense from the menu or Quick add. A supplier is optional — leave Party blank if there is none.',
             'Category is what the pie chart uses. Keep personal spend off this desk - Vellisys is the company books.',
             'Unpaid bills stay on Creditors until you mark them paid. Pay from the expense, or from that list.',
         ],
@@ -305,6 +305,7 @@ $lessons = [
         'points' => [
             'Period is the chips you already know. Annual is a year: pick 2026, see twelve months of invoiced, expenses and cash.',
             'Income is invoiced net. Collected is money received. Profit and net profit are collected minus expenses, and they always show for the dates you pick.',
+            'Today\'s performance (or this period) lists products and services sold, then expenses, then net profit as sold minus expenses.',
             'The tax table lists each taxed item, the sheet it sat on, and the receipt that collected it. Tax payable is output less input.',
             'Export CSV when you need the numbers in a spreadsheet. The charts are for the meeting; the CSV is for the file.',
         ],

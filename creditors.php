@@ -51,7 +51,11 @@ layout_start('Creditors', $user);
         <?php foreach ($rows as $doc): ?>
           <tr>
             <td class="mono"><a href="<?= h(url('document_view.php?id=' . $doc['id'])) ?>"><?= h($doc['number']) ?></a></td>
-            <td><a href="<?= h(url('client_view.php?id=' . $doc['party_id'])) ?>"><?= h($doc['party_name']) ?></a></td>
+            <td><?php if ((int) ($doc['party_id'] ?? 0) > 0): ?>
+              <a href="<?= h(url('client_view.php?id=' . $doc['party_id'])) ?>"><?= h($doc['party_name']) ?></a>
+            <?php else: ?>
+              No payee
+            <?php endif; ?></td>
             <td class="date-cell"><?= h(format_date($doc['date'])) ?></td>
             <td><?= h($doc['expense_category'] ?: 'Other') ?></td>
             <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>

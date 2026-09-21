@@ -198,6 +198,9 @@ function ensure_document_party(string $kind): int
         }
     }
     if ($name === '') {
+        if ($kind === 'expense') {
+            return 0;
+        }
         throw new RuntimeException('Choose an existing client or type a new name.');
     }
     $found = db_one('SELECT id FROM parties WHERE company_id = ? AND name = ? ORDER BY id DESC LIMIT 1', 'is', [$cid, $name]);
@@ -325,7 +328,13 @@ function create_document(array $data): int
     $date = (string) ($data['date'] ?? today());
     $due = $data['due_date'] ?? null;
     $due = $due === '' ? null : $due;
-    $party = (int) $data['party_id'];
+    $party = (int) ($data['party_id'] ?? 0);
+    if ($party < 1) {
+        if ($kind !== 'expense') {
+            throw new RuntimeException('Choose an existing client or type a new name.');
+        }
+        $party = null;
+    }
     $rate = (float) ($data['vat_rate'] ?? company_tax_rate());
     $notes = $data['notes'] ?? null;
     $subject = $data['subject'] ?? null;
@@ -480,7 +489,13 @@ function update_document(int $id, array $data): void
     if ($doc['status'] === 'void') {
         throw new RuntimeException('Voided documents cannot be edited.');
     }
-    $party = (int) ($data['party_id'] ?? $doc['party_id']);
+    $party = (int) ($data['party_id'] ?? $doc['party_id'] ?? 0);
+    if ($party < 1) {
+        if (($doc['kind'] ?? '') !== 'expense') {
+            throw new RuntimeException('Choose an existing client or type a new name.');
+        }
+        $party = null;
+    }
     $date = (string) ($data['date'] ?? $doc['date']);
     $due = $data['due_date'] ?? $doc['due_date'];
     $due = $due === '' ? null : $due;
@@ -564,6 +579,8 @@ function hydrate_document(array $doc): array
     if (!$doc['party_extras'] && !empty($doc['party_profile'])) {
         $doc['party_extras'] = parse_party_profile($doc['party_profile']);
     }
+    $doc['party_name'] = (string) ($doc['party_name'] ?? '');
+    $doc['party_id'] = (int) ($doc['party_id'] ?? 0);
     $doc['totals'] = document_totals($doc);
     if ($doc['kind'] === 'invoice') {
         $doc['paid'] = invoice_paid((int) $doc['id']);
@@ -587,7 +604,7 @@ function load_document(int $id): ?array
 {
     $doc = db_one(
         'SELECT d.*, p.name AS party_name, p.email AS party_email, p.phone AS party_phone, p.phone2 AS party_phone2, p.address AS party_address, p.city AS party_city, p.country AS party_country, p.contact_person AS party_contact, p.tin AS party_tin, p.kind AS party_kind, p.profile AS party_profile, p.entity AS party_entity
-         FROM documents d JOIN parties p ON p.id = d.party_id WHERE d.id = ? AND d.company_id = ?',
+         FROM documents d LEFT JOIN parties p ON p.id = d.party_id WHERE d.id = ? AND d.company_id = ?',
         'ii',
         [$id, current_company_id()]
     );
@@ -1542,6 +1559,110 @@ function invoice_status_label(array $doc): string
     return 'Issued';
 }
 
+/** Sold products/services, expenses, and net profit for the current report period. */
+function report_performance_statement(?int $companyId = null): array
+{
+    $cid = $companyId ?? current_company_id();
+    $base = default_currency();
+    $empty = ['income' => [], 'expenses' => [], 'income_total' => 0.0, 'expense_total' => 0.0, 'net' => 0.0];
+    if ($cid < 1) {
+        return $empty;
+    }
+    [$extra, $types, $params] = period_sql('d.date');
+    $hasService = function_exists('db_has_column') && db_has_column(db(), 'stock_items', 'is_service');
+    $svc = $hasService ? 'COALESCE(s.is_service, 0)' : '0';
+    $stockMatch = $hasService ? 's.id' : 'NULL';
+    $joinStock = $hasService
+        ? 'LEFT JOIN stock_items s ON s.company_id = d.company_id AND (
+                (i.stock_item_id > 0 AND s.id = i.stock_item_id)
+                OR (COALESCE(i.stock_item_id, 0) = 0 AND s.name = i.item_name)
+           )'
+        : '';
+    $sold = db_all(
+        "SELECT i.item_name, i.description, i.qty, i.rate, i.stock_item_id, {$svc} AS is_service, {$stockMatch} AS stock_match_id,
+                d.kind, d.currency, d.related_id
+         FROM document_items i
+         INNER JOIN documents d ON d.id = i.document_id
+         {$joinStock}
+         WHERE d.company_id = ? AND d.status = 'issued'
+           AND (d.kind = 'invoice' OR (d.kind = 'receipt' AND COALESCE(d.related_id, 0) = 0))
+           {$extra}",
+        'i' . $types,
+        array_merge([$cid], $params)
+    );
+    $income = [];
+    foreach ($sold as $row) {
+        $name = trim((string) ($row['item_name'] ?? ''));
+        if ($name === '') {
+            $name = trim((string) ($row['description'] ?? '')) ?: 'Sale';
+        }
+        $svcRow = (int) ($row['is_service'] ?? 0) === 1;
+        $matched = (int) ($row['stock_item_id'] ?? 0) > 0 || (int) ($row['stock_match_id'] ?? 0) > 0;
+        $kind = $svcRow ? 'service' : ($matched ? 'product' : 'other');
+        $key = $kind . "\0" . mb_strtolower($name);
+        if (!isset($income[$key])) {
+            $income[$key] = ['name' => $name, 'kind' => $kind, 'qty' => 0.0, 'amount' => 0.0];
+        }
+        $income[$key]['qty'] += (float) ($row['qty'] ?? 0);
+        $line = round((float) ($row['qty'] ?? 0) * (float) ($row['rate'] ?? 0), 2);
+        $income[$key]['amount'] += convert_money($line, normalize_currency((string) ($row['currency'] ?? ''), $base), $base);
+    }
+    $income = array_values($income);
+    usort($income, static fn ($a, $b) => $b['amount'] <=> $a['amount']);
+    $incomeTotal = 0.0;
+    foreach ($income as &$row) {
+        $row['qty'] = round((float) $row['qty'], 2);
+        $row['amount'] = round((float) $row['amount'], 2);
+        $incomeTotal += $row['amount'];
+    }
+    unset($row);
+
+    $spent = db_all(
+        "SELECT i.item_name, i.description, i.qty, i.rate, d.expense_category, d.currency, d.id
+         FROM documents d
+         LEFT JOIN document_items i ON i.document_id = d.id
+         WHERE d.company_id = ? AND d.status = 'issued' AND d.kind = 'expense' {$extra}",
+        'i' . $types,
+        array_merge([$cid], $params)
+    );
+    $expenses = [];
+    foreach ($spent as $row) {
+        $name = trim((string) ($row['item_name'] ?? ''));
+        if ($name === '') {
+            $name = trim((string) ($row['description'] ?? '')) ?: trim((string) ($row['expense_category'] ?? '')) ?: 'Expense';
+        }
+        $key = mb_strtolower($name);
+        if (!isset($expenses[$key])) {
+            $expenses[$key] = ['name' => $name, 'kind' => 'expense', 'qty' => 0.0, 'amount' => 0.0];
+        }
+        $qty = (float) ($row['qty'] ?? 0);
+        $rate = (float) ($row['rate'] ?? 0);
+        if ($qty == 0.0 && $rate == 0.0) {
+            continue;
+        }
+        $expenses[$key]['qty'] += $qty > 0 ? $qty : 1;
+        $line = round(($qty > 0 ? $qty : 1) * $rate, 2);
+        $expenses[$key]['amount'] += convert_money($line, normalize_currency((string) ($row['currency'] ?? ''), $base), $base);
+    }
+    $expenses = array_values($expenses);
+    usort($expenses, static fn ($a, $b) => $b['amount'] <=> $a['amount']);
+    $expenseTotal = 0.0;
+    foreach ($expenses as &$row) {
+        $row['qty'] = round((float) $row['qty'], 2);
+        $row['amount'] = round((float) $row['amount'], 2);
+        $expenseTotal += $row['amount'];
+    }
+    unset($row);
+
+    return [
+        'income' => $income,
+        'expenses' => $expenses,
+        'income_total' => round($incomeTotal, 2),
+        'expense_total' => round($expenseTotal, 2),
+        'net' => round($incomeTotal - $expenseTotal, 2),
+    ];
+}
+
 /** Taxed lines in the current report period, with collecting receipt numbers. */
 function report_tax_payable(?int $companyId = null): array
 {
@@ -1557,7 +1678,7 @@ function report_tax_payable(?int $companyId = null): array
                 p.name AS party_name,
                 i.item_name, i.description, ROUND(i.qty * i.rate, 2) AS taxable
          FROM documents d
-         INNER JOIN parties p ON p.id = d.party_id
+         LEFT JOIN parties p ON p.id = d.party_id
          INNER JOIN document_items i ON i.document_id = d.id
          WHERE d.company_id = ? AND d.status = 'issued' AND i.taxed = 1
            AND d.kind IN ('invoice','receipt','expense')

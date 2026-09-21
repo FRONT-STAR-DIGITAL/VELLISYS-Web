@@ -1072,12 +1072,12 @@ function stock_search_docs(string $kind, string $q, int $page, int $per = 20, ?s
     }
     if ($q !== '') {
         $like = '%' . $q . '%';
-        $where .= ' AND (d.number LIKE ? OR p.name LIKE ?)';
+        $where .= ' AND (d.number LIKE ? OR IFNULL(p.name,\'\') LIKE ?)';
         $types .= 'ss';
         $params[] = $like;
         $params[] = $like;
     }
-    $join = ' FROM documents d JOIN parties p ON p.id = d.party_id WHERE ' . $where;
+    $join = ' FROM documents d LEFT JOIN parties p ON p.id = d.party_id WHERE ' . $where;
     $count = db_one('SELECT COUNT(*) AS n' . $join, $types, $params);
     $total = (int) ($count['n'] ?? 0);
     $pages = max(1, (int) ceil($total / max(1, $per)));

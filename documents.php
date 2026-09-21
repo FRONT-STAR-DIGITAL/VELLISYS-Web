@@ -124,7 +124,11 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
         <?php foreach ($rows as $doc): ?>
           <tr>
             <td class="mono"><a href="<?= h(url('document_view.php?id=' . $doc['id'])) ?>"><?= h($doc['number']) ?></a></td>
-            <td><a href="<?= h(url('client_view.php?id=' . $doc['party_id'])) ?>"><?= h($doc['party_name']) ?></a></td>
+            <td><?php if ((int) ($doc['party_id'] ?? 0) > 0): ?>
+              <a href="<?= h(url('client_view.php?id=' . $doc['party_id'])) ?>"><?= h($doc['party_name']) ?></a>
+            <?php else: ?>
+              <?= $kind === 'expense' ? 'No payee' : '—' ?>
+            <?php endif; ?></td>
             <td class="date-cell"><?= h(format_date($doc['date'])) ?></td>
             <?php if ($kind === 'expense'): ?>
               <td><?= h($doc['expense_category'] ?: 'Other') ?></td>

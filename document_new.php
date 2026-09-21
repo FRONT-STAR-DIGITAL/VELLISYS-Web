@@ -339,17 +339,17 @@ layout_start($heading, $user, ['kind' => $kind]);
     <?php endif; ?>
     <?php if ($kind === 'expense'): ?>
     <div>
-      <label for="to_name">Party</label>
+      <label for="to_name">Party (optional)</label>
       <div class="client-combo" data-client-combo>
         <input type="hidden" id="party_id" name="party_id" value="<?= $prefillParty ?: '' ?>">
-        <input id="to_name" name="to_name" required autocomplete="off" placeholder="Choose or type a payee…" value="<?= h((string) ($toParty['name'] ?? '')) ?>" data-client-search>
+        <input id="to_name" name="to_name" autocomplete="off" placeholder="Payee if you have one…" value="<?= h((string) ($toParty['name'] ?? '')) ?>" data-client-search>
         <div class="client-combo-panel" data-client-panel hidden>
           <button type="button" class="client-combo-scroll" data-client-scroll="-1" aria-label="Scroll client list up"><?= icon('chevron-up', 16) ?></button>
           <ul class="client-combo-list" data-client-list></ul>
           <button type="button" class="client-combo-scroll" data-client-scroll="1" aria-label="Scroll client list down"><?= icon('chevron-down', 16) ?></button>
         </div>
       </div>
-      <p class="hint">Pick a saved payee or type a new name. <a href="<?= h(url('client_edit.php')) ?>">Open the full client form</a></p>
+      <p class="hint">Leave blank if this spend has no supplier. <a href="<?= h(url('client_edit.php')) ?>">Open the full client form</a></p>
     </div>
     <?php else: ?>
     <?php render_document_to_fields($toParty, $existing); ?>

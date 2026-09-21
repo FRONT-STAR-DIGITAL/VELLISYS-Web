@@ -31,7 +31,7 @@ foreach ($invoices as $d) {
         $incomeMonth += $total;
     }
 }
-$expAll = attach_document_totals(db_all("SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id WHERE d.company_id = ? AND d.kind = 'expense' AND d.status = 'issued'", 'i', [$cid]));
+$expAll = attach_document_totals(db_all("SELECT d.*, p.name AS party_name FROM documents d LEFT JOIN parties p ON p.id = d.party_id WHERE d.company_id = ? AND d.kind = 'expense' AND d.status = 'issued'", 'i', [$cid]));
 $expenseMonth = 0;
 $expenseAll = 0;
 $creditorOpen = 0;
@@ -80,7 +80,7 @@ $quotesConverted = (int) (db_one(
 )['c'] ?? 0);
 $quoteRate = $quotesAll > 0 ? (int) round(100 * $quotesConverted / $quotesAll) : 0;
 
-$recent = attach_document_totals(db_all("SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id WHERE d.company_id = ? ORDER BY d.id DESC LIMIT 8", 'i', [$cid]));
+$recent = attach_document_totals(db_all("SELECT d.*, p.name AS party_name FROM documents d LEFT JOIN parties p ON p.id = d.party_id WHERE d.company_id = ? ORDER BY d.id DESC LIMIT 8", 'i', [$cid]));
 $queue = $overdue ?: array_merge($open, $saleOpen);
 $hour = (int) date('G');
 $hello = $hour < 12 ? 'Good morning' : ($hour < 17 ? 'Good afternoon' : 'Good evening');

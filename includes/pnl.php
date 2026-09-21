@@ -388,7 +388,7 @@ function pnl_summary(): array
         $args
     ));
     $expenses = attach_document_totals(db_all(
-        "SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id WHERE {$scope} AND d.kind = 'expense'",
+        "SELECT d.*, p.name AS party_name FROM documents d LEFT JOIN parties p ON p.id = d.party_id WHERE {$scope} AND d.kind = 'expense'",
         $bind,
         $args
     ));

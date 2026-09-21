@@ -27,6 +27,26 @@ function folio_schema_ready_file(): string
     return $dir . '/schema-48.ok';
 }
 
+function folio_ensure_optional_doc_party(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    $col = @$db->query("SHOW COLUMNS FROM documents LIKE 'party_id'");
+    $info = $col ? $col->fetch_assoc() : null;
+    if (!$info) {
+        return;
+    }
+    if (strtoupper((string) ($info['Null'] ?? '')) === 'YES') {
+        return;
+    }
+    @$db->query('ALTER TABLE documents DROP FOREIGN KEY fk_doc_party');
+    @$db->query('ALTER TABLE documents MODIFY party_id INT UNSIGNED NULL');
+    @$db->query('ALTER TABLE documents ADD CONSTRAINT fk_doc_party FOREIGN KEY (party_id) REFERENCES parties (id)');
+}
+
 function folio_ensure_receipt_comments(mysqli $db): void
 {
     static $ready = false;
@@ -472,6 +492,7 @@ function folio_migrate(mysqli $db): void
         return;
     }
     folio_ensure_logo_bg($db);
+    folio_ensure_optional_doc_party($db);
     folio_ensure_receipt_comments($db);
     folio_ensure_party_status($db);
     folio_ensure_branches($db);

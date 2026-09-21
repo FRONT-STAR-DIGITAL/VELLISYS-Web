@@ -61,9 +61,9 @@ function search_desk(string $q, int $limit = 8): array
     $docs = db_all(
         "SELECT d.id, d.number, d.kind, d.date, d.status, p.name AS party_name
          FROM documents d
-         JOIN parties p ON p.id = d.party_id
+         LEFT JOIN parties p ON p.id = d.party_id
          WHERE d.company_id = ?
-           AND (d.number LIKE ? OR p.name LIKE ? OR IFNULL(d.subject,'') LIKE ? OR IFNULL(d.notes,'') LIKE ?)
+           AND (d.number LIKE ? OR IFNULL(p.name,'') LIKE ? OR IFNULL(d.subject,'') LIKE ? OR IFNULL(d.notes,'') LIKE ?)
          ORDER BY d.date DESC, d.id DESC
          LIMIT 40",
         'issss',
@@ -193,8 +193,8 @@ function search_platform(string $q, int $limit = 8): array
         "SELECT d.id, d.number, d.kind, d.date, d.status, d.company_id, c.name AS company_name, p.name AS party_name
          FROM documents d
          JOIN companies c ON c.id = d.company_id
-         JOIN parties p ON p.id = d.party_id
-         WHERE d.number LIKE ? OR c.name LIKE ? OR p.name LIKE ?
+         LEFT JOIN parties p ON p.id = d.party_id
+         WHERE d.number LIKE ? OR c.name LIKE ? OR IFNULL(p.name,'') LIKE ?
          ORDER BY d.date DESC, d.id DESC
          LIMIT 40",
         'sss',
