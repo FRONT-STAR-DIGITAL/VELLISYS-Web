@@ -617,7 +617,21 @@ layout_start($heading, $user, ['kind' => $kind]);
       <?php endif; ?>
     </div>
     <label for="notes"><?= $kind === 'expense' ? 'Notes' : 'Comments on the document' ?></label>
-    <textarea id="notes" name="notes" rows="4" placeholder="<?= $kind === 'expense' ? 'Optional note for your records.' : 'Payment is due by the date shown above.' ?>"><?= h((string) ($existing['notes'] ?? ($kind === 'invoice' ? (string) branding()['invoice_comments'] : ''))) ?></textarea>
+    <?php
+    $commentSeed = (string) ($existing['notes'] ?? '');
+    if ($commentSeed === '' && !$existing) {
+        $commentSeed = brand_document_comments(branding(), (string) $kind, '');
+    }
+    $commentPh = 'Comments on this document.';
+    if ($kind === 'expense') {
+        $commentPh = 'Optional note for your records.';
+    } elseif ($kind === 'invoice') {
+        $commentPh = 'Printed on this invoice. Leave blank to use default invoice comments from Settings.';
+    } elseif ($kind === 'receipt') {
+        $commentPh = 'Printed on this receipt. Leave blank to use default receipt comments from Settings.';
+    }
+    ?>
+    <textarea id="notes" name="notes" rows="4" placeholder="<?= h($commentPh) ?>"><?= h($commentSeed) ?></textarea>
     <?php if ($kind !== 'expense') { render_add_signature_checkbox($existing); } ?>
   <?php endif; ?>
 

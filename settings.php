@@ -169,8 +169,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if ($error === '') {
         db_exec(
-            'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, currency=?, fx_ugx_per_usd=?, letter_templates=?, doc_template=?, number_format=?, logo_bg=?, tax_name=?, tax_rate=?, tax_default=? WHERE company_id=?',
-            'ssssssssssssssssssssdsssisdii',
+            'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, receipt_comments=?, currency=?, fx_ugx_per_usd=?, letter_templates=?, doc_template=?, number_format=?, logo_bg=?, tax_name=?, tax_rate=?, tax_default=? WHERE company_id=?',
+            'sssssssssssssssssssssdsssisdii',
             [
                 post('name'),
                 post('tagline'),
@@ -191,6 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 strtoupper(post('prefix') ?: 'OFG'),
                 post('payment_note'),
                 post('invoice_comments'),
+                post('receipt_comments'),
                 posted_currency('currency', default_currency()),
                 parse_fx_rate(post('fx_ugx_per_usd')),
                 encode_letter_templates(isset($_POST['tpl']) && is_array($_POST['tpl']) ? $_POST['tpl'] : []),
@@ -752,6 +753,10 @@ layout_start('Settings', $user);
       <textarea id="payment_note" name="payment_note" rows="2"><?= h($b['payment_note'] ?? '') ?></textarea>
       <label for="invoice_comments">Default invoice comments</label>
       <textarea id="invoice_comments" name="invoice_comments" rows="4"><?= h($b['invoice_comments'] ?? '') ?></textarea>
+      <p class="hint">Printed on invoices when that invoice has no comments of its own. Receipts do not use this text.</p>
+      <label for="receipt_comments">Default receipt comments</label>
+      <textarea id="receipt_comments" name="receipt_comments" rows="3"><?= h($b['receipt_comments'] ?? '') ?></textarea>
+      <p class="hint">Printed on receipts when that receipt has no comments of its own.</p>
       <?php $settings_save(); ?>
     </section>
 

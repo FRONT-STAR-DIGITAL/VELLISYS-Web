@@ -239,6 +239,8 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
     <input id="payment_note" name="payment_note" value="<?= h(post('payment_note')) ?>" placeholder="Make payment to the company.">
     <label for="invoice_comments">Invoice comments</label>
     <textarea id="invoice_comments" name="invoice_comments" rows="3"><?= h(post('invoice_comments')) ?></textarea>
+    <label for="receipt_comments">Receipt comments</label>
+    <textarea id="receipt_comments" name="receipt_comments" rows="3"><?= h(post('receipt_comments')) ?></textarea>
   </div>
 
   <div style="padding:8px 22px 0">

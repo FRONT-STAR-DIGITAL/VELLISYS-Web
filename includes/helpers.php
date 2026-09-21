@@ -982,6 +982,7 @@ function folio_defaults(): array
         'tin' => '',
         'payment_note' => '',
         'invoice_comments' => '',
+        'receipt_comments' => '',
         'letter_templates' => '',
         'doc_template' => 'folio',
         'logo_bg' => 0,
@@ -1018,6 +1019,21 @@ function branding(bool $refresh = false): array
         $row = $cid > 0 ? branding_for($cid) : folio_defaults();
     }
     return $row;
+}
+
+function brand_document_comments(array $brand, string $kind, ?string $notes = null): string
+{
+    $notes = trim((string) $notes);
+    if ($notes !== '') {
+        return $notes;
+    }
+    if ($kind === 'receipt') {
+        return trim((string) ($brand['receipt_comments'] ?? ''));
+    }
+    if ($kind === 'invoice') {
+        return trim((string) ($brand['invoice_comments'] ?? ''));
+    }
+    return '';
 }
 
 function parse_hex_color(?string $raw, string $fallback = '#82B440'): string
@@ -2335,6 +2351,7 @@ function platform_create_company(?int $signupId = null): array
     $accountName = post('account_name') ?: $name;
     $paymentNote = post('payment_note') ?: ('Make payment to ' . $name . '.');
     $comments = post('invoice_comments') ?: "1. Payment is due by the date shown above.\n2. Quote the invoice number on the transfer.";
+    $receiptComments = post('receipt_comments') ?: 'Payments made are not refundable.';
 
     $plannerOn = planner_resolve_enabled($plan, !empty($_POST['planner_enabled']), null);
     $pnlOn = pnl_resolve_enabled($plan, !empty($_POST['pnl_enabled']), null);
@@ -2403,9 +2420,9 @@ function platform_create_company(?int $signupId = null): array
     }
 
     db_exec(
-        'INSERT INTO branding (company_id, name, tagline, tin, vat_no, address, city, phone, email, website, bank_name, account_name, account_number, brand_color, brand_accent, brand_deep, logo_path, prefix, payment_note, invoice_comments, plan, currency)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        'isssssssssssssssssssss',
+        'INSERT INTO branding (company_id, name, tagline, tin, vat_no, address, city, phone, email, website, bank_name, account_name, account_number, brand_color, brand_accent, brand_deep, logo_path, prefix, payment_note, invoice_comments, receipt_comments, plan, currency)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'issssssssssssssssssssss',
         [
             $cid,
             $name,
@@ -2427,6 +2444,7 @@ function platform_create_company(?int $signupId = null): array
             $prefix,
             $paymentNote,
             $comments,
+            $receiptComments,
             'sme',
             $currency,
         ]

@@ -1173,6 +1173,18 @@
   border: 2px solid #111;
   min-height: 48px;
 }
+.slip-cash-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.slip-cash-stack .slip-cashbox { margin: 16px 0 0; }
+.slip-due {
+  margin: 0;
+  font-weight: 700;
+  color: #7a1f1a;
+}
 .slip-cashbox span {
   display: flex;
   align-items: center;

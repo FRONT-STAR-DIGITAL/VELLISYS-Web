@@ -52,7 +52,7 @@ function sheet_data(array $brand, array $doc): array
         'tax_name' => company_tax_name($brand),
         'tax_label' => tax_rate_label((float) ($doc['vat_rate'] ?? 0), $brand),
         'settlement' => $settlement,
-        'comments' => $doc['notes'] ?: ($brand['invoice_comments'] ?? ''),
+        'comments' => brand_document_comments($brand, (string) ($doc['kind'] ?? ''), $doc['notes'] ?? ''),
         'logo' => logo_url($brand),
         'cur' => doc_currency($doc),
         'home_cur' => default_currency(),
@@ -73,24 +73,76 @@ function render_sheet_logo(array $d, string $class = 'd-logo'): void
     echo '<img src="' . h($src) . '" alt="' . h($alt) . '" class="' . h($class) . '">';
 }
 
-function render_settlement(array $d): void
+function sheet_is_receipt(array $d): bool
 {
-    if (($d['doc']['kind'] ?? '') !== 'receipt') {
-        return;
+    return ($d['doc']['kind'] ?? '') === 'receipt';
+}
+
+function sheet_received_amount(array $d): float
+{
+    $s = $d['settlement'] ?? [];
+    $got = (float) ($s['received'] ?? ($d['doc']['allocated_amount'] ?? 0));
+    if ($got > 0.009) {
+        return $got;
+    }
+    $paid = (float) ($d['paid'] ?? 0);
+    if ($paid > 0.009) {
+        return $paid;
+    }
+    return (float) ($d['total'] ?? 0);
+}
+
+function sheet_due_amount(array $d): float
+{
+    if (function_exists('document_due_amount') && isset($d['doc'])) {
+        return document_due_amount($d['doc']);
     }
     $s = $d['settlement'] ?? [];
-    $received = (float) ($s['received'] ?? $d['total']);
     $due = (float) ($s['invoice_balance'] ?? 0);
     if ($due <= 0.009) {
-        $due = (float) ($s['balance'] ?? 0);
+        $due = (float) ($s['balance'] ?? $d['balance'] ?? 0);
     }
+    return max(0, $due);
+}
+
+function sheet_words_amount(array $d): float
+{
+    return sheet_is_receipt($d) ? sheet_received_amount($d) : (float) ($d['total'] ?? 0);
+}
+
+function render_hero_money(array $d, string $class = 'd-total', string $valueTag = 'span'): void
+{
+    $receipt = sheet_is_receipt($d);
+    $label = $receipt ? 'Received' : 'Total';
+    $amt = $receipt ? sheet_received_amount($d) : (float) ($d['total'] ?? 0);
+    echo '<div class="' . h($class) . '"><span>' . h($label) . '</span><' . $valueTag . '>' . h(money($amt, $d['cur'])) . '</' . $valueTag . '></div>';
+}
+
+function render_package_total_line(array $d, string $class = 'd-sum', string $valueTag = 'span'): void
+{
+    if (!sheet_is_receipt($d)) {
+        return;
+    }
+    echo '<div class="' . h($class) . '"><span>Total</span><' . $valueTag . '>' . h(money((float) ($d['total'] ?? 0), $d['cur'])) . '</' . $valueTag . '></div>';
+}
+
+function render_sums_close(array $d, string $heroClass = 'd-total', string $sumClass = 'd-sum', string $valueTag = 'span'): void
+{
+    render_package_total_line($d, $sumClass, $valueTag);
+    render_hero_money($d, $heroClass, $valueTag);
+    render_fx_equiv($d);
+    render_settlement($d);
+}
+
+function render_settlement(array $d): void
+{
+    if (!sheet_is_receipt($d)) {
+        return;
+    }
+    $due = sheet_due_amount($d);
     $open = $due > 0.009;
     ?>
     <div class="d-rd">
-      <div class="d-rd-row">
-        <span>Amount received</span>
-        <b><?= h(money($received, $d['cur'])) ?></b>
-      </div>
       <div class="d-rd-row<?= $open ? ' is-open' : '' ?>">
         <span>Amount due</span>
         <b><?= h(money($due, $d['cur'])) ?></b>
@@ -109,7 +161,9 @@ function render_fx_equiv(array $d, $amount = null): void
     if (!sheet_shows_fx($d)) {
         return;
     }
-    $amt = $amount === null ? (float) $d['total'] : (float) $amount;
+    $amt = $amount === null
+        ? (sheet_is_receipt($d) ? sheet_received_amount($d) : (float) $d['total'])
+        : (float) $amount;
     $alt = $d['alt_cur'] ?? other_currency($d['cur']);
     $home = $d['home_cur'] ?? default_currency();
     $conv = convert_money($amt, $d['cur'], $alt, $d['fx_rate'] ?? null, $home);
@@ -247,7 +301,7 @@ function render_amount_words(array $d): void
     if (!function_exists('amount_in_words')) {
         return;
     }
-    $words = trim((string) amount_in_words($d['total'] ?? 0, $d['cur'] ?? null));
+    $words = trim((string) amount_in_words(sheet_words_amount($d), $d['cur'] ?? null));
     if ($words === '') {
         return;
     }
@@ -389,9 +443,10 @@ function slip_money_bits(array $d): array
     if ($kind === 'invoice' && $paid <= 0 && !empty($d['paid'])) {
         $paid = (float) $d['paid'];
     }
-    $due = max(0, round((float) $d['total'] - $paid, 2));
+    $due = sheet_is_receipt($d) ? sheet_due_amount($d) : max(0, round((float) $d['total'] - $paid, 2));
     $how = trim((string) (($d['methods'][$d['method'] ?? ''] ?? '') ?: ($d['method'] ?? '')));
-    $words = function_exists('amount_in_words') ? trim((string) amount_in_words($d['total'] ?? 0, $d['cur'] ?? null)) : '';
+    $wordAmt = sheet_is_receipt($d) ? $paid : (float) ($d['total'] ?? 0);
+    $words = function_exists('amount_in_words') ? trim((string) amount_in_words($wordAmt, $d['cur'] ?? null)) : '';
     return [$paid, $due, $how, $words];
 }
 
@@ -677,9 +732,7 @@ function render_sheet_folio(array $d): void
         <?php if (!empty($d['show_vat'])): ?>
           <div class="d-sum"><span><?= h($d['tax_label']) ?></span><span><?= h(money($d['vat'], $d['cur'])) ?></span></div>
         <?php endif; ?>
-        <div class="d-total"><span>Total</span><span><?= h(money($d['total'], $d['cur'])) ?></span></div>
-        <?php render_fx_equiv($d); ?>
-        <?php render_settlement($d); ?>
+        <?php render_sums_close($d); ?>
         <?php render_amount_words($d); ?>
         <p class="d-payhint"><?= h($brand['payment_note'] ?? '') ?></p>
       </div>
@@ -720,7 +773,7 @@ function render_sheet_ledger(array $d): void
       <?php render_party_contact($doc); ?>
     </div>
     <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
-    <div class="ledger-amt"><span><?= h($d['cur']) ?></span><strong><?= h(number_format($d['total'], currency_decimals($d['cur']))) ?></strong></div>
+    <div class="ledger-amt"><span><?= h($d['cur']) ?></span><strong><?= h(number_format(sheet_is_receipt($d) ? sheet_received_amount($d) : (float) $d['total'], currency_decimals($d['cur']))) ?></strong></div>
     <?php endif; ?>
   </div>
   <?php if (($doc['kind'] ?? '') === 'letter'): ?>
@@ -732,7 +785,7 @@ function render_sheet_ledger(array $d): void
   <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
   <div class="ledger-words">
     <span>Amount in words</span>
-    <b><?= h(amount_in_words($d['total'], $d['cur'])) ?></b>
+    <b><?= h(amount_in_words(sheet_words_amount($d), $d['cur'])) ?></b>
     <em><?= h($unit) ?></em>
   </div>
   <?php endif; ?>
@@ -809,13 +862,11 @@ function render_sheet_bill(array $d, string $variant): void
     <?php render_line_table($doc, $primary, $variant === 'amber' ? $d['accent_tint'] : $d['tint'], ['serial' => true, 'class' => 'bill-lines']); ?>
     <?php if (sheet_shows_money($d)): ?>
     <div class="bill-foot">
-      <div class="bill-words"><span>In words</span><b><?= h(amount_in_words($d['total'], $d['cur'])) ?></b></div>
+      <div class="bill-words"><span>In words</span><b><?= h(amount_in_words(sheet_words_amount($d), $d['cur'])) ?></b></div>
       <div class="bill-sums">
         <div><span>Sub total</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
         <?php if (!empty($d['show_vat'])): ?><div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
-        <div class="due"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
-        <?php render_fx_equiv($d); ?>
-        <?php render_settlement($d); ?>
+        <?php render_sums_close($d, 'due', '', 'b'); ?>
       </div>
     </div>
     <?php endif; ?>
@@ -848,7 +899,7 @@ function render_twin_half(array $d, string $label): void
       <div class="twin-fields">
         <?php render_party_contact($doc); ?>
         <?php if (sheet_shows_money($d)): ?>
-        <div><span>Amount</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
+        <div><span><?= sheet_is_receipt($d) ? 'Received' : 'Amount' ?></span><b><?= h(money(sheet_is_receipt($d) ? sheet_received_amount($d) : (float) $d['total'], $d['cur'])) ?></b></div>
         <?php render_fx_equiv($d); ?>
         <div><span>Paid how</span><b><?= h($d['methods'][$d['method']] ?? ($d['method'] ?: '-')) ?></b></div>
         <?php endif; ?>
@@ -937,13 +988,11 @@ function render_sheet_stripe(array $d): void
         <div>
           <span>Payment method</span>
           <em><?= h($d['methods'][$d['method']] ?? ($d['method'] ?: 'On account')) ?></em>
-          <?php render_settlement($d); ?>
         </div>
         <div class="stripe-fare">
           <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
           <?php if (!empty($d['show_vat'])): ?><div><span><?= h($d['tax_name']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
-          <div class="stripe-total"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
-          <?php render_fx_equiv($d); ?>
+          <?php render_sums_close($d, 'stripe-total', '', 'b'); ?>
         </div>
       </div>
       <?php render_amount_words($d); ?>
@@ -998,10 +1047,10 @@ function render_sheet_estate(array $d): void
       </div>
       <?php if (sheet_shows_money($d)): ?>
       <div class="estate-total">
-        <span>Total</span>
-        <b><?= h(money($d['total'], $d['cur'])) ?></b>
+        <span><?= sheet_is_receipt($d) ? 'Received' : 'Total' ?></span>
+        <b><?= h(money(sheet_is_receipt($d) ? sheet_received_amount($d) : (float) $d['total'], $d['cur'])) ?></b>
         <?php render_fx_equiv($d); ?>
-        <small><?= h(amount_in_words($d['total'], $d['cur'])) ?></small>
+        <small><?= h(amount_in_words(sheet_words_amount($d), $d['cur'])) ?></small>
       </div>
       <?php endif; ?>
     </div>
@@ -1049,11 +1098,11 @@ function render_sheet_night(array $d): void
       <div class="night-total">
         <div>
           <span>In words</span>
-          <p><?= h(amount_in_words($d['total'], $d['cur'])) ?></p>
+          <p><?= h(amount_in_words(sheet_words_amount($d), $d['cur'])) ?></p>
           <?php render_settlement($d); ?>
         </div>
         <div>
-          <b><?= h(money($d['total'], $d['cur'])) ?></b>
+          <b><?= h(money(sheet_is_receipt($d) ? sheet_received_amount($d) : (float) $d['total'], $d['cur'])) ?></b>
           <?php render_fx_equiv($d); ?>
         </div>
       </div>
@@ -1106,9 +1155,7 @@ function render_sheet_atelier(array $d): void
       <div class="atelier-sums">
         <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
         <?php if (!empty($d['show_vat'])): ?><div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
-        <div class="atelier-total"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
-        <?php render_fx_equiv($d); ?>
-        <?php render_settlement($d); ?>
+        <?php render_sums_close($d, 'atelier-total', '', 'b'); ?>
       </div>
       <?php render_amount_words($d); ?>
       <?php endif; ?>
@@ -1160,9 +1207,7 @@ function render_sheet_seal(array $d): void
       <aside>
         <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
         <?php if (!empty($d['show_vat'])): ?><div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
-        <div class="seal-due"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
-        <?php render_fx_equiv($d); ?>
-        <?php render_settlement($d); ?>
+        <?php render_sums_close($d, 'seal-due', '', 'b'); ?>
       </aside>
       <?php render_amount_words($d); ?>
       <?php endif; ?>
@@ -1218,9 +1263,7 @@ function render_sheet_mark(array $d): void
       <div class="d-sums">
         <div class="d-sum"><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
         <?php if (!empty($d['show_vat'])): ?><div class="d-sum"><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
-        <div class="d-total"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
-        <?php render_fx_equiv($d); ?>
-        <?php render_settlement($d); ?>
+        <?php render_sums_close($d, 'd-total', 'd-sum', 'b'); ?>
       </div>
       <?php render_amount_words($d); ?>
       <?php endif; ?>
@@ -1268,9 +1311,7 @@ function render_sheet_bond(array $d): void
       <aside>
         <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
         <?php if (!empty($d['show_vat'])): ?><div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
-        <div class="bond-due"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
-        <?php render_fx_equiv($d); ?>
-        <?php render_settlement($d); ?>
+        <?php render_sums_close($d, 'bond-due', '', 'b'); ?>
       </aside>
       <?php render_amount_words($d); ?>
       <?php endif; ?>
@@ -1335,9 +1376,7 @@ function render_sheet_frame(array $d): void
             <?php if (!empty($d['show_vat'])): ?>
               <div class="d-sum"><span><?= h($d['tax_label']) ?></span><span><?= h(money($d['vat'], $d['cur'])) ?></span></div>
             <?php endif; ?>
-            <div class="d-total"><span>Total</span><span><?= h(money($d['total'], $d['cur'])) ?></span></div>
-            <?php render_fx_equiv($d); ?>
-            <?php render_settlement($d); ?>
+            <?php render_sums_close($d); ?>
           </div>
           <?php render_amount_words($d); ?>
           <?php endif; ?>
@@ -1402,9 +1441,7 @@ function render_sheet_inset(array $d): void
           <?php if (!empty($d['show_vat'])): ?>
             <div class="d-sum"><span><?= h($d['tax_label']) ?></span><span><?= h(money($d['vat'], $d['cur'])) ?></span></div>
           <?php endif; ?>
-          <div class="d-total"><span>Total</span><span><?= h(money($d['total'], $d['cur'])) ?></span></div>
-          <?php render_fx_equiv($d); ?>
-          <?php render_settlement($d); ?>
+          <?php render_sums_close($d); ?>
         </div>
         <?php render_amount_words($d); ?>
         <?php endif; ?>
@@ -1424,7 +1461,6 @@ function render_sheet_booklet(array $d): void
     $qtyOnly = in_array($kind, ['delivery', 'return_note'], true);
     $showMoney = sheet_shows_money($d) && !$qtyOnly;
     [$paid, $due, $how, $words] = slip_money_bits($d);
-    unset($paid);
     $contact = array_filter([
         (string) ($brand['address'] ?? ''),
         trim((string) ($brand['city'] ?? '')),
@@ -1440,7 +1476,7 @@ function render_sheet_booklet(array $d): void
         $rest[] = $line;
     }
     $note = trim((string) ($d['comments'] ?? ''));
-    $pay = trim((string) ($brand['payment_note'] ?? ''));
+    $pay = $kind === 'invoice' ? trim((string) ($brand['payment_note'] ?? '')) : '';
     ?>
 <article class="invoice-sheet sheet-booklet" style="<?= h($d['vars']) ?>">
   <div class="booklet-page">
@@ -1474,9 +1510,12 @@ function render_sheet_booklet(array $d): void
       <div class="booklet-payrow">
         <?php render_slip_dot('Cash / Cheque', $how); ?>
         <?php if ($showMoney): ?>
-          <?php render_slip_dot('Balance', $due > 0.009 ? money($due, $d['cur']) : money(0, $d['cur'])); ?>
+          <?php render_slip_dot('Amount received', money($paid, $d['cur'])); ?>
         <?php endif; ?>
       </div>
+      <?php if ($showMoney): ?>
+        <?php render_slip_dot('Amount due', $due > 0.009 ? money($due, $d['cur']) : money(0, $d['cur'])); ?>
+      <?php endif; ?>
       <?php if ($showMoney && !empty($d['show_vat'])): ?>
         <?php render_slip_dot((string) $d['tax_label'], money($d['vat'], $d['cur'])); ?>
       <?php endif; ?>
@@ -1485,9 +1524,14 @@ function render_sheet_booklet(array $d): void
       <?php endif; ?>
       <div class="booklet-footrow">
         <?php if ($showMoney): ?>
+        <div class="slip-cash-stack">
         <div class="slip-cashbox">
           <span><?= h(slip_cash_label((string) $d['cur'])) ?></span>
-          <b><?= h(money($d['total'], $d['cur'])) ?></b>
+          <b><?= h(money($paid, $d['cur'])) ?></b>
+        </div>
+        <?php if ($due > 0.009): ?>
+          <p class="slip-due">Amount due <?= h(money($due, $d['cur'])) ?></p>
+        <?php endif; ?>
         </div>
         <?php endif; ?>
         <div class="slip-sign<?= document_has_e_signature($doc) ? ' has-stamp' : '' ?>">
@@ -1516,7 +1560,6 @@ function render_sheet_chit(array $d): void
     $qtyOnly = in_array($kind, ['delivery', 'return_note'], true);
     $showMoney = sheet_shows_money($d) && !$qtyOnly;
     [$paid, $due, $how, $words] = slip_money_bits($d);
-    unset($paid);
     $contact = array_filter([
         (string) ($brand['address'] ?? ''),
         trim((string) ($brand['city'] ?? '')),
@@ -1561,18 +1604,26 @@ function render_sheet_chit(array $d): void
       <div class="chit-payrow">
         <?php render_slip_dot('Cash / Cheque', $how); ?>
         <?php if ($showMoney): ?>
-          <?php render_slip_dot('Balance', $due > 0.009 ? money($due, $d['cur']) : money(0, $d['cur'])); ?>
+          <?php render_slip_dot('Amount received', money($paid, $d['cur'])); ?>
         <?php endif; ?>
       </div>
+      <?php if ($showMoney): ?>
+        <?php render_slip_dot('Amount due', $due > 0.009 ? money($due, $d['cur']) : money(0, $d['cur'])); ?>
+      <?php endif; ?>
       <?php if ($showMoney && !empty($d['show_vat'])): ?>
         <?php render_slip_dot((string) $d['tax_label'], money($d['vat'], $d['cur'])); ?>
       <?php endif; ?>
       <?php if ($showMoney): ?>
         <?php render_fx_equiv($d); ?>
         <div class="chit-footrow">
+          <div class="slip-cash-stack">
           <div class="slip-cashbox">
             <span><?= h(slip_cash_label((string) $d['cur'])) ?></span>
-            <b><?= h(money($d['total'], $d['cur'])) ?></b>
+            <b><?= h(money($paid, $d['cur'])) ?></b>
+          </div>
+          <?php if ($due > 0.009): ?>
+            <p class="slip-due">Amount due <?= h(money($due, $d['cur'])) ?></p>
+          <?php endif; ?>
           </div>
           <div class="slip-sign<?= document_has_e_signature($doc) ? ' has-stamp' : '' ?>">
             <span>Signature</span>
@@ -1629,12 +1680,12 @@ function render_sheet_thermal(array $d): void
     if ($kind === 'invoice' && $paid <= 0 && !empty($d['paid'])) {
         $paid = (float) $d['paid'];
     }
-    $due = max(0, round((float) $d['total'] - $paid, 2));
-    $comment = $notes;
-    if (!$isTill) {
-        $comment = (string) $d['comments'];
-    } elseif (strcasecmp($comment, 'Sale') === 0) {
-        $comment = '';
+    $due = ($kind === 'receipt' && function_exists('document_due_amount'))
+        ? document_due_amount($doc)
+        : max(0, round((float) $d['total'] - $paid, 2));
+    $comment = (string) ($d['comments'] ?? '');
+    if ($isTill && strcasecmp($notes, 'Sale') === 0) {
+        $comment = trim((string) ($brand['receipt_comments'] ?? ''));
     }
     ?>
 <article class="invoice-sheet sheet-thermal" style="<?= h($d['vars']) ?>">
@@ -1663,12 +1714,10 @@ function render_sheet_thermal(array $d): void
       <?php if (!empty($d['show_vat'])): ?>
         <div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div>
       <?php endif; ?>
-      <div class="thermal-total"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
+      <div><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
+      <div class="thermal-total"><span><?= $isTill ? 'Received' : 'Total' ?></span><b><?= h(money($isTill ? $paid : $d['total'], $d['cur'])) ?></b></div>
       <?php if ($isTill): ?>
-        <div><span>Paid</span><b><?= h(money($paid, $d['cur'])) ?></b></div>
-        <?php if ($due > 0.009): ?>
-          <div><span>Due</span><b><?= h(money($due, $d['cur'])) ?></b></div>
-        <?php endif; ?>
+        <div><span>Due</span><b><?= h(money($due, $d['cur'])) ?></b></div>
         <?php
         $payHow = trim((string) (($d['methods'][$d['method']] ?? '') ?: $d['method']));
         if ($payHow !== ''):

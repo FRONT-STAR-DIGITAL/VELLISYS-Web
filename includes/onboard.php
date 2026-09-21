@@ -123,9 +123,9 @@ function create_company_from_paid_order(array $order): int
     $phone = trim((string) ($order['phone'] ?? ''));
     $city = trim((string) ($order['city'] ?? ''));
     db_exec(
-        'INSERT INTO branding (company_id, name, tagline, tin, vat_no, address, city, phone, email, website, bank_name, account_name, account_number, brand_color, brand_accent, brand_deep, logo_path, prefix, payment_note, invoice_comments, plan, currency)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        'isssssssssssssssssssss',
+        'INSERT INTO branding (company_id, name, tagline, tin, vat_no, address, city, phone, email, website, bank_name, account_name, account_number, brand_color, brand_accent, brand_deep, logo_path, prefix, payment_note, invoice_comments, receipt_comments, plan, currency)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'issssssssssssssssssssss',
         [
             $cid,
             $name,
@@ -147,6 +147,7 @@ function create_company_from_paid_order(array $order): int
             prefix_from_name($name),
             'Make payment to ' . $name . '.',
             "1. Payment is due by the date shown above.\n2. Quote the invoice number on the transfer.",
+            'Payments made are not refundable.',
             'sme',
             $ccy === 'UGX' ? 'UGX' : $ccy,
         ]

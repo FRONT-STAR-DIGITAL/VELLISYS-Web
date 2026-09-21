@@ -27,6 +27,19 @@ function folio_schema_ready_file(): string
     return $dir . '/schema-48.ok';
 }
 
+function folio_ensure_receipt_comments(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    if (!db_has_column($db, 'branding', 'receipt_comments')) {
+        @$db->query('ALTER TABLE branding ADD COLUMN receipt_comments TEXT NULL');
+        db_has_column($db, 'branding', 'receipt_comments', true);
+    }
+}
+
 function folio_ensure_logo_bg(mysqli $db): void
 {
     static $ready = false;
@@ -454,6 +467,7 @@ function folio_migrate(mysqli $db): void
         return;
     }
     folio_ensure_logo_bg($db);
+    folio_ensure_receipt_comments($db);
     folio_ensure_party_status($db);
     folio_ensure_branches($db);
     folio_ensure_trust_logos($db);

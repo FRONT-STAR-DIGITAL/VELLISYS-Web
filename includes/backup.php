@@ -286,7 +286,7 @@ function company_backup_restore_payload(array $data, ?int $cid = null, array $op
         $brand = $data['branding'] ?? null;
         if ($restoreBrand && is_array($brand)) {
             unset($brand['id'], $brand['company_id'], $brand['logo_path'], $brand['logo_blob'], $brand['letterhead_blob']);
-            foreach (['name', 'tagline', 'tin', 'vat_no', 'address', 'city', 'phone', 'email', 'website', 'bank_name', 'account_name', 'account_number', 'payment_note', 'invoice_comments', 'currency'] as $col) {
+            foreach (['name', 'tagline', 'tin', 'vat_no', 'address', 'city', 'phone', 'email', 'website', 'bank_name', 'account_name', 'account_number', 'payment_note', 'invoice_comments', 'receipt_comments', 'currency'] as $col) {
                 if (array_key_exists($col, $brand)) {
                     db_exec('UPDATE branding SET `' . $col . '` = ? WHERE company_id = ?', 'si', [(string) $brand[$col], $cid]);
                 }

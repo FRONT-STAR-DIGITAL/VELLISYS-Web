@@ -81,8 +81,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($error === '') {
             try {
                 db_exec(
-                    'UPDATE branding SET tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, currency=?, fx_ugx_per_usd=? WHERE company_id=?',
-                    'sssssssssssssssssssdi',
+                    'UPDATE branding SET tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, receipt_comments=?, currency=?, fx_ugx_per_usd=? WHERE company_id=?',
+                    'ssssssssssssssssssssdi',
                     [
                         post('tagline'),
                         post('tin'),
@@ -102,6 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         strtoupper(post('prefix') ?: prefix_from_name($company['name'])),
                         post('payment_note'),
                         post('invoice_comments'),
+                        post('receipt_comments'),
                         posted_currency('currency', 'UGX'),
                         parse_fx_rate(post('fx_ugx_per_usd')),
                         $id,
@@ -1094,6 +1095,9 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
     <textarea id="payment_note" name="payment_note" rows="3"><?= h((string) ($brand['payment_note'] ?? '')) ?></textarea>
     <label for="invoice_comments">Invoice comments</label>
     <textarea id="invoice_comments" name="invoice_comments" rows="4"><?= h((string) ($brand['invoice_comments'] ?? '')) ?></textarea>
+    <p class="hint">Only invoices. Receipts use the receipt comments below.</p>
+    <label for="receipt_comments">Receipt comments</label>
+    <textarea id="receipt_comments" name="receipt_comments" rows="3"><?= h((string) ($brand['receipt_comments'] ?? '')) ?></textarea>
     <div class="actions" style="margin-top:16px">
       <button class="btn" type="submit"><?= icon('check') ?>Save stationery</button>
     </div>
