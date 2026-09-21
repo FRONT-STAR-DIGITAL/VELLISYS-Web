@@ -454,14 +454,21 @@ function cap_receipt_allocation(float $alloc, ?int $relatedId, ?int $exceptRecei
     if ($alloc <= 0 || !$relatedId) {
         return max(0, $alloc);
     }
-    $inv = db_one('SELECT * FROM documents WHERE id = ? AND company_id = ? AND kind = \'invoice\' AND status = \'issued\'', 'ii', [$relatedId, current_company_id()]);
-    if (!$inv) {
-        return $alloc;
+    $cid = current_company_id();
+    $inv = db_one('SELECT * FROM documents WHERE id = ? AND company_id = ? AND kind = \'invoice\' AND status = \'issued\'', 'ii', [$relatedId, $cid]);
+    if ($inv) {
+        $inv['items'] = db_all('SELECT * FROM document_items WHERE document_id = ? ORDER BY id', 'i', [(int) $inv['id']]);
+        $total = document_totals($inv)['total'];
+        $remaining = max(0, round($total - invoice_paid((int) $inv['id'], $exceptReceiptId), 2));
+        return min($alloc, $remaining);
     }
-    $inv['items'] = db_all('SELECT * FROM document_items WHERE document_id = ? ORDER BY id', 'i', [(int) $inv['id']]);
-    $total = document_totals($inv)['total'];
-    $remaining = max(0, round($total - invoice_paid((int) $inv['id'], $exceptReceiptId), 2));
-    return min($alloc, $remaining);
+    $sale = db_one('SELECT * FROM documents WHERE id = ? AND company_id = ? AND kind = \'receipt\' AND status = \'issued\'', 'ii', [$relatedId, $cid]);
+    if ($sale && (int) ($sale['related_id'] ?? 0) <= 0) {
+        $sale['items'] = db_all('SELECT * FROM document_items WHERE document_id = ? ORDER BY id', 'i', [(int) $sale['id']]);
+        $remaining = receipt_sale_due($sale);
+        return min($alloc, $remaining);
+    }
+    return $alloc;
 }
 
 function update_document(int $id, array $data): void
