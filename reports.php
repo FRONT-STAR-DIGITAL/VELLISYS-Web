@@ -184,8 +184,14 @@ foreach ($receipts as $d) {
     $key = substr((string) $d['date'], 0, 10);
     $series[$key]['cash'] += convert_money((float) ($d['allocated_amount'] ?: $d['totals']['total']), doc_currency($d), $base);
 }
+$period = period_range();
+$from = $period['from'] !== '' ? $period['from'] : '1970-01-01';
+$to = $period['to'] !== '' ? $period['to'] : today();
+$marginBy = function_exists('stock_performance_range') ? stock_performance_range($from, $to) : [];
 foreach ($series as $key => $vals) {
-    $series[$key]['profit'] = round((float) ($vals['cash'] ?? 0) - (float) ($vals['expenses'] ?? 0), 2);
+    $m = $marginBy[$key] ?? null;
+    $series[$key]['profit'] = $m ? round((float) $m['profit'], 2) : 0.0;
+    $series[$key]['net'] = $m ? round((float) $m['net'], 2) : 0.0;
 }
 ksort($series);
 if ($view === 'annual') {
@@ -193,7 +199,7 @@ if ($view === 'annual') {
     $mixFilled = [];
     for ($m = 1; $m <= 12; $m++) {
         $key = sprintf('%04d-%02d', $year, $m);
-        $filled[$key] = ['invoiced' => 0, 'expenses' => 0, 'cash' => 0, 'profit' => 0];
+        $filled[$key] = ['invoiced' => 0, 'expenses' => 0, 'cash' => 0, 'profit' => 0, 'net' => 0];
         $mixFilled[$key] = ['quotation' => 0, 'invoice' => 0, 'receipt' => 0, 'expense' => 0, 'letter' => 0];
     }
     foreach ($series as $day => $vals) {
@@ -202,7 +208,8 @@ if ($view === 'annual') {
             $filled[$k]['invoiced'] += $vals['invoiced'];
             $filled[$k]['expenses'] += $vals['expenses'];
             $filled[$k]['cash'] += $vals['cash'];
-            $filled[$k]['profit'] = round($filled[$k]['cash'] - $filled[$k]['expenses'], 2);
+            $filled[$k]['profit'] += (float) ($vals['profit'] ?? 0);
+            $filled[$k]['net'] += (float) ($vals['net'] ?? 0);
         }
     }
     foreach ($mixSeries as $day => $vals) {
@@ -220,26 +227,28 @@ if ($view === 'annual') {
     foreach ($series as $day => $vals) {
         $m = substr($day, 0, 7);
         if (!isset($monthly[$m])) {
-            $monthly[$m] = ['invoiced' => 0, 'expenses' => 0, 'cash' => 0, 'profit' => 0];
+            $monthly[$m] = ['invoiced' => 0, 'expenses' => 0, 'cash' => 0, 'profit' => 0, 'net' => 0];
         }
         $monthly[$m]['invoiced'] += $vals['invoiced'];
         $monthly[$m]['expenses'] += $vals['expenses'];
         $monthly[$m]['cash'] += $vals['cash'];
-        $monthly[$m]['profit'] = round($monthly[$m]['cash'] - $monthly[$m]['expenses'], 2);
+        $monthly[$m]['profit'] += (float) ($vals['profit'] ?? 0);
+        $monthly[$m]['net'] += (float) ($vals['net'] ?? 0);
     }
     $series = $monthly;
 }
 
-$period = period_range();
-$from = $period['from'] !== '' ? $period['from'] : '1970-01-01';
-$to = $period['to'] !== '' ? $period['to'] : today();
-$cashProfit = round($cashIn - $costs, 2);
+$margins = function_exists('stock_range_totals') ? stock_range_totals($from, $to) : ['profit' => 0.0, 'net' => 0.0, 'cogs' => 0.0];
+$grossProfit = (float) ($margins['profit'] ?? 0);
+$netProfit = (float) ($margins['net'] ?? 0);
 try {
     $performance = report_performance_statement();
 } catch (Throwable $e) {
     error_log('reports performance: ' . $e->getMessage());
-    $performance = ['income' => [], 'expenses' => [], 'income_total' => 0.0, 'expense_total' => 0.0, 'net' => 0.0];
+    $performance = ['income' => [], 'expenses' => [], 'income_total' => 0.0, 'expense_total' => 0.0, 'cogs' => 0.0, 'profit' => 0.0, 'net' => 0.0];
 }
+$grossProfit = (float) ($performance['profit'] ?? $margins['profit'] ?? 0);
+$netProfit = (float) ($performance['net'] ?? $margins['net'] ?? 0);
 $taxReport = report_tax_payable();
 $taxName = company_tax_name();
 $chartLabels = [];
@@ -253,6 +262,7 @@ $chartInvoiced = array_column($series, 'invoiced');
 $chartExpenses = array_column($series, 'expenses');
 $chartCash = array_column($series, 'cash');
 $chartProfit = array_column($series, 'profit');
+$chartNet = array_column($series, 'net');
 $yearStart = (int) date('Y');
 $firstDoc = db_one('SELECT MIN(date) AS d FROM documents WHERE company_id = ?', 'i', [$cid]);
 if (!empty($firstDoc['d'])) {
@@ -304,8 +314,8 @@ layout_start('Reports', $user);
   <div class="card stat"><?= icon('invoice', 20) ?><span>Income (invoiced, net)</span><strong><?= h(ugx($income)) ?></strong></div>
   <div class="card stat"><?= icon('receipt', 20) ?><span>Collected</span><strong><?= h(ugx($cashIn)) ?></strong></div>
   <div class="card stat"><?= icon('clients', 20) ?><span>Outstanding</span><strong><?= h(ugx($outstanding)) ?></strong></div>
-  <div class="card stat"><?= icon('package', 20) ?><span>Profit</span><strong><?= h(ugx($cashProfit)) ?></strong><em>Collected minus expenses</em></div>
-  <div class="card stat"><?= icon('reports', 20) ?><span>Net profit</span><strong><?= h(ugx($cashProfit)) ?></strong><em>Collected minus expenses</em></div>
+  <div class="card stat"><?= icon('package', 20) ?><span>Profit</span><strong><?= h(ugx($grossProfit)) ?></strong><em>Sell minus buy</em></div>
+  <div class="card stat"><?= icon('reports', 20) ?><span>Net profit</span><strong><?= h(ugx($netProfit)) ?></strong><em>Profit minus expenses</em></div>
 </div>
 <div class="stats">
   <div class="card stat"><?= icon('expense', 20) ?><span>Expenses (net)</span><strong><?= h(ugx($costs)) ?></strong></div>
@@ -325,7 +335,7 @@ $kindLabel = static fn (string $k): string => match ($k) {
 ?>
 <div class="card" style="margin-bottom:16px">
   <div class="card-head"><h2><?= icon('reports', 16) ?><?= h($perfTitle) ?></h2></div>
-  <p class="hint" style="margin:0 22px 12px">Products and services sold, then expenses, then net profit (sold minus expenses).</p>
+  <p class="hint" style="margin:0 22px 12px">Products and services sold, then buying cost of goods, profit (sell minus buy), expenses, and net profit (profit minus expenses).</p>
   <?php if (!$performance['income'] && !$performance['expenses']): ?>
     <p class="empty">Nothing sold or spent in this period.</p>
   <?php else: ?>
@@ -358,6 +368,14 @@ $kindLabel = static fn (string $k): string => match ($k) {
         <tr>
           <td colspan="3"><strong>Income total</strong></td>
           <td class="right mono"><strong><?= h(ugx($performance['income_total'])) ?></strong></td>
+        </tr>
+        <tr>
+          <td colspan="3">Cost of goods (buy)</td>
+          <td class="right mono"><?= h(ugx((float) ($performance['cogs'] ?? 0))) ?></td>
+        </tr>
+        <tr>
+          <td colspan="3"><strong>Profit</strong></td>
+          <td class="right mono"><strong><?= h(ugx((float) ($performance['profit'] ?? 0))) ?></strong></td>
         </tr>
         <tr>
           <td colspan="4"><strong>Expenses</strong></td>
@@ -402,6 +420,7 @@ $kindLabel = static fn (string $k): string => match ($k) {
         <th class="right">Expenses</th>
         <th class="right">Cash in</th>
         <th class="right">Profit</th>
+        <th class="right">Net profit</th>
       </tr>
     </thead>
     <tbody>
@@ -413,7 +432,8 @@ $kindLabel = static fn (string $k): string => match ($k) {
           <td class="right mono"><?= h(ugx($vals['invoiced'])) ?></td>
           <td class="right mono"><?= h(ugx($vals['expenses'])) ?></td>
           <td class="right mono"><?= h(ugx($vals['cash'])) ?></td>
-          <td class="right mono"><?= h(ugx($vals['profit'] ?? ((float) $vals['cash'] - (float) $vals['expenses']))) ?></td>
+          <td class="right mono"><?= h(ugx($vals['profit'] ?? 0)) ?></td>
+          <td class="right mono"><?= h(ugx($vals['net'] ?? 0)) ?></td>
         </tr>
       <?php endforeach; ?>
     </tbody>
@@ -423,7 +443,8 @@ $kindLabel = static fn (string $k): string => match ($k) {
         <td class="right mono"><?= h(ugx(array_sum(array_column($series, 'invoiced')))) ?></td>
         <td class="right mono"><?= h(ugx(array_sum(array_column($series, 'expenses')))) ?></td>
         <td class="right mono"><?= h(ugx(array_sum(array_column($series, 'cash')))) ?></td>
-        <td class="right mono"><?= h(ugx($cashProfit)) ?></td>
+        <td class="right mono"><?= h(ugx($grossProfit)) ?></td>
+        <td class="right mono"><?= h(ugx($netProfit)) ?></td>
       </tr>
     </tfoot>
   </table>
@@ -653,6 +674,7 @@ $payload = json_encode([
     'expenses' => $chartExpenses,
     'cash' => $chartCash,
     'profit' => $chartProfit,
+    'net' => $chartNet,
     'pieLabels' => $pieLabels,
     'pieValues' => $pieValues,
     'barLabels' => $barLabels,
@@ -708,7 +730,8 @@ document.addEventListener("DOMContentLoaded", function () {
           { label: "Invoiced", data: d.invoiced, borderColor: brand, backgroundColor: brand + "33", tension: .25, fill: true },
           { label: "Expenses", data: d.expenses, borderColor: "#b42318", backgroundColor: "rgba(180,35,24,.12)", tension: .25, fill: true },
           { label: "Cash in", data: d.cash, borderColor: "#1f3a12", backgroundColor: "rgba(31,58,18,.08)", tension: .25, fill: false },
-          { label: "Profit", data: d.profit, borderColor: "#4a6fa5", backgroundColor: "rgba(74,111,165,.10)", tension: .25, fill: false }
+          { label: "Profit", data: d.profit, borderColor: "#4a6fa5", backgroundColor: "rgba(74,111,165,.10)", tension: .25, fill: false },
+          { label: "Net profit", data: d.net, borderColor: "#1E4EFF", backgroundColor: "transparent", tension: .25, fill: false }
         ]
       },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, scales: { y: { ticks: { callback: money } } } }

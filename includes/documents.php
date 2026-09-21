@@ -1681,11 +1681,64 @@ function document_sold_lines(?string $from = null, ?string $to = null): array
     return $income;
 }
 
+/** Buying-price cost of products sold on invoices and standalone receipts. */
+function document_sold_cogs(?string $from = null, ?string $to = null): float
+{
+    $cid = current_company_id();
+    if ($cid < 1) {
+        return 0.0;
+    }
+    $extra = '';
+    $types = 'i';
+    $params = [$cid];
+    if ($from && $to) {
+        $extra = ' AND d.date >= ? AND d.date <= ?';
+        $types .= 'ss';
+        $params[] = $from;
+        $params[] = $to;
+    } elseif (function_exists('period_sql')) {
+        [$pExtra, $pTypes, $pArgs] = period_sql('d.date');
+        $extra = $pExtra;
+        $types .= $pTypes;
+        $params = array_merge($params, $pArgs);
+    }
+    $hasService = function_exists('db_has_column') && db_has_column(db(), 'stock_items', 'is_service');
+    $svcWhere = $hasService ? ' AND COALESCE(s.is_service, 0) = 0' : '';
+    try {
+        $rows = db_all(
+            "SELECT i.qty, d.currency, COALESCE(s.buy_price, 0) AS buy_price
+             FROM document_items i
+             INNER JOIN documents d ON d.id = i.document_id
+             LEFT JOIN stock_items s ON s.id = i.stock_item_id AND s.company_id = d.company_id
+             WHERE d.company_id = ? AND d.status = 'issued'
+               AND (d.kind = 'invoice' OR (d.kind = 'receipt' AND COALESCE(d.related_id, 0) = 0))
+               AND i.stock_item_id IS NOT NULL AND i.stock_item_id > 0
+               {$svcWhere}
+               {$extra}",
+            $types,
+            $params
+        );
+    } catch (Throwable $e) {
+        error_log('document_sold_cogs: ' . $e->getMessage());
+        return 0.0;
+    }
+    $cogs = 0.0;
+    $base = default_currency();
+    foreach ($rows as $row) {
+        $line = round((float) ($row['qty'] ?? 0) * (float) ($row['buy_price'] ?? 0), 2);
+        $fromCur = function_exists('normalize_currency')
+            ? normalize_currency((string) ($row['currency'] ?? ''), $base)
+            : (string) ($row['currency'] ?? $base);
+        $cogs += function_exists('convert_money') ? convert_money($line, $fromCur, $base) : $line;
+    }
+    return round($cogs, 2);
+}
+
 /** Sold products/services, expenses, and net profit for the current report period. */
 function report_performance_statement(?int $companyId = null): array
 {
     $cid = $companyId ?? current_company_id();
-    $empty = ['income' => [], 'expenses' => [], 'income_total' => 0.0, 'expense_total' => 0.0, 'net' => 0.0];
+    $empty = ['income' => [], 'expenses' => [], 'income_total' => 0.0, 'expense_total' => 0.0, 'cogs' => 0.0, 'profit' => 0.0, 'net' => 0.0];
     if ($cid < 1) {
         return $empty;
     }
@@ -1698,6 +1751,12 @@ function report_performance_statement(?int $companyId = null): array
     $incomeTotal = 0.0;
     foreach ($income as $row) {
         $incomeTotal += (float) $row['amount'];
+    }
+    $cogs = 0.0;
+    try {
+        $cogs = document_sold_cogs();
+    } catch (Throwable $e) {
+        error_log('report_performance_statement cogs: ' . $e->getMessage());
     }
 
     [$extra, $types, $params] = period_sql('d.date');
@@ -1717,6 +1776,9 @@ function report_performance_statement(?int $companyId = null): array
     }
     $expenses = [];
     foreach ($spent as $row) {
+        if (function_exists('stock_is_stock_expense') && stock_is_stock_expense($row)) {
+            continue;
+        }
         $name = trim((string) ($row['item_name'] ?? ''));
         if ($name === '') {
             $name = trim((string) ($row['description'] ?? '')) ?: trim((string) ($row['expense_category'] ?? '')) ?: 'Expense';
@@ -1744,12 +1806,15 @@ function report_performance_statement(?int $companyId = null): array
     }
     unset($row);
 
+    $profit = round($incomeTotal - $cogs, 2);
     return [
         'income' => $income,
         'expenses' => $expenses,
         'income_total' => round($incomeTotal, 2),
         'expense_total' => round($expenseTotal, 2),
-        'net' => round($incomeTotal - $expenseTotal, 2),
+        'cogs' => round($cogs, 2),
+        'profit' => $profit,
+        'net' => round($profit - $expenseTotal, 2),
     ];
 }
 
