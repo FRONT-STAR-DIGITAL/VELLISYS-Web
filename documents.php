@@ -136,7 +136,7 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
               <td class="right mono"><?= h(money($doc['balance'], doc_currency($doc))) ?></td>
             <?php elseif ($kind === 'receipt'): ?>
               <td class="right mono"><?= h(money($doc['paid'], doc_currency($doc))) ?></td>
-              <td class="right mono"><?= h(money($doc['balance'], doc_currency($doc))) ?></td>
+              <td class="right mono"><?= h(money((float) ($doc['invoice_balance'] ?? $doc['balance'] ?? 0), doc_currency($doc))) ?></td>
             <?php elseif (!kind_shows_money($kind)): ?>
             <?php elseif ($kind !== 'letter'): ?>
               <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>

@@ -10,10 +10,14 @@ $byClient = [];
 foreach ($rows as $doc) {
     $pid = (int) $doc['party_id'];
     if (!isset($byClient[$pid])) {
-        $byClient[$pid] = ['id' => $pid, 'name' => $doc['party_name'], 'invoices' => 0, 'balance' => 0.0];
+        $byClient[$pid] = ['id' => $pid, 'name' => $doc['party_name'], 'invoices' => 0, 'balance' => 0.0, 'pay_id' => (int) $doc['id']];
     }
     $byClient[$pid]['invoices']++;
     $byClient[$pid]['balance'] += convert_money((float) $doc['balance'], doc_currency($doc), default_currency());
+    if ((float) $doc['balance'] > (float) ($byClient[$pid]['pay_balance'] ?? 0)) {
+        $byClient[$pid]['pay_id'] = (int) $doc['id'];
+        $byClient[$pid]['pay_balance'] = (float) $doc['balance'];
+    }
 }
 uasort($byClient, static fn ($a, $b) => $b['balance'] <=> $a['balance']);
 
@@ -40,6 +44,7 @@ layout_start('Debtors', $user);
         <th>Client</th>
         <th class="right">Open invoices</th>
         <th class="right">Balance</th>
+        <th>Actions</th>
       </tr>
     </thead>
     <tbody>
@@ -48,6 +53,9 @@ layout_start('Debtors', $user);
           <td><a href="<?= h(url('client_view.php?id=' . $c['id'])) ?>"><?= h($c['name']) ?></a></td>
           <td class="right mono"><?= (int) $c['invoices'] ?></td>
           <td class="right mono"><?= h(ugx($c['balance'])) ?></td>
+          <td class="row-actions">
+            <a class="btn sm" href="<?= h(url('document_action.php?receive=' . (int) $c['pay_id'])) ?>"><?= icon('receipt', 15) ?> Make payment</a>
+          </td>
         </tr>
       <?php endforeach; ?>
     </tbody>
@@ -91,7 +99,7 @@ layout_start('Debtors', $user);
             <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>
             <td class="right mono"><?= h(money($doc['balance'], doc_currency($doc))) ?></td>
             <td><span class="pill<?= invoice_status_label($doc) === 'Overdue' ? ' warn' : '' ?>"><?= h(invoice_status_label($doc)) ?></span></td>
-            <td class="row-actions"><?php render_doc_actions($doc); ?></td>
+            <td class="row-actions"><?php render_make_payment_button($doc, true); render_doc_actions($doc); ?></td>
           </tr>
         <?php endforeach; ?>
       </tbody>

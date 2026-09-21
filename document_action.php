@@ -46,6 +46,14 @@ if ($payId && $_SERVER['REQUEST_METHOD'] !== 'POST') {
 $receiveId = (int) ($_GET['receive'] ?? 0);
 if ($receiveId && $_SERVER['REQUEST_METHOD'] !== 'POST') {
     $doc = load_document($receiveId);
+    if ($doc && ($doc['kind'] ?? '') === 'receipt') {
+        $related = (int) ($doc['related_id'] ?? 0);
+        if ($related > 0) {
+            redirect('document_action.php?receive=' . $related);
+        }
+        flash('This receipt is not tied to an invoice.', 'err');
+        redirect('document_view.php?id=' . $receiveId);
+    }
     if (!$doc || $doc['kind'] !== 'invoice') {
         flash('Invoice not found.', 'err');
         redirect('documents.php?kind=invoice');

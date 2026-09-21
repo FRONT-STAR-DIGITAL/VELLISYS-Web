@@ -1258,6 +1258,37 @@ function attach_document_totals(array $rows): array
     return $rows;
 }
 
+function document_make_payment_href(array $doc): string
+{
+    if (($doc['status'] ?? '') === 'void') {
+        return '';
+    }
+    $kind = (string) ($doc['kind'] ?? '');
+    if ($kind === 'invoice' && (float) ($doc['balance'] ?? 0) > 0.009) {
+        return url('document_action.php?receive=' . (int) $doc['id']);
+    }
+    if ($kind === 'receipt') {
+        $due = (float) ($doc['invoice_balance'] ?? 0);
+        $rid = (int) ($doc['related_id'] ?? 0);
+        if ($due > 0.009 && $rid > 0) {
+            return url('document_action.php?receive=' . $rid);
+        }
+    }
+    return '';
+}
+
+function render_make_payment_button(array $doc, bool $labeled = false): void
+{
+    $href = document_make_payment_href($doc);
+    if ($href === '') {
+        return;
+    }
+    unset($labeled);
+    ?>
+      <a class="btn sm" href="<?= h($href) ?>" title="Make payment" aria-label="Make payment"><?= icon('receipt', 15) ?> Make payment</a>
+    <?php
+}
+
 function render_doc_actions(array $doc, bool $labeled = false): void
 {
     $id = (int) $doc['id'];
@@ -1299,6 +1330,9 @@ function render_doc_actions(array $doc, bool $labeled = false): void
         <?php if ($doc['kind'] === 'invoice' && ($doc['balance'] ?? 1) > 0): ?>
           <a class="<?= $pri ?>" href="<?= h(url('document_action.php?receive=' . $id)) ?>" title="Receipt" aria-label="Receipt"><?= icon('receipt', 15) ?><?php if ($labeled): ?> Receipt<?php endif; ?></a>
           <a class="<?= $cls ?>" href="<?= h(url('desk_mail.php?type=reminder&id=' . $id)) ?>" title="Remind" aria-label="Remind"><?= icon('send', 15) ?><?php if ($labeled): ?> Remind<?php endif; ?></a>
+        <?php endif; ?>
+        <?php if ($doc['kind'] === 'receipt'): ?>
+          <?php render_make_payment_button($doc, $labeled); ?>
         <?php endif; ?>
         <?php if ($doc['kind'] === 'expense' && ($doc['balance'] ?? 1) > 0): ?>
           <a class="<?= $pri ?>" href="<?= h(url('document_action.php?pay=' . $id)) ?>" title="Pay" aria-label="Pay"><?= icon('bank', 15) ?><?php if ($labeled): ?> Pay<?php endif; ?></a>
