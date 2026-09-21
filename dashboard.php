@@ -11,6 +11,16 @@ $monthStart = date('Y-m-01');
 
 $invoices = attach_document_totals(db_all("SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id WHERE d.company_id = ? AND d.kind = 'invoice' AND d.status = 'issued' ORDER BY d.due_date IS NULL, d.due_date, d.id DESC", 'i', [$cid]));
 $open = array_values(array_filter($invoices, static fn ($d) => $d['balance'] > 0));
+$saleOpen = array_values(array_filter(
+    attach_document_totals(db_all(
+        "SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id
+         WHERE d.company_id = ? AND d.kind = 'receipt' AND d.status = 'issued' AND COALESCE(d.related_id, 0) = 0
+         ORDER BY d.date DESC, d.id DESC",
+        'i',
+        [$cid]
+    )),
+    static fn ($d) => document_due_amount($d) > 0.009
+));
 $overdue = array_values(array_filter($open, static fn ($d) => !empty($d['due_date']) && $d['due_date'] < today()));
 $incomeMonth = 0;
 $incomeAll = 0;
@@ -71,7 +81,7 @@ $quotesConverted = (int) (db_one(
 $quoteRate = $quotesAll > 0 ? (int) round(100 * $quotesConverted / $quotesAll) : 0;
 
 $recent = attach_document_totals(db_all("SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id WHERE d.company_id = ? ORDER BY d.id DESC LIMIT 8", 'i', [$cid]));
-$queue = $overdue ?: $open;
+$queue = $overdue ?: array_merge($open, $saleOpen);
 $hour = (int) date('G');
 $hello = $hour < 12 ? 'Good morning' : ($hour < 17 ? 'Good afternoon' : 'Good evening');
 $firstName = explode(' ', trim((string) $user['name']))[0];
@@ -86,7 +96,7 @@ if ($homeCcy === 'USD') {
     $fxValue = '1 USD = ' . $prettyRate . ' ' . $homeCcy;
 }
 
-$openAmt = documents_sum($open, 'balance');
+$openAmt = documents_sum($open, 'balance') + array_sum(array_map(static fn ($d) => convert_money(document_due_amount($d), doc_currency($d), $base), $saleOpen));
 $overdueAmt = documents_sum($overdue, 'balance');
 $netMonth = $incomeMonth - $expenseMonth;
 $collectRate = $incomeMonth > 0 ? (int) round(100 * min($cashMonth, $incomeMonth) / $incomeMonth) : 0;
@@ -231,9 +241,9 @@ layout_start('Desk', $user);
           <a class="work-row" href="<?= h(url('document_view.php?id=' . $doc['id'])) ?>">
             <div>
               <strong><?= h($doc['party_name']) ?></strong>
-              <span><?= h($doc['number']) ?> · due <?= h(format_date($doc['due_date'])) ?></span>
+              <span><?= h($doc['number']) ?><?php if (!empty($doc['due_date'])): ?> · due <?= h(format_date($doc['due_date'])) ?><?php endif; ?></span>
             </div>
-            <b><?= h(money($doc['balance'], doc_currency($doc))) ?></b>
+            <b><?= h(money(document_due_amount($doc), doc_currency($doc))) ?></b>
           </a>
         <?php endforeach; ?>
       </div>

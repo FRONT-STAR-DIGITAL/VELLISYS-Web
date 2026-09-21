@@ -34,11 +34,21 @@ $owed = 0.0;
 $payInvoice = null;
 foreach ($byKind['invoice'] as $inv) {
     if ($inv['status'] !== 'void') {
-        $bal = (float) ($inv['balance'] ?? 0);
+        $bal = document_due_amount($inv);
         $owed += $bal;
-        if ($bal > 0.009 && ($payInvoice === null || $bal > (float) ($payInvoice['balance'] ?? 0))) {
+        if ($bal > 0.009 && ($payInvoice === null || $bal > document_due_amount($payInvoice))) {
             $payInvoice = $inv;
         }
+    }
+}
+foreach ($byKind['receipt'] as $rcpt) {
+    if (($rcpt['status'] ?? '') === 'void' || !receipt_is_sale($rcpt)) {
+        continue;
+    }
+    $bal = document_due_amount($rcpt);
+    $owed += $bal;
+    if ($bal > 0.009 && ($payInvoice === null || $bal > document_due_amount($payInvoice))) {
+        $payInvoice = $rcpt;
     }
 }
 
@@ -106,7 +116,7 @@ layout_start($party['name'], $user);
   <a class="card stat" href="<?= h(url('document_action.php?receive=' . (int) $payInvoice['id'])) ?>">
     <?= icon('receipt', 20) ?>
     <span>Make payment</span>
-    <strong><?= h(money((float) $payInvoice['balance'], doc_currency($payInvoice))) ?></strong>
+    <strong><?= h(money(document_due_amount($payInvoice), doc_currency($payInvoice))) ?></strong>
   </a>
 </div>
 <?php endif; ?>
@@ -162,7 +172,7 @@ layout_start($party['name'], $user);
                 <td class="right mono"><?= h(money($doc['balance'] ?? 0, doc_currency($doc))) ?></td>
               <?php endif; ?>
               <?php if ($kind === 'receipt'): ?>
-                <td class="right mono"><?= h(money((float) ($doc['invoice_balance'] ?? $doc['balance'] ?? 0), doc_currency($doc))) ?></td>
+                <td class="right mono"><?= h(money(document_due_amount($doc), doc_currency($doc))) ?></td>
               <?php endif; ?>
               <td><span class="pill"><?= h(invoice_status_label($doc)) ?></span></td>
               <td class="row-actions"><?php if (($doc['kind'] ?? '') !== 'receipt') { render_make_payment_button($doc, true); } render_doc_actions($doc); ?></td>
@@ -178,7 +188,7 @@ layout_start($party['name'], $user);
                 <td class="right mono"><?= h(money(documents_sum($byKind[$kind], 'balance'))) ?></td>
               <?php endif; ?>
               <?php if ($kind === 'receipt'): ?>
-                <td class="right mono"><?= h(money(array_sum(array_map(static fn ($d) => (float) ($d['invoice_balance'] ?? $d['balance'] ?? 0), $byKind[$kind])))) ?></td>
+                <td class="right mono"><?= h(money(array_sum(array_map(static fn ($d) => (float) document_due_amount($d), $byKind[$kind])))) ?></td>
               <?php endif; ?>
               <td colspan="2"></td>
             </tr>

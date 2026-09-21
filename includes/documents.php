@@ -905,15 +905,17 @@ function receipt_settlement(array $doc): ?array
     if ($received <= 0 || ($charge > 0 && $received > $charge + 0.009)) {
         $received = $charge;
     }
-    $due = max(0, round($charge - $received, 2));
+    $later = payments_on_document((int) $doc['id'], doc_currency($doc));
+    $collected = round($received + $later, 2);
+    $due = max(0, round($charge - $collected, 2));
     $out = [
         'received' => $received,
         'invoice_id' => null,
         'invoice_number' => null,
-        'invoice_total' => 0.0,
-        'invoice_paid' => $received,
+        'invoice_total' => $charge,
+        'invoice_paid' => $collected,
         'balance' => $due,
-        'invoice_balance' => 0.0,
+        'invoice_balance' => $due,
     ];
     $relatedId = (int) ($doc['related_id'] ?? 0);
     if ($relatedId <= 0) {
@@ -921,10 +923,23 @@ function receipt_settlement(array $doc): ?array
     }
     $cid = (int) ($doc['company_id'] ?? current_company_id());
     $rel = db_one('SELECT * FROM documents WHERE id = ? AND company_id = ?', 'ii', [$relatedId, $cid]);
-    if (!$rel || !in_array($rel['kind'], ['invoice', 'expense'], true)) {
+    if (!$rel) {
         return $out;
     }
     $rel['items'] = db_all('SELECT * FROM document_items WHERE document_id = ? ORDER BY id', 'i', [(int) $rel['id']]);
+    if ($rel['kind'] === 'receipt') {
+        $remain = receipt_sale_due($rel);
+        $out['invoice_id'] = (int) $rel['id'];
+        $out['invoice_number'] = $rel['number'];
+        $out['invoice_total'] = (float) (document_totals($rel)['total'] ?? 0);
+        $out['invoice_paid'] = max(0, round($out['invoice_total'] - $remain, 2));
+        $out['invoice_balance'] = convert_money($remain, doc_currency($rel), doc_currency($doc));
+        $out['balance'] = 0.0;
+        return $out;
+    }
+    if (!in_array($rel['kind'], ['invoice', 'expense'], true)) {
+        return $out;
+    }
     $total = document_totals($rel)['total'];
     $paid = payments_on_document((int) $rel['id'], doc_currency($rel));
     $remain = max(0, round($total - $paid, 2));
@@ -933,6 +948,7 @@ function receipt_settlement(array $doc): ?array
     $out['invoice_total'] = $total;
     $out['invoice_paid'] = $paid;
     $out['invoice_balance'] = convert_money($remain, doc_currency($rel), doc_currency($doc));
+    $out['balance'] = 0.0;
     return $out;
 }
 
@@ -1003,6 +1019,92 @@ function invoice_balance(array $doc): float
 {
     $total = $doc['totals']['total'] ?? document_totals($doc)['total'];
     return max(0, round((float) $total - invoice_paid((int) $doc['id']), 2));
+}
+
+function receipt_is_sale(array $doc): bool
+{
+    return ($doc['kind'] ?? '') === 'receipt' && (int) ($doc['related_id'] ?? 0) <= 0;
+}
+
+function receipt_sale_due(array $doc): float
+{
+    if (($doc['kind'] ?? '') !== 'receipt') {
+        return 0.0;
+    }
+    $charge = (float) (($doc['totals']['total'] ?? 0) ?: (document_totals($doc)['total'] ?? 0));
+    $received = receipt_received_amount($doc);
+    if ($received <= 0 || ($charge > 0 && $received > $charge + 0.009)) {
+        $received = $charge;
+    }
+    $later = payments_on_document((int) $doc['id'], doc_currency($doc));
+    return max(0, round($charge - $received - $later, 2));
+}
+
+function receipt_due_amount(array $doc): float
+{
+    if (($doc['kind'] ?? '') !== 'receipt') {
+        return 0.0;
+    }
+    if (isset($doc['invoice_balance'])) {
+        return max(0, (float) $doc['invoice_balance']);
+    }
+    if (receipt_is_sale($doc)) {
+        return receipt_sale_due($doc);
+    }
+    return max(0, (float) ($doc['balance'] ?? 0));
+}
+
+function document_due_amount(array $doc): float
+{
+    $kind = (string) ($doc['kind'] ?? '');
+    if ($kind === 'invoice' || $kind === 'expense') {
+        return max(0, (float) ($doc['balance'] ?? 0));
+    }
+    if ($kind === 'receipt') {
+        return receipt_due_amount($doc);
+    }
+    return 0.0;
+}
+
+function receipt_collect_target(array $doc): int
+{
+    if (($doc['status'] ?? '') === 'void') {
+        return 0;
+    }
+    $kind = (string) ($doc['kind'] ?? '');
+    if ($kind === 'invoice' && document_due_amount($doc) > 0.009) {
+        return (int) $doc['id'];
+    }
+    if ($kind !== 'receipt') {
+        return 0;
+    }
+    $rid = (int) ($doc['related_id'] ?? 0);
+    if ($rid <= 0) {
+        return receipt_sale_due($doc) > 0.009 ? (int) $doc['id'] : 0;
+    }
+    return receipt_due_amount($doc) > 0.009 ? $rid : 0;
+}
+
+function list_open_debtors(): array
+{
+    $invoices = array_values(array_filter(
+        list_documents('invoice'),
+        static fn ($d) => ($d['status'] ?? '') !== 'void' && document_due_amount($d) > 0.009
+    ));
+    $sales = array_values(array_filter(
+        list_documents('receipt'),
+        static fn ($d) => ($d['status'] ?? '') !== 'void' && receipt_is_sale($d) && document_due_amount($d) > 0.009
+    ));
+    $rows = array_merge($invoices, $sales);
+    usort($rows, static function ($a, $b) {
+        $da = (string) ($a['date'] ?? '');
+        $db = (string) ($b['date'] ?? '');
+        if ($da === $db) {
+            return ((int) ($b['id'] ?? 0)) <=> ((int) ($a['id'] ?? 0));
+        }
+        return $db <=> $da;
+    });
+    return $rows;
 }
 
 function expense_paid(int $expenseId): float
@@ -1146,6 +1248,56 @@ function receive_on_invoice(int $invoiceId, float $amount, string $method, strin
     ]);
 }
 
+function receive_on_receipt(int $receiptId, float $amount, string $method, string $ref): int
+{
+    $doc = load_document($receiptId);
+    if (!$doc || $doc['kind'] !== 'receipt' || $doc['status'] === 'void') {
+        throw new RuntimeException('This receipt cannot take a payment.');
+    }
+    $related = (int) ($doc['related_id'] ?? 0);
+    if ($related > 0) {
+        $rel = load_document($related);
+        if ($rel && $rel['kind'] === 'invoice') {
+            return receive_on_invoice($related, $amount, $method, $ref);
+        }
+        if ($rel && $rel['kind'] === 'receipt') {
+            return receive_on_receipt($related, $amount, $method, $ref);
+        }
+        throw new RuntimeException('This receipt is not a sale that can take a further payment.');
+    }
+    $balance = receipt_sale_due($doc);
+    $amount = min($amount, $balance);
+    if ($amount <= 0) {
+        throw new RuntimeException('Nothing remains on this receipt.');
+    }
+    $part = ($balance - $amount) > 0.009;
+    $label = ($part ? 'Part payment on ' : 'Payment on ') . $doc['number'];
+    $notes = $part
+        ? 'Part payment against ' . $doc['number'] . '. Balance remaining on Debtors.'
+        : 'Received with thanks against ' . $doc['number'] . '.';
+    return create_document([
+        'kind' => 'receipt',
+        'party_id' => $doc['party_id'],
+        'date' => today(),
+        'vat_rate' => 0,
+        'currency' => doc_currency($doc),
+        'doc_template' => doc_template_key($doc),
+        'notes' => $notes,
+        'related_id' => $doc['id'],
+        'payment_method' => $method,
+        'payment_ref' => $ref ?: null,
+        'allocated_amount' => $amount,
+        'items' => [[
+            'item_name' => $part ? 'Part payment' : 'Payment',
+            'description' => $label,
+            'qty' => 1,
+            'unit' => 'lot',
+            'rate' => $amount,
+            'taxed' => 0,
+        ]],
+    ]);
+}
+
 function attach_document_totals(array $rows): array
 {
     if (!$rows) {
@@ -1196,11 +1348,13 @@ function attach_document_totals(array $rows): array
     $relTotals = [];
     $relPaid = [];
     $relCur = [];
+    $relKindById = [];
+    $relAlloc = [];
     if ($relIds) {
         $relPh = implode(',', array_fill(0, count($relIds), '?'));
         $relTypes = str_repeat('i', count($relIds));
         $relDocs = db_all(
-            "SELECT id, vat_rate, currency, kind FROM documents WHERE company_id = ? AND id IN ($relPh)",
+            "SELECT id, vat_rate, currency, kind, allocated_amount FROM documents WHERE company_id = ? AND id IN ($relPh)",
             'i' . $relTypes,
             array_merge([current_company_id()], $relIds)
         );
@@ -1224,6 +1378,8 @@ function attach_document_totals(array $rows): array
             $relTotals[(int) $inv['id']] = round($net + $vat, 2);
             $relCur[(int) $inv['id']] = doc_currency($inv);
             $relPaid[(int) $inv['id']] = payments_on_document((int) $inv['id'], doc_currency($inv));
+            $relKindById[(int) $inv['id']] = (string) ($inv['kind'] ?? '');
+            $relAlloc[(int) $inv['id']] = (float) ($inv['allocated_amount'] ?? 0);
         }
     }
     foreach ($rows as &$row) {
@@ -1241,13 +1397,25 @@ function attach_document_totals(array $rows): array
             if ($received <= 0 || ($charge > 0 && $received > $charge + 0.009)) {
                 $received = $charge;
             }
+            $later = $paidBy[(int) $row['id']] ?? 0.0;
+            $saleDue = max(0, round($charge - $received - $later, 2));
             $row['paid'] = $received;
-            $row['balance'] = max(0, round($charge - $received, 2));
+            $row['balance'] = $saleDue;
             $rid = (int) ($row['related_id'] ?? 0);
-            $row['invoice_balance'] = 0.0;
+            $row['invoice_balance'] = $rid > 0 ? 0.0 : $saleDue;
             if ($rid && isset($relTotals[$rid])) {
                 $remain = max(0, round($relTotals[$rid] - ($relPaid[$rid] ?? 0), 2));
+                $relKind = $relKindById[$rid] ?? '';
+                if ($relKind === 'receipt') {
+                    $parentCash = (float) ($relAlloc[$rid] ?? 0);
+                    $parentCharge = (float) $relTotals[$rid];
+                    if ($parentCash <= 0 || ($parentCharge > 0 && $parentCash > $parentCharge + 0.009)) {
+                        $parentCash = $parentCharge;
+                    }
+                    $remain = max(0, round($parentCharge - $parentCash - ($relPaid[$rid] ?? 0), 2));
+                }
                 $row['invoice_balance'] = convert_money($remain, $relCur[$rid] ?? doc_currency($row), doc_currency($row));
+                $row['balance'] = 0.0;
             }
         } else {
             $row['paid'] = 0;
@@ -1260,21 +1428,11 @@ function attach_document_totals(array $rows): array
 
 function document_make_payment_href(array $doc): string
 {
-    if (($doc['status'] ?? '') === 'void') {
+    $target = receipt_collect_target($doc);
+    if ($target <= 0) {
         return '';
     }
-    $kind = (string) ($doc['kind'] ?? '');
-    if ($kind === 'invoice' && (float) ($doc['balance'] ?? 0) > 0.009) {
-        return url('document_action.php?receive=' . (int) $doc['id']);
-    }
-    if ($kind === 'receipt') {
-        $due = (float) ($doc['invoice_balance'] ?? 0);
-        $rid = (int) ($doc['related_id'] ?? 0);
-        if ($due > 0.009 && $rid > 0) {
-            return url('document_action.php?receive=' . $rid);
-        }
-    }
-    return '';
+    return url('document_action.php?receive=' . $target);
 }
 
 function render_make_payment_button(array $doc, bool $labeled = false): void
@@ -1358,7 +1516,7 @@ function invoice_status_label(array $doc): string
         return 'Void';
     }
     if (($doc['kind'] ?? '') === 'receipt') {
-        return ((float) ($doc['invoice_balance'] ?? $doc['balance'] ?? 0)) > 0.009 ? 'Partially cleared' : 'Cleared';
+        return receipt_due_amount($doc) > 0.009 ? 'Partially cleared' : 'Cleared';
     }
     if (!in_array($doc['kind'], ['invoice', 'expense'], true)) {
         return ucfirst($doc['status']);

@@ -119,12 +119,12 @@ if ($type === 'document') {
 }
 
 if ($type === 'debtors') {
-    $docs = array_values(array_filter(list_documents('invoice'), static fn ($d) => $d['status'] !== 'void' && ($d['balance'] ?? 0) > 0));
+    $docs = list_open_debtors();
     $rows = [];
     foreach ($docs as $d) {
-        $rows[] = [$d['number'], $d['party_name'], format_date($d['date']), format_date($d['due_date'] ?? ''), $d['totals']['total'], $d['paid'], $d['balance'], invoice_status_label($d), doc_currency($d)];
+        $rows[] = [$d['number'], $d['party_name'], format_date($d['date']), format_date($d['due_date'] ?? ''), $d['totals']['total'], $d['paid'] ?? 0, document_due_amount($d), invoice_status_label($d), doc_currency($d)];
     }
-    csv_download('debtors.csv', ['Invoice', 'Client', 'Date', 'Due', 'Amount', 'Paid', 'Balance', 'Status', 'Currency'], $rows);
+    csv_download('debtors.csv', ['Number', 'Client', 'Date', 'Due', 'Amount', 'Paid', 'Balance', 'Status', 'Currency'], $rows);
 }
 
 if ($type === 'creditors') {
@@ -146,7 +146,7 @@ if ($type === 'reports') {
         $rows[] = ['Expense', $d['number'], $d['party_name'], format_date($d['date']), $d['totals']['net'], $d['totals']['vat'], $d['totals']['total'], $d['balance'], invoice_status_label($d), doc_currency($d)];
     }
     foreach (list_documents('receipt') as $d) {
-        $rows[] = ['Receipt', $d['number'], $d['party_name'], format_date($d['date']), $d['totals']['net'], $d['totals']['vat'], $d['allocated_amount'] ?: $d['totals']['total'], 0, invoice_status_label($d), doc_currency($d)];
+        $rows[] = ['Receipt', $d['number'], $d['party_name'], format_date($d['date']), $d['totals']['net'], $d['totals']['vat'], $d['allocated_amount'] ?: $d['totals']['total'], document_due_amount($d), invoice_status_label($d), doc_currency($d)];
     }
     $tax = report_tax_payable();
     foreach ($tax['lines'] as $line) {

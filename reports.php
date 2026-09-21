@@ -51,6 +51,28 @@ foreach ($invoices as $d) {
         $debtors[] = $d + ['bucket' => $bucket, 'age' => max(0, $age)];
     }
 }
+foreach ($receipts as $d) {
+    if (!receipt_is_sale($d)) {
+        continue;
+    }
+    $due = document_due_amount($d);
+    if ($due <= 0.009) {
+        continue;
+    }
+    $age = $d['date'] ? (int) floor((time() - strtotime((string) $d['date'])) / 86400) : 0;
+    $bucket = 'Current';
+    if ($age > 90) {
+        $bucket = '90+';
+    } elseif ($age > 60) {
+        $bucket = '61-90';
+    } elseif ($age > 30) {
+        $bucket = '31-60';
+    } elseif ($age > 0) {
+        $bucket = '1-30';
+    }
+    $aging[$bucket] += convert_money($due, doc_currency($d), $base);
+    $debtors[] = $d + ['bucket' => $bucket, 'age' => max(0, $age), 'balance' => $due];
+}
 
 $costs = 0;
 $byCat = [];

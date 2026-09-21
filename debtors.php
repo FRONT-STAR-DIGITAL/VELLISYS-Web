@@ -3,20 +3,26 @@ declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
 $user = require_member();
 
-$rows = array_values(array_filter(list_documents('invoice'), static fn ($d) => $d['status'] !== 'void' && ($d['balance'] ?? 0) > 0));
-$total = documents_sum($rows, 'balance');
-$overdue = array_sum(array_map(static fn ($d) => (!empty($d['due_date']) && $d['due_date'] < today()) ? $d['balance'] : 0, $rows));
+$rows = list_open_debtors();
+$total = array_sum(array_map(static fn ($d) => convert_money(document_due_amount($d), doc_currency($d), default_currency()), $rows));
+$overdue = array_sum(array_map(static function ($d) {
+    if (($d['kind'] ?? '') !== 'invoice' || empty($d['due_date']) || $d['due_date'] >= today()) {
+        return 0;
+    }
+    return convert_money(document_due_amount($d), doc_currency($d), default_currency());
+}, $rows));
 $byClient = [];
 foreach ($rows as $doc) {
     $pid = (int) $doc['party_id'];
+    $due = convert_money(document_due_amount($doc), doc_currency($doc), default_currency());
     if (!isset($byClient[$pid])) {
         $byClient[$pid] = ['id' => $pid, 'name' => $doc['party_name'], 'invoices' => 0, 'balance' => 0.0, 'pay_id' => (int) $doc['id']];
     }
     $byClient[$pid]['invoices']++;
-    $byClient[$pid]['balance'] += convert_money((float) $doc['balance'], doc_currency($doc), default_currency());
-    if ((float) $doc['balance'] > (float) ($byClient[$pid]['pay_balance'] ?? 0)) {
+    $byClient[$pid]['balance'] += $due;
+    if ($due > (float) ($byClient[$pid]['pay_balance'] ?? 0)) {
         $byClient[$pid]['pay_id'] = (int) $doc['id'];
-        $byClient[$pid]['pay_balance'] = (float) $doc['balance'];
+        $byClient[$pid]['pay_balance'] = $due;
     }
 }
 uasort($byClient, static fn ($a, $b) => $b['balance'] <=> $a['balance']);
@@ -26,7 +32,7 @@ layout_start('Debtors', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('clients') ?>Debtors</h1>
-    <p class="lede">Clients who still owe you, including balances left after part payments. Mixed currencies convert at your <?= h(default_currency()) ?> / USD rate. Take a receipt, email a reminder from the company mailbox, or print the invoice.</p>
+    <p class="lede">Clients who still owe you — open invoices and quick receipts that were only part paid. Mixed currencies convert at your <?= h(default_currency()) ?> / USD rate. Take a receipt, email a reminder from the company mailbox, or print the document.</p>
   </div>
   <a class="btn" href="<?= h(url('document_new.php?kind=invoice')) ?>"><?= icon('invoice') ?>New invoice</a>
   <a class="btn ghost" href="<?= h(export_query('debtors')) ?>"><?= icon('download', 16) ?>Export CSV</a>
@@ -42,7 +48,7 @@ layout_start('Debtors', $user);
     <thead>
       <tr>
         <th>Client</th>
-        <th class="right">Open invoices</th>
+        <th class="right">Open items</th>
         <th class="right">Balance</th>
         <th>Actions</th>
       </tr>
@@ -65,7 +71,7 @@ layout_start('Debtors', $user);
 <?php endif; ?>
 
 <div class="stats">
-  <div class="card stat"><?= icon('invoice', 20) ?><span>Open invoices</span><strong><?= count($rows) ?></strong></div>
+  <div class="card stat"><?= icon('invoice', 20) ?><span>Open items</span><strong><?= count($rows) ?></strong></div>
   <div class="card stat"><?= icon('bank', 20) ?><span>Amount owed</span><strong><?= h(ugx($total)) ?></strong></div>
   <div class="card stat"><?= icon('alert', 20) ?><span>Overdue</span><strong><?= h(ugx($overdue)) ?></strong></div>
   <div class="card stat"><?= icon('send', 20) ?><span>Action</span><strong>Receipt or email</strong></div>
@@ -73,13 +79,13 @@ layout_start('Debtors', $user);
 
 <div class="card">
   <?php if (!$rows): ?>
-    <p class="empty">No outstanding invoices in this period.</p>
+    <p class="empty">No outstanding invoices or part-paid receipts in this period.</p>
   <?php else: ?>
     <div class="table-scroll">
     <table class="grid">
       <thead>
         <tr>
-          <th>Invoice</th>
+          <th>Number</th>
           <th>Client</th>
           <th>Date</th>
           <th>Due</th>
@@ -97,9 +103,9 @@ layout_start('Debtors', $user);
             <td class="date-cell"><?= h(format_date($doc['date'])) ?></td>
             <td><?= h(format_date($doc['due_date'])) ?></td>
             <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>
-            <td class="right mono"><?= h(money($doc['balance'], doc_currency($doc))) ?></td>
-            <td><span class="pill<?= invoice_status_label($doc) === 'Overdue' ? ' warn' : '' ?>"><?= h(invoice_status_label($doc)) ?></span></td>
-            <td class="row-actions"><?php render_make_payment_button($doc, true); render_doc_actions($doc); ?></td>
+            <td class="right mono"><?= h(money(document_due_amount($doc), doc_currency($doc))) ?></td>
+            <td><span class="pill<?= in_array(invoice_status_label($doc), ['Overdue', 'Partially cleared'], true) ? ' warn' : '' ?>"><?= h(invoice_status_label($doc)) ?></span></td>
+            <td class="row-actions"><?php if (($doc['kind'] ?? '') !== 'receipt') { render_make_payment_button($doc, true); } render_doc_actions($doc); ?></td>
           </tr>
         <?php endforeach; ?>
       </tbody>

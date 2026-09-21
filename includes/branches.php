@@ -340,6 +340,12 @@ function branch_performance_for_range(string $from, string $to): array
             } else {
                 $rows[$bid]['cash_in'] += $amt;
             }
+            if (function_exists('receipt_is_sale') && receipt_is_sale($d)) {
+                $due = function_exists('document_due_amount') ? document_due_amount($d) : (float) ($d['balance'] ?? 0);
+                if ($due > 0.009) {
+                    $rows[$bid]['outstanding'] += convert_money($due, $cur, $base);
+                }
+            }
         } elseif ($kind === 'quotation') {
             $rows[$bid]['quotes']++;
         }

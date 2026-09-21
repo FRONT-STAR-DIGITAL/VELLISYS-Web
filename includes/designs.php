@@ -80,7 +80,10 @@ function render_settlement(array $d): void
     }
     $s = $d['settlement'] ?? [];
     $received = (float) ($s['received'] ?? $d['total']);
-    $due = (float) ($s['balance'] ?? 0);
+    $due = (float) ($s['invoice_balance'] ?? 0);
+    if ($due <= 0.009) {
+        $due = (float) ($s['balance'] ?? 0);
+    }
     $open = $due > 0.009;
     ?>
     <div class="d-rd">

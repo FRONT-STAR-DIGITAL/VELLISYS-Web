@@ -18,7 +18,7 @@ if ($kind === 'receipt') {
         if ($doc['status'] === 'void') {
             continue;
         }
-        if (((float) ($doc['invoice_balance'] ?? $doc['balance'] ?? 0)) > 0.009) {
+        if (document_due_amount($doc) > 0.009) {
             $partialRows[] = $doc;
         } else {
             $clearedRows[] = $doc;
@@ -136,7 +136,7 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
               <td class="right mono"><?= h(money($doc['balance'], doc_currency($doc))) ?></td>
             <?php elseif ($kind === 'receipt'): ?>
               <td class="right mono"><?= h(money($doc['paid'], doc_currency($doc))) ?></td>
-              <td class="right mono"><?= h(money((float) ($doc['invoice_balance'] ?? $doc['balance'] ?? 0), doc_currency($doc))) ?></td>
+              <td class="right mono"><?= h(money(document_due_amount($doc), doc_currency($doc))) ?></td>
             <?php elseif (!kind_shows_money($kind)): ?>
             <?php elseif ($kind !== 'letter'): ?>
               <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>
@@ -160,7 +160,7 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
               <td class="right mono"><?= h(money(documents_sum($rows, 'balance'))) ?></td>
             <?php elseif ($kind === 'receipt'): ?>
               <td class="right mono"><?= h(money(documents_sum($rows, 'paid'))) ?></td>
-              <td class="right mono"><?= h(money(documents_sum($rows, 'balance'))) ?></td>
+              <td class="right mono"><?= h(money(array_sum(array_map(static fn ($d) => convert_money(document_due_amount($d), doc_currency($d), default_currency()), $rows)))) ?></td>
             <?php else: ?>
               <td class="right mono"><?= h(money(documents_sum($rows))) ?></td>
             <?php endif; ?>

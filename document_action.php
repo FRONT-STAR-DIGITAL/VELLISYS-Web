@@ -51,8 +51,42 @@ if ($receiveId && $_SERVER['REQUEST_METHOD'] !== 'POST') {
         if ($related > 0) {
             redirect('document_action.php?receive=' . $related);
         }
-        flash('This receipt is not tied to an invoice.', 'err');
-        redirect('document_view.php?id=' . $receiveId);
+        $balance = receipt_sale_due($doc);
+        if ($balance <= 0.009) {
+            flash('Nothing remains on this receipt.', 'err');
+            redirect('document_view.php?id=' . $receiveId);
+        }
+        layout_start('Receipt for ' . $doc['number'], $user, ['kind' => 'receipt']);
+        ?>
+    <div class="page-head">
+      <div>
+        <h1><?= icon('receipt') ?>Take a receipt</h1>
+        <p class="lede"><?= h($doc['party_name']) ?> still owes <?= h(money($balance, doc_currency($doc))) ?> on <?= h($doc['number']) ?>. You can take less than the balance; the unpaid amount stays on Debtors until it is cleared.</p>
+      </div>
+    </div>
+    <form class="card form" method="post">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="receive">
+      <input type="hidden" name="id" value="<?= $receiveId ?>">
+      <label for="amount">Amount received (<?= h(doc_currency($doc)) ?>)</label>
+      <input id="amount" name="amount" inputmode="decimal" required value="<?= h((string) $balance) ?>">
+      <p class="hint">Leave the full balance to clear this sale, or type a smaller figure for a part payment.</p>
+      <label for="payment_method">Paid how</label>
+      <select id="payment_method" name="payment_method">
+        <?php foreach (payment_methods() as $k => $label): ?>
+          <option value="<?= h($k) ?>"><?= h($label) ?></option>
+        <?php endforeach; ?>
+      </select>
+      <label for="payment_ref">Reference</label>
+      <input id="payment_ref" name="payment_ref">
+      <div class="actions" style="margin-top:16px">
+        <button class="btn" type="submit"><?= icon('check') ?>Save receipt</button>
+        <a class="btn ghost" href="<?= h(url('document_view.php?id=' . $receiveId)) ?>">Cancel</a>
+      </div>
+    </form>
+        <?php
+        layout_end();
+        exit;
     }
     if (!$doc || $doc['kind'] !== 'invoice') {
         flash('Invoice not found.', 'err');
@@ -120,7 +154,11 @@ try {
     }
     if ($action === 'receive') {
         $amount = money_parse(post('amount'));
-        $newId = receive_on_invoice($id, $amount, post('payment_method') ?: 'bank-transfer', post('payment_ref'));
+        if (($doc['kind'] ?? '') === 'receipt') {
+            $newId = receive_on_receipt($id, $amount, post('payment_method') ?: 'bank-transfer', post('payment_ref'));
+        } else {
+            $newId = receive_on_invoice($id, $amount, post('payment_method') ?: 'bank-transfer', post('payment_ref'));
+        }
         flash('Receipt saved.');
         redirect('document_view.php?id=' . $newId);
     }

@@ -31,7 +31,7 @@ if ($doc['kind'] === 'invoice') {
     $ledeExtra = ' · Balance ' . money(expense_balance($doc), doc_currency($doc));
 } elseif ($doc['kind'] === 'receipt') {
     $s = $doc['settlement'] ?? [];
-    $ledeExtra = ' · RECEIVED ' . money($s['received'] ?? $doc['paid'], doc_currency($doc)) . ' · DUE ' . money($s['balance'] ?? 0, doc_currency($doc));
+    $ledeExtra = ' · RECEIVED ' . money($s['received'] ?? $doc['paid'], doc_currency($doc)) . ' · DUE ' . money((float) (($s['invoice_balance'] ?? 0) > 0.009 ? $s['invoice_balance'] : ($s['balance'] ?? 0)), doc_currency($doc));
 }
 ?>
 <div class="page-head">
