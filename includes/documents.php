@@ -1588,7 +1588,7 @@ function document_sold_lines(?string $from = null, ?string $to = null): array
     try {
         $sold = db_all(
             "SELECT i.item_name, i.description, i.qty, i.rate, i.stock_item_id, {$svcSelect} AS is_service,
-                    d.currency
+                    d.currency, d.kind AS doc_kind, d.id AS doc_id
              FROM document_items i
              INNER JOIN documents d ON d.id = i.document_id
              {$joinStock}
@@ -1623,6 +1623,9 @@ function document_sold_lines(?string $from = null, ?string $to = null): array
             $stockId = (int) ($hit['id'] ?? 0);
         }
         $kind = $svcRow ? 'service' : ($stockId > 0 ? 'product' : 'other');
+        if ($kind === 'other' && ($row['doc_kind'] ?? '') === 'receipt') {
+            $kind = 'service';
+        }
         $key = $kind . "\0" . mb_strtolower($name);
         if (!isset($income[$key])) {
             $income[$key] = ['name' => $name, 'kind' => $kind, 'qty' => 0.0, 'amount' => 0.0];
@@ -1633,6 +1636,40 @@ function document_sold_lines(?string $from = null, ?string $to = null): array
             ? normalize_currency((string) ($row['currency'] ?? ''), $base)
             : (string) ($row['currency'] ?? $base);
         $income[$key]['amount'] += function_exists('convert_money') ? convert_money($line, $fromCur, $base) : $line;
+    }
+    try {
+        $bare = db_all(
+            "SELECT d.id, d.allocated_amount, d.currency, d.subject, d.notes
+             FROM documents d
+             WHERE d.company_id = ? AND d.status = 'issued' AND d.kind = 'receipt'
+               AND COALESCE(d.related_id, 0) = 0
+               AND NOT EXISTS (SELECT 1 FROM document_items i WHERE i.document_id = d.id)
+               {$extra}",
+            $types,
+            $params
+        );
+    } catch (Throwable $e) {
+        error_log('document_sold_lines receipts: ' . $e->getMessage());
+        $bare = [];
+    }
+    foreach ($bare as $row) {
+        $amt = (float) ($row['allocated_amount'] ?? 0);
+        if ($amt <= 0.009) {
+            continue;
+        }
+        $name = trim((string) ($row['subject'] ?? ''));
+        if ($name === '') {
+            $name = 'Services';
+        }
+        $key = "service\0" . mb_strtolower($name);
+        if (!isset($income[$key])) {
+            $income[$key] = ['name' => $name, 'kind' => 'service', 'qty' => 0.0, 'amount' => 0.0];
+        }
+        $fromCur = function_exists('normalize_currency')
+            ? normalize_currency((string) ($row['currency'] ?? ''), $base)
+            : (string) ($row['currency'] ?? $base);
+        $income[$key]['qty'] += 1;
+        $income[$key]['amount'] += function_exists('convert_money') ? convert_money($amt, $fromCur, $base) : $amt;
     }
     $income = array_values($income);
     usort($income, static fn ($a, $b) => $b['amount'] <=> $a['amount']);

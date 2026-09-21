@@ -4,6 +4,11 @@ require __DIR__ . '/includes/bootstrap.php';
 $user = require_stock();
 
 $tab = (string) ($_GET['tab'] ?? 'items');
+if ($tab === 'day') {
+    $qs = $_GET;
+    unset($qs['tab']);
+    redirect($qs ? ('dashboard.php?' . http_build_query($qs)) : 'dashboard.php');
+}
 if (!isset(stock_tabs()[$tab])) {
     $tab = 'items';
 }
@@ -128,31 +133,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect('stock.php?tab=purchases');
             }
         }
-    } elseif ($action === 'open_day') {
-        $opened = stock_day_open(money_parse(post('open_cash')));
-        if (empty($opened['ok'])) {
-            $error = (string) ($opened['error'] ?? 'Could not open the day.');
-            $tab = 'day';
-        } else {
-            flash('Day opened. You can sell now.');
-            redirect('sale.php');
-        }
-    } elseif ($action === 'close_day') {
-        $closed = stock_day_close(money_parse(post('close_cash')), post('notes'));
-        if (empty($closed['ok'])) {
-            $error = (string) ($closed['error'] ?? 'Could not close the day.');
-            $tab = 'day';
-        } else {
-            $t = $closed['totals'];
-            flash('Day closed. Income ' . money($t['income']) . ' · Profit ' . money($t['profit']) . ' · Net ' . money($t['net']) . ' · Tax ' . money($t['tax']));
-            redirect('stock.php?tab=day');
-        }
-    }
-}
-
-if ($tab === 'day') {
-    if (!isset($_GET['range']) && trim((string) ($_GET['from'] ?? '')) === '') {
-        $_GET['range'] = 'today';
     }
 }
 
@@ -167,53 +147,6 @@ $catalog = stock_catalog_payload();
 $suppliers = db_all("SELECT id, name FROM parties WHERE company_id = ? AND kind = 'supplier' ORDER BY name LIMIT 250", 'i', [current_company_id()]);
 $q = stock_q();
 $extraJs = '';
-
-if ($tab === 'day' && isset($_GET['ajax'])) {
-    $period = period_range();
-    $from = $period['from'] !== '' ? $period['from'] : today();
-    $to = $period['to'] !== '' ? $period['to'] : today();
-    $dash = stock_day_dashboard($from, $to);
-    $show = !empty($dash['show_profit']);
-    $dayRows = [];
-    foreach (array_reverse($dash['days'], true) as $d => $row) {
-        $dayRows[] = ['date' => $d] + $row;
-    }
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode([
-        'ok' => true,
-        'from' => $from,
-        'to' => $to,
-        'label' => format_date($from) . ($from === $to ? '' : ' – ' . format_date($to)),
-        'totals' => $dash['totals'],
-        'show_profit' => $show,
-        'currency' => default_currency(),
-        'money' => [
-            'income' => money($dash['totals']['income']),
-            'expense' => money($dash['totals']['expense']),
-            'cogs' => money($dash['totals']['cogs']),
-            'profit' => money($dash['totals']['profit']),
-            'net' => money($dash['totals']['net']),
-            'tax' => money($dash['totals']['tax']),
-        ],
-        'charts' => [
-            'days' => [
-                'labels' => array_map(static fn ($d) => date('j M', strtotime((string) $d)), array_keys($dash['days'])),
-                'income' => array_column(array_values($dash['days']), 'income'),
-                'expense' => array_column(array_values($dash['days']), 'expense'),
-                'profit' => $show ? array_column(array_values($dash['days']), 'profit') : [],
-                'net' => $show ? array_column(array_values($dash['days']), 'net') : [],
-            ],
-            'months' => [
-                'labels' => array_keys($dash['months']),
-                'income' => array_column(array_values($dash['months']), 'income'),
-                'expense' => array_column(array_values($dash['months']), 'expense'),
-                'profit' => $show ? array_column(array_values($dash['months']), 'profit') : [],
-                'net' => $show ? array_column(array_values($dash['months']), 'net') : [],
-            ],
-        ],
-    ], JSON_UNESCAPED_UNICODE);
-    exit;
-}
 
 layout_start('Stock', $user);
 ?>
@@ -230,8 +163,8 @@ layout_start('Stock', $user);
 
 <?php if ($error): ?><p class="flash flash-err" style="margin:0 0 16px"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
 
-<?php if (!$dayOpen && $tab !== 'day'): ?>
-  <p class="flash" style="margin:0 0 16px"><?= icon('clock', 16) ?>Open the day before selling or buying. <a href="<?= h(url('stock.php?tab=day')) ?>">Open day</a></p>
+<?php if (!$dayOpen): ?>
+  <p class="flash" style="margin:0 0 16px"><?= icon('clock', 16) ?>Open the day before selling or buying. <a href="<?= h(url(desk_day_url())) ?>">Open day</a></p>
 <?php endif; ?>
 
 <?php if ($tab === 'items'):
@@ -547,208 +480,6 @@ layout_start('Stock', $user);
 </div>
 <?php $extraJs = '<script src="' . h(asset('js/stock-pos.js')) . '"></script>'; ?>
 
-<?php else:
-    $period = period_range();
-    $from = $period['from'] !== '' ? $period['from'] : today();
-    $to = $period['to'] !== '' ? $period['to'] : today();
-    $dash = stock_day_dashboard($from, $to);
-    $rangeLive = $dash['totals'];
-    $showProfit = !empty($dash['show_profit']);
-    $daySales = $dash['sales'];
-    $daySpend = $dash['spend'];
-    $daySold = $dash['sold'] ?? [];
-    $dayRows = [];
-    foreach (array_reverse($dash['days'], true) as $d => $row) {
-        $dayRows[] = ['date' => $d] + $row;
-    }
-    $daysPage = stock_slice($dayRows, stock_page_key('dp'));
-    $monthRows = [];
-    foreach (array_reverse($dash['months'], true) as $m => $row) {
-        $monthRows[] = ['date' => $m] + $row;
-    }
-    $stockSnap = stock_slice(stock_filter_items(stock_goods_only($items), $q), stock_page_key('ip'));
-    $rangeLabel = $from === $to ? format_date($from) : (format_date($from) . ' – ' . format_date($to));
-    $chartDays = [
-        'labels' => array_map(static fn ($d) => date('j M', strtotime((string) $d)), array_keys($dash['days'])),
-        'income' => array_column(array_values($dash['days']), 'income'),
-        'expense' => array_column(array_values($dash['days']), 'expense'),
-        'profit' => array_column(array_values($dash['days']), 'profit'),
-        'net' => array_column(array_values($dash['days']), 'net'),
-    ];
-    $chartMonths = [
-        'labels' => array_keys($dash['months']),
-        'income' => array_column(array_values($dash['months']), 'income'),
-        'expense' => array_column(array_values($dash['months']), 'expense'),
-        'profit' => array_column(array_values($dash['months']), 'profit'),
-        'net' => array_column(array_values($dash['months']), 'net'),
-    ];
-    ?>
-<?php render_filters('stock.php', ['tab' => 'day'], ['no_all' => true, 'live' => true]); ?>
-<p class="hint" style="margin:-8px 0 16px">Showing <?= h($rangeLabel) ?>. Profit is selling price minus buying price on goods sold. Net profit is that profit minus expenses (stock purchases are not counted twice).</p>
-<div class="stats" id="day-stats" data-day-stats>
-  <div class="card stat"><?= icon('clock', 20) ?><span>Today</span><strong><?= $dayOpen ? 'Open' : ($todayDay ? 'Closed' : 'Not opened') ?></strong></div>
-  <a class="card stat" href="#day-income"><?= icon('invoice', 20) ?><span>Income</span><strong data-stat="income"><?= h(money($rangeLive['income'])) ?></strong></a>
-  <a class="card stat" href="#day-spend"><?= icon('expense', 20) ?><span>Expenditure</span><strong data-stat="expense"><?= h(money($rangeLive['expense'])) ?></strong></a>
-  <?php if ($showProfit): ?>
-  <div class="card stat"><?= icon('package', 20) ?><span>Profit</span><strong data-stat="profit"><?= h(money($rangeLive['profit'])) ?></strong><em>Sell minus buy</em></div>
-  <div class="card stat"><?= icon('wallet', 20) ?><span>Net profit</span><strong data-stat="net"><?= h(money($rangeLive['net'])) ?></strong><em>Tax <?= h(money($rangeLive['tax'])) ?></em></div>
-  <?php endif; ?>
-</div>
-<div class="stats">
-  <div class="card stat"><?= icon('package', 20) ?><span>Products</span><strong><?= (int) $stats['items'] ?></strong></div>
-  <div class="card stat"><?= icon('bank', 20) ?><span>Stock at cost</span><strong><?= h(money($stats['cost'])) ?></strong></div>
-  <div class="card stat"><?= icon('alert', 20) ?><span>Low stock</span><strong><?= (int) $stats['low'] ?></strong></div>
-</div>
-<div class="desk-grid stock-split">
-  <div class="card">
-    <div class="card-head"><h2><?= icon('clock', 16) ?><?= $dayOpen ? 'Close this day' : 'Open this day' ?></h2></div>
-    <div class="pad-form">
-      <?php if (!$todayDay): ?>
-        <form method="post">
-          <?= csrf_field() ?>
-          <input type="hidden" name="action" value="open_day">
-          <label for="open_cash">Cash you started with</label>
-          <input id="open_cash" name="open_cash" inputmode="decimal" required>
-          <p class="hint">Count the till. Type that amount. Then you can sell.</p>
-          <div class="actions" style="margin-top:12px"><button class="btn" type="submit"><?= icon('check') ?>Open day</button></div>
-        </form>
-      <?php elseif ($dayOpen): ?>
-        <p class="lede">Started with <?= h(money((float) $todayDay['open_cash'])) ?>.</p>
-        <form method="post">
-          <?= csrf_field() ?>
-          <input type="hidden" name="action" value="close_day">
-          <label for="close_cash">Cash you closed with</label>
-          <input id="close_cash" name="close_cash" inputmode="decimal" required>
-          <label for="notes">Note</label>
-          <input id="notes" name="notes">
-          <div class="actions" style="margin-top:12px"><button class="btn" type="submit"><?= icon('check') ?>Close day</button></div>
-        </form>
-      <?php else: ?>
-        <p class="lede">Closed with <?= h(money((float) ($todayDay['close_cash'] ?? 0))) ?>.</p>
-      <?php endif; ?>
-    </div>
-  </div>
-  <div class="card">
-    <div class="card-head"><h2><?= icon('reports', 16) ?>In this period</h2></div>
-    <div class="pad-form"><canvas id="chart-stock-days" height="180"></canvas></div>
-  </div>
-</div>
-<div class="card" style="margin-top:16px">
-  <div class="card-head"><h2><?= icon('reports', 16) ?>Months</h2></div>
-  <div class="pad-form"><canvas id="chart-stock-months" height="180"></canvas></div>
-</div>
-<div class="card" id="day-income" style="margin-top:16px">
-  <div class="card-head"><h2><?= icon('invoice', 16) ?>Sales</h2></div>
-  <div class="pad-form"><?php stock_search_bar('stock.php', ['tab' => 'day', 'range' => $period['preset'], 'from' => $from, 'to' => $to], 'Search sales'); ?></div>
-  <?php render_stock_docs_table($daySales, 'stock.php?tab=day', 'sp', 'No sales in this period.'); ?>
-</div>
-<div class="card" style="margin-top:16px">
-  <div class="card-head"><h2><?= icon('package', 16) ?>Products and services sold</h2></div>
-  <p class="hint" style="margin:0 22px 12px">Goods and services from Sale and from invoices in this period.</p>
-  <?php render_stock_sold_table($daySold); ?>
-</div>
-<div class="card" id="day-spend" style="margin-top:16px">
-  <div class="card-head"><h2><?= icon('expense', 16) ?>Expenses</h2></div>
-  <?php render_stock_docs_table($daySpend, 'stock.php?tab=day', 'ep', 'No expenses in this period.'); ?>
-</div>
-<div class="card" style="margin-top:16px">
-  <div class="card-head"><h2><?= icon('clock', 16) ?>Daily performance</h2></div>
-  <div class="table-scroll">
-    <table class="grid">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Date</th>
-          <th class="right">Income</th>
-          <th class="right">Spend</th>
-          <?php if ($showProfit): ?><th class="right">Profit</th><th class="right">Net</th><?php endif; ?>
-          <th class="right">Tax</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php $dn = (int) $daysPage['from']; foreach ($daysPage['rows'] as $d): ?>
-          <tr>
-            <td class="mono"><?= $dn++ ?></td>
-            <td><?= h(format_date($d['date'])) ?></td>
-            <td class="right mono"><?= h(money((float) $d['income'])) ?></td>
-            <td class="right mono"><?= h(money((float) $d['expense'])) ?></td>
-            <?php if ($showProfit): ?>
-              <td class="right mono"><?= h(money((float) $d['profit'])) ?></td>
-              <td class="right mono"><?= h(money((float) ($d['net'] ?? 0))) ?></td>
-            <?php endif; ?>
-            <td class="right mono"><?= h(money((float) $d['tax'])) ?></td>
-          </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
-  </div>
-  <?php stock_pager('stock.php?tab=day', (int) $daysPage['page'], (int) $daysPage['pages'], 'dp'); ?>
-</div>
-<div class="card" style="margin-top:16px">
-  <div class="card-head"><h2><?= icon('calendar', 16) ?>Monthly performance</h2></div>
-  <div class="table-scroll">
-    <table class="grid">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Month</th>
-          <th class="right">Income</th>
-          <th class="right">Spend</th>
-          <?php if ($showProfit): ?><th class="right">Profit</th><th class="right">Net</th><?php endif; ?>
-          <th class="right">Tax</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php $mn = 1; foreach ($monthRows as $d): ?>
-          <tr>
-            <td class="mono"><?= $mn++ ?></td>
-            <td><?= h($d['date']) ?></td>
-            <td class="right mono"><?= h(money((float) $d['income'])) ?></td>
-            <td class="right mono"><?= h(money((float) $d['expense'])) ?></td>
-            <?php if ($showProfit): ?>
-              <td class="right mono"><?= h(money((float) $d['profit'])) ?></td>
-              <td class="right mono"><?= h(money((float) ($d['net'] ?? 0))) ?></td>
-            <?php endif; ?>
-            <td class="right mono"><?= h(money((float) $d['tax'])) ?></td>
-          </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
-  </div>
-</div>
-<div class="card" style="margin-top:16px">
-  <div class="card-head"><h2><?= icon('package', 16) ?>Stock now</h2></div>
-  <div class="table-scroll">
-    <table class="grid">
-      <thead><tr><th>#</th><th>Item</th><th class="right">On hand</th><th class="right">At cost</th><th class="right">At sell</th><th>Actions</th></tr></thead>
-      <tbody>
-        <?php $sn = (int) $stockSnap['from']; foreach ($stockSnap['rows'] as $row): ?>
-          <tr>
-            <td class="mono"><?= $sn++ ?></td>
-            <td><?= h($row['name']) ?></td>
-            <td class="right mono"><?= h(stock_qty_label((float) $row['qty_on_hand'])) ?></td>
-            <td class="right mono"><?= h(money((float) $row['qty_on_hand'] * (float) $row['buy_price'])) ?></td>
-            <td class="right mono"><?= h(money((float) $row['qty_on_hand'] * (float) $row['sell_price'])) ?></td>
-            <td class="row-actions">
-              <a class="btn ghost sm" href="<?= h(url('stock.php?tab=items&edit=' . (int) $row['id'])) ?>"><?= icon('pencil', 14) ?>Edit</a>
-              <?php stock_delete_button((int) $row['id']); ?>
-            </td>
-          </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
-  </div>
-  <?php stock_pager('stock.php?tab=day', (int) $stockSnap['page'], (int) $stockSnap['pages'], 'ip'); ?>
-</div>
-<?php
-    $payload = json_encode([
-        'days' => $chartDays,
-        'months' => $chartMonths,
-        'currency' => default_currency(),
-        'color' => branding()['brand_color'] ?? '#82B440',
-        'showProfit' => $showProfit,
-    ], JSON_UNESCAPED_UNICODE);
-    $extraJs = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script>window.vellisysDayCharts=' . $payload . ';</script><script src="' . h(asset('js/stock-day.js')) . '"></script>';
-endif;
+<?php endif; ?>
 
-layout_end($extraJs);
+<?php layout_end($extraJs);

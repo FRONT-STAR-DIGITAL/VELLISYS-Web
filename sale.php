@@ -73,7 +73,7 @@ layout_start('Sale', $user);
 
 <?php if ($error): ?><p class="flash flash-err" style="margin:0 0 16px"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
 <?php if (!$dayOpen): ?>
-  <p class="flash flash-err">Open the day first. <a href="<?= h(url('stock.php?tab=day')) ?>">Open day</a></p>
+  <p class="flash flash-err">Open the day first. <a href="<?= h(url(desk_day_url())) ?>">Open day</a></p>
 <?php endif; ?>
 
 <form method="post" class="card pos-sale" data-pos-till data-pos-prefix="s" data-pos-mode="sale" data-pos-currency="<?= h(default_currency()) ?>">

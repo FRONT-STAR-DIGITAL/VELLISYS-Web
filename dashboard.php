@@ -3,8 +3,57 @@ declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
 $user = require_member();
 $brand = branding();
-$cid = current_company_id();
 $homeCcy = default_currency();
+$hour = (int) date('G');
+$hello = $hour < 12 ? 'Good morning' : ($hour < 17 ? 'Good afternoon' : 'Good evening');
+$firstName = explode(' ', trim((string) $user['name']))[0];
+if ($firstName === '') {
+    $firstName = (string) ($brand['name'] ?? 'there');
+}
+$canQuote = user_can_kind('quotation');
+$canInvoice = user_can_kind('invoice');
+$deskCompany = current_company();
+$stockOn = function_exists('company_stock_enabled') && company_stock_enabled();
+$dayError = '';
+
+if ($stockOn) {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        csrf_check();
+        $dayError = desk_handle_day_post();
+    }
+    if (!isset($_GET['range']) && trim((string) ($_GET['from'] ?? '')) === '') {
+        $_GET['range'] = 'today';
+    }
+    if (isset($_GET['ajax'])) {
+        desk_day_json_exit();
+    }
+    layout_start('Desk', $user);
+    ?>
+    <?php if ($deskCompany): ?>
+      <div class="desk-term-wrap">
+        <?php render_top_term($deskCompany); ?>
+      </div>
+    <?php endif; ?>
+    <div class="desk-hero">
+      <div class="desk-hello">
+        <p class="desk-kicker"><?= h($brand['name']) ?></p>
+        <h1 class="desk-hello-title"><?= h($hello) ?> <?= h($firstName) ?></h1>
+        <p class="desk-hello-lead">Today’s till, sales (including quick receipts), expenses and opening cash. Filters and reports sit on this desk.</p>
+      </div>
+      <div class="actions">
+        <?php if ($canQuote): ?><a class="btn ghost" href="<?= h(url('document_new.php?kind=quotation')) ?>"><?= icon('quotation', 16) ?>Quotation</a><?php endif; ?>
+        <?php if ($canInvoice): ?><a class="btn" href="<?= h(url('document_new.php?kind=invoice')) ?>"><?= icon('invoice', 16) ?>Invoice</a><?php endif; ?>
+        <a class="btn ghost" href="<?= h(url('sale.php')) ?>"><?= icon('cart', 16) ?>Sale</a>
+        <a class="btn ghost" href="<?= h(url('activities.php')) ?>"><?= icon('clock', 16) ?>Activities</a>
+      </div>
+    </div>
+    <?php
+    $extraJs = render_desk_day($dayError);
+    layout_end($extraJs);
+    return;
+}
+
+$cid = current_company_id();
 $base = $homeCcy;
 $since = date('Y-m-01', strtotime('-5 months'));
 $monthStart = date('Y-m-01');

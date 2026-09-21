@@ -334,10 +334,10 @@ function layout_start(string $title, array $user, array $opts = []): void
       <div class="flash flash-<?= h($flash['type']) ?>"><?= $flash['type'] === 'ok' ? icon('check', 16) : icon('alert', 16) ?><?= h($flash['text']) ?></div>
     <?php endif; ?>
     <?php
-      $onTillDay = ($here ?? '') === 'stock.php' && (($_GET['tab'] ?? '') === 'day');
+      $onTillDay = ($here ?? '') === 'dashboard.php' && function_exists('desk_uses_till_day') && desk_uses_till_day();
       if (!$onTillDay && function_exists('desk_uses_till_day') && desk_uses_till_day() && function_exists('stock_day_is_open') && !stock_day_is_open()):
     ?>
-      <div class="flash">Open the day before issuing sales, invoices, receipts or expenses. <a href="<?= h(url('stock.php?tab=day')) ?>">Open day</a></div>
+      <div class="flash">Open the day before issuing sales, invoices, receipts or expenses. <a href="<?= h(url(function_exists('desk_day_url') ? desk_day_url() : 'dashboard.php')) ?>">Open day</a></div>
     <?php endif; ?>
     <div class="content">
 <?php

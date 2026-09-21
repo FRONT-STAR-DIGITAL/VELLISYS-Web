@@ -45,13 +45,25 @@ function desk_kind_needs_open_day(string $kind): bool
     return in_array($kind, ['invoice', 'receipt', 'expense', 'refund', 'return_note', 'delivery', 'quotation'], true);
 }
 
+function desk_day_url(array $query = []): string
+{
+    $qs = [];
+    foreach ($query as $k => $v) {
+        if ($v === null || $v === '') {
+            continue;
+        }
+        $qs[$k] = $v;
+    }
+    return $qs ? ('dashboard.php?' . http_build_query($qs)) : 'dashboard.php';
+}
+
 function desk_require_open_day(): void
 {
     if (desk_day_is_open()) {
         return;
     }
     flash('Open the day first. Enter the cash you started with.', 'err');
-    redirect('stock.php?tab=day');
+    redirect(desk_day_url());
 }
 
 function stock_require_open_day(): void
@@ -70,7 +82,6 @@ function stock_tabs(): array
         'items' => ['Items', 'package'],
         'counts' => ['Counts', 'hash'],
         'purchases' => ['Purchases', 'expense'],
-        'day' => ['Day', 'clock'],
     ];
 }
 
@@ -1074,9 +1085,15 @@ function stock_filter_items(array $items, string $q): array
 function stock_search_docs(string $kind, string $q, int $page, int $per = 20, ?string $date = null, ?string $category = null, ?string $dateTo = null): array
 {
     $cid = current_company_id();
-    $where = 'd.company_id = ? AND d.kind = ?';
-    $types = 'is';
-    $params = [$cid, $kind];
+    if ($kind === 'sales') {
+        $where = "d.company_id = ? AND (d.kind = 'invoice' OR (d.kind = 'receipt' AND COALESCE(d.related_id, 0) = 0))";
+        $types = 'i';
+        $params = [$cid];
+    } else {
+        $where = 'd.company_id = ? AND d.kind = ?';
+        $types = 'is';
+        $params = [$cid, $kind];
+    }
     if ($date) {
         if ($dateTo) {
             $where .= ' AND d.date >= ? AND d.date <= ?';
@@ -1124,11 +1141,11 @@ function stock_performance_range(string $from, string $to): array
 {
     $cid = current_company_id();
     $docs = db_all(
-        "SELECT d.id, d.date, d.kind, d.vat_rate, d.currency, d.expense_category,
+        "SELECT d.id, d.date, d.kind, d.vat_rate, d.currency, d.expense_category, d.related_id, d.allocated_amount,
                 (SELECT COALESCE(SUM(ROUND(qty * rate, 2)), 0) FROM document_items i WHERE i.document_id = d.id) AS net,
                 (SELECT COALESCE(SUM(CASE WHEN taxed = 1 THEN ROUND(qty * rate, 2) ELSE 0 END), 0) FROM document_items i WHERE i.document_id = d.id) AS taxed_net
          FROM documents d
-         WHERE d.company_id = ? AND d.status = 'issued' AND d.kind IN ('invoice','expense') AND d.date >= ? AND d.date <= ?",
+         WHERE d.company_id = ? AND d.status = 'issued' AND d.kind IN ('invoice','expense','receipt') AND d.date >= ? AND d.date <= ?",
         'iss',
         [$cid, $from, $to]
     );
@@ -1157,6 +1174,21 @@ function stock_performance_range(string $from, string $to): array
         if ($d['kind'] === 'invoice') {
             $by[$day]['income'] += $net;
             $by[$day]['tax'] += $vat;
+        } elseif ($d['kind'] === 'receipt') {
+            if ((int) ($d['related_id'] ?? 0) > 0) {
+                continue;
+            }
+            $received = (float) ($d['allocated_amount'] ?? 0);
+            if ($received <= 0) {
+                $received = (float) $d['net'];
+            }
+            $by[$day]['income'] += convert_money($received, doc_currency($d), $base);
+            if ($received > 0 && (float) $d['net'] > 0.009) {
+                $share = min(1, $received / (float) $d['net']);
+                $by[$day]['tax'] += $vat * $share;
+            } elseif ($received > 0) {
+                $by[$day]['tax'] += $vat;
+            }
         } elseif (!stock_is_stock_expense($d)) {
             $by[$day]['expense'] += $net;
             $by[$day]['tax'] -= $vat;
@@ -1215,7 +1247,7 @@ function stock_day_dashboard(string $from, string $to): array
     }
     $q = stock_q();
     $showProfit = !function_exists('user_can_see_profit') || user_can_see_profit();
-    $sales = stock_search_docs('invoice', $q, stock_page_key('sp'), 20, $from, null, $to);
+    $sales = stock_search_docs('sales', $q, stock_page_key('sp'), 20, $from, null, $to);
     $spend = stock_search_docs('expense', $q, stock_page_key('ep'), 20, $from, null, $to);
     $sold = function_exists('document_sold_lines') ? document_sold_lines($from, $to) : [];
     return [
@@ -1228,7 +1260,123 @@ function stock_day_dashboard(string $from, string $to): array
         'spend' => $spend,
         'sold' => $sold,
         'show_profit' => $showProfit,
+        'float' => stock_float_vs_expenses($from, $to, (float) $totals['expense']),
     ];
+}
+
+function stock_float_vs_expenses(string $from, string $to, float $expense): array
+{
+    $cid = current_company_id();
+    $rows = db_all(
+        'SELECT day_date, open_cash, close_cash, closed_at FROM stock_days WHERE company_id = ? AND day_date >= ? AND day_date <= ? ORDER BY day_date',
+        'iss',
+        [$cid, $from, $to]
+    );
+    $open = 0.0;
+    foreach ($rows as $row) {
+        $open += (float) ($row['open_cash'] ?? 0);
+    }
+    $open = round($open, 2);
+    $expense = round($expense, 2);
+    $applied = round(min($open, $expense), 2);
+    return [
+        'days' => $rows,
+        'opened_n' => count($rows),
+        'open_cash' => $open,
+        'expense' => $expense,
+        'applied' => $applied,
+        'left' => round(max(0, $open - $expense), 2),
+        'short' => round(max(0, $expense - $open), 2),
+    ];
+}
+
+function desk_handle_day_post(): string
+{
+    $action = post('action');
+    if ($action === 'open_day') {
+        $opened = stock_day_open(money_parse(post('open_cash')));
+        if (empty($opened['ok'])) {
+            return (string) ($opened['error'] ?? 'Could not open the day.');
+        }
+        flash('Day opened. You can sell now.');
+        redirect('sale.php');
+    }
+    if ($action === 'close_day') {
+        $closed = stock_day_close(money_parse(post('close_cash')), post('notes'));
+        if (empty($closed['ok'])) {
+            return (string) ($closed['error'] ?? 'Could not close the day.');
+        }
+        $t = $closed['totals'];
+        flash('Day closed. Income ' . money($t['income']) . ' · Profit ' . money($t['profit']) . ' · Net ' . money($t['net']) . ' · Tax ' . money($t['tax']));
+        redirect(desk_day_url());
+    }
+    return '';
+}
+
+function desk_day_json_exit(): void
+{
+    $period = period_range();
+    $from = $period['from'] !== '' ? $period['from'] : today();
+    $to = $period['to'] !== '' ? $period['to'] : today();
+    $dash = stock_day_dashboard($from, $to);
+    $show = !empty($dash['show_profit']);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+        'ok' => true,
+        'from' => $from,
+        'to' => $to,
+        'label' => format_date($from) . ($from === $to ? '' : ' – ' . format_date($to)),
+        'totals' => $dash['totals'],
+        'float' => $dash['float'] ?? [],
+        'show_profit' => $show,
+        'currency' => default_currency(),
+        'money' => [
+            'income' => money($dash['totals']['income']),
+            'expense' => money($dash['totals']['expense']),
+            'cogs' => money($dash['totals']['cogs']),
+            'profit' => money($dash['totals']['profit']),
+            'net' => money($dash['totals']['net']),
+            'tax' => money($dash['totals']['tax']),
+        ],
+        'charts' => [
+            'days' => [
+                'labels' => array_map(static fn ($d) => date('j M', strtotime((string) $d)), array_keys($dash['days'])),
+                'income' => array_column(array_values($dash['days']), 'income'),
+                'expense' => array_column(array_values($dash['days']), 'expense'),
+                'profit' => $show ? array_column(array_values($dash['days']), 'profit') : [],
+                'net' => $show ? array_column(array_values($dash['days']), 'net') : [],
+            ],
+            'months' => [
+                'labels' => array_keys($dash['months']),
+                'income' => array_column(array_values($dash['months']), 'income'),
+                'expense' => array_column(array_values($dash['months']), 'expense'),
+                'profit' => $show ? array_column(array_values($dash['months']), 'profit') : [],
+                'net' => $show ? array_column(array_values($dash['months']), 'net') : [],
+            ],
+        ],
+    ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG);
+    exit;
+}
+
+function render_desk_day_float_note(array $float): void
+{
+    if (($float['opened_n'] ?? 0) < 1 && ($float['open_cash'] ?? 0) < 0.009) {
+        echo '<p class="hint" style="margin:0 0 16px">No opening cash is recorded for this period. Open the day with the till amount so expenses can be cleared from that float.</p>';
+        return;
+    }
+    $open = money((float) $float['open_cash']);
+    $applied = money((float) $float['applied']);
+    $left = money((float) $float['left']);
+    $exp = money((float) $float['expense']);
+    $n = (int) ($float['opened_n'] ?? 0);
+    $daysLabel = $n === 1 ? 'the day' : ($n . ' days');
+    echo '<p class="hint" style="margin:0 0 16px">Opened ' . h($daysLabel) . ' with <strong>' . h($open) . '</strong>. That float cleared <strong>' . h($applied) . '</strong> of expenses (' . h($exp) . ').';
+    if ((float) ($float['short'] ?? 0) > 0.009) {
+        echo ' Remaining expenses <strong>' . h(money((float) $float['short'])) . '</strong> need collections from sales.';
+    } else {
+        echo ' Opening cash left after expenses: <strong>' . h($left) . '</strong>.';
+    }
+    echo '</p>';
 }
 
 function render_stock_payment_select(string $name, bool $disabled = false, string $selected = 'cash'): void
