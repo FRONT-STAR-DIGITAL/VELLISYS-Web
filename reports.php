@@ -184,13 +184,16 @@ foreach ($receipts as $d) {
     $key = substr((string) $d['date'], 0, 10);
     $series[$key]['cash'] += convert_money((float) ($d['allocated_amount'] ?: $d['totals']['total']), doc_currency($d), $base);
 }
+foreach ($series as $key => $vals) {
+    $series[$key]['profit'] = round((float) ($vals['cash'] ?? 0) - (float) ($vals['expenses'] ?? 0), 2);
+}
 ksort($series);
 if ($view === 'annual') {
     $filled = [];
     $mixFilled = [];
     for ($m = 1; $m <= 12; $m++) {
         $key = sprintf('%04d-%02d', $year, $m);
-        $filled[$key] = ['invoiced' => 0, 'expenses' => 0, 'cash' => 0];
+        $filled[$key] = ['invoiced' => 0, 'expenses' => 0, 'cash' => 0, 'profit' => 0];
         $mixFilled[$key] = ['quotation' => 0, 'invoice' => 0, 'receipt' => 0, 'expense' => 0, 'letter' => 0];
     }
     foreach ($series as $day => $vals) {
@@ -199,6 +202,7 @@ if ($view === 'annual') {
             $filled[$k]['invoiced'] += $vals['invoiced'];
             $filled[$k]['expenses'] += $vals['expenses'];
             $filled[$k]['cash'] += $vals['cash'];
+            $filled[$k]['profit'] = round($filled[$k]['cash'] - $filled[$k]['expenses'], 2);
         }
     }
     foreach ($mixSeries as $day => $vals) {
@@ -216,11 +220,12 @@ if ($view === 'annual') {
     foreach ($series as $day => $vals) {
         $m = substr($day, 0, 7);
         if (!isset($monthly[$m])) {
-            $monthly[$m] = ['invoiced' => 0, 'expenses' => 0, 'cash' => 0];
+            $monthly[$m] = ['invoiced' => 0, 'expenses' => 0, 'cash' => 0, 'profit' => 0];
         }
         $monthly[$m]['invoiced'] += $vals['invoiced'];
         $monthly[$m]['expenses'] += $vals['expenses'];
         $monthly[$m]['cash'] += $vals['cash'];
+        $monthly[$m]['profit'] = round($monthly[$m]['cash'] - $monthly[$m]['expenses'], 2);
     }
     $series = $monthly;
 }
@@ -228,7 +233,7 @@ if ($view === 'annual') {
 $period = period_range();
 $from = $period['from'] !== '' ? $period['from'] : '1970-01-01';
 $to = $period['to'] !== '' ? $period['to'] : today();
-$margin = function_exists('stock_range_totals') ? stock_range_totals($from, $to) : ['profit' => $income - $costs, 'net' => $income - $costs, 'cogs' => 0.0];
+$cashProfit = round($cashIn - $costs, 2);
 $taxReport = report_tax_payable();
 $taxName = company_tax_name();
 $chartLabels = [];
@@ -241,6 +246,7 @@ foreach (array_keys($series) as $key) {
 $chartInvoiced = array_column($series, 'invoiced');
 $chartExpenses = array_column($series, 'expenses');
 $chartCash = array_column($series, 'cash');
+$chartProfit = array_column($series, 'profit');
 $yearStart = (int) date('Y');
 $firstDoc = db_one('SELECT MIN(date) AS d FROM documents WHERE company_id = ?', 'i', [$cid]);
 if (!empty($firstDoc['d'])) {
@@ -292,8 +298,8 @@ layout_start('Reports', $user);
   <div class="card stat"><?= icon('invoice', 20) ?><span>Income (invoiced, net)</span><strong><?= h(ugx($income)) ?></strong></div>
   <div class="card stat"><?= icon('receipt', 20) ?><span>Collected</span><strong><?= h(ugx($cashIn)) ?></strong></div>
   <div class="card stat"><?= icon('clients', 20) ?><span>Outstanding</span><strong><?= h(ugx($outstanding)) ?></strong></div>
-  <div class="card stat"><?= icon('package', 20) ?><span>Profit</span><strong><?= h(ugx($margin['profit'])) ?></strong><em>Sell minus buy</em></div>
-  <div class="card stat"><?= icon('reports', 20) ?><span>Net profit</span><strong><?= h(ugx($margin['net'])) ?></strong></div>
+  <div class="card stat"><?= icon('package', 20) ?><span>Profit</span><strong><?= h(ugx($cashProfit)) ?></strong><em>Collected minus expenses</em></div>
+  <div class="card stat"><?= icon('reports', 20) ?><span>Net profit</span><strong><?= h(ugx($cashProfit)) ?></strong><em>Collected minus expenses</em></div>
 </div>
 <div class="stats">
   <div class="card stat"><?= icon('expense', 20) ?><span>Expenses (net)</span><strong><?= h(ugx($costs)) ?></strong></div>
@@ -313,6 +319,7 @@ layout_start('Reports', $user);
         <th class="right">Invoiced</th>
         <th class="right">Expenses</th>
         <th class="right">Cash in</th>
+        <th class="right">Profit</th>
       </tr>
     </thead>
     <tbody>
@@ -324,6 +331,7 @@ layout_start('Reports', $user);
           <td class="right mono"><?= h(ugx($vals['invoiced'])) ?></td>
           <td class="right mono"><?= h(ugx($vals['expenses'])) ?></td>
           <td class="right mono"><?= h(ugx($vals['cash'])) ?></td>
+          <td class="right mono"><?= h(ugx($vals['profit'] ?? ((float) $vals['cash'] - (float) $vals['expenses']))) ?></td>
         </tr>
       <?php endforeach; ?>
     </tbody>
@@ -333,6 +341,7 @@ layout_start('Reports', $user);
         <td class="right mono"><?= h(ugx(array_sum(array_column($series, 'invoiced')))) ?></td>
         <td class="right mono"><?= h(ugx(array_sum(array_column($series, 'expenses')))) ?></td>
         <td class="right mono"><?= h(ugx(array_sum(array_column($series, 'cash')))) ?></td>
+        <td class="right mono"><?= h(ugx($cashProfit)) ?></td>
       </tr>
     </tfoot>
   </table>
@@ -561,6 +570,7 @@ $payload = json_encode([
     'invoiced' => $chartInvoiced,
     'expenses' => $chartExpenses,
     'cash' => $chartCash,
+    'profit' => $chartProfit,
     'pieLabels' => $pieLabels,
     'pieValues' => $pieValues,
     'barLabels' => $barLabels,
@@ -611,7 +621,8 @@ document.addEventListener("DOMContentLoaded", function () {
         datasets: [
           { label: "Invoiced", data: d.invoiced, borderColor: brand, backgroundColor: brand + "33", tension: .25, fill: true },
           { label: "Expenses", data: d.expenses, borderColor: "#b42318", backgroundColor: "rgba(180,35,24,.12)", tension: .25, fill: true },
-          { label: "Cash in", data: d.cash, borderColor: "#1f3a12", backgroundColor: "rgba(31,58,18,.08)", tension: .25, fill: false }
+          { label: "Cash in", data: d.cash, borderColor: "#1f3a12", backgroundColor: "rgba(31,58,18,.08)", tension: .25, fill: false },
+          { label: "Profit", data: d.profit, borderColor: "#4a6fa5", backgroundColor: "rgba(74,111,165,.10)", tension: .25, fill: false }
         ]
       },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, scales: { y: { ticks: { callback: money } } } }

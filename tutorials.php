@@ -304,7 +304,7 @@ $lessons = [
         'lead' => 'Reports tot up the period you pick: today, this month, this year, or a from/to range. Open Annual for a full calendar year. Only the company admin opens this tab.',
         'points' => [
             'Period is the chips you already know. Annual is a year: pick 2026, see twelve months of invoiced, expenses and cash.',
-            'Income is invoiced net. Expenses are spent net. Profit is sell minus buy. Net profit is that profit minus expenses.',
+            'Income is invoiced net. Collected is money received. Profit and net profit are collected minus expenses, and they always show for the dates you pick.',
             'The tax table lists each taxed item, the sheet it sat on, and the receipt that collected it. Tax payable is output less input.',
             'Export CSV when you need the numbers in a spreadsheet. The charts are for the meeting; the CSV is for the file.',
         ],
