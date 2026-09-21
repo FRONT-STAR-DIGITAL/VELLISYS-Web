@@ -132,6 +132,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 csrf_check();
 $id = (int) post('id');
 $action = post('action');
+if (in_array($action, ['convert', 'receive', 'pay'], true) && function_exists('desk_require_open_day')) {
+    desk_require_open_day();
+}
 $doc = load_document($id);
 if (!$doc) {
     flash('Document not found.', 'err');

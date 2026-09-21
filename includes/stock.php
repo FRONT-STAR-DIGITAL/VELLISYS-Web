@@ -27,12 +27,36 @@ function require_stock(): array
     return $user;
 }
 
+function desk_uses_till_day(): bool
+{
+    return function_exists('company_stock_enabled') && company_stock_enabled();
+}
+
+function desk_day_is_open(): bool
+{
+    if (!desk_uses_till_day()) {
+        return true;
+    }
+    return function_exists('stock_day_is_open') && stock_day_is_open();
+}
+
+function desk_kind_needs_open_day(string $kind): bool
+{
+    return in_array($kind, ['invoice', 'receipt', 'expense', 'refund', 'return_note', 'delivery', 'quotation'], true);
+}
+
+function desk_require_open_day(): void
+{
+    if (desk_day_is_open()) {
+        return;
+    }
+    flash('Open the day first. Enter the cash you started with.', 'err');
+    redirect('stock.php?tab=day');
+}
+
 function stock_require_open_day(): void
 {
-    if (!stock_day_is_open()) {
-        flash('Open the day first. Enter the cash you started with.', 'err');
-        redirect('stock.php?tab=day');
-    }
+    desk_require_open_day();
 }
 
 function stock_can_buy(): bool
@@ -1072,8 +1096,10 @@ function stock_search_docs(string $kind, string $q, int $page, int $per = 20, ?s
     }
     if ($q !== '') {
         $like = '%' . $q . '%';
-        $where .= ' AND (d.number LIKE ? OR IFNULL(p.name,\'\') LIKE ?)';
-        $types .= 'ss';
+        $where .= ' AND (d.number LIKE ? OR IFNULL(p.name,\'\') LIKE ? OR EXISTS (SELECT 1 FROM document_items i WHERE i.document_id = d.id AND (i.item_name LIKE ? OR i.description LIKE ?)))';
+        $types .= 'ssss';
+        $params[] = $like;
+        $params[] = $like;
         $params[] = $like;
         $params[] = $like;
     }
@@ -1191,6 +1217,7 @@ function stock_day_dashboard(string $from, string $to): array
     $showProfit = !function_exists('user_can_see_profit') || user_can_see_profit();
     $sales = stock_search_docs('invoice', $q, stock_page_key('sp'), 20, $from, null, $to);
     $spend = stock_search_docs('expense', $q, stock_page_key('ep'), 20, $from, null, $to);
+    $sold = function_exists('document_sold_lines') ? document_sold_lines($from, $to) : [];
     return [
         'from' => $from,
         'to' => $to,
@@ -1199,6 +1226,7 @@ function stock_day_dashboard(string $from, string $to): array
         'months' => $months,
         'sales' => $sales,
         'spend' => $spend,
+        'sold' => $sold,
         'show_profit' => $showProfit,
     ];
 }
@@ -1258,4 +1286,40 @@ function render_stock_docs_table(array $page, string $base, string $pageKey, str
       <?php stock_pager($base, (int) $page['page'], (int) $page['pages'], $pageKey); ?>
     <?php endif;
 }
+
+function render_stock_sold_table(array $rows): void
+{
+    if (!$rows): ?>
+      <p class="empty">No products or services sold in this period.</p>
+    <?php return; endif; ?>
+    <div class="table-scroll">
+      <table class="grid">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Item</th>
+            <th>Kind</th>
+            <th class="right">Qty</th>
+            <th class="right">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php $n = 1; foreach ($rows as $row):
+              $kind = (string) ($row['kind'] ?? 'other');
+              $label = $kind === 'service' ? 'Service' : ($kind === 'product' ? 'Product' : 'Other');
+              ?>
+            <tr>
+              <td class="mono"><?= $n++ ?></td>
+              <td><?= h((string) ($row['name'] ?? '')) ?></td>
+              <td><?= h($label) ?></td>
+              <td class="right mono"><?= h(function_exists('format_qty') ? format_qty($row['qty'] ?? 0) : (string) ($row['qty'] ?? 0)) ?></td>
+              <td class="right mono"><?= h(money((float) ($row['amount'] ?? 0))) ?></td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+    <?php
+}
+
 

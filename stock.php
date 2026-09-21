@@ -556,6 +556,7 @@ layout_start('Stock', $user);
     $showProfit = !empty($dash['show_profit']);
     $daySales = $dash['sales'];
     $daySpend = $dash['spend'];
+    $daySold = $dash['sold'] ?? [];
     $dayRows = [];
     foreach (array_reverse($dash['days'], true) as $d => $row) {
         $dayRows[] = ['date' => $d] + $row;
@@ -640,6 +641,11 @@ layout_start('Stock', $user);
   <div class="card-head"><h2><?= icon('invoice', 16) ?>Sales</h2></div>
   <div class="pad-form"><?php stock_search_bar('stock.php', ['tab' => 'day', 'range' => $period['preset'], 'from' => $from, 'to' => $to], 'Search sales'); ?></div>
   <?php render_stock_docs_table($daySales, 'stock.php?tab=day', 'sp', 'No sales in this period.'); ?>
+</div>
+<div class="card" style="margin-top:16px">
+  <div class="card-head"><h2><?= icon('package', 16) ?>Products and services sold</h2></div>
+  <p class="hint" style="margin:0 22px 12px">Goods and services from Sale and from invoices in this period.</p>
+  <?php render_stock_sold_table($daySold); ?>
 </div>
 <div class="card" id="day-spend" style="margin-top:16px">
   <div class="card-head"><h2><?= icon('expense', 16) ?>Expenses</h2></div>

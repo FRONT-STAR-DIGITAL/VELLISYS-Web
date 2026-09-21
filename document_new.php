@@ -40,6 +40,9 @@ $openInvoices = $kind === 'receipt' ? outstanding_invoices(null, $related ?: nul
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
+    if (function_exists('desk_kind_needs_open_day') && desk_kind_needs_open_day($kind) && function_exists('desk_require_open_day')) {
+        desk_require_open_day();
+    }
     try {
         $partyId = ensure_document_party($kind);
     } catch (Throwable $e) {

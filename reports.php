@@ -234,7 +234,12 @@ $period = period_range();
 $from = $period['from'] !== '' ? $period['from'] : '1970-01-01';
 $to = $period['to'] !== '' ? $period['to'] : today();
 $cashProfit = round($cashIn - $costs, 2);
-$performance = report_performance_statement();
+try {
+    $performance = report_performance_statement();
+} catch (Throwable $e) {
+    error_log('reports performance: ' . $e->getMessage());
+    $performance = ['income' => [], 'expenses' => [], 'income_total' => 0.0, 'expense_total' => 0.0, 'net' => 0.0];
+}
 $taxReport = report_tax_payable();
 $taxName = company_tax_name();
 $chartLabels = [];
@@ -344,7 +349,7 @@ $kindLabel = static fn (string $k): string => match ($k) {
           <?php foreach ($performance['income'] as $row): ?>
             <tr>
               <td><?= h($row['name']) ?></td>
-              <td><?= h($kindLabel($row['kind'])) ?></td>
+              <td><?= h($kindLabel((string) ($row['kind'] ?? 'other'))) ?></td>
               <td class="right mono"><?= h(format_qty($row['qty'])) ?></td>
               <td class="right mono"><?= h(ugx($row['amount'])) ?></td>
             </tr>
@@ -666,11 +671,15 @@ $payload = json_encode([
     'mixLetters' => array_column($mixSeries, 'letter'),
     'color' => $color,
     'currency' => default_currency(),
-], JSON_UNESCAPED_UNICODE);
+], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE);
+if (!is_string($payload) || $payload === '') {
+    $payload = '{}';
+}
 $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script>
 document.addEventListener("DOMContentLoaded", function () {
 (function(){
   var d = ' . $payload . ';
+  if (!d || typeof d !== "object") return;
   var brand = d.color || "#82B440";
   Chart.defaults.font.family = "Montserrat, sans-serif";
   Chart.defaults.color = "#66705f";

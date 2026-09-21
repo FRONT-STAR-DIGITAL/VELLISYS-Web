@@ -1559,72 +1559,125 @@ function invoice_status_label(array $doc): string
     return 'Issued';
 }
 
-/** Sold products/services, expenses, and net profit for the current report period. */
-function report_performance_statement(?int $companyId = null): array
+/** Products and services sold on invoices and standalone sale receipts. */
+function document_sold_lines(?string $from = null, ?string $to = null): array
 {
-    $cid = $companyId ?? current_company_id();
-    $base = default_currency();
-    $empty = ['income' => [], 'expenses' => [], 'income_total' => 0.0, 'expense_total' => 0.0, 'net' => 0.0];
+    $cid = current_company_id();
     if ($cid < 1) {
-        return $empty;
+        return [];
     }
-    [$extra, $types, $params] = period_sql('d.date');
+    $extra = '';
+    $types = 'i';
+    $params = [$cid];
+    if ($from && $to) {
+        $extra = ' AND d.date >= ? AND d.date <= ?';
+        $types .= 'ss';
+        $params[] = $from;
+        $params[] = $to;
+    } elseif (function_exists('period_sql')) {
+        [$pExtra, $pTypes, $pArgs] = period_sql('d.date');
+        $extra = $pExtra;
+        $types .= $pTypes;
+        $params = array_merge($params, $pArgs);
+    }
     $hasService = function_exists('db_has_column') && db_has_column(db(), 'stock_items', 'is_service');
-    $svc = $hasService ? 'COALESCE(s.is_service, 0)' : '0';
-    $stockMatch = $hasService ? 's.id' : 'NULL';
+    $svcSelect = $hasService ? 'COALESCE(s.is_service, 0)' : '0';
     $joinStock = $hasService
-        ? 'LEFT JOIN stock_items s ON s.company_id = d.company_id AND (
-                (i.stock_item_id > 0 AND s.id = i.stock_item_id)
-                OR (COALESCE(i.stock_item_id, 0) = 0 AND s.name = i.item_name)
-           )'
+        ? 'LEFT JOIN stock_items s ON s.id = i.stock_item_id AND s.company_id = d.company_id AND i.stock_item_id > 0'
         : '';
-    $sold = db_all(
-        "SELECT i.item_name, i.description, i.qty, i.rate, i.stock_item_id, {$svc} AS is_service, {$stockMatch} AS stock_match_id,
-                d.kind, d.currency, d.related_id
-         FROM document_items i
-         INNER JOIN documents d ON d.id = i.document_id
-         {$joinStock}
-         WHERE d.company_id = ? AND d.status = 'issued'
-           AND (d.kind = 'invoice' OR (d.kind = 'receipt' AND COALESCE(d.related_id, 0) = 0))
-           {$extra}",
-        'i' . $types,
-        array_merge([$cid], $params)
-    );
+    try {
+        $sold = db_all(
+            "SELECT i.item_name, i.description, i.qty, i.rate, i.stock_item_id, {$svcSelect} AS is_service,
+                    d.currency
+             FROM document_items i
+             INNER JOIN documents d ON d.id = i.document_id
+             {$joinStock}
+             WHERE d.company_id = ? AND d.status = 'issued'
+               AND (d.kind = 'invoice' OR (d.kind = 'receipt' AND COALESCE(d.related_id, 0) = 0))
+               {$extra}",
+            $types,
+            $params
+        );
+    } catch (Throwable $e) {
+        error_log('document_sold_lines: ' . $e->getMessage());
+        return [];
+    }
+    $byName = [];
+    if ($hasService) {
+        foreach (db_all('SELECT id, name, is_service FROM stock_items WHERE company_id = ?', 'i', [$cid]) as $item) {
+            $byName[mb_strtolower(trim((string) $item['name']))] = $item;
+        }
+    }
     $income = [];
+    $base = default_currency();
     foreach ($sold as $row) {
         $name = trim((string) ($row['item_name'] ?? ''));
         if ($name === '') {
             $name = trim((string) ($row['description'] ?? '')) ?: 'Sale';
         }
         $svcRow = (int) ($row['is_service'] ?? 0) === 1;
-        $matched = (int) ($row['stock_item_id'] ?? 0) > 0 || (int) ($row['stock_match_id'] ?? 0) > 0;
-        $kind = $svcRow ? 'service' : ($matched ? 'product' : 'other');
+        $stockId = (int) ($row['stock_item_id'] ?? 0);
+        if (!$svcRow && $stockId < 1 && isset($byName[mb_strtolower($name)])) {
+            $hit = $byName[mb_strtolower($name)];
+            $svcRow = (int) ($hit['is_service'] ?? 0) === 1;
+            $stockId = (int) ($hit['id'] ?? 0);
+        }
+        $kind = $svcRow ? 'service' : ($stockId > 0 ? 'product' : 'other');
         $key = $kind . "\0" . mb_strtolower($name);
         if (!isset($income[$key])) {
             $income[$key] = ['name' => $name, 'kind' => $kind, 'qty' => 0.0, 'amount' => 0.0];
         }
         $income[$key]['qty'] += (float) ($row['qty'] ?? 0);
         $line = round((float) ($row['qty'] ?? 0) * (float) ($row['rate'] ?? 0), 2);
-        $income[$key]['amount'] += convert_money($line, normalize_currency((string) ($row['currency'] ?? ''), $base), $base);
+        $fromCur = function_exists('normalize_currency')
+            ? normalize_currency((string) ($row['currency'] ?? ''), $base)
+            : (string) ($row['currency'] ?? $base);
+        $income[$key]['amount'] += function_exists('convert_money') ? convert_money($line, $fromCur, $base) : $line;
     }
     $income = array_values($income);
     usort($income, static fn ($a, $b) => $b['amount'] <=> $a['amount']);
-    $incomeTotal = 0.0;
     foreach ($income as &$row) {
         $row['qty'] = round((float) $row['qty'], 2);
         $row['amount'] = round((float) $row['amount'], 2);
-        $incomeTotal += $row['amount'];
     }
     unset($row);
+    return $income;
+}
 
-    $spent = db_all(
-        "SELECT i.item_name, i.description, i.qty, i.rate, d.expense_category, d.currency, d.id
-         FROM documents d
-         LEFT JOIN document_items i ON i.document_id = d.id
-         WHERE d.company_id = ? AND d.status = 'issued' AND d.kind = 'expense' {$extra}",
-        'i' . $types,
-        array_merge([$cid], $params)
-    );
+/** Sold products/services, expenses, and net profit for the current report period. */
+function report_performance_statement(?int $companyId = null): array
+{
+    $cid = $companyId ?? current_company_id();
+    $empty = ['income' => [], 'expenses' => [], 'income_total' => 0.0, 'expense_total' => 0.0, 'net' => 0.0];
+    if ($cid < 1) {
+        return $empty;
+    }
+    try {
+        $income = document_sold_lines();
+    } catch (Throwable $e) {
+        error_log('report_performance_statement: ' . $e->getMessage());
+        return $empty;
+    }
+    $incomeTotal = 0.0;
+    foreach ($income as $row) {
+        $incomeTotal += (float) $row['amount'];
+    }
+
+    [$extra, $types, $params] = period_sql('d.date');
+    $base = default_currency();
+    try {
+        $spent = db_all(
+            "SELECT i.item_name, i.description, i.qty, i.rate, d.expense_category, d.currency, d.id
+             FROM documents d
+             LEFT JOIN document_items i ON i.document_id = d.id
+             WHERE d.company_id = ? AND d.status = 'issued' AND d.kind = 'expense' {$extra}",
+            'i' . $types,
+            array_merge([$cid], $params)
+        );
+    } catch (Throwable $e) {
+        error_log('report_performance_statement expenses: ' . $e->getMessage());
+        $spent = [];
+    }
     $expenses = [];
     foreach ($spent as $row) {
         $name = trim((string) ($row['item_name'] ?? ''));

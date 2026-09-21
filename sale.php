@@ -3,11 +3,6 @@ declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
 $user = require_stock();
 
-if (!user_can_kind('invoice')) {
-    flash('Your login cannot make sales.', 'err');
-    redirect('dashboard.php');
-}
-
 $error = '';
 $dayOpen = stock_day_is_open();
 
@@ -66,7 +61,7 @@ layout_start('Sale', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('cart') ?>Sale</h1>
-    <p class="lede">Type the product. It fills in. Save and print opens the slip. Save sale stays on this till.</p>
+    <p class="lede">Type a product or service. It fills in. Save and print opens the slip. Save sale stays on this till. Invoices from Documents also land here.</p>
   </div>
   <?php if ($lastPrint): ?>
     <div class="actions page-actions">
