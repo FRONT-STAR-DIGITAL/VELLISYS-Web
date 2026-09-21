@@ -2772,7 +2772,7 @@ function clear_company_signature(): void
 
 function period_range(): array
 {
-    $preset = $_GET['range'] ?? 'all';
+    $preset = (string) ($_GET['range'] ?? '');
     $from = trim((string) ($_GET['from'] ?? ''));
     $to = trim((string) ($_GET['to'] ?? ''));
     $today = today();
@@ -2787,16 +2787,14 @@ function period_range(): array
         'this_month' => [date('Y-m-01'), $today],
         'this_year' => [date('Y-01-01'), $today],
     ];
-    if ($from && $to) {
-        $preset = 'custom';
-    } elseif (isset($map[$preset])) {
+    if ($preset !== '' && $preset !== 'custom' && $preset !== 'all' && isset($map[$preset])) {
         [$from, $to] = $map[$preset];
-    } else {
-        $preset = 'all';
-        $from = '';
-        $to = '';
+        return ['preset' => $preset, 'from' => $from, 'to' => $to];
     }
-    return ['preset' => $preset, 'from' => $from, 'to' => $to];
+    if ($from && $to) {
+        return ['preset' => 'custom', 'from' => $from, 'to' => $to];
+    }
+    return ['preset' => 'all', 'from' => '', 'to' => ''];
 }
 
 function period_sql(string $column = 'd.date'): array

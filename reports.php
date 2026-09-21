@@ -187,11 +187,13 @@ foreach ($receipts as $d) {
 $period = period_range();
 $from = $period['from'] !== '' ? $period['from'] : '1970-01-01';
 $to = $period['to'] !== '' ? $period['to'] : today();
-$marginBy = function_exists('stock_performance_range') ? stock_performance_range($from, $to) : [];
+$marginBy = function_exists('report_collection_margin') ? report_collection_margin($from, $to) : ['days' => []];
+$marginDays = $marginBy['days'] ?? [];
 foreach ($series as $key => $vals) {
-    $m = $marginBy[$key] ?? null;
-    $series[$key]['profit'] = $m ? round((float) $m['profit'], 2) : 0.0;
-    $series[$key]['net'] = $m ? round((float) $m['net'], 2) : 0.0;
+    $m = $marginDays[$key] ?? null;
+    $profit = $m ? round((float) $m['profit'], 2) : 0.0;
+    $series[$key]['profit'] = $profit;
+    $series[$key]['net'] = round($profit - (float) ($vals['expenses'] ?? 0), 2);
 }
 ksort($series);
 if ($view === 'annual') {
@@ -238,17 +240,15 @@ if ($view === 'annual') {
     $series = $monthly;
 }
 
-$margins = function_exists('stock_range_totals') ? stock_range_totals($from, $to) : ['profit' => 0.0, 'net' => 0.0, 'cogs' => 0.0];
+$margins = function_exists('report_collection_margin') ? report_collection_margin($from, $to) : ['profit' => 0.0, 'cogs' => 0.0, 'collected' => 0.0];
 $grossProfit = (float) ($margins['profit'] ?? 0);
-$netProfit = (float) ($margins['net'] ?? 0);
+$netProfit = round($grossProfit - $costs, 2);
 try {
     $performance = report_performance_statement();
 } catch (Throwable $e) {
     error_log('reports performance: ' . $e->getMessage());
     $performance = ['income' => [], 'expenses' => [], 'income_total' => 0.0, 'expense_total' => 0.0, 'cogs' => 0.0, 'profit' => 0.0, 'net' => 0.0];
 }
-$grossProfit = (float) ($performance['profit'] ?? $margins['profit'] ?? 0);
-$netProfit = (float) ($performance['net'] ?? $margins['net'] ?? 0);
 $taxReport = report_tax_payable();
 $taxName = company_tax_name();
 $chartLabels = [];
@@ -314,7 +314,7 @@ layout_start('Reports', $user);
   <div class="card stat"><?= icon('invoice', 20) ?><span>Income (invoiced, net)</span><strong><?= h(ugx($income)) ?></strong></div>
   <div class="card stat"><?= icon('receipt', 20) ?><span>Collected</span><strong><?= h(ugx($cashIn)) ?></strong></div>
   <div class="card stat"><?= icon('clients', 20) ?><span>Outstanding</span><strong><?= h(ugx($outstanding)) ?></strong></div>
-  <div class="card stat"><?= icon('package', 20) ?><span>Profit</span><strong><?= h(ugx($grossProfit)) ?></strong><em>Sell minus buy</em></div>
+  <div class="card stat"><?= icon('package', 20) ?><span>Profit</span><strong><?= h(ugx($grossProfit)) ?></strong><em>On collections</em></div>
   <div class="card stat"><?= icon('reports', 20) ?><span>Net profit</span><strong><?= h(ugx($netProfit)) ?></strong><em>Profit minus expenses</em></div>
 </div>
 <div class="stats">
@@ -335,7 +335,7 @@ $kindLabel = static fn (string $k): string => match ($k) {
 ?>
 <div class="card" style="margin-bottom:16px">
   <div class="card-head"><h2><?= icon('reports', 16) ?><?= h($perfTitle) ?></h2></div>
-  <p class="hint" style="margin:0 22px 12px">Products and services sold, then buying cost of goods, profit (sell minus buy), expenses, and net profit (profit minus expenses).</p>
+  <p class="hint" style="margin:0 22px 12px">Amount collected in this period. Products take selling price minus buying price on the share that was paid. Services use the amount received — no buying price. Net profit is that profit minus expenses.</p>
   <?php if (!$performance['income'] && !$performance['expenses']): ?>
     <p class="empty">Nothing sold or spent in this period.</p>
   <?php else: ?>

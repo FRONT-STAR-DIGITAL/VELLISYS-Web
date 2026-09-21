@@ -1681,6 +1681,196 @@ function document_sold_lines(?string $from = null, ?string $to = null): array
     return $income;
 }
 
+/**
+ * Profit on money collected in a date range.
+ * Products: collected share of selling price minus the same share of buying price.
+ * Services (and receipts with no product lines): collected amount is profit — no sell-minus-buy.
+ *
+ * @return array{days: array<string, array<string, float>>, income: list<array>, collected: float, cogs: float, profit: float}
+ */
+function report_collection_margin(?string $from = null, ?string $to = null): array
+{
+    $empty = ['days' => [], 'income' => [], 'collected' => 0.0, 'cogs' => 0.0, 'profit' => 0.0];
+    $cid = current_company_id();
+    if ($cid < 1) {
+        return $empty;
+    }
+    $extra = '';
+    $types = 'i';
+    $params = [$cid];
+    if ($from && $to) {
+        $extra = ' AND d.date >= ? AND d.date <= ?';
+        $types .= 'ss';
+        $params[] = $from;
+        $params[] = $to;
+    } elseif (function_exists('period_sql')) {
+        [$pExtra, $pTypes, $pArgs] = period_sql('d.date');
+        $extra = $pExtra;
+        $types .= $pTypes;
+        $params = array_merge($params, $pArgs);
+    }
+    $receipts = db_all(
+        "SELECT d.id, d.date, d.currency, d.related_id, d.allocated_amount, d.subject, d.notes,
+                r.kind AS related_kind
+         FROM documents d
+         LEFT JOIN documents r ON r.id = d.related_id
+         WHERE d.company_id = ? AND d.kind = 'receipt' AND d.status = 'issued' {$extra}
+         ORDER BY d.date, d.id",
+        $types,
+        $params
+    );
+    if (!$receipts) {
+        return $empty;
+    }
+    $sheetIds = [];
+    foreach ($receipts as $row) {
+        $sheetIds[(int) $row['id']] = true;
+        $rel = (int) ($row['related_id'] ?? 0);
+        if ($rel > 0 && ($row['related_kind'] ?? '') !== 'expense') {
+            $sheetIds[$rel] = true;
+        }
+    }
+    $ids = array_keys($sheetIds);
+    $ph = implode(',', array_fill(0, count($ids), '?'));
+    $itemRows = db_all(
+        'SELECT document_id, item_name, description, qty, rate, stock_item_id FROM document_items WHERE document_id IN (' . $ph . ') ORDER BY id',
+        str_repeat('i', count($ids)),
+        $ids
+    );
+    $itemsByDoc = [];
+    foreach ($itemRows as $item) {
+        $itemsByDoc[(int) $item['document_id']][] = $item;
+    }
+    $stock = [];
+    $byName = [];
+    $hasService = function_exists('db_has_column') && db_has_column(db(), 'stock_items', 'is_service');
+    $stockSql = $hasService
+        ? 'SELECT id, name, buy_price, sell_price, COALESCE(is_service, 0) AS is_service FROM stock_items WHERE company_id = ?'
+        : 'SELECT id, name, buy_price, sell_price, 0 AS is_service FROM stock_items WHERE company_id = ?';
+    try {
+        foreach (db_all($stockSql, 'i', [$cid]) as $item) {
+            $stock[(int) $item['id']] = $item;
+            $byName[mb_strtolower(trim((string) $item['name']))] = $item;
+        }
+    } catch (Throwable $e) {
+        $stock = [];
+    }
+    $base = default_currency();
+    $days = [];
+    $income = [];
+    $collectedTotal = 0.0;
+    $cogsTotal = 0.0;
+    foreach ($receipts as $row) {
+        if (($row['related_kind'] ?? '') === 'expense') {
+            continue;
+        }
+        $day = (string) $row['date'];
+        if (!isset($days[$day])) {
+            $days[$day] = ['collected' => 0.0, 'cogs' => 0.0, 'profit' => 0.0];
+        }
+        $ccy = function_exists('doc_currency') ? doc_currency($row) : (string) ($row['currency'] ?? $base);
+        $received = (float) ($row['allocated_amount'] ?? 0);
+        if ($received <= 0 && function_exists('receipt_received_amount')) {
+            $received = receipt_received_amount($row);
+        }
+        if ($received <= 0) {
+            foreach ($itemsByDoc[(int) $row['id']] ?? [] as $own) {
+                $received += round((float) ($own['qty'] ?? 0) * (float) ($own['rate'] ?? 0), 2);
+            }
+        }
+        if ($received <= 0.009) {
+            continue;
+        }
+        $received = function_exists('convert_money') ? convert_money($received, $ccy, $base) : $received;
+        $sheetId = (int) $row['id'];
+        $rel = (int) ($row['related_id'] ?? 0);
+        if ($rel > 0 && !empty($itemsByDoc[$rel])) {
+            $sheetId = $rel;
+        }
+        $lines = $itemsByDoc[$sheetId] ?? [];
+        $sellTotal = 0.0;
+        $parsed = [];
+        foreach ($lines as $line) {
+            $lineSell = round((float) ($line['qty'] ?? 0) * (float) ($line['rate'] ?? 0), 2);
+            $lineSell = function_exists('convert_money') ? convert_money($lineSell, $ccy, $base) : $lineSell;
+            $name = trim((string) ($line['item_name'] ?? ''));
+            if ($name === '') {
+                $name = trim((string) ($line['description'] ?? '')) ?: 'Sale';
+            }
+            $stockId = (int) ($line['stock_item_id'] ?? 0);
+            $hit = $stockId > 0 ? ($stock[$stockId] ?? null) : ($byName[mb_strtolower($name)] ?? null);
+            $product = $hit && (int) ($hit['is_service'] ?? 0) !== 1;
+            $lineCogs = 0.0;
+            if ($product) {
+                $lineCogs = round((float) ($line['qty'] ?? 0) * (float) ($hit['buy_price'] ?? 0), 2);
+                $lineCogs = function_exists('convert_money') ? convert_money($lineCogs, $ccy, $base) : $lineCogs;
+            }
+            $parsed[] = [
+                'name' => $name,
+                'kind' => $product ? 'product' : 'service',
+                'qty' => (float) ($line['qty'] ?? 0),
+                'sell' => $lineSell,
+                'cogs' => $lineCogs,
+            ];
+            $sellTotal += $lineSell;
+        }
+        $ratio = 1.0;
+        if ($sellTotal > 0.009) {
+            $ratio = min(1.0, $received / $sellTotal);
+        } elseif (!$parsed) {
+            $parsed[] = [
+                'name' => trim((string) ($row['subject'] ?? '')) ?: 'Services',
+                'kind' => 'service',
+                'qty' => 1.0,
+                'sell' => $received,
+                'cogs' => 0.0,
+            ];
+            $sellTotal = $received;
+            $ratio = 1.0;
+        }
+        $cogs = 0.0;
+        foreach ($parsed as $line) {
+            $share = $sellTotal > 0.009 ? $line['sell'] * $ratio : $received;
+            $lineCogs = $line['cogs'] * $ratio;
+            $cogs += $lineCogs;
+            $qty = $line['qty'] * $ratio;
+            $key = $line['kind'] . "\0" . mb_strtolower($line['name']);
+            if (!isset($income[$key])) {
+                $income[$key] = ['name' => $line['name'], 'kind' => $line['kind'], 'qty' => 0.0, 'amount' => 0.0];
+            }
+            $income[$key]['qty'] += $qty;
+            $income[$key]['amount'] += $share;
+        }
+        $days[$day]['collected'] += $received;
+        $days[$day]['cogs'] += $cogs;
+        $days[$day]['profit'] += ($received - $cogs);
+        $collectedTotal += $received;
+        $cogsTotal += $cogs;
+    }
+    $income = array_values($income);
+    usort($income, static fn ($a, $b) => $b['amount'] <=> $a['amount']);
+    foreach ($income as &$row) {
+        $row['qty'] = round((float) $row['qty'], 2);
+        $row['amount'] = round((float) $row['amount'], 2);
+    }
+    unset($row);
+    foreach ($days as $day => $row) {
+        $days[$day]['collected'] = round((float) $row['collected'], 2);
+        $days[$day]['cogs'] = round((float) $row['cogs'], 2);
+        $days[$day]['profit'] = round((float) $row['profit'], 2);
+    }
+    ksort($days);
+    $collectedTotal = round($collectedTotal, 2);
+    $cogsTotal = round($cogsTotal, 2);
+    return [
+        'days' => $days,
+        'income' => $income,
+        'collected' => $collectedTotal,
+        'cogs' => $cogsTotal,
+        'profit' => round($collectedTotal - $cogsTotal, 2),
+    ];
+}
+
 /** Buying-price cost of products sold on invoices and standalone receipts. */
 function document_sold_cogs(?string $from = null, ?string $to = null): float
 {
@@ -1742,22 +1932,19 @@ function report_performance_statement(?int $companyId = null): array
     if ($cid < 1) {
         return $empty;
     }
+    $p = function_exists('period_range') ? period_range() : ['from' => '', 'to' => ''];
+    $from = $p['from'] !== '' ? $p['from'] : null;
+    $to = $p['to'] !== '' ? $p['to'] : null;
     try {
-        $income = document_sold_lines();
+        $margin = report_collection_margin($from, $to);
     } catch (Throwable $e) {
         error_log('report_performance_statement: ' . $e->getMessage());
         return $empty;
     }
-    $incomeTotal = 0.0;
-    foreach ($income as $row) {
-        $incomeTotal += (float) $row['amount'];
-    }
-    $cogs = 0.0;
-    try {
-        $cogs = document_sold_cogs();
-    } catch (Throwable $e) {
-        error_log('report_performance_statement cogs: ' . $e->getMessage());
-    }
+    $income = $margin['income'];
+    $incomeTotal = (float) $margin['collected'];
+    $cogs = (float) $margin['cogs'];
+    $profit = (float) $margin['profit'];
 
     [$extra, $types, $params] = period_sql('d.date');
     $base = default_currency();
@@ -1776,9 +1963,6 @@ function report_performance_statement(?int $companyId = null): array
     }
     $expenses = [];
     foreach ($spent as $row) {
-        if (function_exists('stock_is_stock_expense') && stock_is_stock_expense($row)) {
-            continue;
-        }
         $name = trim((string) ($row['item_name'] ?? ''));
         if ($name === '') {
             $name = trim((string) ($row['description'] ?? '')) ?: trim((string) ($row['expense_category'] ?? '')) ?: 'Expense';
