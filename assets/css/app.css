@@ -1257,6 +1257,34 @@ form.actions, td form { display: inline; margin: 0; }
 .color-row { display: flex; gap: 10px; align-items: center; min-width: 0; flex-wrap: wrap; }
 .color-row input[type=color] { width: 44px; height: 38px; padding: 3px; cursor: pointer; border-radius: 4px; }
 .color-row input[type=text] { width: 108px; font-family: var(--mono); }
+.color-rgb {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.color-rgb label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  color: var(--muted);
+}
+.color-rgb input[type=number] {
+  width: 58px;
+  min-width: 58px;
+  padding: 6px 6px;
+  font-family: var(--mono);
+  font-size: 13px;
+}
+.color-drop {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
 .from-line {
   font-size: 13px;
   border: 1px solid var(--line);

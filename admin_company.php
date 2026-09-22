@@ -1073,17 +1073,11 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
       </div>
       <div>
         <label for="brand_color">Primary</label>
-        <div class="color-row" data-color-pair data-color-role="primary">
-          <input type="color" id="brand_color" name="brand_color" value="<?= h(parse_hex_color($brand['brand_color'] ?? '', '#82B440')) ?>" data-color-picker>
-          <input type="text" maxlength="7" value="<?= h(parse_hex_color($brand['brand_color'] ?? '', '#82B440')) ?>" data-color-hex>
-        </div>
+        <?php render_color_row('brand_color', (string) ($brand['brand_color'] ?? ''), 'primary', '#82B440'); ?>
       </div>
       <div>
         <label for="brand_accent">Accent</label>
-        <div class="color-row" data-color-pair data-color-role="accent">
-          <input type="color" id="brand_accent" name="brand_accent" value="<?= h(parse_hex_color($brand['brand_accent'] ?? '', '#C6A15B')) ?>" data-color-picker>
-          <input type="text" maxlength="7" value="<?= h(parse_hex_color($brand['brand_accent'] ?? '', '#C6A15B')) ?>" data-color-hex>
-        </div>
+        <?php render_color_row('brand_accent', (string) ($brand['brand_accent'] ?? ''), 'accent', '#C6A15B'); ?>
       </div>
     </div>
     <label for="logo">Logo</label>

@@ -166,7 +166,7 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
   </div>
 
   <div class="card-head" style="margin-top:8px"><h2><?= icon('palette', 16) ?>Stationery</h2></div>
-  <p class="lede" style="padding:0 22px">Logo, colours, TIN, bank. This prints on every sheet. Skip what you do not have yet.</p>
+  <p class="lede" style="padding:0 22px">Logo, colours, TIN, bank. This prints on every sheet. Skip what you do not have yet. On a colour, hex and R G B show the exact code. Pick takes a colour from anywhere on the screen.</p>
   <div class="form-grid" style="padding:0 22px">
     <div>
       <label for="logo">Logo</label>
@@ -179,17 +179,11 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
     </div>
     <div>
       <label for="brand_color">Primary colour</label>
-      <div class="color-row" data-color-pair data-color-role="primary">
-        <input type="color" name="brand_color" value="<?= h(parse_hex_color(post('brand_color'), '#1E4EFF')) ?>" data-color-picker>
-        <input type="text" maxlength="7" value="<?= h(parse_hex_color(post('brand_color'), '#1E4EFF')) ?>" data-color-hex>
-      </div>
+      <?php render_color_row('brand_color', parse_hex_color(post('brand_color'), '#1E4EFF'), 'primary', '#1E4EFF'); ?>
     </div>
     <div>
       <label for="brand_accent">Accent colour</label>
-      <div class="color-row" data-color-pair data-color-role="accent">
-        <input type="color" name="brand_accent" value="<?= h(parse_hex_color(post('brand_accent'), '#C6A15B')) ?>" data-color-picker>
-        <input type="text" maxlength="7" value="<?= h(parse_hex_color(post('brand_accent'), '#C6A15B')) ?>" data-color-hex>
-      </div>
+      <?php render_color_row('brand_accent', parse_hex_color(post('brand_accent'), '#C6A15B'), 'accent', '#C6A15B'); ?>
     </div>
     <div>
       <label for="tagline">Tagline</label>

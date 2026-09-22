@@ -562,21 +562,15 @@ layout_start('Settings', $user);
     <input type="hidden" name="action" value="save_brand">
     <section class="card settings-card" id="appearance">
       <h2><?= icon('palette') ?>Appearance</h2>
-      <p class="lede">Logo and two brand colours. Primary paints the desk and the strong bars on documents. Accent marks rails, rules and highlights. Type on those colours is black or white, whichever reads clearly.</p>
+      <p class="lede">Logo and two brand colours. Primary paints the desk and the strong bars on documents. Accent marks rails, rules and highlights. Type on those colours is black or white, whichever reads clearly. Hex and R G B show the exact code. Pick uses an eyedropper so you can take a colour from anywhere on the screen.</p>
       <div class="form-grid">
         <div>
           <label for="brand_color">Primary</label>
-          <div class="color-row" data-color-pair data-color-role="primary">
-            <input id="brand_color" name="brand_color" type="color" value="<?= h(parse_hex_color($b['brand_color'] ?? '', '#82B440')) ?>" data-color-picker>
-            <input id="brand_color_hex" name="brand_color_hex" type="text" maxlength="7" value="<?= h(parse_hex_color($b['brand_color'] ?? '', '#82B440')) ?>" data-color-hex aria-label="Primary hex">
-          </div>
+          <?php render_color_row('brand_color', (string) ($b['brand_color'] ?? ''), 'primary', '#82B440'); ?>
         </div>
         <div>
           <label for="brand_accent">Accent</label>
-          <div class="color-row" data-color-pair data-color-role="accent">
-            <input id="brand_accent" name="brand_accent" type="color" value="<?= h(parse_hex_color($b['brand_accent'] ?? '', '#C6A15B')) ?>" data-color-picker>
-            <input id="brand_accent_hex" type="text" maxlength="7" value="<?= h(parse_hex_color($b['brand_accent'] ?? '', '#C6A15B')) ?>" data-color-hex aria-label="Accent hex">
-          </div>
+          <?php render_color_row('brand_accent', (string) ($b['brand_accent'] ?? ''), 'accent', '#C6A15B'); ?>
         </div>
         <div>
           <label for="logo">Logo</label>

@@ -1056,6 +1056,25 @@ function rgb_to_hex(int $r, int $g, int $b): string
     return sprintf('#%02X%02X%02X', max(0, min(255, $r)), max(0, min(255, $g)), max(0, min(255, $b)));
 }
 
+function render_color_row(string $name, string $value, string $role = 'primary', string $fallback = '#82B440', ?string $id = null): void
+{
+    $id = $id ?: $name;
+    $hex = parse_hex_color($value, $fallback);
+    [$r, $g, $b] = hex_to_rgb($hex);
+    ?>
+    <div class="color-row" data-color-pair data-color-role="<?= h($role) ?>">
+      <input id="<?= h($id) ?>" name="<?= h($name) ?>" type="color" value="<?= h($hex) ?>" data-color-picker aria-label="Colour">
+      <input id="<?= h($id) ?>_hex" type="text" maxlength="7" value="<?= h($hex) ?>" data-color-hex spellcheck="false" aria-label="Hex">
+      <span class="color-rgb">
+        <label>R <input type="number" min="0" max="255" step="1" value="<?= (int) $r ?>" data-color-r inputmode="numeric" aria-label="Red"></label>
+        <label>G <input type="number" min="0" max="255" step="1" value="<?= (int) $g ?>" data-color-g inputmode="numeric" aria-label="Green"></label>
+        <label>B <input type="number" min="0" max="255" step="1" value="<?= (int) $b ?>" data-color-b inputmode="numeric" aria-label="Blue"></label>
+      </span>
+      <button type="button" class="btn ghost sm color-drop" data-color-drop title="Pick a colour from anywhere on the screen"><?= icon('eyedrop', 16) ?><span>Pick</span></button>
+    </div>
+    <?php
+}
+
 function hex_mix(string $a, string $b, float $t): string
 {
     $t = max(0, min(1, $t));

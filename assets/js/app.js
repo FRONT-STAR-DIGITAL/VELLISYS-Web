@@ -110,24 +110,44 @@ document.addEventListener('click', function (e) {
   var pairs = document.querySelectorAll('[data-color-pair]');
   if (!pairs.length) {
     var picker = document.querySelector('[data-color-picker]');
-    var hex = document.querySelector('[data-color-hex]');
-    if (picker && hex) {
-      picker.addEventListener('input', function () { hex.value = picker.value.toUpperCase(); applyBrandVars(); });
-      hex.addEventListener('input', function () { applyFromHex(hex, picker); });
+    if (picker) {
+      var wrap = picker.closest('.color-row') || picker.parentElement;
+      if (wrap) pairs = [wrap];
     }
-    return;
   }
+  if (!pairs.length) return;
 
-  function applyFromHex(hex, picker) {
-    var v = (hex.value || '').trim();
+  function clampByte(n) {
+    n = parseInt(n, 10);
+    if (!isFinite(n)) return 0;
+    return Math.max(0, Math.min(255, n));
+  }
+  function hexToRgb(hex) {
+    var v = String(hex || '').trim().toUpperCase();
     if (v.charAt(0) !== '#') v = '#' + v;
-    v = v.toUpperCase();
-    if (!/^#[0-9A-F]{6}$/.test(v)) return;
-    picker.value = v;
-    hex.value = v;
-    applyBrandVars();
+    if (/^#[0-9A-F]{3}$/.test(v)) {
+      v = '#' + v.charAt(1) + v.charAt(1) + v.charAt(2) + v.charAt(2) + v.charAt(3) + v.charAt(3);
+    }
+    if (!/^#[0-9A-F]{6}$/.test(v)) return null;
+    return {
+      hex: v,
+      r: parseInt(v.slice(1, 3), 16),
+      g: parseInt(v.slice(3, 5), 16),
+      b: parseInt(v.slice(5, 7), 16)
+    };
   }
-
+  function rgbToHex(r, g, b) {
+    function h(n) { return clampByte(n).toString(16).toUpperCase().padStart(2, '0'); }
+    return '#' + h(r) + h(g) + h(b);
+  }
+  function fillRgb(row, rgb) {
+    var r = row.querySelector('[data-color-r]');
+    var g = row.querySelector('[data-color-g]');
+    var b = row.querySelector('[data-color-b]');
+    if (r) r.value = String(rgb.r);
+    if (g) g.value = String(rgb.g);
+    if (b) b.value = String(rgb.b);
+  }
   function applyBrandVars() {
     var map = { primary: '--brand', accent: '--brand-2' };
     pairs.forEach(function (row) {
@@ -135,23 +155,66 @@ document.addEventListener('click', function (e) {
       var picker = row.querySelector('[data-color-picker]');
       var hex = row.querySelector('[data-color-hex]');
       if (!picker) return;
-      var v = (picker.value || '').toUpperCase();
-      if (hex) hex.value = v;
+      var parsed = hexToRgb(picker.value);
+      if (!parsed) return;
+      picker.value = parsed.hex;
+      if (hex) hex.value = parsed.hex;
+      fillRgb(row, parsed);
       var prop = map[role];
-      if (prop) document.documentElement.style.setProperty(prop, v);
+      if (prop) document.documentElement.style.setProperty(prop, parsed.hex);
     });
     var preview = document.querySelector('[data-color-preview]');
     var primary = document.documentElement.style.getPropertyValue('--brand');
     if (preview && primary) preview.style.borderTopColor = primary;
   }
+  function setRowColor(row, hex) {
+    var parsed = hexToRgb(hex);
+    if (!parsed) return;
+    var picker = row.querySelector('[data-color-picker]');
+    var hexEl = row.querySelector('[data-color-hex]');
+    if (picker) picker.value = parsed.hex;
+    if (hexEl) hexEl.value = parsed.hex;
+    fillRgb(row, parsed);
+    applyBrandVars();
+  }
 
   pairs.forEach(function (row) {
     var picker = row.querySelector('[data-color-picker]');
     var hex = row.querySelector('[data-color-hex]');
-    if (picker) picker.addEventListener('input', applyBrandVars);
+    var drop = row.querySelector('[data-color-drop]');
+    if (picker) {
+      picker.addEventListener('input', function () { setRowColor(row, picker.value); });
+    }
     if (hex && picker) {
-      hex.addEventListener('input', function () { applyFromHex(hex, picker); });
-      hex.addEventListener('change', function () { applyFromHex(hex, picker); });
+      hex.addEventListener('input', function () { setRowColor(row, hex.value); });
+      hex.addEventListener('change', function () { setRowColor(row, hex.value); });
+    }
+    ['r', 'g', 'b'].forEach(function (ch) {
+      var el = row.querySelector('[data-color-' + ch + ']');
+      if (!el) return;
+      el.addEventListener('input', function () {
+        var r = row.querySelector('[data-color-r]');
+        var g = row.querySelector('[data-color-g]');
+        var b = row.querySelector('[data-color-b]');
+        setRowColor(row, rgbToHex(r && r.value, g && g.value, b && b.value));
+      });
+    });
+    if (drop) {
+      if (!window.EyeDropper) {
+        drop.title = 'Pick a colour from anywhere on the screen (Chrome, Edge or Opera). Other browsers open the colour box.';
+      }
+      drop.addEventListener('click', function () {
+        if (window.EyeDropper) {
+          try {
+            new EyeDropper().open().then(function (res) {
+              if (res && res.sRGBHex) setRowColor(row, res.sRGBHex);
+            }).catch(function () {});
+          } catch (err) {}
+          return;
+        }
+        if (picker && typeof picker.showPicker === 'function') picker.showPicker();
+        else if (picker) picker.click();
+      });
     }
   });
 })();
