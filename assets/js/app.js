@@ -108,14 +108,11 @@ document.addEventListener('click', function (e) {
 
 (function () {
   var pairs = document.querySelectorAll('[data-color-pair]');
-  if (!pairs.length) {
-    var picker = document.querySelector('[data-color-picker]');
-    if (picker) {
-      var wrap = picker.closest('.color-row') || picker.parentElement;
-      if (wrap) pairs = [wrap];
-    }
-  }
   if (!pairs.length) return;
+
+  var dropRow = null;
+  var banner = null;
+  var loupe = null;
 
   function clampByte(n) {
     n = parseInt(n, 10);
@@ -148,17 +145,81 @@ document.addEventListener('click', function (e) {
     if (g) g.value = String(rgb.g);
     if (b) b.value = String(rgb.b);
   }
+  function parseCssColor(c) {
+    if (!c || c === 'transparent' || c === 'none' || c === 'currentcolor') return null;
+    var m = String(c).match(/rgba?\(\s*([\d.]+)[,\s/]+([\d.]+)[,\s/]+([\d.]+)(?:[,\s/]+([\d.]+%?))?\s*\)/i);
+    if (!m) return null;
+    var a = m[4] === undefined ? 1 : (String(m[4]).indexOf('%') >= 0 ? parseFloat(m[4]) / 100 : parseFloat(m[4]));
+    if (!isFinite(a) || a < 0.08) return null;
+    return hexToRgb(rgbToHex(m[1], m[2], m[3]));
+  }
+  function sampleBitmap(source, naturalW, naturalH, rect, clientX, clientY) {
+    if (!naturalW || !naturalH || !rect.width || !rect.height) return null;
+    try {
+      var canvas = document.createElement('canvas');
+      canvas.width = naturalW;
+      canvas.height = naturalH;
+      var ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) return null;
+      ctx.drawImage(source, 0, 0, naturalW, naturalH);
+      var x = Math.min(naturalW - 1, Math.max(0, Math.floor((clientX - rect.left) * naturalW / rect.width)));
+      var y = Math.min(naturalH - 1, Math.max(0, Math.floor((clientY - rect.top) * naturalH / rect.height)));
+      var p = ctx.getImageData(x, y, 1, 1).data;
+      if (p[3] < 20) return null;
+      return hexToRgb(rgbToHex(p[0], p[1], p[2]));
+    } catch (err) {
+      return null;
+    }
+  }
+  function sampleAt(clientX, clientY) {
+    var els = document.elementsFromPoint(clientX, clientY) || [];
+    var i;
+    for (i = 0; i < els.length; i++) {
+      var el = els[i];
+      if (!el || el === banner || el === loupe) continue;
+      if (el.classList && (el.classList.contains('color-drop-banner') || el.classList.contains('color-loupe'))) continue;
+      if (el.tagName === 'IMG') {
+        var hit = sampleBitmap(el, el.naturalWidth, el.naturalHeight, el.getBoundingClientRect(), clientX, clientY);
+        if (hit) return hit;
+      }
+      if (el.tagName === 'CANVAS') {
+        try {
+          var crect = el.getBoundingClientRect();
+          var cx = Math.min(el.width - 1, Math.max(0, Math.floor((clientX - crect.left) * el.width / crect.width)));
+          var cy = Math.min(el.height - 1, Math.max(0, Math.floor((clientY - crect.top) * el.height / crect.height)));
+          var cp = el.getContext('2d').getImageData(cx, cy, 1, 1).data;
+          if (cp[3] >= 20) return hexToRgb(rgbToHex(cp[0], cp[1], cp[2]));
+        } catch (err2) {}
+      }
+      if (el.tagName === 'svg' || el.closest && el.closest('svg')) {
+        var csSvg = window.getComputedStyle(el);
+        var fromFill = parseCssColor(csSvg.fill) || parseCssColor(csSvg.stroke) || parseCssColor(csSvg.color);
+        if (fromFill) return fromFill;
+      }
+    }
+    for (i = 0; i < els.length; i++) {
+      var node = els[i];
+      if (!node || node === document.documentElement || node === document.body) continue;
+      if (node === banner || node === loupe) continue;
+      var cs = window.getComputedStyle(node);
+      var found = parseCssColor(cs.backgroundColor) || parseCssColor(cs.borderTopColor) || parseCssColor(cs.color);
+      if (found) return found;
+    }
+    return parseCssColor(window.getComputedStyle(document.body).backgroundColor);
+  }
   function applyBrandVars() {
     var map = { primary: '--brand', accent: '--brand-2' };
     pairs.forEach(function (row) {
       var role = row.getAttribute('data-color-role') || 'primary';
       var picker = row.querySelector('[data-color-picker]');
       var hex = row.querySelector('[data-color-hex]');
+      var swatch = row.querySelector('[data-color-swatch]');
       if (!picker) return;
       var parsed = hexToRgb(picker.value);
       if (!parsed) return;
       picker.value = parsed.hex;
       if (hex) hex.value = parsed.hex;
+      if (swatch) swatch.style.background = parsed.hex;
       fillRgb(row, parsed);
       var prop = map[role];
       if (prop) document.documentElement.style.setProperty(prop, parsed.hex);
@@ -172,16 +233,67 @@ document.addEventListener('click', function (e) {
     if (!parsed) return;
     var picker = row.querySelector('[data-color-picker]');
     var hexEl = row.querySelector('[data-color-hex]');
+    var swatch = row.querySelector('[data-color-swatch]');
     if (picker) picker.value = parsed.hex;
     if (hexEl) hexEl.value = parsed.hex;
+    if (swatch) swatch.style.background = parsed.hex;
     fillRgb(row, parsed);
     applyBrandVars();
+  }
+  function stopDrop() {
+    dropRow = null;
+    document.body.classList.remove('color-drop-on');
+    if (banner && banner.parentNode) banner.parentNode.removeChild(banner);
+    if (loupe && loupe.parentNode) loupe.parentNode.removeChild(loupe);
+    banner = null;
+    loupe = null;
+    document.removeEventListener('mousemove', onDropMove, true);
+    document.removeEventListener('click', onDropClick, true);
+    document.removeEventListener('keydown', onDropKey, true);
+  }
+  function onDropMove(e) {
+    if (!loupe) return;
+    loupe.style.left = e.clientX + 'px';
+    loupe.style.top = e.clientY + 'px';
+    var sampled = sampleAt(e.clientX, e.clientY);
+    if (sampled) loupe.style.background = sampled.hex;
+  }
+  function onDropClick(e) {
+    if (!dropRow) return;
+    if (e.target && e.target.closest && e.target.closest('[data-color-drop], [data-color-swatch]')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var sampled = sampleAt(e.clientX, e.clientY);
+    if (sampled) setRowColor(dropRow, sampled.hex);
+    stopDrop();
+  }
+  function onDropKey(e) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      stopDrop();
+    }
+  }
+  function startDrop(row) {
+    stopDrop();
+    dropRow = row;
+    document.body.classList.add('color-drop-on');
+    banner = document.createElement('div');
+    banner.className = 'color-drop-banner';
+    banner.textContent = 'Click a colour on this page. Esc cancels.';
+    loupe = document.createElement('div');
+    loupe.className = 'color-loupe';
+    document.body.appendChild(banner);
+    document.body.appendChild(loupe);
+    document.addEventListener('mousemove', onDropMove, true);
+    document.addEventListener('click', onDropClick, true);
+    document.addEventListener('keydown', onDropKey, true);
   }
 
   pairs.forEach(function (row) {
     var picker = row.querySelector('[data-color-picker]');
     var hex = row.querySelector('[data-color-hex]');
     var drop = row.querySelector('[data-color-drop]');
+    var swatch = row.querySelector('[data-color-swatch]');
     if (picker) {
       picker.addEventListener('input', function () { setRowColor(row, picker.value); });
     }
@@ -199,23 +311,13 @@ document.addEventListener('click', function (e) {
         setRowColor(row, rgbToHex(r && r.value, g && g.value, b && b.value));
       });
     });
-    if (drop) {
-      if (!window.EyeDropper) {
-        drop.title = 'Pick a colour from anywhere on the screen (Chrome, Edge or Opera). Other browsers open the colour box.';
-      }
-      drop.addEventListener('click', function () {
-        if (window.EyeDropper) {
-          try {
-            new EyeDropper().open().then(function (res) {
-              if (res && res.sRGBHex) setRowColor(row, res.sRGBHex);
-            }).catch(function () {});
-          } catch (err) {}
-          return;
-        }
-        if (picker && typeof picker.showPicker === 'function') picker.showPicker();
-        else if (picker) picker.click();
-      });
+    function armDrop(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      startDrop(row);
     }
+    if (drop) drop.addEventListener('click', armDrop);
+    if (swatch) swatch.addEventListener('click', armDrop);
   });
 })();
 
