@@ -5025,7 +5025,9 @@ a.branch-activity-row:hover { text-decoration: none; }
 }
 a.card.stat { text-decoration: none; color: inherit; }
 a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--line)); }
-#chart-stock-days, #chart-stock-months { width: 100%; max-height: 220px; }
+#chart-stock-days, #chart-stock-months { width: 100% !important; height: 100% !important; max-height: none; }
+.cdash-charts .chart-frame { height: 240px; padding: 8px 14px 16px; }
+.cdash-charts.desk-grid { margin-top: 4px; }
 @media (max-width: 640px) {
   .stock-split { grid-template-columns: 1fr; }
   .pos-totals { grid-template-columns: 1fr; }
@@ -5352,7 +5354,7 @@ a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--lin
   .admin-dash-branches { grid-column: 1 / -1; }
 }
 @media (max-width: 820px) {
-  .top-clock { display: none !important; }
+  .admin-body .top-clock { display: none !important; }
   .admin-body .admin-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .admin-body .admin-dash-charts { grid-template-columns: 1fr; }
   .admin-body .admin-dash-panels { grid-template-columns: 1fr; }
@@ -5408,6 +5410,12 @@ a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--lin
   background: #fff;
 }
 .cdash-company-copy { min-width: 0; }
+.cdash-hello {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--muted);
+}
 .cdash-company-copy h1 {
   margin: 0;
   font-size: clamp(18px, 2.6vw, 26px);

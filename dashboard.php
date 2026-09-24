@@ -11,10 +11,6 @@ $stockOn = function_exists('company_stock_enabled') && company_stock_enabled();
 $dayError = '';
 
 if ($stockOn) {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        csrf_check();
-        $dayError = desk_handle_day_post();
-    }
     if (!isset($_GET['range']) && trim((string) ($_GET['from'] ?? '')) === '') {
         $_GET['range'] = 'today';
     }
@@ -34,8 +30,9 @@ if ($stockOn) {
         'can_invoice' => $canInvoice,
         'stock' => true,
         'reports' => is_desk_admin($user),
+        'user_name' => (string) ($user['name'] ?? ''),
     ]);
-    $extraJs = render_desk_day($dayError);
+    $extraJs = render_desk_day('');
     layout_end($extraJs);
     return;
 }
@@ -245,6 +242,7 @@ render_desk_company_card($deskCompany, [
     'can_invoice' => $canInvoice,
     'stock' => false,
     'reports' => is_desk_admin($user),
+    'user_name' => (string) ($user['name'] ?? ''),
 ]);
 render_filters('dashboard.php', [], ['no_all' => true]);
 ?>

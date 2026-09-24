@@ -20,7 +20,7 @@ function desk_name_initials(string $name): string
 function desk_pct_trend(float $current, float $previous): array
 {
     if ($previous <= 0.009 && $current <= 0.009) {
-        return ['tone' => 'flat', 'text' => '— 0%'];
+        return ['tone' => 'flat', 'text' => '- 0%'];
     }
     if ($previous <= 0.009) {
         return ['tone' => 'up', 'text' => '+ 100%'];
@@ -32,7 +32,7 @@ function desk_pct_trend(float $current, float $previous): array
     if ($pct < 0) {
         return ['tone' => 'down', 'text' => '↓ ' . abs($pct) . '%'];
     }
-    return ['tone' => 'flat', 'text' => '— 0%'];
+    return ['tone' => 'flat', 'text' => '- 0%'];
 }
 
 function desk_sparkline(array $values, string $stroke = ''): string
@@ -113,6 +113,14 @@ function render_desk_company_card(?array $company, array $opts = []): void
     $stockOn = !empty($opts['stock']);
     $logo = logo_url($brand);
     $initials = desk_name_initials($name);
+    $hour = (int) date('G');
+    $hello = $hour < 12 ? 'Good morning' : ($hour < 17 ? 'Good afternoon' : 'Good evening');
+    $who = trim((string) ($opts['user_name'] ?? ''));
+    if ($who === '') {
+        $who = 'there';
+    } else {
+        $who = explode(' ', $who)[0];
+    }
     ?>
 <div class="cdash-company card">
   <div class="cdash-company-main">
@@ -124,6 +132,7 @@ function render_desk_company_card(?array $company, array $opts = []): void
       <?php endif; ?>
     </div>
     <div class="cdash-company-copy">
+      <p class="cdash-hello"><?= h($hello) ?> <?= h($who) ?></p>
       <h1><?= h($name) ?></h1>
       <div class="cdash-badges">
         <span class="cdash-badge <?= $statusClass ?>"><?= h($statusLabel) ?></span>
@@ -216,12 +225,24 @@ function render_desk_day(string $error = ''): string
         'net' => array_column(array_values($dash['days']), 'net'),
     ];
     $chartMonths = [
-        'labels' => array_keys($dash['months']),
+        'labels' => array_map(static function ($m) {
+            $t = strtotime((string) $m . '-01');
+            return $t ? date('M Y', $t) : (string) $m;
+        }, array_keys($dash['months'])),
         'income' => array_column(array_values($dash['months']), 'income'),
         'expense' => array_column(array_values($dash['months']), 'expense'),
         'profit' => array_column(array_values($dash['months']), 'profit'),
         'net' => array_column(array_values($dash['months']), 'net'),
     ];
+    if (!$chartMonths['labels']) {
+        $chartMonths = [
+            'labels' => [date('M Y')],
+            'income' => [(float) $rangeLive['income']],
+            'expense' => [(float) $rangeLive['expense']],
+            'profit' => [(float) $rangeLive['profit']],
+            'net' => [(float) $rangeLive['net']],
+        ];
+    }
 
     [$prevFrom, $prevTo] = desk_period_shift($from, $to);
     $prevTotals = stock_range_totals($prevFrom, $prevTo);
@@ -280,6 +301,7 @@ function render_desk_day(string $error = ''): string
             'value' => $dayStatus,
             'chip' => $dayOpen ? 'Till open' : 'Till closed',
             'chip_tone' => $dayTone,
+            'href' => url('sale.php'),
         ]);
     }
   ?>
@@ -325,48 +347,15 @@ function render_desk_day(string $error = ''): string
   ?>
 </div>
 
-<div class="desk-grid stock-split cdash-day-panel">
-  <div class="card">
-    <div class="card-head"><h2><?= icon('clock', 16) ?><?= $dayOpen ? 'Close day' : 'Open day' ?></h2></div>
-    <div class="pad-form">
-      <?php if (!$todayDay): ?>
-        <form method="post">
-          <?= csrf_field() ?>
-          <input type="hidden" name="action" value="open_day">
-          <label for="open_cash">Opening cash</label>
-          <input id="open_cash" name="open_cash" inputmode="decimal" required>
-          <div class="actions" style="margin-top:12px"><button class="btn" type="submit"><?= icon('check') ?>Open day</button></div>
-        </form>
-      <?php elseif ($dayOpen): ?>
-        <p class="cdash-day-note">Opened at <?= h(money((float) $todayDay['open_cash'])) ?></p>
-        <?php
-        $todayFloat = stock_float_vs_expenses(today(), today(), (float) (stock_day_totals(today())['expense'] ?? 0));
-        if (($todayFloat['applied'] ?? 0) > 0.009 || ($todayFloat['open_cash'] ?? 0) > 0.009):
-        ?>
-          <p class="cdash-day-note">Float <?= h(money((float) $todayFloat['open_cash'])) ?> · left <?= h(money((float) $todayFloat['left'])) ?></p>
-        <?php endif; ?>
-        <form method="post">
-          <?= csrf_field() ?>
-          <input type="hidden" name="action" value="close_day">
-          <label for="close_cash">Closing cash</label>
-          <input id="close_cash" name="close_cash" inputmode="decimal" required>
-          <label for="notes">Note</label>
-          <input id="notes" name="notes">
-          <div class="actions" style="margin-top:12px"><button class="btn" type="submit"><?= icon('check') ?>Close day</button></div>
-        </form>
-      <?php else: ?>
-        <p class="cdash-day-note">Closed at <?= h(money((float) ($todayDay['close_cash'] ?? 0))) ?></p>
-      <?php endif; ?>
-    </div>
-  </div>
+<div class="desk-grid stock-split cdash-charts">
   <div class="card">
     <div class="card-head"><h2><?= icon('reports', 16) ?>Income vs expenditure</h2></div>
-    <div class="pad-form"><canvas id="chart-stock-days" height="180"></canvas></div>
+    <div class="chart-frame"><canvas id="chart-stock-days"></canvas></div>
   </div>
-</div>
-<div class="card" style="margin-top:16px">
-  <div class="card-head"><h2><?= icon('reports', 16) ?>Months</h2></div>
-  <div class="pad-form"><canvas id="chart-stock-months" height="180"></canvas></div>
+  <div class="card">
+    <div class="card-head"><h2><?= icon('reports', 16) ?>Months</h2></div>
+    <div class="chart-frame"><canvas id="chart-stock-months"></canvas></div>
+  </div>
 </div>
 <div class="card" id="day-income" style="margin-top:16px">
   <div class="card-head"><h2><?= icon('invoice', 16) ?>Sales</h2></div>

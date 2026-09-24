@@ -1963,6 +1963,9 @@ function report_performance_statement(?int $companyId = null): array
     }
     $expenses = [];
     foreach ($spent as $row) {
+        if (function_exists('stock_is_stock_expense') && stock_is_stock_expense($row)) {
+            continue;
+        }
         $name = trim((string) ($row['item_name'] ?? ''));
         if ($name === '') {
             $name = trim((string) ($row['description'] ?? '')) ?: trim((string) ($row['expense_category'] ?? '')) ?: 'Expense';

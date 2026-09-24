@@ -97,7 +97,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Your login cannot record purchases.';
             $tab = 'items';
         } else {
-            stock_require_open_day();
             $ids = $_POST['p_item'] ?? [];
             $names = $_POST['p_name'] ?? [];
             $qtys = $_POST['p_qty'] ?? [];
@@ -125,9 +124,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = (string) ($done['error'] ?? 'Could not save that purchase.');
                 $tab = 'purchases';
             } else {
-                $msg = 'Purchase saved as an expense.';
+                $msg = 'Purchase saved.';
                 if (($done['balance'] ?? 0) > 0.009) {
-                    $msg .= ' Balance ' . money($done['balance']) . ' sits on Creditors.';
+                    $msg .= ' Balance ' . money($done['balance']) . ' sits on Creditors (not day performance).';
+                } else {
+                    $msg .= ' Paid in full.';
                 }
                 flash($msg);
                 redirect('stock.php?tab=purchases');
@@ -162,10 +163,6 @@ layout_start('Stock', $user);
 <?php render_stock_subnav($tab); ?>
 
 <?php if ($error): ?><p class="flash flash-err" style="margin:0 0 16px"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
-
-<?php if (!$dayOpen): ?>
-  <p class="flash" style="margin:0 0 16px"><?= icon('clock', 16) ?>Open the day before selling or buying. <a href="<?= h(url(desk_day_url())) ?>">Open day</a></p>
-<?php endif; ?>
 
 <?php if ($tab === 'items'):
     $filtered = stock_filter_items($items, $q);
@@ -306,10 +303,10 @@ layout_start('Stock', $user);
               <td><?= $svc ? 'Service' : 'Product' ?></td>
               <td class="mono"><?= h($row['sku']) ?></td>
               <td><?= h($row['unit']) ?></td>
-              <td class="right mono"><?= $svc ? '—' : h(stock_qty_label((float) $row['qty_on_hand'])) ?></td>
-              <td class="right mono"><?= $svc ? '—' : h(money((float) $row['buy_price'])) ?></td>
+              <td class="right mono"><?= $svc ? '-' : h(stock_qty_label((float) $row['qty_on_hand'])) ?></td>
+              <td class="right mono"><?= $svc ? '-' : h(money((float) $row['buy_price'])) ?></td>
               <td class="right mono"><?= h(money((float) $row['sell_price'])) ?></td>
-              <td class="right mono"><?= $svc ? '—' : h(stock_qty_label((float) $row['reorder_level'])) ?></td>
+              <td class="right mono"><?= $svc ? '-' : h(stock_qty_label((float) $row['reorder_level'])) ?></td>
               <td><?= !empty($row['taxed']) ? 'Y' : 'N' ?></td>
               <td class="row-actions">
                 <a class="btn ghost sm" href="<?= h(url('stock.php?tab=items&edit=' . (int) $row['id'])) ?>"><?= icon('pencil', 14) ?>Edit</a>
@@ -405,9 +402,6 @@ layout_start('Stock', $user);
 <?php elseif ($tab === 'purchases'):
     $buyPage = stock_search_docs('expense', $q, stock_page_key('p'), 20, null, 'Stock');
     ?>
-<?php if (!$dayOpen): ?>
-  <p class="flash flash-err">Open the day on the Day tab before buying stock.</p>
-<?php endif; ?>
 <div class="card">
   <div class="card-head"><h2><?= icon('expense', 16) ?>Buy stock</h2></div>
   <form method="post" class="pad-form pos-sale" data-pos-till data-pos-prefix="p" data-pos-mode="buy" data-pos-currency="<?= h(default_currency()) ?>">
@@ -416,7 +410,7 @@ layout_start('Stock', $user);
     <div class="form-grid">
       <div>
         <label for="supplier">Supplier name</label>
-        <input id="supplier" name="supplier" list="supplier-list" placeholder="Type or pick" autocomplete="off" <?= $dayOpen ? 'required' : 'disabled' ?>>
+        <input id="supplier" name="supplier" list="supplier-list" placeholder="Type or pick" autocomplete="off" required>
         <datalist id="supplier-list">
           <?php foreach ($suppliers as $s): ?>
             <option value="<?= h($s['name']) ?>"></option>
@@ -425,12 +419,12 @@ layout_start('Stock', $user);
       </div>
       <div>
         <label for="method">Paid how</label>
-        <?php render_stock_payment_select('method', !$dayOpen, 'cash'); ?>
+        <?php render_stock_payment_select('method', false, 'cash'); ?>
       </div>
     </div>
     <div class="pos-find">
       <label for="pos-q">Find product</label>
-      <input id="pos-q" class="pos-q" autocomplete="off" placeholder="Type name or code. New names can be added." <?= $dayOpen ? '' : 'disabled' ?> data-pos-q>
+      <input id="pos-q" class="pos-q" autocomplete="off" placeholder="Type name or code. New names can be added." data-pos-q>
       <div class="pos-suggest" hidden data-pos-suggest></div>
     </div>
     <div class="table-scroll">
@@ -457,8 +451,8 @@ layout_start('Stock', $user);
     <div class="pos-totals">
       <div>
         <label for="paid">Amount paid now</label>
-        <input id="paid" name="paid" inputmode="decimal" data-pos-paid placeholder="0 = full credit" <?= $dayOpen ? '' : 'disabled' ?>>
-        <p class="hint">Pay half, or type 0 if you will pay later. Unpaid sits on Creditors.</p>
+        <input id="paid" name="paid" inputmode="decimal" data-pos-paid placeholder="0 = full credit">
+        <p class="hint">Type 0 for credit. Unpaid sits on Creditors - it does not reduce day profit.</p>
       </div>
       <div class="pos-sum">
         <span>Subtotal <strong data-pos-sub><?= h(money_behind(0)) ?></strong></span>
@@ -468,7 +462,7 @@ layout_start('Stock', $user);
       </div>
     </div>
     <div class="actions">
-      <button class="btn pos-save" type="submit" <?= $dayOpen ? '' : 'disabled' ?>><?= icon('check') ?>Save purchase</button>
+      <button class="btn pos-save" type="submit"><?= icon('check') ?>Save purchase</button>
     </div>
   </form>
   <span hidden data-pos-x><?= icon('x', 14) ?></span>

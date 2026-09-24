@@ -167,7 +167,7 @@ layout_admin_start('Sales', $user);
 
 <?php if (in_array($tab, ['overview', 'leads', 'agent'], true)): ?>
   <?php render_filters('admin_sales.php', array_filter(['tab' => $tab, 'agent' => $agentId ?: null, 'agent_filter' => $filterAgent ?: null, 'status' => $leadStatus ?: null]), ['live' => true]); ?>
-  <p class="hint" style="margin:-8px 0 16px">Showing <?= $period['from'] ? h(format_date($from) . ' – ' . format_date($to)) : 'all dates' ?>.</p>
+  <p class="hint" style="margin:-8px 0 16px">Showing <?= $period['from'] ? h(format_date($from) . ' - ' . format_date($to)) : 'all dates' ?>.</p>
 <?php endif; ?>
 
 <?php if ($tab === 'overview'): ?>
@@ -276,7 +276,7 @@ if ($tab === 'leads'):
       <tbody>
         <?php foreach ($leads as $lead): ?>
           <tr>
-            <td><?= h(trim((string) $lead['business_name']) ?: '—') ?>
+            <td><?= h(trim((string) $lead['business_name']) ?: '-') ?>
               <?php if (($lead['status'] ?? '') === 'rejected' && !empty($lead['rejected_reason'])): ?>
                 <div class="muted"><?= h((string) $lead['rejected_reason']) ?></div>
               <?php endif; ?>
@@ -291,7 +291,7 @@ if ($tab === 'leads'):
             </td>
             <td><?= h(trim($lead['contact_name'] . ' ' . $lead['contact_phone'])) ?></td>
             <td><?= h((string) $lead['city']) ?></td>
-            <td class="date-cell"><?= !empty($lead['follow_up_date']) ? h(format_date($lead['follow_up_date'])) : '—' ?></td>
+            <td class="date-cell"><?= !empty($lead['follow_up_date']) ? h(format_date($lead['follow_up_date'])) : '-' ?></td>
             <td class="date-cell"><?= h(format_date(substr((string) $lead['created_at'], 0, 10))) ?></td>
             <td class="row-actions">
               <?php if (($lead['status'] ?? '') === 'interested'): ?>
@@ -396,7 +396,7 @@ if ($tab === 'agent' && $agentRow):
     <?php else: ?>
       <div class="table-scroll"><table class="grid"><thead><tr><th>Business</th><th>Due</th></tr></thead><tbody>
         <?php foreach ($agentPending as $lead): ?>
-          <tr><td><?= h(trim((string) $lead['business_name']) ?: '—') ?></td><td><?= h(format_date($lead['follow_up_date'])) ?></td></tr>
+          <tr><td><?= h(trim((string) $lead['business_name']) ?: '-') ?></td><td><?= h(format_date($lead['follow_up_date'])) ?></td></tr>
         <?php endforeach; ?>
       </tbody></table></div>
     <?php endif; ?>
@@ -407,7 +407,7 @@ if ($tab === 'agent' && $agentRow):
     <?php else: ?>
       <div class="table-scroll"><table class="grid"><thead><tr><th>Business</th><th>Status</th></tr></thead><tbody>
         <?php foreach ($agentFollowed as $lead): ?>
-          <tr><td><?= h(trim((string) $lead['business_name']) ?: '—') ?></td><td><?= h(sales_status_label((string) $lead['status'])) ?></td></tr>
+          <tr><td><?= h(trim((string) $lead['business_name']) ?: '-') ?></td><td><?= h(sales_status_label((string) $lead['status'])) ?></td></tr>
         <?php endforeach; ?>
       </tbody></table></div>
     <?php endif; ?>
@@ -417,7 +417,7 @@ if ($tab === 'agent' && $agentRow):
   <div class="card-head"><h2>Businesses reached</h2></div>
   <div class="table-scroll"><table class="grid"><thead><tr><th>Business</th><th>Status</th><th>City</th><th>When</th></tr></thead><tbody>
     <?php foreach ($agentLeads as $lead): ?>
-      <tr><td><?= h(trim((string) $lead['business_name']) ?: '—') ?></td><td><?= h(sales_status_label((string) $lead['status'])) ?></td><td><?= h((string) $lead['city']) ?></td><td><?= h(format_date(substr((string) $lead['created_at'], 0, 10))) ?></td></tr>
+      <tr><td><?= h(trim((string) $lead['business_name']) ?: '-') ?></td><td><?= h(sales_status_label((string) $lead['status'])) ?></td><td><?= h((string) $lead['city']) ?></td><td><?= h(format_date(substr((string) $lead['created_at'], 0, 10))) ?></td></tr>
     <?php endforeach; ?>
   </tbody></table></div>
 </div>
@@ -461,7 +461,7 @@ if ($tab === 'targets'): ?>
     <?php foreach ($targets as $t): ?>
       <tr>
         <td><?= h($t['agent_name'] ?: 'Team-wide') ?></td>
-        <td><?= h(format_date($t['period_start']) . ' – ' . format_date($t['period_end'])) ?></td>
+        <td><?= h(format_date($t['period_start']) . ' - ' . format_date($t['period_end'])) ?></td>
         <td class="right mono"><?= (int) $t['reach_target'] ?></td>
         <td class="right mono"><?= (int) $t['sales_target'] ?></td>
         <td class="row-actions"><form method="post" onsubmit="return confirm('Remove target?');"><?= csrf_field() ?><input type="hidden" name="action" value="delete_target"><input type="hidden" name="target_id" value="<?= (int) $t['id'] ?>"><button class="btn ghost sm" type="submit">Delete</button></form></td>

@@ -127,7 +127,7 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
             <td><?php if ((int) ($doc['party_id'] ?? 0) > 0): ?>
               <a href="<?= h(url('client_view.php?id=' . $doc['party_id'])) ?>"><?= h($doc['party_name']) ?></a>
             <?php else: ?>
-              <?= $kind === 'expense' ? 'No payee' : '—' ?>
+              <?= $kind === 'expense' ? 'No payee' : '-' ?>
             <?php endif; ?></td>
             <td class="date-cell"><?= h(format_date($doc['date'])) ?></td>
             <?php if ($kind === 'expense'): ?>

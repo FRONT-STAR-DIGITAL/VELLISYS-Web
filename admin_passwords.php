@@ -96,7 +96,7 @@ layout_admin_start('Passwords', $user);
     <div>
       <label for="company_id">Link company (optional)</label>
       <select id="company_id" name="company_id">
-        <option value="">—</option>
+        <option value="">-</option>
         <?php foreach ($companies as $c): ?>
           <option value="<?= (int) $c['id'] ?>" <?= $preCompanyId === (int) $c['id'] ? 'selected' : '' ?>><?= h($c['name']) ?></option>
         <?php endforeach; ?>
@@ -168,7 +168,7 @@ layout_admin_start('Passwords', $user);
                 <button type="button" class="btn ghost sm" data-copy-btn="<?= h((string) $row['email']) ?>">Copy</button>
               </td>
               <td>
-                <code class="mono vault-pw" data-masked="1"><?= h($pw !== '' ? str_repeat('•', min(12, max(6, strlen($pw)))) : '—') ?></code>
+                <code class="mono vault-pw" data-masked="1"><?= h($pw !== '' ? str_repeat('•', min(12, max(6, strlen($pw)))) : '-') ?></code>
                 <?php if ($pw !== ''): ?>
                   <button type="button" class="btn ghost sm" data-reveal-pw="<?= h($pw) ?>">Show</button>
                   <button type="button" class="btn ghost sm" data-copy-btn="<?= h($pw) ?>">Copy</button>

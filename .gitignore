@@ -18,3 +18,5 @@ vellisys.db
 # Generated pitch deck (served locally for preview; download from artifacts)
 /Vellisys_Client_Pitch_Deck.pdf
 /Vellisys_Client_Pitch_Deck.pptx
+uploads/
+uploads/backups/

@@ -32,7 +32,7 @@ layout_start('Debtors', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('clients') ?>Debtors</h1>
-    <p class="lede">Clients who still owe you — open invoices and quick receipts that were only part paid. Mixed currencies convert at your <?= h(default_currency()) ?> / USD rate. Take a receipt, email a reminder from the company mailbox, or print the document.</p>
+    <p class="lede">Clients who still owe you - open invoices and quick receipts that were only part paid. Mixed currencies convert at your <?= h(default_currency()) ?> / USD rate. Take a receipt, email a reminder from the company mailbox, or print the document.</p>
   </div>
   <a class="btn" href="<?= h(url('document_new.php?kind=invoice')) ?>"><?= icon('invoice') ?>New invoice</a>
   <a class="btn ghost" href="<?= h(export_query('debtors')) ?>"><?= icon('download', 16) ?>Export CSV</a>

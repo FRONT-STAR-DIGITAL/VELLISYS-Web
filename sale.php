@@ -4,49 +4,59 @@ require __DIR__ . '/includes/bootstrap.php';
 $user = require_stock();
 
 $error = '';
+$dayError = '';
 $dayOpen = stock_day_is_open();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
-    stock_require_open_day();
-    $ids = $_POST['s_item'] ?? [];
-    $names = $_POST['s_name'] ?? [];
-    $qtys = $_POST['s_qty'] ?? [];
-    $prices = $_POST['s_price'] ?? [];
-    $taxed = $_POST['s_taxed'] ?? [];
-    $lines = [];
-    foreach ((array) $ids as $i => $sid) {
-        $lines[] = [
-            'stock_item_id' => (int) $sid,
-            'name' => (string) ($names[$i] ?? ''),
-            'qty' => money_parse((string) ($qtys[$i] ?? 0)),
-            'price' => money_parse((string) ($prices[$i] ?? 0)),
-            'taxed' => !empty($taxed[$i]),
-        ];
-    }
-    $paidRaw = post('paid');
-    $done = stock_complete_sale([
-        'customer' => post('customer'),
-        'party_id' => (int) post('party_id'),
-        'discount' => money_parse(post('discount')),
-        'paid' => money_parse($paidRaw),
-        'pay_all' => $paidRaw === '',
-        'method' => post('method') ?: 'cash',
-        'lines' => $lines,
-    ]);
-    if (empty($done['ok'])) {
-        $error = (string) ($done['error'] ?? 'Could not save that sale.');
+    $action = post('action');
+    if ($action === 'open_day' || $action === 'close_day') {
+        $dayError = desk_handle_day_post();
+        $dayOpen = stock_day_is_open();
     } else {
-        $msg = 'Sale saved.';
-        if (($done['balance'] ?? 0) > 0.009) {
-            $msg .= ' Balance ' . money($done['balance']) . ' sits on Debtors.';
+        stock_require_open_day();
+        $ids = $_POST['s_item'] ?? [];
+        $names = $_POST['s_name'] ?? [];
+        $qtys = $_POST['s_qty'] ?? [];
+        $prices = $_POST['s_price'] ?? [];
+        $taxed = $_POST['s_taxed'] ?? [];
+        $lines = [];
+        foreach ((array) $ids as $i => $sid) {
+            $lines[] = [
+                'stock_item_id' => (int) $sid,
+                'name' => (string) ($names[$i] ?? ''),
+                'qty' => money_parse((string) ($qtys[$i] ?? 0)),
+                'price' => money_parse((string) ($prices[$i] ?? 0)),
+                'taxed' => !empty($taxed[$i]),
+            ];
         }
-        $_SESSION['stock_last_print'] = (int) $done['print_id'];
-        if (isset($_POST['do_print']) && (string) $_POST['do_print'] === '1' && (int) $done['print_id'] > 0) {
-            redirect('document_view.php?id=' . (int) $done['print_id'] . '&print=1');
+        $paidRaw = post('paid');
+        $done = stock_complete_sale([
+            'customer' => post('customer'),
+            'party_id' => (int) post('party_id'),
+            'discount' => money_parse(post('discount')),
+            'paid' => money_parse($paidRaw),
+            'pay_all' => $paidRaw === '',
+            'method' => post('method') ?: 'cash',
+            'lines' => $lines,
+        ]);
+        if (empty($done['ok'])) {
+            $error = (string) ($done['error'] ?? 'Could not save that sale.');
+        } else {
+            $msg = 'Sale saved.';
+            if (($done['balance'] ?? 0) > 0.009) {
+                $msg .= ' Balance ' . money($done['balance']) . ' sits on Debtors.';
+            }
+            if (!empty($done['invoice_id'])) {
+                $msg .= ' Invoice linked.';
+            }
+            $_SESSION['stock_last_print'] = (int) $done['print_id'];
+            if (isset($_POST['do_print']) && (string) $_POST['do_print'] === '1' && (int) $done['print_id'] > 0) {
+                redirect('document_view.php?id=' . (int) $done['print_id'] . '&print=1');
+            }
+            flash($msg);
+            redirect('sale.php');
         }
-        flash($msg);
-        redirect('sale.php');
     }
 }
 
@@ -61,7 +71,6 @@ layout_start('Sale', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('cart') ?>Sale</h1>
-    <p class="lede">Type a product or service. It fills in. Save and print opens the slip. Save sale stays on this till. Invoices from Documents also land here.</p>
   </div>
   <?php if ($lastPrint): ?>
     <div class="actions page-actions">
@@ -71,9 +80,11 @@ layout_start('Sale', $user);
 </div>
 <?php render_stock_subnav('sale'); ?>
 
+<?php render_sale_day_panel($dayError); ?>
+
 <?php if ($error): ?><p class="flash flash-err" style="margin:0 0 16px"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
 <?php if (!$dayOpen): ?>
-  <p class="flash flash-err">Open the day first. <a href="<?= h(url(desk_day_url())) ?>">Open day</a></p>
+  <p class="flash flash-err">Open the day above before recording till sales.</p>
 <?php endif; ?>
 
 <form method="post" class="card pos-sale" data-pos-till data-pos-prefix="s" data-pos-mode="sale" data-pos-currency="<?= h(default_currency()) ?>">
@@ -126,7 +137,7 @@ layout_start('Sale', $user);
       <div>
         <label for="paid">Paid now</label>
         <input id="paid" name="paid" inputmode="decimal" value="" placeholder="Leave blank to pay all" data-pos-paid <?= $dayOpen ? '' : 'disabled' ?>>
-        <p class="hint">Pay half if they owe. Unpaid sits on Debtors.</p>
+        <p class="hint">Unpaid balance sits on Debtors and links to the sale document.</p>
       </div>
       <div class="pos-sum">
         <span>Subtotal <strong data-pos-sub><?= h(money_behind(0)) ?></strong></span>
@@ -150,7 +161,8 @@ layout_start('Sale', $user);
 
 <div class="card" style="margin-top:16px">
   <div class="card-head">
-    <h2><?= icon('invoice', 16) ?>Sales</h2>
+    <h2><?= icon('invoice', 16) ?>Sales documents</h2>
+    <a class="btn ghost sm" href="<?= h(url('documents.php?kind=invoice')) ?>">All invoices</a>
   </div>
   <div class="pad-form">
     <?php stock_search_bar('sale.php', [], 'Search number or customer'); ?>

@@ -42,7 +42,8 @@ function desk_day_is_open(): bool
 
 function desk_kind_needs_open_day(string $kind): bool
 {
-    return in_array($kind, ['invoice', 'receipt', 'expense', 'refund', 'return_note', 'delivery', 'quotation'], true);
+    // Open/close day gates the Sale till only - not invoices, receipts, expenses or other documents.
+    return false;
 }
 
 function desk_day_url(array $query = []): string
@@ -54,7 +55,7 @@ function desk_day_url(array $query = []): string
         }
         $qs[$k] = $v;
     }
-    return $qs ? ('dashboard.php?' . http_build_query($qs)) : 'dashboard.php';
+    return $qs ? ('sale.php?' . http_build_query($qs)) : 'sale.php';
 }
 
 function desk_require_open_day(): void
@@ -62,7 +63,7 @@ function desk_require_open_day(): void
     if (desk_day_is_open()) {
         return;
     }
-    flash('Open the day first. Enter the cash you started with.', 'err');
+    flash('Open the day on Sale first. Enter the cash you started with.', 'err');
     redirect(desk_day_url());
 }
 
@@ -409,7 +410,17 @@ function stock_finish_totals(array $row): array
 function stock_is_stock_expense(array $doc): bool
 {
     $cat = strtolower(trim((string) ($doc['expense_category'] ?? '')));
-    return $cat === 'stock';
+    if ($cat === 'stock' || $cat === 'stock purchase' || $cat === 'purchases') {
+        return true;
+    }
+    $notes = strtolower(trim((string) ($doc['notes'] ?? '')));
+    return str_starts_with($notes, 'stock purchase');
+}
+
+/** Operating expenses only (excludes stock purchases which sit on creditors / inventory). */
+function stock_is_operating_expense(array $doc): bool
+{
+    return (($doc['kind'] ?? '') === 'expense') && !stock_is_stock_expense($doc);
 }
 
 function stock_day_totals(string $date): array
@@ -1110,6 +1121,9 @@ function stock_search_docs(string $kind, string $q, int $page, int $per = 20, ?s
         $where .= ' AND d.expense_category = ?';
         $types .= 's';
         $params[] = $category;
+    } elseif ($kind === 'expense') {
+        // Operating expenses only - stock purchases stay on Creditors / inventory.
+        $where .= " AND LOWER(TRIM(COALESCE(d.expense_category, ''))) NOT IN ('stock', 'stock purchase', 'purchases')";
     }
     if ($q !== '') {
         $like = '%' . $q . '%';
@@ -1191,10 +1205,11 @@ function stock_performance_range(string $from, string $to): array
             } elseif ($received > 0) {
                 $by[$day]['tax'] += $vat;
             }
-        } elseif (!stock_is_stock_expense($d)) {
+        } elseif ($d['kind'] === 'expense' && stock_is_operating_expense($d)) {
             $by[$day]['expense'] += $net;
             $by[$day]['tax'] -= $vat;
         }
+        // Stock purchases are inventory / creditors - they do not hit day expense or net.
     }
     foreach ($cogsRows as $d) {
         $day = (string) $d['date'];
@@ -1313,6 +1328,48 @@ function desk_handle_day_post(): string
         redirect(desk_day_url());
     }
     return '';
+}
+
+function render_sale_day_panel(string $error = ''): void
+{
+    $todayDay = stock_today();
+    $dayOpen = stock_day_is_open();
+    ?>
+<?php if ($error): ?><p class="flash flash-err" style="margin:0 0 16px"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
+<div class="card cdash-day-panel" style="margin:0 0 16px">
+  <div class="card-head"><h2><?= icon('clock', 16) ?><?= $dayOpen ? 'Close day' : 'Open day' ?></h2></div>
+  <div class="pad-form">
+    <?php if (!$todayDay): ?>
+      <form method="post">
+        <?= csrf_field() ?>
+        <input type="hidden" name="action" value="open_day">
+        <label for="open_cash">Opening cash</label>
+        <input id="open_cash" name="open_cash" inputmode="decimal" required>
+        <div class="actions" style="margin-top:12px"><button class="btn" type="submit"><?= icon('check') ?>Open day</button></div>
+      </form>
+    <?php elseif ($dayOpen): ?>
+      <p class="cdash-day-note">Opened at <?= h(money((float) $todayDay['open_cash'])) ?></p>
+      <?php
+      $todayFloat = stock_float_vs_expenses(today(), today(), (float) (stock_day_totals(today())['expense'] ?? 0));
+      if (($todayFloat['applied'] ?? 0) > 0.009 || ($todayFloat['open_cash'] ?? 0) > 0.009):
+      ?>
+        <p class="cdash-day-note">Float <?= h(money((float) $todayFloat['open_cash'])) ?> · left <?= h(money((float) $todayFloat['left'])) ?></p>
+      <?php endif; ?>
+      <form method="post">
+        <?= csrf_field() ?>
+        <input type="hidden" name="action" value="close_day">
+        <label for="close_cash">Closing cash</label>
+        <input id="close_cash" name="close_cash" inputmode="decimal" required>
+        <label for="notes">Note</label>
+        <input id="notes" name="notes">
+        <div class="actions" style="margin-top:12px"><button class="btn" type="submit"><?= icon('check') ?>Close day</button></div>
+      </form>
+    <?php else: ?>
+      <p class="cdash-day-note">Closed at <?= h(money((float) ($todayDay['close_cash'] ?? 0))) ?></p>
+    <?php endif; ?>
+  </div>
+</div>
+    <?php
 }
 
 function desk_day_json_exit(): void

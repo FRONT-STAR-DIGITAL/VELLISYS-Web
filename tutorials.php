@@ -235,7 +235,7 @@ $lessons = [
         'alt' => 'Stock Day with This year filter, income, profit and line charts',
         'lead' => 'When Vellisys switches stock on, the rail gets Stock and Sale. Purchases sit as a tab inside Stock. The Ofagros demo already has this on.',
         'points' => [
-            'Open the day: type the cash in the till. That open day applies to Sale and to invoices, receipts and expenses on the whole desk. Close with the cash at the end.',
+            'Open the day on Sale: type the cash in the till. That open day applies to Sale till sales only. Invoices, receipts and expenses do not need the till open. Close with the cash at the end of Sale.',
             'Filter Day with today, this week, this month or this year. Charts follow the dates you pick. Products and services sold sit on the Day report.',
             'Add products and services, or download the Excel, fill it and upload. Low stock shows when quantity hits the reorder level. Services have no quantity.',
             'Purchases become expenses. Unpaid purchases sit on Creditors. Sale and Documents share the same products when both are on; each can also be used on its own.',

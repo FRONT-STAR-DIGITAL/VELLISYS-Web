@@ -24,7 +24,7 @@ sales_layout_start('Performance', $user);
   </div>
 </div>
 <?php render_filters('sales_performance.php', [], ['live' => true]); ?>
-<p class="hint" style="margin:-8px 0 16px">Showing <?= $period['from'] ? h(format_date($from) . ' – ' . format_date($to)) : 'all dates' ?>.</p>
+<p class="hint" style="margin:-8px 0 16px">Showing <?= $period['from'] ? h(format_date($from) . ' - ' . format_date($to)) : 'all dates' ?>.</p>
 
 <div class="stats">
   <div class="card stat"><?= icon('clients', 20) ?><span>Reach</span><strong><?= (int) $stats['reach'] ?><?= $reachGoal ? ' / ' . $reachGoal : '' ?></strong></div>

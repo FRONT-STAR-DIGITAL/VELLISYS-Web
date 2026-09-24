@@ -77,6 +77,9 @@ foreach ($receipts as $d) {
 $costs = 0;
 $byCat = [];
 foreach ($expenses as $d) {
+    if (function_exists('stock_is_stock_expense') && stock_is_stock_expense($d)) {
+        continue; // Stock purchases sit on creditors / inventory - not operating spend
+    }
     $costs += convert_money($d['totals']['net'], doc_currency($d), $base);
     $cat = $d['expense_category'] ?: 'Other';
     $byCat[$cat] = ($byCat[$cat] ?? 0) + convert_money($d['totals']['total'], doc_currency($d), $base);
@@ -174,7 +177,13 @@ foreach ($invoices as $d) {
     $series[$key]['invoiced'] += convert_money($d['totals']['total'], doc_currency($d), $base);
 }
 foreach ($expenses as $d) {
+    if (function_exists('stock_is_stock_expense') && stock_is_stock_expense($d)) {
+        continue;
+    }
     $key = substr((string) $d['date'], 0, 10);
+    if (!isset($series[$key])) {
+        $series[$key] = ['invoiced' => 0, 'expenses' => 0, 'cash' => 0];
+    }
     $series[$key]['expenses'] += convert_money($d['totals']['total'], doc_currency($d), $base);
 }
 foreach ($receipts as $d) {
@@ -335,7 +344,7 @@ $kindLabel = static fn (string $k): string => match ($k) {
 ?>
 <div class="card" style="margin-bottom:16px">
   <div class="card-head"><h2><?= icon('reports', 16) ?><?= h($perfTitle) ?></h2></div>
-  <p class="hint" style="margin:0 22px 12px">Amount collected in this period. Products take selling price minus buying price on the share that was paid. Services use the amount received — no buying price. Net profit is that profit minus expenses.</p>
+  <p class="hint" style="margin:0 22px 12px">Amount collected in this period. Products take selling price minus buying price on the share that was paid. Services use the amount received - no buying price. Net profit is that profit minus expenses (stock purchases are excluded).</p>
   <?php if (!$performance['income'] && !$performance['expenses']): ?>
     <p class="empty">Nothing sold or spent in this period.</p>
   <?php else: ?>
@@ -697,11 +706,11 @@ $payload = json_encode([
 if (!is_string($payload) || $payload === '') {
     $payload = '{}';
 }
-$script = '<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script>
-document.addEventListener("DOMContentLoaded", function () {
+$script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script>
 (function(){
+  function start(){
   var d = ' . $payload . ';
-  if (!d || typeof d !== "object") return;
+  if (!d || typeof d !== "object" || !window.Chart) return;
   var brand = d.color || "#82B440";
   Chart.defaults.font.family = "Montserrat, sans-serif";
   Chart.defaults.color = "#66705f";
@@ -720,28 +729,34 @@ document.addEventListener("DOMContentLoaded", function () {
     return cur + " " + sign + num + unit;
   }
   var palette = ["#82B440","#1f3a12","#c4a35a","#4a6fa5","#b42318","#6b7c5e","#8d6e63","#546e7a"];
+  function safeLabels(arr){ return (arr && arr.length) ? arr : ["-"]; }
+  function safeData(arr, n){
+    if (arr && arr.length) return arr;
+    var z = []; for (var i = 0; i < (n || 1); i++) z.push(0); return z;
+  }
   var line = document.getElementById("chart-series");
   if (line) {
+    var labs = safeLabels(d.labels);
     new Chart(line, {
       type: "line",
       data: {
-        labels: d.labels,
+        labels: labs,
         datasets: [
-          { label: "Invoiced", data: d.invoiced, borderColor: brand, backgroundColor: brand + "33", tension: .25, fill: true },
-          { label: "Expenses", data: d.expenses, borderColor: "#b42318", backgroundColor: "rgba(180,35,24,.12)", tension: .25, fill: true },
-          { label: "Cash in", data: d.cash, borderColor: "#1f3a12", backgroundColor: "rgba(31,58,18,.08)", tension: .25, fill: false },
-          { label: "Profit", data: d.profit, borderColor: "#4a6fa5", backgroundColor: "rgba(74,111,165,.10)", tension: .25, fill: false },
-          { label: "Net profit", data: d.net, borderColor: "#1E4EFF", backgroundColor: "transparent", tension: .25, fill: false }
+          { label: "Invoiced", data: safeData(d.invoiced, labs.length), borderColor: brand, backgroundColor: brand + "33", tension: .25, fill: true },
+          { label: "Expenses", data: safeData(d.expenses, labs.length), borderColor: "#b42318", backgroundColor: "rgba(180,35,24,.12)", tension: .25, fill: true },
+          { label: "Cash in", data: safeData(d.cash, labs.length), borderColor: "#1f3a12", backgroundColor: "rgba(31,58,18,.08)", tension: .25, fill: false },
+          { label: "Profit", data: safeData(d.profit, labs.length), borderColor: "#4a6fa5", backgroundColor: "rgba(74,111,165,.10)", tension: .25, fill: false },
+          { label: "Net profit", data: safeData(d.net, labs.length), borderColor: "#1E4EFF", backgroundColor: "transparent", tension: .25, fill: false }
         ]
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, scales: { y: { ticks: { callback: money } } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, scales: { y: { beginAtZero: true, ticks: { callback: money } } } }
     });
   }
   var pie = document.getElementById("chart-pie");
   if (pie) {
     new Chart(pie, {
       type: "pie",
-      data: { labels: d.pieLabels, datasets: [{ data: d.pieValues, backgroundColor: palette }] },
+      data: { labels: safeLabels(d.pieLabels), datasets: [{ data: safeData(d.pieValues), backgroundColor: palette }] },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
     });
   }
@@ -749,15 +764,15 @@ document.addEventListener("DOMContentLoaded", function () {
   if (bar) {
     new Chart(bar, {
       type: "bar",
-      data: { labels: d.barLabels, datasets: [{ label: "Balance", data: d.barValues, backgroundColor: brand }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: money } } } }
+      data: { labels: safeLabels(d.barLabels), datasets: [{ label: "Balance", data: safeData(d.barValues), backgroundColor: brand }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { callback: money } } } }
     });
   }
   var collect = document.getElementById("chart-collect");
   if (collect) {
     new Chart(collect, {
       type: "doughnut",
-      data: { labels: d.collectLabels, datasets: [{ data: d.collectValues, backgroundColor: [brand, "#b42318"] }] },
+      data: { labels: d.collectLabels || ["Collected", "Outstanding"], datasets: [{ data: safeData(d.collectValues, 2), backgroundColor: [brand, "#b42318"] }] },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
     });
   }
@@ -765,7 +780,7 @@ document.addEventListener("DOMContentLoaded", function () {
   if (quotes) {
     new Chart(quotes, {
       type: "pie",
-      data: { labels: d.quoteLabels, datasets: [{ data: d.quoteValues, backgroundColor: [brand, "#c4a35a"] }] },
+      data: { labels: d.quoteLabels || ["Converted", "Still open"], datasets: [{ data: safeData(d.quoteValues, 2), backgroundColor: [brand, "#c4a35a"] }] },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
     });
   }
@@ -773,29 +788,32 @@ document.addEventListener("DOMContentLoaded", function () {
   if (clients) {
     new Chart(clients, {
       type: "bar",
-      data: { labels: d.clientLabels, datasets: [{ label: "Billed", data: d.clientValues, backgroundColor: brand }] },
-      options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { callback: money } } } }
+      data: { labels: safeLabels(d.clientLabels), datasets: [{ label: "Billed", data: safeData(d.clientValues), backgroundColor: brand }] },
+      options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { callback: money } } } }
     });
   }
   var mix = document.getElementById("chart-mix");
   if (mix) {
+    var mixLabs = safeLabels(d.mixLabels);
     new Chart(mix, {
       type: "bar",
       data: {
-        labels: d.mixLabels,
+        labels: mixLabs,
         datasets: [
-          { label: "Quotations", data: d.mixQuotes, backgroundColor: "#4a6fa5" },
-          { label: "Invoices", data: d.mixInvoices, backgroundColor: brand },
-          { label: "Receipts", data: d.mixReceipts, backgroundColor: "#1f3a12" },
-          { label: "Expenses", data: d.mixExpenses, backgroundColor: "#b42318" },
-          { label: "Letters", data: d.mixLetters, backgroundColor: "#c4a35a" }
+          { label: "Quotations", data: safeData(d.mixQuotes, mixLabs.length), backgroundColor: "#4a6fa5" },
+          { label: "Invoices", data: safeData(d.mixInvoices, mixLabs.length), backgroundColor: brand },
+          { label: "Receipts", data: safeData(d.mixReceipts, mixLabs.length), backgroundColor: "#1f3a12" },
+          { label: "Expenses", data: safeData(d.mixExpenses, mixLabs.length), backgroundColor: "#b42318" },
+          { label: "Letters", data: safeData(d.mixLetters, mixLabs.length), backgroundColor: "#c4a35a" }
         ]
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, scales: { x: { stacked: true }, y: { stacked: true, ticks: { precision: 0 } } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } } }
     });
   }
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+  else start();
 })();
-});
 </script>';
 layout_end($script);
 ?>

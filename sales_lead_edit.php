@@ -111,7 +111,7 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
         <div>
           <label for="package_chosen">Package</label>
           <select id="package_chosen" name="package_chosen">
-            <option value="">—</option>
+            <option value="">-</option>
             <?php $pkg = (string) ($_POST['package_chosen'] ?? $lead['package_chosen'] ?? ''); foreach ($packages as $k => $label): ?>
               <option value="<?= h($k) ?>" <?= $pkg === $k ? 'selected' : '' ?>><?= h($label) ?></option>
             <?php endforeach; ?>
