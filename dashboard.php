@@ -28,6 +28,7 @@ if ($stockOn) {
     render_desk_company_card($deskCompany, [
         'can_quote' => $canQuote,
         'can_invoice' => $canInvoice,
+        'can_receipt' => user_can_kind('receipt'),
         'stock' => true,
         'reports' => is_desk_admin($user),
         'user_name' => (string) ($user['name'] ?? ''),
@@ -263,6 +264,7 @@ layout_start('Desk', $user);
 render_desk_company_card($deskCompany, [
     'can_quote' => $canQuote,
     'can_invoice' => $canInvoice,
+    'can_receipt' => user_can_kind('receipt'),
     'stock' => false,
     'reports' => is_desk_admin($user),
     'user_name' => (string) ($user['name'] ?? ''),
@@ -280,12 +282,14 @@ render_desk_metric_tabs([
     'income_href' => url('documents.php?kind=receipt'),
     'expense_href' => url('documents.php?kind=expense'),
     'profit_href' => $profitHref,
+    'net_href' => $profitHref,
     'debtors_href' => url('debtors.php'),
     'docs_href' => url('documents.php'),
     'clients_href' => url('clients.php?status=active'),
     'income_trend' => $cashTrend,
     'expense_trend' => $expenseTrend,
     'profit_trend' => $netTrend,
+    'net_trend' => $netTrend,
 ]);
 ?>
 

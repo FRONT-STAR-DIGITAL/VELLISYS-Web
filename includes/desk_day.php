@@ -110,6 +110,7 @@ function render_desk_company_card(?array $company, array $opts = []): void
     }
     $canQuote = !empty($opts['can_quote']);
     $canInvoice = !empty($opts['can_invoice']);
+    $canReceipt = !empty($opts['can_receipt']);
     $stockOn = !empty($opts['stock']);
     $logo = logo_url($brand);
     $initials = desk_name_initials($name);
@@ -141,12 +142,21 @@ function render_desk_company_card(?array $company, array $opts = []): void
     </div>
   </div>
   <div class="cdash-actions">
-    <?php if ($canQuote): ?><a class="btn ghost" href="<?= h(url('document_new.php?kind=quotation')) ?>"><?= icon('quotation', 16) ?>Quotation</a><?php endif; ?>
-    <?php if ($canInvoice): ?><a class="btn" href="<?= h(url('document_new.php?kind=invoice')) ?>"><?= icon('invoice', 16) ?>Invoice</a><?php endif; ?>
-    <?php if ($stockOn): ?><a class="btn ghost" href="<?= h(url('sale.php')) ?>"><?= icon('cart', 16) ?>Sale</a><?php endif; ?>
+    <?php if ($canInvoice): ?>
+      <a class="btn" href="<?= h(url('document_new.php?kind=invoice')) ?>"><?= icon('invoice', 16) ?>Invoice</a>
+    <?php endif; ?>
+    <?php if ($canReceipt): ?>
+      <a class="btn ghost" href="<?= h(url('document_new.php?kind=receipt')) ?>"><?= icon('receipt', 16) ?>Receipt</a>
+    <?php endif; ?>
+    <?php if ($stockOn): ?>
+      <a class="btn ghost" href="<?= h(url('sale.php')) ?>"><?= icon('cart', 16) ?>Sale</a>
+    <?php elseif ($canQuote): ?>
+      <a class="btn ghost" href="<?= h(url('document_new.php?kind=quotation')) ?>"><?= icon('quotation', 16) ?>Quotation</a>
+    <?php endif; ?>
     <details class="cdash-more">
       <summary class="btn ghost"><?= icon('more', 16) ?>More</summary>
       <div class="cdash-more-panel">
+        <?php if ($canQuote && $stockOn): ?><a href="<?= h(url('document_new.php?kind=quotation')) ?>"><?= icon('quotation', 16) ?>Quotation</a><?php endif; ?>
         <a href="<?= h(url('activities.php')) ?>"><?= icon('clock', 16) ?>Activities</a>
         <a href="<?= h(url('clients.php')) ?>"><?= icon('clients', 16) ?>Clients</a>
         <?php if ($stockOn): ?><a href="<?= h(url('stock.php')) ?>"><?= icon('package', 16) ?>Stock</a><?php endif; ?>
@@ -224,8 +234,8 @@ function desk_active_clients_count(): int
 }
 
 /**
- * Six clickable desk tabs: Income received, Expenditure, Profit & Net Profit,
- * Amount owed by Debtors, Documents Issued, Active Clients.
+ * Clickable desk metric tabs: Income, Expenses, Profit, Net Profit,
+ * Amount due, Documents Issued, Active Clients.
  *
  * @param array{
  *   income: float,
@@ -239,12 +249,14 @@ function desk_active_clients_count(): int
  *   income_href?: string,
  *   expense_href?: string,
  *   profit_href?: string,
+ *   net_href?: string,
  *   debtors_href?: string,
  *   docs_href?: string,
  *   clients_href?: string,
  *   income_trend?: array|null,
  *   expense_trend?: array|null,
  *   profit_trend?: array|null,
+ *   net_trend?: array|null,
  * } $data
  */
 function render_desk_metric_tabs(array $data): void
@@ -252,12 +264,11 @@ function render_desk_metric_tabs(array $data): void
     $showProfit = array_key_exists('show_profit', $data)
         ? !empty($data['show_profit'])
         : (!function_exists('user_can_see_profit') || user_can_see_profit());
-    $profitHref = (string) ($data['profit_href'] ?? '');
-    if ($profitHref === '') {
-        $profitHref = (function_exists('user_can_open') && user_can_open('reports.php'))
-            ? url('reports.php')
-            : '#desk-charts';
-    }
+    $reportsHref = (function_exists('user_can_open') && user_can_open('reports.php'))
+        ? url('reports.php')
+        : '#desk-charts';
+    $profitHref = (string) ($data['profit_href'] ?? $reportsHref);
+    $netHref = (string) ($data['net_href'] ?? $profitHref);
     $profit = (float) ($data['profit'] ?? 0);
     $net = (float) ($data['net'] ?? 0);
     $debtors = (float) ($data['debtors'] ?? 0);
@@ -265,7 +276,7 @@ function render_desk_metric_tabs(array $data): void
         [
             'tone' => 'income',
             'icon' => 'receipt',
-            'label' => 'Income received',
+            'label' => 'Income',
             'value' => money((float) ($data['income'] ?? 0)),
             'trend' => $data['income_trend'] ?? null,
             'href' => (string) ($data['income_href'] ?? url('documents.php?kind=receipt')),
@@ -273,24 +284,35 @@ function render_desk_metric_tabs(array $data): void
         [
             'tone' => 'spend',
             'icon' => 'wallet',
-            'label' => 'Expenditure',
+            'label' => 'Expenses',
             'value' => money((float) ($data['expense'] ?? 0)),
             'trend' => $data['expense_trend'] ?? null,
             'href' => (string) ($data['expense_href'] ?? url('documents.php?kind=expense')),
         ],
         [
-            'tone' => ($showProfit && $net < 0 ? 'loss' : 'profit'),
+            'tone' => ($showProfit && $profit < 0 ? 'loss' : 'profit'),
             'icon' => 'package',
-            'label' => 'Profit & Net Profit',
+            'label' => 'Profit',
             'value' => $showProfit ? money($profit) : '-',
-            'sub' => $showProfit ? ('Net ' . money($net)) : 'Ask an admin',
             'trend' => $showProfit ? ($data['profit_trend'] ?? null) : null,
+            'chip' => $showProfit ? '' : 'Admin',
+            'chip_tone' => 'flat',
             'href' => $profitHref,
+        ],
+        [
+            'tone' => ($showProfit && $net < 0 ? 'loss' : 'profit'),
+            'icon' => 'reports',
+            'label' => 'Net Profit',
+            'value' => $showProfit ? money($net) : '-',
+            'trend' => $showProfit ? ($data['net_trend'] ?? $data['profit_trend'] ?? null) : null,
+            'chip' => $showProfit ? '' : 'Admin',
+            'chip_tone' => 'flat',
+            'href' => $netHref,
         ],
         [
             'tone' => ($debtors > 0.009 ? 'warn' : 'info'),
             'icon' => 'clients',
-            'label' => 'Amount owed by Debtors',
+            'label' => 'Amount due',
             'value' => money($debtors),
             'href' => (string) ($data['debtors_href'] ?? url('debtors.php')),
         ],
@@ -373,6 +395,7 @@ function render_desk_day(string $error = ''): string
     $prevTotals = stock_range_totals($prevFrom, $prevTo);
     $incomeTrend = desk_pct_trend((float) $rangeLive['income'], (float) $prevTotals['income']);
     $expenseTrend = desk_pct_trend((float) $rangeLive['expense'], (float) $prevTotals['expense']);
+    $profitTrend = desk_pct_trend((float) $rangeLive['profit'], (float) $prevTotals['profit']);
     $netTrend = desk_pct_trend((float) $rangeLive['net'], (float) $prevTotals['net']);
     $profitHref = (function_exists('user_can_open') && user_can_open('reports.php'))
         ? url('reports.php')
@@ -394,9 +417,11 @@ render_desk_metric_tabs([
     'income_href' => '#day-income',
     'expense_href' => '#day-spend',
     'profit_href' => $profitHref,
+    'net_href' => $profitHref,
     'income_trend' => $incomeTrend,
     'expense_trend' => $expenseTrend,
-    'profit_trend' => $netTrend,
+    'profit_trend' => $profitTrend,
+    'net_trend' => $netTrend,
 ]);
 ?>
 

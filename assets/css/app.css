@@ -5482,6 +5482,11 @@ a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--lin
   align-items: center;
   flex-shrink: 0;
 }
+.cdash-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
 .cdash-more { position: relative; }
 .cdash-more > summary {
   list-style: none;
@@ -5529,12 +5534,14 @@ a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--lin
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 .cdash-metrics-tabs {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 .cdash-metrics-tabs .cdash-metric {
   cursor: pointer;
   min-height: 118px;
   transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 .cdash-metrics-tabs a.cdash-metric:hover,
 .cdash-metrics-tabs a.cdash-metric:focus-visible {
@@ -5709,10 +5716,23 @@ a.cdash-metric:hover {
     width: 100%;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
-  .cdash-actions .btn { justify-content: center; min-height: 42px; }
-  .cdash-more { grid-column: 1 / -1; }
-  .cdash-more > summary { width: 100%; justify-content: center; }
+  .cdash-actions > .btn,
+  .cdash-actions > .cdash-more {
+    width: 100%;
+    min-width: 0;
+  }
+  .cdash-actions .btn {
+    justify-content: center;
+    min-height: 44px;
+    width: 100%;
+  }
+  .cdash-more { grid-column: auto; }
+  .cdash-more > summary {
+    width: 100%;
+    justify-content: center;
+  }
   .cdash-more-panel { left: 0; right: 0; }
   .cdash-metrics-primary,
   .cdash-metrics-secondary,
@@ -5722,11 +5742,19 @@ a.cdash-metric:hover {
   }
   .cdash-metric { padding: 14px; min-height: 0; }
   .cdash-metric.is-lg { min-height: 0; }
-  .cdash-metrics-tabs .cdash-metric { min-height: 0; }
-  .cdash-metric-value { font-size: 17px; }
+  .cdash-metrics-tabs .cdash-metric {
+    min-height: 108px;
+    padding: 12px;
+  }
+  .cdash-metric-label {
+    font-size: 10px;
+    letter-spacing: .06em;
+  }
+  .cdash-metric-value { font-size: 16px; }
   .cdash-metric-visual { display: none; }
   .cdash-day-panel.desk-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 420px) {
   .cdash-actions { grid-template-columns: 1fr 1fr; }
+  .cdash-metrics-tabs .cdash-metric { min-height: 100px; }
 }
