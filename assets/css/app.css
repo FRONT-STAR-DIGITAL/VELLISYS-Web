@@ -5352,6 +5352,7 @@ a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--lin
   .admin-dash-branches { grid-column: 1 / -1; }
 }
 @media (max-width: 820px) {
+  .top-clock { display: none !important; }
   .admin-body .admin-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .admin-body .admin-dash-charts { grid-template-columns: 1fr; }
   .admin-body .admin-dash-panels { grid-template-columns: 1fr; }
@@ -5360,7 +5361,7 @@ a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--lin
   .admin-dash-hide-sm { display: none !important; }
   .admin-metric { min-height: 108px; padding: 14px; }
   .admin-metric strong { font-size: 18px; }
-  .admin-dash-date { width: 100%; justify-content: flex-start; }
+  .admin-dash-date { display: none !important; }
 }
 @media (max-width: 420px) {
   .admin-metric-aside .admin-spark,
