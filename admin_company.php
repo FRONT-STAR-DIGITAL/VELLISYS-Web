@@ -1008,7 +1008,7 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
   <input type="hidden" name="id" value="<?= $id ?>">
   <input type="hidden" name="action" value="branding">
   <div class="card-head"><h2><?= icon('palette', 16) ?>Stationery</h2></div>
-  <p class="lede" style="padding:0 22px 0">Logo and two brand colours, matching Settings. Primary paints the desk and the strong bars on documents. Accent marks rails, rules and highlights.</p>
+  <p class="lede" style="padding:0 22px 0">Logo and two brand colours, matching Settings. Tap a colour square to open the colour picker. Use Eyedrop to sample from the page.</p>
   <div class="form-grid" style="padding:0 22px">
     <div>
       <label for="tagline">Tagline</label>

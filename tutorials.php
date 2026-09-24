@@ -344,7 +344,7 @@ $lessons = [
         'alt' => 'Settings Appearance with logo upload and two brand colours',
         'lead' => 'Logo, two colours, TIN, bank, document prefix, your tax name and rate, and the currency you bill in. One design prints on every sheet. Only the company admin opens Settings.',
         'points' => [
-            'Primary paints the desk and the strong bars. Accent marks rails, rules and highlights. Click Pick, then click a colour on the page so hex and R G B fill in.',
+            'Primary paints the desk and the strong bars. Accent marks rails, rules and highlights. Tap a colour square for the colour picker, or use Eyedrop to sample from the page.',
             'The sending mailbox is assigned by Vellisys. You can see the address. You cannot change the password.',
             'Backup writes a file of this desk. Download it, or restore one if you need to roll back. Stock desks get a daily copy too.',
             'Bring in books (Settings) is how you load old clients, invoices, receipts and sales from Excel after onboarding. Download a template, fill it, upload. Vellisys adds to this desk; it does not wipe what is already issued.',
