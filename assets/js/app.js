@@ -53,6 +53,41 @@ function closeNav() {
   setNavOpen(false);
 }
 
+function closeTopBellIfOutside(target) {
+  document.querySelectorAll('details.top-bell[open]').forEach(function (el) {
+    if (target && el.contains(target)) return;
+    el.removeAttribute('open');
+  });
+  syncBellScrim();
+}
+
+function syncBellScrim() {
+  var open = !!document.querySelector('details.top-bell[open]');
+  var scrim = document.querySelector('[data-bell-scrim]');
+  if (scrim) scrim.hidden = !open;
+  document.body.classList.toggle('bell-open', open);
+}
+
+document.addEventListener('toggle', function (e) {
+  var t = e.target;
+  if (t && t.matches && t.matches('details.top-bell')) {
+    syncBellScrim();
+  }
+}, true);
+
+document.addEventListener('pointerdown', function (e) {
+  var target = eventEl(e);
+  if (!target) return;
+  if (closestEl(e, '[data-bell-scrim]')) {
+    e.preventDefault();
+    closeTopBellIfOutside(null);
+    return;
+  }
+  if (document.querySelector('details.top-bell[open]')) {
+    closeTopBellIfOutside(target);
+  }
+}, true);
+
 document.addEventListener('click', function (e) {
   if (closestEl(e, '[data-print-pdf]')) {
     e.preventDefault();
@@ -62,9 +97,7 @@ document.addEventListener('click', function (e) {
   document.querySelectorAll('details.share-pop[open]').forEach(function (el) {
     if (!el.contains(e.target)) el.removeAttribute('open');
   });
-  document.querySelectorAll('details.top-bell[open]').forEach(function (el) {
-    if (!el.contains(e.target)) el.removeAttribute('open');
-  });
+  closeTopBellIfOutside(e.target);
   var q = closestEl(e, '[data-quick]');
   var qClose = closestEl(e, '[data-quick-close], [data-quick-scrim]');
   var panel = document.querySelector('[data-quick-panel]');

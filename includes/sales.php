@@ -750,6 +750,7 @@ function sales_layout_start(string $title, array $user): void
 <?php render_page_loader(); ?>
 <div class="app">
   <div class="nav-scrim" data-nav-scrim hidden></div>
+  <button type="button" class="bell-scrim" data-bell-scrim hidden aria-label="Close notifications"></button>
   <aside class="nav" data-nav>
     <a class="brand" href="<?= h(url(sales_home())) ?>">
       <img class="brand-logo" src="<?= h(product_mark_url()) ?>" alt="<?= h(product_name()) ?>">

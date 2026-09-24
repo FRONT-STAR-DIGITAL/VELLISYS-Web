@@ -874,7 +874,10 @@ function document_print_as_html(array $doc): bool
         && $kind !== 'expense';
     $ua = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
     $ios = str_contains($ua, 'iPhone') || str_contains($ua, 'iPad') || str_contains($ua, 'iPod');
-    return $thermal || $ios;
+    $android = str_contains($ua, 'Android');
+    $mobile = $ios || $android || str_contains($ua, 'Mobile');
+    // Phones/tablets get the HTML slip so it can fit the screen; desktop can use PDF.
+    return $thermal || $mobile;
 }
 
 function send_document_print_pdf(array $doc): bool

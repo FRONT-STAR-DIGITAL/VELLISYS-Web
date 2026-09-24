@@ -201,6 +201,7 @@ function layout_start(string $title, array $user, array $opts = []): void
 <?php render_page_loader(); ?>
 <div class="app">
   <div class="nav-scrim" data-nav-scrim hidden></div>
+  <button type="button" class="bell-scrim" data-bell-scrim hidden aria-label="Close notifications"></button>
   <aside class="nav" data-nav>
     <a class="brand" href="<?= h(url('dashboard.php')) ?>" title="<?= h($brand['name']) ?>">
       <img class="brand-logo" src="<?= h(logo_url($brand)) ?>" alt="<?= h($brand['name']) ?>">
@@ -402,6 +403,7 @@ function layout_admin_start(string $title, array $user): void
 <?php render_page_loader(); ?>
 <div class="app">
   <div class="nav-scrim" data-nav-scrim hidden></div>
+  <button type="button" class="bell-scrim" data-bell-scrim hidden aria-label="Close notifications"></button>
   <aside class="nav" data-nav>
     <a class="brand" href="<?= h(url('admin_dashboard.php')) ?>">
       <img class="brand-logo" src="<?= h(product_mark_url()) ?>" alt="<?= h(product_name()) ?>">

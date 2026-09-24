@@ -3,6 +3,13 @@
     var ua = navigator.userAgent || '';
     return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   }
+  function isNarrow() {
+    var w = (window.visualViewport && window.visualViewport.width)
+      || document.documentElement.clientWidth
+      || window.innerWidth
+      || 0;
+    return w > 0 && w < 900;
+  }
   function markPages(root) {
     var sheet = (root || document).querySelector('.invoice-sheet');
     if (!sheet || sheet.classList.contains('sheet-thermal')) return;
@@ -24,9 +31,6 @@
     }
   }
   function clearFit() {
-    if (typeof window.fitDocumentSheets === 'function') {
-      window.fitDocumentSheets = function () {};
-    }
     document.querySelectorAll('.invoice-sheet').forEach(function (sheet) {
       sheet.style.transform = 'none';
       sheet.style.zoom = '1';
@@ -36,6 +40,12 @@
       stage.style.height = 'auto';
       stage.style.overflow = 'visible';
     });
+  }
+  function applyScreenFit() {
+    if (typeof window.fitDocumentSheets === 'function') {
+      window.fitDocumentSheets();
+      return;
+    }
   }
   function waitImages(doc, fn) {
     var imgs = Array.prototype.slice.call(doc.images || []);
@@ -55,21 +65,38 @@
       img.addEventListener('error', done);
     });
   }
-  function start() {
+  function openPrint() {
     document.title = '';
     stripPrintUrls(document);
-    clearFit();
     markPages(document);
     window.focus();
-    window.setTimeout(function () {
-      clearFit();
-      window.print();
-    }, isIos() ? 350 : 50);
+    window.print();
   }
+  window.addEventListener('beforeprint', clearFit);
+  window.addEventListener('afterprint', function () {
+    applyScreenFit();
+    window.setTimeout(applyScreenFit, 50);
+  });
+
   function boot() {
-    clearFit();
+    applyScreenFit();
+    window.setTimeout(applyScreenFit, 80);
+    window.setTimeout(applyScreenFit, 300);
+    document.addEventListener('click', function (e) {
+      var t = e.target && e.target.closest ? e.target.closest('[data-print-pdf]') : null;
+      if (!t) return;
+      e.preventDefault();
+      openPrint();
+    });
+    // Narrow phones: show a fitted preview; user taps Print. Wider screens auto-print.
+    if (isNarrow()) {
+      document.documentElement.classList.add('print-preview');
+      return;
+    }
     waitImages(document, function () {
-      window.setTimeout(start, 120);
+      window.setTimeout(function () {
+        openPrint();
+      }, isIos() ? 350 : 50);
     });
   }
   if (document.readyState === 'complete') {

@@ -2010,7 +2010,45 @@ table.grid tfoot td {
   margin: 0 auto;
   width: 100%;
   max-width: 100%;
+  padding: 12px 10px 72px;
+  box-sizing: border-box;
 }
+.print-bar {
+  display: none;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  gap: 10px;
+  padding: 12px max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  background: rgba(255, 255, 255, .96);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -8px 24px rgba(8, 20, 58, .08);
+}
+html.print-preview .print-bar {
+  display: flex;
+  align-items: center;
+  justify-content: stretch;
+}
+html.print-preview .print-bar .btn {
+  flex: 1;
+  min-height: 44px;
+  justify-content: center;
+}
+.bell-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: rgba(8, 20, 58, .28);
+  cursor: pointer;
+}
+.bell-scrim[hidden] { display: none !important; }
+body.bell-open .top-bell { z-index: 60; }
+body.bell-open .top-bell-panel { z-index: 61; }
 
 .quick-scrim {
   position: fixed;
@@ -3818,7 +3856,8 @@ body.tut-lightbox-open { overflow: hidden; }
 @media print {
   .desk-calc { display: none !important; }
   .app-tabbar { display: none !important; }
-  .quick, .quick-scrim { display: none !important; }
+  .quick, .quick-scrim, .bell-scrim, .print-bar { display: none !important; }
+  html.print-preview .print-bar { display: none !important; }
   .desk-body::before { display: none !important; }
   html, body, .desk-body, .print-body {
     background: #fff !important;

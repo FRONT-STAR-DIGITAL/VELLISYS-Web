@@ -599,6 +599,11 @@ function render_print_document_page(array $doc, bool $pdf = false): void
       <?php render_sheet($brand, $doc); ?>
     </div>
   </div>
+  <div class="print-bar" data-print-bar>
+    <button type="button" class="btn" data-print-pdf><?= icon('printer', 16) ?>Print</button>
+    <a class="btn ghost" href="<?= h(url('document_view.php?id=' . (int) ($doc['id'] ?? 0))) ?>">Back</a>
+  </div>
+  <script src="<?= h(asset('js/sheet-fit.js')) ?>"></script>
   <script src="<?= h(asset('js/print-sheet.js')) ?>"></script>
 </body>
 </html>
