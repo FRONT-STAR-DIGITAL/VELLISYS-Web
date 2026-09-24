@@ -1255,23 +1255,38 @@ form.actions, td form { display: inline; margin: 0; }
 .action-tile strong { font-size: 14px; }
 
 .color-row { display: flex; gap: 10px; align-items: center; min-width: 0; flex-wrap: wrap; }
-.color-row input[type=color].color-value {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
+.color-swatch-wrap {
+  position: relative;
+  width: 48px;
+  height: 40px;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.35);
+  background: #fff;
 }
 .color-swatch {
-  width: 44px;
-  height: 38px;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  cursor: crosshair;
-  flex: 0 0 auto;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.35);
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
+.color-row input[type=color].color-value {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.color-row input[type=color].color-value::-webkit-color-swatch-wrapper { padding: 0; }
+.color-row input[type=color].color-value::-webkit-color-swatch { border: 0; border-radius: 0; }
 .color-row input[type=text] { width: 108px; font-family: var(--mono); }
 .color-rgb {
   display: flex;

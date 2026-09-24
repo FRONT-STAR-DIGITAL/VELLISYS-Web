@@ -562,7 +562,7 @@ layout_start('Settings', $user);
     <input type="hidden" name="action" value="save_brand">
     <section class="card settings-card" id="appearance">
       <h2><?= icon('palette') ?>Appearance</h2>
-      <p class="lede">Logo and two brand colours. Primary paints the desk and the strong bars on documents. Accent marks rails, rules and highlights. Type on those colours is black or white, whichever reads clearly. Click Pick or the colour square, then click a colour on this page (logo, bar, or type). Hex and R G B fill in the exact code.</p>
+      <p class="lede">Logo and two brand colours. Tap a colour square to open the colour picker and choose any colour. Use Eyedrop to sample a colour from this page. Hex and R G B show the exact code.</p>
       <div class="form-grid">
         <div>
           <label for="brand_color">Primary</label>

@@ -260,7 +260,7 @@ document.addEventListener('click', function (e) {
   }
   function onDropClick(e) {
     if (!dropRow) return;
-    if (e.target && e.target.closest && e.target.closest('[data-color-drop], [data-color-swatch]')) return;
+    if (e.target && e.target.closest && e.target.closest('[data-color-drop]')) return;
     e.preventDefault();
     e.stopPropagation();
     var sampled = sampleAt(e.clientX, e.clientY);
@@ -279,7 +279,7 @@ document.addEventListener('click', function (e) {
     document.body.classList.add('color-drop-on');
     banner = document.createElement('div');
     banner.className = 'color-drop-banner';
-    banner.textContent = 'Click a colour on this page. Esc cancels.';
+    banner.textContent = 'Tap a colour on this page. Esc cancels.';
     loupe = document.createElement('div');
     loupe.className = 'color-loupe';
     document.body.appendChild(banner);
@@ -289,13 +289,25 @@ document.addEventListener('click', function (e) {
     document.addEventListener('keydown', onDropKey, true);
   }
 
+  function openPicker(picker) {
+    if (!picker) return;
+    try {
+      if (typeof picker.showPicker === 'function') {
+        picker.showPicker();
+        return;
+      }
+    } catch (err) {}
+    picker.click();
+  }
+
   pairs.forEach(function (row) {
     var picker = row.querySelector('[data-color-picker]');
     var hex = row.querySelector('[data-color-hex]');
     var drop = row.querySelector('[data-color-drop]');
-    var swatch = row.querySelector('[data-color-swatch]');
+    var wrap = row.querySelector('.color-swatch-wrap');
     if (picker) {
       picker.addEventListener('input', function () { setRowColor(row, picker.value); });
+      picker.addEventListener('change', function () { setRowColor(row, picker.value); });
     }
     if (hex && picker) {
       hex.addEventListener('input', function () { setRowColor(row, hex.value); });
@@ -311,13 +323,20 @@ document.addEventListener('click', function (e) {
         setRowColor(row, rgbToHex(r && r.value, g && g.value, b && b.value));
       });
     });
-    function armDrop(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      startDrop(row);
+    if (wrap && picker) {
+      wrap.addEventListener('click', function (e) {
+        if (e.target === picker) return;
+        e.preventDefault();
+        openPicker(picker);
+      });
     }
-    if (drop) drop.addEventListener('click', armDrop);
-    if (swatch) swatch.addEventListener('click', armDrop);
+    if (drop) {
+      drop.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        startDrop(row);
+      });
+    }
   });
 })();
 
