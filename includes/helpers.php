@@ -3304,6 +3304,9 @@ function public_header(string $page = 'home'): void
         record_site_visit();
     }
     $ticker = $page === 'checkout' ? [] : landing_ticker_lines();
+    if ($page === 'home') {
+        render_landing_install_banner();
+    }
     ?>
   <header class="lp-chrome" data-lp-chrome>
   <?php if ($ticker): ?>
@@ -3347,6 +3350,23 @@ function public_header(string $page = 'home'): void
     </nav>
   </div>
   </header>
+    <?php
+}
+
+/** Soft top prompt on the public landing page to install the Vellisys app. */
+function render_landing_install_banner(): void
+{
+    $login = url('login.php');
+    ?>
+<div class="lp-install" data-pwa-install-banner hidden aria-live="polite">
+  <div class="lp-install-bar">
+    <button type="button" class="lp-install-cta" data-pwa-install-btn data-pwa-install-login="<?= h($login) ?>">
+      <span class="lp-install-mark" aria-hidden="true"><?= icon('package', 18) ?></span>
+      <span class="lp-install-copy">Install Vellisys App</span>
+    </button>
+    <button type="button" class="lp-install-x" data-pwa-install-dismiss aria-label="Dismiss install prompt"><?= icon('x', 16) ?></button>
+  </div>
+</div>
     <?php
 }
 

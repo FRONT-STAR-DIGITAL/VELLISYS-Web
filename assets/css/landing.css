@@ -2327,6 +2327,98 @@ html.is-pwa body.gate .lp-floats { display: none !important; }
   html.is-pwa .gate-panel { overflow-x: hidden; overflow-y: auto; }
 }
 
+.lp-install {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 95;
+  display: flex;
+  justify-content: center;
+  padding: max(10px, env(safe-area-inset-top)) 12px 0;
+  pointer-events: none;
+  transform: translateY(-120%);
+  opacity: 0;
+  transition: transform .6s cubic-bezier(.22, 1, .36, 1), opacity .45s ease;
+}
+.lp-install[hidden] { display: none !important; }
+.lp-install.is-in {
+  transform: translateY(0);
+  opacity: 1;
+}
+.lp-install-bar {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: min(420px, calc(100vw - 24px));
+  padding: 8px 8px 8px 10px;
+  background: var(--navy);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 14px;
+  box-shadow: 0 14px 36px rgba(8, 20, 58, .28);
+}
+.lp-install-cta {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.lp-install-cta:hover,
+.lp-install-cta:focus-visible {
+  background: rgba(255, 255, 255, .08);
+  outline: none;
+}
+.lp-install-mark {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--blue) 78%, #fff);
+  color: #fff;
+}
+.lp-install-copy {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  line-height: 1.25;
+}
+.lp-install-x {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(255, 255, 255, .78);
+  cursor: pointer;
+}
+.lp-install-x:hover,
+.lp-install-x:focus-visible {
+  background: rgba(255, 255, 255, .1);
+  color: #fff;
+  outline: none;
+}
+html.is-pwa .lp-install { display: none !important; }
+
 .lp-floats {
   position: fixed;
   z-index: 80;
