@@ -9,6 +9,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' && ($user = current_user())) {
     if (($user['role'] ?? '') === 'platform') {
         redirect(platform_home());
     }
+    if (($user['role'] ?? '') === 'sales_agent') {
+        redirect(function_exists('sales_home') ? sales_home() : 'sales_home.php');
+    }
     redirect(desk_safe_next((string) ($_GET['next'] ?? 'dashboard.php')));
 }
 $prefillEmail = strtolower(trim((string) ($_GET['email'] ?? '')));
@@ -32,6 +35,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $user = current_user();
         if (($user['role'] ?? '') === 'platform') {
             redirect(platform_home());
+        }
+        if (($user['role'] ?? '') === 'sales_agent') {
+            redirect(function_exists('sales_home') ? sales_home() : 'sales_home.php');
         }
         $first = finish_member_first_login($user ?: []);
         $next = desk_safe_next(post('next') ?: (string) ($_GET['next'] ?? ''));

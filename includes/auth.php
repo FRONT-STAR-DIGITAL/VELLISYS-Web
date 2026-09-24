@@ -38,6 +38,9 @@ function require_login(): array
 function require_member(): array
 {
     $user = require_login();
+    if (($user['role'] ?? '') === 'sales_agent') {
+        redirect(function_exists('sales_home') ? sales_home() : 'sales_home.php');
+    }
     if (($user['role'] ?? '') === 'platform') {
         $acting = (int) ($_SESSION['acting_company_id'] ?? 0);
         if ($acting <= 0) {
@@ -57,6 +60,9 @@ function require_platform(): array
 {
     $user = require_login();
     if (($user['role'] ?? '') !== 'platform') {
+        if (($user['role'] ?? '') === 'sales_agent') {
+            redirect(function_exists('sales_home') ? sales_home() : 'sales_home.php');
+        }
         redirect('dashboard.php');
     }
     return $user;

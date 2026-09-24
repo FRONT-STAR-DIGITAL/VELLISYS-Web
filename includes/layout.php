@@ -357,6 +357,8 @@ function layout_admin_start(string $title, array $user): void
         ['admin_dashboard.php', 'Dashboard', 'reports'],
         ['admin_landing.php', 'Landing', 'image'],
         ['admin_signups.php', 'Sign-ups', 'letter'],
+        ['admin_sales.php', 'Sales', 'cart'],
+        ['admin_passwords.php', 'Passwords', 'lock'],
         ['admin_questions.php', 'Questions', 'help'],
         ['admin_companies.php', 'Companies', 'building'],
         ['admin_locations.php', 'Locations', 'pin'],
@@ -399,7 +401,10 @@ function layout_admin_start(string $title, array $user): void
           $file = strtok($href, '?');
           $active = $file === $here
               || (in_array($here, ['admin_company.php', 'admin_company_new.php'], true) && $file === 'admin_companies.php')
-              || ($here === 'admin_question.php' && $file === 'admin_questions.php');
+              || ($here === 'admin_question.php' && $file === 'admin_questions.php')
+              || (str_starts_with($here, 'admin_sales') && $file === 'admin_sales.php')
+              || ($here === 'admin_passwords.php' && $file === 'admin_passwords.php');
+          $count = 0;
           if ($file === 'admin_signups.php') {
               $count = $signupNew;
           } elseif ($file === 'admin_questions.php') {

@@ -19,6 +19,13 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - Desk: `desk@ofagros.org` / `folio2026`
 - Sales: `sales@ofagros.org` / `folio2026`
 
+**Field sales agents** (same login page; no desk or onboarding rights)
+
+- Demo agent: `agent@vellisys.ug` / `agent-demo-2026`
+- Super admin creates agents under **Sales**, sets reach/sales targets, messages them, and onboards interested leads
+- Agents clock in daily with a city, log businesses (status first: Interested / Follow up / Rejected), and see Performance + chat
+- Client desk passwords are stored under admin **Passwords** (copy when helping a client sign in)
+
 ## What you get
 
 - Public landing page in three sections, with pictures on every card. Super admin can replace those pictures under **Landing**, and add **Clients who trust us** names and logos

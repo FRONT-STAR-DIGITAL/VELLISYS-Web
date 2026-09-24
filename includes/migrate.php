@@ -13,8 +13,12 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
     }
     $t = $db->real_escape_string($table);
     $c = $db->real_escape_string($column);
-    $row = @$db->query("SHOW COLUMNS FROM `$t` LIKE '$c'");
-    $cache[$key] = $row && $row->num_rows > 0;
+    try {
+        $row = @$db->query("SHOW COLUMNS FROM `$t` LIKE '$c'");
+        $cache[$key] = $row && $row->num_rows > 0;
+    } catch (Throwable $e) {
+        $cache[$key] = false;
+    }
     return $cache[$key];
 }
 
@@ -332,7 +336,8 @@ function folio_ensure_branches(mysqli $db): void
         @$db->query('ALTER TABLE documents ADD COLUMN branch_id INT UNSIGNED NULL AFTER company_id');
         @$db->query('ALTER TABLE documents ADD KEY document_branch (company_id, branch_id)');
     }
-    if (!db_has_column($db, 'company_activities', 'branch_id')) {
+    $actTable = @$db->query("SHOW TABLES LIKE 'company_activities'");
+    if ($actTable && $actTable->num_rows > 0 && !db_has_column($db, 'company_activities', 'branch_id')) {
         @$db->query('ALTER TABLE company_activities ADD COLUMN branch_id INT UNSIGNED NULL AFTER user_id');
         @$db->query('ALTER TABLE company_activities ADD KEY activity_branch (company_id, branch_id)');
         @$db->query("UPDATE company_activities a
@@ -491,6 +496,9 @@ function folio_migrate(mysqli $db): void
     if ($done) {
         return;
     }
+    // Soft schema ensures use @query / failed prepares; PHP 8+ mysqli exceptions abort otherwise.
+    mysqli_report(MYSQLI_REPORT_OFF);
+    try {
     folio_ensure_logo_bg($db);
     folio_ensure_optional_doc_party($db);
     folio_ensure_receipt_comments($db);
@@ -513,6 +521,7 @@ function folio_migrate(mysqli $db): void
     folio_migrate_client_profile($db);
     folio_ensure_banking($db);
     folio_ensure_pnl_branch_books($db);
+    folio_migrate_sales_field($db);
     $ready = folio_schema_ready_file();
     if (is_file($ready) && filemtime($ready) > time() - 86400) {
         $done = true;
@@ -523,7 +532,7 @@ function folio_migrate(mysqli $db): void
         return;
     }
     $verRow = @$db->query("SELECT v FROM schema_meta WHERE k='version'");
-    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 49) {
+    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 50) {
         @touch($ready);
         $done = true;
         return;
@@ -790,10 +799,16 @@ function folio_migrate(mysqli $db): void
     if ($ver < 49) {
         folio_ensure_banking($db);
     }
+    if ($ver < 50) {
+        folio_migrate_sales_field($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '49')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '50')");
     @touch($ready);
     $done = true;
+    } finally {
+        mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+    }
 }
 
 function folio_migrate_platform_ops(mysqli $db): void
@@ -1959,4 +1974,107 @@ function folio_ensure_pnl_branch_books(mysqli $db): void
         @$db->query('ALTER TABLE pnl_savings DROP PRIMARY KEY, ADD PRIMARY KEY (company_id, branch_id)');
     }
 }
+
+function folio_migrate_sales_field(mysqli $db): void
+{
+    // Extend users.role for field sales agents (platform staff, not desk).
+    $col = @$db->query("SHOW COLUMNS FROM users LIKE 'role'");
+    if ($col && ($info = $col->fetch_assoc())) {
+        $type = strtolower((string) ($info['Type'] ?? ''));
+        if (!str_contains($type, 'sales_agent')) {
+            @$db->query("ALTER TABLE users MODIFY COLUMN role ENUM('platform','admin','member','sales_agent') NOT NULL DEFAULT 'member'");
+        }
+    }
+    if (!db_has_column($db, 'users', 'phone')) {
+        @$db->query("ALTER TABLE users ADD COLUMN phone VARCHAR(40) NOT NULL DEFAULT ''");
+        db_has_column($db, 'users', 'phone', true);
+    }
+    $db->query("CREATE TABLE IF NOT EXISTS sales_clock_ins (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      user_id INT UNSIGNED NOT NULL,
+      day_date DATE NOT NULL,
+      clocked_at DATETIME NOT NULL,
+      location_city VARCHAR(120) NOT NULL DEFAULT '',
+      notes VARCHAR(500) NOT NULL DEFAULT '',
+      UNIQUE KEY user_day (user_id, day_date),
+      KEY day_date (day_date)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $db->query("CREATE TABLE IF NOT EXISTS sales_leads (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      agent_id INT UNSIGNED NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'follow_up',
+      business_name VARCHAR(190) NOT NULL DEFAULT '',
+      address VARCHAR(190) NOT NULL DEFAULT '',
+      contact_name VARCHAR(120) NOT NULL DEFAULT '',
+      contact_phone VARCHAR(40) NOT NULL DEFAULT '',
+      city VARCHAR(120) NOT NULL DEFAULT '',
+      nature_of_business VARCHAR(190) NOT NULL DEFAULT '',
+      package_chosen VARCHAR(40) NOT NULL DEFAULT '',
+      onboard_date DATE NULL,
+      follow_up_date DATE NULL,
+      follow_up_done_at DATETIME NULL,
+      rejected_reason VARCHAR(500) NOT NULL DEFAULT '',
+      notes TEXT NULL,
+      signup_id INT UNSIGNED NULL,
+      company_id INT UNSIGNED NULL,
+      deleted_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY agent_id (agent_id),
+      KEY status (status),
+      KEY follow_up_date (follow_up_date),
+      KEY created_at (created_at),
+      KEY deleted_at (deleted_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $db->query("CREATE TABLE IF NOT EXISTS sales_lead_events (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      lead_id INT UNSIGNED NOT NULL,
+      agent_id INT UNSIGNED NOT NULL,
+      event_type VARCHAR(40) NOT NULL DEFAULT 'update',
+      from_status VARCHAR(20) NULL,
+      to_status VARCHAR(20) NULL,
+      note VARCHAR(500) NOT NULL DEFAULT '',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY lead_id (lead_id),
+      KEY agent_id (agent_id),
+      KEY created_at (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $db->query("CREATE TABLE IF NOT EXISTS sales_targets (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      agent_id INT UNSIGNED NULL,
+      period_start DATE NOT NULL,
+      period_end DATE NOT NULL,
+      reach_target INT UNSIGNED NOT NULL DEFAULT 0,
+      sales_target INT UNSIGNED NOT NULL DEFAULT 0,
+      notes VARCHAR(500) NOT NULL DEFAULT '',
+      created_by INT UNSIGNED NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY agent_period (agent_id, period_start, period_end)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $db->query("CREATE TABLE IF NOT EXISTS sales_messages (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      from_user_id INT UNSIGNED NOT NULL,
+      to_user_id INT UNSIGNED NOT NULL,
+      body TEXT NOT NULL,
+      read_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY to_user (to_user_id, read_at),
+      KEY from_user (from_user_id),
+      KEY created_at (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $db->query("CREATE TABLE IF NOT EXISTS sales_vault (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      company_id INT UNSIGNED NULL,
+      company_name VARCHAR(190) NOT NULL DEFAULT '',
+      email VARCHAR(190) NOT NULL DEFAULT '',
+      password_enc TEXT NOT NULL,
+      notes VARCHAR(1000) NOT NULL DEFAULT '',
+      created_by INT UNSIGNED NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY company_id (company_id),
+      KEY email (email)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
 

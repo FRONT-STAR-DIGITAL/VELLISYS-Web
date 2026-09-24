@@ -6,11 +6,32 @@ $user = require_platform();
 $error = '';
 $signupId = (int) ($_GET['signup'] ?? post('signup_id'));
 $signup = $signupId ? db_one('SELECT * FROM signups WHERE id = ?', 'i', [$signupId]) : null;
+$salesLeadId = (int) ($_GET['sales_lead'] ?? post('sales_lead'));
+$salesLead = ($salesLeadId && function_exists('sales_lead')) ? sales_lead($salesLeadId) : null;
 
-$pref = static function (string $key, string $fallback = '') use ($signup): string {
+$pref = static function (string $key, string $fallback = '') use ($signup, $salesLead): string {
     $posted = post($key);
     if ($posted !== '') {
         return $posted;
+    }
+    if ($salesLead) {
+        $fromLead = match ($key) {
+            'name' => (string) ($salesLead['business_name'] ?? ''),
+            'user_name' => (string) ($salesLead['contact_name'] ?? ''),
+            'phone' => (string) ($salesLead['contact_phone'] ?? ''),
+            'city' => (string) ($salesLead['city'] ?? ''),
+            'address' => (string) ($salesLead['address'] ?? ''),
+            'nature_of_business' => (string) ($salesLead['nature_of_business'] ?? ''),
+            'plan' => (string) ($salesLead['package_chosen'] ?? ''),
+            'notes' => trim('From sales lead #' . (int) $salesLead['id']
+                . (!empty($salesLead['agent_name']) ? ' · agent ' . $salesLead['agent_name'] : '')
+                . (!empty($salesLead['onboard_date']) ? ' · prefer onboard ' . $salesLead['onboard_date'] : '')
+                . (!empty($salesLead['notes']) ? "\n" . $salesLead['notes'] : '')),
+            default => '',
+        };
+        if ($fromLead !== '') {
+            return $fromLead;
+        }
     }
     if (!$signup) {
         return $fallback;
@@ -67,22 +88,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'create') {
             $made['name'] . ' is on the books as ' . $made['status'] . '. Desk login ' . $made['email']
             . ' · password ' . $made['password'] . '.' . $receiptNote . $welcomeNote
         );
+        if ($salesLeadId && function_exists('sales_lead')) {
+            db_exec(
+                "UPDATE sales_leads SET company_id = ?, status = 'onboarded', updated_at = NOW() WHERE id = ?",
+                'ii',
+                [(int) $made['id'], $salesLeadId]
+            );
+            if (function_exists('sales_lead_event')) {
+                sales_lead_event($salesLeadId, (int) ($user['id'] ?? 0), 'company_linked', 'onboarded', 'onboarded', 'Company #' . (int) $made['id']);
+            }
+        }
+        if (function_exists('sales_vault_save') && !empty($made['email']) && !empty($made['password'])) {
+            $vaultExisting = db_one('SELECT id FROM sales_vault WHERE email = ? LIMIT 1', 's', [(string) $made['email']]);
+            sales_vault_save([
+                'company_id' => (int) $made['id'],
+                'company_name' => (string) $made['name'],
+                'email' => (string) $made['email'],
+                'password' => (string) $made['password'],
+                'notes' => $salesLeadId ? ('From sales lead #' . $salesLeadId) : 'Saved on company create',
+            ], $vaultExisting ? (int) $vaultExisting['id'] : null);
+        }
         redirect('admin_company.php?id=' . (int) $made['id']);
     }
 }
 
 $fromSignup = (bool) $signup;
-layout_admin_start($fromSignup ? 'Onboard company' : 'New company', $user);
+$fromSales = (bool) $salesLead;
+layout_admin_start($fromSignup ? 'Onboard company' : ($fromSales ? 'Onboard sales lead' : 'New company'), $user);
 $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? mail_provider_presets()['hostinger'];
 ?>
 <div class="page-head">
   <div>
-    <h1><?= icon('building') ?><?= $fromSignup ? 'Onboard ' . h($signup['company']) : 'New company' ?></h1>
+    <h1><?= icon('building') ?><?= $fromSignup ? 'Onboard ' . h($signup['company']) : ($fromSales ? 'Onboard ' . h(trim((string) ($salesLead['business_name'] ?? '')) ?: 'sales lead') : 'New company') ?></h1>
     <p class="lede"><?= $fromSignup
         ? 'From the website sign-up. Fill what you have, create the desk, and issue the first login.'
-        : 'Create a company client from scratch. Type the desk in by hand - no website sign-up needed.' ?></p>
+        : ($fromSales
+            ? 'From the sales field lead' . (!empty($salesLead['agent_name']) ? ' · reached by ' . h($salesLead['agent_name']) : '') . '. Confirm details, create the desk login, and the password is saved to Passwords.'
+            : 'Create a company client from scratch. Type the desk in by hand - no website sign-up needed.') ?></p>
   </div>
-  <a class="btn ghost" href="<?= h(url('admin_companies.php')) ?>">Back to companies</a>
+  <a class="btn ghost" href="<?= h(url($fromSales ? 'admin_sales.php?tab=leads' : 'admin_companies.php')) ?>"><?= $fromSales ? 'Back to sales' : 'Back to companies' ?></a>
 </div>
 
 <?php if ($error): ?><p class="flash flash-err" style="margin:0 0 16px"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
@@ -91,6 +135,7 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
   <?= csrf_field() ?>
   <input type="hidden" name="action" value="create">
   <?php if ($signupId): ?><input type="hidden" name="signup_id" value="<?= (int) $signupId ?>"><?php endif; ?>
+  <?php if ($salesLeadId): ?><input type="hidden" name="sales_lead" value="<?= (int) $salesLeadId ?>"><?php endif; ?>
 
   <div class="card-head"><h2><?= icon('building', 16) ?>Company and desk login</h2></div>
   <p class="lede" style="padding:0 22px">Legal name, first admin, how many seats, and whether this desk is live today.</p>
@@ -100,7 +145,7 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
       <input id="name" name="name" required value="<?= h($pref('name')) ?>" placeholder="Harbour &amp; Co.">
     </div>
     <div>
-      <?php render_nature_of_business_field((string) (post('nature_of_business') ?: ($signup['nature_of_business'] ?? ''))); ?>
+      <?php render_nature_of_business_field((string) (post('nature_of_business') ?: ($signup['nature_of_business'] ?? $pref('nature_of_business')))); ?>
     </div>
     <div>
       <label for="status">Status</label>
@@ -112,7 +157,7 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
     </div>
     <div>
       <label for="plan">Plan</label>
-      <?php $planPick = normalize_company_plan(post('plan') ?: 'sme'); ?>
+      <?php $planPick = normalize_company_plan(post('plan') ?: ($pref('plan') ?: 'sme')); ?>
       <select id="plan" name="plan" data-planner-plan data-plan-user-max>
         <?php foreach (company_plan_options() as $key => $label): ?>
           <option value="<?= h($key) ?>" data-max-users="<?= (int) plan_user_limit_max($key) ?>" <?= $planPick === $key ? 'selected' : '' ?>><?= h($label) ?></option>
@@ -203,7 +248,7 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
     </div>
     <div>
       <label for="city">City</label>
-      <input id="city" name="city" value="<?= h(post('city')) ?>">
+      <input id="city" name="city" value="<?= h($pref('city') ?: post('city')) ?>">
     </div>
     <div>
       <label for="website">Website</label>
@@ -212,7 +257,7 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
   </div>
   <div style="padding:0 22px">
     <label for="address">Address</label>
-    <input id="address" name="address" value="<?= h(post('address')) ?>">
+    <input id="address" name="address" value="<?= h($pref('address') ?: post('address')) ?>">
   </div>
   <div class="form-grid" style="padding:0 22px">
     <div>

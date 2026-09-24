@@ -5036,3 +5036,119 @@ a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--lin
   .pos-save { width: 100%; }
 }
 
+
+/* —— Sales field portal (mobile-first agents) —— */
+.sales-body .content {
+  max-width: 920px;
+}
+.sales-status-pick {
+  border: 0;
+  margin: 0 0 16px;
+  padding: 0;
+}
+.sales-status-pick legend {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.sales-status-pick .chip {
+  cursor: pointer;
+  user-select: none;
+}
+.sales-status-pick .chip input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.sales-lead-form [data-panel] {
+  margin-top: 12px;
+}
+.sales-chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: min(52vh, 420px);
+  overflow: auto;
+  padding: 4px 2px 8px;
+}
+.sales-chat-bubble {
+  max-width: min(92%, 420px);
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #f0f3f9;
+  border: 1px solid var(--line);
+}
+.sales-chat-bubble strong {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+.sales-chat-bubble p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.sales-chat-bubble span {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.sales-chat-bubble.is-mine {
+  align-self: flex-end;
+  background: color-mix(in srgb, var(--brand) 12%, #fff);
+  border-color: color-mix(in srgb, var(--brand) 28%, var(--line));
+}
+.sales-body .nav a[data-badge]::after {
+  content: attr(data-badge);
+  margin-left: 6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+@media (max-width: 1024px) {
+  .sales-body .content {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .sales-body .page-head h1 {
+    font-size: 1.35rem;
+  }
+  .sales-body .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .sales-body .chart-grid.equal {
+    grid-template-columns: 1fr;
+  }
+  .sales-lead-form .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .sales-chat-log {
+    max-height: min(46vh, 360px);
+  }
+}
+@media (max-width: 600px) {
+  .sales-body .stats {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .sales-body .card.stat strong {
+    font-size: 1.25rem;
+  }
+  .sales-body .top-actions .btn {
+    padding-inline: 10px;
+  }
+  .sales-body table.grid {
+    min-width: 560px;
+  }
+}
+.vault-pw {
+  letter-spacing: .08em;
+}
