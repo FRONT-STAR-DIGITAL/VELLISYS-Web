@@ -4,12 +4,6 @@ require __DIR__ . '/includes/bootstrap.php';
 $user = require_member();
 $brand = branding();
 $homeCcy = default_currency();
-$hour = (int) date('G');
-$hello = $hour < 12 ? 'Good morning' : ($hour < 17 ? 'Good afternoon' : 'Good evening');
-$firstName = explode(' ', trim((string) $user['name']))[0];
-if ($firstName === '') {
-    $firstName = (string) ($brand['name'] ?? 'there');
-}
 $canQuote = user_can_kind('quotation');
 $canInvoice = user_can_kind('invoice');
 $deskCompany = current_company();
@@ -34,31 +28,36 @@ if ($stockOn) {
         <?php render_top_term($deskCompany); ?>
       </div>
     <?php endif; ?>
-    <div class="desk-hero">
-      <div class="desk-hello">
-        <p class="desk-kicker"><?= h($brand['name']) ?></p>
-        <h1 class="desk-hello-title"><?= h($hello) ?> <?= h($firstName) ?></h1>
-        <p class="desk-hello-lead">Today’s till, sales (including quick receipts), expenses and opening cash. Filters and reports sit on this desk.</p>
-      </div>
-      <div class="actions">
-        <?php if ($canQuote): ?><a class="btn ghost" href="<?= h(url('document_new.php?kind=quotation')) ?>"><?= icon('quotation', 16) ?>Quotation</a><?php endif; ?>
-        <?php if ($canInvoice): ?><a class="btn" href="<?= h(url('document_new.php?kind=invoice')) ?>"><?= icon('invoice', 16) ?>Invoice</a><?php endif; ?>
-        <a class="btn ghost" href="<?= h(url('sale.php')) ?>"><?= icon('cart', 16) ?>Sale</a>
-        <a class="btn ghost" href="<?= h(url('activities.php')) ?>"><?= icon('clock', 16) ?>Activities</a>
-      </div>
-    </div>
     <?php
+    render_desk_company_card($deskCompany, [
+        'can_quote' => $canQuote,
+        'can_invoice' => $canInvoice,
+        'stock' => true,
+        'reports' => is_desk_admin($user),
+    ]);
     $extraJs = render_desk_day($dayError);
     layout_end($extraJs);
     return;
 }
 
+if (!isset($_GET['range']) && trim((string) ($_GET['from'] ?? '')) === '') {
+    $_GET['range'] = 'this_month';
+}
+
 $cid = current_company_id();
 $base = $homeCcy;
+$period = period_range();
+$from = $period['from'] !== '' ? $period['from'] : date('Y-m-01');
+$to = $period['to'] !== '' ? $period['to'] : today();
+[$prevFrom, $prevTo] = desk_period_shift($from, $to);
 $since = date('Y-m-01', strtotime('-5 months'));
-$monthStart = date('Y-m-01');
 
-$invoices = attach_document_totals(db_all("SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id WHERE d.company_id = ? AND d.kind = 'invoice' AND d.status = 'issued' ORDER BY d.due_date IS NULL, d.due_date, d.id DESC", 'i', [$cid]));
+$invoices = attach_document_totals(db_all(
+    "SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id
+     WHERE d.company_id = ? AND d.kind = 'invoice' AND d.status = 'issued' ORDER BY d.due_date IS NULL, d.due_date, d.id DESC",
+    'i',
+    [$cid]
+));
 $open = array_values(array_filter($invoices, static fn ($d) => $d['balance'] > 0));
 $saleOpen = array_values(array_filter(
     attach_document_totals(db_all(
@@ -71,26 +70,45 @@ $saleOpen = array_values(array_filter(
     static fn ($d) => document_due_amount($d) > 0.009
 ));
 $overdue = array_values(array_filter($open, static fn ($d) => !empty($d['due_date']) && $d['due_date'] < today()));
-$incomeMonth = 0;
-$incomeAll = 0;
-foreach ($invoices as $d) {
-    $total = convert_money($d['totals']['total'], doc_currency($d), $base);
-    $incomeAll += $total;
-    if ($d['date'] >= $monthStart) {
-        $incomeMonth += $total;
+
+$sumInRange = static function (array $docs) use ($from, $to, $base): float {
+    $n = 0.0;
+    foreach ($docs as $d) {
+        $date = (string) ($d['date'] ?? '');
+        if ($date < $from || $date > $to) {
+            continue;
+        }
+        $n += convert_money($d['totals']['total'], doc_currency($d), $base);
     }
-}
-$expAll = attach_document_totals(db_all("SELECT d.*, p.name AS party_name FROM documents d LEFT JOIN parties p ON p.id = d.party_id WHERE d.company_id = ? AND d.kind = 'expense' AND d.status = 'issued'", 'i', [$cid]));
-$expenseMonth = 0;
-$expenseAll = 0;
-$creditorOpen = 0;
+    return $n;
+};
+$sumInWindow = static function (array $docs, string $a, string $b) use ($base): float {
+    $n = 0.0;
+    foreach ($docs as $d) {
+        $date = (string) ($d['date'] ?? '');
+        if ($date < $a || $date > $b) {
+            continue;
+        }
+        $n += convert_money($d['totals']['total'], doc_currency($d), $base);
+    }
+    return $n;
+};
+
+$incomePeriod = $sumInRange($invoices);
+$incomePrev = $sumInWindow($invoices, $prevFrom, $prevTo);
+
+$expAll = attach_document_totals(db_all(
+    "SELECT d.*, p.name AS party_name FROM documents d LEFT JOIN parties p ON p.id = d.party_id
+     WHERE d.company_id = ? AND d.kind = 'expense' AND d.status = 'issued'",
+    'i',
+    [$cid]
+));
+$expensePeriod = $sumInRange($expAll);
+$expensePrev = $sumInWindow($expAll, $prevFrom, $prevTo);
+$creditorOpen = 0.0;
 $byCat = [];
 foreach ($expAll as $d) {
     $total = convert_money($d['totals']['total'], doc_currency($d), $base);
-    $expenseAll += $total;
-    if ($d['date'] >= $monthStart) {
-        $expenseMonth += $total;
-    }
     if ((float) ($d['balance'] ?? 0) > 0.009) {
         $creditorOpen += convert_money((float) $d['balance'], doc_currency($d), $base);
     }
@@ -103,20 +121,26 @@ arsort($byCat);
 $byCat = array_slice($byCat, 0, 6, true);
 
 $receipts = attach_document_totals(db_all(
-    "SELECT d.*, r.kind AS related_kind FROM documents d LEFT JOIN documents r ON r.id = d.related_id WHERE d.company_id = ? AND d.kind = 'receipt' AND d.status = 'issued' AND d.date >= ?",
+    "SELECT d.*, r.kind AS related_kind FROM documents d LEFT JOIN documents r ON r.id = d.related_id
+     WHERE d.company_id = ? AND d.kind = 'receipt' AND d.status = 'issued' AND d.date >= ?",
     'is',
     [$cid, $since]
 ));
-$cashMonth = 0;
-$cashHalf = 0;
+$cashPeriod = 0.0;
+$cashPrev = 0.0;
+$cashHalf = 0.0;
 foreach ($receipts as $d) {
     if (($d['related_kind'] ?? '') === 'expense') {
         continue;
     }
     $amt = convert_money((float) ($d['allocated_amount'] ?: $d['totals']['total']), doc_currency($d), $base);
+    $date = (string) ($d['date'] ?? '');
     $cashHalf += $amt;
-    if ($d['date'] >= $monthStart) {
-        $cashMonth += $amt;
+    if ($date >= $from && $date <= $to) {
+        $cashPeriod += $amt;
+    }
+    if ($date >= $prevFrom && $date <= $prevTo) {
+        $cashPrev += $amt;
     }
 }
 
@@ -129,26 +153,27 @@ $quotesConverted = (int) (db_one(
 )['c'] ?? 0);
 $quoteRate = $quotesAll > 0 ? (int) round(100 * $quotesConverted / $quotesAll) : 0;
 
-$recent = attach_document_totals(db_all("SELECT d.*, p.name AS party_name FROM documents d LEFT JOIN parties p ON p.id = d.party_id WHERE d.company_id = ? ORDER BY d.id DESC LIMIT 8", 'i', [$cid]));
+$invoiceCount = 0;
+foreach ($invoices as $d) {
+    $date = (string) ($d['date'] ?? '');
+    if ($date >= $from && $date <= $to) {
+        $invoiceCount++;
+    }
+}
+
+$recent = attach_document_totals(db_all(
+    "SELECT d.*, p.name AS party_name FROM documents d LEFT JOIN parties p ON p.id = d.party_id
+     WHERE d.company_id = ? ORDER BY d.id DESC LIMIT 8",
+    'i',
+    [$cid]
+));
 $queue = $overdue ?: array_merge($open, $saleOpen);
-$hour = (int) date('G');
-$hello = $hour < 12 ? 'Good morning' : ($hour < 17 ? 'Good afternoon' : 'Good evening');
-$firstName = explode(' ', trim((string) $user['name']))[0];
-if ($firstName === '') {
-    $firstName = (string) ($brand['name'] ?? 'there');
-}
-$fxRate = fx_home_per_usd();
-if ($homeCcy === 'USD') {
-    $fxValue = 'Books already in USD';
-} else {
-    $prettyRate = rtrim(rtrim(number_format($fxRate, 4, '.', ','), '0'), '.');
-    $fxValue = '1 USD = ' . $prettyRate . ' ' . $homeCcy;
-}
 
 $openAmt = documents_sum($open, 'balance') + array_sum(array_map(static fn ($d) => convert_money(document_due_amount($d), doc_currency($d), $base), $saleOpen));
 $overdueAmt = documents_sum($overdue, 'balance');
-$netMonth = $incomeMonth - $expenseMonth;
-$collectRate = $incomeMonth > 0 ? (int) round(100 * min($cashMonth, $incomeMonth) / $incomeMonth) : 0;
+$netPeriod = $incomePeriod - $expensePeriod;
+$netPrev = $incomePrev - $expensePrev;
+$collectRate = $incomePeriod > 0 ? (int) round(100 * min($cashPeriod, $incomePeriod) / $incomePeriod) : 0;
 
 $months = [];
 for ($i = 5; $i >= 0; $i--) {
@@ -194,9 +219,17 @@ arsort($byClient);
 $topClients = array_slice($byClient, 0, 5, true);
 
 $color = parse_hex_color((string) ($brand['brand_color'] ?? ''), '#1E4EFF');
-$canQuote = user_can_kind('quotation');
-$canInvoice = user_can_kind('invoice');
-$deskCompany = current_company();
+$incomeTrend = desk_pct_trend($incomePeriod, $incomePrev);
+$expenseTrend = desk_pct_trend($expensePeriod, $expensePrev);
+$netTrend = desk_pct_trend($netPeriod, $netPrev);
+$cashTrend = desk_pct_trend($cashPeriod, $cashPrev);
+$incomeSeries = array_values(array_column($months, 'invoiced'));
+$expenseSeries = array_values(array_column($months, 'expenses'));
+$cashSeries = array_values(array_column($months, 'cash'));
+$netSeries = [];
+foreach ($months as $row) {
+    $netSeries[] = (float) $row['invoiced'] - (float) $row['expenses'];
+}
 
 layout_start('Desk', $user);
 ?>
@@ -206,66 +239,118 @@ layout_start('Desk', $user);
   </div>
 <?php endif; ?>
 
-<div class="desk-hero">
-  <div class="desk-hello">
-    <p class="desk-kicker"><?= h($brand['name']) ?></p>
-    <h1 class="desk-hello-title"><?= h($hello) ?> <?= h($firstName) ?></h1>
-    <p class="desk-hello-lead">This month at a glance - invoices, collections, spend and who still owes you.</p>
-    <div class="desk-fx">
-      <div>
-        <span>Main currency</span>
-        <strong><?= h($homeCcy) ?></strong>
-      </div>
-      <div>
-        <span>USD conversion</span>
-        <strong><?= h($fxValue) ?></strong>
-      </div>
-    </div>
-  </div>
-  <div class="actions">
-    <?php if ($canQuote): ?><a class="btn ghost" href="<?= h(url('document_new.php?kind=quotation')) ?>"><?= icon('quotation', 16) ?>Quotation</a><?php endif; ?>
-    <?php if ($canInvoice): ?><a class="btn" href="<?= h(url('document_new.php?kind=invoice')) ?>"><?= icon('invoice', 16) ?>Invoice</a><?php endif; ?>
-    <a class="btn ghost" href="<?= h(url('activities.php')) ?>"><?= icon('clock', 16) ?>Activities</a>
-  </div>
+<?php
+render_desk_company_card($deskCompany, [
+    'can_quote' => $canQuote,
+    'can_invoice' => $canInvoice,
+    'stock' => false,
+    'reports' => is_desk_admin($user),
+]);
+render_filters('dashboard.php', [], ['no_all' => true]);
+?>
+
+<div class="cdash-metrics cdash-metrics-primary">
+  <?php
+    render_desk_metric([
+        'size' => 'lg',
+        'tone' => 'income',
+        'icon' => 'invoice',
+        'label' => 'Income',
+        'value' => money($incomePeriod),
+        'trend' => $incomeTrend,
+        'visual' => desk_minibars($incomeSeries, 'income'),
+        'href' => url(is_desk_admin($user) ? 'reports.php' : 'documents.php?kind=invoice'),
+    ]);
+    if (user_can_kind('expense')) {
+        render_desk_metric([
+            'size' => 'lg',
+            'tone' => 'spend',
+            'icon' => 'wallet',
+            'label' => 'Expenditure',
+            'value' => money($expensePeriod),
+            'trend' => $expenseTrend,
+            'visual' => desk_minibars($expenseSeries, 'spend'),
+            'href' => url('documents.php?kind=expense'),
+        ]);
+    }
+    render_desk_metric([
+        'size' => 'lg',
+        'tone' => ($netPeriod < 0 ? 'loss' : 'profit'),
+        'icon' => 'package',
+        'label' => 'Net profit',
+        'value' => money($netPeriod),
+        'trend' => $netTrend,
+        'visual' => desk_minibars($netSeries, $netPeriod < 0 ? 'loss' : 'profit'),
+    ]);
+  ?>
 </div>
 
-<div class="desk-kpis">
-  <a class="desk-kpi is-brand" href="<?= h(url(is_desk_admin($user) ? 'reports.php' : 'documents.php?kind=invoice')) ?>">
-    <span>Invoiced this month</span>
-    <strong><?= h(money($incomeMonth)) ?></strong>
-    <em><?= $netMonth >= 0 ? 'Net ' . money($netMonth) : 'Net −' . money(abs($netMonth)) ?></em>
-  </a>
-  <a class="desk-kpi" href="<?= h(url('documents.php?kind=receipt')) ?>">
-    <span>Collected</span>
-    <strong><?= h(money($cashMonth)) ?></strong>
-    <em><?= $collectRate ?>% of this month’s invoices</em>
-  </a>
-  <?php if (user_can_kind('expense')): ?>
-  <a class="desk-kpi" href="<?= h(url('documents.php?kind=expense')) ?>">
-    <span>Spent this month</span>
-    <strong><?= h(money($expenseMonth)) ?></strong>
-    <em>Suppliers still due <?= h(money($creditorOpen)) ?></em>
-  </a>
-  <?php endif; ?>
-  <a class="desk-kpi<?= $overdueAmt > 0 ? ' is-warn' : '' ?>" href="<?= h(url('debtors.php')) ?>">
-    <span>Outstanding</span>
-    <strong><?= h(money($openAmt)) ?></strong>
-    <em><?= count($overdue) ?> overdue · <?= h(money($overdueAmt)) ?></em>
-  </a>
+<div class="cdash-metrics cdash-metrics-secondary">
+  <?php
+    render_desk_metric([
+        'tone' => 'income',
+        'icon' => 'receipt',
+        'label' => 'Collected',
+        'value' => money($cashPeriod),
+        'sub' => $collectRate . '% of invoices',
+        'trend' => $cashTrend,
+        'visual' => desk_sparkline($cashSeries, 'var(--brand)'),
+        'href' => url('documents.php?kind=receipt'),
+    ]);
+    render_desk_metric([
+        'tone' => ($overdueAmt > 0 ? 'warn' : 'info'),
+        'icon' => 'clients',
+        'label' => 'Outstanding',
+        'value' => money($openAmt),
+        'sub' => count($overdue) . ' overdue',
+        'chip' => count($overdue) ? (string) count($overdue) : 'Clear',
+        'chip_tone' => $overdueAmt > 0 ? 'warn' : 'ok',
+        'href' => url('debtors.php'),
+    ]);
+    render_desk_metric([
+        'tone' => 'info',
+        'icon' => 'quotation',
+        'label' => 'Quotations',
+        'value' => (string) $quotesOpen,
+        'chip' => $quoteRate . '%',
+        'chip_tone' => 'info',
+        'href' => url('documents.php?kind=quotation'),
+    ]);
+    if (user_can_kind('expense')) {
+        render_desk_metric([
+            'tone' => 'spend',
+            'icon' => 'truck',
+            'label' => 'Creditors',
+            'value' => money($creditorOpen),
+            'chip' => 'Due',
+            'chip_tone' => $creditorOpen > 0 ? 'warn' : 'flat',
+            'href' => url('creditors.php'),
+        ]);
+    } else {
+        render_desk_metric([
+            'tone' => 'info',
+            'icon' => 'invoice',
+            'label' => 'Invoices',
+            'value' => (string) $invoiceCount,
+            'chip' => 'Period',
+            'chip_tone' => 'info',
+            'href' => url('documents.php?kind=invoice'),
+        ]);
+    }
+  ?>
 </div>
 
 <div class="desk-bento">
   <article class="card desk-tile desk-tile-wide">
     <div class="card-head">
-      <h2>Six-month performance</h2>
-      <?php if (is_desk_admin($user)): ?><a class="btn ghost sm" href="<?= h(url('reports.php')) ?>">Full reports</a><?php endif; ?>
+      <h2>Performance</h2>
+      <?php if (is_desk_admin($user)): ?><a class="btn ghost sm" href="<?= h(url('reports.php')) ?>">Reports</a><?php endif; ?>
     </div>
     <div class="desk-chart"><canvas id="desk-chart-trend"></canvas></div>
   </article>
   <article class="card desk-tile">
     <div class="card-head"><h2>Collections</h2></div>
     <div class="desk-chart desk-chart-sm"><canvas id="desk-chart-collect"></canvas></div>
-    <p class="desk-tile-note"><?= $collectRate ?>% collected against invoices raised this month.</p>
   </article>
   <article class="card desk-tile">
     <div class="card-head"><h2>Analysis</h2></div>
@@ -280,10 +365,10 @@ layout_start('Desk', $user);
   <article class="card desk-tile desk-tile-mid">
     <div class="card-head">
       <h2><?= $overdue ? 'Overdue' : 'Open invoices' ?></h2>
-      <a class="btn ghost sm" href="<?= h(url('documents.php?kind=invoice')) ?>">All invoices</a>
+      <a class="btn ghost sm" href="<?= h(url('documents.php?kind=invoice')) ?>">All</a>
     </div>
     <?php if (!$queue): ?>
-      <p class="empty">Nothing outstanding. Issue an invoice when you are ready.</p>
+      <p class="empty">Nothing outstanding.</p>
     <?php else: ?>
       <div class="work-list">
         <?php foreach (array_slice($queue, 0, 5) as $doc): ?>
@@ -301,15 +386,15 @@ layout_start('Desk', $user);
   <article class="card desk-tile">
     <div class="card-head"><h2>Spend mix</h2></div>
     <?php if (!$byCat): ?>
-      <p class="empty">No expenses in the last six months to chart.</p>
+      <p class="empty">No expenses yet.</p>
     <?php else: ?>
       <div class="desk-chart desk-chart-sm"><canvas id="desk-chart-spend"></canvas></div>
     <?php endif; ?>
   </article>
   <article class="card desk-tile">
-    <div class="card-head"><h2>Top clients billed</h2></div>
+    <div class="card-head"><h2>Top clients</h2></div>
     <?php if (!$topClients): ?>
-      <p class="empty">No invoices in the last six months.</p>
+      <p class="empty">No invoices yet.</p>
     <?php else: ?>
       <div class="desk-chart desk-chart-sm"><canvas id="desk-chart-clients"></canvas></div>
     <?php endif; ?>
@@ -358,7 +443,7 @@ $payload = json_encode([
     'invoiced' => array_values(array_column($months, 'invoiced')),
     'expenses' => array_values(array_column($months, 'expenses')),
     'cash' => array_values(array_column($months, 'cash')),
-    'collect' => [$cashMonth, max(0, $incomeMonth - $cashMonth)],
+    'collect' => [$cashPeriod, max(0, $incomePeriod - $cashPeriod)],
     'cats' => array_keys($byCat),
     'catVals' => array_values($byCat),
     'clients' => array_keys($topClients),
@@ -394,8 +479,8 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
       data: {
         labels: d.labels,
         datasets: [
-          { label: "Invoiced", data: d.invoiced, borderColor: brand, backgroundColor: brand + "33", tension: .35, fill: true, borderWidth: 2, pointRadius: 3 },
-          { label: "Expenses", data: d.expenses, borderColor: "#b42318", backgroundColor: "rgba(180,35,24,.12)", tension: .35, fill: true, borderWidth: 2, pointRadius: 3 },
+          { label: "Income", data: d.invoiced, borderColor: brand, backgroundColor: brand + "33", tension: .35, fill: true, borderWidth: 2, pointRadius: 3 },
+          { label: "Expenditure", data: d.expenses, borderColor: "#3b82f6", backgroundColor: "rgba(59,130,246,.12)", tension: .35, fill: false, borderWidth: 2, pointRadius: 3 },
           { label: "Cash in", data: d.cash, borderColor: "#0f766e", backgroundColor: "transparent", tension: .35, fill: false, borderWidth: 2, pointRadius: 3 }
         ]
       },

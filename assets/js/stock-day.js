@@ -5,13 +5,27 @@
   function setsFrom(boot, block) {
     var color = boot.color || '#82B440';
     var out = [
-      { label: 'Income', data: block.income || [], borderColor: color, tension: 0.25, fill: false },
-      { label: 'Spend', data: block.expense || [], borderColor: '#b42318', tension: 0.25, fill: false }
+      {
+        label: 'Income',
+        data: block.income || [],
+        borderColor: color,
+        backgroundColor: color + '33',
+        tension: 0.35,
+        fill: true,
+        borderWidth: 2,
+        pointRadius: 3
+      },
+      {
+        label: 'Expenditure',
+        data: block.expense || [],
+        borderColor: '#3b82f6',
+        backgroundColor: 'transparent',
+        tension: 0.35,
+        fill: false,
+        borderWidth: 2,
+        pointRadius: 3
+      }
     ];
-    if (boot.showProfit) {
-      out.push({ label: 'Profit', data: block.profit || [], borderColor: '#1f3a12', tension: 0.25, fill: false });
-      out.push({ label: 'Net', data: block.net || [], borderColor: '#1E4EFF', tension: 0.25, fill: false });
-    }
     return out;
   }
   function line(boot, id, labels, sets) {
