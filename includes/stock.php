@@ -185,6 +185,37 @@ function stock_low_items(): array
     );
 }
 
+/** Bell / push items for products at or below reorder level. */
+function stock_low_notifications(int $limit = 20): array
+{
+    if (!function_exists('company_stock_enabled') || !company_stock_enabled()) {
+        return [];
+    }
+    $items = [];
+    foreach (array_slice(stock_low_items(), 0, max(1, $limit)) as $row) {
+        $id = (int) ($row['id'] ?? 0);
+        if ($id < 1) {
+            continue;
+        }
+        $qty = (float) ($row['qty_on_hand'] ?? 0);
+        $reorder = (float) ($row['reorder_level'] ?? 0);
+        $name = trim((string) ($row['name'] ?? 'Product')) ?: 'Product';
+        $qtyLabel = function_exists('stock_qty_label') ? stock_qty_label($qty) : (string) $qty;
+        $reorderLabel = function_exists('stock_qty_label') ? stock_qty_label($reorder) : (string) $reorder;
+        $items[] = [
+            'type' => 'stock_low',
+            'tone' => 'warn',
+            'title' => $name,
+            'meta' => 'Low stock · ' . $qtyLabel . ' on hand (reorder at ' . $reorderLabel . ')',
+            'href' => url('stock.php?tab=items&edit=' . $id),
+            'key' => 'stock-low:' . $id . ':' . $qtyLabel,
+            'sort' => '0-stock-' . sprintf('%010.3f', $qty) . '-' . $name,
+            'item_id' => $id,
+        ];
+    }
+    return $items;
+}
+
 function stock_save_item(array $fields, ?int $id = null): array
 {
     $cid = current_company_id();

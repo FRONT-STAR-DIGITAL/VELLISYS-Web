@@ -4257,6 +4257,19 @@ a.branch-activity-row:hover { text-decoration: none; }
   font-weight: 700;
   color: var(--brand);
 }
+.top-bell-feet {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.top-bell-feet .top-bell-foot {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
 
 @media (max-width: 900px) {
   .planner-split,

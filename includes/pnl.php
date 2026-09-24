@@ -1308,6 +1308,19 @@ function enrich_planner_notifications(array $items): array
                 ['label' => 'Receive', 'href' => url('document_action.php?receive=' . $n['document_id']), 'class' => 'btn sm'],
                 ['label' => 'View', 'href' => $n['href'], 'class' => 'btn ghost sm'],
             ];
+        } elseif ($type === 'stock_low') {
+            $id = (int) ($n['item_id'] ?? 0);
+            if ($id < 1 && preg_match('/edit=(\d+)/', (string) ($n['href'] ?? ''), $m)) {
+                $id = (int) $m[1];
+            }
+            $n['item_id'] = $id;
+            if (empty($n['key'])) {
+                $n['key'] = notification_dismiss_key($n);
+            }
+            $n['actions'] = [
+                ['label' => 'Restock', 'href' => $n['href'] ?? url('stock.php?tab=items'), 'class' => 'btn sm'],
+                ['label' => 'Stock', 'href' => url('stock.php?tab=items'), 'class' => 'btn ghost sm'],
+            ];
         } else {
             $n['key'] = notification_dismiss_key($n);
             $n['actions'] = [
@@ -1320,4 +1333,28 @@ function enrich_planner_notifications(array $items): array
         $out[] = $n;
     }
     return $out;
+}
+
+/** Desk bell items: planner deadlines plus low stock when Stock is on. */
+function desk_notifications(int $limit = 40): array
+{
+    $items = [];
+    if (function_exists('company_planner_enabled') && company_planner_enabled() && is_desk_admin()) {
+        $items = array_merge($items, planner_notifications($limit));
+    }
+    if (function_exists('company_stock_enabled') && company_stock_enabled() && is_desk_admin() && function_exists('stock_low_notifications')) {
+        $items = array_merge($items, stock_low_notifications(20));
+    }
+    usort($items, static fn ($a, $b) => strcmp((string) ($a['sort'] ?? ''), (string) ($b['sort'] ?? '')));
+    return enrich_planner_notifications(array_slice($items, 0, $limit));
+}
+
+function desk_notifications_enabled(): bool
+{
+    if (!is_desk_admin()) {
+        return false;
+    }
+    $planner = function_exists('company_planner_enabled') && company_planner_enabled();
+    $stock = function_exists('company_stock_enabled') && company_stock_enabled();
+    return $planner || $stock;
 }

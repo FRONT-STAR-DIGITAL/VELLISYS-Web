@@ -168,8 +168,13 @@ function layout_start(string $title, array $user, array $opts = []): void
         }
         return user_can_open($file, $kind);
     }));
-    $notes = (company_planner_enabled() && is_desk_admin()) ? enrich_planner_notifications(planner_notifications(40)) : [];
+    $notes = function_exists('desk_notifications_enabled') && desk_notifications_enabled()
+        ? desk_notifications(40)
+        : [];
     $noteCount = count($notes);
+    $showBell = function_exists('desk_notifications_enabled') && desk_notifications_enabled();
+    $plannerOn = function_exists('company_planner_enabled') && company_planner_enabled() && is_desk_admin();
+    $stockOn = function_exists('company_stock_enabled') && company_stock_enabled();
     if ($noteCount && function_exists('push_schedule_sync')) {
         push_schedule_sync();
     }
@@ -274,7 +279,7 @@ function layout_start(string $title, array $user, array $opts = []): void
       <div class="top-actions">
         <?php render_top_search(); ?>
         <a class="header-settings<?= in_array($here, ['settings.php', 'branding.php'], true) ? ' is-on' : '' ?>" href="<?= h(url('settings.php')) ?>" title="Settings" aria-label="Settings"><?= icon('settings', 20) ?></a>
-        <?php if (company_planner_enabled() && is_desk_admin()): ?>
+        <?php if ($showBell): ?>
           <details class="top-bell">
             <summary class="header-settings<?= $noteCount ? ' has-badge' : '' ?>" title="Notifications" aria-label="Notifications">
               <?= icon('bell', 20) ?>
@@ -283,7 +288,7 @@ function layout_start(string $title, array $user, array $opts = []): void
             <div class="top-bell-panel">
               <strong>Coming up</strong>
               <?php if (!$notes): ?>
-                <p class="muted">No deadlines or essentials right now.</p>
+                <p class="muted">No deadlines, essentials or low stock right now.</p>
               <?php else: ?>
                 <ul>
                   <?php foreach ($notes as $n): ?>
@@ -323,7 +328,16 @@ function layout_start(string $title, array $user, array $opts = []): void
                   <?php endforeach; ?>
                 </ul>
               <?php endif; ?>
-              <a class="top-bell-foot" href="<?= h(url('planner.php')) ?>">Open Planner</a>
+              <?php if ($plannerOn && $stockOn): ?>
+                <div class="top-bell-feet">
+                  <a class="top-bell-foot" href="<?= h(url('planner.php')) ?>">Open Planner</a>
+                  <a class="top-bell-foot" href="<?= h(url('stock.php?tab=items')) ?>">Open Stock</a>
+                </div>
+              <?php elseif ($plannerOn): ?>
+                <a class="top-bell-foot" href="<?= h(url('planner.php')) ?>">Open Planner</a>
+              <?php elseif ($stockOn): ?>
+                <a class="top-bell-foot" href="<?= h(url('stock.php?tab=items')) ?>">Open Stock</a>
+              <?php endif; ?>
             </div>
           </details>
         <?php endif; ?>

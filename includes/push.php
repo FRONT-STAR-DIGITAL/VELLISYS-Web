@@ -395,6 +395,8 @@ function push_current_items_for_user(?array $user = null): array
     $items = [];
     if (($user['role'] ?? '') === 'platform' && empty($_SESSION['acting_company_id'])) {
         $items = function_exists('platform_notifications') ? platform_notifications(40) : [];
+    } elseif (function_exists('desk_notifications')) {
+        $items = desk_notifications(40);
     } elseif (function_exists('company_planner_enabled') && company_planner_enabled() && is_desk_admin($user)) {
         $items = enrich_planner_notifications(planner_notifications(40));
     }
