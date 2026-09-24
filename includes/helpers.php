@@ -3357,11 +3357,16 @@ function public_header(string $page = 'home'): void
 function render_landing_install_banner(): void
 {
     $login = url('login.php');
+    $icon = is_file(ROOT_PATH . '/assets/img/vellisys-avatar.png')
+        ? asset('img/vellisys-avatar.png')
+        : (is_file(ROOT_PATH . '/assets/img/pwa-192.png') ? asset('img/pwa-192.png') : product_mark_url());
     ?>
 <div class="lp-install" data-pwa-install-banner hidden aria-live="polite">
   <div class="lp-install-bar">
     <button type="button" class="lp-install-cta" data-pwa-install-btn data-pwa-install-login="<?= h($login) ?>">
-      <span class="lp-install-mark" aria-hidden="true"><?= icon('package', 18) ?></span>
+      <span class="lp-install-mark" aria-hidden="true">
+        <img src="<?= h($icon) ?>" width="28" height="28" alt="">
+      </span>
       <span class="lp-install-copy">Install Vellisys App</span>
     </button>
     <button type="button" class="lp-install-x" data-pwa-install-dismiss aria-label="Dismiss install prompt"><?= icon('x', 16) ?></button>

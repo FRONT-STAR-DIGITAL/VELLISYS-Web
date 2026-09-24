@@ -17,11 +17,28 @@
       || displayMode('window-controls-overlay');
   }
 
+  function storageFlag(key) {
+    try {
+      return localStorage.getItem(key) === '1';
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function setStorageFlag(key) {
+    try {
+      localStorage.setItem(key, '1');
+    } catch (err) {}
+    try {
+      document.cookie = 'vellisys_app=1;path=/;max-age=31536000;samesite=lax';
+    } catch (err2) {}
+  }
+
   var html = document.documentElement;
-  var installed = isInstalledApp();
-  if (installed) {
+  var installed = isInstalledApp() || storageFlag('vellisys-pwa-installed');
+  if (isInstalledApp()) {
     html.classList.add('is-pwa');
-    document.cookie = 'vellisys_app=1;path=/;max-age=31536000;samesite=lax';
+    setStorageFlag('vellisys-pwa-installed');
     var home = html.getAttribute('data-pwa-login') || 'login.php';
     document.querySelectorAll('[data-pwa-home]').forEach(function (el) {
       var dest = el.getAttribute('data-pwa-home') || home;
@@ -73,6 +90,7 @@
   var ua = navigator.userAgent || '';
   var isIos = /iphone|ipad|ipod/i.test(ua);
   var dismissKey = 'vellisys-install-banner-dismissed';
+  var installedKey = 'vellisys-pwa-installed';
 
   function hideBanner(persist) {
     if (!banner) return;
@@ -82,26 +100,36 @@
     }, 520);
     if (persist) {
       try {
-        localStorage.setItem(dismissKey, String(Date.now()));
+        localStorage.setItem(dismissKey, '1');
       } catch (err) {}
     }
   }
 
   function bannerDismissed() {
     try {
-      var raw = localStorage.getItem(dismissKey);
-      if (!raw) return false;
-      var when = parseInt(raw, 10);
-      if (!isFinite(when)) return true;
-      // Stay dismissed for 14 days.
-      return (Date.now() - when) < 14 * 24 * 60 * 60 * 1000;
+      return localStorage.getItem(dismissKey) === '1';
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function alreadyInstalled() {
+    if (isInstalledApp() || storageFlag(installedKey)) {
+      return true;
+    }
+    try {
+      return /(?:^|;\s*)vellisys_app=1(?:;|$)/.test(document.cookie || '');
     } catch (err) {
       return false;
     }
   }
 
   function showBannerGently() {
-    if (!banner || installed || bannerDismissed()) {
+    if (!banner || alreadyInstalled() || bannerDismissed()) {
+      return;
+    }
+    // Only open when install can run now (Chrome/Edge deferred prompt), or on iOS.
+    if (!deferred && !isIos) {
       return;
     }
     banner.hidden = false;
@@ -112,27 +140,43 @@
     });
   }
 
+  function markInstalled() {
+    setStorageFlag(installedKey);
+    try {
+      localStorage.setItem(dismissKey, '1');
+    } catch (err) {}
+    hideBanner(true);
+  }
+
   function runInstall(btn) {
     if (deferred) {
-      deferred.prompt();
-      deferred.userChoice.finally(function () {
-        deferred = null;
-      });
+      var promptEvent = deferred;
+      deferred = null;
+      promptEvent.prompt();
+      promptEvent.userChoice.then(function (choice) {
+        if (choice && choice.outcome === 'accepted') {
+          markInstalled();
+        }
+      }).catch(function () {});
       return true;
     }
-    var login = (btn && btn.getAttribute('data-pwa-install-login')) || html.getAttribute('data-pwa-login') || 'login.php';
+    // No native prompt yet — on iOS keep the login install help; otherwise wait.
     if (banner && btn && btn.closest('[data-pwa-install-banner]')) {
-      try {
-        location.href = login;
-      } catch (err) {
-        location.assign(login);
+      if (isIos) {
+        var login = btn.getAttribute('data-pwa-install-login') || html.getAttribute('data-pwa-login') || 'login.php';
+        try {
+          location.href = login;
+        } catch (err) {
+          location.assign(login);
+        }
+        return true;
       }
-      return true;
+      return false;
     }
     return false;
   }
 
-  if (installed) {
+  if (alreadyInstalled()) {
     if (wrap) {
       wrap.hidden = true;
       wrap.removeAttribute('open');
@@ -143,7 +187,19 @@
     return;
   }
 
-  if (banner && !bannerDismissed()) {
+  // Detect an already-installed PWA while browsing the website.
+  if (navigator.getInstalledRelatedApps) {
+    try {
+      navigator.getInstalledRelatedApps().then(function (apps) {
+        if (apps && apps.length) {
+          markInstalled();
+        }
+      }).catch(function () {});
+    } catch (err) {}
+  }
+
+  // iOS has no beforeinstallprompt — show once if not dismissed.
+  if (banner && isIos && !bannerDismissed()) {
     window.setTimeout(showBannerGently, 900);
   }
 
@@ -194,6 +250,9 @@
 
   window.addEventListener('beforeinstallprompt', function (e) {
     e.preventDefault();
+    if (alreadyInstalled() || bannerDismissed()) {
+      return;
+    }
     deferred = e;
     if (wrap) {
       var readyNote = wrap.querySelector('[data-pwa-ready]');
@@ -201,18 +260,15 @@
       if (installBtn) installBtn.disabled = false;
       if (readyNote) readyNote.hidden = false;
     }
-    if (banner && !bannerDismissed() && !installed) {
-      showBannerGently();
-    }
+    showBannerGently();
   });
 
   window.addEventListener('appinstalled', function () {
     deferred = null;
     if (wrap) wrap.hidden = true;
-    hideBanner(true);
+    markInstalled();
     try {
       localStorage.setItem('vellisys-ask-push-install', '1');
-      localStorage.setItem('vellisys-pwa-installed', '1');
       sessionStorage.removeItem('vellisys-push-asked');
     } catch (err) {}
   });
