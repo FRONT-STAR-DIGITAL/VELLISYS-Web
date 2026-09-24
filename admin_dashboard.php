@@ -226,10 +226,10 @@ $trend = static function (float $current, float $previous, string $vs, bool $abs
         if ($delta < 0) {
             return ['tone' => 'down', 'text' => '↓ ' . abs($delta) . ' ' . $vs];
         }
-        return ['tone' => 'flat', 'text' => '— 0 ' . $vs];
+        return ['tone' => 'flat', 'text' => '- 0 ' . $vs];
     }
     if ($previous <= 0 && $current <= 0) {
-        return ['tone' => 'flat', 'text' => '— 0% ' . $vs];
+        return ['tone' => 'flat', 'text' => '- 0% ' . $vs];
     }
     if ($previous <= 0) {
         return ['tone' => 'up', 'text' => '↑ 100% ' . $vs];
@@ -241,7 +241,7 @@ $trend = static function (float $current, float $previous, string $vs, bool $abs
     if ($pct < 0) {
         return ['tone' => 'down', 'text' => '↓ ' . abs($pct) . '% ' . $vs];
     }
-    return ['tone' => 'flat', 'text' => '— 0% ' . $vs];
+    return ['tone' => 'flat', 'text' => '- 0% ' . $vs];
 };
 
 $spark = static function (array $values, string $stroke = ''): string {
@@ -341,7 +341,7 @@ layout_admin_start('Dashboard', $user);
     <div class="admin-metric-label"><?= icon('clock', 16) ?><span>Reload speed</span></div>
     <div class="admin-metric-row">
       <div>
-        <strong><?= $ms === null ? '—' : ((int) round($ms) . ' ms') ?></strong>
+        <strong><?= $ms === null ? '-' : ((int) round($ms) . ' ms') ?></strong>
         <em class="admin-trend is-<?= h($reloadTrend['tone']) ?>"><?= h($reloadTrend['text']) ?></em>
       </div>
       <div class="admin-metric-aside">
@@ -439,7 +439,7 @@ layout_admin_start('Dashboard', $user);
         <h2><?= icon('reports', 16) ?>Collections / Taken in</h2>
         <div class="admin-dash-chart-meta">
           <strong><?= h(platform_money($weekCollections, 'USD')) ?></strong>
-          <em class="admin-trend is-<?= h($weekCollTrend['tone']) ?>"><?= h(trim($weekCollTrend['text']) ?: '—') ?></em>
+          <em class="admin-trend is-<?= h($weekCollTrend['tone']) ?>"><?= h(trim($weekCollTrend['text']) ?: '-') ?></em>
         </div>
       </div>
       <span class="admin-range-chip">Last 7 days</span>
@@ -454,7 +454,7 @@ layout_admin_start('Dashboard', $user);
         <h2><?= icon('file', 16) ?>Document activity</h2>
         <div class="admin-dash-chart-meta">
           <strong><?= (int) $weekDocs ?></strong>
-          <em class="admin-trend is-<?= h($weekDocTrend['tone']) ?>"><?= h(trim($weekDocTrend['text']) ?: '—') ?></em>
+          <em class="admin-trend is-<?= h($weekDocTrend['tone']) ?>"><?= h(trim($weekDocTrend['text']) ?: '-') ?></em>
         </div>
       </div>
       <span class="admin-range-chip">Last 7 days</span>
@@ -486,7 +486,7 @@ layout_admin_start('Dashboard', $user);
                 <?php if ((int) ($row['company_id'] ?? 0) > 0): ?>
                   <a href="<?= h(url('admin_company.php?id=' . (int) $row['company_id'])) ?>"><?= h((string) ($row['company_name'] ?? 'Desk')) ?></a>
                 <?php else: ?>
-                  —
+                  -
                 <?php endif; ?>
               </span>
             </div>
@@ -522,10 +522,10 @@ layout_admin_start('Dashboard', $user);
                 $ts = $when !== '' ? strtotime($when) : false;
                 ?>
               <tr>
-                <td class="mono"><?= $ts ? h(date('g:i A', $ts)) : '—' ?></td>
+                <td class="mono"><?= $ts ? h(date('g:i A', $ts)) : '-' ?></td>
                 <td><span class="admin-act-type"><?= icon($activityIcon($kind), 14) ?><?= h($activityType($kind)) ?></span></td>
-                <td><?= h((string) ($row['title'] ?? $row['detail'] ?? '—')) ?></td>
-                <td class="admin-dash-hide-sm"><?= h((string) ($row['company_name'] ?? '—')) ?></td>
+                <td><?= h((string) ($row['title'] ?? $row['detail'] ?? '-')) ?></td>
+                <td class="admin-dash-hide-sm"><?= h((string) ($row['company_name'] ?? '-')) ?></td>
               </tr>
             <?php endforeach; ?>
           </tbody>
@@ -566,7 +566,9 @@ layout_admin_start('Dashboard', $user);
 
 <?php
 $chartPayload = json_encode([
+    'dates' => $days,
     'labels' => array_map(static fn ($d) => date('j M', strtotime($d)), $days),
+    'fullLabels' => array_map(static fn ($d) => date('j M Y', strtotime($d)), $days),
     'collections' => array_map(static fn ($v) => round(platform_convert((float) $v, 'USD', $ccy), 2), array_values($collectionsSeries)),
     'docs' => array_values($docsSeries),
     'acts' => array_values($actsSeries),
@@ -580,14 +582,81 @@ layout_end(
   var d=' . $chartPayload . ';
   if(!window.Chart) return;
   var brand=d.color||"#1E4EFF";
-  var soft="color-mix(in srgb, "+brand+" 35%, #c5d4ff)";
+  var soft="rgba(30,78,255,.18)";
+  try {
+    var tmp=document.createElement("canvas").getContext("2d");
+    if(tmp){
+      soft=tmp.createLinearGradient(0,0,0,220);
+      soft.addColorStop(0,"rgba(30,78,255,.22)");
+      soft.addColorStop(1,"rgba(30,78,255,0)");
+    }
+  } catch(e) {}
   var c1=document.getElementById("admin-dash-collections");
   if(c1){
-    new Chart(c1,{type:"line",data:{labels:d.labels,datasets:[{label:"Taken in",data:d.collections,borderColor:brand,backgroundColor:"transparent",tension:.35,pointRadius:3,pointBackgroundColor:brand,borderWidth:2.5}]},options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){return (d.currency||"")+" "+Number(ctx.raw||0).toLocaleString();}}}},scales:{x:{grid:{display:false},ticks:{color:"#6b7280",font:{size:11}}},y:{beginAtZero:true,grid:{color:"rgba(8,20,58,.06)"},ticks:{color:"#6b7280",font:{size:11},callback:function(v){return v>=1000?(v/1000)+"k":v;}}}}});
+    new Chart(c1,{
+      type:"line",
+      data:{
+        labels:d.labels,
+        datasets:[{
+          label:"Taken in",
+          data:d.collections,
+          borderColor:brand,
+          backgroundColor:soft,
+          fill:true,
+          tension:.35,
+          pointRadius:4,
+          pointHoverRadius:6,
+          pointBackgroundColor:"#fff",
+          pointBorderColor:brand,
+          pointBorderWidth:2,
+          borderWidth:2.5,
+          spanGaps:true
+        }]
+      },
+      options:{
+        maintainAspectRatio:false,
+        interaction:{mode:"index",intersect:false},
+        plugins:{
+          legend:{display:false},
+          tooltip:{
+            callbacks:{
+              title:function(items){
+                var i=items[0]&&items[0].dataIndex;
+                return (d.fullLabels&&d.fullLabels[i])|| (items[0]&&items[0].label)||"";
+              },
+              label:function(ctx){
+                return (d.currency||"")+" "+Number(ctx.raw||0).toLocaleString();
+              }
+            }
+          }
+        },
+        scales:{
+          x:{
+            type:"category",
+            grid:{display:false},
+            ticks:{color:"#6b7280",font:{size:11},maxRotation:0}
+          },
+          y:{
+            beginAtZero:true,
+            grid:{color:"rgba(8,20,58,.06)"},
+            ticks:{
+              color:"#6b7280",
+              font:{size:11},
+              callback:function(v){
+                if(v>=1000000) return (v/1000000)+"m";
+                if(v>=1000) return (v/1000)+"k";
+                return v;
+              }
+            }
+          }
+        }
+      }
+    });
   }
+  var barSoft="color-mix(in srgb, "+brand+" 35%, #c5d4ff)";
   var c2=document.getElementById("admin-dash-docs");
   if(c2){
-    new Chart(c2,{type:"bar",data:{labels:d.labels,datasets:[{label:"Documents",data:d.docs,backgroundColor:brand,borderRadius:6,barPercentage:.55},{label:"Events",data:d.acts,backgroundColor:soft,borderRadius:6,barPercentage:.55}]},options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{stacked:false,grid:{display:false},ticks:{color:"#6b7280",font:{size:11}}},y:{beginAtZero:true,grid:{color:"rgba(8,20,58,.06)"},ticks:{color:"#6b7280",precision:0,font:{size:11}}}}});
+    new Chart(c2,{type:"bar",data:{labels:d.labels,datasets:[{label:"Documents",data:d.docs,backgroundColor:brand,borderRadius:6,barPercentage:.55},{label:"Events",data:d.acts,backgroundColor:barSoft,borderRadius:6,barPercentage:.55}]},options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{stacked:false,grid:{display:false},ticks:{color:"#6b7280",font:{size:11}}},y:{beginAtZero:true,grid:{color:"rgba(8,20,58,.06)"},ticks:{color:"#6b7280",precision:0,font:{size:11}}}}});
   }
 })();
 </script>'
