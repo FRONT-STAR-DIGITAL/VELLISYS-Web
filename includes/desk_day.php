@@ -189,6 +189,135 @@ function render_desk_metric(array $m): void
     <?php
 }
 
+/** Amount still owed by open debtors (invoices + open sales receipts). */
+function desk_debtors_owed(): float
+{
+    if (!function_exists('list_open_debtors')) {
+        return 0.0;
+    }
+    $base = default_currency();
+    $n = 0.0;
+    foreach (list_open_debtors() as $d) {
+        $n += convert_money(document_due_amount($d), doc_currency($d), $base);
+    }
+    return round($n, 2);
+}
+
+function desk_docs_issued_count(string $from, string $to): int
+{
+    $cid = current_company_id();
+    return (int) (db_one(
+        "SELECT COUNT(*) c FROM documents WHERE company_id = ? AND status = 'issued' AND date >= ? AND date <= ?",
+        'iss',
+        [$cid, $from, $to]
+    )['c'] ?? 0);
+}
+
+function desk_active_clients_count(): int
+{
+    $cid = current_company_id();
+    return (int) (db_one(
+        "SELECT COUNT(*) c FROM parties WHERE company_id = ? AND kind IN ('customer','both') AND (status IS NULL OR status = 'active')",
+        'i',
+        [$cid]
+    )['c'] ?? 0);
+}
+
+/**
+ * Six clickable desk tabs: Income received, Expenditure, Profit & Net Profit,
+ * Amount owed by Debtors, Documents Issued, Active Clients.
+ *
+ * @param array{
+ *   income: float,
+ *   expense: float,
+ *   profit: float,
+ *   net: float,
+ *   debtors: float,
+ *   docs: int,
+ *   clients: int,
+ *   show_profit?: bool,
+ *   income_href?: string,
+ *   expense_href?: string,
+ *   profit_href?: string,
+ *   debtors_href?: string,
+ *   docs_href?: string,
+ *   clients_href?: string,
+ *   income_trend?: array|null,
+ *   expense_trend?: array|null,
+ *   profit_trend?: array|null,
+ * } $data
+ */
+function render_desk_metric_tabs(array $data): void
+{
+    $showProfit = array_key_exists('show_profit', $data)
+        ? !empty($data['show_profit'])
+        : (!function_exists('user_can_see_profit') || user_can_see_profit());
+    $profitHref = (string) ($data['profit_href'] ?? '');
+    if ($profitHref === '') {
+        $profitHref = (function_exists('user_can_open') && user_can_open('reports.php'))
+            ? url('reports.php')
+            : '#desk-charts';
+    }
+    $profit = (float) ($data['profit'] ?? 0);
+    $net = (float) ($data['net'] ?? 0);
+    $debtors = (float) ($data['debtors'] ?? 0);
+    $tabs = [
+        [
+            'tone' => 'income',
+            'icon' => 'receipt',
+            'label' => 'Income received',
+            'value' => money((float) ($data['income'] ?? 0)),
+            'trend' => $data['income_trend'] ?? null,
+            'href' => (string) ($data['income_href'] ?? url('documents.php?kind=receipt')),
+        ],
+        [
+            'tone' => 'spend',
+            'icon' => 'wallet',
+            'label' => 'Expenditure',
+            'value' => money((float) ($data['expense'] ?? 0)),
+            'trend' => $data['expense_trend'] ?? null,
+            'href' => (string) ($data['expense_href'] ?? url('documents.php?kind=expense')),
+        ],
+        [
+            'tone' => ($showProfit && $net < 0 ? 'loss' : 'profit'),
+            'icon' => 'package',
+            'label' => 'Profit & Net Profit',
+            'value' => $showProfit ? money($profit) : '-',
+            'sub' => $showProfit ? ('Net ' . money($net)) : 'Ask an admin',
+            'trend' => $showProfit ? ($data['profit_trend'] ?? null) : null,
+            'href' => $profitHref,
+        ],
+        [
+            'tone' => ($debtors > 0.009 ? 'warn' : 'info'),
+            'icon' => 'clients',
+            'label' => 'Amount owed by Debtors',
+            'value' => money($debtors),
+            'href' => (string) ($data['debtors_href'] ?? url('debtors.php')),
+        ],
+        [
+            'tone' => 'info',
+            'icon' => 'file',
+            'label' => 'Documents Issued',
+            'value' => (string) (int) ($data['docs'] ?? 0),
+            'href' => (string) ($data['docs_href'] ?? url('documents.php')),
+        ],
+        [
+            'tone' => 'info',
+            'icon' => 'building',
+            'label' => 'Active Clients',
+            'value' => (string) (int) ($data['clients'] ?? 0),
+            'href' => (string) ($data['clients_href'] ?? url('clients.php?status=active')),
+        ],
+    ];
+    ?>
+<div class="cdash-metrics cdash-metrics-tabs" id="day-stats" data-day-stats>
+  <?php foreach ($tabs as $tab) {
+      render_desk_metric($tab);
+  } ?>
+</div>
+    <?php
+}
+
 function render_desk_day(string $error = ''): string
 {
     $period = period_range();
@@ -200,10 +329,6 @@ function render_desk_day(string $error = ''): string
     $daySales = $dash['sales'];
     $daySpend = $dash['spend'];
     $daySold = $dash['sold'] ?? [];
-    $float = $dash['float'] ?? stock_float_vs_expenses($from, $to, (float) $rangeLive['expense']);
-    $todayDay = stock_today();
-    $dayOpen = stock_day_is_open();
-    $stats = stock_stats();
     $items = stock_items(false);
     $q = stock_q();
     $base = desk_day_url();
@@ -249,105 +374,33 @@ function render_desk_day(string $error = ''): string
     $incomeTrend = desk_pct_trend((float) $rangeLive['income'], (float) $prevTotals['income']);
     $expenseTrend = desk_pct_trend((float) $rangeLive['expense'], (float) $prevTotals['expense']);
     $netTrend = desk_pct_trend((float) $rangeLive['net'], (float) $prevTotals['net']);
-    $salesTrend = desk_pct_trend((float) $rangeLive['income'], (float) $prevTotals['income']);
-    $incomeSeries = array_values($chartDays['income'] ?: [(float) $rangeLive['income']]);
-    $expenseSeries = array_values($chartDays['expense'] ?: [(float) $rangeLive['expense']]);
-    $netSeries = array_values($chartDays['net'] ?: [(float) $rangeLive['net']]);
-    $salesCount = (int) ($daySales['total'] ?? count($daySales['rows'] ?? []));
-    $dayStatus = $dayOpen ? 'Open' : ($todayDay ? 'Closed' : 'Closed');
-    $dayTone = $dayOpen ? 'ok' : 'flat';
+    $profitHref = (function_exists('user_can_open') && user_can_open('reports.php'))
+        ? url('reports.php')
+        : '#desk-charts';
     ?>
 <?php if ($error): ?><p class="flash flash-err" style="margin:0 0 16px"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
 <?php render_filters('dashboard.php', [], ['no_all' => true, 'live' => true]); ?>
 
-<div class="cdash-metrics cdash-metrics-primary" id="day-stats" data-day-stats>
-  <?php
-    render_desk_metric([
-        'size' => 'lg',
-        'tone' => 'income',
-        'icon' => 'invoice',
-        'label' => 'Income',
-        'value' => money($rangeLive['income']),
-        'trend' => $incomeTrend,
-        'visual' => desk_minibars($incomeSeries, 'income'),
-        'href' => '#day-income',
-    ]);
-    render_desk_metric([
-        'size' => 'lg',
-        'tone' => 'spend',
-        'icon' => 'wallet',
-        'label' => 'Expenditure',
-        'value' => money($rangeLive['expense']),
-        'trend' => $expenseTrend,
-        'visual' => desk_minibars($expenseSeries, 'spend'),
-        'href' => '#day-spend',
-    ]);
-    if ($showProfit) {
-        render_desk_metric([
-            'size' => 'lg',
-            'tone' => ((float) $rangeLive['net'] < 0 ? 'loss' : 'profit'),
-            'icon' => 'package',
-            'label' => 'Net profit',
-            'value' => money($rangeLive['net']),
-            'trend' => $netTrend,
-            'visual' => desk_minibars($netSeries, ((float) $rangeLive['net'] < 0 ? 'loss' : 'profit')),
-        ]);
-    } else {
-        render_desk_metric([
-            'size' => 'lg',
-            'tone' => 'day',
-            'icon' => 'clock',
-            'label' => 'Today',
-            'value' => $dayStatus,
-            'chip' => $dayOpen ? 'Till open' : 'Till closed',
-            'chip_tone' => $dayTone,
-            'href' => url('sale.php'),
-        ]);
-    }
-  ?>
-</div>
+<?php
+render_desk_metric_tabs([
+    'income' => (float) $rangeLive['income'],
+    'expense' => (float) $rangeLive['expense'],
+    'profit' => (float) $rangeLive['profit'],
+    'net' => (float) $rangeLive['net'],
+    'debtors' => desk_debtors_owed(),
+    'docs' => desk_docs_issued_count($from, $to),
+    'clients' => desk_active_clients_count(),
+    'show_profit' => $showProfit,
+    'income_href' => '#day-income',
+    'expense_href' => '#day-spend',
+    'profit_href' => $profitHref,
+    'income_trend' => $incomeTrend,
+    'expense_trend' => $expenseTrend,
+    'profit_trend' => $netTrend,
+]);
+?>
 
-<div class="cdash-metrics cdash-metrics-secondary">
-  <?php
-    render_desk_metric([
-        'tone' => 'income',
-        'icon' => 'cart',
-        'label' => 'Sales',
-        'value' => money($rangeLive['income']),
-        'sub' => $salesCount . ($salesCount === 1 ? ' document' : ' documents'),
-        'trend' => $salesTrend,
-        'visual' => desk_sparkline($incomeSeries, 'var(--brand)'),
-        'href' => '#day-income',
-    ]);
-    render_desk_metric([
-        'tone' => 'info',
-        'icon' => 'package',
-        'label' => 'Products',
-        'value' => (string) (int) $stats['items'],
-        'chip' => 'Total',
-        'chip_tone' => 'info',
-        'href' => url('stock.php?tab=items'),
-    ]);
-    render_desk_metric([
-        'tone' => 'info',
-        'icon' => 'bank',
-        'label' => 'Stock value',
-        'value' => money($stats['cost']),
-        'href' => url('stock.php'),
-    ]);
-    render_desk_metric([
-        'tone' => ((int) $stats['low'] > 0 ? 'warn' : 'info'),
-        'icon' => 'alert',
-        'label' => 'Low stock',
-        'value' => (string) (int) $stats['low'],
-        'chip' => (int) $stats['low'] > 0 ? 'Items' : 'OK',
-        'chip_tone' => (int) $stats['low'] > 0 ? 'warn' : 'ok',
-        'href' => url('stock.php?tab=items'),
-    ]);
-  ?>
-</div>
-
-<div class="desk-grid stock-split cdash-charts">
+<div class="desk-grid stock-split cdash-charts" id="desk-charts">
   <div class="card">
     <div class="card-head"><h2><?= icon('reports', 16) ?>Income vs expenditure</h2></div>
     <div class="chart-frame"><canvas id="chart-stock-days"></canvas></div>

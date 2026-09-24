@@ -5528,6 +5528,24 @@ a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--lin
 .cdash-metrics-secondary {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
+.cdash-metrics-tabs {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.cdash-metrics-tabs .cdash-metric {
+  cursor: pointer;
+  min-height: 118px;
+  transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease;
+}
+.cdash-metrics-tabs a.cdash-metric:hover,
+.cdash-metrics-tabs a.cdash-metric:focus-visible {
+  text-decoration: none;
+  border-color: color-mix(in srgb, var(--brand) 34%, var(--line));
+  box-shadow: 0 8px 22px rgba(8, 20, 58, .06);
+  transform: translateY(-1px);
+}
+.cdash-metrics-tabs a.cdash-metric:active {
+  transform: translateY(0);
+}
 .cdash-metric {
   display: flex;
   flex-direction: column;
@@ -5673,6 +5691,7 @@ a.cdash-metric:hover {
 @media (max-width: 1100px) {
   .cdash-metrics-primary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .cdash-metrics-secondary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cdash-metrics-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 820px) {
   .cdash-company {
@@ -5696,12 +5715,14 @@ a.cdash-metric:hover {
   .cdash-more > summary { width: 100%; justify-content: center; }
   .cdash-more-panel { left: 0; right: 0; }
   .cdash-metrics-primary,
-  .cdash-metrics-secondary {
+  .cdash-metrics-secondary,
+  .cdash-metrics-tabs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
   }
   .cdash-metric { padding: 14px; min-height: 0; }
   .cdash-metric.is-lg { min-height: 0; }
+  .cdash-metrics-tabs .cdash-metric { min-height: 0; }
   .cdash-metric-value { font-size: 17px; }
   .cdash-metric-visual { display: none; }
   .cdash-day-panel.desk-grid { grid-template-columns: 1fr; }

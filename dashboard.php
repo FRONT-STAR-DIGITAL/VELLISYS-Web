@@ -228,6 +228,29 @@ foreach ($months as $row) {
     $netSeries[] = (float) $row['invoiced'] - (float) $row['expenses'];
 }
 
+$margins = function_exists('report_collection_margin')
+    ? report_collection_margin($from, $to)
+    : ['profit' => max(0, $cashPeriod - $expensePeriod), 'collected' => $cashPeriod];
+$grossProfit = (float) ($margins['profit'] ?? 0);
+$opExpense = 0.0;
+foreach ($expAll as $d) {
+    $date = (string) ($d['date'] ?? '');
+    if ($date < $from || $date > $to) {
+        continue;
+    }
+    if (function_exists('stock_is_stock_expense') && stock_is_stock_expense($d)) {
+        continue;
+    }
+    $opExpense += convert_money($d['totals']['net'] ?? $d['totals']['total'], doc_currency($d), $base);
+}
+$tabNet = round($grossProfit - $opExpense, 2);
+$docsIssued = desk_docs_issued_count($from, $to);
+$activeClients = desk_active_clients_count();
+$showProfit = !function_exists('user_can_see_profit') || user_can_see_profit();
+$profitHref = (function_exists('user_can_open') && user_can_open('reports.php'))
+    ? url('reports.php')
+    : '#desk-charts';
+
 layout_start('Desk', $user);
 ?>
 <?php if ($deskCompany): ?>
@@ -245,100 +268,28 @@ render_desk_company_card($deskCompany, [
     'user_name' => (string) ($user['name'] ?? ''),
 ]);
 render_filters('dashboard.php', [], ['no_all' => true]);
+render_desk_metric_tabs([
+    'income' => $cashPeriod,
+    'expense' => $opExpense > 0.009 ? $opExpense : $expensePeriod,
+    'profit' => $grossProfit,
+    'net' => $tabNet,
+    'debtors' => $openAmt,
+    'docs' => $docsIssued,
+    'clients' => $activeClients,
+    'show_profit' => $showProfit,
+    'income_href' => url('documents.php?kind=receipt'),
+    'expense_href' => url('documents.php?kind=expense'),
+    'profit_href' => $profitHref,
+    'debtors_href' => url('debtors.php'),
+    'docs_href' => url('documents.php'),
+    'clients_href' => url('clients.php?status=active'),
+    'income_trend' => $cashTrend,
+    'expense_trend' => $expenseTrend,
+    'profit_trend' => $netTrend,
+]);
 ?>
 
-<div class="cdash-metrics cdash-metrics-primary">
-  <?php
-    render_desk_metric([
-        'size' => 'lg',
-        'tone' => 'income',
-        'icon' => 'invoice',
-        'label' => 'Income',
-        'value' => money($incomePeriod),
-        'trend' => $incomeTrend,
-        'visual' => desk_minibars($incomeSeries, 'income'),
-        'href' => url(is_desk_admin($user) ? 'reports.php' : 'documents.php?kind=invoice'),
-    ]);
-    if (user_can_kind('expense')) {
-        render_desk_metric([
-            'size' => 'lg',
-            'tone' => 'spend',
-            'icon' => 'wallet',
-            'label' => 'Expenditure',
-            'value' => money($expensePeriod),
-            'trend' => $expenseTrend,
-            'visual' => desk_minibars($expenseSeries, 'spend'),
-            'href' => url('documents.php?kind=expense'),
-        ]);
-    }
-    render_desk_metric([
-        'size' => 'lg',
-        'tone' => ($netPeriod < 0 ? 'loss' : 'profit'),
-        'icon' => 'package',
-        'label' => 'Net profit',
-        'value' => money($netPeriod),
-        'trend' => $netTrend,
-        'visual' => desk_minibars($netSeries, $netPeriod < 0 ? 'loss' : 'profit'),
-    ]);
-  ?>
-</div>
-
-<div class="cdash-metrics cdash-metrics-secondary">
-  <?php
-    render_desk_metric([
-        'tone' => 'income',
-        'icon' => 'receipt',
-        'label' => 'Collected',
-        'value' => money($cashPeriod),
-        'sub' => $collectRate . '% of invoices',
-        'trend' => $cashTrend,
-        'visual' => desk_sparkline($cashSeries, 'var(--brand)'),
-        'href' => url('documents.php?kind=receipt'),
-    ]);
-    render_desk_metric([
-        'tone' => ($overdueAmt > 0 ? 'warn' : 'info'),
-        'icon' => 'clients',
-        'label' => 'Outstanding',
-        'value' => money($openAmt),
-        'sub' => count($overdue) . ' overdue',
-        'chip' => count($overdue) ? (string) count($overdue) : 'Clear',
-        'chip_tone' => $overdueAmt > 0 ? 'warn' : 'ok',
-        'href' => url('debtors.php'),
-    ]);
-    render_desk_metric([
-        'tone' => 'info',
-        'icon' => 'quotation',
-        'label' => 'Quotations',
-        'value' => (string) $quotesOpen,
-        'chip' => $quoteRate . '%',
-        'chip_tone' => 'info',
-        'href' => url('documents.php?kind=quotation'),
-    ]);
-    if (user_can_kind('expense')) {
-        render_desk_metric([
-            'tone' => 'spend',
-            'icon' => 'truck',
-            'label' => 'Creditors',
-            'value' => money($creditorOpen),
-            'chip' => 'Due',
-            'chip_tone' => $creditorOpen > 0 ? 'warn' : 'flat',
-            'href' => url('creditors.php'),
-        ]);
-    } else {
-        render_desk_metric([
-            'tone' => 'info',
-            'icon' => 'invoice',
-            'label' => 'Invoices',
-            'value' => (string) $invoiceCount,
-            'chip' => 'Period',
-            'chip_tone' => 'info',
-            'href' => url('documents.php?kind=invoice'),
-        ]);
-    }
-  ?>
-</div>
-
-<div class="desk-bento">
+<div class="desk-bento" id="desk-charts">
   <article class="card desk-tile desk-tile-wide">
     <div class="card-head">
       <h2>Performance</h2>
