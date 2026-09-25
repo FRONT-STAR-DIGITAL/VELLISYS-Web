@@ -1585,7 +1585,17 @@ table.grid tr.is-muted td { color: var(--muted); }
   border: 1px solid rgba(8, 20, 58, .08);
 }
 .desk-need-help-card strong { display: block; }
-.desk-need-help-card span { color: var(--muted); font-size: .92rem; }
+.desk-need-help-card span { color: var(--muted); font-size: .92rem; display: block; }
+.desk-need-help-phone {
+  margin: 0 0 2px;
+  color: var(--brand-ink, #08143A) !important;
+  font-weight: 700;
+  font-size: 1.05rem !important;
+  letter-spacing: .01em;
+}
+.desk-need-help-phone-row .desk-need-help-actions {
+  gap: 8px;
+}
 .desk-need-help-actions {
   display: flex;
   flex-wrap: wrap;

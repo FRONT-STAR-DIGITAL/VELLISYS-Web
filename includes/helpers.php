@@ -2975,6 +2975,18 @@ function phone_digits(string $phone): string
     return preg_replace('/\D+/', '', $phone) ?? '';
 }
 
+function phone_tel_href(string $phone): string
+{
+    $digits = phone_digits($phone);
+    if ($digits === '') {
+        return '';
+    }
+    if (!str_starts_with($digits, '0') && strlen($digits) >= 9) {
+        return 'tel:+' . $digits;
+    }
+    return 'tel:' . $digits;
+}
+
 function phone_whatsapp_href(string $phone, string $text = ''): string
 {
     $digits = phone_digits($phone);
@@ -2988,33 +3000,45 @@ function phone_whatsapp_href(string $phone, string $text = ''): string
     return $href;
 }
 
-/** Contacts shown on company desk Need Help (product agents + live sales agents with phones). */
+/** Admin phone contacts for company desk Need Help (product admins + live platform users). */
 function desk_help_contacts(): array
 {
     $out = [];
-    foreach (product_agents() as $agent) {
+    $seenPhones = [];
+    $push = static function (array $row) use (&$out, &$seenPhones): void {
+        $phone = trim((string) ($row['phone'] ?? ''));
+        $digits = phone_digits($phone);
+        if ($digits === '') {
+            return;
+        }
+        if (isset($seenPhones[$digits])) {
+            return;
+        }
+        $seenPhones[$digits] = true;
         $out[] = [
-            'name' => (string) ($agent['name'] ?? 'Agent'),
+            'name' => (string) ($row['name'] ?? 'Admin'),
+            'phone' => $phone,
+            'email' => (string) ($row['email'] ?? ''),
+            'role' => (string) ($row['role'] ?? 'Vellisys admin'),
+        ];
+    };
+
+    foreach (product_agents() as $agent) {
+        $push([
+            'name' => (string) ($agent['name'] ?? 'Admin'),
             'phone' => (string) ($agent['phone'] ?? ''),
             'email' => product_email(),
-            'role' => 'Vellisys agent',
-        ];
+            'role' => 'Vellisys admin',
+        ]);
     }
     try {
-        if (function_exists('sales_agents')) {
-            foreach (sales_agents(true) as $a) {
-                $phone = trim((string) ($a['phone'] ?? ''));
-                $email = trim((string) ($a['email'] ?? ''));
-                if ($phone === '' && $email === '') {
-                    continue;
-                }
-                $out[] = [
-                    'name' => (string) ($a['name'] ?? 'Sales agent'),
-                    'phone' => $phone,
-                    'email' => $email,
-                    'role' => 'Sales agent',
-                ];
-            }
+        foreach (db_all("SELECT name, email, phone FROM users WHERE role = 'platform' AND COALESCE(status,'live') = 'live' ORDER BY id ASC") as $a) {
+            $push([
+                'name' => (string) ($a['name'] ?? 'Admin'),
+                'phone' => (string) ($a['phone'] ?? ''),
+                'email' => (string) ($a['email'] ?? ''),
+                'role' => 'Vellisys admin',
+            ]);
         }
     } catch (Throwable $e) {
         // ignore
@@ -3034,47 +3058,47 @@ function render_desk_need_help(array $opts = []): void
     <div class="page-head" style="margin:0 0 12px;padding:0">
       <div>
         <h1><?= icon('help') ?>Need Help?</h1>
-        <p class="lede">Reach a Vellisys agent by email, phone or WhatsApp.</p>
+        <p class="lede">Email us, or call / WhatsApp an admin on the numbers below.</p>
       </div>
     </div>
   <?php else: ?>
     <h2><?= icon('help', 18) ?>Need Help?</h2>
-    <p>Stuck on the desk? Message or call a Vellisys agent.</p>
+    <p>Stuck on the desk? Email, call or WhatsApp a Vellisys admin.</p>
   <?php endif; ?>
   <div class="desk-need-help-list">
     <div class="desk-need-help-card">
       <div>
-        <strong>Vellisys support</strong>
-        <span><?= h($email) ?></span>
+        <strong>Email</strong>
+        <span class="mono"><?= h($email) ?></span>
       </div>
       <div class="desk-need-help-actions">
         <a class="btn sm" href="mailto:<?= h($email) ?>?subject=<?= h(rawurlencode('Desk help')) ?>"><?= icon('letter', 14) ?>Email</a>
       </div>
     </div>
-    <?php foreach ($contacts as $c):
-        $phone = (string) ($c['phone'] ?? '');
-        $mail = trim((string) ($c['email'] ?? '')) ?: $email;
-        $tel = phone_tel_href($phone);
-        $wa = phone_whatsapp_href($phone, $prefill);
-        ?>
-      <div class="desk-need-help-card">
-        <div>
-          <strong><?= h((string) $c['name']) ?></strong>
-          <span><?= h((string) ($c['role'] ?? 'Agent')) ?><?= $phone !== '' ? ' · ' . h($phone) : '' ?></span>
+    <?php if (!$contacts): ?>
+      <p class="empty">No admin phone numbers are listed yet.</p>
+    <?php else: ?>
+      <?php foreach ($contacts as $c):
+          $phone = (string) ($c['phone'] ?? '');
+          $tel = phone_tel_href($phone);
+          $wa = phone_whatsapp_href($phone, $prefill);
+          ?>
+        <div class="desk-need-help-card desk-need-help-phone-row">
+          <div>
+            <span class="desk-need-help-phone mono"><?= h($phone) ?></span>
+            <span><?= h((string) ($c['role'] ?? 'Vellisys admin')) ?><?= trim((string) ($c['name'] ?? '')) !== '' ? ' · ' . h((string) $c['name']) : '' ?></span>
+          </div>
+          <div class="desk-need-help-actions">
+            <?php if ($tel !== ''): ?>
+              <a class="btn sm" href="<?= h($tel) ?>"><?= icon('phone', 14) ?>Call</a>
+            <?php endif; ?>
+            <?php if ($wa !== ''): ?>
+              <a class="btn" href="<?= h($wa) ?>" target="_blank" rel="noopener"><?= icon('whatsapp', 14) ?>WhatsApp</a>
+            <?php endif; ?>
+          </div>
         </div>
-        <div class="desk-need-help-actions">
-          <?php if ($mail !== ''): ?>
-            <a class="btn ghost sm" href="mailto:<?= h($mail) ?>?subject=<?= h(rawurlencode('Desk help')) ?>"><?= icon('letter', 14) ?>Email</a>
-          <?php endif; ?>
-          <?php if ($tel !== ''): ?>
-            <a class="btn ghost sm" href="<?= h($tel) ?>"><?= icon('phone', 14) ?>Phone</a>
-          <?php endif; ?>
-          <?php if ($wa !== ''): ?>
-            <a class="btn sm" href="<?= h($wa) ?>" target="_blank" rel="noopener"><?= icon('whatsapp', 14) ?>WhatsApp</a>
-          <?php endif; ?>
-        </div>
-      </div>
-    <?php endforeach; ?>
+      <?php endforeach; ?>
+    <?php endif; ?>
   </div>
 </section>
     <?php

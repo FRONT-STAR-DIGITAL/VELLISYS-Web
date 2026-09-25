@@ -20,14 +20,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 if ($hasAdmin) {
     // Clear unread admin replies for this agent.
-    db_exec(
-        "UPDATE sales_messages m
-         JOIN users f ON f.id = m.from_user_id AND f.role = 'platform'
-         SET m.read_at = NOW()
-         WHERE m.to_user_id = ? AND m.read_at IS NULL",
-        'i',
-        [(int) $user['id']]
-    );
+    $adminIds = sales_platform_admin_ids();
+    if ($adminIds) {
+        $place = implode(',', array_fill(0, count($adminIds), '?'));
+        $types = 'i' . str_repeat('i', count($adminIds));
+        $params = array_merge([(int) $user['id']], $adminIds);
+        db_exec(
+            "UPDATE sales_messages SET read_at = NOW()
+             WHERE to_user_id = ? AND read_at IS NULL AND from_user_id IN ({$place})",
+            $types,
+            $params
+        );
+    }
 }
 
 $thread = $hasAdmin ? array_reverse(sales_messages_agent_thread((int) $user['id'])) : [];

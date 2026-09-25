@@ -786,7 +786,7 @@ if ($tab === 'messages'):
 <?php if (!$agentsLive): ?>
   <p class="empty">Create a sales agent first.</p>
 <?php else: ?>
-<p class="hint" style="margin:-4px 0 12px">Every agent message lands for super admin and shows in notifications. Opening a thread marks it read for all admins.</p>
+<p class="hint" style="margin:-4px 0 12px">Agent messages notify every super admin. All admins share this inbox and the same dashboard.</p>
 <div class="card"><div class="pad-form sales-chat">
   <?php if (empty($thread)): ?><p class="empty">No messages yet.</p>
   <?php else: ?>
@@ -795,7 +795,7 @@ if ($tab === 'messages'):
           $fromIsAgent = (int) $m['from_user_id'] === (int) $with;
           $mine = !$fromIsAgent;
           ?>
-        <div class="sales-chat-bubble<?= $mine ? ' is-mine' : '' ?>"><strong><?= h($mine ? 'Admin' : (string) $m['from_name']) ?></strong><p><?= nl2br(h((string) $m['body'])) ?></p></div>
+        <div class="sales-chat-bubble<?= $mine ? ' is-mine' : '' ?>"><strong><?= h($mine ? 'Vellisys admin' : (string) $m['from_name']) ?></strong><p><?= nl2br(h((string) $m['body'])) ?></p></div>
       <?php endforeach; ?>
     </div>
   <?php endif; ?>
