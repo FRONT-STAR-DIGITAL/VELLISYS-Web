@@ -1176,12 +1176,14 @@ function render_sheet_atelier(array $d): void
         <p><?= h($d['comments'] ?: ($brand['payment_note'] ?? '')) ?></p>
       </div>
       <?php if (sheet_shows_money($d)): ?>
-      <div class="atelier-sums">
-        <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
-        <?php if (!empty($d['show_vat'])): ?><div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
-        <?php render_sums_close($d, 'atelier-total', '', 'b'); ?>
+      <div class="atelier-totals">
+        <div class="atelier-sums">
+          <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
+          <?php if (!empty($d['show_vat'])): ?><div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
+          <?php render_sums_close($d, 'atelier-total', '', 'b'); ?>
+        </div>
+        <?php render_amount_words($d); ?>
       </div>
-      <?php render_amount_words($d); ?>
       <?php endif; ?>
     </div>
   <?php endif; ?>
