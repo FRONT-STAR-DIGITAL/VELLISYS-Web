@@ -48,6 +48,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($status === 'live') {
                     company_mark_onboard_step($id, 'desk_live');
                 }
+                if (function_exists('sales_sync_lead_for_company_status')) {
+                    sales_sync_lead_for_company_status($id, $status);
+                }
                 flash('Company profile saved.');
                 redirect('admin_company.php?id=' . $id);
             }

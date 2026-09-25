@@ -29,7 +29,6 @@ $name = post_plain('ask_name', 80);
 $email = strtolower(post_plain('ask_email', 190));
 $phone = post_plain('ask_phone', 40);
 $topic = post_plain('ask_topic', 60);
-$topicOther = post_plain('ask_topic_other', 200);
 $message = post_plain('ask_message', 2000, true);
 $topics = ask_contact_topics();
 
@@ -38,7 +37,6 @@ $_SESSION['ask_draft'] = [
     'email' => $email,
     'phone' => $phone,
     'topic' => $topic,
-    'topic_other' => $topicOther,
     'message' => $message,
 ];
 
@@ -54,14 +52,11 @@ if ($phone !== '' && !public_phone_ok($phone)) {
 if ($topic === '' || !isset($topics[$topic])) {
     ask_done(false, 'Choose why you are contacting us.');
 }
-if ($topic === 'other') {
-    if (mb_strlen($topicOther) < 3) {
-        ask_done(false, 'Tell us briefly why you are writing (Other).');
-    }
-    $message = 'Other reason: ' . $topicOther . "\n\n" . $message;
+if ($message !== '' && mb_strlen($message) < 3) {
+    ask_done(false, 'Tell us a little more, or leave that field blank.');
 }
-if (mb_strlen($message) < 20) {
-    ask_done(false, 'Write a little more so we know how to help - at least a sentence.');
+if ($message === '') {
+    $message = 'Contact reason: ' . ask_contact_topic_label($topic);
 }
 
 $ipHash = visitor_ip_hash();

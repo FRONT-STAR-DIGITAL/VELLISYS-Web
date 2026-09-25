@@ -7,7 +7,7 @@ $brand = branding();
 $error = '';
 $cid = current_company_id();
 $deskCompany = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$cid]);
-$members = db_all('SELECT id, name, job_title, email, role, access, features, status, branch_id, created_at FROM users WHERE company_id = ? ORDER BY role = \'admin\' DESC, id', 'i', [$cid]);
+$members = db_all('SELECT id, name, job_title, email, role, access, features, status, branch_id, created_at, last_seen_at FROM users WHERE company_id = ? ORDER BY role = \'admin\' DESC, id', 'i', [$cid]);
 $seats = company_user_limit($deskCompany ?: null);
 $used = company_seat_count($cid);
 $editUserId = (int) ($_GET['edit'] ?? 0);
@@ -342,7 +342,7 @@ layout_start('Settings', $user);
 
     <section class="card settings-card" id="people">
       <h2><?= icon('user') ?>People</h2>
-      <p class="lede">This desk has <?= (int) $used ?> of <?= (int) $seats ?> login<?= $seats === 1 ? '' : 's' ?>. Vellisys sets the number. <?= h(company_plan_label()) ?> allows up to <?= (int) plan_user_limit_max($deskCompany ?: null) ?> users. Only the company admin sees profit, net profit, reports, settings, branches and activities. Assign Desk or Sales, then tick the pages that user may open. You can edit, suspend or delete a login.</p>
+      <p class="lede">This desk has <?= (int) $used ?> of <?= (int) $seats ?> login<?= $seats === 1 ? '' : 's' ?>. Vellisys sets the number. <?= h(company_plan_label()) ?> allows up to <?= (int) plan_user_limit_max($deskCompany ?: null) ?> users. Only the company admin sees profit, net profit, reports, settings, branches and activities. Assign Desk or Sales, then tick the pages that user may open. You can edit, suspend or delete a login. Online means active in the last <?= (int) (function_exists('platform_online_window_minutes') ? platform_online_window_minutes() : 5) ?> minutes.</p>
       <?php if ($editMember): ?>
         <?php
           $eAccess = ((string) ($editMember['access'] ?? 'books')) === 'sales' ? 'sales' : 'books';
@@ -413,18 +413,25 @@ layout_start('Settings', $user);
               <th>Title</th>
               <th>Email</th>
               <th>Access</th>
+              <th>Presence</th>
               <th>Status</th>
               <?php if (company_branches_enabled()): ?><th>Branch</th><?php endif; ?>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            <?php foreach ($members as $m): ?>
+            <?php foreach ($members as $m):
+                $online = function_exists('user_is_online') && user_is_online($m['last_seen_at'] ?? null);
+                ?>
               <tr>
                 <td><?= h($m['name']) ?></td>
                 <td><?= h((string) ($m['job_title'] ?? '')) ?></td>
                 <td class="mono"><?= h($m['email']) ?></td>
                 <td><?= h(desk_access_label((string) $m['role'], (string) ($m['access'] ?? 'books'))) ?></td>
+                <td>
+                  <span class="people-online-dot<?= $online ? ' is-on' : '' ?>" aria-hidden="true"></span>
+                  <span class="pill<?= $online ? ' online' : ' offline' ?>"><?= $online ? 'Online' : 'Offline' ?></span>
+                </td>
                 <td><?= (($m['status'] ?? 'live') === 'suspended') ? 'Suspended' : 'Live' ?></td>
                 <?php if (company_branches_enabled()): ?>
                   <td>
@@ -479,7 +486,7 @@ layout_start('Settings', $user);
                 $mFeat = parse_user_features($m['features'] ?? '', $mAccess);
               ?>
               <tr class="people-access-row">
-                <td colspan="<?= company_branches_enabled() ? 7 : 6 ?>">
+                <td colspan="<?= company_branches_enabled() ? 8 : 7 ?>">
                   <form method="post" class="people-access">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="save_user_access">

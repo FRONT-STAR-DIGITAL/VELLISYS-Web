@@ -2975,16 +2975,109 @@ function phone_digits(string $phone): string
     return preg_replace('/\D+/', '', $phone) ?? '';
 }
 
-function phone_tel_href(string $phone): string
+function phone_whatsapp_href(string $phone, string $text = ''): string
 {
     $digits = phone_digits($phone);
     if ($digits === '') {
         return '';
     }
-    if (!str_starts_with($digits, '0') && strlen($digits) >= 9) {
-        return 'tel:+' . $digits;
+    $href = 'https://wa.me/' . $digits;
+    if ($text !== '') {
+        $href .= '?text=' . rawurlencode($text);
     }
-    return 'tel:' . $digits;
+    return $href;
+}
+
+/** Contacts shown on company desk Need Help (product agents + live sales agents with phones). */
+function desk_help_contacts(): array
+{
+    $out = [];
+    foreach (product_agents() as $agent) {
+        $out[] = [
+            'name' => (string) ($agent['name'] ?? 'Agent'),
+            'phone' => (string) ($agent['phone'] ?? ''),
+            'email' => product_email(),
+            'role' => 'Vellisys agent',
+        ];
+    }
+    try {
+        if (function_exists('sales_agents')) {
+            foreach (sales_agents(true) as $a) {
+                $phone = trim((string) ($a['phone'] ?? ''));
+                $email = trim((string) ($a['email'] ?? ''));
+                if ($phone === '' && $email === '') {
+                    continue;
+                }
+                $out[] = [
+                    'name' => (string) ($a['name'] ?? 'Sales agent'),
+                    'phone' => $phone,
+                    'email' => $email,
+                    'role' => 'Sales agent',
+                ];
+            }
+        }
+    } catch (Throwable $e) {
+        // ignore
+    }
+    return $out;
+}
+
+function render_desk_need_help(array $opts = []): void
+{
+    $page = !empty($opts['page']);
+    $contacts = desk_help_contacts();
+    $email = product_email();
+    $prefill = 'Hello Vellisys, I need help on my company desk.';
+    ?>
+<section class="desk-need-help" id="need-help">
+  <?php if ($page): ?>
+    <div class="page-head" style="margin:0 0 12px;padding:0">
+      <div>
+        <h1><?= icon('help') ?>Need Help?</h1>
+        <p class="lede">Reach a Vellisys agent by email, phone or WhatsApp.</p>
+      </div>
+    </div>
+  <?php else: ?>
+    <h2><?= icon('help', 18) ?>Need Help?</h2>
+    <p>Stuck on the desk? Message or call a Vellisys agent.</p>
+  <?php endif; ?>
+  <div class="desk-need-help-list">
+    <div class="desk-need-help-card">
+      <div>
+        <strong>Vellisys support</strong>
+        <span><?= h($email) ?></span>
+      </div>
+      <div class="desk-need-help-actions">
+        <a class="btn sm" href="mailto:<?= h($email) ?>?subject=<?= h(rawurlencode('Desk help')) ?>"><?= icon('letter', 14) ?>Email</a>
+      </div>
+    </div>
+    <?php foreach ($contacts as $c):
+        $phone = (string) ($c['phone'] ?? '');
+        $mail = trim((string) ($c['email'] ?? '')) ?: $email;
+        $tel = phone_tel_href($phone);
+        $wa = phone_whatsapp_href($phone, $prefill);
+        ?>
+      <div class="desk-need-help-card">
+        <div>
+          <strong><?= h((string) $c['name']) ?></strong>
+          <span><?= h((string) ($c['role'] ?? 'Agent')) ?><?= $phone !== '' ? ' · ' . h($phone) : '' ?></span>
+        </div>
+        <div class="desk-need-help-actions">
+          <?php if ($mail !== ''): ?>
+            <a class="btn ghost sm" href="mailto:<?= h($mail) ?>?subject=<?= h(rawurlencode('Desk help')) ?>"><?= icon('letter', 14) ?>Email</a>
+          <?php endif; ?>
+          <?php if ($tel !== ''): ?>
+            <a class="btn ghost sm" href="<?= h($tel) ?>"><?= icon('phone', 14) ?>Phone</a>
+          <?php endif; ?>
+          <?php if ($wa !== ''): ?>
+            <a class="btn sm" href="<?= h($wa) ?>" target="_blank" rel="noopener"><?= icon('whatsapp', 14) ?>WhatsApp</a>
+          <?php endif; ?>
+        </div>
+      </div>
+    <?php endforeach; ?>
+  </div>
+</section>
+    <?php
 }
 
 function product_phone_links_html(): string
@@ -4621,13 +4714,12 @@ function platform_notifications(int $limit = 12): array
         $uid = (int) (current_user()['id'] ?? 0);
         if ($uid > 0) {
             $msgs = db_all(
-                'SELECT m.id, m.body, m.from_user_id, u.name AS from_name
+                "SELECT m.id, m.body, m.from_user_id, u.name AS from_name
                  FROM sales_messages m
-                 JOIN users u ON u.id = m.from_user_id AND u.role = \'sales_agent\'
-                 WHERE m.to_user_id = ? AND m.read_at IS NULL
-                 ORDER BY m.id DESC LIMIT 8',
-                'i',
-                [$uid]
+                 JOIN users u ON u.id = m.from_user_id AND u.role = 'sales_agent'
+                 JOIN users t ON t.id = m.to_user_id AND t.role = 'platform'
+                 WHERE m.read_at IS NULL
+                 ORDER BY m.id DESC LIMIT 8"
             );
             foreach ($msgs as $m) {
                 if (!$push([

@@ -132,6 +132,6 @@ function company_activities(array $opts = []): array
 function desk_safe_next(?string $next): string
 {
     $next = basename(trim((string) $next));
-    $ok = ['activities.php', 'dashboard.php', 'planner.php', 'planner_goals.php', 'settings.php', 'branches.php', 'tutorials.php', 'feedback.php', 'account.php'];
+    $ok = ['activities.php', 'dashboard.php', 'planner.php', 'planner_goals.php', 'settings.php', 'branches.php', 'tutorials.php', 'feedback.php', 'help.php', 'account.php'];
     return in_array($next, $ok, true) ? $next : 'dashboard.php';
 }

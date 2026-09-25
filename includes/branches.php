@@ -144,6 +144,19 @@ function apply_branch_to_brand(array $brand, mixed $branchId): array
             $brand[$key] = $val;
         }
     }
+    $color = trim((string) ($branch['brand_color'] ?? ''));
+    if ($color !== '') {
+        $brand['brand_color'] = parse_hex_color($color, (string) ($brand['brand_color'] ?? '#1E4EFF'));
+        $brand['brand_deep'] = hex_shade($brand['brand_color'], 0.52);
+    }
+    $accent = trim((string) ($branch['brand_accent'] ?? ''));
+    if ($accent !== '') {
+        $brand['brand_accent'] = parse_hex_color($accent, (string) ($brand['brand_accent'] ?? '#C6A15B'));
+    }
+    $logo = ltrim((string) ($branch['logo_path'] ?? ''), '/');
+    if ($logo !== '' && is_file(ROOT_PATH . '/' . $logo)) {
+        $brand['logo_path'] = $logo;
+    }
     return $brand;
 }
 
@@ -197,15 +210,27 @@ function save_named_branch(array $fields, ?int $id = null): array
     if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         return ['ok' => false, 'error' => 'Use a valid branch email, or leave it blank.'];
     }
+    $brandColor = trim((string) ($fields['brand_color'] ?? ''));
+    $brandAccent = trim((string) ($fields['brand_accent'] ?? ''));
+    if ($brandColor !== '') {
+        $brandColor = parse_hex_color($brandColor, '#1E4EFF');
+    }
+    if ($brandAccent !== '') {
+        $brandAccent = parse_hex_color($brandAccent, '#C6A15B');
+    }
+    $logoPath = trim((string) ($fields['logo_path'] ?? ''));
     if ($id) {
-        $row = db_one('SELECT id FROM branches WHERE id = ? AND company_id = ?', 'ii', [$id, $cid]);
+        $row = db_one('SELECT id, logo_path FROM branches WHERE id = ? AND company_id = ?', 'ii', [$id, $cid]);
         if (!$row) {
             return ['ok' => false, 'error' => 'That branch is not on this desk.'];
         }
+        if ($logoPath === '') {
+            $logoPath = (string) ($row['logo_path'] ?? '');
+        }
         db_exec(
-            'UPDATE branches SET name=?, address=?, city=?, phone=?, email=? WHERE id=? AND company_id=?',
-            'sssssii',
-            [$name, $address, $city, $phone, $email, $id, $cid]
+            'UPDATE branches SET name=?, address=?, city=?, phone=?, email=?, brand_color=?, brand_accent=?, logo_path=? WHERE id=? AND company_id=?',
+            'ssssssssii',
+            [$name, $address, $city, $phone, $email, $brandColor, $brandAccent, $logoPath, $id, $cid]
         );
         return ['ok' => true, 'id' => $id];
     }
@@ -220,11 +245,34 @@ function save_named_branch(array $fields, ?int $id = null): array
         ];
     }
     $newId = db_exec(
-        'INSERT INTO branches (company_id, name, address, city, phone, email) VALUES (?,?,?,?,?,?)',
-        'isssss',
-        [$cid, $name, $address, $city, $phone, $email]
+        'INSERT INTO branches (company_id, name, address, city, phone, email, brand_color, brand_accent, logo_path) VALUES (?,?,?,?,?,?,?,?,?)',
+        'issssssss',
+        [$cid, $name, $address, $city, $phone, $email, $brandColor, $brandAccent, $logoPath]
     );
-    return ['ok' => true, 'id' => $newId];
+    return ['ok' => true, 'id' => (int) $newId];
+}
+
+function store_branch_logo_upload(int $companyId, int $branchId, string $field = 'logo'): array
+{
+    if (empty($_FILES[$field]['tmp_name']) || !is_uploaded_file($_FILES[$field]['tmp_name'])) {
+        return ['ok' => true, 'path' => ''];
+    }
+    $ext = strtolower(pathinfo((string) ($_FILES[$field]['name'] ?? ''), PATHINFO_EXTENSION));
+    if (!in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'], true)) {
+        return ['ok' => false, 'error' => 'Logo must be PNG, JPG, SVG, GIF or WebP.'];
+    }
+    if ((int) ($_FILES[$field]['size'] ?? 0) > 2_000_000) {
+        return ['ok' => false, 'error' => 'Logo must be under 2 MB.'];
+    }
+    $dir = ROOT_PATH . '/uploads/branches';
+    if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+        return ['ok' => false, 'error' => 'Could not prepare the logo folder.'];
+    }
+    $fname = 'c' . $companyId . '-b' . max(0, $branchId) . '-' . bin2hex(random_bytes(3)) . '.' . ($ext === 'jpeg' ? 'jpg' : $ext);
+    if (!move_uploaded_file($_FILES[$field]['tmp_name'], $dir . '/' . $fname)) {
+        return ['ok' => false, 'error' => 'Could not save the logo file.'];
+    }
+    return ['ok' => true, 'path' => 'uploads/branches/' . $fname];
 }
 
 function delete_named_branch(int $id): bool

@@ -12,13 +12,18 @@ if ($id && (!$lead || (int) $lead['agent_id'] !== (int) $user['id'] || !empty($l
 }
 $error = '';
 $packages = sales_packages();
+$locked = $lead && in_array((string) ($lead['status'] ?? ''), ['onboarded', 'onboarding'], true);
 $status = (string) ($_POST['status'] ?? ($lead['status'] ?? 'interested'));
-if (!isset(sales_statuses()[$status]) || $status === 'onboarded') {
+if (!$locked && (!isset(sales_statuses()[$status]) || in_array($status, ['onboarded', 'onboarding'], true))) {
     $status = 'interested';
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
+    if ($locked) {
+        flash('This lead is already in onboarding or onboarded.', 'err');
+        redirect('sales_lead_edit.php?id=' . $id);
+    }
     $saved = sales_lead_save([
         'status' => post('status'),
         'business_name' => post('business_name'),
@@ -59,8 +64,10 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
   </div>
 </div>
 <?php if ($error): ?><p class="flash flash-err"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
-<?php if ($lead && ($lead['status'] ?? '') === 'onboarded'): ?>
-  <p class="flash">This lead is onboarded. Ask admin if you need changes.</p>
+<?php if ($lead && in_array(($lead['status'] ?? ''), ['onboarded', 'onboarding'], true)): ?>
+  <p class="flash"><?= ($lead['status'] ?? '') === 'onboarding'
+    ? 'This lead is in company onboarding. Finish setup under Companies, then mark the desk live.'
+    : 'This lead is onboarded. Ask admin if you need changes.' ?></p>
 <?php endif; ?>
 
 <form method="post" class="card pad-form sales-lead-form" data-sales-lead>
@@ -153,7 +160,7 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
   <textarea id="notes" name="notes" rows="3"><?= h((string) ($_POST['notes'] ?? $lead['notes'] ?? '')) ?></textarea>
 
   <div class="actions" style="margin-top:16px">
-    <button class="btn" type="submit" <?= ($lead['status'] ?? '') === 'onboarded' ? 'disabled' : '' ?>><?= icon('check') ?>Save</button>
+    <button class="btn" type="submit" <?= in_array(($lead['status'] ?? ''), ['onboarded', 'onboarding'], true) ? 'disabled' : '' ?>><?= icon('check') ?>Save</button>
   </div>
 </form>
 <script>

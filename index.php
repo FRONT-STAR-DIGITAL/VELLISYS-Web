@@ -354,7 +354,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
           <form class="lp-ask-form" method="post" action="<?= h(url('ask.php')) ?>" autocomplete="off">
             <?= csrf_field() ?>
             <h3>Write to us</h3>
-            <p class="lp-ask-hint">Name, email, why you are writing, and your question. Phone is optional.</p>
+            <p class="lp-ask-hint">Name, email and why you are writing. Tell us more is optional. Phone is optional.</p>
             <?php if ($askFlash && ($askFlash['type'] ?? '') === 'err'): ?>
               <p class="lp-err"><?= h($askFlash['text']) ?></p>
             <?php endif; ?>
@@ -374,21 +374,17 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
               if ($askTopic === '' || !isset($askTopics[$askTopic])) {
                   $askTopic = '';
               }
-              $askOther = (string) ($askDraft['topic_other'] ?? '');
             ?>
             <label for="ask_topic">Why are you contacting us?
-              <select id="ask_topic" name="ask_topic" required data-ask-topic>
+              <select id="ask_topic" name="ask_topic" required>
                 <option value=""<?= $askTopic === '' ? ' selected' : '' ?> disabled>Choose a reason</option>
                 <?php foreach ($askTopics as $key => $label): ?>
                   <option value="<?= h($key) ?>"<?= $askTopic === $key ? ' selected' : '' ?>><?= h($label) ?></option>
                 <?php endforeach; ?>
               </select>
             </label>
-            <label for="ask_topic_other" data-ask-other<?= $askTopic === 'other' ? '' : ' hidden' ?>>Tell us more <span>(required for Other)</span>
-              <input id="ask_topic_other" name="ask_topic_other" maxlength="200" value="<?= h($askOther) ?>" placeholder="Short explanation"<?= $askTopic === 'other' ? ' required' : '' ?>>
-            </label>
-            <label for="ask_message">Question
-              <textarea id="ask_message" name="ask_message" required minlength="20" maxlength="2000" rows="5" placeholder="How do we add a second user on the desk?"><?= h($askDraft['message'] ?? '') ?></textarea>
+            <label for="ask_message">Tell us more <span>(optional)</span>
+              <textarea id="ask_message" name="ask_message" maxlength="2000" rows="5" placeholder="Anything else we should know?"><?= h($askDraft['message'] ?? '') ?></textarea>
             </label>
             <button class="lp-btn lp-btn-solid" type="submit">Send question</button>
           </form>

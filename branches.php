@@ -17,25 +17,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = post('action');
     if ($action === 'save_branch') {
         $id = (int) post('branch_id');
-        $saved = save_named_branch([
-            'name' => post('name'),
-            'address' => post('address'),
-            'city' => post('city'),
-            'phone' => post('phone'),
-            'email' => post('email'),
-        ], $id > 0 ? $id : null);
-        if (empty($saved['ok'])) {
-            $error = (string) ($saved['error'] ?? 'Could not save that branch.');
-        } else {
-            record_company_activity('branch', ($id > 0 ? 'Updated ' : 'Added ') . post('name'), [
-                'detail' => trim(post('city') . ' ' . post('address')),
-                'href' => 'branches.php',
-                'ref_type' => 'branch',
-                'ref_id' => (int) $saved['id'],
-                'branch_id' => (int) $saved['id'],
-            ]);
-            flash($id > 0 ? 'Branch updated.' : 'Branch added.');
-            redirect('branches.php');
+        $logoPath = '';
+        if ($id > 0) {
+            $taken = store_branch_logo_upload($cid, $id);
+            if (empty($taken['ok'])) {
+                $error = (string) ($taken['error'] ?? 'Could not save the branch logo.');
+            } else {
+                $logoPath = (string) ($taken['path'] ?? '');
+            }
+        }
+        if ($error === '') {
+            $saved = save_named_branch([
+                'name' => post('name'),
+                'address' => post('address'),
+                'city' => post('city'),
+                'phone' => post('phone'),
+                'email' => post('email'),
+                'brand_color' => post('brand_color'),
+                'brand_accent' => post('brand_accent'),
+                'logo_path' => $logoPath,
+            ], $id > 0 ? $id : null);
+            if (empty($saved['ok'])) {
+                $error = (string) ($saved['error'] ?? 'Could not save that branch.');
+            } else {
+                $newId = (int) $saved['id'];
+                if ($id < 1 && !empty($_FILES['logo']['tmp_name'])) {
+                    $taken = store_branch_logo_upload($cid, $newId);
+                    if (!empty($taken['ok']) && !empty($taken['path'])) {
+                        db_exec('UPDATE branches SET logo_path = ? WHERE id = ? AND company_id = ?', 'sii', [$taken['path'], $newId, $cid]);
+                    }
+                }
+                record_company_activity('branch', ($id > 0 ? 'Updated ' : 'Added ') . post('name'), [
+                    'detail' => trim(post('city') . ' ' . post('address')),
+                    'href' => 'branches.php',
+                    'ref_type' => 'branch',
+                    'ref_id' => $newId,
+                    'branch_id' => $newId,
+                ]);
+                flash($id > 0 ? 'Branch updated.' : 'Branch added.');
+                redirect('branches.php');
+            }
         }
     } elseif ($action === 'delete_branch') {
         $id = (int) post('branch_id');
@@ -289,6 +310,8 @@ endif; ?>
       $phone = trim((string) ($b['phone'] ?? ''));
       $email = trim((string) ($b['email'] ?? ''));
       $place = trim($addr . ($addr !== '' && $city !== '' ? ', ' : '') . $city);
+      $bColor = trim((string) ($b['brand_color'] ?? ''));
+      $bLogo = ltrim((string) ($b['logo_path'] ?? ''), '/');
       ?>
     <article class="card branch-card">
       <header class="branch-card-top">
@@ -296,9 +319,17 @@ endif; ?>
           <?= icon($isHead ? 'building' : 'pin', 18) ?>
           <div>
             <h2><?= h((string) $b['name']) ?></h2>
-            <?php if ($isHead): ?><p>Company address from Settings</p><?php endif; ?>
+            <?php if ($isHead): ?><p>Company address from Settings</p>
+            <?php elseif ($bColor !== '' || $bLogo !== ''): ?>
+              <p>
+                <?php if ($bColor !== ''): ?><span class="branch-brand-swatch" style="background:<?= h($bColor) ?>" title="Branch colour"></span> Own branding<?php else: ?>Own branding<?php endif; ?>
+              </p>
+            <?php endif; ?>
           </div>
         </div>
+        <?php if (!$isHead && $bLogo !== '' && is_file(ROOT_PATH . '/' . $bLogo)): ?>
+          <img class="branch-logo-preview" src="<?= h(url($bLogo)) ?>" alt="">
+        <?php endif; ?>
       </header>
       <dl class="branch-meta">
         <div>
@@ -389,14 +420,14 @@ endif; ?>
   </div>
 
   <?php if ($edit || $canAddBranch): ?>
-  <form class="card branch-form" method="post" id="branch-form">
+  <form class="card branch-form" method="post" id="branch-form" enctype="multipart/form-data">
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="save_branch">
     <?php if ($edit): ?>
       <input type="hidden" name="branch_id" value="<?= (int) $edit['id'] ?>">
     <?php endif; ?>
     <h2><?= icon($edit ? 'pencil' : 'plus', 16) ?><?= $edit ? 'Edit ' . h((string) $edit['name']) : 'Add a named branch' ?></h2>
-    <p class="lede">Use a city or shop name. That address prints on documents issued from the branch. <?= (int) $locations ?> of <?= (int) $branchCap ?> branch slots in use.</p>
+    <p class="lede">Use a city or shop name. That address and branding print on documents from the branch. <?= (int) $locations ?> of <?= (int) $branchCap ?> branch slots in use.</p>
     <div class="branch-form-grid">
       <div>
         <label for="name">Branch name</label>
@@ -417,6 +448,24 @@ endif; ?>
       <div>
         <label for="email">Email</label>
         <input id="email" name="email" type="email" value="<?= h((string) ($edit['email'] ?? post('email'))) ?>">
+      </div>
+      <div>
+        <label for="brand_color">Brand colour</label>
+        <input id="brand_color" name="brand_color" type="color" value="<?= h((string) (($edit['brand_color'] ?? '') !== '' ? $edit['brand_color'] : '#1E4EFF')) ?>">
+      </div>
+      <div>
+        <label for="brand_accent">Accent colour</label>
+        <input id="brand_accent" name="brand_accent" type="color" value="<?= h((string) (($edit['brand_accent'] ?? '') !== '' ? $edit['brand_accent'] : '#C6A15B')) ?>">
+      </div>
+      <div class="branch-form-wide">
+        <label for="logo">Branch logo <?= $edit ? '(optional replace)' : '(optional)' ?></label>
+        <input id="logo" name="logo" type="file" accept="image/png,image/jpeg,image/gif,image/svg+xml,image/webp">
+        <?php
+          $logoRel = ltrim((string) ($edit['logo_path'] ?? ''), '/');
+          if ($logoRel !== '' && is_file(ROOT_PATH . '/' . $logoRel)):
+        ?>
+          <img class="branch-logo-preview" src="<?= h(url($logoRel)) ?>" alt="Branch logo">
+        <?php endif; ?>
       </div>
     </div>
     <div class="branch-form-actions">

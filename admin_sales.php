@@ -131,18 +131,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('Only interested leads can be onboarded.', 'err');
             redirect('admin_sales.php?tab=leads');
         }
-        sales_lead_mark_onboarded($lid);
-        $qs = http_build_query(array_filter([
-            'sales_lead' => $lid,
-            'company_name' => $lead['business_name'] ?? '',
-            'contact_name' => $lead['contact_name'] ?? '',
-            'contact_phone' => $lead['contact_phone'] ?? '',
-            'city' => $lead['city'] ?? '',
-            'address' => $lead['address'] ?? '',
-            'plan' => $lead['package_chosen'] ?? '',
-        ]));
-        flash('Marked onboarded. Continue company setup.');
-        redirect('admin_company_new.php?' . $qs);
+        $started = sales_begin_company_onboard($lid);
+        if (empty($started['ok'])) {
+            flash((string) ($started['error'] ?? 'Could not start onboarding.'), 'err');
+            redirect('admin_sales.php?tab=leads');
+        }
+        $note = 'Company opened as onboarding';
+        if (!empty($started['email'])) {
+            $note .= '. Temporary desk login ' . $started['email'] . ' · password ' . ($started['password'] ?? '');
+        }
+        flash($note . '. Finish setup, then mark the company live.');
+        redirect('admin_company.php?id=' . (int) $started['company_id']);
     } elseif ($action === 'delete_lead') {
         $done = sales_lead_soft_delete((int) post('lead_id'));
         flash(empty($done['ok']) ? ($done['error'] ?? 'Failed') : 'Not-interested business removed from the list. Reports still count it.', empty($done['ok']) ? 'err' : 'ok');
@@ -541,7 +540,7 @@ if ($tab === 'lead'):
     var st=(form.querySelector('[data-admin-status]')||{}).value||'interested';
     form.querySelectorAll('[data-admin-panel]').forEach(function(p){
       var name=p.getAttribute('data-admin-panel');
-      p.hidden = !(st===name || (name==='interested' && (st==='interested'||st==='onboarded')));
+      p.hidden = !(st===name || (name==='interested' && (st==='interested'||st==='onboarding'||st==='onboarded')));
     });
   }
   var sel=form.querySelector('[data-admin-status]');
@@ -779,11 +778,7 @@ if ($tab === 'messages'):
     ?>
 <div class="filter-chips" style="margin:0 0 12px">
   <?php foreach ($agentsLive as $a):
-      $unreadFrom = (int) (db_one(
-          'SELECT COUNT(*) c FROM sales_messages WHERE to_user_id = ? AND from_user_id = ? AND read_at IS NULL',
-          'ii',
-          [(int) $user['id'], (int) $a['id']]
-      )['c'] ?? 0);
+      $unreadFrom = sales_agent_unread_from((int) $a['id']);
       ?>
     <a class="chip<?= $with === (int) $a['id'] ? ' is-on' : '' ?>" href="<?= h(url('admin_sales.php?tab=messages&with=' . (int) $a['id'])) ?>"><?= h($a['name']) ?><?= $unreadFrom ? ' (' . $unreadFrom . ')' : '' ?></a>
   <?php endforeach; ?>
@@ -791,13 +786,16 @@ if ($tab === 'messages'):
 <?php if (!$agentsLive): ?>
   <p class="empty">Create a sales agent first.</p>
 <?php else: ?>
+<p class="hint" style="margin:-4px 0 12px">Every agent message lands for super admin and shows in notifications. Opening a thread marks it read for all admins.</p>
 <div class="card"><div class="pad-form sales-chat">
   <?php if (empty($thread)): ?><p class="empty">No messages yet.</p>
   <?php else: ?>
     <div class="sales-chat-log">
       <?php foreach ($thread as $m):
-          $mine = (int) $m['from_user_id'] === (int) $user['id']; ?>
-        <div class="sales-chat-bubble<?= $mine ? ' is-mine' : '' ?>"><strong><?= h($mine ? 'You' : (string) $m['from_name']) ?></strong><p><?= nl2br(h((string) $m['body'])) ?></p></div>
+          $fromIsAgent = (int) $m['from_user_id'] === (int) $with;
+          $mine = !$fromIsAgent;
+          ?>
+        <div class="sales-chat-bubble<?= $mine ? ' is-mine' : '' ?>"><strong><?= h($mine ? 'Admin' : (string) $m['from_name']) ?></strong><p><?= nl2br(h((string) $m['body'])) ?></p></div>
       <?php endforeach; ?>
     </div>
   <?php endif; ?>

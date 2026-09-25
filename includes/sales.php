@@ -9,6 +9,7 @@ function sales_statuses(): array
         'interested' => 'Interested',
         'follow_up' => 'Follow up',
         'rejected' => 'Rejected',
+        'onboarding' => 'Onboarding',
         'onboarded' => 'Onboarded',
     ];
 }
@@ -429,16 +430,135 @@ function sales_lead_soft_delete(int $id): array
 function sales_lead_mark_onboarded(int $id, ?int $signupId = null, ?int $companyId = null): array
 {
     $row = sales_lead($id);
-    if (!$row || (string) $row['status'] !== 'interested') {
-        return ['ok' => false, 'error' => 'Only interested leads can be onboarded.'];
+    if (!$row || !in_array((string) $row['status'], ['interested', 'onboarding'], true)) {
+        return ['ok' => false, 'error' => 'Only interested or onboarding leads can be marked onboarded.'];
     }
     db_exec(
-        "UPDATE sales_leads SET status='onboarded', signup_id=?, company_id=?, follow_up_done_at=COALESCE(follow_up_done_at, NOW()), updated_at=NOW() WHERE id=?",
+        "UPDATE sales_leads SET status='onboarded', signup_id=COALESCE(?, signup_id), company_id=COALESCE(?, company_id), follow_up_done_at=COALESCE(follow_up_done_at, NOW()), updated_at=NOW() WHERE id=?",
         'iii',
         [$signupId, $companyId, $id]
     );
-    sales_lead_event($id, (int) (current_user()['id'] ?? 0), 'onboarded', 'interested', 'onboarded', 'Sent to onboarding');
+    sales_lead_event($id, (int) (current_user()['id'] ?? 0), 'onboarded', (string) $row['status'], 'onboarded', 'Company live');
     return ['ok' => true];
+}
+
+/** Create a company in onboarding from a sales lead and link the lead. */
+function sales_begin_company_onboard(int $leadId): array
+{
+    $lead = sales_lead($leadId);
+    if (!$lead || (string) $lead['status'] !== 'interested') {
+        return ['ok' => false, 'error' => 'Only interested leads can start onboarding.'];
+    }
+    if (!empty($lead['company_id'])) {
+        $existing = db_one('SELECT id, status FROM companies WHERE id = ?', 'i', [(int) $lead['company_id']]);
+        if ($existing) {
+            db_exec("UPDATE sales_leads SET status='onboarding', updated_at=NOW() WHERE id=?", 'i', [$leadId]);
+            return ['ok' => true, 'company_id' => (int) $existing['id'], 'existing' => true];
+        }
+    }
+
+    $name = trim((string) ($lead['business_name'] ?? ''));
+    if ($name === '') {
+        $name = 'Sales lead #' . $leadId;
+    }
+    $contact = trim((string) ($lead['contact_name'] ?? '')) ?: 'Desk admin';
+    $phone = trim((string) ($lead['contact_phone'] ?? ''));
+    $city = trim((string) ($lead['city'] ?? ''));
+    $address = trim((string) ($lead['address'] ?? ''));
+    $plan = normalize_company_plan((string) ($lead['package_chosen'] ?? 'sme'));
+    $limit = plan_user_limit_max($plan);
+    $kinds = implode(',', default_enabled_kinds());
+    $notes = trim('Started from sales lead #' . $leadId
+        . (!empty($lead['agent_name']) ? ' · agent ' . $lead['agent_name'] : '')
+        . (!empty($lead['notes']) ? "\n" . $lead['notes'] : ''));
+
+    $cid = db_exec(
+        'INSERT INTO companies (name, status, plan, notes, enabled_kinds, user_limit, nature_of_business) VALUES (?,?,?,?,?,?,?)',
+        'sssssis',
+        [$name, 'onboarding', $plan, $notes !== '' ? $notes : null, $kinds, $limit, sanitize_nature_of_business((string) ($lead['nature_of_business'] ?? ''))]
+    );
+
+    $emailBase = 'lead' . $leadId . '.' . substr(bin2hex(random_bytes(2)), 0, 4);
+    $userEmail = strtolower($emailBase . '@onboard.vellisys.ug');
+    while (db_one('SELECT id FROM users WHERE email = ?', 's', [$userEmail])) {
+        $userEmail = strtolower($emailBase . '.' . substr(bin2hex(random_bytes(2)), 0, 3) . '@onboard.vellisys.ug');
+    }
+    $password = generate_desk_password();
+    $color = '#1E4EFF';
+    $accent = '#C6A15B';
+    $deep = function_exists('hex_shade') ? hex_shade($color, 0.52) : '#08143A';
+    $prefix = function_exists('prefix_from_name') ? prefix_from_name($name) : 'VEL';
+
+    db_exec(
+        'INSERT INTO branding (company_id, name, tagline, tin, vat_no, address, city, phone, email, website, bank_name, account_name, account_number, brand_color, brand_accent, brand_deep, logo_path, prefix, payment_note, invoice_comments, receipt_comments, plan, currency)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'issssssssssssssssssssss',
+        [
+            $cid, $name, '', '', '', $address, $city, $phone, $userEmail, '', '', $name, '',
+            $color, $accent, $deep, '', $prefix,
+            'Make payment to ' . $name . '.',
+            "1. Payment is due by the date shown above.\n2. Quote the invoice number on the transfer.",
+            'Payments made are not refundable.',
+            'sme', 'UGX',
+        ]
+    );
+
+    $made = create_desk_user($cid, [
+        'name' => $contact,
+        'email' => $userEmail,
+        'password' => $password,
+        'job_title' => 'Administrator',
+        'access' => 'admin',
+    ]);
+    if (empty($made['ok'])) {
+        return ['ok' => false, 'error' => (string) ($made['error'] ?? 'Could not create the desk login.'), 'id' => $cid];
+    }
+
+    if (function_exists('company_mark_onboard_step')) {
+        company_mark_onboard_step($cid, 'desk_login');
+    }
+
+    db_exec(
+        "UPDATE sales_leads SET status='onboarding', company_id=?, follow_up_done_at=COALESCE(follow_up_done_at, NOW()), updated_at=NOW() WHERE id=?",
+        'ii',
+        [$cid, $leadId]
+    );
+    sales_lead_event($leadId, (int) (current_user()['id'] ?? 0), 'onboarding', 'interested', 'onboarding', 'Company #' . $cid . ' created');
+
+    if (function_exists('sales_vault_save')) {
+        sales_vault_save([
+            'company_id' => $cid,
+            'company_name' => $name,
+            'email' => $userEmail,
+            'password' => (string) ($made['password'] ?? $password),
+            'notes' => 'From sales onboard · lead #' . $leadId . ' · change this email before go-live',
+        ]);
+    }
+
+    return [
+        'ok' => true,
+        'company_id' => $cid,
+        'email' => $userEmail,
+        'password' => (string) ($made['password'] ?? $password),
+        'name' => $name,
+    ];
+}
+
+function sales_sync_lead_for_company_status(int $companyId, string $status): void
+{
+    if ($companyId < 1) {
+        return;
+    }
+    $lead = db_one('SELECT id, status FROM sales_leads WHERE company_id = ? ORDER BY id DESC LIMIT 1', 'i', [$companyId]);
+    if (!$lead) {
+        return;
+    }
+    if ($status === 'live' && (string) $lead['status'] !== 'onboarded') {
+        db_exec("UPDATE sales_leads SET status='onboarded', updated_at=NOW() WHERE id=?", 'i', [(int) $lead['id']]);
+        sales_lead_event((int) $lead['id'], (int) (current_user()['id'] ?? 0), 'onboarded', (string) $lead['status'], 'onboarded', 'Company marked live');
+    } elseif ($status === 'onboarding' && (string) $lead['status'] === 'interested') {
+        db_exec("UPDATE sales_leads SET status='onboarding', updated_at=NOW() WHERE id=?", 'i', [(int) $lead['id']]);
+    }
 }
 
 function sales_leads_query(array $opts = []): array
@@ -518,12 +638,16 @@ function sales_stats(?int $agentId, string $from, string $to): array
         $types,
         $params
     );
-    $by = ['interested' => 0, 'follow_up' => 0, 'rejected' => 0, 'onboarded' => 0];
+    $by = ['interested' => 0, 'follow_up' => 0, 'rejected' => 0, 'onboarding' => 0, 'onboarded' => 0];
     foreach ($rows as $r) {
-        $by[(string) $r['status']] = (int) $r['n'];
+        $key = (string) $r['status'];
+        if (!isset($by[$key])) {
+            $by[$key] = 0;
+        }
+        $by[$key] = (int) $r['n'];
     }
     $reach = array_sum($by);
-    $wins = $by['onboarded'] + $by['interested'];
+    $wins = $by['onboarded'] + $by['onboarding'] + $by['interested'];
     return [
         'by_status' => $by,
         'reach' => $reach,
@@ -532,6 +656,7 @@ function sales_stats(?int $agentId, string $from, string $to): array
         'interested' => $by['interested'],
         'follow_up' => $by['follow_up'],
         'rejected' => $by['rejected'],
+        'onboarding' => $by['onboarding'],
         'onboarded' => $by['onboarded'],
     ];
 }
@@ -955,11 +1080,38 @@ function sales_top_agents(string $from, string $to, int $limit = 8): array
     return $rows;
 }
 
+function sales_primary_admin_id(): int
+{
+    $row = db_one("SELECT id FROM users WHERE role = 'platform' AND COALESCE(status,'live') = 'live' ORDER BY id ASC LIMIT 1");
+    return (int) ($row['id'] ?? 0);
+}
+
+function sales_platform_admin_ids(): array
+{
+    return array_map(
+        static fn ($r) => (int) $r['id'],
+        db_all("SELECT id FROM users WHERE role = 'platform' AND COALESCE(status,'live') = 'live' ORDER BY id ASC")
+    );
+}
+
 function sales_message_send(int $fromId, int $toId, string $body): array
 {
     $body = trim($body);
     if ($body === '') {
         return ['ok' => false, 'error' => 'Write a message.'];
+    }
+    $from = db_one('SELECT id, name, role FROM users WHERE id = ?', 'i', [$fromId]);
+    if (!$from) {
+        return ['ok' => false, 'error' => 'Sender not found.'];
+    }
+    // Agents always route to the primary super admin unless targeting a live platform admin.
+    if (($from['role'] ?? '') === 'sales_agent') {
+        $primary = sales_primary_admin_id();
+        if ($primary < 1) {
+            return ['ok' => false, 'error' => 'No super admin mailbox is ready yet.'];
+        }
+        $to = db_one("SELECT id, role FROM users WHERE id = ? AND role = 'platform' AND COALESCE(status,'live') = 'live'", 'i', [$toId]);
+        $toId = $to ? (int) $to['id'] : $primary;
     }
     if ($fromId === $toId) {
         return ['ok' => false, 'error' => 'Pick someone else to message.'];
@@ -969,12 +1121,69 @@ function sales_message_send(int $fromId, int $toId, string $body): array
         'iis',
         [$fromId, $toId, mb_substr($body, 0, 2000)]
     );
-    return ['ok' => true, 'id' => (int) $id];
+    $row = [
+        'id' => (int) $id,
+        'from_user_id' => $fromId,
+        'to_user_id' => $toId,
+        'from_name' => (string) ($from['name'] ?? 'Sender'),
+        'body' => mb_substr($body, 0, 2000),
+    ];
+    sales_notify_message($row);
+    return ['ok' => true, 'id' => (int) $id, 'to_user_id' => $toId];
+}
+
+function sales_notify_message(array $row): void
+{
+    $fromId = (int) ($row['from_user_id'] ?? 0);
+    $toId = (int) ($row['to_user_id'] ?? 0);
+    $fromName = trim((string) ($row['from_name'] ?? 'Sender')) ?: 'Sender';
+    $body = (string) ($row['body'] ?? '');
+    $from = db_one('SELECT role FROM users WHERE id = ?', 'i', [$fromId]);
+    $fromRole = (string) ($from['role'] ?? '');
+
+    if ($fromRole === 'sales_agent') {
+        $href = url('admin_sales.php?tab=messages&with=' . $fromId);
+        if (function_exists('platform_alert_add')) {
+            platform_alert_add(
+                'sales_message',
+                'Sales message · ' . $fromName,
+                clip_text($body, 90),
+                $href,
+                '',
+                'normal'
+            );
+        }
+        if (function_exists('push_notify_item')) {
+            push_notify_item([
+                'title' => 'Sales · ' . $fromName,
+                'meta' => clip_text($body, 80),
+                'href' => $href,
+                'key' => 'sales-msg:' . (int) ($row['id'] ?? 0),
+            ], 'platform');
+        }
+        return;
+    }
+
+    // Admin → agent
+    $href = url('sales_messages.php?with=' . $fromId);
+    if (function_exists('push_notify_item')) {
+        push_notify_item([
+            'title' => 'Message from admin',
+            'meta' => clip_text($body, 80),
+            'href' => $href,
+            'key' => 'sales-msg:' . (int) ($row['id'] ?? 0),
+        ], 'user:' . $toId);
+    }
 }
 
 function sales_messages_for(int $userId, ?int $withId = null, int $limit = 80): array
 {
     if ($withId) {
+        $me = db_one('SELECT role FROM users WHERE id = ?', 'i', [$userId]);
+        // Super admin: show the whole agent thread with any platform admin.
+        if (($me['role'] ?? '') === 'platform') {
+            return sales_messages_agent_thread($withId, $limit);
+        }
         return db_all(
             'SELECT m.*, f.name AS from_name, t.name AS to_name
              FROM sales_messages m
@@ -998,8 +1207,41 @@ function sales_messages_for(int $userId, ?int $withId = null, int $limit = 80): 
     );
 }
 
+/** All messages between one sales agent and any platform admin. */
+function sales_messages_agent_thread(int $agentId, int $limit = 80): array
+{
+    return db_all(
+        "SELECT m.*, f.name AS from_name, t.name AS to_name
+         FROM sales_messages m
+         JOIN users f ON f.id = m.from_user_id
+         JOIN users t ON t.id = m.to_user_id
+         WHERE (m.from_user_id = ? OR m.to_user_id = ?)
+           AND (f.role IN ('platform','sales_agent') AND t.role IN ('platform','sales_agent'))
+         ORDER BY m.id DESC LIMIT " . (int) $limit,
+        'ii',
+        [$agentId, $agentId]
+    );
+}
+
 function sales_messages_mark_read(int $userId, ?int $fromId = null): void
 {
+    $me = db_one('SELECT role FROM users WHERE id = ?', 'i', [$userId]);
+    if (($me['role'] ?? '') === 'platform' && $fromId) {
+        // Any super admin opening the thread clears unread for all admins from that agent.
+        $adminIds = sales_platform_admin_ids();
+        if ($adminIds) {
+            $place = implode(',', array_fill(0, count($adminIds), '?'));
+            $types = str_repeat('i', count($adminIds) + 1);
+            $params = array_merge([$fromId], $adminIds);
+            db_exec(
+                "UPDATE sales_messages SET read_at = NOW()
+                 WHERE from_user_id = ? AND to_user_id IN ({$place}) AND read_at IS NULL",
+                $types,
+                $params
+            );
+        }
+        return;
+    }
     if ($fromId) {
         db_exec('UPDATE sales_messages SET read_at = NOW() WHERE to_user_id = ? AND from_user_id = ? AND read_at IS NULL', 'ii', [$userId, $fromId]);
         return;
@@ -1010,6 +1252,83 @@ function sales_messages_mark_read(int $userId, ?int $fromId = null): void
 function sales_unread_count(int $userId): int
 {
     return (int) (db_one('SELECT COUNT(*) c FROM sales_messages WHERE to_user_id = ? AND read_at IS NULL', 'i', [$userId])['c'] ?? 0);
+}
+
+function sales_admin_unread_count(int $platformUserId = 0): int
+{
+    // Count all unread agent → any platform admin messages so every super admin sees the badge.
+    return (int) (db_one(
+        "SELECT COUNT(*) c FROM sales_messages m
+         JOIN users f ON f.id = m.from_user_id AND f.role = 'sales_agent'
+         JOIN users t ON t.id = m.to_user_id AND t.role = 'platform'
+         WHERE m.read_at IS NULL"
+    )['c'] ?? 0);
+}
+
+function sales_agent_unread_from(int $agentId): int
+{
+    return (int) (db_one(
+        "SELECT COUNT(*) c FROM sales_messages m
+         JOIN users t ON t.id = m.to_user_id AND t.role = 'platform'
+         WHERE m.from_user_id = ? AND m.read_at IS NULL",
+        'i',
+        [$agentId]
+    )['c'] ?? 0);
+}
+
+function sales_avatar_url(?array $user): string
+{
+    $rel = ltrim((string) ($user['avatar_path'] ?? ''), '/');
+    if ($rel === '' || !is_file(ROOT_PATH . '/' . $rel)) {
+        return '';
+    }
+    return url($rel) . '?v=' . filemtime(ROOT_PATH . '/' . $rel);
+}
+
+function sales_save_avatar(int $userId, string $field = 'avatar'): array
+{
+    if (empty($_FILES[$field]['tmp_name']) || !is_uploaded_file($_FILES[$field]['tmp_name'])) {
+        return ['ok' => true, 'path' => ''];
+    }
+    $ext = strtolower(pathinfo((string) ($_FILES[$field]['name'] ?? ''), PATHINFO_EXTENSION));
+    if (!in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'webp'], true)) {
+        return ['ok' => false, 'error' => 'Photo must be PNG, JPG, GIF or WebP.'];
+    }
+    if ((int) ($_FILES[$field]['size'] ?? 0) > 2_000_000) {
+        return ['ok' => false, 'error' => 'Photo must be under 2 MB.'];
+    }
+    $dir = ROOT_PATH . '/uploads/avatars';
+    if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+        return ['ok' => false, 'error' => 'Could not prepare the photo folder.'];
+    }
+    $fname = 'u' . $userId . '-' . bin2hex(random_bytes(4)) . '.' . ($ext === 'jpeg' ? 'jpg' : $ext);
+    if (!move_uploaded_file($_FILES[$field]['tmp_name'], $dir . '/' . $fname)) {
+        return ['ok' => false, 'error' => 'Could not save the photo.'];
+    }
+    $rel = 'uploads/avatars/' . $fname;
+    $old = db_one('SELECT avatar_path FROM users WHERE id = ?', 'i', [$userId]);
+    db_exec('UPDATE users SET avatar_path = ? WHERE id = ?', 'si', [$rel, $userId]);
+    $oldRel = ltrim((string) ($old['avatar_path'] ?? ''), '/');
+    if ($oldRel !== '' && is_file(ROOT_PATH . '/' . $oldRel) && str_contains($oldRel, 'uploads/avatars/')) {
+        @unlink(ROOT_PATH . '/' . $oldRel);
+    }
+    return ['ok' => true, 'path' => $rel];
+}
+
+function sales_change_password(int $userId, string $current, string $next, string $again): array
+{
+    $row = db_one('SELECT password_hash FROM users WHERE id = ?', 'i', [$userId]);
+    if (!$row || !password_verify($current, (string) $row['password_hash'])) {
+        return ['ok' => false, 'error' => 'Current password is not correct.'];
+    }
+    if (strlen($next) < 8) {
+        return ['ok' => false, 'error' => 'New password must be at least 8 characters.'];
+    }
+    if ($next !== $again) {
+        return ['ok' => false, 'error' => 'The two new passwords do not match.'];
+    }
+    db_exec('UPDATE users SET password_hash = ? WHERE id = ?', 'si', [password_hash($next, PASSWORD_DEFAULT), $userId]);
+    return ['ok' => true];
 }
 
 function sales_followups_due(?int $agentId = null, int $withinDays = 1): array
@@ -1265,30 +1584,24 @@ function platform_alerts_unread(int $limit = 20): array
     }
 }
 
-function sales_admin_unread_count(int $platformUserId): int
-{
-    return (int) (db_one(
-        'SELECT COUNT(*) c FROM sales_messages m
-         JOIN users u ON u.id = m.from_user_id AND u.role = \'sales_agent\'
-         WHERE m.to_user_id = ? AND m.read_at IS NULL',
-        'i',
-        [$platformUserId]
-    )['c'] ?? 0);
-}
-
 function sales_layout_start(string $title, array $user): void
 {
+    if (function_exists('touch_user_seen')) {
+        touch_user_seen((int) $user['id']);
+    }
     $flash = flash();
     $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
     $unread = sales_unread_count((int) $user['id']);
     $notes = sales_notifications_for_agent((int) $user['id']);
     $noteCount = count($notes);
+    $avatar = sales_avatar_url($user);
     $nav = [
         ['sales_home.php', 'Home', 'home'],
         ['sales_leads.php', 'Leads', 'clients'],
         ['sales_performance.php', 'Performance', 'reports'],
         ['sales_demo.php', 'Demo', 'building'],
         ['sales_messages.php', 'Messages', 'mail'],
+        ['sales_profile.php', 'Profile', 'user'],
     ];
     ?>
 <!DOCTYPE html>
@@ -1323,8 +1636,16 @@ function sales_layout_start(string $title, array $user): void
       <?php endforeach; ?>
     </nav>
     <div class="nav-user">
-      <span class="nav-user-name"><?= icon('user', 16) ?><span><?= h($user['name']) ?></span></span>
+      <span class="nav-user-name">
+        <?php if ($avatar !== ''): ?>
+          <img class="nav-user-avatar" src="<?= h($avatar) ?>" alt="">
+        <?php else: ?>
+          <?= icon('user', 16) ?>
+        <?php endif; ?>
+        <span><?= h($user['name']) ?></span>
+      </span>
       <span class="nav-user-mail"><?= h($user['email']) ?></span>
+      <a href="<?= h(url('sales_profile.php')) ?>" title="Profile"><?= icon('user', 15) ?><span>Profile</span></a>
       <a href="<?= h(url('logout.php')) ?>" title="Sign out"><?= icon('logout', 15) ?><span>Sign out</span></a>
     </div>
   </aside>

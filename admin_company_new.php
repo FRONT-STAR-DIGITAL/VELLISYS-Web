@@ -90,12 +90,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'create') {
         );
         if ($salesLeadId && function_exists('sales_lead')) {
             db_exec(
-                "UPDATE sales_leads SET company_id = ?, status = 'onboarded', updated_at = NOW() WHERE id = ?",
-                'ii',
-                [(int) $made['id'], $salesLeadId]
+                "UPDATE sales_leads SET company_id = ?, status = ?, updated_at = NOW() WHERE id = ?",
+                'isi',
+                [(int) $made['id'], ($made['status'] ?? '') === 'live' ? 'onboarded' : 'onboarding', $salesLeadId]
             );
             if (function_exists('sales_lead_event')) {
-                sales_lead_event($salesLeadId, (int) ($user['id'] ?? 0), 'company_linked', 'onboarded', 'onboarded', 'Company #' . (int) $made['id']);
+                $toStatus = ($made['status'] ?? '') === 'live' ? 'onboarded' : 'onboarding';
+                sales_lead_event($salesLeadId, (int) ($user['id'] ?? 0), $toStatus, 'interested', $toStatus, 'Company #' . (int) $made['id']);
             }
         }
         if (function_exists('sales_vault_save') && !empty($made['email']) && !empty($made['password'])) {

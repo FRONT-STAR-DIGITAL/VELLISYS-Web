@@ -155,11 +155,15 @@ function layout_start(string $title, array $user, array $opts = []): void
         ['activities.php', 'Activities', 'clock'],
         ['tutorials.php', 'Tutorials', 'book'],
         ['feedback.php', 'Feedback', 'help'],
+        ['help.php', 'Need Help?', 'phone'],
         ['reports.php', 'Reports', 'reports'],
         ['settings.php', 'Settings', 'settings'],
     ]);
     if (function_exists('record_site_visit')) {
         record_site_visit();
+    }
+    if (function_exists('touch_user_seen') && !empty($user['id'])) {
+        touch_user_seen((int) $user['id']);
     }
     $nav = array_values(array_filter($nav, static function (array $item) {
         $file = (string) strtok($item[0], '?');
@@ -368,6 +372,9 @@ function layout_start(string $title, array $user, array $opts = []): void
 function layout_admin_start(string $title, array $user): void
 {
     $GLOBALS['folio_layout_admin'] = true;
+    if (function_exists('touch_user_seen')) {
+        touch_user_seen((int) $user['id']);
+    }
     $flash = flash();
     $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
     $signupNew = new_signup_count();

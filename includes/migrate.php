@@ -325,9 +325,24 @@ function folio_ensure_branches(mysqli $db): void
       city VARCHAR(120) NOT NULL DEFAULT '',
       phone VARCHAR(80) NOT NULL DEFAULT '',
       email VARCHAR(160) NOT NULL DEFAULT '',
+      brand_color VARCHAR(20) NOT NULL DEFAULT '',
+      brand_accent VARCHAR(20) NOT NULL DEFAULT '',
+      logo_path VARCHAR(255) NOT NULL DEFAULT '',
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       KEY company_id (company_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    if (!db_has_column($db, 'branches', 'brand_color')) {
+        @$db->query("ALTER TABLE branches ADD COLUMN brand_color VARCHAR(20) NOT NULL DEFAULT '' AFTER email");
+        db_has_column($db, 'branches', 'brand_color', true);
+    }
+    if (!db_has_column($db, 'branches', 'brand_accent')) {
+        @$db->query("ALTER TABLE branches ADD COLUMN brand_accent VARCHAR(20) NOT NULL DEFAULT '' AFTER brand_color");
+        db_has_column($db, 'branches', 'brand_accent', true);
+    }
+    if (!db_has_column($db, 'branches', 'logo_path')) {
+        @$db->query("ALTER TABLE branches ADD COLUMN logo_path VARCHAR(255) NOT NULL DEFAULT '' AFTER brand_accent");
+        db_has_column($db, 'branches', 'logo_path', true);
+    }
     if (!db_has_column($db, 'users', 'branch_id')) {
         @$db->query('ALTER TABLE users ADD COLUMN branch_id INT UNSIGNED NULL AFTER company_id');
         @$db->query('ALTER TABLE users ADD KEY user_branch (company_id, branch_id)');
@@ -1988,6 +2003,10 @@ function folio_migrate_sales_field(mysqli $db): void
     if (!db_has_column($db, 'users', 'phone')) {
         @$db->query("ALTER TABLE users ADD COLUMN phone VARCHAR(40) NOT NULL DEFAULT ''");
         db_has_column($db, 'users', 'phone', true);
+    }
+    if (!db_has_column($db, 'users', 'avatar_path')) {
+        @$db->query("ALTER TABLE users ADD COLUMN avatar_path VARCHAR(255) NOT NULL DEFAULT '' AFTER phone");
+        db_has_column($db, 'users', 'avatar_path', true);
     }
     $db->query("CREATE TABLE IF NOT EXISTS sales_clock_ins (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

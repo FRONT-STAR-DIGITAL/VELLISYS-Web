@@ -34,6 +34,9 @@ if ($stockOn) {
         'user_name' => (string) ($user['name'] ?? ''),
     ]);
     $extraJs = render_desk_day('');
+    if (function_exists('render_desk_need_help')) {
+        render_desk_need_help();
+    }
     layout_end($extraJs);
     return;
 }
@@ -466,4 +469,7 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
   }
 })();
 </script>';
+if (function_exists('render_desk_need_help')) {
+    render_desk_need_help();
+}
 layout_end($script);
