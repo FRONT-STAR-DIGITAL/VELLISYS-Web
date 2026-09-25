@@ -135,22 +135,22 @@ function sales_agent_set_status(int $id, string $status): array
     return ['ok' => true];
 }
 
-function sales_agent_delete(int $id): array
+function sales_agent_delete(int $id, string $confirmEmail = ''): array
 {
     $row = sales_agent($id);
     if (!$row) {
         return ['ok' => false, 'error' => 'Sales agent not found.'];
     }
-    $n = (int) (db_one('SELECT COUNT(*) c FROM sales_leads WHERE agent_id = ? AND deleted_at IS NULL', 'i', [$id])['c'] ?? 0);
-    if ($n > 0) {
-        db_exec("UPDATE users SET status='suspended' WHERE id=?", 'i', [$id]);
-        return ['ok' => true, 'suspended' => true, 'message' => 'Agent has leads, so the login was suspended instead of deleted.'];
+    $confirmEmail = strtolower(trim($confirmEmail));
+    $agentEmail = strtolower(trim((string) ($row['email'] ?? '')));
+    if ($confirmEmail === '' || $confirmEmail !== $agentEmail) {
+        return ['ok' => false, 'error' => 'Type the agent’s email exactly to confirm delete.'];
     }
     db_exec('DELETE FROM sales_messages WHERE from_user_id = ? OR to_user_id = ?', 'ii', [$id, $id]);
     db_exec('DELETE FROM sales_clock_ins WHERE user_id = ?', 'i', [$id]);
     db_exec('DELETE FROM sales_targets WHERE agent_id = ?', 'i', [$id]);
     db_exec("DELETE FROM users WHERE id = ? AND role = 'sales_agent'", 'i', [$id]);
-    return ['ok' => true, 'deleted' => true];
+    return ['ok' => true, 'deleted' => true, 'message' => 'Sales agent deleted.'];
 }
 
 function sales_today_clock(?int $userId = null): ?array
@@ -397,16 +397,157 @@ function sales_stats(?int $agentId, string $from, string $to): array
         $by[(string) $r['status']] = (int) $r['n'];
     }
     $reach = array_sum($by);
-    $sales = $by['onboarded'] + $by['interested'];
+    $wins = $by['onboarded'] + $by['interested'];
     return [
         'by_status' => $by,
         'reach' => $reach,
-        'sales' => $by['onboarded'],
+        'wins' => $wins,
+        'sales' => $wins,
         'interested' => $by['interested'],
         'follow_up' => $by['follow_up'],
         'rejected' => $by['rejected'],
         'onboarded' => $by['onboarded'],
     ];
+}
+
+function sales_goal_default_values(): array
+{
+    return [
+        'daily_reach' => 10,
+        'daily_sales' => 2,
+        'weekly_reach' => 0,
+        'weekly_sales' => 10,
+        'monthly_reach' => 0,
+        'monthly_sales' => 30,
+    ];
+}
+
+function sales_goal_defaults(): array
+{
+    $fallbacks = sales_goal_default_values();
+    try {
+        $row = db_one('SELECT * FROM sales_goal_defaults WHERE id = 1');
+    } catch (Throwable $e) {
+        return $fallbacks;
+    }
+    if (!$row) {
+        return $fallbacks;
+    }
+    return [
+        'daily_reach' => max(0, (int) ($row['daily_reach'] ?? $fallbacks['daily_reach'])),
+        'daily_sales' => max(0, (int) ($row['daily_sales'] ?? $fallbacks['daily_sales'])),
+        'weekly_reach' => max(0, (int) ($row['weekly_reach'] ?? $fallbacks['weekly_reach'])),
+        'weekly_sales' => max(0, (int) ($row['weekly_sales'] ?? $fallbacks['weekly_sales'])),
+        'monthly_reach' => max(0, (int) ($row['monthly_reach'] ?? $fallbacks['monthly_reach'])),
+        'monthly_sales' => max(0, (int) ($row['monthly_sales'] ?? $fallbacks['monthly_sales'])),
+    ];
+}
+
+function sales_goal_defaults_save(array $fields): array
+{
+    $vals = [
+        'daily_reach' => max(0, (int) ($fields['daily_reach'] ?? 10)),
+        'daily_sales' => max(0, (int) ($fields['daily_sales'] ?? 2)),
+        'weekly_reach' => max(0, (int) ($fields['weekly_reach'] ?? 0)),
+        'weekly_sales' => max(0, (int) ($fields['weekly_sales'] ?? 10)),
+        'monthly_reach' => max(0, (int) ($fields['monthly_reach'] ?? 0)),
+        'monthly_sales' => max(0, (int) ($fields['monthly_sales'] ?? 30)),
+    ];
+    if ($vals['daily_reach'] < 1 && $vals['daily_sales'] < 1
+        && $vals['weekly_reach'] < 1 && $vals['weekly_sales'] < 1
+        && $vals['monthly_reach'] < 1 && $vals['monthly_sales'] < 1) {
+        return ['ok' => false, 'error' => 'Set at least one goal number.'];
+    }
+    $existing = db_one('SELECT id FROM sales_goal_defaults WHERE id = 1');
+    if ($existing) {
+        db_exec(
+            'UPDATE sales_goal_defaults SET daily_reach=?, daily_sales=?, weekly_reach=?, weekly_sales=?, monthly_reach=?, monthly_sales=?, updated_at=NOW() WHERE id=1',
+            'iiiiii',
+            [$vals['daily_reach'], $vals['daily_sales'], $vals['weekly_reach'], $vals['weekly_sales'], $vals['monthly_reach'], $vals['monthly_sales']]
+        );
+    } else {
+        db_exec(
+            'INSERT INTO sales_goal_defaults (id, daily_reach, daily_sales, weekly_reach, weekly_sales, monthly_reach, monthly_sales) VALUES (1,?,?,?,?,?,?)',
+            'iiiiii',
+            [$vals['daily_reach'], $vals['daily_sales'], $vals['weekly_reach'], $vals['weekly_sales'], $vals['monthly_reach'], $vals['monthly_sales']]
+        );
+    }
+    return ['ok' => true] + $vals;
+}
+
+/** @return array{0:string,1:string} from, to inclusive */
+function sales_period_window(string $kind, ?string $onDate = null): array
+{
+    $on = $onDate ?: today();
+    $ts = strtotime($on) ?: time();
+    if ($kind === 'daily') {
+        $d = date('Y-m-d', $ts);
+        return [$d, $d];
+    }
+    if ($kind === 'weekly') {
+        $dow = (int) date('N', $ts);
+        $start = date('Y-m-d', strtotime('-' . ($dow - 1) . ' days', $ts));
+        $end = date('Y-m-d', strtotime('+' . (7 - $dow) . ' days', $ts));
+        return [$start, $end];
+    }
+    return [date('Y-m-01', $ts), date('Y-m-t', $ts)];
+}
+
+function sales_goals_for_period(string $kind): array
+{
+    $d = sales_goal_defaults();
+    if ($kind === 'daily') {
+        return ['reach' => $d['daily_reach'], 'sales' => $d['daily_sales']];
+    }
+    if ($kind === 'weekly') {
+        return ['reach' => $d['weekly_reach'], 'sales' => $d['weekly_sales']];
+    }
+    return ['reach' => $d['monthly_reach'], 'sales' => $d['monthly_sales']];
+}
+
+function sales_progress(?int $agentId, string $kind, ?string $onDate = null): array
+{
+    $kind = in_array($kind, ['daily', 'weekly', 'monthly'], true) ? $kind : 'daily';
+    [$from, $to] = sales_period_window($kind, $onDate);
+    $today = today();
+    $statTo = $to > $today ? $today : $to;
+    $stats = sales_stats($agentId, $from, $statTo);
+    $goals = sales_goals_for_period($kind);
+    $wins = (int) $stats['wins'];
+    return [
+        'kind' => $kind,
+        'from' => $from,
+        'to' => $to,
+        'stat_to' => $statTo,
+        'reach' => (int) $stats['reach'],
+        'reach_goal' => (int) $goals['reach'],
+        'sales' => $wins,
+        'sales_goal' => (int) $goals['sales'],
+        'stats' => $stats,
+    ];
+}
+
+function sales_progress_pct(int $current, int $goal): int
+{
+    if ($goal < 1) {
+        return $current > 0 ? 100 : 0;
+    }
+    return (int) round(100 * $current / $goal);
+}
+
+function sales_agents_daily_progress(): array
+{
+    $out = [];
+    foreach (sales_agents(true) as $agent) {
+        $id = (int) $agent['id'];
+        $progress = sales_progress($id, 'daily');
+        $out[] = [
+            'agent' => $agent,
+            'progress' => $progress,
+            'clock' => sales_today_clock($id),
+        ];
+    }
+    return $out;
 }
 
 function sales_target_for(?int $agentId, ?string $onDate = null): ?array
@@ -464,6 +605,157 @@ function sales_target_save(array $fields): array
     return ['ok' => true, 'id' => (int) $newId];
 }
 
+function sales_lead_hard_delete(int $id): array
+{
+    $row = sales_lead($id);
+    if (!$row) {
+        return ['ok' => false, 'error' => 'Lead not found.'];
+    }
+    if ((string) $row['status'] !== 'rejected' && empty($row['deleted_at'])) {
+        return ['ok' => false, 'error' => 'Only rejected (not interested) businesses can be deleted.'];
+    }
+    db_exec('DELETE FROM sales_lead_events WHERE lead_id = ?', 'i', [$id]);
+    db_exec('DELETE FROM sales_leads WHERE id = ?', 'i', [$id]);
+    return ['ok' => true];
+}
+
+function sales_lead_admin_save(array $fields, ?int $id = null): array
+{
+    $agentId = (int) ($fields['agent_id'] ?? 0);
+    if ($agentId < 1 || !sales_agent($agentId)) {
+        return ['ok' => false, 'error' => 'Pick a sales agent for this business.'];
+    }
+    $status = (string) ($fields['status'] ?? '');
+    if (!isset(sales_statuses()[$status])) {
+        return ['ok' => false, 'error' => 'Choose a valid status.'];
+    }
+    $business = mb_substr(trim((string) ($fields['business_name'] ?? '')), 0, 190);
+    $address = mb_substr(trim((string) ($fields['address'] ?? '')), 0, 190);
+    $contactName = mb_substr(trim((string) ($fields['contact_name'] ?? '')), 0, 120);
+    $contactPhone = mb_substr(trim((string) ($fields['contact_phone'] ?? '')), 0, 40);
+    $city = mb_substr(trim((string) ($fields['city'] ?? '')), 0, 120);
+    $notes = mb_substr(trim((string) ($fields['notes'] ?? '')), 0, 2000);
+    $nature = mb_substr(trim((string) ($fields['nature_of_business'] ?? '')), 0, 190);
+    $package = mb_substr(trim((string) ($fields['package_chosen'] ?? '')), 0, 40);
+    $onboardDate = null;
+    $followDate = null;
+    $rejected = '';
+    $od = trim((string) ($fields['onboard_date'] ?? ''));
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $od)) {
+        $onboardDate = $od;
+    }
+    $fd = trim((string) ($fields['follow_up_date'] ?? ''));
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fd)) {
+        $followDate = $fd;
+    }
+    if ($status === 'follow_up' && !$followDate) {
+        return ['ok' => false, 'error' => 'Set a follow-up date.'];
+    }
+    if ($status === 'rejected') {
+        $rejected = mb_substr(trim((string) ($fields['rejected_reason'] ?? '')), 0, 500);
+        if ($rejected === '') {
+            return ['ok' => false, 'error' => 'Add a reason for rejection.'];
+        }
+    }
+    $actor = (int) (current_user()['id'] ?? 0);
+    if ($id) {
+        $row = sales_lead($id);
+        if (!$row) {
+            return ['ok' => false, 'error' => 'Lead not found.'];
+        }
+        $from = (string) $row['status'];
+        $followDone = $row['follow_up_done_at'] ?? null;
+        if ($from === 'follow_up' && $status !== 'follow_up') {
+            $followDone = date('Y-m-d H:i:s');
+        }
+        if ($status === 'follow_up' && $followDate !== ($row['follow_up_date'] ?? null)) {
+            $followDone = null;
+        }
+        if ($status === 'onboarded' && $from !== 'onboarded') {
+            $followDone = $followDone ?: date('Y-m-d H:i:s');
+        }
+        db_exec(
+            'UPDATE sales_leads SET agent_id=?, status=?, business_name=?, address=?, contact_name=?, contact_phone=?, city=?,
+             nature_of_business=?, package_chosen=?, onboard_date=?, follow_up_date=?, follow_up_done_at=?, rejected_reason=?, notes=?,
+             deleted_at=NULL, updated_at=NOW() WHERE id=?',
+            'isssssssssssssi',
+            [$agentId, $status, $business, $address, $contactName, $contactPhone, $city, $nature, $package, $onboardDate, $followDate, $followDone, $rejected, $notes, $id]
+        );
+        if ($from !== $status) {
+            sales_lead_event($id, $actor ?: $agentId, 'status_change', $from, $status, $notes);
+        } else {
+            sales_lead_event($id, $actor ?: $agentId, 'update', $from, $status, $notes);
+        }
+        return ['ok' => true, 'id' => $id];
+    }
+    $newId = db_exec(
+        'INSERT INTO sales_leads (agent_id, status, business_name, address, contact_name, contact_phone, city,
+         nature_of_business, package_chosen, onboard_date, follow_up_date, rejected_reason, notes)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'issssssssssss',
+        [$agentId, $status, $business, $address, $contactName, $contactPhone, $city, $nature, $package, $onboardDate, $followDate, $rejected, $notes]
+    );
+    sales_lead_event((int) $newId, $actor ?: $agentId, 'create', null, $status, $notes);
+    return ['ok' => true, 'id' => (int) $newId];
+}
+
+function sales_render_goal_bars(array $progress, array $opts = []): void
+{
+    $compact = !empty($opts['compact']);
+    $reachGoal = (int) ($progress['reach_goal'] ?? 0);
+    $salesGoal = (int) ($progress['sales_goal'] ?? 0);
+    $reach = (int) ($progress['reach'] ?? 0);
+    $sales = (int) ($progress['sales'] ?? 0);
+    $showReach = $reachGoal > 0 || !empty($opts['force_reach']);
+    $showSales = $salesGoal > 0 || !empty($opts['force_sales']);
+    if (!$showReach && !$showSales) {
+        echo '<p class="muted">No goals set for this period.</p>';
+        return;
+    }
+    $reachPct = sales_progress_pct($reach, max(1, $reachGoal));
+    $salesPct = sales_progress_pct($sales, max(1, $salesGoal));
+    $reachHit = $reachGoal > 0 && $reach >= $reachGoal;
+    $salesHit = $salesGoal > 0 && $sales >= $salesGoal;
+    $reachFill = min(100, $reachPct);
+    $salesFill = min(100, $salesPct);
+    ?>
+<div class="sales-goal-bars<?= $compact ? ' is-compact' : '' ?>">
+  <?php if ($showReach): ?>
+    <div class="sales-goal-row<?= $reachHit ? ' is-hit' : '' ?>">
+      <div class="sales-goal-meta">
+        <span>Leads reached</span>
+        <strong class="mono"><?= $reach ?>/<?= $reachGoal ?: '—' ?></strong>
+      </div>
+      <div class="sales-goal-track" role="img" aria-label="Leads <?= $reach ?> of <?= $reachGoal ?>">
+        <span style="width:<?= $reachFill ?>%"></span>
+      </div>
+      <?php if ($reachHit && $reach > $reachGoal): ?>
+        <span class="sales-goal-over">+<?= $reach - $reachGoal ?> over</span>
+      <?php elseif ($reachHit): ?>
+        <span class="sales-goal-over">Goal hit</span>
+      <?php endif; ?>
+    </div>
+  <?php endif; ?>
+  <?php if ($showSales): ?>
+    <div class="sales-goal-row<?= $salesHit ? ' is-hit' : '' ?>">
+      <div class="sales-goal-meta">
+        <span>Sales (interested + onboarded)</span>
+        <strong class="mono"><?= $sales ?>/<?= $salesGoal ?: '—' ?></strong>
+      </div>
+      <div class="sales-goal-track" role="img" aria-label="Sales <?= $sales ?> of <?= $salesGoal ?>">
+        <span style="width:<?= $salesFill ?>%"></span>
+      </div>
+      <?php if ($salesHit && $sales > $salesGoal): ?>
+        <span class="sales-goal-over">+<?= $sales - $salesGoal ?> over</span>
+      <?php elseif ($salesHit): ?>
+        <span class="sales-goal-over">Goal hit</span>
+      <?php endif; ?>
+    </div>
+  <?php endif; ?>
+</div>
+    <?php
+}
+
 function sales_series(?int $agentId, string $from, string $to): array
 {
     // Include soft-deleted rows so hiding a rejected lead does not rewrite charts.
@@ -510,14 +802,15 @@ function sales_top_agents(string $from, string $to, int $limit = 8): array
     $rows = db_all(
         "SELECT u.id, u.name, u.email,
                 SUM(CASE WHEN l.id IS NOT NULL THEN 1 ELSE 0 END) AS reach,
-                SUM(CASE WHEN l.status = 'onboarded' THEN 1 ELSE 0 END) AS sales,
+                SUM(CASE WHEN l.status IN ('onboarded','interested') THEN 1 ELSE 0 END) AS sales,
+                SUM(CASE WHEN l.status = 'onboarded' THEN 1 ELSE 0 END) AS onboarded,
                 SUM(CASE WHEN l.status = 'interested' THEN 1 ELSE 0 END) AS interested,
                 SUM(CASE WHEN l.status = 'rejected' THEN 1 ELSE 0 END) AS rejected,
                 SUM(CASE WHEN l.status = 'follow_up' THEN 1 ELSE 0 END) AS follow_up
          FROM users u
          LEFT JOIN sales_leads l ON l.agent_id = u.id
               AND DATE(l.created_at) >= ? AND DATE(l.created_at) <= ?
-         WHERE u.role = 'sales_agent'
+         WHERE u.role = 'sales_agent' AND COALESCE(u.status, 'live') = 'live'
          GROUP BY u.id, u.name, u.email
          ORDER BY sales DESC, reach DESC, u.name
          LIMIT " . (int) $limit,

@@ -18,19 +18,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-[$from, $to] = sales_period_bounds();
-$todayStats = sales_stats((int) $user['id'], today(), today());
-$monthStats = sales_stats((int) $user['id'], date('Y-m-01'), today());
-$target = sales_target_for((int) $user['id']);
-$due = sales_followups_due((int) $user['id'], 1);
-$recent = sales_leads_query(['agent_id' => (int) $user['id'], 'limit' => 6]);
+$uid = (int) $user['id'];
+$daily = sales_progress($uid, 'daily');
+$weekly = sales_progress($uid, 'weekly');
+$monthly = sales_progress($uid, 'monthly');
+$todayStats = $daily['stats'];
+$due = sales_followups_due($uid, 1);
+$recent = sales_leads_query(['agent_id' => $uid, 'limit' => 6]);
+$daySeries = sales_series($uid, today(), today());
 
 sales_layout_start('Home', $user);
 ?>
 <div class="page-head">
   <div>
     <h1><?= icon('home') ?>Field home</h1>
-    <p class="lede">Clock in once a day, then log businesses you reach. Follow-ups due today or tomorrow show in the bell.</p>
+    <p class="lede">Clock in once a day, then log businesses you reach. Daily goals stay visible after you hit them — keep going.</p>
   </div>
   <div class="actions page-actions">
     <a class="btn" href="<?= h(url('sales_lead_edit.php')) ?>"><?= icon('plus', 16) ?>New lead</a>
@@ -54,28 +56,46 @@ sales_layout_start('Home', $user);
 </div>
 <?php else: ?>
 <p class="flash" style="margin:0 0 16px"><?= icon('check', 16) ?>Clocked in at <?= h(format_date($clock['day_date'])) ?> · <?= h($clock['location_city']) ?></p>
-<?php endif; ?>
+
+<div class="card" style="margin-bottom:16px">
+  <div class="card-head">
+    <h2><?= icon('flag', 16) ?>Today’s goals</h2>
+    <a class="btn ghost sm" href="<?= h(url('sales_performance.php?period=daily')) ?>">All periods</a>
+  </div>
+  <div class="pad-form">
+    <?php sales_render_goal_bars($daily, ['force_reach' => true, 'force_sales' => true]); ?>
+  </div>
+</div>
 
 <div class="stats">
   <div class="card stat"><?= icon('clients', 20) ?><span>Reached today</span><strong><?= (int) $todayStats['reach'] ?></strong></div>
-  <div class="card stat"><?= icon('heart', 20) ?><span>Interested today</span><strong><?= (int) $todayStats['interested'] ?></strong></div>
+  <div class="card stat"><?= icon('heart', 20) ?><span>Sales today</span><strong><?= (int) $todayStats['wins'] ?></strong></div>
   <div class="card stat"><?= icon('calendar', 20) ?><span>Follow-ups due</span><strong><?= count($due) ?></strong></div>
-  <div class="card stat"><?= icon('reports', 20) ?><span>Month reach</span><strong><?= (int) $monthStats['reach'] ?></strong></div>
+  <div class="card stat"><?= icon('reports', 20) ?><span>Week sales</span><strong><?= (int) $weekly['sales'] ?>/<?= (int) $weekly['sales_goal'] ?></strong></div>
 </div>
 
-<?php if ($target):
-    $reachGoal = max(1, (int) $target['reach_target']);
-    $salesGoal = max(1, (int) $target['sales_target']);
-    $reachPct = min(100, (int) round(100 * $monthStats['reach'] / $reachGoal));
-    $salesPct = min(100, (int) round(100 * $monthStats['onboarded'] / $salesGoal));
-    ?>
+<div class="chart-grid equal" style="margin-bottom:16px">
+  <div class="card chart-box">
+    <div class="card-head"><h2>Today’s mix</h2></div>
+    <div class="pad-form" style="height:220px"><canvas id="home-pie"></canvas></div>
+  </div>
+  <div class="card chart-box">
+    <div class="card-head"><h2>Today by status</h2></div>
+    <div class="pad-form" style="height:220px"><canvas id="home-bar"></canvas></div>
+  </div>
+</div>
+
 <div class="card" style="margin-bottom:16px">
-  <div class="card-head"><h2><?= icon('flag', 16) ?>Your target</h2></div>
-  <div class="pad-form">
-    <p class="lede">Reach <?= (int) $monthStats['reach'] ?> / <?= (int) $target['reach_target'] ?></p>
-    <div class="savings-bar" role="img" aria-label="Reach progress"><span style="width:<?= $reachPct ?>%"></span></div>
-    <p class="lede" style="margin-top:12px">Sales (onboarded) <?= (int) $monthStats['onboarded'] ?> / <?= (int) $target['sales_target'] ?></p>
-    <div class="savings-bar" role="img" aria-label="Sales progress"><span style="width:<?= $salesPct ?>%"></span></div>
+  <div class="card-head"><h2><?= icon('flag', 16) ?>Also tracking</h2></div>
+  <div class="pad-form desk-grid stock-split">
+    <div>
+      <p class="lede" style="margin:0 0 8px">This week</p>
+      <?php sales_render_goal_bars($weekly, ['compact' => true, 'force_sales' => true]); ?>
+    </div>
+    <div>
+      <p class="lede" style="margin:0 0 8px">This month</p>
+      <?php sales_render_goal_bars($monthly, ['compact' => true, 'force_sales' => true]); ?>
+    </div>
   </div>
 </div>
 <?php endif; ?>
@@ -122,4 +142,24 @@ sales_layout_start('Home', $user);
     </div>
   <?php endif; ?>
 </div>
-<?php sales_layout_end(); ?>
+<?php
+$extra = '';
+if ($clock) {
+    $payload = json_encode([
+        'pieLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded'],
+        'pieValues' => [(int) $todayStats['interested'], (int) $todayStats['follow_up'], (int) $todayStats['rejected'], (int) $todayStats['onboarded']],
+        'barLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded'],
+        'barValues' => [(int) $todayStats['interested'], (int) $todayStats['follow_up'], (int) $todayStats['rejected'], (int) $todayStats['onboarded']],
+        'color' => brand_color(),
+    ], JSON_UNESCAPED_UNICODE);
+    $extra = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script>
+(function(){
+  var d=' . $payload . ';
+  var pie=document.getElementById("home-pie");
+  if(pie&&window.Chart){ new Chart(pie,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"}},maintainAspectRatio:false}}); }
+  var bar=document.getElementById("home-bar");
+  if(bar&&window.Chart){ new Chart(bar,{type:"bar",data:{labels:d.barLabels,datasets:[{data:d.barValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderRadius:6}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}}); }
+})();
+</script>';
+}
+sales_layout_end($extra);

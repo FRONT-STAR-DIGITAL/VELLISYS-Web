@@ -539,6 +539,87 @@ summary {
 .savings-bar.is-saved span {
   background: var(--brand-2, #C6A15B);
 }
+.sales-goal-bars {
+  display: grid;
+  gap: 12px;
+}
+.sales-goal-bars.is-compact {
+  gap: 8px;
+}
+.sales-goal-row {
+  display: grid;
+  gap: 6px;
+}
+.sales-goal-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.92rem;
+}
+.sales-goal-meta span {
+  color: var(--muted, #5b6472);
+}
+.sales-goal-meta strong {
+  font-variant-numeric: tabular-nums;
+}
+.sales-goal-track {
+  height: 10px;
+  background: #e8ebf2;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.sales-goal-track span {
+  display: block;
+  height: 100%;
+  background: var(--brand, #82B440);
+  border-radius: inherit;
+  transition: width 0.35s ease;
+}
+.sales-goal-row.is-hit .sales-goal-track span {
+  background: #0f766e;
+}
+.sales-goal-over {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #0f766e;
+}
+.sales-agent-goal-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.sales-agent-goal-card:hover {
+  border-color: color-mix(in srgb, var(--brand, #82B440) 45%, #d8dde8);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  transform: translateY(-1px);
+}
+.sales-agent-goal-card .card-head {
+  align-items: flex-start;
+}
+.sales-agent-goal-card .card-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.sales-agent-goal-card .pad-form {
+  padding-top: 4px;
+}
+.sales-period-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+.sales-period-tabs .chip {
+  text-decoration: none;
+}
+.sales-agents-goal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
 @media (max-width: 720px) {
   .people-access-head { width: 100%; }
   .people-access-head .btn { width: 100%; }

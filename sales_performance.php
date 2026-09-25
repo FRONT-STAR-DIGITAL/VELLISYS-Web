@@ -3,51 +3,49 @@ declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
 $user = require_sales_agent();
 
-if (!isset($_GET['range']) && trim((string) ($_GET['from'] ?? '')) === '') {
-    $_GET['range'] = 'this_month';
+$periodKind = (string) ($_GET['period'] ?? 'daily');
+if (!in_array($periodKind, ['daily', 'weekly', 'monthly'], true)) {
+    $periodKind = 'daily';
 }
-[$from, $to, $period] = sales_period_bounds();
-$stats = sales_stats((int) $user['id'], $from, $to);
-$series = sales_series((int) $user['id'], $from, $to);
-$target = sales_target_for((int) $user['id']);
-$reachGoal = max(0, (int) ($target['reach_target'] ?? 0));
-$salesGoal = max(0, (int) ($target['sales_target'] ?? 0));
-$followed = sales_leads_query(['agent_id' => (int) $user['id'], 'follow_bucket' => 'done', 'from' => $from, 'to' => $to]);
-$pending = sales_leads_query(['agent_id' => (int) $user['id'], 'follow_bucket' => 'due']);
+$uid = (int) $user['id'];
+$progress = sales_progress($uid, $periodKind);
+$from = $progress['from'];
+$to = $progress['stat_to'];
+$stats = $progress['stats'];
+$series = sales_series($uid, $from, $to);
+$followed = sales_leads_query(['agent_id' => $uid, 'follow_bucket' => 'done', 'from' => $from, 'to' => $to]);
+$pending = sales_leads_query(['agent_id' => $uid, 'follow_bucket' => 'due']);
+$periodLabels = ['daily' => 'Daily', 'weekly' => 'Weekly', 'monthly' => 'Monthly'];
 
 sales_layout_start('Performance', $user);
 ?>
 <div class="page-head">
   <div>
     <h1><?= icon('reports') ?>Performance</h1>
-    <p class="lede">Your reach, interest mix and follow-ups for the dates you pick.</p>
+    <p class="lede">Your daily, weekly and monthly goals with charts that match what admin sees.</p>
   </div>
 </div>
-<?php render_filters('sales_performance.php', [], ['live' => true]); ?>
-<p class="hint" style="margin:-8px 0 16px">Showing <?= $period['from'] ? h(format_date($from) . ' - ' . format_date($to)) : 'all dates' ?>.</p>
+
+<nav class="sales-period-tabs" aria-label="Performance period">
+  <?php foreach ($periodLabels as $k => $label): ?>
+    <a class="chip<?= $periodKind === $k ? ' is-on' : '' ?>" href="<?= h(url('sales_performance.php?period=' . $k)) ?>"><?= h($label) ?></a>
+  <?php endforeach; ?>
+</nav>
+<p class="hint" style="margin:-4px 0 16px"><?= h($periodLabels[$periodKind]) ?> · <?= h(format_date($from)) ?><?= $from !== $to ? ' – ' . h(format_date($to)) : '' ?></p>
+
+<div class="card" style="margin-bottom:16px">
+  <div class="card-head"><h2><?= icon('flag', 16) ?><?= h($periodLabels[$periodKind]) ?> goals</h2></div>
+  <div class="pad-form">
+    <?php sales_render_goal_bars($progress, ['force_reach' => $periodKind === 'daily', 'force_sales' => true]); ?>
+  </div>
+</div>
 
 <div class="stats">
-  <div class="card stat"><?= icon('clients', 20) ?><span>Reach</span><strong><?= (int) $stats['reach'] ?><?= $reachGoal ? ' / ' . $reachGoal : '' ?></strong></div>
-  <div class="card stat"><?= icon('check', 20) ?><span>Onboarded</span><strong><?= (int) $stats['onboarded'] ?><?= $salesGoal ? ' / ' . $salesGoal : '' ?></strong></div>
+  <div class="card stat"><?= icon('clients', 20) ?><span>Reach</span><strong><?= (int) $stats['reach'] ?><?= $progress['reach_goal'] ? ' / ' . (int) $progress['reach_goal'] : '' ?></strong></div>
+  <div class="card stat"><?= icon('flag', 20) ?><span>Sales</span><strong><?= (int) $stats['wins'] ?><?= $progress['sales_goal'] ? ' / ' . (int) $progress['sales_goal'] : '' ?></strong></div>
   <div class="card stat"><?= icon('heart', 20) ?><span>Interested</span><strong><?= (int) $stats['interested'] ?></strong></div>
-  <div class="card stat"><?= icon('ban', 20) ?><span>Rejected</span><strong><?= (int) $stats['rejected'] ?></strong></div>
+  <div class="card stat"><?= icon('check', 20) ?><span>Onboarded</span><strong><?= (int) $stats['onboarded'] ?></strong></div>
 </div>
-
-<?php if ($reachGoal || $salesGoal): ?>
-<div class="card" style="margin-bottom:16px">
-  <div class="card-head"><h2><?= icon('flag', 16) ?>Target progress</h2></div>
-  <div class="pad-form">
-    <?php if ($reachGoal): $p = min(100, (int) round(100 * $stats['reach'] / max(1, $reachGoal))); ?>
-      <p class="lede">Reach <?= (int) $stats['reach'] ?> / <?= $reachGoal ?></p>
-      <div class="savings-bar"><span style="width:<?= $p ?>%"></span></div>
-    <?php endif; ?>
-    <?php if ($salesGoal): $p = min(100, (int) round(100 * $stats['onboarded'] / max(1, $salesGoal))); ?>
-      <p class="lede" style="margin-top:12px">Sales <?= (int) $stats['onboarded'] ?> / <?= $salesGoal ?></p>
-      <div class="savings-bar"><span style="width:<?= $p ?>%"></span></div>
-    <?php endif; ?>
-  </div>
-</div>
-<?php endif; ?>
 
 <div class="chart-grid equal" style="margin-bottom:16px">
   <div class="card chart-box">
@@ -55,7 +53,7 @@ sales_layout_start('Performance', $user);
     <div class="pad-form" style="height:220px"><canvas id="chart-pie"></canvas></div>
   </div>
   <div class="card chart-box">
-    <div class="card-head"><h2>Reach over time</h2></div>
+    <div class="card-head"><h2><?= $periodKind === 'daily' ? 'Today by status' : 'Reach & sales over time' ?></h2></div>
     <div class="pad-form" style="height:220px"><canvas id="chart-line"></canvas></div>
   </div>
 </div>
@@ -94,6 +92,10 @@ $payload = json_encode([
     'pieValues' => [(int) $stats['interested'], (int) $stats['follow_up'], (int) $stats['rejected'], (int) $stats['onboarded']],
     'labels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $series),
     'reach' => array_column($series, 'reach'),
+    'wins' => array_map(static fn ($r) => (int) $r['interested'] + (int) $r['onboarded'], $series),
+    'barLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded'],
+    'barValues' => [(int) $stats['interested'], (int) $stats['follow_up'], (int) $stats['rejected'], (int) $stats['onboarded']],
+    'daily' => $periodKind === 'daily',
     'color' => brand_color(),
 ], JSON_UNESCAPED_UNICODE);
 $extra = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script>
@@ -102,7 +104,13 @@ $extra = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script
   var pie=document.getElementById("chart-pie");
   if(pie&&window.Chart){ new Chart(pie,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"}},maintainAspectRatio:false}}); }
   var line=document.getElementById("chart-line");
-  if(line&&window.Chart){ new Chart(line,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}},maintainAspectRatio:false}}); }
+  if(line&&window.Chart){
+    if(d.daily){
+      new Chart(line,{type:"bar",data:{labels:d.barLabels,datasets:[{data:d.barValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderRadius:6}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});
+    } else {
+      new Chart(line,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Sales",data:d.wins,borderColor:"#0f766e",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"}},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});
+    }
+  }
 })();
 </script>';
 sales_layout_end($extra);

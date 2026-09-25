@@ -2075,6 +2075,21 @@ function folio_migrate_sales_field(mysqli $db): void
       KEY company_id (company_id),
       KEY email (email)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $db->query("CREATE TABLE IF NOT EXISTS sales_goal_defaults (
+      id TINYINT UNSIGNED NOT NULL PRIMARY KEY DEFAULT 1,
+      daily_reach INT UNSIGNED NOT NULL DEFAULT 10,
+      daily_sales INT UNSIGNED NOT NULL DEFAULT 2,
+      weekly_reach INT UNSIGNED NOT NULL DEFAULT 0,
+      weekly_sales INT UNSIGNED NOT NULL DEFAULT 10,
+      monthly_reach INT UNSIGNED NOT NULL DEFAULT 0,
+      monthly_sales INT UNSIGNED NOT NULL DEFAULT 30,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $exists = @$db->query('SELECT id FROM sales_goal_defaults WHERE id = 1 LIMIT 1');
+    if ($exists && $exists->num_rows === 0) {
+        @$db->query('INSERT INTO sales_goal_defaults (id, daily_reach, daily_sales, weekly_reach, weekly_sales, monthly_reach, monthly_sales)
+            VALUES (1, 10, 2, 0, 10, 0, 30)');
+    }
 }
 
 
