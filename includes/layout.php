@@ -202,7 +202,7 @@ function layout_start(string $title, array $user, array $opts = []): void
   <style>:root { <?= brand_css_vars() ?> }</style>
   <?php render_nav_boot_script(); ?>
 </head>
-<body class="desk-body<?= $here === 'settings.php' ? ' settings-page' : '' ?>">
+<body class="desk-body<?= $here === 'settings.php' ? ' settings-page' : '' ?><?= (function_exists('sales_demo_active') && sales_demo_active()) ? ' sales-demo-desk' : '' ?>">
 <?php render_page_loader(); ?>
 <div class="app">
   <div class="nav-scrim" data-nav-scrim hidden></div>

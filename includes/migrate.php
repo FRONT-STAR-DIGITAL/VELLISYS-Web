@@ -2013,11 +2013,21 @@ function folio_migrate_sales_field(mysqli $db): void
       user_id INT UNSIGNED NOT NULL,
       day_date DATE NOT NULL,
       clocked_at DATETIME NOT NULL,
+      clocked_out_at DATETIME NULL,
+      minutes_accrued INT UNSIGNED NOT NULL DEFAULT 0,
       location_city VARCHAR(120) NOT NULL DEFAULT '',
       notes VARCHAR(500) NOT NULL DEFAULT '',
       UNIQUE KEY user_day (user_id, day_date),
       KEY day_date (day_date)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    if (!db_has_column($db, 'sales_clock_ins', 'clocked_out_at')) {
+        @$db->query("ALTER TABLE sales_clock_ins ADD COLUMN clocked_out_at DATETIME NULL AFTER clocked_at");
+        db_has_column($db, 'sales_clock_ins', 'clocked_out_at', true);
+    }
+    if (!db_has_column($db, 'sales_clock_ins', 'minutes_accrued')) {
+        @$db->query("ALTER TABLE sales_clock_ins ADD COLUMN minutes_accrued INT UNSIGNED NOT NULL DEFAULT 0 AFTER clocked_out_at");
+        db_has_column($db, 'sales_clock_ins', 'minutes_accrued', true);
+    }
     $db->query("CREATE TABLE IF NOT EXISTS sales_leads (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       agent_id INT UNSIGNED NOT NULL,
@@ -2182,15 +2192,22 @@ function folio_ensure_sales_demo(mysqli $db): void
             VALUES ({$cid}, 'Vellisys Sales Demo', 'Demo desk for field sales', '#1E4EFF', '#8EB0FF', 'UGX', 'VSD',
             'Make payment to Vellisys Sales Demo.',
             '1. Payment is due by the date shown above.\\n2. Quote the invoice number on the transfer.')");
+    } else {
+        @$db->query("UPDATE branding SET name='Vellisys Sales Demo', tagline='Demo desk for field sales',
+            brand_color=COALESCE(NULLIF(brand_color,''),'#1E4EFF'),
+            brand_accent=COALESCE(NULLIF(brand_accent,''),'#8EB0FF'),
+            currency=COALESCE(NULLIF(currency,''),'UGX'),
+            prefix=COALESCE(NULLIF(prefix,''),'VSD')
+            WHERE company_id = {$cid}");
     }
 
     $hash = $db->real_escape_string(password_hash('demo-sales-2026', PASSWORD_DEFAULT));
     if ($user) {
-        @$db->query("UPDATE users SET name='Sales Demo', job_title='Demo desk', role='admin', access='admin', company_id={$cid}, status='live', password_hash='{$hash}' WHERE id = " . (int) $user['id']);
+        @$db->query("UPDATE users SET name='Sales Demo', job_title='Demo desk', role='admin', access='admin', company_id={$cid}, status='live', password_hash='{$hash}', welcome_pop_seen_at=COALESCE(welcome_pop_seen_at, NOW()) WHERE id = " . (int) $user['id']);
         $uid = (int) $user['id'];
     } else {
-        @$db->query("INSERT INTO users (name, job_title, email, password_hash, role, access, company_id, status)
-            VALUES ('Sales Demo', 'Demo desk', '{$esc}', '{$hash}', 'admin', 'admin', {$cid}, 'live')");
+        @$db->query("INSERT INTO users (name, job_title, email, password_hash, role, access, company_id, status, welcome_pop_seen_at)
+            VALUES ('Sales Demo', 'Demo desk', '{$esc}', '{$hash}', 'admin', 'admin', {$cid}, 'live', NOW())");
         $uid = (int) $db->insert_id;
     }
     if ($uid < 1) {

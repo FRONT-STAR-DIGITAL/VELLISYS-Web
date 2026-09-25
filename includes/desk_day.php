@@ -545,5 +545,5 @@ render_desk_metric_tabs([
         'color' => branding()['brand_color'] ?? '#82B440',
         'showProfit' => $showProfit,
     ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG);
-    return '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script>window.vellisysDayCharts=' . $payload . ';</script><script src="' . h(asset('js/stock-day.js')) . '"></script>';
+    return '<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script>window.vellisysDayCharts=' . $payload . ';</script><script src="' . h(asset('js/stock-day.js')) . '" defer></script>';
 }

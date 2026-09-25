@@ -4,15 +4,30 @@ require __DIR__ . '/includes/bootstrap.php';
 $user = require_sales_agent();
 $error = '';
 $clock = sales_today_clock((int) $user['id']);
+$clockedIn = sales_is_clocked_in((int) $user['id']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
-    if (post('action') === 'clock_in') {
+    $action = post('action');
+    if ($action === 'clock_in') {
         $done = sales_clock_in((int) $user['id'], post('location_city'), post('notes'));
         if (empty($done['ok'])) {
             $error = (string) ($done['error'] ?? 'Could not clock in.');
         } else {
-            flash(empty($done['already']) ? 'Clocked in. You can log visits now.' : 'Already clocked in today.');
+            flash(empty($done['already'])
+                ? (!empty($done['resumed']) ? 'Clocked back in. You can log visits again.' : 'Clocked in. You can log visits now.')
+                : 'Already clocked in today.');
+            redirect(sales_home());
+        }
+    } elseif ($action === 'clock_out') {
+        $done = sales_clock_out((int) $user['id']);
+        if (empty($done['ok'])) {
+            $error = (string) ($done['error'] ?? 'Could not clock out.');
+        } else {
+            $mins = (int) ($done['minutes'] ?? 0);
+            flash(empty($done['already'])
+                ? ('Clocked out. Field time today: ' . sales_format_hours($mins / 60) . '.')
+                : 'Already clocked out.');
             redirect(sales_home());
         }
     }
@@ -26,6 +41,7 @@ $todayStats = $daily['stats'];
 $due = sales_followups_due($uid, 1);
 $recent = sales_leads_query(['agent_id' => $uid, 'limit' => 6]);
 $daySeries = sales_series($uid, today(), today());
+$todayMins = $clock ? sales_clock_minutes($clock) : 0;
 
 sales_layout_start('Home', $user);
 ?>
@@ -41,21 +57,36 @@ sales_layout_start('Home', $user);
 
 <?php if ($error): ?><p class="flash flash-err"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
 
-<?php if (!$clock): ?>
+<?php if (!$clockedIn): ?>
 <div class="card" style="margin-bottom:16px">
-  <div class="card-head"><h2><?= icon('clock', 16) ?>Clock in</h2></div>
+  <div class="card-head"><h2><?= icon('clock', 16) ?><?= $clock ? 'Clock back in' : 'Clock in' ?></h2></div>
   <form method="post" class="pad-form">
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="clock_in">
+    <?php if ($clock): ?>
+      <p class="hint" style="margin-top:0">You clocked out earlier. Field time so far today: <strong><?= h(sales_format_hours($todayMins / 60)) ?></strong>.</p>
+    <?php endif; ?>
     <label for="location_city">Where are you? (city / area)</label>
-    <input id="location_city" name="location_city" required placeholder="e.g. Kampala, Nakawa" autocomplete="address-level2">
+    <input id="location_city" name="location_city" required placeholder="e.g. Kampala, Nakawa" autocomplete="address-level2" value="<?= h((string) ($clock['location_city'] ?? '')) ?>">
     <label for="notes">Note (optional)</label>
-    <input id="notes" name="notes" placeholder="Territory or route">
+    <input id="notes" name="notes" placeholder="Territory or route" value="<?= h((string) ($clock['notes'] ?? '')) ?>">
     <div class="actions" style="margin-top:12px"><button class="btn" type="submit"><?= icon('check') ?>Clock in for today</button></div>
   </form>
 </div>
 <?php else: ?>
-<p class="flash" style="margin:0 0 16px"><?= icon('check', 16) ?>Clocked in at <?= h(format_date($clock['day_date'])) ?> · <?= h($clock['location_city']) ?></p>
+<div class="card sales-clock-card" style="margin-bottom:16px">
+  <div class="card-head">
+    <h2><?= icon('clock', 16) ?>On the clock</h2>
+    <form method="post" class="sales-clock-out-form">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="clock_out">
+      <button class="btn ghost sm" type="submit"><?= icon('logout', 14) ?>Clock out</button>
+    </form>
+  </div>
+  <div class="pad-form sales-clock-status">
+    <p class="flash" style="margin:0"><?= icon('check', 16) ?>Clocked in · <?= h((string) $clock['location_city']) ?> · <?= h(sales_format_hours($todayMins / 60)) ?> in field today</p>
+  </div>
+</div>
 
 <div class="card" style="margin-bottom:16px">
   <div class="card-head">
@@ -123,7 +154,7 @@ sales_layout_start('Home', $user);
     <a class="btn ghost sm" href="<?= h(url('sales_leads.php')) ?>">All</a>
   </div>
   <?php if (!$recent): ?>
-    <p class="empty">No visits logged yet.<?= $clock ? ' Add your first lead.' : ' Clock in first.' ?></p>
+    <p class="empty">No visits logged yet.<?= $clockedIn ? ' Add your first lead.' : ' Clock in first.' ?></p>
   <?php else: ?>
     <div class="table-scroll">
       <table class="grid">
@@ -144,7 +175,7 @@ sales_layout_start('Home', $user);
 </div>
 <?php
 $extra = '';
-if ($clock) {
+if ($clockedIn) {
     $payload = json_encode([
         'pieLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded'],
         'pieValues' => [(int) $todayStats['interested'], (int) $todayStats['follow_up'], (int) $todayStats['rejected'], (int) $todayStats['onboarded']],
@@ -152,13 +183,17 @@ if ($clock) {
         'barValues' => [(int) $todayStats['interested'], (int) $todayStats['follow_up'], (int) $todayStats['rejected'], (int) $todayStats['onboarded']],
         'color' => brand_color(),
     ], JSON_UNESCAPED_UNICODE);
-    $extra = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script>
+    $extra = '<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script defer>
 (function(){
-  var d=' . $payload . ';
-  var pie=document.getElementById("home-pie");
-  if(pie&&window.Chart){ new Chart(pie,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"}},maintainAspectRatio:false}}); }
-  var bar=document.getElementById("home-bar");
-  if(bar&&window.Chart){ new Chart(bar,{type:"bar",data:{labels:d.barLabels,datasets:[{data:d.barValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderRadius:6}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}}); }
+  function go(){
+    if(!window.Chart){ setTimeout(go,40); return; }
+    var d=' . $payload . ';
+    var pie=document.getElementById("home-pie");
+    if(pie){ new Chart(pie,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"}},maintainAspectRatio:false}}); }
+    var bar=document.getElementById("home-bar");
+    if(bar){ new Chart(bar,{type:"bar",data:{labels:d.barLabels,datasets:[{data:d.barValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderRadius:6}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}}); }
+  }
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",go); else go();
 })();
 </script>';
 }

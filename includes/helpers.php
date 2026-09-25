@@ -4083,6 +4083,9 @@ function render_desk_welcome_pop(array $user): void
     if (!desk_welcome_pending($user) || is_acting_admin()) {
         return;
     }
+    if (function_exists('sales_demo_active') && sales_demo_active()) {
+        return;
+    }
     $who = explode(' ', trim((string) ($user['name'] ?? '')))[0] ?: 'there';
     $phones = implode(' or ', product_phones());
     ?>

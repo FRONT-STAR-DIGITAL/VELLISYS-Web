@@ -5315,8 +5315,100 @@ a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--lin
 
 
 /* —— Sales field portal (mobile-first agents) —— */
+.sales-body,
+.sales-body .main,
+.sales-body .content {
+  max-width: 100%;
+  min-width: 0;
+}
 .sales-body .content {
   max-width: 920px;
+  overflow-x: clip;
+}
+.sales-body .page-head,
+.sales-body .page-head > div,
+.sales-lead-form,
+.sales-status-pick,
+.sales-lead-form .form-grid,
+.sales-lead-form .form-grid > div {
+  min-width: 0;
+  max-width: 100%;
+}
+.sales-body .page-head .lede {
+  overflow-wrap: anywhere;
+}
+.sales-clock-card .card-head {
+  align-items: center;
+}
+.sales-clock-out-form {
+  margin: 0;
+}
+.sales-status-pick {
+  border: 0;
+  margin: 0 0 16px;
+  padding: 0;
+  min-width: 0;
+  max-width: 100%;
+}
+.sales-status-pick legend {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.sales-status-pick .filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 100%;
+}
+.sales-status-pick .chip {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  user-select: none;
+  flex: 0 1 auto;
+  max-width: 100%;
+}
+.sales-status-pick .chip input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.sales-lead-form {
+  overflow-x: clip;
+  box-sizing: border-box;
+  width: 100%;
+}
+.sales-lead-form input,
+.sales-lead-form select,
+.sales-lead-form textarea {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.sales-lead-form [data-panel] {
+  margin-top: 12px;
+  min-width: 0;
+}
+.sales-demo-desk .acting-bar {
+  flex-wrap: wrap;
+  padding-left: max(12px, env(safe-area-inset-left, 0px));
+  padding-right: max(12px, env(safe-area-inset-right, 0px));
+}
+@media (max-width: 1024px) {
+  .sales-body,
+  .sales-demo-desk {
+    --app-tabbar-h: calc(48px + env(safe-area-inset-bottom, 0px));
+  }
+  .sales-demo-desk .content {
+    padding-bottom: calc(28px + var(--app-tabbar-h, 48px));
+  }
+  .sales-demo-desk .app-tabbar {
+    display: grid;
+  }
 }
 @media (max-width: 820px) {
   .sales-body .nav,
@@ -5336,27 +5428,6 @@ a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--lin
     min-height: 0;
     overflow-y: auto;
   }
-}
-.sales-status-pick {
-  border: 0;
-  margin: 0 0 16px;
-  padding: 0;
-}
-.sales-status-pick legend {
-  font-weight: 700;
-  margin-bottom: 8px;
-}
-.sales-status-pick .chip {
-  cursor: pointer;
-  user-select: none;
-}
-.sales-status-pick .chip input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-.sales-lead-form [data-panel] {
-  margin-top: 12px;
 }
 .sales-chat-log {
   display: flex;

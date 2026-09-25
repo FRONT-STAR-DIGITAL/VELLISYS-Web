@@ -277,24 +277,116 @@ function sales_today_clock(?int $userId = null): ?array
 
 function sales_is_clocked_in(?int $userId = null): bool
 {
-    return (bool) sales_today_clock($userId);
+    $row = sales_today_clock($userId);
+    if (!$row) {
+        return false;
+    }
+    return trim((string) ($row['clocked_out_at'] ?? '')) === '';
+}
+
+/** Minutes on the clock for a clock-in row (includes open session so far). */
+function sales_clock_minutes(array $row, ?int $now = null): int
+{
+    $accrued = (int) ($row['minutes_accrued'] ?? 0);
+    $out = trim((string) ($row['clocked_out_at'] ?? ''));
+    if ($out !== '') {
+        return max(0, $accrued);
+    }
+    // Prefer SQL-computed open minutes when present (avoids PHP/MySQL TZ skew).
+    if (isset($row['open_mins'])) {
+        return max(0, $accrued + (int) $row['open_mins']);
+    }
+    $id = (int) ($row['id'] ?? 0);
+    if ($id > 0) {
+        try {
+            $live = db_one(
+                'SELECT minutes_accrued,
+                        CASE WHEN clocked_out_at IS NULL
+                             THEN GREATEST(0, TIMESTAMPDIFF(MINUTE, clocked_at, NOW()))
+                             ELSE 0 END AS open_mins
+                 FROM sales_clock_ins WHERE id = ?',
+                'i',
+                [$id]
+            );
+            if ($live) {
+                return max(0, (int) ($live['minutes_accrued'] ?? 0) + (int) ($live['open_mins'] ?? 0));
+            }
+        } catch (Throwable $e) {
+            // fall through
+        }
+    }
+    $start = strtotime((string) ($row['clocked_at'] ?? ''));
+    if (!$start) {
+        return max(0, $accrued);
+    }
+    // Avoid PHP/MySQL timezone skew: only count whole minutes when clocks agree within 2 minutes.
+    $now = $now ?? time();
+    $mins = (int) floor(($now - $start) / 60);
+    if ($mins > 120) {
+        // Likely TZ skew; prefer accrued only until next SQL refresh.
+        return max(0, $accrued);
+    }
+    return max(0, $accrued + max(0, $mins));
+}
+
+function sales_format_hours(float $hours): string
+{
+    if ($hours <= 0) {
+        return '0h';
+    }
+    if ($hours < 10) {
+        return rtrim(rtrim(number_format($hours, 1, '.', ''), '0'), '.') . 'h';
+    }
+    return number_format($hours, 1, '.', '') . 'h';
 }
 
 function sales_clock_in(int $userId, string $city, string $notes = ''): array
 {
-    if (sales_today_clock($userId)) {
-        return ['ok' => true, 'already' => true];
-    }
     $city = mb_substr(trim($city), 0, 120);
     if ($city === '') {
         return ['ok' => false, 'error' => 'Enter the city or area where you are.'];
     }
+    $note = mb_substr(trim($notes), 0, 500);
+    $existing = sales_today_clock($userId);
+    if ($existing && trim((string) ($existing['clocked_out_at'] ?? '')) === '') {
+        return ['ok' => true, 'already' => true];
+    }
+    if ($existing) {
+        // Re-open after clock-out: keep accrued minutes, start a new open session.
+        db_exec(
+            'UPDATE sales_clock_ins SET clocked_at = NOW(), clocked_out_at = NULL, location_city = ?, notes = ? WHERE id = ?',
+            'ssi',
+            [$city, $note !== '' ? $note : (string) ($existing['notes'] ?? ''), (int) $existing['id']]
+        );
+        return ['ok' => true, 'id' => (int) $existing['id'], 'resumed' => true];
+    }
     $id = db_exec(
         'INSERT INTO sales_clock_ins (user_id, day_date, clocked_at, location_city, notes) VALUES (?,?,NOW(),?,?)',
         'isss',
-        [$userId, today(), $city, mb_substr(trim($notes), 0, 500)]
+        [$userId, today(), $city, $note]
     );
     return ['ok' => true, 'id' => (int) $id];
+}
+
+function sales_clock_out(int $userId): array
+{
+    $row = sales_today_clock($userId);
+    if (!$row) {
+        return ['ok' => false, 'error' => 'You are not clocked in.'];
+    }
+    if (trim((string) ($row['clocked_out_at'] ?? '')) !== '') {
+        return ['ok' => true, 'already' => true, 'minutes' => sales_clock_minutes($row)];
+    }
+    db_exec(
+        'UPDATE sales_clock_ins
+         SET minutes_accrued = minutes_accrued + GREATEST(0, TIMESTAMPDIFF(MINUTE, clocked_at, NOW())),
+             clocked_out_at = NOW()
+         WHERE id = ? AND clocked_out_at IS NULL',
+        'i',
+        [(int) $row['id']]
+    );
+    $fresh = sales_today_clock($userId) ?: $row;
+    return ['ok' => true, 'minutes' => sales_clock_minutes($fresh)];
 }
 
 function sales_require_clock_in(): void
@@ -303,6 +395,74 @@ function sales_require_clock_in(): void
         flash('Clock in first. Enter where you are today.', 'err');
         redirect(sales_home());
     }
+}
+
+/** Daily field hours for one agent (or all agents when $agentId is null). */
+function sales_hours_series(?int $agentId, string $from, string $to): array
+{
+    $where = 'day_date >= ? AND day_date <= ?';
+    $types = 'ss';
+    $params = [$from, $to];
+    if ($agentId) {
+        $where .= ' AND user_id = ?';
+        $types .= 'i';
+        $params[] = $agentId;
+    }
+    $rows = [];
+    try {
+        $rows = db_all(
+            "SELECT day_date, clocked_at, clocked_out_at, minutes_accrued,
+                    CASE WHEN clocked_out_at IS NULL
+                         THEN GREATEST(0, TIMESTAMPDIFF(MINUTE, clocked_at, NOW()))
+                         ELSE 0 END AS open_mins
+             FROM sales_clock_ins WHERE {$where} ORDER BY day_date",
+            $types,
+            $params
+        );
+    } catch (Throwable $e) {
+        $rows = [];
+    }
+    $byDay = [];
+    foreach ($rows as $r) {
+        $d = (string) ($r['day_date'] ?? '');
+        if ($d === '') {
+            continue;
+        }
+        $byDay[$d] = ($byDay[$d] ?? 0) + sales_clock_minutes($r);
+    }
+    $out = [];
+    $start = strtotime($from);
+    $end = strtotime($to);
+    if ($start && $end && ($end - $start) / 86400 <= 93) {
+        for ($t = $start; $t <= $end; $t += 86400) {
+            $d = date('Y-m-d', $t);
+            $mins = (int) ($byDay[$d] ?? 0);
+            $out[] = [
+                'date' => $d,
+                'minutes' => $mins,
+                'hours' => round($mins / 60, 2),
+            ];
+        }
+        return $out;
+    }
+    ksort($byDay);
+    foreach ($byDay as $d => $mins) {
+        $out[] = [
+            'date' => $d,
+            'minutes' => (int) $mins,
+            'hours' => round(((int) $mins) / 60, 2),
+        ];
+    }
+    return $out;
+}
+
+function sales_hours_total(?int $agentId, string $from, string $to): float
+{
+    $sum = 0;
+    foreach (sales_hours_series($agentId, $from, $to) as $row) {
+        $sum += (int) ($row['minutes'] ?? 0);
+    }
+    return round($sum / 60, 2);
 }
 
 function sales_lead(int $id): ?array
@@ -1522,6 +1682,18 @@ function sales_demo_enter_from(?array $fromUser = null): array
     $_SESSION['user_id'] = (int) $demo['id'];
     $_SESSION['company_id'] = (int) $demo['company_id'];
     $_SESSION['role'] = (string) ($demo['role'] ?? 'admin');
+    unset($_SESSION['desk_welcome']);
+    // Keep the walkthrough clear of the first-login modal (covers charts / bottom bar).
+    if (function_exists('mark_desk_welcome_seen')) {
+        mark_desk_welcome_seen((int) $demo['id']);
+    }
+    if (function_exists('branding')) {
+        try {
+            branding(true);
+        } catch (Throwable $e) {
+            // ignore
+        }
+    }
     return ['ok' => true, 'company_id' => (int) $demo['company_id']];
 }
 

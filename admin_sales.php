@@ -162,6 +162,8 @@ $agents = sales_agents(false);
 $filterAgent = (int) ($_GET['agent_filter'] ?? 0);
 $overall = sales_stats($filterAgent ?: null, $from, $to);
 $series = sales_series($filterAgent ?: null, $from, $to);
+$hoursSeries = sales_hours_series($filterAgent ?: null, $from, $to);
+$hoursTotal = sales_hours_total($filterAgent ?: null, $from, $to);
 $top = sales_top_agents($from, $to);
 $dailyBoard = sales_agents_daily_progress();
 $goalDefaults = sales_goal_defaults();
@@ -190,6 +192,8 @@ if ($tab === 'agent' && $agentRow) {
     $agentTo = $agentProgress['stat_to'];
     $agentStats = $agentProgress['stats'];
     $agentSeries = sales_series($agentId, $agentFrom, $agentTo);
+    $agentHoursSeries = sales_hours_series($agentId, $agentFrom, $agentTo);
+    $agentHoursTotal = sales_hours_total($agentId, $agentFrom, $agentTo);
     $agentRejection = sales_rejection_breakdown($agentId, $agentFrom, $agentTo);
     $agentLeads = sales_leads_query(['agent_id' => $agentId, 'from' => $agentFrom, 'to' => $agentTo]);
     $agentPending = sales_leads_query(['agent_id' => $agentId, 'follow_bucket' => 'due']);
@@ -252,13 +256,14 @@ layout_admin_start('Sales', $user);
         <?php foreach ($dailyBoard as $row):
             $a = $row['agent'];
             $p = $row['progress'];
-            $clocked = !empty($row['clock']);
+            $clocked = !empty($row['clock']) && trim((string) ($row['clock']['clocked_out_at'] ?? '')) === '';
+            $clockHours = !empty($row['clock']) ? sales_format_hours(sales_clock_minutes($row['clock']) / 60) : '0h';
             ?>
           <a class="card sales-agent-goal-card" href="<?= h(url('admin_sales.php?tab=agent&agent=' . (int) $a['id'] . '&period=daily')) ?>">
             <div class="card-head">
               <div>
                 <h2><?= h($a['name']) ?></h2>
-                <p class="muted" style="margin:2px 0 0"><?= h($a['email']) ?><?= $clocked ? ' · Clocked in' : ' · Not clocked in' ?></p>
+                <p class="muted" style="margin:2px 0 0"><?= h($a['email']) ?><?= $clocked ? ' · Clocked in · ' . h($clockHours) : (!empty($row['clock']) ? ' · Clocked out · ' . h($clockHours) : ' · Not clocked in') ?></p>
               </div>
               <?= icon('arrow-right', 16) ?>
             </div>
@@ -292,6 +297,13 @@ layout_admin_start('Sales', $user);
   <div class="card chart-box"><div class="card-head"><h2>Status mix</h2></div><div class="pad-form" style="height:220px"><canvas id="admin-pie"></canvas></div></div>
   <div class="card chart-box"><div class="card-head"><h2>Reach over time</h2></div><div class="pad-form" style="height:220px"><canvas id="admin-line"></canvas></div></div>
 </div>
+<div class="card chart-box" style="margin-bottom:16px">
+  <div class="card-head">
+    <h2><?= icon('clock', 16) ?>Field hours over time</h2>
+    <span class="muted"><?= h(sales_format_hours($hoursTotal)) ?> total</span>
+  </div>
+  <div class="pad-form" style="height:240px"><canvas id="admin-hours"></canvas></div>
+</div>
 <?php sales_render_rejection_report($rejectionReport, ['title' => 'Rejections by reason']); ?>
 <div class="card">
   <div class="card-head"><h2>Top performers</h2></div>
@@ -320,10 +332,12 @@ $payload = json_encode([
     'labels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $series),
     'reach' => array_column($series, 'reach'),
     'wins' => array_map(static fn ($r) => (int) $r['interested'] + (int) $r['onboarded'], $series),
+    'hourLabels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $hoursSeries),
+    'hours' => array_map(static fn ($r) => (float) $r['hours'], $hoursSeries),
     'color' => brand_color(),
 ], JSON_UNESCAPED_UNICODE);
-layout_end('<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script>
-(function(){var d=' . $payload . ';var p=document.getElementById("admin-pie");if(p&&window.Chart)new Chart(p,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"}},maintainAspectRatio:false}});var l=document.getElementById("admin-line");if(l&&window.Chart)new Chart(l,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Sales",data:d.wins,borderColor:"#0f766e",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"}},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});})();
+layout_end('<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script defer>
+(function(){function go(){if(!window.Chart){setTimeout(go,40);return;}var d=' . $payload . ';var p=document.getElementById("admin-pie");if(p)new Chart(p,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"}},maintainAspectRatio:false}});var l=document.getElementById("admin-line");if(l)new Chart(l,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Sales",data:d.wins,borderColor:"#0f766e",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"}},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});var h=document.getElementById("admin-hours");if(h)new Chart(h,{type:"line",data:{labels:d.hourLabels,datasets:[{label:"Hours in field",data:d.hours,borderColor:d.color,backgroundColor:d.color+"33",tension:.35,fill:true,pointRadius:3}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,title:{display:true,text:"Hours"}}},maintainAspectRatio:false}});}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",go);else go();})();
 </script>');
 return;
 endif;
@@ -651,11 +665,15 @@ if ($tab === 'agent' && $agentRow):
   <div class="card stat"><span>Reach</span><strong><?= (int) $agentStats['reach'] ?></strong></div>
   <div class="card stat"><span>Sales (wins)</span><strong><?= (int) $agentStats['wins'] ?></strong></div>
   <div class="card stat"><span>Interested</span><strong><?= (int) $agentStats['interested'] ?></strong></div>
-  <div class="card stat"><span>Onboarded</span><strong><?= (int) $agentStats['onboarded'] ?></strong></div>
+  <div class="card stat"><span>Field hours</span><strong><?= h(sales_format_hours($agentHoursTotal)) ?></strong></div>
 </div>
 <div class="chart-grid equal" style="margin-bottom:16px">
   <div class="card chart-box"><div class="card-head"><h2>Status mix</h2></div><div class="pad-form" style="height:220px"><canvas id="agent-pie"></canvas></div></div>
   <div class="card chart-box"><div class="card-head"><h2><?= $periodKind === 'daily' ? 'Today by status' : 'Reach & sales over time' ?></h2></div><div class="pad-form" style="height:220px"><canvas id="agent-line"></canvas></div></div>
+</div>
+<div class="card chart-box" style="margin-bottom:16px">
+  <div class="card-head"><h2><?= icon('clock', 16) ?>Hours in the field</h2></div>
+  <div class="pad-form" style="height:240px"><canvas id="agent-hours"></canvas></div>
 </div>
 <?php sales_render_rejection_report($agentRejection); ?>
 <div class="desk-grid stock-split" style="margin-bottom:16px">
@@ -706,10 +724,12 @@ $payload = json_encode([
     'wins' => array_map(static fn ($r) => (int) $r['interested'] + (int) $r['onboarded'], $agentSeries),
     'barLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded'],
     'barValues' => [(int) $agentStats['interested'], (int) $agentStats['follow_up'], (int) $agentStats['rejected'], (int) $agentStats['onboarded']],
+    'hourLabels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $agentHoursSeries),
+    'hours' => array_map(static fn ($r) => (float) $r['hours'], $agentHoursSeries),
     'daily' => $periodKind === 'daily',
     'color' => brand_color(),
 ], JSON_UNESCAPED_UNICODE);
-layout_end('<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script>(function(){var d=' . $payload . ';var p=document.getElementById("agent-pie");if(p&&window.Chart)new Chart(p,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"}},maintainAspectRatio:false}});var l=document.getElementById("agent-line");if(l&&window.Chart){if(d.daily){new Chart(l,{type:"bar",data:{labels:d.barLabels,datasets:[{data:d.barValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderRadius:6}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});}else{new Chart(l,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Sales",data:d.wins,borderColor:"#0f766e",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"}},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});}}})();</script>');
+layout_end('<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script defer>(function(){function go(){if(!window.Chart){setTimeout(go,40);return;}var d=' . $payload . ';var p=document.getElementById("agent-pie");if(p)new Chart(p,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"}},maintainAspectRatio:false}});var l=document.getElementById("agent-line");if(l){if(d.daily){new Chart(l,{type:"bar",data:{labels:d.barLabels,datasets:[{data:d.barValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderRadius:6}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});}else{new Chart(l,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Sales",data:d.wins,borderColor:"#0f766e",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"}},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});}}var h=document.getElementById("agent-hours");if(h)new Chart(h,{type:"line",data:{labels:d.hourLabels,datasets:[{label:"Hours in field",data:d.hours,borderColor:d.color,backgroundColor:d.color+"33",tension:.35,fill:true,pointRadius:3}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,title:{display:true,text:"Hours"}}},maintainAspectRatio:false}});}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",go);else go();})();</script>');
 return;
 endif;
 

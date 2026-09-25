@@ -13,6 +13,8 @@ $from = $progress['from'];
 $to = $progress['stat_to'];
 $stats = $progress['stats'];
 $series = sales_series($uid, $from, $to);
+$hoursSeries = sales_hours_series($uid, $from, $to);
+$hoursTotal = sales_hours_total($uid, $from, $to);
 $rejectionReport = sales_rejection_breakdown($uid, $from, $to);
 $followed = sales_leads_query(['agent_id' => $uid, 'follow_bucket' => 'done', 'from' => $from, 'to' => $to]);
 $pending = sales_leads_query(['agent_id' => $uid, 'follow_bucket' => 'due']);
@@ -45,7 +47,7 @@ sales_layout_start('Performance', $user);
   <div class="card stat"><?= icon('clients', 20) ?><span>Reach</span><strong><?= (int) $stats['reach'] ?><?= $progress['reach_goal'] ? ' / ' . (int) $progress['reach_goal'] : '' ?></strong></div>
   <div class="card stat"><?= icon('flag', 20) ?><span>Sales</span><strong><?= (int) $stats['wins'] ?><?= $progress['sales_goal'] ? ' / ' . (int) $progress['sales_goal'] : '' ?></strong></div>
   <div class="card stat"><?= icon('heart', 20) ?><span>Interested</span><strong><?= (int) $stats['interested'] ?></strong></div>
-  <div class="card stat"><?= icon('check', 20) ?><span>Onboarded</span><strong><?= (int) $stats['onboarded'] ?></strong></div>
+  <div class="card stat"><?= icon('clock', 20) ?><span>Field hours</span><strong><?= h(sales_format_hours($hoursTotal)) ?></strong></div>
 </div>
 
 <div class="chart-grid equal" style="margin-bottom:16px">
@@ -57,6 +59,11 @@ sales_layout_start('Performance', $user);
     <div class="card-head"><h2><?= $periodKind === 'daily' ? 'Today by status' : 'Reach & sales over time' ?></h2></div>
     <div class="pad-form" style="height:220px"><canvas id="chart-line"></canvas></div>
   </div>
+</div>
+
+<div class="card chart-box" style="margin-bottom:16px">
+  <div class="card-head"><h2><?= icon('clock', 16) ?>Hours in the field</h2></div>
+  <div class="pad-form" style="height:240px"><canvas id="chart-hours"></canvas></div>
 </div>
 <?php sales_render_rejection_report($rejectionReport); ?>
 
@@ -97,22 +104,32 @@ $payload = json_encode([
     'wins' => array_map(static fn ($r) => (int) $r['interested'] + (int) $r['onboarded'], $series),
     'barLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded'],
     'barValues' => [(int) $stats['interested'], (int) $stats['follow_up'], (int) $stats['rejected'], (int) $stats['onboarded']],
+    'hourLabels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $hoursSeries),
+    'hours' => array_map(static fn ($r) => (float) $r['hours'], $hoursSeries),
     'daily' => $periodKind === 'daily',
     'color' => brand_color(),
 ], JSON_UNESCAPED_UNICODE);
-$extra = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script>
+$extra = '<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script defer>
 (function(){
-  var d=' . $payload . ';
-  var pie=document.getElementById("chart-pie");
-  if(pie&&window.Chart){ new Chart(pie,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"}},maintainAspectRatio:false}}); }
-  var line=document.getElementById("chart-line");
-  if(line&&window.Chart){
-    if(d.daily){
-      new Chart(line,{type:"bar",data:{labels:d.barLabels,datasets:[{data:d.barValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderRadius:6}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});
-    } else {
-      new Chart(line,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Sales",data:d.wins,borderColor:"#0f766e",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"}},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});
+  function go(){
+    if(!window.Chart){ setTimeout(go,40); return; }
+    var d=' . $payload . ';
+    var pie=document.getElementById("chart-pie");
+    if(pie){ new Chart(pie,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"}},maintainAspectRatio:false}}); }
+    var line=document.getElementById("chart-line");
+    if(line){
+      if(d.daily){
+        new Chart(line,{type:"bar",data:{labels:d.barLabels,datasets:[{data:d.barValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderRadius:6}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});
+      } else {
+        new Chart(line,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Sales",data:d.wins,borderColor:"#0f766e",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"}},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});
+      }
+    }
+    var hours=document.getElementById("chart-hours");
+    if(hours){
+      new Chart(hours,{type:"line",data:{labels:d.hourLabels,datasets:[{label:"Hours in field",data:d.hours,borderColor:d.color,backgroundColor:d.color+"33",tension:.35,fill:true,pointRadius:3}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,title:{display:true,text:"Hours"}}},maintainAspectRatio:false}});
     }
   }
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",go); else go();
 })();
 </script>';
 sales_layout_end($extra);
