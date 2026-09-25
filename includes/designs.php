@@ -549,15 +549,27 @@ function render_letter_signature(array $doc): void
     render_company_signature($doc);
 }
 
-function render_authorized_signoff(array $doc, string $label = 'Authorized by'): void
+function render_document_signoff_auth(array $brand, array $doc): void
+{
+    if (!function_exists('document_authenticity_html')) {
+        return;
+    }
+    echo document_authenticity_html($brand, $doc);
+}
+
+function render_authorized_signoff(array $doc, string $label = 'Authorized by', ?array $brand = null): void
 {
     if (($doc['kind'] ?? '') === 'letter') {
         return;
     }
+    $brand = $brand ?? (function_exists('branding') ? branding() : []);
     ?>
-    <div class="auth-sign<?= document_has_e_signature($doc) ? ' has-stamp' : '' ?>">
-      <?php render_company_signature($doc); ?>
-      <p><?= h($label) ?></p>
+    <div class="doc-signoff">
+      <div class="auth-sign<?= document_has_e_signature($doc) ? ' has-stamp' : '' ?>">
+        <?php render_company_signature($doc); ?>
+        <p><?= h($label) ?></p>
+      </div>
+      <?php render_document_signoff_auth($brand, $doc); ?>
     </div>
     <?php
 }
@@ -815,10 +827,13 @@ function render_sheet_ledger(array $d): void
         <?php endforeach; ?>
       </div>
       <?php endif; ?>
-      <div class="ledger-sign">
-        <div><span>From</span><b><?= h($brand['name']) ?></b></div>
-        <div><span>To</span><b><?= h($doc['party_name'] ?? '') ?></b></div>
-        <div><span>By</span><?php render_company_signature($doc); ?><b><?= h($brand['account_name'] ?: 'Accounts') ?></b></div>
+      <div class="doc-signoff">
+        <div class="ledger-sign">
+          <div><span>From</span><b><?= h($brand['name']) ?></b></div>
+          <div><span>To</span><b><?= h($doc['party_name'] ?? '') ?></b></div>
+          <div><span>By</span><?php render_company_signature($doc); ?><b><?= h($brand['account_name'] ?: 'Accounts') ?></b></div>
+        </div>
+        <?php render_document_signoff_auth($brand, $doc); ?>
       </div>
     </div>
   <?php endif; ?>
@@ -875,9 +890,12 @@ function render_sheet_bill(array $d, string $variant): void
       </div>
     </div>
     <?php endif; ?>
-    <div class="bill-signs">
-      <div>Received by</div>
-      <div<?= document_has_e_signature($doc) ? ' class="has-stamp"' : '' ?>><?php render_company_signature($doc); ?>Authorized by</div>
+    <div class="doc-signoff">
+      <div class="bill-signs">
+        <div>Received by</div>
+        <div<?= document_has_e_signature($doc) ? ' class="has-stamp"' : '' ?>><?php render_company_signature($doc); ?>Authorized by</div>
+      </div>
+      <?php render_document_signoff_auth($brand, $doc); ?>
     </div>
   <?php endif; ?>
   </div>
@@ -924,7 +942,10 @@ function render_twin_half(array $d, string $label): void
         <?php endforeach; ?>
       </div>
       <?php endif; ?>
-      <div class="twin-sign<?= (($doc['kind'] ?? '') !== 'letter' && document_has_e_signature($doc)) ? ' has-stamp' : '' ?>"><?php if (($doc['kind'] ?? '') !== 'letter') { render_company_signature($doc); } ?>Authorized signature</div>
+      <div class="doc-signoff">
+        <div class="twin-sign<?= (($doc['kind'] ?? '') !== 'letter' && document_has_e_signature($doc)) ? ' has-stamp' : '' ?>"><?php if (($doc['kind'] ?? '') !== 'letter') { render_company_signature($doc); } ?>Authorized signature</div>
+        <?php if (($doc['kind'] ?? '') !== 'letter') { render_document_signoff_auth($brand, $doc); } ?>
+      </div>
     </div>
     <?php
 }
@@ -1218,10 +1239,13 @@ function render_sheet_seal(array $d): void
       <?php endif; ?>
     </div>
   <?php endif; ?>
-  <footer class="seal-sign">
-    <div>For and on behalf of <?= h($brand['name']) ?></div>
-    <div<?= (($doc['kind'] ?? '') !== 'letter' && document_has_e_signature($doc)) ? ' class="has-stamp"' : '' ?>><?php if (($doc['kind'] ?? '') !== 'letter') { render_company_signature($doc); } ?>Authorised</div>
-  </footer>
+  <div class="doc-signoff">
+    <footer class="seal-sign">
+      <div>For and on behalf of <?= h($brand['name']) ?></div>
+      <div<?= (($doc['kind'] ?? '') !== 'letter' && document_has_e_signature($doc)) ? ' class="has-stamp"' : '' ?>><?php if (($doc['kind'] ?? '') !== 'letter') { render_company_signature($doc); } ?>Authorised</div>
+    </footer>
+    <?php if (($doc['kind'] ?? '') !== 'letter') { render_document_signoff_auth($brand, $doc); } ?>
+  </div>
 </article>
 <?php
 }

@@ -735,25 +735,32 @@ function render_document_authenticity(array $brand, array $doc): void
     echo document_authenticity_html($brand, $doc);
 }
 
-/** Place authenticity block inside the sheet markup, before the closing root tag. */
+/**
+ * Place authenticity block at the document bottom when the sheet did not already
+ * pair it with the authorized signature (.doc-signoff).
+ */
 function inject_document_authenticity(string $html, array $brand, array $doc): string
 {
+    if (str_contains($html, 'doc-authenticity')) {
+        return $html;
+    }
     $block = document_authenticity_html($brand, $doc);
     if ($block === '') {
         return $html;
     }
+    $wrapped = '<div class="doc-signoff doc-signoff-solo">' . $block . '</div>';
     $needle = '</article>';
     $pos = strripos($html, $needle);
     if ($pos !== false) {
-        return substr($html, 0, $pos) . $block . "\n" . substr($html, $pos);
+        return substr($html, 0, $pos) . $wrapped . "\n" . substr($html, $pos);
     }
     if (str_contains($html, 'expense-card')) {
         $pos = strripos($html, '</div>');
         if ($pos !== false) {
-            return substr($html, 0, $pos) . $block . "\n" . substr($html, $pos);
+            return substr($html, 0, $pos) . $wrapped . "\n" . substr($html, $pos);
         }
     }
-    return $html . $block;
+    return $html . $wrapped;
 }
 
 function document_sheet_chrome(): string
