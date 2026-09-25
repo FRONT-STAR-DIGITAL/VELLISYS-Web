@@ -2184,7 +2184,12 @@ function folio_ensure_sales_demo(mysqli $db): void
     if ($cid < 1) {
         return;
     }
-    @$db->query("UPDATE companies SET status='live', stock_enabled=1, name='Vellisys Sales Demo', plan='office' WHERE id = {$cid}");
+    @$db->query("UPDATE companies SET status='live', stock_enabled=1, name='Vellisys Sales Demo', plan='office',
+        planner_enabled=1, pnl_enabled=1,
+        paid_term=12, paid_unit='month', paid_from=CURDATE(),
+        expires_at=DATE_ADD(CURDATE(), INTERVAL 5 YEAR),
+        fee_currency=COALESCE(NULLIF(fee_currency,''),'UGX')
+        WHERE id = {$cid}");
 
     $brandRes = @$db->query("SELECT id FROM branding WHERE company_id = {$cid} LIMIT 1");
     if (!$brandRes || $brandRes->num_rows === 0) {

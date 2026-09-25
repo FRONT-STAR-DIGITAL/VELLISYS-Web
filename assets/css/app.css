@@ -5383,11 +5383,26 @@ a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--lin
   box-sizing: border-box;
   width: 100%;
 }
+.sales-lead-form .form-grid > .full {
+  grid-column: 1 / -1;
+}
 .sales-lead-form input,
 .sales-lead-form select,
-.sales-lead-form textarea {
+.sales-lead-form textarea,
+.sales-lead-form input[type=date] {
   max-width: 100%;
+  min-width: 0;
   box-sizing: border-box;
+}
+.sales-body .top-actions {
+  flex-shrink: 1;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 100%;
+  min-width: 0;
+}
+.sales-body.is-lead-edit .top-actions > .btn[href*="sales_lead_edit"] {
+  display: none;
 }
 .sales-lead-form [data-panel] {
   margin-top: 12px;
