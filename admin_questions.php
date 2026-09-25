@@ -75,9 +75,14 @@ $rowActions = static function (array $q): void {
     <h1><?= icon('help') ?>Questions</h1>
     <p class="lede">People write from Have a Question on the landing page. Open a row for the full message. A copy is also emailed to <?= h(product_email()) ?>.</p>
   </div>
+</div>
 
-<div class="card" style="margin-bottom:24px">
-  <h2 style="margin:4px 0 12px">Waiting on you</h2>
+<div class="admin-inbox">
+<div class="card admin-inbox-card" style="margin-bottom:0">
+  <div class="card-head">
+    <h2><?= icon('bell', 16) ?>Waiting on you</h2>
+    <span class="admin-inbox-count"><?= count($open) ?></span>
+  </div>
   <?php if (!$open): ?>
     <p class="empty">No open questions. New notes from the website land here.</p>
   <?php else: ?>
@@ -114,8 +119,11 @@ $rowActions = static function (array $q): void {
   <?php endif; ?>
 </div>
 
-<div class="card">
-  <h2 style="margin:4px 0 12px">Replied</h2>
+<div class="card admin-inbox-card">
+  <div class="card-head">
+    <h2><?= icon('check', 16) ?>Replied</h2>
+    <span class="admin-inbox-count"><?= count($done) ?></span>
+  </div>
   <?php if (!$done): ?>
     <p class="empty">Questions you mark as replied will list here.</p>
   <?php else: ?>
@@ -149,5 +157,6 @@ $rowActions = static function (array $q): void {
     </table>
     </div>
   <?php endif; ?>
+</div>
 </div>
 <?php layout_end(); ?>

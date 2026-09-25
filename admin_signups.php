@@ -112,162 +112,174 @@ $rowActions = static function (array $s): void {
     <h1><?= icon('letter') ?>Website sign-ups</h1>
     <p class="lede">People register, book a demo, or start checkout from the website. Incomplete forms and failed Pesapal payments land here too. Call them, then onboard the company - or create one from scratch under Companies.</p>
   </div>
-
-<div class="card" style="margin-bottom:24px">
-  <h2 style="margin:4px 0 12px">Waiting on you</h2>
-  <?php if (!$open): ?>
-    <p class="empty">No open sign-ups. New registrations from the website land here.</p>
-  <?php else: ?>
-    <div class="table-scroll">
-    <table class="grid">
-      <thead>
-        <tr>
-          <th>When</th>
-          <th>Kind</th>
-          <th>Person</th>
-          <th>Company</th>
-          <th>Reach them</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php foreach ($open as $s): ?>
-          <tr>
-            <td class="mono"><?= h(substr((string) $s['created_at'], 0, 16)) ?></td>
-            <td><span class="pill<?= in_array(($s['source'] ?? ''), ['quote', 'checkout', 'demo'], true) ? ' warn' : '' ?>"><?= h(signup_source_label($s['source'] ?? null)) ?></span></td>
-            <td><strong><?= h($s['name']) ?></strong></td>
-            <td>
-              <?= h($s['company']) ?>
-              <?php if (trim((string) ($s['note'] ?? '')) !== ''): ?>
-                <div class="muted"><?= h(mb_substr(trim((string) $s['note']), 0, 80)) ?></div>
-              <?php endif; ?>
-            </td>
-            <td>
-              <a href="mailto:<?= h($s['email']) ?>"><?= h($s['email']) ?></a>
-              <?php if ($s['phone'] !== ''): ?><div class="mono"><?= h($s['phone']) ?></div><?php endif; ?>
-            </td>
-            <td><?= $pill($s['status']) ?></td>
-            <td class="row-actions"><?php $rowActions($s); ?></td>
-          </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
-    </div>
-  <?php endif; ?>
 </div>
 
-<div class="card">
-  <h2 style="margin:4px 0 12px">Closed</h2>
-  <?php if (!$done): ?>
-    <p class="empty">Onboarded and declined sign-ups will list here.</p>
-  <?php else: ?>
-    <div class="table-scroll">
-    <table class="grid">
-      <thead>
-        <tr>
-          <th>When</th>
-          <th>Kind</th>
-          <th>Person</th>
-          <th>Company</th>
-          <th>Email</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php foreach ($done as $s): ?>
-          <tr>
-            <td class="mono"><?= h(substr((string) $s['created_at'], 0, 16)) ?></td>
-            <td><?= h(signup_source_label($s['source'] ?? null)) ?></td>
-            <td><?= h($s['name']) ?></td>
-            <td><?= h($s['company']) ?></td>
-            <td><?= h($s['email']) ?></td>
-            <td><?= $pill($s['status']) ?></td>
-            <td class="row-actions"><?php $rowActions($s); ?></td>
-          </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
+<div class="admin-inbox">
+  <section class="card admin-inbox-card">
+    <div class="card-head">
+      <h2><?= icon('bell', 16) ?>Waiting on you</h2>
+      <span class="admin-inbox-count"><?= count($open) ?></span>
     </div>
-  <?php endif; ?>
-</div>
+    <?php if (!$open): ?>
+      <p class="empty">No open sign-ups. New registrations from the website land here.</p>
+    <?php else: ?>
+      <div class="table-scroll">
+        <table class="grid">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Kind</th>
+              <th>Person</th>
+              <th>Company</th>
+              <th>Reach them</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($open as $s): ?>
+              <tr>
+                <td class="mono"><?= h(substr((string) $s['created_at'], 0, 16)) ?></td>
+                <td><span class="pill<?= in_array(($s['source'] ?? ''), ['quote', 'checkout', 'demo'], true) ? ' warn' : '' ?>"><?= h(signup_source_label($s['source'] ?? null)) ?></span></td>
+                <td><strong><?= h($s['name']) ?></strong></td>
+                <td>
+                  <?= h($s['company']) ?>
+                  <?php if (trim((string) ($s['note'] ?? '')) !== ''): ?>
+                    <div class="muted"><?= h(mb_substr(trim((string) $s['note']), 0, 80)) ?></div>
+                  <?php endif; ?>
+                </td>
+                <td>
+                  <a href="mailto:<?= h($s['email']) ?>"><?= h($s['email']) ?></a>
+                  <?php if ($s['phone'] !== ''): ?><div class="mono"><?= h($s['phone']) ?></div><?php endif; ?>
+                </td>
+                <td><?= $pill($s['status']) ?></td>
+                <td class="row-actions"><?php $rowActions($s); ?></td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    <?php endif; ?>
+  </section>
 
-<div class="card" style="margin-top:24px">
-  <h2 style="margin:4px 0 12px">Checkout forms</h2>
-  <?php if (!$orders): ?>
-    <p class="empty">Package checkouts, drafts and failed Pesapal payments will list here.</p>
-  <?php else: ?>
-    <div class="table-scroll">
-    <table class="grid">
-      <thead>
-        <tr>
-          <th>When</th>
-          <th>Package</th>
-          <th>Person</th>
-          <th>Company</th>
-          <th>Amount</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php foreach ($orders as $o): ?>
-          <?php
-            $plan = pricing_package((string) $o['plan']);
-            $st = (string) $o['status'];
-            $stClass = match ($st) {
-                'paid' => '',
-                'failed', 'cancelled' => ' bad',
-                'draft', 'pending' => ' warn',
-                default => '',
-            };
-          ?>
-          <tr>
-            <td class="mono"><?= h(substr((string) $o['updated_at'], 0, 16)) ?></td>
-            <td><?= h($plan['name'] ?? (string) $o['plan']) ?></td>
-            <td>
-              <strong><?= h((string) $o['name']) ?></strong>
-              <div class="muted"><a href="mailto:<?= h((string) $o['email']) ?>"><?= h((string) $o['email']) ?></a></div>
-            </td>
-            <td>
-              <?= h((string) $o['company']) ?>
+  <section class="card admin-inbox-card">
+    <div class="card-head">
+      <h2><?= icon('check', 16) ?>Closed</h2>
+      <span class="admin-inbox-count"><?= count($done) ?></span>
+    </div>
+    <?php if (!$done): ?>
+      <p class="empty">Onboarded and declined sign-ups will list here.</p>
+    <?php else: ?>
+      <div class="table-scroll">
+        <table class="grid">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Kind</th>
+              <th>Person</th>
+              <th>Company</th>
+              <th>Email</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($done as $s): ?>
+              <tr>
+                <td class="mono"><?= h(substr((string) $s['created_at'], 0, 16)) ?></td>
+                <td><?= h(signup_source_label($s['source'] ?? null)) ?></td>
+                <td><?= h($s['name']) ?></td>
+                <td><?= h($s['company']) ?></td>
+                <td><?= h($s['email']) ?></td>
+                <td><?= $pill($s['status']) ?></td>
+                <td class="row-actions"><?php $rowActions($s); ?></td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    <?php endif; ?>
+  </section>
+
+  <section class="card admin-inbox-card">
+    <div class="card-head">
+      <h2><?= icon('cart', 16) ?>Checkout forms</h2>
+      <span class="admin-inbox-count"><?= count($orders) ?></span>
+    </div>
+    <?php if (!$orders): ?>
+      <p class="empty">Package checkouts, drafts and failed Pesapal payments will list here.</p>
+    <?php else: ?>
+      <div class="table-scroll">
+        <table class="grid">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Package</th>
+              <th>Person</th>
+              <th>Company</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($orders as $o): ?>
               <?php
-                $place = trim((string) ($o['city'] ?? '') . (((string) ($o['city'] ?? '') !== '' && (string) ($o['country'] ?? '') !== '') ? ', ' : '') . (string) ($o['country'] ?? ''));
+                $plan = pricing_package((string) $o['plan']);
+                $st = (string) $o['status'];
+                $stClass = match ($st) {
+                    'paid' => '',
+                    'failed', 'cancelled' => ' bad',
+                    'draft', 'pending' => ' warn',
+                    default => '',
+                };
               ?>
-              <?php if ($place !== ''): ?>
-                <div class="muted"><?= h($place) ?></div>
-              <?php endif; ?>
-              <?php if (trim((string) ($o['phone'] ?? '')) !== ''): ?>
-                <div class="mono muted"><?= h((string) $o['phone']) ?></div>
-              <?php endif; ?>
-              <?php if (trim((string) ($o['last_error'] ?? '')) !== ''): ?>
-                <div class="muted"><?= h(mb_substr(trim((string) $o['last_error']), 0, 90)) ?></div>
-              <?php endif; ?>
-            </td>
-            <td class="mono"><?= h((string) $o['currency']) ?> <?= h((string) $o['amount']) ?></td>
-            <td><span class="pill<?= $stClass ?>"><?= h($st) ?></span></td>
-            <td class="row-actions">
-              <div class="actions row-action-stack">
-                <?php if (!empty($o['signup_id'])): ?>
-                  <a class="btn sm" href="<?= h(url('admin_company_new.php?signup=' . (int) $o['signup_id'])) ?>">Onboard</a>
-                <?php endif; ?>
-                <?php if (trim((string) ($o['email'] ?? '')) !== ''): ?>
-                  <a class="btn ghost sm" href="mailto:<?= h((string) $o['email']) ?>"><?= icon('letter', 14) ?>Email</a>
-                <?php endif; ?>
-                <form method="post" onsubmit="return confirm('Delete this checkout form?');">
-                  <?= csrf_field() ?>
-                  <input type="hidden" name="target" value="order">
-                  <input type="hidden" name="id" value="<?= (int) $o['id'] ?>">
-                  <button class="btn ghost sm" name="action" value="delete"><?= icon('trash', 14) ?>Delete</button>
-                </form>
-              </div>
-            </td>
-          </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
-    </div>
-  <?php endif; ?>
+              <tr>
+                <td class="mono"><?= h(substr((string) $o['updated_at'], 0, 16)) ?></td>
+                <td><?= h($plan['name'] ?? (string) $o['plan']) ?></td>
+                <td>
+                  <strong><?= h((string) $o['name']) ?></strong>
+                  <div class="muted"><a href="mailto:<?= h((string) $o['email']) ?>"><?= h((string) $o['email']) ?></a></div>
+                </td>
+                <td>
+                  <?= h((string) $o['company']) ?>
+                  <?php
+                    $place = trim((string) ($o['city'] ?? '') . (((string) ($o['city'] ?? '') !== '' && (string) ($o['country'] ?? '') !== '') ? ', ' : '') . (string) ($o['country'] ?? ''));
+                  ?>
+                  <?php if ($place !== ''): ?>
+                    <div class="muted"><?= h($place) ?></div>
+                  <?php endif; ?>
+                  <?php if (trim((string) ($o['phone'] ?? '')) !== ''): ?>
+                    <div class="mono muted"><?= h((string) $o['phone']) ?></div>
+                  <?php endif; ?>
+                  <?php if (trim((string) ($o['last_error'] ?? '')) !== ''): ?>
+                    <div class="muted"><?= h(mb_substr(trim((string) $o['last_error']), 0, 90)) ?></div>
+                  <?php endif; ?>
+                </td>
+                <td class="mono"><?= h((string) $o['currency']) ?> <?= h((string) $o['amount']) ?></td>
+                <td><span class="pill<?= $stClass ?>"><?= h($st) ?></span></td>
+                <td class="row-actions">
+                  <div class="actions row-action-stack">
+                    <?php if (!empty($o['signup_id'])): ?>
+                      <a class="btn sm" href="<?= h(url('admin_company_new.php?signup=' . (int) $o['signup_id'])) ?>">Onboard</a>
+                    <?php endif; ?>
+                    <?php if (trim((string) ($o['email'] ?? '')) !== ''): ?>
+                      <a class="btn ghost sm" href="mailto:<?= h((string) $o['email']) ?>"><?= icon('letter', 14) ?>Email</a>
+                    <?php endif; ?>
+                    <form method="post" onsubmit="return confirm('Delete this checkout form?');">
+                      <?= csrf_field() ?>
+                      <input type="hidden" name="target" value="order">
+                      <input type="hidden" name="id" value="<?= (int) $o['id'] ?>">
+                      <button class="btn ghost sm" name="action" value="delete"><?= icon('trash', 14) ?>Delete</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    <?php endif; ?>
+  </section>
 </div>
 <?php layout_end(); ?>
