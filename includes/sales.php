@@ -1104,14 +1104,13 @@ function sales_message_send(int $fromId, int $toId, string $body): array
     if (!$from) {
         return ['ok' => false, 'error' => 'Sender not found.'];
     }
-    // Agents always route to the primary super admin unless targeting a live platform admin.
+    // Agents always message the shared Vellisys admin inbox (primary platform account).
     if (($from['role'] ?? '') === 'sales_agent') {
         $primary = sales_primary_admin_id();
         if ($primary < 1) {
             return ['ok' => false, 'error' => 'No super admin mailbox is ready yet.'];
         }
-        $to = db_one("SELECT id, role FROM users WHERE id = ? AND role = 'platform' AND COALESCE(status,'live') = 'live'", 'i', [$toId]);
-        $toId = $to ? (int) $to['id'] : $primary;
+        $toId = $primary;
     }
     if ($fromId === $toId) {
         return ['ok' => false, 'error' => 'Pick someone else to message.'];
@@ -1153,6 +1152,7 @@ function sales_notify_message(array $row): void
                 'normal'
             );
         }
+        // Push / bell for every super admin (shared platform dashboard).
         if (function_exists('push_notify_item')) {
             push_notify_item([
                 'title' => 'Sales · ' . $fromName,
@@ -1165,10 +1165,10 @@ function sales_notify_message(array $row): void
     }
 
     // Admin → agent
-    $href = url('sales_messages.php?with=' . $fromId);
+    $href = url('sales_messages.php');
     if (function_exists('push_notify_item')) {
         push_notify_item([
-            'title' => 'Message from admin',
+            'title' => 'Message from Vellisys admin',
             'meta' => clip_text($body, 80),
             'href' => $href,
             'key' => 'sales-msg:' . (int) ($row['id'] ?? 0),
@@ -1443,7 +1443,7 @@ function sales_notifications_for_agent(int $userId): array
             'key' => 'sales-msg-item-' . (int) $m['id'],
             'title' => 'Message from ' . (trim((string) ($m['from_name'] ?? 'admin')) ?: 'admin'),
             'meta' => clip_text((string) ($m['body'] ?? ''), 80),
-            'href' => url('sales_messages.php?with=' . (int) $m['from_user_id']),
+            'href' => url('sales_messages.php'),
             'tone' => 'info',
         ];
         if ($seenUnread >= 5) {

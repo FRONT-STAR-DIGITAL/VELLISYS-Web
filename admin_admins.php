@@ -106,7 +106,7 @@ layout_admin_start('Admins', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('user') ?>Admins</h1>
-    <p class="lede">Platform accounts that can open sign-ups, companies and reports. Keep at least one admin.</p>
+    <p class="lede">Platform accounts that share the same admin dashboard - sign-ups, companies, sales, messages and reports. New super admins see everything the others do. Keep at least one admin.</p>
   </div>
 </div>
 
