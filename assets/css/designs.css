@@ -130,6 +130,16 @@
 .ledger-to .d-party-k,
 .ledger-to .d-party-v { display: inline !important; }
 .ledger-grid .d-party-k { display: inline !important; color: inherit; font-size: inherit; margin: 0; }
+/* Colour ledger To: keep all party fields in one column */
+.sheet-ledger .ledger-to .d-party-block,
+.sheet-ledger .ledger-to .d-party-block.d-party-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 3px;
+}
+.sheet-ledger .ledger-to .d-party-col {
+  display: contents;
+}
 .d-letter-body, .corr-body { line-height: 1.45; page-break-inside: auto; }
 .d-letter-body p.corr-p,
 .corr-body p.corr-p {

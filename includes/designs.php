@@ -268,13 +268,17 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
     <?php
 }
 
-function render_party_contact(array $doc): void
+function render_party_contact(array $doc, bool $singleColumn = false): void
 {
     $lines = function_exists('document_party_to_lines') ? document_party_to_lines($doc) : [];
     $n = count($lines);
-    $split = $n > 1 ? (int) ceil($n / 2) : $n;
-    $cols = $n > 1 ? [array_slice($lines, 0, $split), array_slice($lines, $split)] : [$lines];
-    echo '<div class="d-party-block' . ($n > 1 ? ' d-party-cols' : '') . '">';
+    if ($singleColumn || $n <= 1) {
+        $cols = [$lines];
+    } else {
+        $split = (int) ceil($n / 2);
+        $cols = [array_slice($lines, 0, $split), array_slice($lines, $split)];
+    }
+    echo '<div class="d-party-block' . (count($cols) > 1 ? ' d-party-cols' : '') . '">';
     foreach ($cols as $col) {
         echo '<div class="d-party-col">';
         foreach ($col as $line) {
@@ -791,8 +795,8 @@ function render_sheet_ledger(array $d): void
       </div>
       <?php endif; ?>
       <div class="ledger-to">
-        <span class="<?= ($doc['kind'] ?? '') === 'letter' ? 'd-to-word' : '' ?>">To</span>
-        <?php render_party_contact($doc); ?>
+        <span<?= (($doc['kind'] ?? '') === 'letter') ? ' class="d-to-word"' : '' ?>>To</span>
+        <?php render_party_contact($doc, true); ?>
       </div>
     </div>
   </div>
