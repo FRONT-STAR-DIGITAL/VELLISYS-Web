@@ -631,6 +631,107 @@ function document_share_url(array $doc): string
     return absolute_url('share.php?id=' . (int) $doc['id'] . '&t=' . document_share_token($doc));
 }
 
+/** Public authenticity check URL (QR target). Uses the same HMAC as share. */
+function document_verify_url(array $doc): string
+{
+    return absolute_url('verify.php?id=' . (int) $doc['id'] . '&t=' . document_share_token($doc));
+}
+
+function product_site_url(): string
+{
+    return 'https://www.vellisys.com';
+}
+
+/**
+ * PNG data-URI for a QR that encodes $text. Cached under uploads/qr.
+ * Falls back to an external image URL if the cache cannot be built.
+ */
+function document_qr_img_src(string $text, int $size = 120): string
+{
+    $text = trim($text);
+    if ($text === '') {
+        return '';
+    }
+    $size = max(64, min(240, $size));
+    $dir = ROOT_PATH . '/uploads/qr';
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0755, true);
+    }
+    $key = substr(hash('sha256', $size . '|' . $text), 0, 40);
+    $file = $dir . '/' . $key . '.png';
+    if (!is_file($file) || filesize($file) < 40) {
+        $api = 'https://api.qrserver.com/v1/create-qr-code/?size=' . $size . 'x' . $size
+            . '&margin=1&ecc=M&data=' . rawurlencode($text);
+        $bin = '';
+        if (function_exists('curl_init')) {
+            $ch = curl_init($api);
+            if ($ch) {
+                curl_setopt_array($ch, [
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_FOLLOWLOCATION => true,
+                    CURLOPT_CONNECTTIMEOUT => 4,
+                    CURLOPT_TIMEOUT => 8,
+                    CURLOPT_USERAGENT => 'VellisysDocQR/1.0',
+                ]);
+                $bin = (string) curl_exec($ch);
+                curl_close($ch);
+            }
+        }
+        if ($bin === '' || strlen($bin) < 40) {
+            $bin = (string) @file_get_contents($api);
+        }
+        if ($bin !== '' && strlen($bin) >= 40) {
+            @file_put_contents($file, $bin);
+        }
+    }
+    if (is_file($file) && filesize($file) >= 40) {
+        return 'data:image/png;base64,' . base64_encode((string) file_get_contents($file));
+    }
+    return 'https://api.qrserver.com/v1/create-qr-code/?size=' . $size . 'x' . $size
+        . '&margin=1&ecc=M&data=' . rawurlencode($text);
+}
+
+function document_party_display_name(array $doc): string
+{
+    $name = trim((string) ($doc['party_name'] ?? ''));
+    if ($name !== '') {
+        return $name;
+    }
+    $contact = trim((string) ($doc['party_contact'] ?? ''));
+    return $contact !== '' ? $contact : 'Recipient';
+}
+
+function document_is_authenticity_valid(array $doc): bool
+{
+    $status = strtolower(trim((string) ($doc['status'] ?? '')));
+    return $status !== '' && $status !== 'void';
+}
+
+/** Compact QR + Powered by Vellisys strip under every printable sheet. */
+function render_document_authenticity(array $brand, array $doc): void
+{
+    if ((int) ($doc['id'] ?? 0) < 1) {
+        return;
+    }
+    $verifyUrl = document_verify_url($doc);
+    $qr = document_qr_img_src($verifyUrl, 96);
+    $site = product_site_url();
+    $product = product_name();
+    ?>
+<aside class="doc-authenticity" aria-label="Document authenticity">
+  <div class="doc-auth-qr">
+    <?php if ($qr !== ''): ?>
+      <img src="<?= h($qr) ?>" width="72" height="72" alt="Scan to verify this document">
+    <?php endif; ?>
+  </div>
+  <div class="doc-auth-meta">
+    <p class="doc-auth-hint">Scan to verify authenticity</p>
+    <p class="doc-auth-powered">Powered by <?= h($product) ?> · <a href="<?= h($site) ?>"><?= h(preg_replace('#^https?://#', '', $site) ?: 'www.vellisys.com') ?></a></p>
+  </div>
+</aside>
+    <?php
+}
+
 function document_sheet_chrome(): string
 {
     foreach (['/usr/bin/google-chrome-stable', '/usr/bin/google-chrome', '/usr/local/bin/google-chrome'] as $bin) {

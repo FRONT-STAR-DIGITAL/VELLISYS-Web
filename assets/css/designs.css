@@ -1771,3 +1771,75 @@
   border: 0 !important;
   border-bottom: 1px solid #111 !important;
 }
+
+/* Document authenticity QR + Powered by Vellisys */
+.doc-authenticity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-top: 1px solid rgba(8, 20, 58, .10);
+  max-width: 210mm;
+  box-sizing: border-box;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.doc-auth-qr {
+  flex: 0 0 auto;
+  width: 72px;
+  height: 72px;
+}
+.doc-auth-qr img {
+  display: block;
+  width: 72px;
+  height: 72px;
+  image-rendering: pixelated;
+  border: 1px solid rgba(8, 20, 58, .08);
+  border-radius: 6px;
+  background: #fff;
+}
+.doc-auth-meta {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.doc-auth-hint {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: .02em;
+  color: #5c6780;
+}
+.doc-auth-powered {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #08143a;
+  overflow-wrap: anywhere;
+}
+.doc-auth-powered a {
+  color: #1e4eff;
+  text-decoration: none;
+  font-weight: 700;
+}
+.print-thermal .doc-authenticity {
+  max-width: 80mm;
+  padding: 8px 4px 0;
+  gap: 8px;
+  margin-top: 10px;
+}
+.print-thermal .doc-auth-qr,
+.print-thermal .doc-auth-qr img {
+  width: 56px;
+  height: 56px;
+}
+.print-thermal .doc-auth-hint,
+.print-thermal .doc-auth-powered {
+  font-size: 9px;
+}
+@media print {
+  .doc-authenticity {
+    margin-top: 10px;
+    padding-top: 8px;
+  }
+}

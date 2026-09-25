@@ -1816,6 +1816,9 @@ function render_sheet(array $brand, array $doc): void
 {
     if (($doc['kind'] ?? '') === 'expense') {
         render_expense_card($brand, $doc);
+        if (function_exists('render_document_authenticity')) {
+            render_document_authenticity($brand, $doc);
+        }
         return;
     }
     $d = sheet_data($brand, $doc);
@@ -1844,4 +1847,7 @@ function render_sheet(array $brand, array $doc): void
         };
     }
     echo inject_sheet_watermark((string) ob_get_clean(), $d, $doc);
+    if (function_exists('render_document_authenticity')) {
+        render_document_authenticity($brand, $doc);
+    }
 }
