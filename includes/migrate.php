@@ -2186,7 +2186,7 @@ function folio_ensure_sales_demo(mysqli $db): void
     }
     @$db->query("UPDATE companies SET status='live', stock_enabled=1, name='Vellisys Sales Demo', plan='office',
         planner_enabled=1, pnl_enabled=1,
-        paid_term=12, paid_unit='month', paid_from=CURDATE(),
+        paid_term=12, paid_unit='months', paid_from=CURDATE(),
         expires_at=DATE_ADD(CURDATE(), INTERVAL 5 YEAR),
         fee_currency=COALESCE(NULLIF(fee_currency,''),'UGX')
         WHERE id = {$cid}");
