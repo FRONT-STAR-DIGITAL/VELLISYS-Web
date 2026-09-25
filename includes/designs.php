@@ -1230,18 +1230,26 @@ function render_sheet_seal(array $d): void
     <div class="seal-end">
       <p><?= h($d['comments'] ?: ($brand['payment_note'] ?? '')) ?></p>
       <?php if (sheet_shows_money($d)): ?>
-      <aside>
-        <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
-        <?php if (!empty($d['show_vat'])): ?><div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
-        <?php render_sums_close($d, 'seal-due', '', 'b'); ?>
-      </aside>
-      <?php render_amount_words($d); ?>
+      <div class="seal-totals">
+        <aside>
+          <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
+          <?php if (!empty($d['show_vat'])): ?><div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
+          <?php render_sums_close($d, 'seal-due', '', 'b'); ?>
+        </aside>
+        <?php render_amount_words($d); ?>
+      </div>
       <?php endif; ?>
     </div>
   <?php endif; ?>
   <footer class="seal-sign">
-    <div>For and on behalf of <?= h($brand['name']) ?></div>
-    <div<?= (($doc['kind'] ?? '') !== 'letter' && document_has_e_signature($doc)) ? ' class="has-stamp"' : '' ?>><?php if (($doc['kind'] ?? '') !== 'letter') { render_company_signature($doc); } ?>Authorised</div>
+    <div class="seal-sign-col">
+      <div class="seal-sign-mark" aria-hidden="true"></div>
+      <div class="seal-sign-label">For and on behalf of <?= h($brand['name']) ?></div>
+    </div>
+    <div class="seal-sign-col<?= (($doc['kind'] ?? '') !== 'letter' && document_has_e_signature($doc)) ? ' has-stamp' : '' ?>">
+      <div class="seal-sign-mark"><?php if (($doc['kind'] ?? '') !== 'letter') { render_company_signature($doc); } ?></div>
+      <div class="seal-sign-label">Authorised</div>
+    </div>
   </footer>
 </article>
 <?php
@@ -1290,8 +1298,8 @@ function render_sheet_mark(array $d): void
         <div class="d-sum"><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
         <?php if (!empty($d['show_vat'])): ?><div class="d-sum"><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
         <?php render_sums_close($d, 'd-total', 'd-sum', 'b'); ?>
+        <?php render_amount_words($d); ?>
       </div>
-      <?php render_amount_words($d); ?>
       <?php endif; ?>
     </div>
   <?php endif; ?>
@@ -1334,12 +1342,14 @@ function render_sheet_bond(array $d): void
     <div class="bond-end">
       <p><?= h($d['comments'] ?: ($brand['payment_note'] ?? '')) ?></p>
       <?php if (sheet_shows_money($d)): ?>
-      <aside>
-        <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
-        <?php if (!empty($d['show_vat'])): ?><div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
-        <?php render_sums_close($d, 'bond-due', '', 'b'); ?>
-      </aside>
-      <?php render_amount_words($d); ?>
+      <div class="bond-totals">
+        <aside>
+          <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
+          <?php if (!empty($d['show_vat'])): ?><div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
+          <?php render_sums_close($d, 'bond-due', '', 'b'); ?>
+        </aside>
+        <?php render_amount_words($d); ?>
+      </div>
       <?php endif; ?>
     </div>
   <?php endif; ?>
@@ -1403,8 +1413,8 @@ function render_sheet_frame(array $d): void
               <div class="d-sum"><span><?= h($d['tax_label']) ?></span><span><?= h(money($d['vat'], $d['cur'])) ?></span></div>
             <?php endif; ?>
             <?php render_sums_close($d); ?>
+            <?php render_amount_words($d); ?>
           </div>
-          <?php render_amount_words($d); ?>
           <?php endif; ?>
         </div>
       <?php endif; ?>
@@ -1468,8 +1478,8 @@ function render_sheet_inset(array $d): void
             <div class="d-sum"><span><?= h($d['tax_label']) ?></span><span><?= h(money($d['vat'], $d['cur'])) ?></span></div>
           <?php endif; ?>
           <?php render_sums_close($d); ?>
+          <?php render_amount_words($d); ?>
         </div>
-        <?php render_amount_words($d); ?>
         <?php endif; ?>
       </div>
     <?php endif; ?>
