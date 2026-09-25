@@ -565,6 +565,35 @@ function render_app_tabbar(): void
     <?php
 }
 
+function render_admin_tabbar(): void
+{
+    $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
+    $dashOn = $here === 'admin_dashboard.php';
+    $companiesOn = in_array($here, ['admin_companies.php', 'admin_company.php', 'admin_company_new.php'], true);
+    $salesOn = str_starts_with($here, 'admin_sales');
+    $reportsOn = $here === 'admin_reports.php';
+    $systemOn = $here === 'admin_system.php';
+    ?>
+<nav class="app-tabbar admin-tabbar" aria-label="Admin">
+  <a class="app-tab<?= $dashOn ? ' is-on' : '' ?>" href="<?= h(url('admin_dashboard.php')) ?>">
+    <?= icon('home', 22) ?><span>Dashboard</span>
+  </a>
+  <a class="app-tab<?= $companiesOn ? ' is-on' : '' ?>" href="<?= h(url('admin_companies.php')) ?>">
+    <?= icon('building', 22) ?><span>Companies</span>
+  </a>
+  <a class="app-tab<?= $salesOn ? ' is-on' : '' ?>" href="<?= h(url('admin_sales.php')) ?>">
+    <?= icon('cart', 22) ?><span>Sales</span>
+  </a>
+  <a class="app-tab<?= $reportsOn ? ' is-on' : '' ?>" href="<?= h(url('admin_reports.php')) ?>">
+    <?= icon('reports', 22) ?><span>Reports</span>
+  </a>
+  <a class="app-tab<?= $systemOn ? ' is-on' : '' ?>" href="<?= h(url('admin_system.php')) ?>">
+    <?= icon('clock', 22) ?><span>System</span>
+  </a>
+</nav>
+    <?php
+}
+
 function render_top_search(): void
 {
     $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
@@ -641,6 +670,8 @@ function layout_end(string $extra = ''): void
 </div>
 <?php render_desk_calculator(); ?>
 <?php render_app_tabbar(); ?>
+<?php else: ?>
+<?php render_admin_tabbar(); ?>
 <?php endif; ?>
 <script src="<?= h(asset('js/app.js')) ?>" defer></script>
 <script src="<?= h(asset('js/pwa.js')) ?>" defer></script>
