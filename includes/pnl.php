@@ -1335,15 +1335,45 @@ function enrich_planner_notifications(array $items): array
     return $out;
 }
 
-/** Desk bell items: planner deadlines plus low stock when Stock is on. */
+/** Desk bell items: each login only gets their own planner items; admins also get invoices/stock. */
 function desk_notifications(int $limit = 40): array
 {
     $items = [];
-    if (function_exists('company_planner_enabled') && company_planner_enabled() && is_desk_admin()) {
-        $items = array_merge($items, planner_notifications($limit));
+    $uid = (int) (current_user()['id'] ?? 0);
+    if (function_exists('company_planner_enabled') && company_planner_enabled() && function_exists('planner_notifications')) {
+        // Personal planner alerts for this account only.
+        if (is_desk_admin() || user_can_open('planner.php')) {
+            $items = array_merge($items, planner_notifications($limit, $uid > 0 ? $uid : null));
+        }
     }
     if (function_exists('company_stock_enabled') && company_stock_enabled() && is_desk_admin() && function_exists('stock_low_notifications')) {
         $items = array_merge($items, stock_low_notifications(20));
+    }
+    // Feedback replies addressed to this login only.
+    if ($uid > 0 && function_exists('desk_feedback_for_company')) {
+        try {
+            $replies = db_all(
+                "SELECT id, reply_body, replied_at FROM desk_feedback
+                 WHERE user_id = ? AND status = 'replied' AND reply_body IS NOT NULL AND reply_body <> ''
+                   AND replied_at IS NOT NULL AND replied_at > DATE_SUB(NOW(), INTERVAL 14 DAY)
+                 ORDER BY replied_at DESC LIMIT 5",
+                'i',
+                [$uid]
+            );
+            foreach ($replies as $r) {
+                $items[] = [
+                    'type' => 'feedback_reply',
+                    'tone' => 'info',
+                    'title' => 'Vellisys replied to your help request',
+                    'meta' => clip_text((string) ($r['reply_body'] ?? ''), 70),
+                    'href' => url('feedback.php'),
+                    'key' => 'feedback-reply:' . (int) $r['id'],
+                    'sort' => '0-fb-' . (int) $r['id'],
+                ];
+            }
+        } catch (Throwable $e) {
+            // ignore
+        }
     }
     usort($items, static fn ($a, $b) => strcmp((string) ($a['sort'] ?? ''), (string) ($b['sort'] ?? '')));
     return enrich_planner_notifications(array_slice($items, 0, $limit));
@@ -1351,10 +1381,14 @@ function desk_notifications(int $limit = 40): array
 
 function desk_notifications_enabled(): bool
 {
-    if (!is_desk_admin()) {
-        return false;
-    }
     $planner = function_exists('company_planner_enabled') && company_planner_enabled();
-    $stock = function_exists('company_stock_enabled') && company_stock_enabled();
-    return $planner || $stock;
+    $stock = function_exists('company_stock_enabled') && company_stock_enabled() && is_desk_admin();
+    if ($stock) {
+        return true;
+    }
+    if ($planner && (is_desk_admin() || (function_exists('user_can_open') && user_can_open('planner.php')))) {
+        return true;
+    }
+    // Feedback replies for any desk member.
+    return true;
 }

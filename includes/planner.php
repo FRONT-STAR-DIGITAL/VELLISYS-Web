@@ -495,23 +495,28 @@ function planner_due_invoices(int $days = 14): array
     ));
 }
 
-function planner_notifications(int $limit = 12): array
+function planner_notifications(int $limit = 12, ?int $forUserId = null): array
 {
     if (!company_planner_enabled()) {
         return [];
     }
     $cid = current_company_id();
+    $uid = $forUserId ?? (int) (current_user()['id'] ?? 0);
     $today = today();
     $until = date('Y-m-d', strtotime('+10 days'));
     $items = [];
+    // Each login only sees planner items they own.
+    $ownerSql = $uid > 0 ? ' AND user_id = ?' : '';
+    $ownerTypes = $uid > 0 ? 'i' : '';
+    $ownerParams = $uid > 0 ? [$uid] : [];
 
     $events = db_all(
         "SELECT id, title, event_date, kind, priority, done FROM planner_events
-         WHERE company_id = ? AND done = 0 AND event_date <= ?
+         WHERE company_id = ? AND done = 0 AND event_date <= ?{$ownerSql}
          ORDER BY FIELD(priority,'essential','high','normal','low'), event_date, id
          LIMIT 20",
-        'is',
-        [$cid, $until]
+        'is' . $ownerTypes,
+        array_merge([$cid, $until], $ownerParams)
     );
     foreach ($events as $ev) {
         $when = (string) $ev['event_date'];
@@ -528,10 +533,10 @@ function planner_notifications(int $limit = 12): array
 
     $notes = db_all(
         "SELECT id, title, priority, updated_at FROM planner_notes
-         WHERE company_id = ? AND priority IN ('essential','high')
+         WHERE company_id = ? AND priority IN ('essential','high'){$ownerSql}
          ORDER BY FIELD(priority,'essential','high'), updated_at DESC LIMIT 8",
-        'i',
-        [$cid]
+        'i' . $ownerTypes,
+        array_merge([$cid], $ownerParams)
     );
     foreach ($notes as $note) {
         $items[] = [
@@ -547,11 +552,11 @@ function planner_notifications(int $limit = 12): array
     try {
         $goals = db_all(
             "SELECT id, title, due_date, priority FROM planner_goals
-             WHERE company_id = ? AND status = 'open' AND (due_date IS NULL OR due_date <= ?)
+             WHERE company_id = ? AND status = 'open' AND (due_date IS NULL OR due_date <= ?){$ownerSql}
              ORDER BY FIELD(priority,'essential','high','normal','low'), due_date IS NULL, due_date, id
              LIMIT 8",
-            'is',
-            [$cid, $until]
+            'is' . $ownerTypes,
+            array_merge([$cid, $until], $ownerParams)
         );
         foreach ($goals as $goal) {
             $due = (string) ($goal['due_date'] ?? '');
@@ -569,19 +574,22 @@ function planner_notifications(int $limit = 12): array
         // Goals table arrives with schema 41.
     }
 
-    foreach (planner_due_invoices(7) as $doc) {
-        if ((float) ($doc['balance'] ?? 0) <= 0.009) {
-            continue;
+    // Invoice due alerts stay admin-wide for the company desk admin only.
+    if (is_desk_admin()) {
+        foreach (planner_due_invoices(7) as $doc) {
+            if ((float) ($doc['balance'] ?? 0) <= 0.009) {
+                continue;
+            }
+            $due = (string) ($doc['due_date'] ?? '');
+            $items[] = [
+                'type' => 'invoice',
+                'tone' => $due < $today ? 'warn' : 'info',
+                'title' => $doc['party_name'] . ' · ' . $doc['number'],
+                'meta' => 'Invoice due ' . format_date($due) . ' · ' . money($doc['balance'], doc_currency($doc)),
+                'href' => url('document_view.php?id=' . (int) $doc['id']),
+                'sort' => $due . '-inv',
+            ];
         }
-        $due = (string) ($doc['due_date'] ?? '');
-        $items[] = [
-            'type' => 'invoice',
-            'tone' => $due < $today ? 'warn' : 'info',
-            'title' => $doc['party_name'] . ' · ' . $doc['number'],
-            'meta' => 'Invoice due ' . format_date($due) . ' · ' . money($doc['balance'], doc_currency($doc)),
-            'href' => url('document_view.php?id=' . (int) $doc['id']),
-            'sort' => $due . '-inv',
-        ];
     }
 
     usort($items, static fn ($a, $b) => strcmp((string) $a['sort'], (string) $b['sort']));

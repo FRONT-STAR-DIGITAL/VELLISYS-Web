@@ -419,15 +419,20 @@ function push_sync_outstanding(?array $user = null): void
     if (!$user) {
         return;
     }
-    $scope = (($user['role'] ?? '') === 'platform' && empty($_SESSION['acting_company_id'])) ? 'platform' : 'company';
-    $cid = (int) ($user['company_id'] ?? current_company_id());
+    // Deliver only to this login - never fan personal desk notices out to the whole company.
+    $uid = (int) ($user['id'] ?? 0);
+    if ($uid < 1) {
+        return;
+    }
     foreach (push_current_items_for_user($user) as $n) {
-        push_notify_item([
-            'title' => $n['title'],
-            'meta' => $n['body'],
-            'href' => $n['url'],
-            'key' => $n['key'],
-        ], $scope, $cid);
+        $title = trim((string) ($n['title'] ?? 'Vellisys'));
+        $body = trim((string) ($n['body'] ?? ''));
+        $href = (string) ($n['url'] ?? url('dashboard.php'));
+        if (!str_starts_with($href, 'http')) {
+            $href = function_exists('absolute_url') ? absolute_url(ltrim($href, '/')) : $href;
+        }
+        $tag = (string) ($n['key'] ?? '');
+        push_deliver([$uid], $title, $body !== '' ? $body : $title, $href, $tag);
     }
 }
 

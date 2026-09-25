@@ -32,7 +32,7 @@ sales_layout_start('Performance', $user);
     <a class="chip<?= $periodKind === $k ? ' is-on' : '' ?>" href="<?= h(url('sales_performance.php?period=' . $k)) ?>"><?= h($label) ?></a>
   <?php endforeach; ?>
 </nav>
-<p class="hint" style="margin:-4px 0 16px"><?= h($periodLabels[$periodKind]) ?> · <?= h(format_date($from)) ?><?= $from !== $to ? ' – ' . h(format_date($to)) : '' ?></p>
+<p class="hint" style="margin:-4px 0 16px"><?= h($periodLabels[$periodKind]) ?> · <?= h(format_date($from)) ?><?= $from !== $to ? ' - ' . h(format_date($to)) : '' ?></p>
 
 <div class="card" style="margin-bottom:16px">
   <div class="card-head"><h2><?= icon('flag', 16) ?><?= h($periodLabels[$periodKind]) ?> goals</h2></div>

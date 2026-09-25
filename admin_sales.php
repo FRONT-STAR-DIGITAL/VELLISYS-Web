@@ -497,7 +497,7 @@ if ($tab === 'lead'):
     <input type="date" name="follow_up_date" value="<?= h((string) ($_POST['follow_up_date'] ?? $editLead['follow_up_date'] ?? '')) ?>">
   </div>
   <div data-admin-panel="follow_up">
-    <label>Interest in Vellisys (1–5)</label>
+    <label>Interest in Vellisys (1-5)</label>
     <select name="interest_rating">
       <option value="0">Rate interest</option>
       <?php $ir = (int) ($_POST['interest_rating'] ?? ($editLead['interest_rating'] ?? 0)); for ($i = 1; $i <= 5; $i++): ?>
@@ -630,7 +630,7 @@ if ($tab === 'agent' && $agentRow):
 <div class="page-head" style="margin-top:0">
   <div>
     <h2><?= h($agentRow['name']) ?></h2>
-    <p class="lede"><?= h($agentRow['email']) ?> · <?= ($agentRow['status'] ?? '') === 'suspended' ? 'Suspended' : 'Live' ?> · <?= h($periodLabels[$periodKind]) ?> <?= h(format_date($agentFrom)) ?><?= $agentFrom !== $agentTo ? ' – ' . h(format_date($agentTo)) : '' ?></p>
+    <p class="lede"><?= h($agentRow['email']) ?> · <?= ($agentRow['status'] ?? '') === 'suspended' ? 'Suspended' : 'Live' ?> · <?= h($periodLabels[$periodKind]) ?> <?= h(format_date($agentFrom)) ?><?= $agentFrom !== $agentTo ? ' - ' . h(format_date($agentTo)) : '' ?></p>
   </div>
   <div class="actions page-actions">
     <a class="btn ghost" href="<?= h(url('admin_sales.php?tab=agents')) ?>">All agents</a>

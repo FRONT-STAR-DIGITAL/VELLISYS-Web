@@ -146,11 +146,11 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
       <label for="follow_up_date">Follow-up date</label>
       <input id="follow_up_date" name="follow_up_date" type="date" value="<?= h((string) ($_POST['follow_up_date'] ?? $lead['follow_up_date'] ?? '')) ?>">
       <p class="hint">You get a reminder the day before.</p>
-      <label for="interest_rating" style="margin-top:12px">Interest in Vellisys (1–5)</label>
+      <label for="interest_rating" style="margin-top:12px">Interest in Vellisys (1-5)</label>
       <select id="interest_rating" name="interest_rating">
         <option value="0">Rate interest</option>
         <?php for ($i = 1; $i <= 5; $i++): ?>
-          <option value="<?= $i ?>" <?= $interest === $i ? 'selected' : '' ?>><?= $i ?> — <?= $i === 1 ? 'Low' : ($i === 5 ? 'Very high' : '') ?></option>
+          <option value="<?= $i ?>" <?= $interest === $i ? 'selected' : '' ?>><?= $i === 1 ? '1 - Low' : ($i === 5 ? '5 - Very high' : (string) $i) ?></option>
         <?php endfor; ?>
       </select>
     </div>

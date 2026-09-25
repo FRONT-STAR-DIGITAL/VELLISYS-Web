@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-/** Field sales agents (Vellisys staff portal — not desk till access). */
+/** Field sales agents (Vellisys staff portal - not desk till access). */
 
 function sales_statuses(): array
 {
@@ -984,7 +984,7 @@ function sales_render_goal_bars(array $progress, array $opts = []): void
     <div class="sales-goal-row<?= $reachHit ? ' is-hit' : '' ?>">
       <div class="sales-goal-meta">
         <span>Leads reached</span>
-        <strong class="mono"><?= $reach ?>/<?= $reachGoal ?: '—' ?></strong>
+        <strong class="mono"><?= $reach ?>/<?= $reachGoal ?: '-' ?></strong>
       </div>
       <div class="sales-goal-track" role="img" aria-label="Leads <?= $reach ?> of <?= $reachGoal ?>">
         <span style="width:<?= $reachFill ?>%"></span>
@@ -1000,7 +1000,7 @@ function sales_render_goal_bars(array $progress, array $opts = []): void
     <div class="sales-goal-row<?= $salesHit ? ' is-hit' : '' ?>">
       <div class="sales-goal-meta">
         <span>Sales (interested + onboarded)</span>
-        <strong class="mono"><?= $sales ?>/<?= $salesGoal ?: '—' ?></strong>
+        <strong class="mono"><?= $sales ?>/<?= $salesGoal ?: '-' ?></strong>
       </div>
       <div class="sales-goal-track" role="img" aria-label="Sales <?= $sales ?> of <?= $salesGoal ?>">
         <span style="width:<?= $salesFill ?>%"></span>
