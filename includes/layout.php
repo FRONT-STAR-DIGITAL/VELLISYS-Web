@@ -154,6 +154,7 @@ function layout_start(string $title, array $user, array $opts = []): void
     $nav = array_merge($nav, [
         ['activities.php', 'Activities', 'clock'],
         ['tutorials.php', 'Tutorials', 'book'],
+        ['feedback.php', 'Feedback', 'help'],
         ['reports.php', 'Reports', 'reports'],
         ['settings.php', 'Settings', 'settings'],
     ]);
@@ -371,6 +372,7 @@ function layout_admin_start(string $title, array $user): void
     $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
     $signupNew = new_signup_count();
     $questionNew = new_question_count();
+    $feedbackNew = function_exists('desk_feedback_new_count') ? desk_feedback_new_count() : 0;
     if (function_exists('record_site_visit')) {
         record_site_visit();
     }
@@ -383,6 +385,7 @@ function layout_admin_start(string $title, array $user): void
         ['sales_demo.php', 'Demo', 'building'],
         ['admin_passwords.php', 'Passwords', 'lock'],
         ['admin_questions.php', 'Questions', 'help'],
+        ['admin_feedback.php', 'Feedback', 'letter'],
         ['admin_companies.php', 'Companies', 'building'],
         ['admin_locations.php', 'Locations', 'pin'],
         ['admin_finances.php', 'Finances', 'bank'],
@@ -427,7 +430,8 @@ function layout_admin_start(string $title, array $user): void
           $active = $file === $here
               || (in_array($here, ['admin_company.php', 'admin_company_new.php'], true) && $file === 'admin_companies.php')
               || ($here === 'admin_question.php' && $file === 'admin_questions.php')
-              || (str_starts_with($here, 'admin_sales') && $file === 'admin_sales.php' && !str_contains($href, 'tab=messages'))
+              || ($here === 'admin_feedback.php' && $file === 'admin_feedback.php')
+              || (str_starts_with($here, 'admin_sales') && $file === 'admin_sales.php' && !str_contains($href, 'tab=messages') && (string) ($_GET['tab'] ?? '') !== 'messages')
               || ($file === 'admin_sales.php' && str_contains($href, 'tab=messages') && $here === 'admin_sales.php' && (string) ($_GET['tab'] ?? '') === 'messages')
               || ($here === 'sales_demo.php' && $file === 'sales_demo.php')
               || ($here === 'admin_passwords.php' && $file === 'admin_passwords.php');
@@ -436,6 +440,8 @@ function layout_admin_start(string $title, array $user): void
               $count = $signupNew;
           } elseif ($file === 'admin_questions.php') {
               $count = $questionNew;
+          } elseif ($file === 'admin_feedback.php') {
+              $count = $feedbackNew;
           } elseif ($file === 'admin_sales.php' && str_contains($href, 'tab=messages')) {
               $count = $salesMsgUnread;
               $active = $here === 'admin_sales.php' && (string) ($_GET['tab'] ?? '') === 'messages';

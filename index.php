@@ -354,7 +354,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
           <form class="lp-ask-form" method="post" action="<?= h(url('ask.php')) ?>" autocomplete="off">
             <?= csrf_field() ?>
             <h3>Write to us</h3>
-            <p class="lp-ask-hint">Name, email, and your question. Phone is optional.</p>
+            <p class="lp-ask-hint">Name, email, why you are writing, and your question. Phone is optional.</p>
             <?php if ($askFlash && ($askFlash['type'] ?? '') === 'err'): ?>
               <p class="lp-err"><?= h($askFlash['text']) ?></p>
             <?php endif; ?>
@@ -367,6 +367,25 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
             </label>
             <label for="ask_phone">Phone <span>(optional)</span>
               <input id="ask_phone" name="ask_phone" type="tel" maxlength="40" autocomplete="tel" value="<?= h($askDraft['phone'] ?? '') ?>" placeholder="+256 700 000 000">
+            </label>
+            <?php
+              $askTopics = ask_contact_topics();
+              $askTopic = (string) ($askDraft['topic'] ?? '');
+              if ($askTopic === '' || !isset($askTopics[$askTopic])) {
+                  $askTopic = '';
+              }
+              $askOther = (string) ($askDraft['topic_other'] ?? '');
+            ?>
+            <label for="ask_topic">Why are you contacting us?
+              <select id="ask_topic" name="ask_topic" required data-ask-topic>
+                <option value=""<?= $askTopic === '' ? ' selected' : '' ?> disabled>Choose a reason</option>
+                <?php foreach ($askTopics as $key => $label): ?>
+                  <option value="<?= h($key) ?>"<?= $askTopic === $key ? ' selected' : '' ?>><?= h($label) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </label>
+            <label for="ask_topic_other" data-ask-other<?= $askTopic === 'other' ? '' : ' hidden' ?>>Tell us more <span>(required for Other)</span>
+              <input id="ask_topic_other" name="ask_topic_other" maxlength="200" value="<?= h($askOther) ?>" placeholder="Short explanation"<?= $askTopic === 'other' ? ' required' : '' ?>>
             </label>
             <label for="ask_message">Question
               <textarea id="ask_message" name="ask_message" required minlength="20" maxlength="2000" rows="5" placeholder="How do we add a second user on the desk?"><?= h($askDraft['message'] ?? '') ?></textarea>

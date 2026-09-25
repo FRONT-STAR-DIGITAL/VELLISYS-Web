@@ -28,12 +28,17 @@ if (form_is_spam('ask', 3)) {
 $name = post_plain('ask_name', 80);
 $email = strtolower(post_plain('ask_email', 190));
 $phone = post_plain('ask_phone', 40);
+$topic = post_plain('ask_topic', 60);
+$topicOther = post_plain('ask_topic_other', 200);
 $message = post_plain('ask_message', 2000, true);
+$topics = ask_contact_topics();
 
 $_SESSION['ask_draft'] = [
     'name' => $name,
     'email' => $email,
     'phone' => $phone,
+    'topic' => $topic,
+    'topic_other' => $topicOther,
     'message' => $message,
 ];
 
@@ -45,6 +50,15 @@ if (mb_strlen($name) < 2 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
 }
 if ($phone !== '' && !public_phone_ok($phone)) {
     ask_done(false, 'Please enter a working phone number, or leave it blank.');
+}
+if ($topic === '' || !isset($topics[$topic])) {
+    ask_done(false, 'Choose why you are contacting us.');
+}
+if ($topic === 'other') {
+    if (mb_strlen($topicOther) < 3) {
+        ask_done(false, 'Tell us briefly why you are writing (Other).');
+    }
+    $message = 'Other reason: ' . $topicOther . "\n\n" . $message;
 }
 if (mb_strlen($message) < 20) {
     ask_done(false, 'Write a little more so we know how to help - at least a sentence.');
@@ -61,9 +75,9 @@ if (form_rate_blocked('ask', 3) || (int) ($recent['c'] ?? 0) >= 3) {
 }
 
 $id = db_exec(
-    'INSERT INTO questions (name, email, phone, message, ip_hash, status) VALUES (?,?,?,?,?,?)',
-    'ssssss',
-    [$name, $email, $phone, $message, $ipHash, 'new']
+    'INSERT INTO questions (name, email, phone, topic, message, ip_hash, status) VALUES (?,?,?,?,?,?,?)',
+    'sssssss',
+    [$name, $email, $phone, $topic, $message, $ipHash, 'new']
 );
 form_rate_hit('ask');
 
@@ -74,6 +88,7 @@ $question = [
     'name' => $name,
     'email' => $email,
     'phone' => $phone,
+    'topic' => $topic,
     'message' => $message,
 ];
 folio_redirect_then('?asked=1#ask', static function () use ($question): void {

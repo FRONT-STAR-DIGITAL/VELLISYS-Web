@@ -56,6 +56,10 @@ layout_admin_start($q['name'], $user);
     <p><span>From</span><strong><?= h($q['name']) ?></strong></p>
     <p><span>Email</span><a href="mailto:<?= h($q['email']) ?>"><?= h($q['email']) ?></a></p>
     <p><span>Phone</span><?= $q['phone'] !== '' ? h($q['phone']) : 'Not given' ?></p>
+    <p><span>Reason</span><?php
+      $topicLabel = ask_contact_topic_label((string) ($q['topic'] ?? ''));
+      echo $topicLabel !== '' ? h($topicLabel) : 'Not given';
+    ?></p>
     <p><span>Received</span><?= h(substr((string) $q['created_at'], 0, 16)) ?></p>
     <p><span>Status</span><span class="pill<?= $q['status'] === 'new' ? ' warn' : '' ?>"><?= h($q['status']) ?></span></p>
   </div>

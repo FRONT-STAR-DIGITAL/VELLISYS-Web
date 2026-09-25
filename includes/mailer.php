@@ -442,16 +442,21 @@ function notify_admin_question(array $q): void
     $name = (string) ($q['name'] ?? '');
     $email = (string) ($q['email'] ?? '');
     $phone = (string) ($q['phone'] ?? '');
+    $topic = (string) ($q['topic'] ?? '');
+    $topicLabel = function_exists('ask_contact_topic_label') ? ask_contact_topic_label($topic) : $topic;
     $message = (string) ($q['message'] ?? '');
     $html = vellisys_email_wrap(
         '<p style="margin:0 0 14px">A visitor asked a question on the Vellisys site.</p>'
         . '<p style="margin:0 0 8px"><strong>Name:</strong> ' . h($name) . '</p>'
         . '<p style="margin:0 0 8px"><strong>Email:</strong> ' . h($email) . '</p>'
         . '<p style="margin:0 0 8px"><strong>Phone:</strong> ' . h($phone !== '' ? $phone : 'Not given') . '</p>'
+        . ($topicLabel !== '' ? '<p style="margin:0 0 8px"><strong>Reason:</strong> ' . h($topicLabel) . '</p>' : '')
         . '<p style="margin:16px 0;padding:14px;background:#FFFFFF;border:1px solid #08143A;color:#000000">' . nl2br(h($message)) . '</p>'
         . '<p style="margin:0"><a href="' . h(absolute_url('admin_question.php?id=' . (int) ($q['id'] ?? 0))) . '" style="color:#1E4EFF">Open the question</a></p>'
     );
-    $text = "A visitor asked a question on the Vellisys site.\n\nName: {$name}\nEmail: {$email}\nPhone: " . ($phone !== '' ? $phone : '(none)') . "\n\n{$message}\n\nOpen: " . absolute_url('admin_questions.php');
+    $text = "A visitor asked a question on the Vellisys site.\n\nName: {$name}\nEmail: {$email}\nPhone: " . ($phone !== '' ? $phone : '(none)')
+        . ($topicLabel !== '' ? "\nReason: {$topicLabel}" : '')
+        . "\n\n{$message}\n\nOpen: " . absolute_url('admin_questions.php');
     notify_platform('Vellisys question from ' . ($name !== '' ? $name : 'a visitor'), $html, $text, $email);
     if (function_exists('push_notify_item')) {
         $qid = (int) ($q['id'] ?? 0);

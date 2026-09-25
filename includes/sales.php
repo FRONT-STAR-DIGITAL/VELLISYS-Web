@@ -45,6 +45,94 @@ function sales_reject_reason_label(string $key): string
     return sales_reject_reasons()[$key] ?? $key;
 }
 
+function sales_rejection_breakdown(?int $agentId, string $from, string $to): array
+{
+    $where = "status = 'rejected' AND DATE(created_at) >= ? AND DATE(created_at) <= ?";
+    $types = 'ss';
+    $params = [$from, $to];
+    if ($agentId) {
+        $where .= ' AND agent_id = ?';
+        $types .= 'i';
+        $params[] = $agentId;
+    }
+    $rows = db_all(
+        "SELECT COALESCE(NULLIF(TRIM(rejected_category), ''), 'other') AS cat, COUNT(*) AS n
+         FROM sales_leads WHERE {$where}
+         GROUP BY COALESCE(NULLIF(TRIM(rejected_category), ''), 'other')
+         ORDER BY n DESC, cat ASC",
+        $types,
+        $params
+    );
+    $labels = sales_reject_reasons();
+    $out = [];
+    $total = 0;
+    foreach ($rows as $r) {
+        $key = (string) $r['cat'];
+        $n = (int) $r['n'];
+        $total += $n;
+        $out[] = [
+            'key' => $key,
+            'label' => $labels[$key] ?? ($key === 'other' ? 'Other / not set' : $key),
+            'count' => $n,
+        ];
+    }
+    foreach ($labels as $key => $label) {
+        $found = false;
+        foreach ($out as $row) {
+            if ($row['key'] === $key) {
+                $found = true;
+                break;
+            }
+        }
+        if (!$found) {
+            $out[] = ['key' => $key, 'label' => $label, 'count' => 0];
+        }
+    }
+    return ['total' => $total, 'rows' => $out];
+}
+
+function sales_render_rejection_report(array $breakdown, array $opts = []): void
+{
+    $rows = $breakdown['rows'] ?? [];
+    $total = (int) ($breakdown['total'] ?? 0);
+    $title = (string) ($opts['title'] ?? 'Rejections by reason');
+    ?>
+<div class="card" style="margin-bottom:16px">
+  <div class="card-head"><h2><?= icon('ban', 16) ?><?= h($title) ?></h2></div>
+  <?php if ($total < 1): ?>
+    <p class="empty">No rejections in this period yet.</p>
+  <?php else: ?>
+    <div class="table-scroll">
+      <table class="grid">
+        <thead><tr><th>Reason</th><th class="right">Count</th><th class="right">Share</th><th></th></tr></thead>
+        <tbody>
+          <?php foreach ($rows as $row):
+              if ((int) $row['count'] < 1) {
+                  continue;
+              }
+              $pct = $total > 0 ? (int) round(100 * (int) $row['count'] / $total) : 0;
+              ?>
+            <tr>
+              <td><?= h((string) $row['label']) ?></td>
+              <td class="right mono"><?= (int) $row['count'] ?></td>
+              <td class="right mono"><?= $pct ?>%</td>
+              <td style="min-width:120px">
+                <div class="sales-goal-track" role="img" aria-label="<?= (int) $row['count'] ?> of <?= $total ?>">
+                  <span style="width:<?= min(100, $pct) ?>%;background:#b42318"></span>
+                </div>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+        <tfoot><tr><th>Total rejected</th><th class="right mono"><?= $total ?></th><th></th><th></th></tr></tfoot>
+      </table>
+    </div>
+    <p class="hint" style="padding:0 16px 14px">Use these reasons to improve pricing, packaging and pitch.</p>
+  <?php endif; ?>
+</div>
+    <?php
+}
+
 function is_sales_agent(?array $user = null): bool
 {
     $user = $user ?? current_user();

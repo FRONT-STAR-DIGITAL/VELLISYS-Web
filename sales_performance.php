@@ -13,6 +13,7 @@ $from = $progress['from'];
 $to = $progress['stat_to'];
 $stats = $progress['stats'];
 $series = sales_series($uid, $from, $to);
+$rejectionReport = sales_rejection_breakdown($uid, $from, $to);
 $followed = sales_leads_query(['agent_id' => $uid, 'follow_bucket' => 'done', 'from' => $from, 'to' => $to]);
 $pending = sales_leads_query(['agent_id' => $uid, 'follow_bucket' => 'due']);
 $periodLabels = ['daily' => 'Daily', 'weekly' => 'Weekly', 'monthly' => 'Monthly'];
@@ -57,6 +58,7 @@ sales_layout_start('Performance', $user);
     <div class="pad-form" style="height:220px"><canvas id="chart-line"></canvas></div>
   </div>
 </div>
+<?php sales_render_rejection_report($rejectionReport); ?>
 
 <div class="desk-grid stock-split">
   <div class="card">

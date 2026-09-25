@@ -2111,6 +2111,25 @@ function folio_migrate_sales_field(mysqli $db): void
       KEY urgency_created (urgency, created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     folio_ensure_sales_demo($db);
+    if (!db_has_column($db, 'questions', 'topic')) {
+        @$db->query("ALTER TABLE questions ADD COLUMN topic VARCHAR(60) NOT NULL DEFAULT '' AFTER phone");
+        db_has_column($db, 'questions', 'topic', true);
+    }
+    $db->query("CREATE TABLE IF NOT EXISTS desk_feedback (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      company_id INT UNSIGNED NOT NULL,
+      user_id INT UNSIGNED NOT NULL,
+      message TEXT NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'new',
+      reply_body TEXT NULL,
+      replied_by INT UNSIGNED NULL,
+      replied_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY company_status (company_id, status),
+      KEY user_id (user_id),
+      KEY status_created (status, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
 function folio_ensure_sales_demo(mysqli $db): void

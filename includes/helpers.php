@@ -4514,22 +4514,50 @@ function platform_notifications(int $limit = 12): array
 
     try {
         $questions = db_all(
-            "SELECT id, name, email, message, created_at FROM questions WHERE status = 'new' ORDER BY id DESC LIMIT 12"
+            "SELECT id, name, email, message, topic, created_at FROM questions WHERE status = 'new' ORDER BY id DESC LIMIT 12"
         );
         foreach ($questions as $q) {
             $id = (int) $q['id'];
             $preview = clip_text((string) ($q['message'] ?? ''), 60);
+            $topicLabel = function_exists('ask_contact_topic_label')
+                ? ask_contact_topic_label((string) ($q['topic'] ?? ''))
+                : '';
             if (!$push([
                 'type' => 'question',
                 'key' => 'question:' . $id,
                 'title' => $preview !== '' ? $preview : ('Question from ' . ((string) ($q['name'] ?? 'visitor'))),
-                'meta' => 'Question · ' . clip_text((string) ($q['email'] ?? ''), 40),
+                'meta' => trim(($topicLabel !== '' ? $topicLabel . ' · ' : 'Question · ') . clip_text((string) ($q['email'] ?? ''), 40)),
                 'href' => url('admin_question.php?id=' . $id),
                 'actions' => [
                     ['label' => 'Open', 'href' => url('admin_question.php?id=' . $id), 'class' => 'btn ghost sm'],
                 ],
             ])) {
                 return $out;
+            }
+        }
+    } catch (Throwable $e) {
+        // ignore
+    }
+
+    try {
+        if (function_exists('desk_feedback_open')) {
+            foreach (array_slice(desk_feedback_open(12), 0, 12) as $f) {
+                if ((string) ($f['status'] ?? '') !== 'new') {
+                    continue;
+                }
+                $fid = (int) ($f['id'] ?? 0);
+                if (!$push([
+                    'type' => 'desk_feedback',
+                    'key' => 'desk-feedback:' . $fid,
+                    'title' => 'Desk help · ' . clip_text((string) ($f['company_name'] ?? 'Company'), 40),
+                    'meta' => clip_text((string) ($f['message'] ?? ''), 70),
+                    'href' => url('admin_feedback.php?id=' . $fid),
+                    'actions' => [
+                        ['label' => 'Open', 'href' => url('admin_feedback.php?id=' . $fid), 'class' => 'btn ghost sm'],
+                    ],
+                ])) {
+                    return $out;
+                }
             }
         }
     } catch (Throwable $e) {

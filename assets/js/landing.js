@@ -534,4 +534,20 @@
     });
     window.addEventListener('pagehide', saveDraft);
   }
+
+  var topicSelect = document.querySelector('[data-ask-topic]');
+  var otherWrap = document.querySelector('[data-ask-other]');
+  if (topicSelect && otherWrap) {
+    var otherInput = otherWrap.querySelector('input');
+    function syncAskOther() {
+      var show = topicSelect.value === 'other';
+      otherWrap.hidden = !show;
+      if (otherInput) {
+        if (show) otherInput.setAttribute('required', 'required');
+        else otherInput.removeAttribute('required');
+      }
+    }
+    topicSelect.addEventListener('change', syncAskOther);
+    syncAskOther();
+  }
 })();

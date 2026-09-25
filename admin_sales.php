@@ -166,6 +166,7 @@ $series = sales_series($filterAgent ?: null, $from, $to);
 $top = sales_top_agents($from, $to);
 $dailyBoard = sales_agents_daily_progress();
 $goalDefaults = sales_goal_defaults();
+$rejectionReport = sales_rejection_breakdown($filterAgent ?: null, $from, $to);
 $leadStatus = (string) ($_GET['status'] ?? '');
 $leadOpts = ['from' => $from, 'to' => $to];
 if ($filterAgent) {
@@ -190,6 +191,7 @@ if ($tab === 'agent' && $agentRow) {
     $agentTo = $agentProgress['stat_to'];
     $agentStats = $agentProgress['stats'];
     $agentSeries = sales_series($agentId, $agentFrom, $agentTo);
+    $agentRejection = sales_rejection_breakdown($agentId, $agentFrom, $agentTo);
     $agentLeads = sales_leads_query(['agent_id' => $agentId, 'from' => $agentFrom, 'to' => $agentTo]);
     $agentPending = sales_leads_query(['agent_id' => $agentId, 'follow_bucket' => 'due']);
     $agentFollowed = sales_leads_query(['agent_id' => $agentId, 'follow_bucket' => 'done', 'from' => $agentFrom, 'to' => $agentTo]);
@@ -291,6 +293,7 @@ layout_admin_start('Sales', $user);
   <div class="card chart-box"><div class="card-head"><h2>Status mix</h2></div><div class="pad-form" style="height:220px"><canvas id="admin-pie"></canvas></div></div>
   <div class="card chart-box"><div class="card-head"><h2>Reach over time</h2></div><div class="pad-form" style="height:220px"><canvas id="admin-line"></canvas></div></div>
 </div>
+<?php sales_render_rejection_report($rejectionReport, ['title' => 'Rejections by reason']); ?>
 <div class="card">
   <div class="card-head"><h2>Top performers</h2></div>
   <div class="table-scroll">
@@ -655,6 +658,7 @@ if ($tab === 'agent' && $agentRow):
   <div class="card chart-box"><div class="card-head"><h2>Status mix</h2></div><div class="pad-form" style="height:220px"><canvas id="agent-pie"></canvas></div></div>
   <div class="card chart-box"><div class="card-head"><h2><?= $periodKind === 'daily' ? 'Today by status' : 'Reach & sales over time' ?></h2></div><div class="pad-form" style="height:220px"><canvas id="agent-line"></canvas></div></div>
 </div>
+<?php sales_render_rejection_report($agentRejection); ?>
 <div class="desk-grid stock-split" style="margin-bottom:16px">
   <div class="card">
     <div class="card-head"><h2>Not followed up</h2></div>
