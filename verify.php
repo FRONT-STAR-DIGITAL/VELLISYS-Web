@@ -249,7 +249,7 @@ http_response_code(($validToken && $doc) ? 200 : 404);
           <?php elseif ($voided): ?>
             <p>The issuer has voided this document. It should not be treated as active.</p>
           <?php elseif ($valid): ?>
-            <p>Issued through <?= h($product) ?>. No payment or line-item details are shown on this page.</p>
+            <p>Issued through <?= h($product) ?>. Authenticity confirmed for the parties named below.</p>
           <?php else: ?>
             <p>This document could not be confirmed as active.</p>
           <?php endif; ?>
@@ -282,7 +282,7 @@ http_response_code(($validToken && $doc) ? 200 : 404);
             <strong><?= h($partyName !== '' ? $partyName : '—') ?></strong>
           </div>
         </div>
-        <p class="verify-note">This check confirms the document exists on the issuer’s Vellisys desk. It does not show amounts, line items or payment details.</p>
+        <p class="verify-note">This page confirms that the document was issued on the sender’s Vellisys desk and that the reference above matches their records.</p>
       <?php endif; ?>
     </article>
   </main>
