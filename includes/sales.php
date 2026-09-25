@@ -1788,7 +1788,7 @@ function sales_layout_start(string $title, array $user): void
   <style>:root { <?= product_css_vars() ?> }</style>
   <?php render_nav_boot_script(); ?>
 </head>
-<body class="desk-body sales-body">
+<body class="desk-body sales-body<?= $here === 'sales_lead_edit.php' ? ' is-lead-edit' : '' ?>">
 <?php render_page_loader(); ?>
 <div class="app">
   <div class="nav-scrim" data-nav-scrim hidden></div>
