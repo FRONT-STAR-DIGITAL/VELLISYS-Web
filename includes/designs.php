@@ -772,14 +772,29 @@ function render_sheet_ledger(array $d): void
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
   <div class="ledger-grid">
     <label>Date <b><?= h(format_date($doc['date'])) ?></b></label>
-    <label>Date <b><?= h(format_date($doc['date'])) ?></b></label>
-    <div class="wide ledger-party">
-      <span><?= ($doc['kind'] ?? '') === 'letter' ? '<span class="d-to-word">To</span>' : 'From' ?></span>
-      <?php render_party_contact($doc); ?>
-    </div>
+    <label><?= !empty($doc['due_date']) ? 'Due' : 'Date' ?> <b><?= h(format_date(!empty($doc['due_date']) ? $doc['due_date'] : $doc['date'])) ?></b></label>
     <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
     <div class="ledger-amt"><span><?= h($d['cur']) ?></span><strong><?= h(number_format(sheet_is_receipt($d) ? sheet_received_amount($d) : (float) $d['total'], currency_decimals($d['cur']))) ?></strong></div>
     <?php endif; ?>
+    <div class="wide ledger-parties<?= (($doc['kind'] ?? '') === 'letter') ? ' is-solo' : '' ?>">
+      <?php if (($doc['kind'] ?? '') !== 'letter'): ?>
+      <div class="ledger-from">
+        <span>From</span>
+        <b><?= h($brand['name']) ?></b>
+        <p>
+          <?= h($brand['address']) ?>
+          <?php if (!empty($brand['city'])): ?><br><?= h($brand['city']) ?><?php endif; ?>
+          <?php if (!empty($brand['phone'])): ?><br><?= h($brand['phone']) ?><?php endif; ?>
+          <?php if (!empty($brand['email'])): ?><br><?= h($brand['email']) ?><?php endif; ?>
+          <?php if (!empty($brand['tin'])): ?><br>TIN <?= h($brand['tin']) ?><?php endif; ?>
+        </p>
+      </div>
+      <?php endif; ?>
+      <div class="ledger-to">
+        <span class="<?= ($doc['kind'] ?? '') === 'letter' ? 'd-to-word' : '' ?>">To</span>
+        <?php render_party_contact($doc); ?>
+      </div>
+    </div>
   </div>
   <?php if (($doc['kind'] ?? '') === 'letter'): ?>
     <?php render_letter_subject($doc); ?>
