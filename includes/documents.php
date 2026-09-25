@@ -727,7 +727,7 @@ function document_authenticity_html(array $brand, array $doc): string
 <div class="doc-authenticity" aria-label="Document authenticity">
   <div class="doc-auth-qr">
     <?php if ($qr !== ''): ?>
-      <img src="<?= h($qr) ?>" width="120" height="120" alt="Scan to verify this document">
+      <img src="<?= h($qr) ?>" width="60" height="60" alt="Scan to verify this document">
     <?php endif; ?>
   </div>
   <div class="doc-auth-meta">

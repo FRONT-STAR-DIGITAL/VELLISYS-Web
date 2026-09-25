@@ -1772,19 +1772,19 @@
   border-bottom: 1px solid #111 !important;
 }
 
-/* Document authenticity QR — centered at the bottom of the sheet */
+/* Document authenticity QR — centered row at the bottom of the sheet */
 .invoice-sheet .doc-authenticity,
 .expense-card .doc-authenticity {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  text-align: center;
-  gap: 8px;
+  text-align: left;
+  gap: 10px;
   margin: 28px auto 0;
   padding: 16px 12px 4px;
   border-top: 1px solid rgba(8, 20, 58, .10);
-  width: 100%;
+  width: fit-content;
   max-width: 100%;
   box-sizing: border-box;
   break-inside: avoid;
@@ -1792,13 +1792,13 @@
 }
 .doc-auth-qr {
   flex: 0 0 auto;
-  width: 120px;
-  height: 120px;
+  width: 60px;
+  height: 60px;
 }
 .doc-auth-qr img {
   display: block;
-  width: 120px;
-  height: 120px;
+  width: 60px;
+  height: 60px;
   image-rendering: auto;
   border: 1px solid rgba(8, 20, 58, .08);
   border-radius: 4px;
@@ -1806,20 +1806,21 @@
 }
 .doc-auth-meta {
   min-width: 0;
+  flex: 0 1 auto;
   max-width: 220px;
 }
 .doc-auth-hint {
   margin: 0 0 2px;
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.35;
   font-weight: 600;
-  letter-spacing: .04em;
+  letter-spacing: .03em;
   text-transform: uppercase;
   color: #7a8499;
 }
 .doc-auth-powered {
   margin: 0;
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.35;
   font-weight: 600;
   color: #5c6780;
@@ -1834,20 +1835,20 @@
 .print-thermal .doc-authenticity {
   margin-top: 14px;
   padding-top: 10px;
-  gap: 6px;
+  gap: 8px;
 }
 .invoice-sheet.sheet-thermal .doc-auth-qr,
 .invoice-sheet.sheet-thermal .doc-auth-qr img,
 .print-thermal .doc-auth-qr,
 .print-thermal .doc-auth-qr img {
-  width: 96px;
-  height: 96px;
+  width: 56px;
+  height: 56px;
 }
 .invoice-sheet.sheet-thermal .doc-auth-hint,
 .invoice-sheet.sheet-thermal .doc-auth-powered,
 .print-thermal .doc-auth-hint,
 .print-thermal .doc-auth-powered {
-  font-size: 8px;
+  font-size: 10px;
 }
 @media print {
   .invoice-sheet .doc-authenticity,
