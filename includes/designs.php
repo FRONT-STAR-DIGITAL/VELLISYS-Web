@@ -946,6 +946,11 @@ function render_twin_half(array $d, string $label): void
       </div>
       <?php endif; ?>
       <div class="twin-sign<?= (($doc['kind'] ?? '') !== 'letter' && document_has_e_signature($doc)) ? ' has-stamp' : '' ?>"><?php if (($doc['kind'] ?? '') !== 'letter') { render_company_signature($doc); } ?>Authorized signature</div>
+      <?php
+      if (($doc['kind'] ?? '') !== 'letter' && function_exists('render_document_authenticity')) {
+          render_document_authenticity($brand, $doc);
+      }
+      ?>
     </div>
     <?php
 }
