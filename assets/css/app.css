@@ -2246,12 +2246,28 @@ html.print-preview .print-bar .btn {
   border: 0;
   padding: 0;
   margin: 0;
-  background: rgba(8, 20, 58, .28);
-  cursor: pointer;
+  background: transparent;
+  cursor: default;
+  -webkit-tap-highlight-color: transparent;
 }
 .bell-scrim[hidden] { display: none !important; }
+.bell-scrim:hover,
+.bell-scrim:focus,
+.bell-scrim:active {
+  background: transparent;
+  outline: none;
+}
 body.bell-open .top-bell { z-index: 60; }
 body.bell-open .top-bell-panel { z-index: 61; }
+/* Keep the bell icon/panel neutral while open — no brand wash over the desk. */
+body.bell-open .top-bell > summary.header-settings,
+body.bell-open .top-bell > summary.header-settings:hover,
+details.top-bell[open] > summary.header-settings,
+details.top-bell[open] > summary.header-settings:hover {
+  background: #fff;
+  color: inherit;
+  border-color: var(--line);
+}
 
 .quick-scrim {
   position: fixed;
