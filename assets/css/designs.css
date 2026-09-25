@@ -184,21 +184,62 @@
 .corr-body { font-size: 13px; min-height: 8em; }
 .corr-sign { margin-top: 36px; page-break-inside: avoid; }
 .corr-sign p { margin: 0 0 8px; }
-.d-split { display: flex; gap: 24px; margin-top: 8px; }
-.d-sums { width: 260px; padding-top: 8px; min-width: 220px; }
-.d-sums .d-words {
+.d-split {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
   margin-top: 8px;
-  writing-mode: horizontal-tb;
-  word-break: normal;
-  overflow-wrap: anywhere;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
-.d-notes { flex: 1; min-width: 0; }
+.d-notes {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: calc(100% - 284px);
+  position: relative;
+  z-index: 0;
+}
 .d-notes-body {
   padding: 10px 6px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   writing-mode: horizontal-tb;
   word-break: normal;
+  max-width: 100%;
+}
+.d-totals {
+  flex: 0 0 260px;
+  width: 260px;
+  max-width: 42%;
+  min-width: 0;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 1;
+}
+.d-sums {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding-top: 8px;
+  box-sizing: border-box;
+  display: block;
+}
+.d-sums .d-words,
+.d-totals .d-words {
+  display: block;
+  margin-top: 8px;
+  writing-mode: horizontal-tb;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+/* Legacy: if amount-in-words is still a direct split child, force it under the sums */
+.d-split > .d-words {
+  flex: 0 0 100%;
+  order: 3;
+  margin-top: 8px;
 }
 .d-sum { display: flex; justify-content: space-between; padding: 5px 4px; }
 .d-total { margin-top: 6px; color: var(--on-brand); background: var(--brand); font-weight: 700; display: flex; justify-content: space-between; padding: 8px 10px; }
@@ -1634,6 +1675,20 @@
 .d-sums .d-rd { width: 100%; }
 .d-split { min-width: 0; }
 .d-notes { min-width: 0; }
+.d-totals { min-width: 0; }
+.sheet-frame .d-split,
+.sheet-inset .d-split,
+.sheet-mark .d-split,
+.sheet-folio .d-split {
+  flex-wrap: nowrap;
+}
+.sheet-frame .d-totals,
+.sheet-inset .d-totals,
+.sheet-mark .d-totals,
+.sheet-folio .d-totals {
+  flex: 0 0 260px;
+  width: 260px;
+}
 .ledger-bottom { min-width: 0; }
 .twin-copy .d-rd { margin-top: 8px; }
 

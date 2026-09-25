@@ -766,7 +766,7 @@ function inject_document_authenticity(string $html, array $brand, array $doc): s
         'booklet-page',
         'chit-page',
         'page-inset',
-        'frame-pad',
+        'page-frame-inner',
     ] as $innerClass) {
         $open = 'class="' . $innerClass . '"';
         $openPos = stripos($html, $open);

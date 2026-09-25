@@ -736,14 +736,16 @@ function render_sheet_folio(array $d): void
         <div class="d-notes-body"><?= h($d['comments']) ?></div>
       </div>
       <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
-      <div class="d-sums">
-        <div class="d-sum"><span>Subtotal</span><span><?= h(money($d['net'], $d['cur'])) ?></span></div>
-        <?php if (!empty($d['show_vat'])): ?>
-          <div class="d-sum"><span><?= h($d['tax_label']) ?></span><span><?= h(money($d['vat'], $d['cur'])) ?></span></div>
-        <?php endif; ?>
-        <?php render_sums_close($d); ?>
-        <?php render_amount_words($d); ?>
-        <p class="d-payhint"><?= h($brand['payment_note'] ?? '') ?></p>
+      <div class="d-totals">
+        <div class="d-sums">
+          <div class="d-sum"><span>Subtotal</span><span><?= h(money($d['net'], $d['cur'])) ?></span></div>
+          <?php if (!empty($d['show_vat'])): ?>
+            <div class="d-sum"><span><?= h($d['tax_label']) ?></span><span><?= h(money($d['vat'], $d['cur'])) ?></span></div>
+          <?php endif; ?>
+          <?php render_sums_close($d); ?>
+          <?php render_amount_words($d); ?>
+          <p class="d-payhint"><?= h($brand['payment_note'] ?? '') ?></p>
+        </div>
       </div>
       <?php endif; ?>
     </div>
@@ -1294,10 +1296,12 @@ function render_sheet_mark(array $d): void
         <div class="d-notes-body"><?= h($d['comments'] ?: ($brand['payment_note'] ?? '')) ?></div>
       </div>
       <?php if (sheet_shows_money($d)): ?>
-      <div class="d-sums">
-        <div class="d-sum"><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
-        <?php if (!empty($d['show_vat'])): ?><div class="d-sum"><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
-        <?php render_sums_close($d, 'd-total', 'd-sum', 'b'); ?>
+      <div class="d-totals">
+        <div class="d-sums">
+          <div class="d-sum"><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
+          <?php if (!empty($d['show_vat'])): ?><div class="d-sum"><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
+          <?php render_sums_close($d, 'd-total', 'd-sum', 'b'); ?>
+        </div>
         <?php render_amount_words($d); ?>
       </div>
       <?php endif; ?>
@@ -1407,12 +1411,14 @@ function render_sheet_frame(array $d): void
             <div class="d-notes-body"><?= h($d['comments']) ?></div>
           </div>
           <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
-          <div class="d-sums">
-            <div class="d-sum"><span>Subtotal</span><span><?= h(money($d['net'], $d['cur'])) ?></span></div>
-            <?php if (!empty($d['show_vat'])): ?>
-              <div class="d-sum"><span><?= h($d['tax_label']) ?></span><span><?= h(money($d['vat'], $d['cur'])) ?></span></div>
-            <?php endif; ?>
-            <?php render_sums_close($d); ?>
+          <div class="d-totals">
+            <div class="d-sums">
+              <div class="d-sum"><span>Subtotal</span><span><?= h(money($d['net'], $d['cur'])) ?></span></div>
+              <?php if (!empty($d['show_vat'])): ?>
+                <div class="d-sum"><span><?= h($d['tax_label']) ?></span><span><?= h(money($d['vat'], $d['cur'])) ?></span></div>
+              <?php endif; ?>
+              <?php render_sums_close($d); ?>
+            </div>
             <?php render_amount_words($d); ?>
           </div>
           <?php endif; ?>
@@ -1472,12 +1478,14 @@ function render_sheet_inset(array $d): void
           <div class="d-notes-body"><?= h($d['comments'] ?: ($brand['payment_note'] ?? '')) ?></div>
         </div>
         <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
-        <div class="d-sums">
-          <div class="d-sum"><span>Subtotal</span><span><?= h(money($d['net'], $d['cur'])) ?></span></div>
-          <?php if (!empty($d['show_vat'])): ?>
-            <div class="d-sum"><span><?= h($d['tax_label']) ?></span><span><?= h(money($d['vat'], $d['cur'])) ?></span></div>
-          <?php endif; ?>
-          <?php render_sums_close($d); ?>
+        <div class="d-totals">
+          <div class="d-sums">
+            <div class="d-sum"><span>Subtotal</span><span><?= h(money($d['net'], $d['cur'])) ?></span></div>
+            <?php if (!empty($d['show_vat'])): ?>
+              <div class="d-sum"><span><?= h($d['tax_label']) ?></span><span><?= h(money($d['vat'], $d['cur'])) ?></span></div>
+            <?php endif; ?>
+            <?php render_sums_close($d); ?>
+          </div>
           <?php render_amount_words($d); ?>
         </div>
         <?php endif; ?>
