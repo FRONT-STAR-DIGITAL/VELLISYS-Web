@@ -1772,31 +1772,33 @@
   border-bottom: 1px solid #111 !important;
 }
 
-/* Document authenticity QR + Powered by Vellisys */
-.doc-authenticity {
+/* Document authenticity QR — inside the sheet, not an external footer */
+.invoice-sheet .doc-authenticity,
+.expense-card .doc-authenticity {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin: 14px 0 0;
-  padding: 10px 12px;
+  gap: 10px;
+  margin: 18px 0 0;
+  padding: 10px 0 0;
   border-top: 1px solid rgba(8, 20, 58, .10);
-  max-width: 210mm;
+  width: 100%;
+  max-width: 100%;
   box-sizing: border-box;
   break-inside: avoid;
   page-break-inside: avoid;
 }
 .doc-auth-qr {
   flex: 0 0 auto;
-  width: 72px;
-  height: 72px;
+  width: 56px;
+  height: 56px;
 }
 .doc-auth-qr img {
   display: block;
-  width: 72px;
-  height: 72px;
+  width: 56px;
+  height: 56px;
   image-rendering: pixelated;
   border: 1px solid rgba(8, 20, 58, .08);
-  border-radius: 6px;
+  border-radius: 4px;
   background: #fff;
 }
 .doc-auth-meta {
@@ -1804,42 +1806,50 @@
   flex: 1 1 auto;
 }
 .doc-auth-hint {
-  margin: 0 0 4px;
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: .02em;
-  color: #5c6780;
+  margin: 0 0 2px;
+  font-size: 8px;
+  line-height: 1.35;
+  font-weight: 600;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  color: #7a8499;
 }
 .doc-auth-powered {
   margin: 0;
-  font-size: 11px;
+  font-size: 8.5px;
+  line-height: 1.35;
   font-weight: 600;
-  color: #08143a;
+  color: #5c6780;
   overflow-wrap: anywhere;
 }
 .doc-auth-powered a {
-  color: #1e4eff;
+  color: inherit;
   text-decoration: none;
   font-weight: 700;
 }
+.invoice-sheet.sheet-thermal .doc-authenticity,
 .print-thermal .doc-authenticity {
-  max-width: 80mm;
-  padding: 8px 4px 0;
-  gap: 8px;
   margin-top: 10px;
+  padding-top: 8px;
+  gap: 8px;
 }
+.invoice-sheet.sheet-thermal .doc-auth-qr,
+.invoice-sheet.sheet-thermal .doc-auth-qr img,
 .print-thermal .doc-auth-qr,
 .print-thermal .doc-auth-qr img {
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
 }
+.invoice-sheet.sheet-thermal .doc-auth-hint,
+.invoice-sheet.sheet-thermal .doc-auth-powered,
 .print-thermal .doc-auth-hint,
 .print-thermal .doc-auth-powered {
-  font-size: 9px;
+  font-size: 7.5px;
 }
 @media print {
-  .doc-authenticity {
-    margin-top: 10px;
+  .invoice-sheet .doc-authenticity,
+  .expense-card .doc-authenticity {
+    margin-top: 14px;
     padding-top: 8px;
   }
 }

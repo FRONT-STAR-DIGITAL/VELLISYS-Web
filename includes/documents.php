@@ -702,29 +702,58 @@ function document_is_authenticity_valid(array $doc): bool
     return $status !== '' && $status !== 'void';
 }
 
-/** Compact QR + Powered by Vellisys strip under every printable sheet. */
-function render_document_authenticity(array $brand, array $doc): void
+/** HTML for the in-document authenticity QR strip (empty if no document id). */
+function document_authenticity_html(array $brand, array $doc): string
 {
     if ((int) ($doc['id'] ?? 0) < 1) {
-        return;
+        return '';
     }
     $verifyUrl = document_verify_url($doc);
-    $qr = document_qr_img_src($verifyUrl, 96);
+    $qr = document_qr_img_src($verifyUrl, 88);
     $site = product_site_url();
-    $product = product_name();
+    $host = preg_replace('#^https?://#', '', $site) ?: 'www.vellisys.com';
+    ob_start();
     ?>
-<aside class="doc-authenticity" aria-label="Document authenticity">
+<div class="doc-authenticity" aria-label="Document authenticity">
   <div class="doc-auth-qr">
     <?php if ($qr !== ''): ?>
-      <img src="<?= h($qr) ?>" width="72" height="72" alt="Scan to verify this document">
+      <img src="<?= h($qr) ?>" width="56" height="56" alt="Scan to verify this document">
     <?php endif; ?>
   </div>
   <div class="doc-auth-meta">
     <p class="doc-auth-hint">Scan to verify authenticity</p>
-    <p class="doc-auth-powered">Powered by <?= h($product) ?> · <a href="<?= h($site) ?>"><?= h(preg_replace('#^https?://#', '', $site) ?: 'www.vellisys.com') ?></a></p>
+    <p class="doc-auth-powered">Powered by <a href="<?= h($site) ?>"><?= h($host) ?></a></p>
   </div>
-</aside>
+</div>
     <?php
+    return trim((string) ob_get_clean());
+}
+
+/** Compact QR + Powered by Vellisys strip (echo helper). */
+function render_document_authenticity(array $brand, array $doc): void
+{
+    echo document_authenticity_html($brand, $doc);
+}
+
+/** Place authenticity block inside the sheet markup, before the closing root tag. */
+function inject_document_authenticity(string $html, array $brand, array $doc): string
+{
+    $block = document_authenticity_html($brand, $doc);
+    if ($block === '') {
+        return $html;
+    }
+    $needle = '</article>';
+    $pos = strripos($html, $needle);
+    if ($pos !== false) {
+        return substr($html, 0, $pos) . $block . "\n" . substr($html, $pos);
+    }
+    if (str_contains($html, 'expense-card')) {
+        $pos = strripos($html, '</div>');
+        if ($pos !== false) {
+            return substr($html, 0, $pos) . $block . "\n" . substr($html, $pos);
+        }
+    }
+    return $html . $block;
 }
 
 function document_sheet_chrome(): string

@@ -1815,10 +1815,12 @@ function render_expense_card(array $brand, array $doc): void
 function render_sheet(array $brand, array $doc): void
 {
     if (($doc['kind'] ?? '') === 'expense') {
+        ob_start();
         render_expense_card($brand, $doc);
-        if (function_exists('render_document_authenticity')) {
-            render_document_authenticity($brand, $doc);
-        }
+        $html = (string) ob_get_clean();
+        echo function_exists('inject_document_authenticity')
+            ? inject_document_authenticity($html, $brand, $doc)
+            : $html;
         return;
     }
     $d = sheet_data($brand, $doc);
@@ -1846,8 +1848,8 @@ function render_sheet(array $brand, array $doc): void
             default => render_sheet_folio($d),
         };
     }
-    echo inject_sheet_watermark((string) ob_get_clean(), $d, $doc);
-    if (function_exists('render_document_authenticity')) {
-        render_document_authenticity($brand, $doc);
-    }
+    $html = inject_sheet_watermark((string) ob_get_clean(), $d, $doc);
+    echo function_exists('inject_document_authenticity')
+        ? inject_document_authenticity($html, $brand, $doc)
+        : $html;
 }
