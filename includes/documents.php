@@ -637,11 +637,6 @@ function document_verify_url(array $doc): string
     return absolute_url('verify.php?id=' . (int) $doc['id'] . '&t=' . document_share_token($doc));
 }
 
-function product_site_url(): string
-{
-    return 'https://www.vellisys.com';
-}
-
 /**
  * PNG data-URI for a QR that encodes $text. Cached under uploads/qr.
  * Falls back to an external image URL if the cache cannot be built.

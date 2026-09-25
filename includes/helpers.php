@@ -2952,6 +2952,11 @@ function product_email(): string
     return 'info@vellisys.com';
 }
 
+function product_site_url(): string
+{
+    return 'https://www.vellisys.com';
+}
+
 function public_packages_url(): string
 {
     return rtrim(url(''), '/') . '/#pricing';
