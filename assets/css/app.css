@@ -155,7 +155,7 @@ summary {
 .app { display: flex; min-height: 100vh; }
 .nav {
   --rail: 72px;
-  --open: 236px;
+  --open: 300px;
   width: var(--rail);
   flex-shrink: 0;
   background: rgba(255, 255, 255, .94);
@@ -559,9 +559,20 @@ summary {
 }
 .sales-goal-meta span {
   color: var(--muted, #5b6472);
+  min-width: 0;
+  flex: 1 1 auto;
 }
 .sales-goal-meta strong {
   font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+@media (max-width: 720px) {
+  .sales-goal-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
 }
 .sales-goal-track {
   height: 10px;
@@ -1517,6 +1528,15 @@ table.grid:not(.lines):not(.lines-preview-table) td:not(.row-actions):not(.right
 .pill.warn { background: #f8e8d8; color: #7a3e12; }
 table.grid tr.is-muted td { color: var(--muted); }
 .pill.bad { background: #f8e1df; color: #7a1f1a; }
+.pill.ok { background: #dff5e8; color: #0f5c3a; }
+.pill.sales-interested,
+.pill.status-interested { background: #dff5e8; color: #0f5c3a; }
+.pill.sales-follow_up,
+.pill.status-follow_up { background: #ffe8cc; color: #9a4d00; }
+.pill.sales-rejected,
+.pill.status-rejected { background: #f8e1df; color: #9b1c1c; }
+.pill.sales-onboarded,
+.pill.status-onboarded { background: #e4eefc; color: #1e4eff; }
 .actions { display: flex; flex-direction: row; flex-wrap: nowrap; gap: 3px; align-items: center; }
 .page-head > .actions,
 .page-head > .page-actions { flex-wrap: wrap; gap: 8px; }
@@ -3129,7 +3149,7 @@ input, select, textarea { font-weight: 400; }
   .nav,
   .nav:hover,
   .nav:focus-within {
-    width: min(var(--open), 100vw);
+    width: min(var(--open), 92vw);
     top: var(--desk-top-h, 58px);
     bottom: auto;
     left: 0;
@@ -3525,17 +3545,18 @@ input, select, textarea { font-weight: 400; }
     word-break: break-word;
   }
   .filter-chips {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    display: flex;
+    flex-wrap: wrap;
     width: 100%;
     gap: 8px;
   }
   .filter-chips .chip {
     justify-content: center;
     text-align: center;
-    min-width: 0;
-    padding-left: 6px;
-    padding-right: 6px;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    min-width: auto;
+    padding: 8px 12px;
   }
   .filters {
     flex-direction: column;
@@ -4671,12 +4692,16 @@ a.branch-activity-row:hover { text-decoration: none; }
   }
   .desk-body .filter-chips {
     display: flex;
-    flex-wrap: nowrap;
-    gap: 6px;
-    overflow-x: auto;
+    flex-wrap: wrap;
+    gap: 8px;
+    overflow-x: visible;
     scrollbar-width: none;
   }
   .desk-body .filter-chips::-webkit-scrollbar { display: none; }
+  .desk-body .filter-chips .chip {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
   .desk-body .filter-dates {
     display: grid;
     grid-template-columns: 1fr 1fr;

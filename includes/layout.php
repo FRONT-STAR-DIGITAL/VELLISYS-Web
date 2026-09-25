@@ -262,6 +262,9 @@ function layout_start(string $title, array $user, array $opts = []): void
       <?php if (is_acting_admin()): ?>
         <a href="<?= h(url('admin_desk.php?leave=1')) ?>" title="Leave desk"><?= icon('logout', 15) ?><span>Leave desk</span></a>
       <?php endif; ?>
+      <?php if (function_exists('sales_demo_active') && sales_demo_active()): ?>
+        <a href="<?= h(url('sales_demo.php?leave=1')) ?>" title="Leave demo"><?= icon('logout', 15) ?><span>Leave demo</span></a>
+      <?php endif; ?>
       <a href="<?= h(url('logout.php')) ?>" title="Sign out"><?= icon('logout', 15) ?><span>Sign out</span></a>
     </div>
   </aside>
@@ -270,6 +273,12 @@ function layout_start(string $title, array $user, array $opts = []): void
       <div class="acting-bar">
         <span>Working the desk for <strong><?= h($brand['name']) ?></strong></span>
         <a href="<?= h(url('admin_desk.php?leave=1')) ?>">Leave desk</a>
+      </div>
+    <?php endif; ?>
+    <?php if (function_exists('sales_demo_active') && sales_demo_active()): ?>
+      <div class="acting-bar">
+        <span>Sales demo desk · show this to clients</span>
+        <a href="<?= h(url('sales_demo.php?leave=1')) ?>">Leave demo</a>
       </div>
     <?php endif; ?>
     <header class="top">
@@ -370,6 +379,8 @@ function layout_admin_start(string $title, array $user): void
         ['admin_landing.php', 'Landing', 'image'],
         ['admin_signups.php', 'Sign-ups', 'letter'],
         ['admin_sales.php', 'Sales', 'cart'],
+        ['admin_sales.php?tab=messages', 'Messages', 'mail'],
+        ['sales_demo.php', 'Demo', 'building'],
         ['admin_passwords.php', 'Passwords', 'lock'],
         ['admin_questions.php', 'Questions', 'help'],
         ['admin_companies.php', 'Companies', 'building'],
@@ -383,6 +394,7 @@ function layout_admin_start(string $title, array $user): void
     ];
     $notes = platform_notifications(40);
     $noteCount = count($notes);
+    $salesMsgUnread = function_exists('sales_admin_unread_count') ? sales_admin_unread_count((int) $user['id']) : 0;
     if ($noteCount && function_exists('push_schedule_sync')) {
         push_schedule_sync();
     }
@@ -415,13 +427,18 @@ function layout_admin_start(string $title, array $user): void
           $active = $file === $here
               || (in_array($here, ['admin_company.php', 'admin_company_new.php'], true) && $file === 'admin_companies.php')
               || ($here === 'admin_question.php' && $file === 'admin_questions.php')
-              || (str_starts_with($here, 'admin_sales') && $file === 'admin_sales.php')
+              || (str_starts_with($here, 'admin_sales') && $file === 'admin_sales.php' && !str_contains($href, 'tab=messages'))
+              || ($file === 'admin_sales.php' && str_contains($href, 'tab=messages') && $here === 'admin_sales.php' && (string) ($_GET['tab'] ?? '') === 'messages')
+              || ($here === 'sales_demo.php' && $file === 'sales_demo.php')
               || ($here === 'admin_passwords.php' && $file === 'admin_passwords.php');
           $count = 0;
           if ($file === 'admin_signups.php') {
               $count = $signupNew;
           } elseif ($file === 'admin_questions.php') {
               $count = $questionNew;
+          } elseif ($file === 'admin_sales.php' && str_contains($href, 'tab=messages')) {
+              $count = $salesMsgUnread;
+              $active = $here === 'admin_sales.php' && (string) ($_GET['tab'] ?? '') === 'messages';
           }
           ?>
         <a class="<?= $active ? 'is-on' : '' ?>" href="<?= h(url($href)) ?>" title="<?= h($label) ?>"<?= $count ? ' data-badge="' . (int) $count . '"' : '' ?>><?= icon($iconName, 18) ?><span><?= h($label) ?></span></a>

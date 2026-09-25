@@ -4565,5 +4565,60 @@ function platform_notifications(int $limit = 12): array
         // ignore
     }
 
+    try {
+        if (function_exists('platform_alerts_unread')) {
+            foreach (platform_alerts_unread(20) as $a) {
+                $id = (int) ($a['id'] ?? 0);
+                $urgent = ((string) ($a['urgency'] ?? '')) === 'urgent';
+                if (!$push([
+                    'type' => (string) ($a['kind'] ?? 'alert'),
+                    'key' => 'alert:' . $id,
+                    'title' => ($urgent ? 'Urgent · ' : '') . (string) ($a['title'] ?? 'Alert'),
+                    'meta' => (string) ($a['meta'] ?? ''),
+                    'href' => (string) (($a['href'] ?? '') !== '' ? $a['href'] : url('admin_passwords.php')),
+                    'tone' => $urgent ? 'urgent' : 'info',
+                    'actions' => [
+                        ['label' => 'Open', 'href' => (string) (($a['href'] ?? '') !== '' ? $a['href'] : url('admin_passwords.php')), 'class' => 'btn ghost sm'],
+                    ],
+                ])) {
+                    return $out;
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        // ignore
+    }
+
+    try {
+        $uid = (int) (current_user()['id'] ?? 0);
+        if ($uid > 0) {
+            $msgs = db_all(
+                'SELECT m.id, m.body, m.from_user_id, u.name AS from_name
+                 FROM sales_messages m
+                 JOIN users u ON u.id = m.from_user_id AND u.role = \'sales_agent\'
+                 WHERE m.to_user_id = ? AND m.read_at IS NULL
+                 ORDER BY m.id DESC LIMIT 8',
+                'i',
+                [$uid]
+            );
+            foreach ($msgs as $m) {
+                if (!$push([
+                    'type' => 'sales_message',
+                    'key' => 'sales-msg:' . (int) $m['id'],
+                    'title' => 'Sales message · ' . (trim((string) ($m['from_name'] ?? 'Agent')) ?: 'Agent'),
+                    'meta' => clip_text((string) ($m['body'] ?? ''), 70),
+                    'href' => url('admin_sales.php?tab=messages&with=' . (int) $m['from_user_id']),
+                    'actions' => [
+                        ['label' => 'Open', 'href' => url('admin_sales.php?tab=messages&with=' . (int) $m['from_user_id']), 'class' => 'btn ghost sm'],
+                    ],
+                ])) {
+                    return $out;
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        // ignore
+    }
+
     return $out;
 }

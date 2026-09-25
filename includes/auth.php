@@ -43,10 +43,12 @@ function require_member(): array
     }
     if (($user['role'] ?? '') === 'platform') {
         $acting = (int) ($_SESSION['acting_company_id'] ?? 0);
-        if ($acting <= 0) {
+        if ($acting <= 0 && !(function_exists('sales_demo_active') && sales_demo_active())) {
             redirect(platform_home());
         }
-        $_SESSION['company_id'] = $acting;
+        if ($acting > 0) {
+            $_SESSION['company_id'] = $acting;
+        }
     }
     return $user;
 }

@@ -2090,6 +2090,143 @@ function folio_migrate_sales_field(mysqli $db): void
         @$db->query('INSERT INTO sales_goal_defaults (id, daily_reach, daily_sales, weekly_reach, weekly_sales, monthly_reach, monthly_sales)
             VALUES (1, 10, 2, 0, 10, 0, 30)');
     }
+    if (!db_has_column($db, 'sales_leads', 'rejected_category')) {
+        @$db->query("ALTER TABLE sales_leads ADD COLUMN rejected_category VARCHAR(60) NOT NULL DEFAULT '' AFTER rejected_reason");
+        db_has_column($db, 'sales_leads', 'rejected_category', true);
+    }
+    if (!db_has_column($db, 'sales_leads', 'interest_rating')) {
+        @$db->query('ALTER TABLE sales_leads ADD COLUMN interest_rating TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER follow_up_done_at');
+        db_has_column($db, 'sales_leads', 'interest_rating', true);
+    }
+    $db->query("CREATE TABLE IF NOT EXISTS platform_alerts (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      kind VARCHAR(40) NOT NULL DEFAULT 'alert',
+      urgency VARCHAR(20) NOT NULL DEFAULT 'normal',
+      title VARCHAR(190) NOT NULL DEFAULT '',
+      meta VARCHAR(255) NOT NULL DEFAULT '',
+      href VARCHAR(255) NOT NULL DEFAULT '',
+      ref_email VARCHAR(190) NOT NULL DEFAULT '',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY kind_created (kind, created_at),
+      KEY urgency_created (urgency, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    folio_ensure_sales_demo($db);
+}
+
+function folio_ensure_sales_demo(mysqli $db): void
+{
+    $email = 'demo@vellisys.ug';
+    $esc = $db->real_escape_string($email);
+    $userRes = @$db->query("SELECT u.id, u.company_id FROM users u WHERE u.email = '{$esc}' LIMIT 1");
+    $user = $userRes ? $userRes->fetch_assoc() : null;
+    $cid = $user ? (int) ($user['company_id'] ?? 0) : 0;
+    if ($cid < 1) {
+        $coRes = @$db->query("SELECT id FROM companies WHERE name = 'Vellisys Sales Demo' LIMIT 1");
+        $co = $coRes ? $coRes->fetch_assoc() : null;
+        $cid = $co ? (int) $co['id'] : 0;
+    }
+    if ($cid < 1) {
+        $kinds = $db->real_escape_string('quotation,invoice,receipt,expense,letter,delivery');
+        $ok = @$db->query("INSERT INTO companies (name, status, plan, enabled_kinds, user_limit, stock_enabled, nature_of_business, fee_currency)
+            VALUES ('Vellisys Sales Demo', 'live', 'office', '{$kinds}', 5, 1, 'Software and business services', 'UGX')");
+        if ($ok) {
+            $cid = (int) $db->insert_id;
+        }
+    }
+    if ($cid < 1) {
+        return;
+    }
+    @$db->query("UPDATE companies SET status='live', stock_enabled=1, name='Vellisys Sales Demo', plan='office' WHERE id = {$cid}");
+
+    $brandRes = @$db->query("SELECT id FROM branding WHERE company_id = {$cid} LIMIT 1");
+    if (!$brandRes || $brandRes->num_rows === 0) {
+        @$db->query("INSERT INTO branding (company_id, name, tagline, brand_color, brand_accent, currency, prefix, payment_note, invoice_comments)
+            VALUES ({$cid}, 'Vellisys Sales Demo', 'Demo desk for field sales', '#1E4EFF', '#8EB0FF', 'UGX', 'VSD',
+            'Make payment to Vellisys Sales Demo.',
+            '1. Payment is due by the date shown above.\\n2. Quote the invoice number on the transfer.')");
+    }
+
+    $hash = $db->real_escape_string(password_hash('demo-sales-2026', PASSWORD_DEFAULT));
+    if ($user) {
+        @$db->query("UPDATE users SET name='Sales Demo', job_title='Demo desk', role='admin', access='admin', company_id={$cid}, status='live', password_hash='{$hash}' WHERE id = " . (int) $user['id']);
+        $uid = (int) $user['id'];
+    } else {
+        @$db->query("INSERT INTO users (name, job_title, email, password_hash, role, access, company_id, status)
+            VALUES ('Sales Demo', 'Demo desk', '{$esc}', '{$hash}', 'admin', 'admin', {$cid}, 'live')");
+        $uid = (int) $db->insert_id;
+    }
+    if ($uid < 1) {
+        return;
+    }
+
+    $partyCount = 0;
+    $pc = @$db->query("SELECT COUNT(*) c FROM parties WHERE company_id = {$cid}");
+    if ($pc && ($row = $pc->fetch_assoc())) {
+        $partyCount = (int) $row['c'];
+    }
+    if ($partyCount < 1) {
+        @$db->query("INSERT INTO parties (company_id, name, kind, phone, email, address, city, contact_person, entity, status)
+            VALUES
+            ({$cid}, 'Kampala Retail Co.', 'customer', '+256700100200', 'buyer@kampalaretail.ug', 'Plot 12 Kampala Road', 'Kampala', 'Amina N.', 'company', 'active'),
+            ({$cid}, 'Nansana Traders', 'customer', '+256701200300', 'ops@nansanatraders.ug', 'Nansana Main Street', 'Nansana', 'John K.', 'company', 'active'),
+            ({$cid}, 'Office Supplies UG', 'supplier', '+256702300400', 'sales@officesupplies.ug', 'Industrial Area', 'Kampala', 'Grace M.', 'company', 'active')");
+    }
+
+    $stockCount = 0;
+    $sc = @$db->query("SELECT COUNT(*) c FROM stock_items WHERE company_id = {$cid}");
+    if ($sc && ($row = $sc->fetch_assoc())) {
+        $stockCount = (int) $row['c'];
+    }
+    if ($stockCount < 1) {
+        @$db->query("INSERT INTO stock_items (company_id, sku, name, description, unit, buy_price, sell_price, reorder_level, qty_on_hand, taxed, active, is_service) VALUES
+            ({$cid}, 'SVC-START', 'Vellisys Start setup', 'Desk onboarding and branding', 'job', 0, 450000, 0, 0, 1, 1, 1),
+            ({$cid}, 'SVC-BIZ', 'Vellisys Business setup', 'Multi-user desk with stock', 'job', 0, 950000, 0, 0, 1, 1, 1),
+            ({$cid}, 'SVC-TRAIN', 'Team training session', 'Half-day walkthrough for staff', 'session', 0, 250000, 0, 0, 1, 1, 1),
+            ({$cid}, 'PRD-RCPT', 'Branded receipt booklet', 'Printed booklet for the desk', 'pack', 12000, 25000, 5, 40, 1, 1, 0),
+            ({$cid}, 'PRD-INV', 'Invoice paper pack', 'A4 branded paper', 'ream', 18000, 35000, 3, 20, 1, 1, 0)");
+    }
+
+    $docCount = 0;
+    $dc = @$db->query("SELECT COUNT(*) c FROM documents WHERE company_id = {$cid}");
+    if ($dc && ($row = $dc->fetch_assoc())) {
+        $docCount = (int) $row['c'];
+    }
+    if ($docCount < 1) {
+        $partyId = 0;
+        $pr = @$db->query("SELECT id FROM parties WHERE company_id = {$cid} AND kind IN ('customer','both') ORDER BY id ASC LIMIT 1");
+        if ($pr && ($prow = $pr->fetch_assoc())) {
+            $partyId = (int) $prow['id'];
+        }
+        if ($partyId > 0) {
+            $today = date('Y-m-d');
+            $due = date('Y-m-d', strtotime('+14 days'));
+            @$db->query("INSERT INTO documents (company_id, kind, sequence, number, date, due_date, party_id, vat_rate, notes, status, created_by, currency)
+                VALUES
+                ({$cid}, 'quotation', 1, 'VSD-QT-0001', '{$today}', '{$due}', {$partyId}, 0.18, 'Demo quotation for walkthrough', 'issued', {$uid}, 'UGX'),
+                ({$cid}, 'invoice', 1, 'VSD-INV-0001', '{$today}', '{$due}', {$partyId}, 0.18, 'Demo invoice for walkthrough', 'issued', {$uid}, 'UGX'),
+                ({$cid}, 'receipt', 1, 'VSD-RCT-0001', '{$today}', NULL, {$partyId}, 0, 'Demo receipt', 'issued', {$uid}, 'UGX')");
+            $map = [
+                'quotation' => [['Vellisys Business setup', 1, 950000]],
+                'invoice' => [['Vellisys Business setup', 1, 950000], ['Team training session', 1, 250000]],
+                'receipt' => [['Payment received', 1, 600000]],
+            ];
+            foreach ($map as $kind => $lines) {
+                $docRes = @$db->query("SELECT id FROM documents WHERE company_id = {$cid} AND kind = '" . $db->real_escape_string($kind) . "' ORDER BY id ASC LIMIT 1");
+                $doc = $docRes ? $docRes->fetch_assoc() : null;
+                if (!$doc) {
+                    continue;
+                }
+                $did = (int) $doc['id'];
+                foreach ($lines as [$name, $qty, $rate]) {
+                    $ename = $db->real_escape_string($name);
+                    @$db->query("INSERT INTO document_items (document_id, item_name, description, qty, unit, rate, taxed)
+                        VALUES ({$did}, '{$ename}', '{$ename}', {$qty}, 'job', {$rate}, 1)");
+                }
+            }
+            @$db->query("UPDATE documents SET allocated_amount = 600000, payment_method = 'mobile-money', payment_ref = 'DEMO-MM-001'
+                WHERE company_id = {$cid} AND kind = 'receipt'");
+        }
+    }
 }
 
 

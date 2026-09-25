@@ -30,6 +30,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'package_chosen' => post('package_chosen'),
         'onboard_date' => post('onboard_date'),
         'follow_up_date' => post('follow_up_date'),
+        'interest_rating' => (int) post('interest_rating'),
+        'rejected_category' => post('rejected_category'),
         'rejected_reason' => post('rejected_reason'),
         'notes' => post('notes'),
     ], $id ?: null, (int) $user['id']);
@@ -43,12 +45,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $clock = sales_today_clock((int) $user['id']);
+$rejectCat = (string) ($_POST['rejected_category'] ?? ($lead['rejected_category'] ?? ''));
+$interest = (int) ($_POST['interest_rating'] ?? ($lead['interest_rating'] ?? 0));
 sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
 ?>
 <div class="page-head">
   <div>
     <h1><?= icon($id ? 'pencil' : 'plus') ?><?= $id ? 'Edit lead' : 'New lead' ?></h1>
-    <p class="lede">Pick the status first. Rejected only asks for a reason. Other fields are optional.</p>
+    <p class="lede">Pick the status first. Rejected needs a reason from the list plus a short explanation. Follow-up needs an interest rating.</p>
   </div>
   <div class="actions page-actions">
     <a class="btn ghost" href="<?= h(url('sales_leads.php')) ?>">Back</a>
@@ -74,8 +78,15 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
   </fieldset>
 
   <div data-panel="rejected" <?= $status === 'rejected' ? '' : 'hidden' ?>>
-    <label for="rejected_reason">Reason for rejection</label>
-    <textarea id="rejected_reason" name="rejected_reason" rows="3" placeholder="Why they said no"><?= h((string) ($_POST['rejected_reason'] ?? $lead['rejected_reason'] ?? '')) ?></textarea>
+    <label for="rejected_category">Why they rejected Vellisys</label>
+    <select id="rejected_category" name="rejected_category">
+      <option value="">Choose a reason</option>
+      <?php foreach (sales_reject_reasons() as $k => $label): ?>
+        <option value="<?= h($k) ?>" <?= $rejectCat === $k ? 'selected' : '' ?>><?= h($label) ?></option>
+      <?php endforeach; ?>
+    </select>
+    <label for="rejected_reason" style="margin-top:12px">Explain the rejection</label>
+    <textarea id="rejected_reason" name="rejected_reason" rows="3" placeholder="Short note on what they said"><?= h((string) ($_POST['rejected_reason'] ?? $lead['rejected_reason'] ?? '')) ?></textarea>
   </div>
 
   <div data-panel="details" <?= $status === 'rejected' ? 'hidden' : '' ?>>
@@ -128,6 +139,13 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
       <label for="follow_up_date">Follow-up date</label>
       <input id="follow_up_date" name="follow_up_date" type="date" value="<?= h((string) ($_POST['follow_up_date'] ?? $lead['follow_up_date'] ?? '')) ?>">
       <p class="hint">You get a reminder the day before.</p>
+      <label for="interest_rating" style="margin-top:12px">Interest in Vellisys (1–5)</label>
+      <select id="interest_rating" name="interest_rating">
+        <option value="0">Rate interest</option>
+        <?php for ($i = 1; $i <= 5; $i++): ?>
+          <option value="<?= $i ?>" <?= $interest === $i ? 'selected' : '' ?>><?= $i ?> — <?= $i === 1 ? 'Low' : ($i === 5 ? 'Very high' : '') ?></option>
+        <?php endfor; ?>
+      </select>
     </div>
   </div>
 

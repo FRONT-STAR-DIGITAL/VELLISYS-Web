@@ -22,6 +22,7 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 **Field sales agents** (same login page; no desk or onboarding rights)
 
 - Demo agent: `agent@vellisys.ug` / `agent-demo-2026`
+- **Sales demo desk** (for field agents to show clients): `demo@vellisys.ug` / `demo-sales-2026` — also open from Sales → Demo (agents) or Demo in super admin nav
 - Super admin sets **daily / weekly / monthly** goals (defaults: 10 leads + 2 sales a day, 10 sales a week, 30 a month), sees per-agent daily progress on **Sales**, opens charts by period, messages agents, CRUD businesses, and onboards interested leads. Deleting an agent requires typing their email.
 - Agents clock in daily with a city, see daily goal bars (over-goal still shown), log businesses (status first: Interested / Follow up / Rejected), and open Performance for daily / weekly / monthly charts + chat
 - Client desk passwords are stored under admin **Passwords** (copy when helping a client sign in)

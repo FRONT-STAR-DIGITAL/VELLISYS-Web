@@ -111,6 +111,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'package_chosen' => post('package_chosen'),
             'onboard_date' => post('onboard_date'),
             'follow_up_date' => post('follow_up_date'),
+            'interest_rating' => (int) post('interest_rating'),
+            'rejected_category' => post('rejected_category'),
             'rejected_reason' => post('rejected_reason'),
             'notes' => post('notes'),
         ], $id);
@@ -383,7 +385,7 @@ if ($tab === 'leads'):
               <?php endif; ?>
             </td>
             <td><?= h((string) $lead['agent_name']) ?></td>
-            <td><span class="pill"><?= h(sales_status_label((string) $lead['status'])) ?></span>
+            <td><span class="<?= h(sales_status_pill_class((string) $lead['status'])) ?>"><?= h(sales_status_label((string) $lead['status'])) ?></span>
               <?php if (!empty($lead['follow_up_done_at'])): ?>
                 <div class="muted">Followed <?= h(format_date(substr((string) $lead['follow_up_done_at'], 0, 10))) ?></div>
               <?php elseif (($lead['status'] ?? '') === 'follow_up'): ?>
@@ -492,8 +494,26 @@ if ($tab === 'lead'):
     <label>Follow-up date</label>
     <input type="date" name="follow_up_date" value="<?= h((string) ($_POST['follow_up_date'] ?? $editLead['follow_up_date'] ?? '')) ?>">
   </div>
+  <div data-admin-panel="follow_up">
+    <label>Interest in Vellisys (1–5)</label>
+    <select name="interest_rating">
+      <option value="0">Rate interest</option>
+      <?php $ir = (int) ($_POST['interest_rating'] ?? ($editLead['interest_rating'] ?? 0)); for ($i = 1; $i <= 5; $i++): ?>
+        <option value="<?= $i ?>" <?= $ir === $i ? 'selected' : '' ?>><?= $i ?></option>
+      <?php endfor; ?>
+    </select>
+  </div>
+  <div data-admin-panel="rejected">
+    <label>Why they rejected Vellisys</label>
+    <select name="rejected_category">
+      <option value="">Choose a reason</option>
+      <?php $rc = (string) ($_POST['rejected_category'] ?? ($editLead['rejected_category'] ?? '')); foreach (sales_reject_reasons() as $k => $label): ?>
+        <option value="<?= h($k) ?>" <?= $rc === $k ? 'selected' : '' ?>><?= h($label) ?></option>
+      <?php endforeach; ?>
+    </select>
+  </div>
   <div class="full" data-admin-panel="rejected">
-    <label>Rejection reason</label>
+    <label>Explain the rejection</label>
     <textarea name="rejected_reason" rows="3"><?= h((string) ($_POST['rejected_reason'] ?? $editLead['rejected_reason'] ?? '')) ?></textarea>
   </div>
   <div class="full">

@@ -18,6 +18,33 @@ function sales_status_label(string $status): string
     return sales_statuses()[$status] ?? $status;
 }
 
+function sales_status_pill_class(string $status): string
+{
+    $status = trim($status);
+    if (isset(sales_statuses()[$status])) {
+        return 'pill sales-' . $status;
+    }
+    return 'pill';
+}
+
+function sales_reject_reasons(): array
+{
+    return [
+        'pricing' => 'Pricing too high',
+        'nature_of_business' => 'Cannot cover nature of business',
+        'already_using' => 'Already using another system',
+        'not_ready' => 'Not ready / timing',
+        'no_budget' => 'No budget this period',
+        'decision_maker' => 'Could not reach decision maker',
+        'other' => 'Other',
+    ];
+}
+
+function sales_reject_reason_label(string $key): string
+{
+    return sales_reject_reasons()[$key] ?? $key;
+}
+
 function is_sales_agent(?array $user = null): bool
 {
     $user = $user ?? current_user();
@@ -225,6 +252,8 @@ function sales_lead_save(array $fields, ?int $id = null, ?int $agentId = null): 
     $onboardDate = null;
     $followDate = null;
     $rejected = '';
+    $rejectedCat = '';
+    $interest = 0;
 
     if ($status === 'interested') {
         $nature = mb_substr(trim((string) ($fields['nature_of_business'] ?? '')), 0, 190);
@@ -237,10 +266,18 @@ function sales_lead_save(array $fields, ?int $id = null, ?int $agentId = null): 
             return ['ok' => false, 'error' => 'Set a follow-up date.'];
         }
         $followDate = $fd;
+        $interest = max(0, min(5, (int) ($fields['interest_rating'] ?? 0)));
+        if ($interest < 1) {
+            return ['ok' => false, 'error' => 'Rate their interest from 1 to 5.'];
+        }
     } elseif ($status === 'rejected') {
+        $rejectedCat = trim((string) ($fields['rejected_category'] ?? ''));
+        if (!isset(sales_reject_reasons()[$rejectedCat])) {
+            return ['ok' => false, 'error' => 'Pick a rejection reason from the list.'];
+        }
         $rejected = mb_substr(trim((string) ($fields['rejected_reason'] ?? '')), 0, 500);
         if ($rejected === '') {
-            return ['ok' => false, 'error' => 'Add a reason for rejection.'];
+            return ['ok' => false, 'error' => 'Explain the rejection below the dropdown.'];
         }
     }
 
@@ -262,10 +299,11 @@ function sales_lead_save(array $fields, ?int $id = null, ?int $agentId = null): 
         }
         db_exec(
             'UPDATE sales_leads SET status=?, business_name=?, address=?, contact_name=?, contact_phone=?, city=?,
-             nature_of_business=?, package_chosen=?, onboard_date=?, follow_up_date=?, follow_up_done_at=?, rejected_reason=?, notes=?, updated_at=NOW()
+             nature_of_business=?, package_chosen=?, onboard_date=?, follow_up_date=?, follow_up_done_at=?, interest_rating=?,
+             rejected_reason=?, rejected_category=?, notes=?, updated_at=NOW()
              WHERE id=?',
-            'sssssssssssssi',
-            [$status, $business, $address, $contactName, $contactPhone, $city, $nature, $package, $onboardDate, $followDate, $followDone, $rejected, $notes, $id]
+            'sssssssssssisssi',
+            [$status, $business, $address, $contactName, $contactPhone, $city, $nature, $package, $onboardDate, $followDate, $followDone, $interest, $rejected, $rejectedCat, $notes, $id]
         );
         if ($from !== $status) {
             sales_lead_event($id, $agentId, 'status_change', $from, $status, $notes);
@@ -277,10 +315,10 @@ function sales_lead_save(array $fields, ?int $id = null, ?int $agentId = null): 
 
     $newId = db_exec(
         'INSERT INTO sales_leads (agent_id, status, business_name, address, contact_name, contact_phone, city,
-         nature_of_business, package_chosen, onboard_date, follow_up_date, rejected_reason, notes)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        'issssssssssss',
-        [$agentId, $status, $business, $address, $contactName, $contactPhone, $city, $nature, $package, $onboardDate, $followDate, $rejected, $notes]
+         nature_of_business, package_chosen, onboard_date, follow_up_date, interest_rating, rejected_reason, rejected_category, notes)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'issssssssssisss',
+        [$agentId, $status, $business, $address, $contactName, $contactPhone, $city, $nature, $package, $onboardDate, $followDate, $interest, $rejected, $rejectedCat, $notes]
     );
     sales_lead_event((int) $newId, $agentId, 'create', null, $status, $notes);
     return ['ok' => true, 'id' => (int) $newId];
@@ -640,6 +678,8 @@ function sales_lead_admin_save(array $fields, ?int $id = null): array
     $onboardDate = null;
     $followDate = null;
     $rejected = '';
+    $rejectedCat = '';
+    $interest = max(0, min(5, (int) ($fields['interest_rating'] ?? 0)));
     $od = trim((string) ($fields['onboard_date'] ?? ''));
     if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $od)) {
         $onboardDate = $od;
@@ -651,10 +691,17 @@ function sales_lead_admin_save(array $fields, ?int $id = null): array
     if ($status === 'follow_up' && !$followDate) {
         return ['ok' => false, 'error' => 'Set a follow-up date.'];
     }
+    if ($status === 'follow_up' && $interest < 1) {
+        return ['ok' => false, 'error' => 'Rate their interest from 1 to 5.'];
+    }
     if ($status === 'rejected') {
+        $rejectedCat = trim((string) ($fields['rejected_category'] ?? ''));
+        if (!isset(sales_reject_reasons()[$rejectedCat])) {
+            return ['ok' => false, 'error' => 'Pick a rejection reason from the list.'];
+        }
         $rejected = mb_substr(trim((string) ($fields['rejected_reason'] ?? '')), 0, 500);
         if ($rejected === '') {
-            return ['ok' => false, 'error' => 'Add a reason for rejection.'];
+            return ['ok' => false, 'error' => 'Explain the rejection below the dropdown.'];
         }
     }
     $actor = (int) (current_user()['id'] ?? 0);
@@ -676,10 +723,10 @@ function sales_lead_admin_save(array $fields, ?int $id = null): array
         }
         db_exec(
             'UPDATE sales_leads SET agent_id=?, status=?, business_name=?, address=?, contact_name=?, contact_phone=?, city=?,
-             nature_of_business=?, package_chosen=?, onboard_date=?, follow_up_date=?, follow_up_done_at=?, rejected_reason=?, notes=?,
-             deleted_at=NULL, updated_at=NOW() WHERE id=?',
-            'isssssssssssssi',
-            [$agentId, $status, $business, $address, $contactName, $contactPhone, $city, $nature, $package, $onboardDate, $followDate, $followDone, $rejected, $notes, $id]
+             nature_of_business=?, package_chosen=?, onboard_date=?, follow_up_date=?, follow_up_done_at=?, interest_rating=?,
+             rejected_reason=?, rejected_category=?, notes=?, deleted_at=NULL, updated_at=NOW() WHERE id=?',
+            'isssssssssssisssi',
+            [$agentId, $status, $business, $address, $contactName, $contactPhone, $city, $nature, $package, $onboardDate, $followDate, $followDone, $interest, $rejected, $rejectedCat, $notes, $id]
         );
         if ($from !== $status) {
             sales_lead_event($id, $actor ?: $agentId, 'status_change', $from, $status, $notes);
@@ -690,10 +737,10 @@ function sales_lead_admin_save(array $fields, ?int $id = null): array
     }
     $newId = db_exec(
         'INSERT INTO sales_leads (agent_id, status, business_name, address, contact_name, contact_phone, city,
-         nature_of_business, package_chosen, onboard_date, follow_up_date, rejected_reason, notes)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        'issssssssssss',
-        [$agentId, $status, $business, $address, $contactName, $contactPhone, $city, $nature, $package, $onboardDate, $followDate, $rejected, $notes]
+         nature_of_business, package_chosen, onboard_date, follow_up_date, interest_rating, rejected_reason, rejected_category, notes)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'issssssssssisss',
+        [$agentId, $status, $business, $address, $contactName, $contactPhone, $city, $nature, $package, $onboardDate, $followDate, $interest, $rejected, $rejectedCat, $notes]
     );
     sales_lead_event((int) $newId, $actor ?: $agentId, 'create', null, $status, $notes);
     return ['ok' => true, 'id' => (int) $newId];
@@ -977,6 +1024,25 @@ function sales_vault_delete(int $id): array
 function sales_notifications_for_agent(int $userId): array
 {
     $notes = [];
+    $unreadMsgs = sales_messages_for($userId, null, 12);
+    $seenUnread = 0;
+    foreach ($unreadMsgs as $m) {
+        if ((int) $m['to_user_id'] !== $userId || !empty($m['read_at'])) {
+            continue;
+        }
+        $seenUnread++;
+        $notes[] = [
+            'type' => 'message',
+            'key' => 'sales-msg-item-' . (int) $m['id'],
+            'title' => 'Message from ' . (trim((string) ($m['from_name'] ?? 'admin')) ?: 'admin'),
+            'meta' => clip_text((string) ($m['body'] ?? ''), 80),
+            'href' => url('sales_messages.php?with=' . (int) $m['from_user_id']),
+            'tone' => 'info',
+        ];
+        if ($seenUnread >= 5) {
+            break;
+        }
+    }
     foreach (sales_followups_due($userId, 1) as $lead) {
         $when = (string) ($lead['follow_up_date'] ?? '');
         $label = $when === today() ? 'today' : 'tomorrow';
@@ -987,17 +1053,6 @@ function sales_notifications_for_agent(int $userId): array
             'meta' => 'Due ' . $label . ($lead['city'] ? ' · ' . $lead['city'] : ''),
             'href' => url('sales_lead_edit.php?id=' . (int) $lead['id']),
             'tone' => 'warn',
-        ];
-    }
-    $unread = sales_unread_count($userId);
-    if ($unread > 0) {
-        $notes[] = [
-            'type' => 'message',
-            'key' => 'sales-msg-' . $userId . '-' . $unread,
-            'title' => $unread === 1 ? '1 new message from admin' : ($unread . ' new messages from admin'),
-            'meta' => 'Open Messages',
-            'href' => url('sales_messages.php'),
-            'tone' => 'info',
         ];
     }
     if (!sales_is_clocked_in($userId)) {
@@ -1013,6 +1068,126 @@ function sales_notifications_for_agent(int $userId): array
     return $notes;
 }
 
+function sales_demo_credentials(): array
+{
+    return [
+        'email' => 'demo@vellisys.ug',
+        'password' => 'demo-sales-2026',
+        'name' => 'Vellisys Sales Demo',
+    ];
+}
+
+function sales_demo_user(): ?array
+{
+    if (function_exists('folio_ensure_sales_demo')) {
+        try {
+            folio_ensure_sales_demo(db());
+        } catch (Throwable $e) {
+            // ignore
+        }
+    }
+    return db_one("SELECT * FROM users WHERE email = ? AND role = 'admin'", 's', ['demo@vellisys.ug']);
+}
+
+function sales_demo_company_id(): int
+{
+    $u = sales_demo_user();
+    return $u ? (int) ($u['company_id'] ?? 0) : 0;
+}
+
+function sales_demo_enter_from(?array $fromUser = null): array
+{
+    $fromUser = $fromUser ?? current_user();
+    if (!$fromUser) {
+        return ['ok' => false, 'error' => 'Sign in first.'];
+    }
+    $demo = sales_demo_user();
+    if (!$demo || (int) ($demo['company_id'] ?? 0) < 1) {
+        return ['ok' => false, 'error' => 'Demo desk is not ready yet.'];
+    }
+    $_SESSION['sales_demo_return'] = [
+        'user_id' => (int) $fromUser['id'],
+        'company_id' => (int) ($fromUser['company_id'] ?? 0),
+        'role' => (string) ($fromUser['role'] ?? ''),
+        'acting_company_id' => (int) ($_SESSION['acting_company_id'] ?? 0),
+    ];
+    unset($_SESSION['acting_company_id']);
+    $_SESSION['user_id'] = (int) $demo['id'];
+    $_SESSION['company_id'] = (int) $demo['company_id'];
+    $_SESSION['role'] = (string) ($demo['role'] ?? 'admin');
+    return ['ok' => true, 'company_id' => (int) $demo['company_id']];
+}
+
+function sales_demo_leave(): array
+{
+    $ret = $_SESSION['sales_demo_return'] ?? null;
+    unset($_SESSION['sales_demo_return']);
+    if (!is_array($ret) || (int) ($ret['user_id'] ?? 0) < 1) {
+        return ['ok' => false, 'error' => 'No demo session to leave.'];
+    }
+    $_SESSION['user_id'] = (int) $ret['user_id'];
+    $_SESSION['company_id'] = (int) ($ret['company_id'] ?? 0);
+    $_SESSION['role'] = (string) ($ret['role'] ?? '');
+    $acting = (int) ($ret['acting_company_id'] ?? 0);
+    if ($acting > 0) {
+        $_SESSION['acting_company_id'] = $acting;
+        $_SESSION['company_id'] = $acting;
+    } else {
+        unset($_SESSION['acting_company_id']);
+    }
+    return ['ok' => true, 'role' => (string) ($ret['role'] ?? '')];
+}
+
+function sales_demo_active(): bool
+{
+    return !empty($_SESSION['sales_demo_return']) && is_array($_SESSION['sales_demo_return']);
+}
+
+function sales_demo_return_home(): string
+{
+    $role = (string) (($_SESSION['sales_demo_return']['role'] ?? '') ?: '');
+    if ($role === 'platform') {
+        return platform_home();
+    }
+    if ($role === 'sales_agent') {
+        return sales_home();
+    }
+    return 'dashboard.php';
+}
+
+function platform_alert_add(string $kind, string $title, string $meta = '', string $href = '', string $email = '', string $urgency = 'normal'): void
+{
+    try {
+        db_exec(
+            'INSERT INTO platform_alerts (kind, urgency, title, meta, href, ref_email) VALUES (?,?,?,?,?,?)',
+            'ssssss',
+            [$kind, $urgency, mb_substr($title, 0, 190), mb_substr($meta, 0, 255), mb_substr($href, 0, 255), mb_substr(strtolower($email), 0, 190)]
+        );
+    } catch (Throwable $e) {
+        // ignore if migrate not yet applied
+    }
+}
+
+function platform_alerts_unread(int $limit = 20): array
+{
+    try {
+        return db_all('SELECT * FROM platform_alerts ORDER BY (urgency = \'urgent\') DESC, id DESC LIMIT ' . (int) $limit);
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function sales_admin_unread_count(int $platformUserId): int
+{
+    return (int) (db_one(
+        'SELECT COUNT(*) c FROM sales_messages m
+         JOIN users u ON u.id = m.from_user_id AND u.role = \'sales_agent\'
+         WHERE m.to_user_id = ? AND m.read_at IS NULL',
+        'i',
+        [$platformUserId]
+    )['c'] ?? 0);
+}
+
 function sales_layout_start(string $title, array $user): void
 {
     $flash = flash();
@@ -1024,6 +1199,7 @@ function sales_layout_start(string $title, array $user): void
         ['sales_home.php', 'Home', 'home'],
         ['sales_leads.php', 'Leads', 'clients'],
         ['sales_performance.php', 'Performance', 'reports'],
+        ['sales_demo.php', 'Demo', 'building'],
         ['sales_messages.php', 'Messages', 'mail'],
     ];
     ?>

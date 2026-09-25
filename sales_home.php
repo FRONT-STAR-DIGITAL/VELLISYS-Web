@@ -132,7 +132,7 @@ sales_layout_start('Home', $user);
           <?php foreach ($recent as $lead): ?>
             <tr>
               <td><?= h(trim((string) $lead['business_name']) ?: '-') ?></td>
-              <td><span class="pill"><?= h(sales_status_label((string) $lead['status'])) ?></span></td>
+              <td><span class="<?= h(sales_status_pill_class((string) $lead['status'])) ?>"><?= h(sales_status_label((string) $lead['status'])) ?></span></td>
               <td><?= h((string) $lead['city']) ?></td>
               <td class="row-actions"><a class="btn ghost sm" href="<?= h(url('sales_lead_edit.php?id=' . (int) $lead['id'])) ?>">Open</a></td>
             </tr>

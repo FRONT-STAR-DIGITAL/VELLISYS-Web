@@ -542,6 +542,17 @@ function notify_password_reset_request(string $email): array
         . "Reset the password on the desk, then send it to this mailbox.\n"
         . $deskLink;
 
+    if (function_exists('platform_alert_add')) {
+        platform_alert_add(
+            'password_reset',
+            'Password reset · ' . $email,
+            ($found ? (($who !== '' ? $who : $email) . ($company !== '' ? ' · ' . $company : '')) : 'No matching login'),
+            $deskLink,
+            $email,
+            'urgent'
+        );
+    }
+
     return notify_platform('Password reset requested - ' . $email, $html, $text, $email, $uid);
 }
 
