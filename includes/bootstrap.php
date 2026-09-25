@@ -25,7 +25,7 @@ if (!headers_sent()) {
 }
 
 $scriptName = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/'));
-if ($scriptName === '/' || $scriptName === '\\') {
+if ($scriptName === '/' || $scriptName === '\\' || $scriptName === '.' || $scriptName === '') {
     $scriptName = '';
 }
 define('BASE_URL', rtrim($scriptName, '/'));
@@ -33,7 +33,8 @@ define('BASE_URL', rtrim($scriptName, '/'));
 function url(string $path = ''): string
 {
     $path = ltrim($path, '/');
-    return BASE_URL . '/' . $path;
+    $base = BASE_URL === '.' ? '' : BASE_URL;
+    return ($base === '' ? '' : $base) . '/' . $path;
 }
 
 function asset(string $path): string

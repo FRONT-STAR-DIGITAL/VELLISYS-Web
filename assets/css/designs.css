@@ -306,44 +306,6 @@
   border-top: 0;
   padding-top: 0;
 }
-
-/* Signature + authenticity QR row (QR sits bottom-right with Authorized by) */
-.doc-signoff {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 16px 28px;
-  margin-top: 28px;
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-  break-inside: avoid;
-  page-break-inside: avoid;
-}
-.doc-signoff > .auth-sign,
-.doc-signoff > .bill-signs,
-.doc-signoff > .twin-sign,
-.doc-signoff > .seal-sign,
-.doc-signoff > .ledger-sign {
-  margin-top: 0;
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.doc-signoff > .auth-sign {
-  max-width: 240px;
-  flex: 0 1 240px;
-}
-.doc-signoff.doc-signoff-solo {
-  justify-content: flex-end;
-}
-.doc-signoff .doc-authenticity {
-  margin: 0;
-  padding: 0;
-  border-top: 0;
-  width: auto;
-  max-width: 168px;
-  flex: 0 0 auto;
-}
 .bill-signs div,
 .seal-sign div {
   display: flex;
@@ -1810,14 +1772,17 @@
   border-bottom: 1px solid #111 !important;
 }
 
-/* Document authenticity QR — paired with authorized signature at the bottom */
+/* Document authenticity QR — centered at the bottom of the sheet */
 .invoice-sheet .doc-authenticity,
 .expense-card .doc-authenticity {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
-  margin: 18px 0 0;
-  padding: 10px 0 0;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+  margin: 28px auto 0;
+  padding: 16px 12px 4px;
   border-top: 1px solid rgba(8, 20, 58, .10);
   width: 100%;
   max-width: 100%;
@@ -1825,44 +1790,36 @@
   break-inside: avoid;
   page-break-inside: avoid;
 }
-.invoice-sheet .doc-signoff .doc-authenticity,
-.expense-card .doc-signoff .doc-authenticity {
-  margin: 0;
-  padding: 0;
-  border-top: 0;
-  width: auto;
-  max-width: 168px;
-}
 .doc-auth-qr {
   flex: 0 0 auto;
-  width: 56px;
-  height: 56px;
+  width: 120px;
+  height: 120px;
 }
 .doc-auth-qr img {
   display: block;
-  width: 56px;
-  height: 56px;
-  image-rendering: pixelated;
+  width: 120px;
+  height: 120px;
+  image-rendering: auto;
   border: 1px solid rgba(8, 20, 58, .08);
   border-radius: 4px;
   background: #fff;
 }
 .doc-auth-meta {
   min-width: 0;
-  flex: 1 1 auto;
+  max-width: 220px;
 }
 .doc-auth-hint {
   margin: 0 0 2px;
-  font-size: 8px;
+  font-size: 9px;
   line-height: 1.35;
   font-weight: 600;
-  letter-spacing: .03em;
+  letter-spacing: .04em;
   text-transform: uppercase;
   color: #7a8499;
 }
 .doc-auth-powered {
   margin: 0;
-  font-size: 8.5px;
+  font-size: 9px;
   line-height: 1.35;
   font-weight: 600;
   color: #5c6780;
@@ -1873,67 +1830,29 @@
   text-decoration: none;
   font-weight: 700;
 }
-
-/* Narrow templates: QR stacks below the signature */
-.invoice-sheet.sheet-thermal .doc-signoff,
-.invoice-sheet.sheet-chit .doc-signoff,
-.invoice-sheet.sheet-twin .doc-signoff,
-.print-thermal .doc-signoff {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 12px;
-}
-.invoice-sheet.sheet-thermal .doc-signoff .doc-authenticity,
-.invoice-sheet.sheet-chit .doc-signoff .doc-authenticity,
-.invoice-sheet.sheet-twin .doc-signoff .doc-authenticity,
-.print-thermal .doc-signoff .doc-authenticity {
-  max-width: 100%;
-}
 .invoice-sheet.sheet-thermal .doc-authenticity,
 .print-thermal .doc-authenticity {
-  margin-top: 10px;
-  padding-top: 8px;
-  gap: 8px;
-}
-.invoice-sheet.sheet-thermal .doc-signoff .doc-authenticity,
-.print-thermal .doc-signoff .doc-authenticity {
-  margin-top: 0;
-  padding-top: 0;
+  margin-top: 14px;
+  padding-top: 10px;
+  gap: 6px;
 }
 .invoice-sheet.sheet-thermal .doc-auth-qr,
 .invoice-sheet.sheet-thermal .doc-auth-qr img,
 .print-thermal .doc-auth-qr,
 .print-thermal .doc-auth-qr img {
-  width: 48px;
-  height: 48px;
+  width: 96px;
+  height: 96px;
 }
 .invoice-sheet.sheet-thermal .doc-auth-hint,
 .invoice-sheet.sheet-thermal .doc-auth-powered,
 .print-thermal .doc-auth-hint,
 .print-thermal .doc-auth-powered {
-  font-size: 7.5px;
-}
-@media (max-width: 560px) {
-  .invoice-sheet .doc-signoff,
-  .expense-card .doc-signoff {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-  .invoice-sheet .doc-signoff .doc-authenticity,
-  .expense-card .doc-signoff .doc-authenticity {
-    max-width: 100%;
-  }
+  font-size: 8px;
 }
 @media print {
   .invoice-sheet .doc-authenticity,
   .expense-card .doc-authenticity {
-    margin-top: 14px;
-    padding-top: 8px;
-  }
-  .invoice-sheet .doc-signoff .doc-authenticity,
-  .expense-card .doc-signoff .doc-authenticity {
-    margin-top: 0;
-    padding-top: 0;
+    margin-top: 22px;
+    padding-top: 12px;
   }
 }

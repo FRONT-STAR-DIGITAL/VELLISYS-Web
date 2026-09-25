@@ -634,12 +634,15 @@ function document_share_url(array $doc): string
 /** Public authenticity check URL (QR target). Uses the same HMAC as share. */
 function document_verify_url(array $doc): string
 {
+    if ((int) ($doc['company_id'] ?? 0) < 1 && function_exists('current_company_id')) {
+        $doc['company_id'] = current_company_id();
+    }
     return absolute_url('verify.php?id=' . (int) $doc['id'] . '&t=' . document_share_token($doc));
 }
 
 /**
- * PNG data-URI for a QR that encodes $text. Cached under uploads/qr.
- * Falls back to an external image URL if the cache cannot be built.
+ * PNG src for a QR that encodes $text. Cached under uploads/qr.
+ * Prefers a same-origin file URL (reliable in PDF/print), then data-URI, then external API.
  */
 function document_qr_img_src(string $text, int $size = 120): string
 {
@@ -647,13 +650,14 @@ function document_qr_img_src(string $text, int $size = 120): string
     if ($text === '') {
         return '';
     }
-    $size = max(64, min(240, $size));
+    $size = max(96, min(240, $size));
     $dir = ROOT_PATH . '/uploads/qr';
     if (!is_dir($dir)) {
         @mkdir($dir, 0755, true);
     }
     $key = substr(hash('sha256', $size . '|' . $text), 0, 40);
     $file = $dir . '/' . $key . '.png';
+    $rel = 'uploads/qr/' . $key . '.png';
     if (!is_file($file) || filesize($file) < 40) {
         $api = 'https://api.qrserver.com/v1/create-qr-code/?size=' . $size . 'x' . $size
             . '&margin=1&ecc=M&data=' . rawurlencode($text);
@@ -669,18 +673,24 @@ function document_qr_img_src(string $text, int $size = 120): string
                     CURLOPT_USERAGENT => 'VellisysDocQR/1.0',
                 ]);
                 $bin = (string) curl_exec($ch);
+                $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
                 curl_close($ch);
+                if ($code >= 400) {
+                    $bin = '';
+                }
             }
         }
         if ($bin === '' || strlen($bin) < 40) {
-            $bin = (string) @file_get_contents($api);
+            $ctx = stream_context_create(['http' => ['timeout' => 8, 'header' => "User-Agent: VellisysDocQR/1.0\r\n"]]);
+            $bin = (string) @file_get_contents($api, false, $ctx);
         }
-        if ($bin !== '' && strlen($bin) >= 40) {
+        if ($bin !== '' && strlen($bin) >= 40 && strncmp($bin, "\x89PNG", 4) === 0) {
             @file_put_contents($file, $bin);
         }
     }
     if (is_file($file) && filesize($file) >= 40) {
-        return 'data:image/png;base64,' . base64_encode((string) file_get_contents($file));
+        // Root-relative URL: works in the browser and rewrites to file:// for Chrome PDF.
+        return url($rel);
     }
     return 'https://api.qrserver.com/v1/create-qr-code/?size=' . $size . 'x' . $size
         . '&margin=1&ecc=M&data=' . rawurlencode($text);
@@ -709,7 +719,7 @@ function document_authenticity_html(array $brand, array $doc): string
         return '';
     }
     $verifyUrl = document_verify_url($doc);
-    $qr = document_qr_img_src($verifyUrl, 88);
+    $qr = document_qr_img_src($verifyUrl, 120);
     $site = product_site_url();
     $host = preg_replace('#^https?://#', '', $site) ?: 'www.vellisys.com';
     ob_start();
@@ -717,7 +727,7 @@ function document_authenticity_html(array $brand, array $doc): string
 <div class="doc-authenticity" aria-label="Document authenticity">
   <div class="doc-auth-qr">
     <?php if ($qr !== ''): ?>
-      <img src="<?= h($qr) ?>" width="56" height="56" alt="Scan to verify this document">
+      <img src="<?= h($qr) ?>" width="120" height="120" alt="Scan to verify this document">
     <?php endif; ?>
   </div>
   <div class="doc-auth-meta">
@@ -736,8 +746,9 @@ function render_document_authenticity(array $brand, array $doc): void
 }
 
 /**
- * Place authenticity block at the document bottom when the sheet did not already
- * pair it with the authorized signature (.doc-signoff).
+ * Place authenticity block at the bottom of the sheet (centered via CSS).
+ * Injects inside the main content container when present so flex layouts
+ * (e.g. stripe) do not park the QR as a mid-page sibling.
  */
 function inject_document_authenticity(string $html, array $brand, array $doc): string
 {
@@ -748,19 +759,44 @@ function inject_document_authenticity(string $html, array $brand, array $doc): s
     if ($block === '') {
         return $html;
     }
-    $wrapped = '<div class="doc-signoff doc-signoff-solo">' . $block . '</div>';
+    // Prefer end of known inner content wrappers (stripe, bill pad, booklet, chit, inset).
+    foreach ([
+        'stripe-inner',
+        'bill-pad',
+        'booklet-page',
+        'chit-page',
+        'page-inset',
+        'frame-pad',
+    ] as $innerClass) {
+        $open = 'class="' . $innerClass . '"';
+        $openPos = stripos($html, $open);
+        if ($openPos === false) {
+            continue;
+        }
+        // Find the matching close of that inner div by scanning from article end:
+        // insert immediately before the last </div> that precedes </article>.
+        $articleClose = strripos($html, '</article>');
+        if ($articleClose === false) {
+            break;
+        }
+        $before = substr($html, 0, $articleClose);
+        $divClose = strripos($before, '</div>');
+        if ($divClose !== false && $divClose > $openPos) {
+            return substr($html, 0, $divClose) . $block . "\n" . substr($html, $divClose);
+        }
+    }
     $needle = '</article>';
     $pos = strripos($html, $needle);
     if ($pos !== false) {
-        return substr($html, 0, $pos) . $wrapped . "\n" . substr($html, $pos);
+        return substr($html, 0, $pos) . $block . "\n" . substr($html, $pos);
     }
     if (str_contains($html, 'expense-card')) {
         $pos = strripos($html, '</div>');
         if ($pos !== false) {
-            return substr($html, 0, $pos) . $wrapped . "\n" . substr($html, $pos);
+            return substr($html, 0, $pos) . $block . "\n" . substr($html, $pos);
         }
     }
-    return $html . $wrapped;
+    return $html . $block;
 }
 
 function document_sheet_chrome(): string

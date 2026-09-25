@@ -1317,7 +1317,10 @@ function send_renewal_notice(array $company, array $user): array
 function absolute_url(string $path): string
 {
     $https = function_exists('folio_request_is_https') ? folio_request_is_https() : (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
-    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $host = trim((string) ($_SERVER['HTTP_HOST'] ?? 'localhost'));
+    if ($host === '') {
+        $host = 'localhost';
+    }
     if (function_exists('folio_is_live_host') && folio_is_live_host()) {
         $https = true;
         $bare = function_exists('folio_http_host') ? folio_http_host() : strtolower($host);
@@ -1325,5 +1328,11 @@ function absolute_url(string $path): string
             $host = 'www.vellisys.com';
         }
     }
-    return ($https ? 'https' : 'http') . '://' . $host . url($path);
+    $rel = url($path);
+    // Guard against BASE_URL="." producing http://host./path
+    $rel = preg_replace('#^\./#', '/', $rel) ?? $rel;
+    if ($rel === '' || $rel[0] !== '/') {
+        $rel = '/' . ltrim($rel, '/');
+    }
+    return ($https ? 'https' : 'http') . '://' . $host . $rel;
 }
