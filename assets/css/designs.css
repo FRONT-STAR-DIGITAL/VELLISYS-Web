@@ -2020,22 +2020,58 @@
 }
 .invoice-sheet.sheet-thermal .doc-authenticity,
 .print-thermal .doc-authenticity {
-  margin-top: 14px;
-  padding-top: 10px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   gap: 8px;
+  margin: 12px auto 0;
+  padding: 10px 4px 2px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .invoice-sheet.sheet-thermal .doc-auth-qr,
 .invoice-sheet.sheet-thermal .doc-auth-qr img,
 .print-thermal .doc-auth-qr,
 .print-thermal .doc-auth-qr img {
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
+}
+.invoice-sheet.sheet-thermal .doc-auth-meta,
+.print-thermal .doc-auth-meta {
+  flex: 0 1 auto;
+  max-width: 9.5em;
+  text-align: center;
 }
 .invoice-sheet.sheet-thermal .doc-auth-hint,
 .invoice-sheet.sheet-thermal .doc-auth-powered,
 .print-thermal .doc-auth-hint,
 .print-thermal .doc-auth-powered {
-  font-size: 10px;
+  font-size: 8px !important;
+  line-height: 1.3 !important;
+  text-align: center;
+}
+.invoice-sheet.sheet-thermal .doc-auth-hint,
+.print-thermal .doc-auth-hint {
+  letter-spacing: .02em;
+  margin: 0 0 3px;
+}
+.invoice-sheet.sheet-thermal .doc-auth-powered,
+.print-thermal .doc-auth-powered {
+  font-weight: 600;
+}
+.invoice-sheet.sheet-thermal .auth-sign,
+.print-thermal .auth-sign {
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+}
+.invoice-sheet.sheet-thermal .auth-sign .d-sign,
+.print-thermal .auth-sign .d-sign {
+  margin-left: auto;
+  margin-right: auto;
 }
 @media print {
   .invoice-sheet .doc-authenticity,
