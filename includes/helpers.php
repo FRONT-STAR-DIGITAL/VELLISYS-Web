@@ -4489,7 +4489,7 @@ function folio_css_links(bool $critical = true, ?bool $sheet = null): void
     folio_stylesheet('css/app.css');
     if ($sheet === null) {
         $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
-        $sheet = in_array($here, ['document_view.php', 'document_new.php', 'document_action.php', 'share.php', 'document_download.php', 'document_pdf.php', 'settings.php'], true);
+        $sheet = in_array($here, ['document_view.php', 'document_new.php', 'document_action.php', 'share.php', 'document_download.php', 'document_pdf.php', 'document_sheet.php', 'settings.php'], true);
     }
     if ($sheet) {
         folio_stylesheet('css/designs.css', false);
