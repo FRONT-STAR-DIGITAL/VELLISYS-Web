@@ -3698,6 +3698,8 @@ input, select, textarea { font-weight: 400; }
     flex: none;
     width: 100%;
     min-width: 0;
+    overflow: visible;
+    z-index: 50;
   }
   .page-head .doc-toolbar .btn {
     white-space: normal;
@@ -3709,7 +3711,21 @@ input, select, textarea { font-weight: 400; }
   }
   .page-head .doc-toolbar form { display: block; margin: 0; }
   .page-head .doc-toolbar form > .btn { width: 100%; }
-  .page-head .doc-toolbar .share-pop > summary.btn { width: 100%; }
+  .page-head .doc-toolbar .share-pop > summary.btn { width: 100%; overflow: hidden; }
+  /* Share is in the left column — open the menu to the right so it stays on-screen */
+  .page-head .doc-toolbar .share-pop-panel,
+  .page-head .doc-toolbar .share-pop-list {
+    left: 0;
+    right: auto;
+    width: min(280px, calc(100vw - 24px));
+    min-width: 0;
+    max-width: min(280px, calc(100vw - 24px));
+  }
+  .page-head .doc-toolbar .share-pop-panel::before,
+  .page-head .doc-toolbar .share-pop-list::before {
+    left: 18px;
+    right: auto;
+  }
   /* Money cards need room; never 3-up on phones */
   .stats, .stats.six, .action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); display: grid; }
   .stat, .stats .card.stat {
@@ -4659,10 +4675,16 @@ a.branch-activity-row:hover { text-decoration: none; }
   }
   .share-pop-panel,
   .share-pop-list {
-    right: 0;
-    left: auto;
-    min-width: min(280px, calc(100vw - 24px));
+    left: 0;
+    right: auto;
+    width: min(280px, calc(100vw - 24px));
+    min-width: 0;
     max-width: min(280px, calc(100vw - 24px));
+  }
+  .share-pop-panel::before,
+  .share-pop-list::before {
+    left: 18px;
+    right: auto;
   }
 }
 
