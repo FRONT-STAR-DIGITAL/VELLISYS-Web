@@ -250,30 +250,62 @@ layout_admin_start('Sales', $user);
     <a class="btn ghost sm" href="<?= h(url('admin_sales.php?tab=targets')) ?>">Edit goals</a>
   </div>
   <div class="pad-form">
-    <p class="hint" style="margin:0 0 12px">Defaults: <?= (int) $goalDefaults['daily_reach'] ?> leads · <?= (int) $goalDefaults['daily_sales'] ?> sales (interested + onboarded). Tap an agent for daily, weekly and monthly charts.</p>
+    <p class="hint" style="margin:0 0 12px">Defaults: <?= (int) $goalDefaults['daily_reach'] ?> leads · <?= (int) $goalDefaults['daily_sales'] ?> sales (interested + onboarded). Open an agent name for their full performance and detailed reports.</p>
     <?php if (!$dailyBoard): ?>
       <p class="empty">No live sales agents yet.</p>
     <?php else: ?>
-      <div class="sales-agents-goal-grid">
-        <?php foreach ($dailyBoard as $row):
-            $a = $row['agent'];
-            $p = $row['progress'];
-            $clocked = !empty($row['clock']) && trim((string) ($row['clock']['clocked_out_at'] ?? '')) === '';
-            $clockHours = !empty($row['clock']) ? sales_format_hours(sales_clock_minutes($row['clock']) / 60) : '0h';
-            ?>
-          <a class="card sales-agent-goal-card" href="<?= h(url('admin_sales.php?tab=agent&agent=' . (int) $a['id'] . '&period=daily')) ?>">
-            <div class="card-head">
-              <div>
-                <h2><?= h($a['name']) ?></h2>
-                <p class="muted" style="margin:2px 0 0"><?= h($a['email']) ?><?= $clocked ? ' · Clocked in · ' . h($clockHours) : (!empty($row['clock']) ? ' · Clocked out · ' . h($clockHours) : ' · Not clocked in') ?></p>
-              </div>
-              <?= icon('arrow-right', 16) ?>
-            </div>
-            <div class="pad-form">
-              <?php sales_render_goal_bars($p, ['compact' => true, 'force_reach' => true, 'force_sales' => true]); ?>
-            </div>
-          </a>
-        <?php endforeach; ?>
+      <div class="table-scroll">
+        <table class="grid sales-agents-goal-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Clock in</th>
+              <th>Location</th>
+              <th>Targets</th>
+              <th>Clock out</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($dailyBoard as $row):
+                $a = $row['agent'];
+                $p = $row['progress'];
+                $clock = $row['clock'] ?? null;
+                $hasClock = !empty($clock);
+                $clockedOutAt = $hasClock ? trim((string) ($clock['clocked_out_at'] ?? '')) : '';
+                $isIn = $hasClock && $clockedOutAt === '';
+                $clockInAt = $hasClock ? trim((string) ($clock['clocked_at'] ?? '')) : '';
+                $location = $hasClock ? trim((string) ($clock['location_city'] ?? '')) : '';
+                $reach = (int) ($p['reach'] ?? 0);
+                $reachGoal = (int) ($p['reach_goal'] ?? 0);
+                $salesN = (int) ($p['sales'] ?? 0);
+                $salesGoal = (int) ($p['sales_goal'] ?? 0);
+                $agentHref = url('admin_sales.php?tab=agent&agent=' . (int) $a['id'] . '&period=daily');
+                ?>
+              <tr>
+                <td>
+                  <a class="sales-agent-name-link" href="<?= h($agentHref) ?>"><?= h($a['name']) ?></a>
+                  <div class="muted"><?= h($a['email']) ?></div>
+                  <div class="muted mono">
+                    <?php if ($isIn): ?>
+                      Clocked in · <?= h(sales_format_hours(sales_clock_minutes($clock) / 60)) ?>
+                    <?php elseif ($hasClock): ?>
+                      Clocked out · <?= h(sales_format_hours(sales_clock_minutes($clock) / 60)) ?>
+                    <?php else: ?>
+                      Not clocked in
+                    <?php endif; ?>
+                  </div>
+                </td>
+                <td class="mono"><?= $hasClock ? h(sales_format_clock_time($clockInAt)) : '—' ?></td>
+                <td><?= $location !== '' ? h($location) : '—' ?></td>
+                <td class="sales-agents-goal-targets">
+                  <?php sales_render_goal_bars($p, ['compact' => true, 'force_reach' => true, 'force_sales' => true]); ?>
+                  <div class="muted mono" style="margin-top:4px"><?= $reach ?>/<?= $reachGoal ?: '-' ?> leads · <?= $salesN ?>/<?= $salesGoal ?: '-' ?> sales</div>
+                </td>
+                <td class="mono"><?= $clockedOutAt !== '' ? h(sales_format_clock_time($clockedOutAt)) : ($isIn ? 'In field' : '—') ?></td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
       </div>
     <?php endif; ?>
   </div>

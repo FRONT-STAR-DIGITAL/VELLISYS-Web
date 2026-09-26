@@ -651,6 +651,31 @@ summary {
   gap: 14px;
   margin-bottom: 18px;
 }
+.sales-agents-goal-table {
+  width: 100%;
+  margin: 0;
+}
+.sales-agents-goal-table th,
+.sales-agents-goal-table td {
+  vertical-align: top;
+}
+.sales-agents-goal-table .sales-agent-name-link {
+  font-weight: 700;
+  text-decoration: none;
+}
+.sales-agents-goal-table .sales-agent-name-link:hover {
+  text-decoration: underline;
+}
+.sales-agents-goal-table .sales-agents-goal-targets {
+  min-width: 180px;
+  max-width: 280px;
+}
+.sales-agents-goal-table .sales-goal-bars.is-compact {
+  gap: 6px;
+}
+.sales-agents-goal-table .sales-goal-meta span {
+  font-size: 11px;
+}
 @media (max-width: 720px) {
   .people-access-head { width: 100%; }
   .people-access-head .btn { width: 100%; }

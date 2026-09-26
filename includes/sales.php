@@ -371,6 +371,28 @@ function sales_format_hours(float $hours): string
     return number_format($hours, 1, '.', '') . 'h';
 }
 
+/** Clock-in / clock-out wall time for daily boards (H:i in active desk zone). */
+function sales_format_clock_time(?string $dt): string
+{
+    if ($dt === null || trim($dt) === '') {
+        return '—';
+    }
+    $raw = trim($dt);
+    try {
+        $tzName = function_exists('desk_timezone_id') ? desk_timezone_id() : 'Africa/Kampala';
+        $tz = new DateTimeZone($tzName);
+        if (preg_match('/^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?/', $raw)) {
+            $dtObj = new DateTimeImmutable(str_replace('T', ' ', substr($raw, 0, 19)), $tz);
+        } else {
+            $dtObj = (new DateTimeImmutable($raw))->setTimezone($tz);
+        }
+        return $dtObj->format('H:i');
+    } catch (Throwable $e) {
+        $t = strtotime($raw);
+        return $t === false ? '—' : date('H:i', $t);
+    }
+}
+
 function sales_clock_in(int $userId, string $city, string $notes = ''): array
 {
     $city = mb_substr(trim($city), 0, 120);
