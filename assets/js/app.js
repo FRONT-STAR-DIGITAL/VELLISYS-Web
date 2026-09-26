@@ -2,6 +2,23 @@ try {
   document.cookie = 'vellisys_tz=' + encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone || '') + ';path=/;max-age=31536000;samesite=lax';
 } catch (e0) {}
 
+(function pinTabbarBoot() {
+  function run() {
+    if (typeof pinAppTabbar === 'function') pinAppTabbar();
+    else {
+      var bar = document.querySelector('nav.app-tabbar');
+      if (bar && document.body && bar.parentElement !== document.body) {
+        document.body.appendChild(bar);
+      }
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', run);
+  } else {
+    run();
+  }
+})();
+
 window.vellisysChartMoney = function (currency) {
   currency = currency || '';
   return function (v) {
@@ -37,12 +54,21 @@ function closestEl(e, sel) {
 function navScrim() {
   return document.querySelector('[data-nav-scrim]');
 }
+/** Keep bottom tab bars as direct body children so overflow/transform ancestors cannot trap position:fixed. */
+function pinAppTabbar() {
+  var bar = document.querySelector('nav.app-tabbar');
+  if (!bar || !document.body) return;
+  if (bar.parentElement !== document.body) {
+    document.body.appendChild(bar);
+  }
+}
 function setNavOpen(open) {
   if (typeof window.vellisysSetNav === 'function') {
     window.vellisysSetNav(open);
     return;
   }
   document.body.classList.toggle('nav-open', !!open);
+  document.documentElement.classList.toggle('nav-open', !!open);
   document.querySelectorAll('[data-nav-toggle]').forEach(function (btn) {
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
   });
