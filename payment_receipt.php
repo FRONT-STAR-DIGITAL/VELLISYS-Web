@@ -27,19 +27,27 @@ if (!$company || !hash_equals(payment_receipt_share_token($company), $token) || 
     exit;
 }
 
+$thisPayment = max(0, (float) ($_GET['paid'] ?? 0));
+if (isset($_GET['og'])) {
+    payment_receipt_send_preview($company, $thisPayment);
+}
+
 $brand = branding_for($id) ?: [];
 $members = db_all('SELECT id, name, email, phone FROM users WHERE company_id = ? ORDER BY id', 'i', [$id]);
 $contact = company_notice_email($id, $brand, $members);
-$thisPayment = max(0, (float) ($_GET['paid'] ?? 0));
 $copy = payment_receipt_copy($company, $contact, $members, $thisPayment);
 $print = isset($_GET['print']);
+// Warm the WhatsApp preview cache when the page is opened.
+payment_receipt_ensure_preview($company, $thisPayment);
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
   <title><?= h($copy['subject']) ?></title>
+  <?php payment_receipt_og_meta($company, $thisPayment); ?>
   <?php product_icons(); ?>
   <?php folio_css_links(); ?>
   <?php folio_font_links(); ?>
@@ -49,7 +57,7 @@ $print = isset($_GET['print']);
 <body class="print-body pay-receipt-body">
   <div class="pay-receipt-sheet">
     <header class="pay-receipt-brand">
-      <img src="<?= h(product_mark_url()) ?>" alt="<?= h(product_name()) ?>" width="40" height="40">
+      <img class="pay-receipt-favicon" src="<?= h(product_favicon_url()) ?>" alt="<?= h(product_name()) ?>" width="36" height="36">
       <div>
         <strong><?= h(product_name()) ?></strong>
         <span>Payment receipt</span>

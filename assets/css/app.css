@@ -6492,11 +6492,15 @@ a.cdash-metric:hover {
   gap: 12px;
   margin-bottom: 18px;
 }
-.pay-receipt-brand img {
-  width: 40px;
-  height: 40px;
+.pay-receipt-brand img,
+.pay-receipt-favicon {
+  width: 36px;
+  height: 36px;
   object-fit: contain;
-  border-radius: 8px;
+  border-radius: 9px;
+  background: #08143A;
+  padding: 4px;
+  box-sizing: border-box;
 }
 .pay-receipt-brand strong {
   display: block;

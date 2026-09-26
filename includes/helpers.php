@@ -4456,15 +4456,35 @@ function landing_card_image_url(array $card): string
     return product_mark_url();
 }
 
+/** Favicon / app icon URL (avatar), not the large V mark. */
+function product_favicon_url(): string
+{
+    if (is_file(ROOT_PATH . '/assets/img/vellisys-avatar.png')) {
+        return asset('img/vellisys-avatar.png');
+    }
+    if (is_file(ROOT_PATH . '/assets/img/pwa-192.png')) {
+        return asset('img/pwa-192.png');
+    }
+    return product_mark_url();
+}
+
+function product_favicon_file(): string
+{
+    foreach (['assets/img/vellisys-avatar.png', 'assets/img/pwa-192.png', 'assets/img/vellisys-mark.png'] as $rel) {
+        $full = ROOT_PATH . '/' . $rel;
+        if (is_file($full)) {
+            return $full;
+        }
+    }
+    return '';
+}
+
 function product_icons(): void
 {
-    $mark = asset('img/vellisys-avatar.png');
-    if (!is_file(ROOT_PATH . '/assets/img/vellisys-avatar.png')) {
-        $mark = product_mark_url();
-    }
+    $mark = product_favicon_url();
     $apple = is_file(ROOT_PATH . '/assets/img/vellisys-avatar.png')
         ? asset('img/vellisys-avatar.png')
-        : url('assets/img/pwa-180.png');
+        : (is_file(ROOT_PATH . '/assets/img/pwa-180.png') ? url('assets/img/pwa-180.png') : $mark);
     echo '<link rel="icon" type="image/png" href="' . h($mark) . '">';
     echo '<link rel="apple-touch-icon" href="' . h($apple) . '">';
     echo '<link rel="manifest" href="' . h(url('manifest.php')) . '">';

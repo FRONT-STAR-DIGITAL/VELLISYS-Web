@@ -1241,10 +1241,208 @@ function payment_receipt_share_message(array $company, float $thisPayment = 0.0)
 
 function payment_receipt_whatsapp_url(array $company, string $phone = '', float $thisPayment = 0.0): string
 {
-    // Never prefill a recipient — open WhatsApp so the admin picks the contact.
-    unset($phone);
+    // Ignore $phone: always open WhatsApp without a recipient so the admin picks the contact.
     $text = payment_receipt_share_message($company, $thisPayment);
     return 'https://wa.me/?text=' . rawurlencode($text);
+}
+
+function payment_receipt_preview_url(array $company, float $thisPayment = 0.0): string
+{
+    $url = payment_receipt_share_url($company) . '&og=1';
+    if ($thisPayment > 0.009) {
+        $url .= '&paid=' . rawurlencode((string) $thisPayment);
+    }
+    return $url;
+}
+
+function payment_receipt_preview_cache_path(array $company, float $thisPayment = 0.0): string
+{
+    $dir = ROOT_PATH . '/uploads/share-previews';
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0755, true);
+    }
+    $token = substr(payment_receipt_share_token($company), 0, 16);
+    $suffix = $thisPayment > 0.009 ? ('-' . preg_replace('/\D+/', '', (string) round($thisPayment * 100))) : '';
+    return $dir . '/pay-' . (int) ($company['id'] ?? 0) . '-' . $token . $suffix . '.jpg';
+}
+
+function payment_receipt_og_description(array $company, float $thisPayment = 0.0): string
+{
+    $currency = company_fee_currency($company);
+    $bits = [
+        payment_receipt_ref($company),
+        (string) ($company['name'] ?? ''),
+        payment_receipt_period_label($company),
+    ];
+    if ($thisPayment > 0.009) {
+        $bits[] = 'Paid now ' . money($thisPayment, $currency);
+    }
+    $bits[] = 'Paid ' . money(company_fee_paid($company), $currency);
+    $bits[] = 'Balance ' . money(company_fee_balance($company), $currency);
+    return implode(' · ', array_filter($bits, static fn ($b) => trim((string) $b) !== '' && trim((string) $b) !== '-'));
+}
+
+/** Echo Open Graph tags so WhatsApp previews the receipt table, not the product mark. */
+function payment_receipt_og_meta(array $company, float $thisPayment = 0.0): void
+{
+    $title = 'Payment receipt · ' . (string) ($company['name'] ?? product_name());
+    $desc = payment_receipt_og_description($company, $thisPayment);
+    $url = payment_receipt_share_url($company);
+    if ($thisPayment > 0.009) {
+        $url .= (str_contains($url, '?') ? '&' : '?') . 'paid=' . rawurlencode((string) $thisPayment);
+    }
+    $img = payment_receipt_preview_url($company, $thisPayment);
+    echo '<meta name="description" content="' . h($desc) . '">' . "\n";
+    echo '<meta property="og:site_name" content="' . h(product_name()) . '">' . "\n";
+    echo '<meta property="og:title" content="' . h($title) . '">' . "\n";
+    echo '<meta property="og:description" content="' . h($desc) . '">' . "\n";
+    echo '<meta property="og:type" content="article">' . "\n";
+    echo '<meta property="og:url" content="' . h($url) . '">' . "\n";
+    echo '<meta property="og:image" content="' . h($img) . '">' . "\n";
+    echo '<meta property="og:image:type" content="image/jpeg">' . "\n";
+    echo '<meta property="og:image:width" content="1200">' . "\n";
+    echo '<meta property="og:image:height" content="630">' . "\n";
+    echo '<meta name="twitter:card" content="summary_large_image">' . "\n";
+    echo '<meta name="twitter:title" content="' . h($title) . '">' . "\n";
+    echo '<meta name="twitter:description" content="' . h($desc) . '">' . "\n";
+    echo '<meta name="twitter:image" content="' . h($img) . '">' . "\n";
+}
+
+function payment_receipt_preview_font(string $weight = 'regular'): string
+{
+    $bold = ROOT_PATH . '/assets/fonts/Montserrat-Bold.ttf';
+    $reg = ROOT_PATH . '/assets/fonts/Montserrat-Regular.ttf';
+    if ($weight === 'bold' && is_file($bold)) {
+        return $bold;
+    }
+    if (is_file($reg)) {
+        return $reg;
+    }
+    if (is_file('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf')) {
+        return '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';
+    }
+    return '';
+}
+
+function payment_receipt_preview_draw_text($im, float $size, int $x, int $y, string $text, $color, string $weight = 'regular'): void
+{
+    $font = payment_receipt_preview_font($weight);
+    if ($font !== '' && function_exists('imagettftext')) {
+        imagettftext($im, $size, 0, $x, $y, $color, $font, $text);
+        return;
+    }
+    imagestring($im, 5, $x, max(0, $y - 14), substr($text, 0, 70), $color);
+}
+
+/** Build a 1200×630 JPEG of the receipt table for WhatsApp / Open Graph. */
+function payment_receipt_preview_card_bytes(array $company, float $thisPayment = 0.0): string
+{
+    if (!function_exists('imagecreatetruecolor')) {
+        return '';
+    }
+    $w = 1200;
+    $h = 630;
+    $im = imagecreatetruecolor($w, $h);
+    if ($im === false) {
+        return '';
+    }
+    $white = imagecolorallocate($im, 255, 255, 255);
+    $ink = imagecolorallocate($im, 8, 20, 58);
+    $muted = imagecolorallocate($im, 91, 100, 120);
+    $brand = imagecolorallocate($im, 30, 78, 255);
+    $line = imagecolorallocate($im, 215, 220, 232);
+    $stripe = imagecolorallocate($im, 246, 248, 252);
+    $deep = imagecolorallocate($im, 8, 20, 58);
+    imagefilledrectangle($im, 0, 0, $w, $h, $white);
+    imagefilledrectangle($im, 0, 0, $w, 14, $brand);
+    imagefilledrectangle($im, 0, $h - 14, $w, $h, $deep);
+
+    $iconPath = function_exists('product_favicon_file') ? product_favicon_file() : '';
+    if ($iconPath !== '' && is_file($iconPath)) {
+        $icon = @imagecreatefrompng($iconPath);
+        if ($icon !== false) {
+            imagecopyresampled($im, $icon, 56, 40, 0, 0, 56, 56, imagesx($icon), imagesy($icon));
+            imagedestroy($icon);
+        }
+    }
+
+    $name = (string) ($company['name'] ?? 'Company');
+    $ref = payment_receipt_ref($company);
+    $currency = company_fee_currency($company);
+    payment_receipt_preview_draw_text($im, 22, 132, 62, product_name(), $ink, 'bold');
+    payment_receipt_preview_draw_text($im, 13, 132, 90, 'PAYMENT RECEIPT', $muted, 'bold');
+    payment_receipt_preview_draw_text($im, 12, 56, 130, $ref, $brand, 'bold');
+    payment_receipt_preview_draw_text($im, 28, 56, 172, mb_substr($name, 0, 48), $ink, 'bold');
+
+    $rows = [
+        ['Period', payment_receipt_period_label($company)],
+    ];
+    if ($thisPayment > 0.009) {
+        $rows[] = ['This payment', money($thisPayment, $currency)];
+    }
+    $rows[] = ['Amount paid', money(company_fee_paid($company), $currency)];
+    $rows[] = ['Fee for this term', money(company_fee_amount($company), $currency)];
+    $rows[] = ['Balance remaining', money(company_fee_balance($company), $currency)];
+    $rows[] = ['Account expires', format_date((string) ($company['expires_at'] ?? '')) ?: '-'];
+
+    $tableX = 56;
+    $tableY = 200;
+    $tableW = $w - 112;
+    $rowH = 52;
+    $tableH = count($rows) * $rowH;
+    imagerectangle($im, $tableX, $tableY, $tableX + $tableW, $tableY + $tableH, $ink);
+    foreach ($rows as $i => $row) {
+        $y0 = $tableY + ($i * $rowH);
+        if ($i % 2 === 0) {
+            imagefilledrectangle($im, $tableX + 1, $y0 + 1, $tableX + $tableW - 1, $y0 + $rowH - 1, $stripe);
+        }
+        if ($i > 0) {
+            imageline($im, $tableX, $y0, $tableX + $tableW, $y0, $line);
+        }
+        imageline($im, $tableX + (int) ($tableW * 0.38), $y0, $tableX + (int) ($tableW * 0.38), $y0 + $rowH, $line);
+        payment_receipt_preview_draw_text($im, 14, $tableX + 22, $y0 + 33, strtoupper($row[0]), $muted, 'bold');
+        payment_receipt_preview_draw_text($im, 18, $tableX + (int) ($tableW * 0.38) + 22, $y0 + 34, mb_substr($row[1], 0, 42), $ink, 'bold');
+    }
+
+    ob_start();
+    imagejpeg($im, null, 88);
+    imagedestroy($im);
+    return (string) ob_get_clean();
+}
+
+function payment_receipt_ensure_preview(array $company, float $thisPayment = 0.0): string
+{
+    $path = payment_receipt_preview_cache_path($company, $thisPayment);
+    $paid = number_format(company_fee_paid($company), 2, '.', '');
+    $stamp = $paid . '|' . (string) ($company['paid_from'] ?? '') . '|' . (string) ($company['expires_at'] ?? '') . '|' . (string) $thisPayment;
+    if (is_file($path) && filesize($path) > 400) {
+        $meta = @file_get_contents($path . '.meta');
+        if ($meta !== false && hash_equals(trim($meta), hash('sha256', $stamp))) {
+            return $path;
+        }
+    }
+    $bytes = payment_receipt_preview_card_bytes($company, $thisPayment);
+    if ($bytes === '') {
+        return '';
+    }
+    @file_put_contents($path, $bytes);
+    @file_put_contents($path . '.meta', hash('sha256', $stamp));
+    return (is_file($path) && filesize($path) > 400) ? $path : '';
+}
+
+function payment_receipt_send_preview(array $company, float $thisPayment = 0.0): void
+{
+    $path = payment_receipt_ensure_preview($company, $thisPayment);
+    if ($path === '' || !is_file($path)) {
+        http_response_code(404);
+        exit;
+    }
+    header('Content-Type: image/jpeg');
+    header('Content-Length: ' . (string) filesize($path));
+    header('Cache-Control: public, max-age=3600');
+    header('X-Content-Type-Options: nosniff');
+    readfile($path);
+    exit;
 }
 
 function company_notice_phone(int $companyId, array $brand = [], array $members = []): string
