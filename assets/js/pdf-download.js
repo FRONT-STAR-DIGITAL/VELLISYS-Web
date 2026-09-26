@@ -1,15 +1,14 @@
 /**
- * Instant PDF of the exact branded desk sheet (same design as on view).
+ * Instant PDF of the exact branded desk sheet (same design as on-view preview).
  *
- * 1) Fetch document_download.php as a blob when the server can print it.
- * 2) Otherwise open the unfitted sheet autodownload and capture with html2pdf.
+ * Desk PDF controls always open document_sheet.php?autodownload=1 — one path
+ * every time, so refresh never switches to a differently styled server cache.
  *
- * Capture rules: use .invoice-sheet only, collapse screen min-height (297mm),
- * avoid blank second pages, keep A4 (thermal = roll width).
+ * Capture mutates ONLY the html2canvas clone (never the live page), so the
+ * sheet does not flash / restyle before the file is saved.
  */
 (function () {
   var html2pdfLoading = null;
-  var warmed = {};
   var busy = false;
 
   function loadHtml2Pdf() {
@@ -38,15 +37,25 @@
   }
 
   function exactSheetRoot() {
-    // Always the sheet article — never .sheet-stage (padding/fit height → blank page 2).
     return document.querySelector('.invoice-sheet') || document.querySelector('.sheet-stage');
   }
 
-  /** Collapse screen-only A4 min-height so capture matches print (no empty footer page). */
-  function prepareSheetForCapture(sheet) {
-    var nodes = document.querySelectorAll('.invoice-sheet');
-    for (var i = 0; i < nodes.length; i++) {
-      var n = nodes[i];
+  function prepareCloneForCapture(clonedDoc) {
+    var cloned = clonedDoc.querySelector('.invoice-sheet') || clonedDoc.querySelector('.sheet-stage');
+    if (!cloned) return null;
+
+    var stage = clonedDoc.querySelector('.sheet-stage');
+    if (stage) {
+      stage.style.height = 'auto';
+      stage.style.minHeight = '0';
+      stage.style.padding = '0';
+      stage.style.margin = '0';
+      stage.style.overflow = 'visible';
+    }
+
+    var sheets = clonedDoc.querySelectorAll('.invoice-sheet');
+    for (var i = 0; i < sheets.length; i++) {
+      var n = sheets[i];
       n.style.transform = 'none';
       n.style.zoom = '1';
       n.style.marginLeft = '0';
@@ -56,43 +65,31 @@
       n.style.pageBreakAfter = 'avoid';
       n.style.breakAfter = 'avoid';
     }
-    var stage = document.querySelector('.sheet-stage');
-    if (stage) {
-      stage.style.height = 'auto';
-      stage.style.minHeight = '0';
-      stage.style.overflow = 'visible';
-      stage.style.padding = '0';
-      stage.style.margin = '0';
-    }
-    var stretch = document.querySelectorAll(
+
+    var stretch = clonedDoc.querySelectorAll(
       '.sheet-frame .page-frame, .sheet-inset .page-inset, .booklet-page, .chit-page'
     );
     for (var s = 0; s < stretch.length; s++) {
       stretch[s].style.minHeight = '0';
       stretch[s].style.height = 'auto';
     }
-    var auths = document.querySelectorAll('.doc-authenticity');
+
+    var auths = clonedDoc.querySelectorAll('.doc-authenticity');
     for (var a = 0; a < auths.length; a++) {
       auths[a].style.marginTop = '14px';
     }
-    if (sheet) {
-      sheet.style.height = 'auto';
-      sheet.style.minHeight = '0';
-    }
-  }
 
-  /** Resolve CSS variables / color-mix into concrete paints (skip clip-path corners). */
-  function flattenPaintStyles(root) {
-    if (!root) return;
-    var nodes = [root].concat(Array.prototype.slice.call(root.querySelectorAll('*')));
-    for (var i = 0; i < nodes.length; i++) {
-      var el = nodes[i];
+    // Flatten paints on the CLONE only (live preview stays untouched).
+    var nodes = [cloned].concat(Array.prototype.slice.call(cloned.querySelectorAll('*')));
+    for (var j = 0; j < nodes.length; j++) {
+      var el = nodes[j];
       if (!el || el.nodeType !== 1) continue;
-      // clip-path corners must keep their own background; flattening breaks them.
       if (el.classList && (el.classList.contains('bill-corner') || el.classList.contains('d-watermark'))) {
         continue;
       }
-      var cs = window.getComputedStyle(el);
+      var cs = clonedDoc.defaultView
+        ? clonedDoc.defaultView.getComputedStyle(el)
+        : window.getComputedStyle(el);
       if (!cs) continue;
       if (cs.clipPath && cs.clipPath !== 'none') continue;
       el.style.setProperty('-webkit-print-color-adjust', 'exact', 'important');
@@ -106,6 +103,8 @@
       if (cs.borderBottomColor) el.style.borderBottomColor = cs.borderBottomColor;
       if (cs.borderLeftColor) el.style.borderLeftColor = cs.borderLeftColor;
     }
+
+    return cloned;
   }
 
   function waitAssets() {
@@ -124,15 +123,11 @@
     var sheet = exactSheetRoot();
     if (!sheet) return Promise.reject(new Error('sheet'));
     return waitAssets().then(function () {
-      prepareSheetForCapture(sheet);
-      // Re-measure after collapsing min-height.
-      void sheet.offsetHeight;
-      flattenPaintStyles(sheet);
       return loadHtml2Pdf().then(function (html2pdf) {
         var thermal = !!(document.body && document.body.classList.contains('print-thermal'));
+        // Measure the live (unmutated) sheet — document_sheet already collapses min-height in CSS.
         var w = Math.max(sheet.scrollWidth || 0, sheet.offsetWidth || 0, thermal ? 302 : 794);
         var h = Math.max(sheet.scrollHeight || 0, sheet.offsetHeight || 0, 1);
-        // A4 height at 96dpi ≈ 1123px. If we fit, force one page (no blank page 2).
         var a4px = 1123;
         var fitsOne = !thermal && h <= a4px + 8;
         return html2pdf().set({
@@ -152,26 +147,7 @@
             scrollX: 0,
             scrollY: 0,
             onclone: function (clonedDoc) {
-              var cloned = clonedDoc.querySelector('.invoice-sheet') || clonedDoc.querySelector('.sheet-stage');
-              if (!cloned) return;
-              cloned.style.minHeight = '0';
-              cloned.style.height = 'auto';
-              cloned.style.transform = 'none';
-              cloned.style.boxShadow = 'none';
-              var stage = clonedDoc.querySelector('.sheet-stage');
-              if (stage) {
-                stage.style.height = 'auto';
-                stage.style.minHeight = '0';
-                stage.style.padding = '0';
-                stage.style.margin = '0';
-              }
-              var stretch = clonedDoc.querySelectorAll(
-                '.sheet-frame .page-frame, .sheet-inset .page-inset, .booklet-page, .chit-page'
-              );
-              for (var i = 0; i < stretch.length; i++) {
-                stretch[i].style.minHeight = '0';
-                stretch[i].style.height = 'auto';
-              }
+              prepareCloneForCapture(clonedDoc);
             },
           },
           jsPDF: {
@@ -181,114 +157,62 @@
               : 'a4',
             orientation: 'portrait',
           },
-          // avoid-all prevents html2pdf from inventing a blank trailing page.
           pagebreak: { mode: fitsOne || thermal ? ['avoid-all'] : ['css', 'legacy'] },
         }).from(sheet).save();
       });
     });
   }
 
-  function triggerBlobDownload(blob, filename) {
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = filename || 'document.pdf';
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(function () {
-      URL.revokeObjectURL(url);
-      a.remove();
-    }, 1500);
-  }
-
-  function sheetFallbackUrl(a) {
+  function sheetUrlFromLink(a) {
     var sheet = a.getAttribute('data-sheet-url');
     if (sheet) return sheet;
     var id = a.getAttribute('data-doc-id');
     if (id) return 'document_sheet.php?id=' + encodeURIComponent(id) + '&autodownload=1';
-    return a.href;
-  }
-
-  function fetchServerPdf(url, filename) {
-    return fetch(url, {
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { Accept: 'application/pdf', 'X-Requested-With': 'XMLHttpRequest' },
-      redirect: 'follow',
-    }).then(function (res) {
-      var type = (res.headers.get('content-type') || '').toLowerCase();
-      if (!res.ok || type.indexOf('pdf') === -1) {
-        throw new Error('not-pdf');
-      }
-      return res.arrayBuffer();
-    }).then(function (buf) {
-      var head = new Uint8Array(buf.slice(0, 4));
-      var isPdf = head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46;
-      if (!isPdf) throw new Error('not-pdf');
-      triggerBlobDownload(new Blob([buf], { type: 'application/pdf' }), filename);
-    });
-  }
-
-  function warmServer(id) {
-    if (!id || warmed[id]) return;
-    warmed[id] = true;
-    try {
-      fetch('document_download.php?id=' + encodeURIComponent(String(id)) + '&warm=1', {
-        credentials: 'same-origin',
-        cache: 'no-store',
-        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-      }).catch(function () {});
-    } catch (e) {}
+    return a.getAttribute('href') || a.href;
   }
 
   document.addEventListener('click', function (e) {
     var a = e.target && e.target.closest ? e.target.closest('a[data-pdf-download]') : null;
     if (!a) return;
-    e.preventDefault();
-    e.stopPropagation();
-    if (busy) return;
 
-    var name = a.getAttribute('data-pdf-name') || 'document.pdf';
-    var exact = document.body && document.body.getAttribute('data-pdf-exact') === '1';
-
-    if (exact || document.body.getAttribute('data-autodownload') === '1') {
+    // Autodownload / exact sheet page: capture here (clone-only mutations).
+    var onExact = document.body
+      && (document.body.getAttribute('data-pdf-exact') === '1'
+        || document.body.getAttribute('data-autodownload') === '1');
+    if (onExact) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (busy) return;
       busy = true;
+      var name = a.getAttribute('data-pdf-name') || document.body.getAttribute('data-pdf-name') || 'document.pdf';
       saveExactSheet(name).finally(function () { busy = false; });
       return;
     }
 
-    busy = true;
-    fetchServerPdf(a.href, name).then(function () {
-      busy = false;
-    }).catch(function () {
-      busy = false;
-      window.location.href = sheetFallbackUrl(a);
-    });
+    // Everywhere else: always open the same unfitted sheet autodownload page.
+    // Do not fetch a server/cache PDF — that path looked different after refresh.
+    e.preventDefault();
+    e.stopPropagation();
+    window.location.href = sheetUrlFromLink(a);
   }, true);
 
+  // Autodownload: wait for paint, then capture without touching the live DOM.
   if (document.body && document.body.getAttribute('data-autodownload') === '1') {
     var autoName = document.body.getAttribute('data-pdf-name') || 'document.pdf';
     function runAuto() {
+      if (busy) return;
+      busy = true;
       saveExactSheet(autoName).then(function () {
         setTimeout(function () {
           if (window.history.length > 1) window.history.back();
         }, 400);
       }).catch(function () {
         document.title = 'Download failed';
+      }).finally(function () {
+        busy = false;
       });
     }
-    if (document.readyState === 'complete') setTimeout(runAuto, 60);
-    else window.addEventListener('load', function () { setTimeout(runAuto, 60); });
-  }
-
-  var link = document.querySelector('a[data-pdf-download][data-doc-id]');
-  var id = link ? parseInt(link.getAttribute('data-doc-id') || '0', 10) : 0;
-  if (id && document.querySelector('.invoice-sheet') && !(document.body && document.body.getAttribute('data-autodownload'))) {
-    if (window.requestIdleCallback) {
-      window.requestIdleCallback(function () { warmServer(id); }, { timeout: 2500 });
-    } else {
-      setTimeout(function () { warmServer(id); }, 800);
-    }
+    if (document.readyState === 'complete') setTimeout(runAuto, 80);
+    else window.addEventListener('load', function () { setTimeout(runAuto, 80); });
   }
 })();

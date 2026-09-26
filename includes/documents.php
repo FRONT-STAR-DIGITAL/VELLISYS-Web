@@ -2585,7 +2585,7 @@ function render_make_payment_button(array $doc, bool $labeled = false): void
     <?php
 }
 
-/** Labeled PDF download control — exact branded sheet (server PDF or unfitted sheet capture). */
+/** PDF control — always the unfitted sheet autodownload (same design every click/refresh). */
 function render_pdf_download_link(array $doc, string $class = 'btn ghost sm', bool $showLabel = true): void
 {
     $id = (int) ($doc['id'] ?? 0);
@@ -2593,15 +2593,16 @@ function render_pdf_download_link(array $doc, string $class = 'btn ghost sm', bo
         return;
     }
     $name = document_download_filename($doc);
-    // No HTML download= attribute: a redirect to the sheet page would be saved as a fake .pdf.
+    $sheet = url('document_sheet.php?id=' . $id . '&autodownload=1');
+    // href is the sheet capture page — never a separately-cached server PDF that can diverge.
     ?>
         <a
           class="<?= h($class) ?>"
-          href="<?= h(url('document_download.php?id=' . $id)) ?>"
+          href="<?= h($sheet) ?>"
           data-pdf-download
           data-doc-id="<?= $id ?>"
           data-pdf-name="<?= h($name) ?>"
-          data-sheet-url="<?= h(url('document_sheet.php?id=' . $id . '&autodownload=1')) ?>"
+          data-sheet-url="<?= h($sheet) ?>"
           title="Download PDF"
           aria-label="Download PDF"
         ><?= icon('pdf', 15) ?><?php if ($showLabel): ?> PDF<?php endif; ?></a>

@@ -132,7 +132,7 @@ $fitOff = $asSheet || $auto;
     <div class="share-toolbar">
       <a
         class="btn ghost sm"
-        href="<?= h(url('share.php?id=' . $id . '&t=' . $token . '&download=1')) ?>"
+        href="<?= h(url('share.php?id=' . $id . '&t=' . $token . '&autodownload=1')) ?>"
         data-pdf-download
         data-doc-id="<?= $id ?>"
         data-pdf-name="<?= h($pdfName) ?>"
