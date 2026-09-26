@@ -885,7 +885,7 @@ function render_sheet_bill(array $d, string $variant): void
     <?php render_letter_subject($doc); ?>
     <?php render_letter_body($doc); ?>
   <?php else: ?>
-    <?php render_line_table($doc, $primary, $variant === 'amber' ? $d['accent_tint'] : $d['tint'], ['serial' => true, 'class' => 'bill-lines']); ?>
+    <?php render_line_table($doc, $primary, $variant === 'amber' ? $d['accent_tint'] : $d['tint'], ['serial' => true, 'class' => 'bill-lines', 'min' => 2]); ?>
     <?php if (sheet_shows_money($d)): ?>
     <div class="bill-foot">
       <div class="bill-words"><span>In words</span><b><?= h(amount_in_words(sheet_words_amount($d), $d['cur'])) ?></b></div>
