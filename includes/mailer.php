@@ -1241,11 +1241,9 @@ function payment_receipt_share_message(array $company, float $thisPayment = 0.0)
 
 function payment_receipt_whatsapp_url(array $company, string $phone = '', float $thisPayment = 0.0): string
 {
+    // Never prefill a recipient — open WhatsApp so the admin picks the contact.
+    unset($phone);
     $text = payment_receipt_share_message($company, $thisPayment);
-    $digits = phone_digits($phone);
-    if ($digits !== '') {
-        return phone_whatsapp_href($phone, $text);
-    }
     return 'https://wa.me/?text=' . rawurlencode($text);
 }
 

@@ -14,8 +14,6 @@ $thisPayment = max(0, (float) ($_GET['paid'] ?? 0));
 $brand = branding_for($id) ?: [];
 $members = db_all('SELECT id, name, email, phone FROM users WHERE company_id = ? ORDER BY id', 'i', [$id]);
 $contact = company_notice_email($id, $brand, $members);
-$phone = company_notice_phone($id, $brand, $members);
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
     $action = (string) post('action');
@@ -35,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $canPreview = (bool) company_expires_on($company);
 $copy = $canPreview ? payment_receipt_copy($company, $contact, $members, $thisPayment) : null;
 $shareUrl = $canPreview ? payment_receipt_share_url($company) : '';
-$waUrl = $canPreview ? payment_receipt_whatsapp_url($company, $phone, $thisPayment) : '';
+$waUrl = $canPreview ? payment_receipt_whatsapp_url($company, '', $thisPayment) : '';
 
 layout_admin_start('Payment receipt', $user);
 ?>
@@ -84,8 +82,8 @@ layout_admin_start('Payment receipt', $user);
         </form>
       </div>
       <p class="hint" style="margin:12px 0 0">
-        WhatsApp opens with period, amount paid and balance. Link goes to <?= h($contact['email'] !== '' ? $contact['email'] : 'the company contact') ?>
-        <?= $phone !== '' ? ' · phone ' . h($phone) : ' · add a phone on stationery to prefill the chat' ?>.
+        WhatsApp opens with the receipt text (period, amount paid, balance and link). Pick the company contact in WhatsApp yourself.
+        Email still goes to <?= h($contact['email'] !== '' ? $contact['email'] : 'the company email on file') ?>.
       </p>
     </div>
   </div>

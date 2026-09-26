@@ -863,7 +863,7 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
       <button class="btn ghost" type="submit" name="send_receipt" value="1"><?= icon('receipt', 16) ?>Save and send receipt</button>
       <?php if ($receiptPreview): ?>
         <a class="btn ghost" href="<?= h(url('admin_payment_receipt.php?id=' . $id)) ?>"><?= icon('eye', 16) ?>Preview receipt</a>
-        <a class="btn ghost" href="<?= h(payment_receipt_whatsapp_url($company, company_notice_phone($id, $brand ?: [], $members))) ?>" target="_blank" rel="noopener"><?= icon('whatsapp', 16) ?>WhatsApp</a>
+        <a class="btn ghost" href="<?= h(payment_receipt_whatsapp_url($company)) ?>" target="_blank" rel="noopener"><?= icon('whatsapp', 16) ?>WhatsApp</a>
       <?php endif; ?>
       <a class="btn ghost" href="<?= h(url('admin_finances.php?pay=' . $id . '#make-payment')) ?>"><?= icon('bank', 16) ?>Make payment</a>
     </div>
