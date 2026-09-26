@@ -496,6 +496,154 @@ function sales_hours_total(?int $agentId, string $from, string $to): float
     return round($sum / 60, 2);
 }
 
+/** Distinct line colors for per-agent field-hours charts (stable by agent id). */
+function sales_agent_line_colors(): array
+{
+    return [
+        '#1E4EFF', '#0f766e', '#c4a35a', '#b42318', '#7c3aed',
+        '#0891b2', '#ea580c', '#16a34a', '#db2777', '#475569',
+        '#0369a1', '#a16207', '#be123c', '#4338ca', '#15803d',
+        '#c2410c', '#0e7490', '#9333ea', '#b45309', '#1d4ed8',
+    ];
+}
+
+function sales_agent_line_color(int $agentId, int $index = 0): string
+{
+    $palette = sales_agent_line_colors();
+    $n = count($palette);
+    if ($n < 1) {
+        return '#1E4EFF';
+    }
+    $pick = $agentId > 0 ? ($agentId % $n) : ($index % $n);
+    return $palette[$pick];
+}
+
+/**
+ * Daily field hours broken out per sales agent for multi-line charts.
+ * Returns ['dates' => [...], 'labels' => [...], 'agents' => [[id,name,color,hours[],minutes[],total_hours], ...]].
+ */
+function sales_hours_series_by_agents(?int $agentId, string $from, string $to): array
+{
+    $dates = [];
+    foreach (sales_hours_series($agentId, $from, $to) as $row) {
+        $dates[] = (string) ($row['date'] ?? '');
+    }
+    $dates = array_values(array_filter($dates, static fn ($d) => $d !== ''));
+
+    $agents = [];
+    if ($agentId) {
+        $one = sales_agent($agentId);
+        if ($one) {
+            $agents = [$one];
+        }
+    } else {
+        $agents = sales_agents(false);
+    }
+
+    $where = 'c.day_date >= ? AND c.day_date <= ?';
+    $types = 'ss';
+    $params = [$from, $to];
+    if ($agentId) {
+        $where .= ' AND c.user_id = ?';
+        $types .= 'i';
+        $params[] = $agentId;
+    }
+
+    $rows = [];
+    try {
+        $rows = db_all(
+            "SELECT c.user_id, c.day_date, c.clocked_at, c.clocked_out_at, c.minutes_accrued,
+                    CASE WHEN c.clocked_out_at IS NULL
+                         THEN GREATEST(0, TIMESTAMPDIFF(MINUTE, c.clocked_at, NOW()))
+                         ELSE 0 END AS open_mins
+             FROM sales_clock_ins c
+             WHERE {$where}
+             ORDER BY c.day_date, c.user_id",
+            $types,
+            $params
+        );
+    } catch (Throwable $e) {
+        $rows = [];
+    }
+
+    $byAgentDay = [];
+    foreach ($rows as $r) {
+        $uid = (int) ($r['user_id'] ?? 0);
+        $d = (string) ($r['day_date'] ?? '');
+        if ($uid < 1 || $d === '') {
+            continue;
+        }
+        $byAgentDay[$uid][$d] = ($byAgentDay[$uid][$d] ?? 0) + sales_clock_minutes($r);
+    }
+
+    // Include agents who clocked in the range even if inactive / missing from list.
+    $knownIds = [];
+    foreach ($agents as $a) {
+        $knownIds[(int) $a['id']] = true;
+    }
+    foreach (array_keys($byAgentDay) as $uid) {
+        if (!isset($knownIds[$uid])) {
+            $extra = sales_agent((int) $uid);
+            if ($extra) {
+                $agents[] = $extra;
+                $knownIds[(int) $uid] = true;
+            }
+        }
+    }
+
+    $labels = array_map(static fn ($d) => date('j M', strtotime($d)), $dates);
+    $series = [];
+    $i = 0;
+    foreach ($agents as $a) {
+        $uid = (int) ($a['id'] ?? 0);
+        if ($uid < 1) {
+            continue;
+        }
+        $hours = [];
+        $minutes = [];
+        $totalMins = 0;
+        foreach ($dates as $d) {
+            $mins = (int) ($byAgentDay[$uid][$d] ?? 0);
+            $minutes[] = $mins;
+            $hours[] = round($mins / 60, 2);
+            $totalMins += $mins;
+        }
+        // Skip agents with zero hours when showing the full team (keeps the chart readable).
+        if (!$agentId && $totalMins <= 0 && count($agents) > 8) {
+            $i++;
+            continue;
+        }
+        $series[] = [
+            'id' => $uid,
+            'name' => trim((string) ($a['name'] ?? '')) ?: ('Agent #' . $uid),
+            'color' => sales_agent_line_color($uid, $i),
+            'hours' => $hours,
+            'minutes' => $minutes,
+            'total_hours' => round($totalMins / 60, 2),
+        ];
+        $i++;
+    }
+
+    // Prefer agents who actually worked; still keep zeros when few agents.
+    if (!$agentId && count($series) > 12) {
+        $worked = array_values(array_filter($series, static fn ($s) => ($s['total_hours'] ?? 0) > 0));
+        if ($worked) {
+            $series = $worked;
+        }
+    }
+
+    usort($series, static function ($a, $b) {
+        $cmp = ($b['total_hours'] <=> $a['total_hours']);
+        return $cmp !== 0 ? $cmp : strcasecmp((string) $a['name'], (string) $b['name']);
+    });
+
+    return [
+        'dates' => $dates,
+        'labels' => $labels,
+        'agents' => $series,
+    ];
+}
+
 function sales_lead(int $id): ?array
 {
     return db_one('SELECT l.*, u.name AS agent_name, u.email AS agent_email

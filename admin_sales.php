@@ -164,6 +164,7 @@ $filterAgent = (int) ($_GET['agent_filter'] ?? 0);
 $overall = sales_stats($filterAgent ?: null, $from, $to);
 $series = sales_series($filterAgent ?: null, $from, $to);
 $hoursSeries = sales_hours_series($filterAgent ?: null, $from, $to);
+$hoursByAgent = sales_hours_series_by_agents($filterAgent ?: null, $from, $to);
 $hoursTotal = sales_hours_total($filterAgent ?: null, $from, $to);
 $top = sales_top_agents($from, $to);
 $dailyBoard = sales_agents_daily_progress();
@@ -303,7 +304,8 @@ layout_admin_start('Sales', $user);
     <h2><?= icon('clock', 16) ?>Field hours over time</h2>
     <span class="muted"><?= h(sales_format_hours($hoursTotal)) ?> total</span>
   </div>
-  <div class="pad-form" style="height:240px"><canvas id="admin-hours"></canvas></div>
+  <p class="hint" style="margin:0 16px 0">Clock-in / clock-out hours per sales agent — each line is one agent.</p>
+  <div class="pad-form" style="height:<?= count($hoursByAgent['agents'] ?? []) > 4 ? '320' : '280' ?>px"><canvas id="admin-hours"></canvas></div>
 </div>
 <?php sales_render_rejection_report($rejectionReport, ['title' => 'Rejections by reason']); ?>
 <div class="card">
@@ -327,18 +329,44 @@ layout_admin_start('Sales', $user);
   </div>
 </div>
 <?php
+$hourAgentDatasets = [];
+foreach (($hoursByAgent['agents'] ?? []) as $agentSeries) {
+    $hourAgentDatasets[] = [
+        'label' => (string) ($agentSeries['name'] ?? 'Agent'),
+        'data' => array_map('floatval', $agentSeries['hours'] ?? []),
+        'borderColor' => (string) ($agentSeries['color'] ?? brand_color()),
+        'backgroundColor' => 'transparent',
+        'tension' => 0.3,
+        'fill' => false,
+        'pointRadius' => 3,
+        'pointHoverRadius' => 5,
+        'borderWidth' => 2,
+    ];
+}
+if (!$hourAgentDatasets) {
+    $hourAgentDatasets[] = [
+        'label' => 'Hours in field',
+        'data' => array_map(static fn ($r) => (float) $r['hours'], $hoursSeries),
+        'borderColor' => brand_color(),
+        'backgroundColor' => brand_color() . '33',
+        'tension' => 0.35,
+        'fill' => true,
+        'pointRadius' => 3,
+        'borderWidth' => 2,
+    ];
+}
 $payload = json_encode([
     'pieLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded'],
     'pieValues' => [(int) $overall['interested'], (int) $overall['follow_up'], (int) $overall['rejected'], (int) $overall['onboarded']],
     'labels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $series),
     'reach' => array_column($series, 'reach'),
     'wins' => array_map(static fn ($r) => (int) $r['interested'] + (int) $r['onboarded'], $series),
-    'hourLabels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $hoursSeries),
-    'hours' => array_map(static fn ($r) => (float) $r['hours'], $hoursSeries),
+    'hourLabels' => $hoursByAgent['labels'] ?? array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $hoursSeries),
+    'hourDatasets' => $hourAgentDatasets,
     'color' => brand_color(),
 ], JSON_UNESCAPED_UNICODE);
 layout_end('<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script defer>
-(function(){function go(){if(!window.Chart){setTimeout(go,40);return;}var d=' . $payload . ';var p=document.getElementById("admin-pie");if(p)new Chart(p,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"}},maintainAspectRatio:false}});var l=document.getElementById("admin-line");if(l)new Chart(l,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Sales",data:d.wins,borderColor:"#0f766e",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"}},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});var h=document.getElementById("admin-hours");if(h)new Chart(h,{type:"line",data:{labels:d.hourLabels,datasets:[{label:"Hours in field",data:d.hours,borderColor:d.color,backgroundColor:d.color+"33",tension:.35,fill:true,pointRadius:3}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,title:{display:true,text:"Hours"}}},maintainAspectRatio:false}});}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",go);else go();})();
+(function(){function go(){if(!window.Chart){setTimeout(go,40);return;}var d=' . $payload . ';var p=document.getElementById("admin-pie");if(p)new Chart(p,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"}},maintainAspectRatio:false}});var l=document.getElementById("admin-line");if(l)new Chart(l,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Sales",data:d.wins,borderColor:"#0f766e",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"}},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});var h=document.getElementById("admin-hours");if(h)new Chart(h,{type:"line",data:{labels:d.hourLabels,datasets:d.hourDatasets||[]},options:{interaction:{mode:"nearest",axis:"x",intersect:false},plugins:{legend:{display:true,position:"bottom",labels:{boxWidth:12,usePointStyle:true,pointStyle:"circle"}}},scales:{y:{beginAtZero:true,title:{display:true,text:"Hours"}}},maintainAspectRatio:false}});}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",go);else go();})();
 </script>');
 return;
 endif;
