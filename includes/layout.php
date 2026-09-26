@@ -726,9 +726,10 @@ function layout_end(string $extra = ''): void
 </script>
 <?php endif; ?>
 <?php
-$sheetJs = in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['document_view.php', 'document_new.php', 'document_action.php', 'share.php', 'document_download.php', 'document_pdf.php'], true);
+$sheetJs = in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['document_view.php', 'document_new.php', 'document_action.php', 'share.php', 'document_download.php', 'document_pdf.php', 'documents.php'], true);
 if ($sheetJs): ?>
 <script src="<?= h(asset('js/sheet-fit.js')) ?>"></script>
+<script src="<?= h(asset('js/pdf-download.js')) ?>" defer data-pdf-bundle="<?= h(asset('js/pdf/vellisys-pdf.js')) ?>"></script>
 <?php endif; ?>
 <?php if (!$admin && function_exists('render_desk_welcome_pop')) {
     render_desk_welcome_pop(current_user() ?: []);

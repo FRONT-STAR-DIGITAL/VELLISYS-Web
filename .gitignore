@@ -10,6 +10,10 @@ Thumbs.db
 .env.*
 vellisys.db
 
+# Node (PDF client bundle sources live in src/; built file is committed)
+node_modules/
+npm-debug.log*
+
 # Editor
 *.swp
 .idea/

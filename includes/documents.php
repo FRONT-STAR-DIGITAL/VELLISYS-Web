@@ -631,6 +631,129 @@ function document_share_url(array $doc): string
     return absolute_url('share.php?id=' . (int) $doc['id'] . '&t=' . document_share_token($doc));
 }
 
+/** Turn a desk-relative URL into an absolute https URL for PDF / OG assets. */
+function document_absolute_media_url(string $href): string
+{
+    $href = trim($href);
+    if ($href === '') {
+        return '';
+    }
+    if (preg_match('#^https?://#i', $href) || str_starts_with($href, 'data:')) {
+        return $href;
+    }
+    $path = (string) (parse_url($href, PHP_URL_PATH) ?: $href);
+    $query = (string) (parse_url($href, PHP_URL_QUERY) ?: '');
+    $abs = absolute_url(ltrim($path, '/'));
+    return $query !== '' ? ($abs . (str_contains($abs, '?') ? '&' : '?') . $query) : $abs;
+}
+
+/**
+ * Full document JSON for client PDF generation (@react-pdf).
+ * Same fields the detail screen uses — never a thin list row.
+ */
+function document_full_payload(array $doc): array
+{
+    $brand = branding();
+    $meta = kind_meta((string) ($doc['kind'] ?? 'invoice'));
+    $totals = $doc['totals'] ?? document_totals($doc);
+    $vatRate = (float) ($doc['vat_rate'] ?? 0);
+    $currency = doc_currency($doc);
+    $lines = [];
+    foreach ($doc['items'] ?? [] as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $qty = (float) ($item['qty'] ?? 0);
+        $rate = (float) ($item['rate'] ?? 0);
+        $lineTotal = line_amount($item);
+        $taxed = !empty($item['taxed']);
+        $itemName = line_item_name($item);
+        $itemDesc = line_item_description($item);
+        $desc = $itemName;
+        if ($itemDesc !== '' && strcasecmp($itemDesc, $itemName) !== 0) {
+            $desc = $itemName !== '' ? ($itemName . ' — ' . $itemDesc) : $itemDesc;
+        }
+        $lines[] = [
+            'description' => $desc,
+            'itemName' => $itemName,
+            'itemDescription' => $itemDesc,
+            'quantity' => $qty,
+            'unit' => (string) ($item['unit'] ?? ''),
+            'unitPrice' => $rate,
+            'taxRate' => $taxed ? $vatRate : 0.0,
+            'taxable' => $taxed,
+            'lineTotal' => $lineTotal,
+        ];
+    }
+    $logo = document_absolute_media_url(logo_url($brand));
+    $signature = document_absolute_media_url(company_signature_url($brand));
+    $palette = brand_palette($brand);
+    $status = strtolower(trim((string) ($doc['status'] ?? '')));
+    $canExport = $status !== '' && $status !== 'void';
+    return [
+        'id' => (int) ($doc['id'] ?? 0),
+        'number' => (string) ($doc['number'] ?? ''),
+        'kind' => (string) ($doc['kind'] ?? 'invoice'),
+        'kindLabel' => (string) ($meta['singular'] ?? 'Document'),
+        'heading' => (string) ($meta['heading'] ?? 'DOCUMENT'),
+        'status' => $status,
+        'statusLabel' => invoice_status_label($doc),
+        'canExport' => $canExport,
+        'issueDate' => (string) ($doc['date'] ?? ''),
+        'dueDate' => (string) ($doc['due_date'] ?? ''),
+        'currency' => $currency,
+        'subtotal' => (float) ($totals['net'] ?? 0),
+        'taxTotal' => (float) ($totals['vat'] ?? 0),
+        'taxRate' => $vatRate,
+        'discount' => 0.0,
+        'total' => (float) ($totals['total'] ?? 0),
+        'amountPaid' => (float) ($doc['paid'] ?? 0),
+        'balanceDue' => (float) ($doc['balance'] ?? 0),
+        'notes' => (string) ($doc['notes'] ?? ''),
+        'terms' => (string) ($doc['terms'] ?? ''),
+        'subject' => (string) ($doc['subject'] ?? ''),
+        'body' => (string) ($doc['body'] ?? ''),
+        'verifyToken' => document_share_token($doc),
+        'verifyUrl' => document_verify_url($doc),
+        'shareUrl' => document_share_url($doc),
+        'client' => [
+            'name' => (string) ($doc['party_name'] ?? ''),
+            'email' => (string) ($doc['party_email'] ?? ''),
+            'phone' => (string) ($doc['party_phone'] ?? ''),
+            'address' => trim(implode("\n", array_filter([
+                (string) ($doc['party_address'] ?? ''),
+                (string) ($doc['party_city'] ?? ''),
+                (string) ($doc['party_country'] ?? ''),
+            ]))),
+            'tin' => (string) ($doc['party_tin'] ?? ''),
+            'contact' => (string) ($doc['party_contact'] ?? ''),
+        ],
+        'lines' => $lines,
+        'brand' => [
+            'name' => (string) ($brand['name'] ?? ''),
+            'tagline' => (string) ($brand['tagline'] ?? ''),
+            'address' => (string) ($brand['address'] ?? ''),
+            'city' => (string) ($brand['city'] ?? ''),
+            'phone' => (string) ($brand['phone'] ?? ''),
+            'email' => (string) ($brand['email'] ?? ''),
+            'tin' => (string) ($brand['tin'] ?? ''),
+            'website' => (string) ($brand['website'] ?? ''),
+            'logoUrl' => $logo,
+            'signatureUrl' => $signature,
+            'color' => (string) ($palette['primary'] ?? '#1E4EFF'),
+            'colorAccent' => (string) ($palette['accent'] ?? '#82B440'),
+            'colorDeep' => (string) ($palette['deep'] ?? '#08143A'),
+        ],
+        'createdBy' => [
+            'fullName' => (string) ($brand['name'] ?? ''),
+            'title' => 'Authorized by',
+            'signaturePath' => $signature,
+        ],
+        'approvedBy' => null,
+        'approvedAt' => null,
+    ];
+}
+
 /** Absolute URL for the WhatsApp / Open Graph preview image of a shared sheet. */
 function document_share_preview_url(array $doc): string
 {
@@ -1955,6 +2078,14 @@ function render_doc_actions(array $doc, bool $labeled = false): void
       <?php endif; ?>
       <a class="<?= $cls ?>" href="<?= h(url('document_view.php?id=' . $id . '&print=1')) ?>" title="Print" aria-label="Print"><?= icon('printer', 15) ?><?php if ($labeled): ?> Print<?php endif; ?></a>
       <?php if (!$void): ?>
+        <button
+          type="button"
+          class="<?= $cls ?>"
+          data-pdf-download
+          data-doc-id="<?= $id ?>"
+          title="Download PDF"
+          aria-label="Download PDF"
+        ><?= icon('pdf', 15) ?><?php if ($labeled): ?> <span data-pdf-label>PDF</span><?php else: ?><span data-pdf-label class="sr-only">PDF</span><?php endif; ?></button>
         <details class="share-pop">
           <summary class="<?= $cls ?>" title="Share" aria-label="Share"><?= icon('share', 15) ?><?php if ($labeled): ?> Share<?php endif; ?></summary>
           <div class="share-pop-panel" role="menu">

@@ -2,7 +2,18 @@
 
 Branded books for companies anywhere in the world - quotations, invoices, receipts, expenses and headed letters in the company's own logo, colour and currency. One desk, everything included. Built for East Africa and used across Africa and worldwide.
 
-This is a **PHP + MySQL** desk meant to run on **XAMPP**. There is no Node or Next.js. Copy the folder, start Apache and MySQL, open the installer.
+This is a **PHP + MySQL** desk meant to run on **XAMPP**. Copy the folder, start Apache and MySQL, open the installer.
+
+### Instant PDF (client)
+
+Document **PDF** downloads use `@react-pdf/renderer` in the browser (full document JSON → A4 PDF blob). Sources live in `src/lib/pdf/`. Rebuild the committed bundle after changing them:
+
+```bash
+npm install
+npm run build:pdf
+```
+
+That writes `assets/js/pdf/vellisys-pdf.js`. The desk lazy-loads it only when someone clicks **PDF**.
 
 Open the **landing page** at the site root. Companies **register**. A Vellisys super admin sees the request, reaches out, and onboards the company.
 
