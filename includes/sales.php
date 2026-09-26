@@ -499,11 +499,20 @@ function sales_hours_total(?int $agentId, string $from, string $to): float
 /** Distinct line colors for per-agent field-hours charts (stable by agent id). */
 function sales_agent_line_colors(): array
 {
+    // High-contrast set: blue, green, purple, yellow, red, black — then clear extras.
     return [
-        '#1E4EFF', '#0f766e', '#c4a35a', '#b42318', '#7c3aed',
-        '#0891b2', '#ea580c', '#16a34a', '#db2777', '#475569',
-        '#0369a1', '#a16207', '#be123c', '#4338ca', '#15803d',
-        '#c2410c', '#0e7490', '#9333ea', '#b45309', '#1d4ed8',
+        '#1E4EFF', // blue
+        '#16a34a', // green
+        '#7c3aed', // purple
+        '#eab308', // yellow
+        '#dc2626', // red
+        '#0a0a0a', // black
+        '#0891b2', // cyan
+        '#ea580c', // orange
+        '#db2777', // pink
+        '#65a30d', // lime
+        '#4f46e5', // indigo
+        '#854d0e', // brown
     ];
 }
 
