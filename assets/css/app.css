@@ -130,6 +130,9 @@ summary {
   background-color: #f5f7fc;
   background-image: none;
   position: relative;
+  overflow: visible;
+  height: auto;
+  min-height: 100%;
 }
 .desk-body::before {
   content: "";
@@ -151,8 +154,11 @@ summary {
 .desk-body .app {
   position: relative;
   z-index: 1;
+  overflow: visible;
+  height: auto;
+  max-height: none;
 }
-.app { display: flex; min-height: 100vh; }
+.app { display: flex; min-height: 100vh; height: auto; max-height: none; }
 .nav {
   --rail: 72px;
   --open: 300px;
@@ -179,6 +185,9 @@ summary {
   max-width: calc(100% - 72px);
   min-width: 0;
   min-height: 100vh;
+  height: auto;
+  max-height: none;
+  overflow: visible;
   box-sizing: border-box;
 }
 .brand {
@@ -5635,9 +5644,10 @@ a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--lin
   pointer-events: auto;
 }
 .sales-lead-form {
-  overflow-x: clip;
+  overflow-x: visible;
   box-sizing: border-box;
   width: 100%;
+  max-width: 100%;
 }
 .sales-lead-form .form-grid > .full {
   grid-column: 1 / -1;
