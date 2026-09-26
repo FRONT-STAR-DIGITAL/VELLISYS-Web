@@ -1173,7 +1173,110 @@ function payment_receipt_waiting_credentials(array $company, array $members = []
     return true;
 }
 
-function payment_receipt_copy(array $company, array $contact, array $members = []): array
+function payment_receipt_period_label(array $company): string
+{
+    $term = company_term_label($company);
+    $started = format_date((string) ($company['paid_from'] ?? ''));
+    $expires = format_date((string) ($company['expires_at'] ?? ''));
+    $bits = [];
+    if ($term !== '' && $term !== '-') {
+        $bits[] = $term;
+    }
+    if ($started !== '' && $expires !== '') {
+        $bits[] = $started . ' – ' . $expires;
+    } elseif ($expires !== '') {
+        $bits[] = 'until ' . $expires;
+    } elseif ($started !== '') {
+        $bits[] = 'from ' . $started;
+    }
+    return $bits !== [] ? implode(' · ', $bits) : '-';
+}
+
+function payment_receipt_share_secret(): string
+{
+    static $secret = null;
+    if ($secret !== null) {
+        return $secret;
+    }
+    $cfg = @include ROOT_PATH . '/config/database.php';
+    $secret = hash('sha256', 'vellisys-pay-receipt|' . (is_array($cfg) ? (($cfg['name'] ?? '') . '|' . ($cfg['user'] ?? '')) : 'local'));
+    return $secret;
+}
+
+function payment_receipt_share_token(array $company): string
+{
+    $id = (int) ($company['id'] ?? 0);
+    $from = (string) ($company['paid_from'] ?? '');
+    $paid = number_format(company_fee_paid($company), 2, '.', '');
+    return hash_hmac('sha256', $id . ':' . $from . ':' . $paid, payment_receipt_share_secret());
+}
+
+function payment_receipt_share_url(array $company): string
+{
+    $id = (int) ($company['id'] ?? 0);
+    return absolute_url('payment_receipt.php?id=' . $id . '&t=' . payment_receipt_share_token($company));
+}
+
+function payment_receipt_share_message(array $company, float $thisPayment = 0.0): string
+{
+    $name = (string) ($company['name'] ?? 'your company');
+    $currency = company_fee_currency($company);
+    $paid = company_fee_paid($company);
+    $balance = company_fee_balance($company);
+    $period = payment_receipt_period_label($company);
+    $ref = payment_receipt_ref($company);
+    $lines = [
+        'Vellisys payment receipt ' . $ref,
+        'Company: ' . $name,
+        'Period: ' . $period,
+    ];
+    if ($thisPayment > 0.009) {
+        $lines[] = 'This payment: ' . money($thisPayment, $currency);
+    }
+    $lines[] = 'Amount paid: ' . money($paid, $currency);
+    $lines[] = 'Balance remaining: ' . money($balance, $currency);
+    $lines[] = 'Open the receipt: ' . payment_receipt_share_url($company);
+    return implode("\n", $lines);
+}
+
+function payment_receipt_whatsapp_url(array $company, string $phone = '', float $thisPayment = 0.0): string
+{
+    $text = payment_receipt_share_message($company, $thisPayment);
+    $digits = phone_digits($phone);
+    if ($digits !== '') {
+        return phone_whatsapp_href($phone, $text);
+    }
+    return 'https://wa.me/?text=' . rawurlencode($text);
+}
+
+function company_notice_phone(int $companyId, array $brand = [], array $members = []): string
+{
+    $phone = trim((string) ($brand['phone'] ?? ''));
+    if (phone_digits($phone) !== '') {
+        return $phone;
+    }
+    foreach ($members as $m) {
+        $p = trim((string) ($m['phone'] ?? ''));
+        if (phone_digits($p) !== '') {
+            return $p;
+        }
+    }
+    if ($companyId > 0 && $members === []) {
+        try {
+            $rows = db_all('SELECT phone FROM users WHERE company_id = ? AND phone IS NOT NULL AND phone <> \'\' ORDER BY id LIMIT 5', 'i', [$companyId]);
+            foreach ($rows as $r) {
+                $p = trim((string) ($r['phone'] ?? ''));
+                if (phone_digits($p) !== '') {
+                    return $p;
+                }
+            }
+        } catch (Throwable $e) {
+        }
+    }
+    return '';
+}
+
+function payment_receipt_copy(array $company, array $contact, array $members = [], float $thisPayment = 0.0): array
 {
     $who = trim((string) ($contact['name'] ?? ''));
     if ($who === '' || strcasecmp($who, 'the team') === 0) {
@@ -1181,16 +1284,22 @@ function payment_receipt_copy(array $company, array $contact, array $members = [
     }
     $name = (string) ($company['name'] ?? 'your company');
     $currency = company_fee_currency($company);
+    $fee = company_fee_amount($company);
     $paid = company_fee_paid($company);
-    $amount = $paid > 0 ? $paid : company_fee_amount($company);
+    $balance = company_fee_balance($company);
+    $amountShown = $paid > 0 ? $paid : $fee;
     $started = format_date((string) ($company['paid_from'] ?? ''));
     $expires = format_date((string) ($company['expires_at'] ?? ''));
     $term = company_term_label($company);
+    $period = payment_receipt_period_label($company);
     $ref = payment_receipt_ref($company);
     $phones = implode(' or ', product_phones());
     $wait = payment_receipt_waiting_credentials($company, $members);
     $login = absolute_url('login.php');
-    $money = money($amount, $currency);
+    $moneyPaid = money($amountShown, $currency);
+    $moneyFee = money($fee, $currency);
+    $moneyBalance = money($balance, $currency);
+    $moneyThis = $thisPayment > 0.009 ? money($thisPayment, $currency) : '';
 
     if ($wait) {
         $nextTitle = 'Please wait for onboarding credentials';
@@ -1202,12 +1311,16 @@ function payment_receipt_copy(array $company, array $contact, array $members = [
         $nextText = 'Your desk is live. Sign in at ' . $login . ' with the mailbox we issued for the team.';
     }
 
-    $subject = 'Thank you for your payment - welcome to Vellisys';
+    $subject = 'Thank you for your payment - Vellisys receipt';
     $text = "Dear {$who},\n\n"
-        . "Thank you for trusting Vellisys with the books for {$name}. We have received your payment, and we are glad to welcome you to the platform.\n\n"
+        . "Thank you for trusting Vellisys with the books for {$name}. We have received your payment.\n\n"
         . "PAYMENT RECEIPT {$ref}\n"
         . "Company: {$name}\n"
-        . "Amount received: {$money}\n"
+        . "Period: {$period}\n"
+        . ($moneyThis !== '' ? "This payment: {$moneyThis}\n" : '')
+        . "Amount paid: {$moneyPaid}\n"
+        . "Fee for this term: {$moneyFee}\n"
+        . "Balance remaining: {$moneyBalance}\n"
         . "Paid term: {$term}\n"
         . "Term started: {$started}\n"
         . "Account expires: {$expires}\n"
@@ -1225,20 +1338,26 @@ function payment_receipt_copy(array $company, array $contact, array $members = [
             . '</tr>';
     };
 
+    $rowsHtml = $row('Company', $name)
+        . $row('Period', $period)
+        . ($moneyThis !== '' ? $row('This payment', $moneyThis) : '')
+        . $row('Amount paid', $moneyPaid)
+        . $row('Fee for this term', $moneyFee)
+        . $row('Balance remaining', $moneyBalance)
+        . $row('Paid term', $term)
+        . $row('Term started', $started !== '' ? $started : '-')
+        . $row('Account expires', $expires !== '' ? $expires : '-')
+        . $row('Currency', $currency, true);
+
     $html = vellisys_email_wrap(
         '<p style="margin:0 0 16px;color:#000000">Dear ' . h($who) . ',</p>'
-        . '<p style="margin:0 0 18px;color:#000000">Thank you for trusting Vellisys with the books for <strong>' . h($name) . '</strong>. We have received your payment, and we are glad to welcome you to the platform.</p>'
+        . '<p style="margin:0 0 18px;color:#000000">Thank you for trusting Vellisys with the books for <strong>' . h($name) . '</strong>. We have received your payment.</p>'
         . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #08143A;border-collapse:collapse;margin:0 0 20px;">'
         . '<tr><td colspan="2" style="background:#08143A;padding:12px 14px;">'
         . '<p style="margin:0;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#FFFFFF;font-weight:700;">Payment receipt</p>'
         . '<p style="margin:4px 0 0;font-size:13px;color:#FFFFFF;">' . h($ref) . '</p>'
         . '</td></tr>'
-        . $row('Company', $name)
-        . $row('Amount received', $money)
-        . $row('Paid term', $term)
-        . $row('Term started', $started !== '' ? $started : '-')
-        . $row('Account expires', $expires !== '' ? $expires : '-')
-        . $row('Currency', $currency, true)
+        . $rowsHtml
         . '</table>'
         . '<p style="margin:0 0 18px;color:#000000">This letter is our thanks for that payment. Your desk is where quotations, invoices and receipts will leave in your branding.</p>'
         . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #1E4EFF;margin:0 0 18px;">'
@@ -1252,7 +1371,19 @@ function payment_receipt_copy(array $company, array $contact, array $members = [
         'Thank you'
     );
 
-    return ['subject' => $subject, 'html' => $html, 'text' => $text, 'to_name' => $who];
+    return [
+        'subject' => $subject,
+        'html' => $html,
+        'text' => $text,
+        'to_name' => $who,
+        'period' => $period,
+        'amount_paid' => $amountShown,
+        'balance' => $balance,
+        'fee' => $fee,
+        'this_payment' => $thisPayment,
+        'currency' => $currency,
+        'ref' => $ref,
+    ];
 }
 
 function send_payment_receipt(array $company, array $user): array

@@ -672,6 +672,7 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
         <button class="btn sm" type="submit" name="action" value="onboard_steps"><?= icon('check', 14) ?>Save steps</button>
         <button class="btn ghost sm" type="submit" name="action" value="send_login_credentials"><?= icon('mail', 14) ?>Send login credentials</button>
         <button class="btn ghost sm" type="submit" name="action" value="send_receipt_only"><?= icon('receipt', 14) ?>Send receipt email</button>
+        <a class="btn ghost sm" href="<?= h(url('admin_payment_receipt.php?id=' . $id)) ?>"><?= icon('eye', 14) ?>Preview receipt</a>
       </div>
     </form>
   </div>
@@ -812,7 +813,7 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
   </div>
 </div>
 
-<form class="card form-wide" method="post" style="margin-top:16px">
+<form class="card form-wide" method="post" style="margin-top:16px" id="term">
   <?= csrf_field() ?>
   <input type="hidden" name="id" value="<?= $id ?>">
   <input type="hidden" name="action" value="term">
@@ -860,12 +861,16 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
     <div class="actions admin-term-actions">
       <button class="btn" type="submit"><?= icon('check') ?>Save paid term</button>
       <button class="btn ghost" type="submit" name="send_receipt" value="1"><?= icon('receipt', 16) ?>Save and send receipt</button>
-      <a class="btn ghost" href="<?= h(url('admin_finances.php')) ?>"><?= icon('bank', 16) ?>Finances</a>
+      <?php if ($receiptPreview): ?>
+        <a class="btn ghost" href="<?= h(url('admin_payment_receipt.php?id=' . $id)) ?>"><?= icon('eye', 16) ?>Preview receipt</a>
+        <a class="btn ghost" href="<?= h(payment_receipt_whatsapp_url($company, company_notice_phone($id, $brand ?: [], $members))) ?>" target="_blank" rel="noopener"><?= icon('whatsapp', 16) ?>WhatsApp</a>
+      <?php endif; ?>
+      <a class="btn ghost" href="<?= h(url('admin_finances.php?pay=' . $id . '#make-payment')) ?>"><?= icon('bank', 16) ?>Make payment</a>
     </div>
     <?php if ($receiptPreview): ?>
       <details class="receipt-preview" style="margin-top:16px">
         <summary>Payment receipt template</summary>
-        <p class="hint">Sent from <?= h(product_email()) ?> to <?= h($receiptContact['email'] !== '' ? $receiptContact['email'] : 'the company email on file') ?>. Thanks the client for the payment, names the amount received and the subscribed period, and welcomes them to Vellisys.</p>
+        <p class="hint">Shows period, amount paid and balance remaining. Sent from <?= h(product_email()) ?> to <?= h($receiptContact['email'] !== '' ? $receiptContact['email'] : 'the company email on file') ?>. Use Preview receipt to share on WhatsApp.</p>
         <div class="mail-preview">
           <div class="mail-preview-head"><?= h($receiptPreview['subject']) ?></div>
           <iframe title="Payment receipt preview" srcdoc="<?= h(email_html_preview($receiptPreview['html'])) ?>"></iframe>
