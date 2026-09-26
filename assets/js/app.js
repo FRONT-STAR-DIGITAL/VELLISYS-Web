@@ -88,6 +88,113 @@ document.addEventListener('pointerdown', function (e) {
   }
 }, true);
 
+/** Share menu helpers: portal panel to <body> so table overflow never clips or shifts rows. */
+function sharePopPanel(details) {
+  if (!details) return null;
+  if (details._sharePanel && document.documentElement.contains(details._sharePanel)) {
+    return details._sharePanel;
+  }
+  return details.querySelector('.share-pop-panel, .share-pop-list');
+}
+
+function sharePopContains(details, target) {
+  if (!details || !target) return false;
+  if (details.contains(target)) return true;
+  var panel = sharePopPanel(details);
+  return !!(panel && panel.contains(target));
+}
+
+function placeSharePop(details) {
+  if (!details || !details.open) return;
+  var panel = sharePopPanel(details);
+  var summary = details.querySelector('summary');
+  if (!panel || !summary) return;
+  details._sharePanel = panel;
+  var inTable = !!(details.closest('td.row-actions, table.grid, .table-scroll'));
+  if (!inTable) {
+    restoreSharePopPanel(details);
+    return;
+  }
+  details.classList.add('is-floating');
+  panel.classList.add('share-pop-floating');
+  // Escape overflow:hidden / overflow:auto ancestors (cards, table-scroll).
+  if (panel.parentNode !== document.body) {
+    panel._shareHome = details;
+    document.body.appendChild(panel);
+  }
+  var rect = summary.getBoundingClientRect();
+  var gap = 8;
+  var pad = 12;
+  var pw = panel.offsetWidth || Math.min(268, window.innerWidth - 24);
+  var ph = panel.offsetHeight || 160;
+  var left = rect.right - pw;
+  if (left < pad) left = pad;
+  if (left + pw > window.innerWidth - pad) left = Math.max(pad, window.innerWidth - pad - pw);
+  var top = rect.bottom + gap;
+  var openUp = false;
+  if (top + ph > window.innerHeight - pad && rect.top - gap - ph >= pad) {
+    top = rect.top - gap - ph;
+    openUp = true;
+  }
+  panel.classList.toggle('is-above', openUp);
+  panel.style.left = Math.round(left) + 'px';
+  panel.style.top = Math.round(top) + 'px';
+  panel.style.right = 'auto';
+  var caretRight = Math.max(12, Math.min(pw - 24, rect.right - left - 16));
+  panel.style.setProperty('--share-caret-right', Math.round(caretRight) + 'px');
+}
+
+function restoreSharePopPanel(details) {
+  if (!details) return;
+  details.classList.remove('is-floating');
+  var panel = sharePopPanel(details);
+  if (!panel) return;
+  panel.classList.remove('share-pop-floating', 'is-above');
+  panel.style.left = '';
+  panel.style.top = '';
+  panel.style.right = '';
+  panel.style.setProperty('--share-caret-right', '');
+  if (panel.parentNode === document.body) {
+    details.appendChild(panel);
+  }
+  panel._shareHome = null;
+  details._sharePanel = null;
+}
+
+function clearSharePopPlace(details) {
+  restoreSharePopPanel(details);
+}
+
+function closeSharePops(except) {
+  document.querySelectorAll('details.share-pop[open]').forEach(function (el) {
+    if (except && el === except) return;
+    el.removeAttribute('open');
+    clearSharePopPlace(el);
+  });
+}
+
+document.addEventListener('toggle', function (e) {
+  var t = e.target;
+  if (!t || !t.matches || !t.matches('details.share-pop')) return;
+  if (t.open) {
+    closeSharePops(t);
+    // Place after open so panel has measurable size.
+    requestAnimationFrame(function () {
+      placeSharePop(t);
+      requestAnimationFrame(function () { placeSharePop(t); });
+    });
+  } else {
+    clearSharePopPlace(t);
+  }
+}, true);
+
+window.addEventListener('resize', function () {
+  document.querySelectorAll('details.share-pop[open]').forEach(placeSharePop);
+});
+window.addEventListener('scroll', function () {
+  document.querySelectorAll('details.share-pop[open].is-floating').forEach(placeSharePop);
+}, true);
+
 document.addEventListener('click', function (e) {
   if (closestEl(e, '[data-print-pdf]')) {
     e.preventDefault();
@@ -95,7 +202,10 @@ document.addEventListener('click', function (e) {
     return;
   }
   document.querySelectorAll('details.share-pop[open]').forEach(function (el) {
-    if (!el.contains(e.target)) el.removeAttribute('open');
+    if (!sharePopContains(el, e.target)) {
+      el.removeAttribute('open');
+      clearSharePopPlace(el);
+    }
   });
   closeTopBellIfOutside(e.target);
   var q = closestEl(e, '[data-quick]');

@@ -1799,6 +1799,20 @@ td.row-actions {
   flex-direction: column;
   gap: 6px;
 }
+/* Table rows: panel is portaled to <body> so overflow never clips or expands the row. */
+.share-pop.is-floating {
+  z-index: 1;
+}
+.share-pop-panel.share-pop-floating,
+.share-pop-list.share-pop-floating {
+  position: fixed;
+  z-index: 520;
+  margin: 0;
+  right: auto;
+  left: 0;
+  top: 0;
+  max-width: min(280px, calc(100vw - 24px));
+}
 .share-pop-panel::before,
 .share-pop-list::before {
   content: '';
@@ -1811,6 +1825,17 @@ td.row-actions {
   border-left: 1px solid color-mix(in srgb, var(--brand) 12%, var(--line));
   border-top: 1px solid color-mix(in srgb, var(--brand) 12%, var(--line));
   transform: rotate(45deg);
+}
+.share-pop-panel.share-pop-floating::before,
+.share-pop-list.share-pop-floating::before {
+  right: var(--share-caret-right, 22px);
+  left: auto;
+}
+.share-pop-panel.share-pop-floating.is-above::before,
+.share-pop-list.share-pop-floating.is-above::before {
+  top: auto;
+  bottom: -6px;
+  transform: rotate(225deg);
 }
 .share-pop-head {
   margin: 0;
@@ -4740,16 +4765,16 @@ a.branch-activity-row:hover { text-decoration: none; }
     width: auto;
     max-width: none;
   }
-  .share-pop-panel,
-  .share-pop-list {
+  .share-pop-panel:not(.share-pop-floating),
+  .share-pop-list:not(.share-pop-floating) {
     left: 0;
     right: auto;
     width: min(280px, calc(100vw - 24px));
     min-width: 0;
     max-width: min(280px, calc(100vw - 24px));
   }
-  .share-pop-panel::before,
-  .share-pop-list::before {
+  .share-pop-panel:not(.share-pop-floating)::before,
+  .share-pop-list:not(.share-pop-floating)::before {
     left: 18px;
     right: auto;
   }
