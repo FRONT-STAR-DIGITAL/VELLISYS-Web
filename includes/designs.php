@@ -587,7 +587,7 @@ function render_print_document_page(array $doc, bool $pdf = false): void
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
-  <title></title>
+  <title><?= h(function_exists('document_download_filename') ? document_download_filename($doc) : ((string) ($doc['number'] ?? 'document') . '.pdf')) ?></title>
   <meta name="format-detection" content="telephone=no,email=no,address=no,date=no">
   <?php product_icons(); ?>
   <?php folio_css_links(true, true); ?>

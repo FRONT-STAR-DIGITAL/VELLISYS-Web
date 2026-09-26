@@ -25,8 +25,16 @@
       (root || document).documentElement.classList.remove('is-multipage');
     }
   }
-  function stripPrintUrls(doc) {
+  function keepPdfTitle(doc) {
+    var t = (doc.title || '').trim();
+    // Keep document-number.pdf so Save as PDF uses the sheet number.
+    if (/\.pdf$/i.test(t) || /^[A-Za-z0-9][A-Za-z0-9._-]{2,80}$/.test(t)) {
+      return;
+    }
     doc.title = '\u00a0';
+  }
+  function stripPrintUrls(doc) {
+    keepPdfTitle(doc);
     var nodes = doc.querySelectorAll('a[href]');
     for (var i = 0; i < nodes.length; i++) {
       nodes[i].removeAttribute('href');
@@ -39,7 +47,7 @@
       // Shorten what mobile browsers put in print headers/footers.
       history.replaceState(null, '', '/');
     } catch (e) {}
-    document.title = '\u00a0';
+    keepPdfTitle(document);
   }
   function restoreLocation() {
     if (!savedHref) return;

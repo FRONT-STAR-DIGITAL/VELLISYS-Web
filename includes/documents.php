@@ -631,6 +631,255 @@ function document_share_url(array $doc): string
     return absolute_url('share.php?id=' . (int) $doc['id'] . '&t=' . document_share_token($doc));
 }
 
+/** Absolute URL for the WhatsApp / Open Graph preview image of a shared sheet. */
+function document_share_preview_url(array $doc): string
+{
+    return document_share_url($doc) . '&og=1';
+}
+
+/** Short title + description for share / OG previews. */
+function document_share_preview_copy(array $doc, ?array $brand = null): array
+{
+    $brand = $brand ?? branding();
+    $meta = kind_meta((string) ($doc['kind'] ?? 'invoice'));
+    $kind = (string) ($meta['singular'] ?? 'Document');
+    $number = trim((string) ($doc['number'] ?? ''));
+    $party = trim((string) ($doc['party_name'] ?? ''));
+    $title = trim($kind . ($number !== '' ? ' ' . $number : ''));
+    if ($title === '') {
+        $title = 'Document';
+    }
+    $bits = [];
+    if ($party !== '') {
+        $bits[] = $party;
+    }
+    $total = (float) ($doc['totals']['total'] ?? $doc['paid'] ?? 0);
+    if (!in_array($doc['kind'] ?? '', ['letter', 'custom', 'delivery'], true) && $total > 0) {
+        $bits[] = money($total, doc_currency($doc));
+    }
+    $co = trim((string) ($brand['name'] ?? ''));
+    if ($co !== '') {
+        $bits[] = $co;
+    }
+    $desc = $bits !== [] ? implode(' · ', $bits) : ($kind . ' from ' . product_name());
+    return ['title' => $title, 'description' => $desc, 'kind' => $kind, 'number' => $number, 'party' => $party];
+}
+
+function document_share_preview_cache_path(array $doc): string
+{
+    $dir = ROOT_PATH . '/uploads/share-previews';
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0755, true);
+    }
+    $token = substr(document_share_token($doc), 0, 16);
+    return $dir . '/doc-' . (int) ($doc['id'] ?? 0) . '-' . $token . '.jpg';
+}
+
+/** Build a branded 1200×630 card when a live sheet screenshot is unavailable. */
+function document_share_preview_card_bytes(array $doc, array $brand): string
+{
+    $w = 1200;
+    $h = 630;
+    $im = imagecreatetruecolor($w, $h);
+    if ($im === false) {
+        return '';
+    }
+    $palette = function_exists('brand_palette') ? brand_palette($brand) : [];
+    [$br, $bg, $bb] = function_exists('hex_to_rgb')
+        ? hex_to_rgb((string) ($palette['primary'] ?? '#1E4EFF'))
+        : [30, 78, 255];
+    [$dr, $dg, $db] = function_exists('hex_to_rgb')
+        ? hex_to_rgb((string) ($palette['deep'] ?? '#08143A'))
+        : [8, 20, 58];
+    $white = imagecolorallocate($im, 255, 255, 255);
+    $ink = imagecolorallocate($im, 16, 24, 44);
+    $muted = imagecolorallocate($im, 92, 103, 128);
+    $brandCol = imagecolorallocate($im, $br, $bg, $bb);
+    $deep = imagecolorallocate($im, $dr, $dg, $db);
+    imagefilledrectangle($im, 0, 0, $w, $h, $white);
+    imagefilledrectangle($im, 0, 0, $w, 18, $brandCol);
+    imagefilledrectangle($im, 0, $h - 18, $w, $h, $deep);
+    imagefilledrectangle($im, 48, 48, 56, $h - 48, $brandCol);
+
+    $copy = document_share_preview_copy($doc, $brand);
+    $font = 5;
+    imagestring($im, $font, 88, 80, substr(strtoupper($copy['kind']), 0, 40), $brandCol);
+    imagestring($im, $font, 88, 130, substr($copy['number'] !== '' ? $copy['number'] : $copy['title'], 0, 48), $ink);
+    if ($copy['party'] !== '') {
+        imagestring($im, $font, 88, 190, substr('To: ' . $copy['party'], 0, 56), $muted);
+    }
+    $total = (float) ($doc['totals']['total'] ?? $doc['paid'] ?? 0);
+    if (!in_array($doc['kind'] ?? '', ['letter', 'custom', 'delivery'], true) && $total > 0) {
+        imagestring($im, $font, 88, 250, substr(money($total, doc_currency($doc)), 0, 40), $ink);
+    }
+    $co = trim((string) ($brand['name'] ?? ''));
+    if ($co !== '') {
+        imagestring($im, $font, 88, 520, substr($co, 0, 56), $muted);
+    }
+
+    ob_start();
+    imagejpeg($im, null, 85);
+    imagedestroy($im);
+    return (string) ob_get_clean();
+}
+
+function document_chrome_screenshot_target(string $chrome, string $target, string $outPng, int $width = 1200, int $height = 1680): bool
+{
+    $id = bin2hex(random_bytes(4));
+    $dir = sys_get_temp_dir() . '/vellisys-chrome-shot-' . $id;
+    $err = $outPng . '.log';
+    if (!@mkdir($dir, 0700, true) && !is_dir($dir)) {
+        return false;
+    }
+    $shotName = 'shot.png';
+    $cmd = 'timeout 40s ' . escapeshellcmd($chrome)
+        . ' --headless=new --disable-gpu --no-sandbox --disable-dev-shm-usage'
+        . ' --hide-scrollbars --no-first-run --no-default-browser-check'
+        . ' --allow-file-access-from-files --disable-extensions --disable-popup-blocking'
+        . ' --run-all-compositor-stages-before-draw --virtual-time-budget=12000'
+        . ' --window-size=' . (int) $width . ',' . (int) $height
+        . ' --user-data-dir=' . escapeshellarg($dir)
+        . ' --screenshot=' . escapeshellarg($shotName)
+        . ' ' . escapeshellarg($target)
+        . ' >' . escapeshellarg($err) . ' 2>&1';
+    $cwd = getcwd();
+    @chdir($dir);
+    exec($cmd, $ignored, $code);
+    if ($cwd !== false) {
+        @chdir($cwd);
+    }
+    $src = $dir . '/' . $shotName;
+    $ok = is_file($src) && filesize($src) > 800 && @copy($src, $outPng);
+    @unlink($err);
+    $it = new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS);
+    $files = new RecursiveIteratorIterator($it, RecursiveIteratorIterator::CHILD_FIRST);
+    foreach ($files as $file) {
+        $file->isDir() ? @rmdir($file->getPathname()) : @unlink($file->getPathname());
+    }
+    @rmdir($dir);
+    return $ok && $code === 0 && is_file($outPng);
+}
+
+/** Crop / letterbox a screenshot into a 1200×630 JPEG for link previews. */
+function document_share_preview_normalize_jpg(string $srcPath, string $destPath): bool
+{
+    $src = @imagecreatefrompng($srcPath);
+    if ($src === false) {
+        $src = @imagecreatefromjpeg($srcPath);
+    }
+    if ($src === false) {
+        return false;
+    }
+    $sw = imagesx($src);
+    $sh = imagesy($src);
+    if ($sw < 10 || $sh < 10) {
+        imagedestroy($src);
+        return false;
+    }
+    $tw = 1200;
+    $th = 630;
+    $out = imagecreatetruecolor($tw, $th);
+    if ($out === false) {
+        imagedestroy($src);
+        return false;
+    }
+    $white = imagecolorallocate($out, 255, 255, 255);
+    imagefilledrectangle($out, 0, 0, $tw, $th, $white);
+    // Scale to cover width, keep top of the sheet (logo / title / party).
+    $scale = $tw / $sw;
+    $dw = $tw;
+    $dh = (int) round($sh * $scale);
+    imagecopyresampled($out, $src, 0, 0, 0, 0, $dw, min($dh, $th), $sw, (int) min($sh, (int) round($th / $scale)));
+    imagedestroy($src);
+    $ok = imagejpeg($out, $destPath, 84);
+    imagedestroy($out);
+    return (bool) $ok && is_file($destPath) && filesize($destPath) > 400;
+}
+
+/**
+ * Ensure a cached OG preview JPEG exists for this document.
+ * Prefers a Chrome screenshot of the live sheet; falls back to a branded card.
+ */
+function document_ensure_share_preview(array $doc): string
+{
+    $path = document_share_preview_cache_path($doc);
+    $updated = strtotime((string) ($doc['updated_at'] ?? $doc['created_at'] ?? '')) ?: 0;
+    if (is_file($path) && filesize($path) > 400 && ($updated <= 0 || filemtime($path) >= $updated)) {
+        return $path;
+    }
+    $cid = (int) ($doc['company_id'] ?? 0);
+    $prev = $GLOBALS['folio_company_override'] ?? null;
+    if ($cid > 0) {
+        $GLOBALS['folio_company_override'] = $cid;
+    }
+    $brand = branding_for($cid > 0 ? $cid : current_company_id());
+    $chrome = document_sheet_chrome();
+    $tmpShot = sys_get_temp_dir() . '/vellisys-og-' . (int) ($doc['id'] ?? 0) . '-' . bin2hex(random_bytes(3)) . '.png';
+    $made = false;
+    if ($chrome !== '' && function_exists('document_sheet_print_html')) {
+        require_once ROOT_PATH . '/includes/designs.php';
+        $html = document_sheet_print_html($doc);
+        $htmlPath = sys_get_temp_dir() . '/vellisys-og-html-' . bin2hex(random_bytes(3)) . '.html';
+        if (file_put_contents($htmlPath, $html) !== false) {
+            if (document_chrome_screenshot_target($chrome, document_local_file_uri($htmlPath), $tmpShot)) {
+                $made = document_share_preview_normalize_jpg($tmpShot, $path);
+            }
+            @unlink($htmlPath);
+        }
+        @unlink($tmpShot);
+    }
+    if (!$made) {
+        $bytes = document_share_preview_card_bytes($doc, $brand);
+        if ($bytes !== '') {
+            @file_put_contents($path, $bytes);
+            $made = is_file($path) && filesize($path) > 400;
+        }
+    }
+    if ($prev === null) {
+        unset($GLOBALS['folio_company_override']);
+    } else {
+        $GLOBALS['folio_company_override'] = $prev;
+    }
+    return $made ? $path : '';
+}
+
+function document_send_share_preview(array $doc): void
+{
+    $path = document_ensure_share_preview($doc);
+    if ($path === '' || !is_file($path)) {
+        http_response_code(404);
+        exit;
+    }
+    header('Content-Type: image/jpeg');
+    header('Content-Length: ' . (string) filesize($path));
+    header('Cache-Control: public, max-age=86400');
+    header('X-Content-Type-Options: nosniff');
+    readfile($path);
+    exit;
+}
+
+/** Echo Open Graph / Twitter tags so WhatsApp previews the sheet, not the product logo. */
+function document_share_og_meta(array $doc, array $brand): void
+{
+    $copy = document_share_preview_copy($doc, $brand);
+    $url = document_share_url($doc);
+    $img = document_share_preview_url($doc);
+    echo '<meta name="description" content="' . h($copy['description']) . '">' . "\n";
+    echo '<meta property="og:site_name" content="' . h((string) ($brand['name'] ?? product_name())) . '">' . "\n";
+    echo '<meta property="og:title" content="' . h($copy['title']) . '">' . "\n";
+    echo '<meta property="og:description" content="' . h($copy['description']) . '">' . "\n";
+    echo '<meta property="og:type" content="article">' . "\n";
+    echo '<meta property="og:url" content="' . h($url) . '">' . "\n";
+    echo '<meta property="og:image" content="' . h($img) . '">' . "\n";
+    echo '<meta property="og:image:type" content="image/jpeg">' . "\n";
+    echo '<meta property="og:image:width" content="1200">' . "\n";
+    echo '<meta property="og:image:height" content="630">' . "\n";
+    echo '<meta name="twitter:card" content="summary_large_image">' . "\n";
+    echo '<meta name="twitter:title" content="' . h($copy['title']) . '">' . "\n";
+    echo '<meta name="twitter:description" content="' . h($copy['description']) . '">' . "\n";
+    echo '<meta name="twitter:image" content="' . h($img) . '">' . "\n";
+}
+
 /** Public authenticity check URL (QR target). Uses the same HMAC as share. */
 function document_verify_url(array $doc): string
 {
@@ -844,7 +1093,15 @@ function document_sheet_chrome(): string
 
 function document_download_filename(array $doc): string
 {
-    $base = preg_replace('/[^A-Za-z0-9._-]+/', '-', (string) ($doc['number'] ?? 'document')) ?: 'document';
+    $raw = trim((string) ($doc['number'] ?? ''));
+    if ($raw === '') {
+        $raw = 'document';
+    }
+    $base = preg_replace('/[^A-Za-z0-9._-]+/', '-', $raw) ?: 'document';
+    $base = trim($base, '.-_');
+    if ($base === '') {
+        $base = 'document';
+    }
     return $base . '.pdf';
 }
 
@@ -914,7 +1171,7 @@ function document_sheet_print_html(array $doc): string
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title></title>
+  <title><?= h(document_download_filename($doc)) ?></title>
   <meta name="format-detection" content="telephone=no,email=no,address=no,date=no">
   <style><?= $appCss ?></style>
   <style><?= $designCss ?></style>
@@ -1046,7 +1303,7 @@ function send_document_pdf(array $doc, string $disposition = 'attachment'): void
     $name = document_download_filename($doc);
     $mode = $disposition === 'inline' ? 'inline' : 'attachment';
     header('Content-Type: application/pdf');
-    header('Content-Disposition: ' . $mode . '; filename="' . $name . '"');
+    header('Content-Disposition: ' . $mode . '; filename="' . $name . '"; filename*=UTF-8\'\'' . rawurlencode($name));
     header('Content-Length: ' . (string) strlen($bytes));
     header('Cache-Control: private, no-store');
     echo $bytes;
@@ -1700,9 +1957,22 @@ function render_doc_actions(array $doc, bool $labeled = false): void
       <?php if (!$void): ?>
         <details class="share-pop">
           <summary class="<?= $cls ?>" title="Share" aria-label="Share"><?= icon('share', 15) ?><?php if ($labeled): ?> Share<?php endif; ?></summary>
-          <div class="share-pop-list">
-            <a href="<?= h(document_whatsapp_url($doc)) ?>" target="_blank" rel="noopener"><?= icon('whatsapp', 15) ?>WhatsApp</a>
-            <a href="<?= h(url('document_email.php?id=' . $id)) ?>"><?= icon('letter', 15) ?>Email</a>
+          <div class="share-pop-panel" role="menu">
+            <p class="share-pop-head">Share this sheet</p>
+            <a class="share-pop-item is-wa" href="<?= h(document_whatsapp_url($doc)) ?>" target="_blank" rel="noopener" role="menuitem">
+              <span class="share-pop-ico" aria-hidden="true"><?= icon('whatsapp', 18) ?></span>
+              <span class="share-pop-copy">
+                <strong>WhatsApp</strong>
+                <small>Send the link in chat</small>
+              </span>
+            </a>
+            <a class="share-pop-item is-mail" href="<?= h(url('document_email.php?id=' . $id)) ?>" role="menuitem">
+              <span class="share-pop-ico" aria-hidden="true"><?= icon('letter', 18) ?></span>
+              <span class="share-pop-copy">
+                <strong>Email</strong>
+                <small>Send from the company mailbox</small>
+              </span>
+            </a>
           </div>
         </details>
         <?php if ($doc['kind'] === 'quotation'): ?>

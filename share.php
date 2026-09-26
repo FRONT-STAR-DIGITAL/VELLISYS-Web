@@ -39,6 +39,10 @@ $brand = branding_for((int) $probe['company_id']);
 $print = isset($_GET['print']);
 $asSheet = isset($_GET['sheet']);
 $asDownload = isset($_GET['download']);
+$asOg = isset($_GET['og']);
+if ($asOg) {
+    document_send_share_preview($doc);
+}
 if ($asDownload) {
     send_document_download($doc);
 }
@@ -51,6 +55,8 @@ if ($print) {
     exit;
 }
 require ROOT_PATH . '/includes/sheet.php';
+$copy = document_share_preview_copy($doc, $brand);
+$pdfName = document_download_filename($doc);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -58,8 +64,9 @@ require ROOT_PATH . '/includes/sheet.php';
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
-  <title><?= $print ? '' : h($doc['number'] . ' · ' . $brand['name']) ?></title>
+  <title><?= h($print ? $pdfName : ($copy['title'] . ' · ' . $brand['name'])) ?></title>
   <meta name="format-detection" content="telephone=no,email=no,address=no,date=no">
+  <?php document_share_og_meta($doc, $brand); ?>
   <?php product_icons(); ?>
   <?php folio_css_links(); ?>
   <?php folio_font_links(); ?>
