@@ -1329,7 +1329,8 @@ function document_pdf_cache_path(array $doc): string
         @mkdir($dir, 0755, true);
     }
     $id = (int) ($doc['id'] ?? 0);
-    $fp = hash('sha256', $id . '|' . document_content_fingerprint($doc) . '|' . document_brand_fingerprint($doc));
+    // pdf-v3: CDP printBackground + exact colour capture (invalidate older washed-out caches).
+    $fp = hash('sha256', $id . '|pdf-v3|' . document_content_fingerprint($doc) . '|' . document_brand_fingerprint($doc));
     return $dir . '/doc-' . $id . '-' . substr($fp, 0, 16) . '.pdf';
 }
 
@@ -1449,6 +1450,11 @@ function document_sheet_print_html(array $doc): string
   <style>
     :root { <?= brand_css_vars($brand) ?> }
     @page { size: <?= $thermal ? '80mm auto' : 'A4' ?>; margin: 0; }
+    html, body, body.print-body, .invoice-sheet, .invoice-sheet * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
     html, body.print-body { background: #fff !important; margin: 0; padding: 0; }
     a[href]::after, a[href]::before { content: none !important; }
     a { color: inherit !important; text-decoration: none !important; }
@@ -1474,8 +1480,329 @@ function document_sheet_print_html(array $doc): string
     return document_rewrite_html_local_urls($html);
 }
 
+/** Remove a Chrome user-data temp directory. */
+function document_chrome_cleanup_dir(string $dir): void
+{
+    if ($dir === '' || !is_dir($dir)) {
+        return;
+    }
+    try {
+        $it = new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS);
+        $files = new RecursiveIteratorIterator($it, RecursiveIteratorIterator::CHILD_FIRST);
+        foreach ($files as $file) {
+            $file->isDir() ? @rmdir($file->getPathname()) : @unlink($file->getPathname());
+        }
+    } catch (Throwable $e) {
+        // ignore
+    }
+    @rmdir($dir);
+}
+
+/**
+ * Chrome DevTools printToPDF with printBackground=true so brand colours and fills are kept.
+ */
+function document_chrome_cdp_pdf(string $chrome, string $target): ?string
+{
+    $port = 9200 + random_int(1, 700);
+    $dir = sys_get_temp_dir() . '/vellisys-cdp-' . bin2hex(random_bytes(4));
+    if (!@mkdir($dir, 0700, true) && !is_dir($dir)) {
+        return null;
+    }
+    $err = $dir . '/chrome.log';
+    $cmd = escapeshellcmd($chrome)
+        . ' --headless=new --disable-gpu --no-sandbox --disable-dev-shm-usage'
+        . ' --hide-scrollbars --no-first-run --no-default-browser-check'
+        . ' --allow-file-access-from-files'
+        . ' --disable-extensions --disable-component-extensions-with-background-pages'
+        . ' --remote-debugging-address=127.0.0.1'
+        . ' --remote-debugging-port=' . (int) $port
+        . ' --user-data-dir=' . escapeshellarg($dir)
+        . ' about:blank >' . escapeshellarg($err) . ' 2>&1 & echo $!';
+    $pid = (int) trim((string) shell_exec($cmd));
+    if ($pid < 1) {
+        document_chrome_cleanup_dir($dir);
+        return null;
+    }
+
+    $ready = false;
+    $deadline = microtime(true) + 8;
+    while (microtime(true) < $deadline) {
+        usleep(100000);
+        $version = @file_get_contents('http://127.0.0.1:' . $port . '/json/version');
+        if (is_string($version) && str_contains($version, 'webSocketDebuggerUrl')) {
+            $ready = true;
+            break;
+        }
+    }
+    if (!$ready) {
+        @posix_kill($pid, 9);
+        @shell_exec('pkill -9 -f ' . escapeshellarg('user-data-dir=' . $dir) . ' 2>/dev/null');
+        document_chrome_cleanup_dir($dir);
+        return null;
+    }
+
+    // Prefer a page target, then navigate via CDP ( /json/new is PUT-only on newer Chrome ).
+    $ctx = stream_context_create(['http' => ['timeout' => 8, 'ignore_errors' => true, 'method' => 'GET']]);
+    $wsUrl = '';
+    $putCtx = stream_context_create([
+        'http' => [
+            'timeout' => 8,
+            'ignore_errors' => true,
+            'method' => 'PUT',
+            'header' => "Content-Length: 0\r\n",
+        ],
+    ]);
+    $created = @file_get_contents('http://127.0.0.1:' . $port . '/json/new?' . rawurlencode($target), false, $putCtx);
+    $page = is_string($created) ? json_decode($created, true) : null;
+    if (is_array($page) && !empty($page['webSocketDebuggerUrl'])) {
+        $wsUrl = (string) $page['webSocketDebuggerUrl'];
+    }
+    if ($wsUrl === '') {
+        $list = @file_get_contents('http://127.0.0.1:' . $port . '/json/list', false, $ctx);
+        $pages = is_string($list) ? json_decode($list, true) : null;
+        if (is_array($pages)) {
+            foreach ($pages as $row) {
+                if (($row['type'] ?? '') === 'page' && !empty($row['webSocketDebuggerUrl'])) {
+                    $wsUrl = (string) $row['webSocketDebuggerUrl'];
+                    break;
+                }
+            }
+        }
+    }
+
+    $bytes = null;
+    if ($wsUrl !== '') {
+        // Always navigate to the sheet URL so we never print about:blank.
+        $bytes = document_cdp_print_pdf($wsUrl, $target);
+    }
+
+    @posix_kill($pid, 9);
+    @shell_exec('pkill -9 -f ' . escapeshellarg('user-data-dir=' . $dir) . ' 2>/dev/null');
+    document_chrome_cleanup_dir($dir);
+    return is_string($bytes) && str_starts_with($bytes, '%PDF') ? $bytes : null;
+}
+
+/** Minimal CDP WebSocket client: navigate + Page.printToPDF(printBackground). */
+function document_cdp_print_pdf(string $wsUrl, string $target): ?string
+{
+    $parts = parse_url($wsUrl);
+    if (($parts['scheme'] ?? '') !== 'ws' || empty($parts['host']) || empty($parts['port'])) {
+        return null;
+    }
+    $path = ($parts['path'] ?? '/') . (isset($parts['query']) ? ('?' . $parts['query']) : '');
+    $fp = @fsockopen($parts['host'], (int) $parts['port'], $errno, $errstr, 5);
+    if (!$fp) {
+        return null;
+    }
+    stream_set_timeout($fp, 30);
+    $key = base64_encode(random_bytes(16));
+    $handshake = "GET {$path} HTTP/1.1\r\n"
+        . "Host: {$parts['host']}:{$parts['port']}\r\n"
+        . "Upgrade: websocket\r\n"
+        . "Connection: Upgrade\r\n"
+        . "Sec-WebSocket-Key: {$key}\r\n"
+        . "Sec-WebSocket-Version: 13\r\n\r\n";
+    fwrite($fp, $handshake);
+    $hdr = '';
+    while (!str_contains($hdr, "\r\n\r\n")) {
+        $chunk = fread($fp, 1024);
+        if ($chunk === false || $chunk === '') {
+            fclose($fp);
+            return null;
+        }
+        $hdr .= $chunk;
+        if (strlen($hdr) > 8192) {
+            fclose($fp);
+            return null;
+        }
+    }
+    if (!str_contains($hdr, ' 101 ')) {
+        fclose($fp);
+        return null;
+    }
+
+    $id = 0;
+    $send = static function (array $payload) use ($fp, &$id): int {
+        $id++;
+        $payload['id'] = $id;
+        $json = json_encode($payload, JSON_UNESCAPED_SLASHES);
+        if (!is_string($json)) {
+            return $id;
+        }
+        $len = strlen($json);
+        $mask = random_bytes(4);
+        $frame = chr(0x81);
+        if ($len < 126) {
+            $frame .= chr(0x80 | $len);
+        } elseif ($len < 65536) {
+            $frame .= chr(0x80 | 126) . pack('n', $len);
+        } else {
+            $frame .= chr(0x80 | 127) . pack('J', $len);
+        }
+        $masked = '';
+        for ($i = 0; $i < $len; $i++) {
+            $masked .= $json[$i] ^ $mask[$i % 4];
+        }
+        fwrite($fp, $frame . $mask . $masked);
+        return $id;
+    };
+    $recv = static function () use ($fp): ?array {
+        $deadline = microtime(true) + 40;
+        $buf = '';
+        $assembled = '';
+        $assembling = false;
+        while (microtime(true) < $deadline) {
+            $meta = stream_get_meta_data($fp);
+            if (!empty($meta['eof'])) {
+                return null;
+            }
+            $chunk = fread($fp, 65536);
+            if ($chunk === false || $chunk === '') {
+                usleep(15000);
+                continue;
+            }
+            $buf .= $chunk;
+            while (strlen($buf) >= 2) {
+                $b1 = ord($buf[0]);
+                $b2 = ord($buf[1]);
+                $fin = (bool) ($b1 & 0x80);
+                $opcode = $b1 & 0x0f;
+                $masked = (bool) ($b2 & 0x80);
+                $len = $b2 & 0x7f;
+                $off = 2;
+                if ($len === 126) {
+                    if (strlen($buf) < 4) {
+                        break;
+                    }
+                    $len = unpack('n', substr($buf, 2, 2))[1];
+                    $off = 4;
+                } elseif ($len === 127) {
+                    if (strlen($buf) < 10) {
+                        break;
+                    }
+                    $len = (int) unpack('J', substr($buf, 2, 8))[1];
+                    $off = 10;
+                }
+                $maskOff = $off;
+                if ($masked) {
+                    $off += 4;
+                }
+                if (strlen($buf) < $off + $len) {
+                    break;
+                }
+                $payload = substr($buf, $off, $len);
+                if ($masked) {
+                    $mask = substr($buf, $maskOff, 4);
+                    $out = '';
+                    for ($i = 0; $i < $len; $i++) {
+                        $out .= $payload[$i] ^ $mask[$i % 4];
+                    }
+                    $payload = $out;
+                }
+                $buf = substr($buf, $off + $len);
+                if ($opcode === 0x8) {
+                    return null;
+                }
+                if ($opcode === 0x1 || $opcode === 0x2) {
+                    $assembled = $payload;
+                    $assembling = !$fin;
+                    if ($fin) {
+                        $data = json_decode($assembled, true);
+                        $assembled = '';
+                        if (is_array($data)) {
+                            return $data;
+                        }
+                    }
+                    continue;
+                }
+                if ($opcode === 0x0 && $assembling) {
+                    $assembled .= $payload;
+                    if ($fin) {
+                        $assembling = false;
+                        $data = json_decode($assembled, true);
+                        $assembled = '';
+                        if (is_array($data)) {
+                            return $data;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    };
+    $waitId = static function (int $want) use ($recv): ?array {
+        $deadline = microtime(true) + 40;
+        while (microtime(true) < $deadline) {
+            $msg = $recv();
+            if ($msg === null) {
+                return null;
+            }
+            if (($msg['id'] ?? null) === $want) {
+                return $msg;
+            }
+        }
+        return null;
+    };
+
+    $send(['method' => 'Page.enable']);
+    $send(['method' => 'Network.enable']);
+    if ($target !== '') {
+        $navId = $send(['method' => 'Page.navigate', 'params' => ['url' => $target]]);
+        $nav = $waitId($navId);
+        if ($nav === null || isset($nav['error'])) {
+            fclose($fp);
+            return null;
+        }
+    }
+    // Poll readyState instead of waiting forever for a load event we may have missed.
+    $ready = false;
+    $readyDeadline = microtime(true) + 8;
+    while (microtime(true) < $readyDeadline) {
+        $evalId = $send([
+            'method' => 'Runtime.evaluate',
+            'params' => ['expression' => 'document.readyState', 'returnByValue' => true],
+        ]);
+        $eval = $waitId($evalId);
+        $state = (string) ($eval['result']['result']['value'] ?? '');
+        if ($state === 'complete' || $state === 'interactive') {
+            $ready = true;
+            break;
+        }
+        usleep(120000);
+    }
+    usleep($ready ? 200000 : 400000);
+    $printId = $send([
+        'method' => 'Page.printToPDF',
+        'params' => [
+            'printBackground' => true,
+            'preferCSSPageSize' => true,
+            'displayHeaderFooter' => false,
+            'marginTop' => 0,
+            'marginBottom' => 0,
+            'marginLeft' => 0,
+            'marginRight' => 0,
+        ],
+    ]);
+    $printed = $waitId($printId);
+    fclose($fp);
+    $b64 = $printed['result']['data'] ?? '';
+    if (!is_string($b64) || $b64 === '') {
+        return null;
+    }
+    $raw = base64_decode($b64, true);
+    if (!is_string($raw) || !str_starts_with($raw, '%PDF') || strlen($raw) < 800) {
+        return null;
+    }
+    // Reject empty about:blank shells.
+    if (str_contains($raw, '/Title (about:blank)')) {
+        return null;
+    }
+    return $raw;
+}
+
 function document_chrome_print_target(string $chrome, string $target): ?string
 {
+    // Fast CLI print first (sheet HTML already forces print-color-adjust: exact).
     $id = bin2hex(random_bytes(4));
     $dir = sys_get_temp_dir() . '/vellisys-chrome-' . $id;
     $pdf = sys_get_temp_dir() . '/vellisys-doc-' . $id . '.pdf';
@@ -1500,16 +1827,17 @@ function document_chrome_print_target(string $chrome, string $target): ?string
     }
     @unlink($pdf);
     @unlink($err);
-    $it = new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS);
-    $files = new RecursiveIteratorIterator($it, RecursiveIteratorIterator::CHILD_FIRST);
-    foreach ($files as $file) {
-        $file->isDir() ? @rmdir($file->getPathname()) : @unlink($file->getPathname());
+    document_chrome_cleanup_dir($dir);
+    if ($code === 0 && str_starts_with($bytes, '%PDF') && !str_contains($bytes, '/Title (about:blank)')) {
+        return $bytes;
     }
-    @rmdir($dir);
-    if ($code !== 0 || !str_starts_with($bytes, '%PDF')) {
-        return null;
+
+    // Optional CDP retry with printBackground when CLI shell looks empty.
+    $cdp = document_chrome_cdp_pdf($chrome, $target);
+    if (is_string($cdp) && str_starts_with($cdp, '%PDF')) {
+        return $cdp;
     }
-    return $bytes;
+    return null;
 }
 
 function document_sheet_print_urls(array $doc): array
@@ -2222,7 +2550,7 @@ function render_make_payment_button(array $doc, bool $labeled = false): void
     <?php
 }
 
-/** Labeled PDF download control — exact branded sheet via document_download. */
+/** Labeled PDF download control — exact branded sheet (server PDF or unfitted sheet capture). */
 function render_pdf_download_link(array $doc, string $class = 'btn ghost sm', bool $showLabel = true): void
 {
     $id = (int) ($doc['id'] ?? 0);
@@ -2230,6 +2558,7 @@ function render_pdf_download_link(array $doc, string $class = 'btn ghost sm', bo
         return;
     }
     $name = document_download_filename($doc);
+    // No HTML download= attribute: a redirect to the sheet page would be saved as a fake .pdf.
     ?>
         <a
           class="<?= h($class) ?>"
@@ -2237,7 +2566,7 @@ function render_pdf_download_link(array $doc, string $class = 'btn ghost sm', bo
           data-pdf-download
           data-doc-id="<?= $id ?>"
           data-pdf-name="<?= h($name) ?>"
-          download="<?= h($name) ?>"
+          data-sheet-url="<?= h(url('document_sheet.php?id=' . $id . '&autodownload=1')) ?>"
           title="Download PDF"
           aria-label="Download PDF"
         ><?= icon('pdf', 15) ?><?php if ($showLabel): ?> PDF<?php endif; ?></a>

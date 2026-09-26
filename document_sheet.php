@@ -39,6 +39,11 @@ $auto = isset($_GET['autodownload']);
   <style>
     :root { <?= brand_css_vars($brand) ?> }
     @page { size: <?= $thermal ? '80mm auto' : 'A4' ?>; margin: 0; }
+    html, body, body.print-body, .invoice-sheet, .invoice-sheet * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
     html, body.print-body { background: #fff !important; margin: 0; padding: 0; }
     .sheet-wrap, .sheet-stage { padding: 0 !important; margin: 0 !important; background: #fff; }
     .invoice-sheet { transform: none !important; zoom: 1 !important; box-shadow: none !important; margin: 0 auto !important; }

@@ -89,6 +89,11 @@ $fitOff = $asSheet || $auto;
       gap: 8px;
     }
     <?php if ($fitOff): ?>
+    html, body, body.print-body, .invoice-sheet, .invoice-sheet * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
     html, body.print-body { background: #fff !important; margin: 0; padding: 0; }
     .sheet-wrap, .sheet-stage { padding: 0 !important; margin: 0 !important; }
     .invoice-sheet { transform: none !important; zoom: 1 !important; box-shadow: none !important; margin: 0 auto !important; }
@@ -117,7 +122,7 @@ $fitOff = $asSheet || $auto;
         data-pdf-download
         data-doc-id="<?= $id ?>"
         data-pdf-name="<?= h($pdfName) ?>"
-        download="<?= h($pdfName) ?>"
+        data-sheet-url="<?= h(url('share.php?id=' . $id . '&t=' . $token . '&autodownload=1')) ?>"
         title="Download PDF"
         aria-label="Download PDF"
       ><?= icon('pdf', 15) ?> PDF</a>
