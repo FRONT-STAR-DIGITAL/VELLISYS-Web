@@ -339,7 +339,7 @@ function user_can_open(string $script, string $kind = ''): bool
     if (in_array($script, $adminOnly, true)) {
         return false;
     }
-    $kindScripts = ['documents.php', 'document_new.php', 'document_view.php', 'document_email.php', 'document_action.php', 'document_download.php', 'document_pdf.php'];
+    $kindScripts = ['documents.php', 'document_new.php', 'document_view.php', 'document_email.php', 'document_action.php', 'document_download.php', 'document_pdf.php', 'document_sheet.php', 'document_api.php'];
     if (in_array($script, $kindScripts, true)) {
         if ($kind === '') {
             return true;

@@ -726,10 +726,14 @@ function layout_end(string $extra = ''): void
 </script>
 <?php endif; ?>
 <?php
-$sheetJs = in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['document_view.php', 'document_new.php', 'document_action.php', 'share.php', 'document_download.php', 'document_pdf.php', 'documents.php'], true);
+$here = basename($_SERVER['SCRIPT_NAME'] ?? '');
+$sheetJs = in_array($here, ['document_view.php', 'document_new.php', 'document_action.php', 'share.php', 'document_download.php', 'document_pdf.php', 'document_sheet.php', 'documents.php'], true);
+$pdfJs = $sheetJs || in_array($here, ['dashboard.php', 'debtors.php', 'creditors.php', 'client_view.php', 'reports.php', 'stock.php'], true);
 if ($sheetJs): ?>
 <script src="<?= h(asset('js/sheet-fit.js')) ?>"></script>
-<script src="<?= h(asset('js/pdf-download.js')) ?>" defer data-pdf-bundle="<?= h(asset('js/pdf/vellisys-pdf.js')) ?>"></script>
+<?php endif; ?>
+<?php if ($pdfJs): ?>
+<script src="<?= h(asset('js/pdf-download.js')) ?>" defer data-html2pdf="<?= h(asset('js/vendor/html2pdf.bundle.min.js')) ?>"></script>
 <?php endif; ?>
 <?php if (!$admin && function_exists('render_desk_welcome_pop')) {
     render_desk_welcome_pop(current_user() ?: []);

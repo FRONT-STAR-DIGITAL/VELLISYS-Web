@@ -1439,9 +1439,24 @@ function send_document_download(array $doc): void
         send_document_pdf($doc, 'attachment');
     } catch (Throwable $e) {
         http_response_code(503);
+        $xhr = strcasecmp((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''), 'XMLHttpRequest') === 0
+            || str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json');
+        if ($xhr) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'ok' => false,
+                'error' => $e->getMessage(),
+                'fallback' => 'sheet',
+                'number' => (string) ($doc['number'] ?? ''),
+                'filename' => document_download_filename($doc),
+                'sheetUrl' => url('document_sheet.php?id=' . (int) ($doc['id'] ?? 0)),
+            ], JSON_UNESCAPED_SLASHES);
+            exit;
+        }
         header('Content-Type: text/html; charset=utf-8');
         echo '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Download</title></head><body style="font-family:Montserrat,sans-serif;padding:48px;text-align:center">';
         echo '<p>' . h($e->getMessage()) . '</p>';
+        echo '<p><a href="' . h(url('document_sheet.php?id=' . (int) ($doc['id'] ?? 0))) . '">Open sheet</a></p>';
         echo '</body></html>';
         exit;
     }
@@ -2083,9 +2098,11 @@ function render_doc_actions(array $doc, bool $labeled = false): void
           class="<?= $cls ?>"
           data-pdf-download
           data-doc-id="<?= $id ?>"
+          data-doc-number="<?= h((string) ($doc['number'] ?? '')) ?>"
+          data-pdf-name="<?= h(document_download_filename($doc)) ?>"
           title="Download PDF"
           aria-label="Download PDF"
-        ><?= icon('pdf', 15) ?><?php if ($labeled): ?> <span data-pdf-label>PDF</span><?php else: ?><span data-pdf-label class="sr-only">PDF</span><?php endif; ?></button>
+        ><?= icon('pdf', 15) ?> <span data-pdf-label>PDF</span></button>
         <details class="share-pop">
           <summary class="<?= $cls ?>" title="Share" aria-label="Share"><?= icon('share', 15) ?><?php if ($labeled): ?> Share<?php endif; ?></summary>
           <div class="share-pop-panel" role="menu">
