@@ -5699,6 +5699,11 @@ a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--lin
   }
   .sales-demo-desk .app-tabbar {
     display: grid;
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    z-index: 240;
   }
 }
 @media (max-width: 820px) {

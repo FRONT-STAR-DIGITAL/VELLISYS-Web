@@ -48,6 +48,7 @@ function render_nav_boot_script(): void
   function setNav(open) {
     open = !!open;
     document.body.classList.toggle('nav-open', open);
+    document.documentElement.classList.toggle('nav-open', open);
     document.querySelectorAll('[data-nav-toggle]').forEach(function (btn) {
       btn.setAttribute('aria-expanded', open ? 'true' : 'false');
     });
@@ -55,6 +56,12 @@ function render_nav_boot_script(): void
     if (scrim) scrim.hidden = !open;
   }
   window.vellisysSetNav = setNav;
+  document.addEventListener('DOMContentLoaded', function () {
+    var bar = document.querySelector('nav.app-tabbar');
+    if (bar && bar.parentElement !== document.body) {
+      document.body.appendChild(bar);
+    }
+  });
   document.addEventListener('click', function (e) {
     var el = e.target;
     if (el && el.nodeType === 3) el = el.parentElement;
