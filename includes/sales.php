@@ -1946,12 +1946,14 @@ function sales_layout_start(string $title, array $user): void
     $notes = sales_notifications_for_agent((int) $user['id']);
     $noteCount = count($notes);
     $avatar = sales_avatar_url($user);
+    $siteUrl = function_exists('product_site_url') ? product_site_url() : 'https://www.vellisys.com';
     $nav = [
         ['sales_home.php', 'Home', 'home'],
         ['sales_leads.php', 'Leads', 'clients'],
         ['sales_performance.php', 'Performance', 'reports'],
         ['sales_demo.php', 'Demo', 'building'],
         ['sales_messages.php', 'Messages', 'mail'],
+        [$siteUrl, 'Website', 'globe', true],
         ['sales_profile.php', 'Profile', 'user'],
     ];
     ?>
@@ -1978,12 +1980,15 @@ function sales_layout_start(string $title, array $user): void
       <strong>Sales field</strong>
     </a>
     <nav>
-      <?php foreach ($nav as [$href, $label, $iconName]):
-          $file = strtok($href, '?');
-          $active = $file === $here || ($here === 'sales_lead_edit.php' && $file === 'sales_leads.php');
-          $badge = ($file === 'sales_messages.php' && $unread) ? $unread : 0;
+      <?php foreach ($nav as $item):
+          [$href, $label, $iconName] = $item;
+          $external = !empty($item[3]);
+          $file = $external ? '' : (string) strtok($href, '?');
+          $active = !$external && ($file === $here || ($here === 'sales_lead_edit.php' && $file === 'sales_leads.php'));
+          $badge = (!$external && $file === 'sales_messages.php' && $unread) ? $unread : 0;
+          $linkHref = $external ? $href : url($href);
           ?>
-        <a class="<?= $active ? 'is-on' : '' ?>" href="<?= h(url($href)) ?>" title="<?= h($label) ?>"<?= $badge ? ' data-badge="' . (int) $badge . '"' : '' ?>><?= icon($iconName, 18) ?><span><?= h($label) ?></span></a>
+        <a class="<?= $active ? 'is-on' : '' ?>" href="<?= h($linkHref) ?>" title="<?= h($label) ?>"<?= $external ? ' target="_blank" rel="noopener noreferrer"' : '' ?><?= $badge ? ' data-badge="' . (int) $badge . '"' : '' ?>><?= icon($iconName, 18) ?><span><?= h($label) ?></span></a>
       <?php endforeach; ?>
       <a class="nav-sign-out" href="<?= h(url('logout.php')) ?>" title="Sign out"><?= icon('logout', 18) ?><span>Sign out</span></a>
     </nav>
@@ -2050,12 +2055,14 @@ function sales_layout_end(string $extra = ''): void
     </div>
   </div>
 </div>
+<?php $salesSiteUrl = function_exists('product_site_url') ? product_site_url() : 'https://www.vellisys.com'; ?>
 <nav class="app-tabbar sales-tabbar" aria-label="Sales" data-app-tabbar style="position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;z-index:9999;margin:0">
   <a class="app-tab<?= basename($_SERVER['SCRIPT_NAME'] ?? '') === 'sales_home.php' ? ' is-on' : '' ?>" href="<?= h(url('sales_home.php')) ?>"><?= icon('home', 22) ?><span>Home</span></a>
   <a class="app-tab<?= in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['sales_leads.php', 'sales_lead_edit.php'], true) ? ' is-on' : '' ?>" href="<?= h(url('sales_leads.php')) ?>"><?= icon('clients', 22) ?><span>Leads</span></a>
   <a class="app-tab app-tab-create" href="<?= h(url('sales_lead_edit.php')) ?>"><span class="app-tab-plus"><?= icon('plus', 26) ?></span><span>New</span></a>
   <a class="app-tab<?= basename($_SERVER['SCRIPT_NAME'] ?? '') === 'sales_performance.php' ? ' is-on' : '' ?>" href="<?= h(url('sales_performance.php')) ?>"><?= icon('reports', 22) ?><span>Stats</span></a>
   <a class="app-tab<?= basename($_SERVER['SCRIPT_NAME'] ?? '') === 'sales_messages.php' ? ' is-on' : '' ?>" href="<?= h(url('sales_messages.php')) ?>"><?= icon('mail', 22) ?><span>Chat</span></a>
+  <a class="app-tab" href="<?= h($salesSiteUrl) ?>" target="_blank" rel="noopener noreferrer" title="Open Vellisys.com"><?= icon('globe', 22) ?><span>Website</span></a>
 </nav>
 <script src="<?= h(asset('js/app.js')) ?>" defer></script>
 <?= $extra ?>
