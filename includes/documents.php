@@ -1228,6 +1228,40 @@ function document_download_filename(array $doc): string
     return $base . '.pdf';
 }
 
+/** Cached PDF path for a document (invalidates when number/template/status/items fingerprint changes). */
+function document_pdf_cache_path(array $doc): string
+{
+    $dir = ROOT_PATH . '/uploads/pdfs';
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0755, true);
+    }
+    $id = (int) ($doc['id'] ?? 0);
+    $stamp = (string) ($doc['updated_at'] ?? $doc['created_at'] ?? '');
+    $fp = hash('sha256', $id . '|' . (string) ($doc['number'] ?? '') . '|' . $stamp . '|' . doc_template_key($doc) . '|' . (string) ($doc['status'] ?? ''));
+    return $dir . '/doc-' . $id . '-' . substr($fp, 0, 16) . '.pdf';
+}
+
+function document_pdf_cache_read(array $doc): string
+{
+    $path = document_pdf_cache_path($doc);
+    if (is_file($path) && filesize($path) > 800) {
+        $bytes = (string) file_get_contents($path);
+        if (str_starts_with($bytes, '%PDF')) {
+            return $bytes;
+        }
+    }
+    return '';
+}
+
+function document_pdf_cache_write(array $doc, string $bytes): void
+{
+    if ($bytes === '' || !str_starts_with($bytes, '%PDF')) {
+        return;
+    }
+    $path = document_pdf_cache_path($doc);
+    @file_put_contents($path, $bytes);
+}
+
 function document_local_file_uri(string $abs): string
 {
     $abs = str_replace('\\', '/', $abs);
@@ -1422,43 +1456,39 @@ function document_sheet_pdf_bytes(array $doc): string
 
 function send_document_pdf(array $doc, string $disposition = 'attachment'): void
 {
-    $bytes = document_sheet_pdf_bytes($doc);
+    $bytes = document_pdf_cache_read($doc);
+    if ($bytes === '') {
+        $bytes = document_sheet_pdf_bytes($doc);
+        document_pdf_cache_write($doc, $bytes);
+    }
     $name = document_download_filename($doc);
     $mode = $disposition === 'inline' ? 'inline' : 'attachment';
     header('Content-Type: application/pdf');
     header('Content-Disposition: ' . $mode . '; filename="' . $name . '"; filename*=UTF-8\'\'' . rawurlencode($name));
     header('Content-Length: ' . (string) strlen($bytes));
-    header('Cache-Control: private, no-store');
+    header('Cache-Control: private, max-age=60');
     echo $bytes;
     exit;
 }
 
 function send_document_download(array $doc): void
 {
+    // Instant path: cached PDF already on disk.
+    $cached = document_pdf_cache_read($doc);
+    if ($cached !== '') {
+        $name = document_download_filename($doc);
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="' . $name . '"; filename*=UTF-8\'\'' . rawurlencode($name));
+        header('Content-Length: ' . (string) strlen($cached));
+        header('Cache-Control: private, max-age=60');
+        echo $cached;
+        exit;
+    }
     try {
         send_document_pdf($doc, 'attachment');
     } catch (Throwable $e) {
-        http_response_code(503);
-        $xhr = strcasecmp((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''), 'XMLHttpRequest') === 0
-            || str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json');
-        if ($xhr) {
-            header('Content-Type: application/json; charset=utf-8');
-            echo json_encode([
-                'ok' => false,
-                'error' => $e->getMessage(),
-                'fallback' => 'sheet',
-                'number' => (string) ($doc['number'] ?? ''),
-                'filename' => document_download_filename($doc),
-                'sheetUrl' => url('document_sheet.php?id=' . (int) ($doc['id'] ?? 0)),
-            ], JSON_UNESCAPED_SLASHES);
-            exit;
-        }
-        header('Content-Type: text/html; charset=utf-8');
-        echo '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Download</title></head><body style="font-family:Montserrat,sans-serif;padding:48px;text-align:center">';
-        echo '<p>' . h($e->getMessage()) . '</p>';
-        echo '<p><a href="' . h(url('document_sheet.php?id=' . (int) ($doc['id'] ?? 0))) . '">Open sheet</a></p>';
-        echo '</body></html>';
-        exit;
+        // Hostinger / no Chrome: jump straight to the real sheet autodownload (same designs).
+        redirect('document_sheet.php?id=' . (int) ($doc['id'] ?? 0) . '&autodownload=1');
     }
 }
 
@@ -2093,16 +2123,16 @@ function render_doc_actions(array $doc, bool $labeled = false): void
       <?php endif; ?>
       <a class="<?= $cls ?>" href="<?= h(url('document_view.php?id=' . $id . '&print=1')) ?>" title="Print" aria-label="Print"><?= icon('printer', 15) ?><?php if ($labeled): ?> Print<?php endif; ?></a>
       <?php if (!$void): ?>
-        <button
-          type="button"
+        <a
           class="<?= $cls ?>"
+          href="<?= h(url('document_download.php?id=' . $id)) ?>"
           data-pdf-download
           data-doc-id="<?= $id ?>"
-          data-doc-number="<?= h((string) ($doc['number'] ?? '')) ?>"
           data-pdf-name="<?= h(document_download_filename($doc)) ?>"
+          download="<?= h(document_download_filename($doc)) ?>"
           title="Download PDF"
           aria-label="Download PDF"
-        ><?= icon('pdf', 15) ?> <span data-pdf-label>PDF</span></button>
+        ><?= icon('pdf', 15) ?> PDF</a>
         <details class="share-pop">
           <summary class="<?= $cls ?>" title="Share" aria-label="Share"><?= icon('share', 15) ?><?php if ($labeled): ?> Share<?php endif; ?></summary>
           <div class="share-pop-panel" role="menu">

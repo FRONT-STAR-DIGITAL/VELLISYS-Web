@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 /**
- * Authenticated sheet-only page for client PDF capture.
- * Renders the same HTML document designs as Print / Share (not a separate layout).
+ * Authenticated sheet-only page (same HTML designs as Print / Share).
+ * ?autodownload=1 captures the sheet to PDF immediately on load.
  */
 require __DIR__ . '/includes/bootstrap.php';
 $user = require_member();
@@ -24,6 +24,7 @@ $thermal = doc_template_key($doc) === 'thermal'
     && ($doc['kind'] ?? '') !== 'custom'
     && ($doc['kind'] ?? '') !== 'expense';
 $filename = document_download_filename($doc);
+$auto = isset($_GET['autodownload']);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -43,11 +44,41 @@ $filename = document_download_filename($doc);
     .invoice-sheet { transform: none !important; zoom: 1 !important; box-shadow: none !important; margin: 0 auto !important; }
   </style>
 </head>
-<body class="print-body<?= $thermal ? ' print-thermal' : '' ?>" data-doc-number="<?= h((string) ($doc['number'] ?? '')) ?>" data-pdf-name="<?= h($filename) ?>">
+<body class="print-body<?= $thermal ? ' print-thermal' : '' ?>" data-pdf-name="<?= h($filename) ?>"<?= $auto ? ' data-autodownload="1"' : '' ?>>
   <div class="sheet-wrap">
     <div class="sheet-stage">
       <?php render_sheet($brand, $doc); ?>
     </div>
   </div>
+  <?php if ($auto): ?>
+  <script src="<?= h(asset('js/vendor/html2pdf.bundle.min.js')) ?>"></script>
+  <script>
+  (function () {
+    function go() {
+      var sheet = document.querySelector('.invoice-sheet') || document.querySelector('.sheet-stage');
+      if (!sheet || typeof html2pdf !== 'function') {
+        document.title = 'Download failed';
+        return;
+      }
+      var name = document.body.getAttribute('data-pdf-name') || 'document.pdf';
+      var thermal = document.body.classList.contains('print-thermal');
+      html2pdf().set({
+        margin: 0,
+        filename: name,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', logging: false },
+        jsPDF: { unit: 'mm', format: thermal ? [80, 200] : 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'] }
+      }).from(sheet).save().then(function () {
+        setTimeout(function () {
+          if (window.history.length > 1) window.history.back();
+        }, 400);
+      });
+    }
+    if (document.readyState === 'complete') go();
+    else window.addEventListener('load', function () { setTimeout(go, 40); });
+  })();
+  </script>
+  <?php endif; ?>
 </body>
 </html>
