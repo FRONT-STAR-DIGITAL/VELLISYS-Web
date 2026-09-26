@@ -275,10 +275,6 @@ layout_admin_start('Sales', $user);
                 $isIn = $hasClock && $clockedOutAt === '';
                 $clockInAt = $hasClock ? trim((string) ($clock['clocked_at'] ?? '')) : '';
                 $location = $hasClock ? trim((string) ($clock['location_city'] ?? '')) : '';
-                $reach = (int) ($p['reach'] ?? 0);
-                $reachGoal = (int) ($p['reach_goal'] ?? 0);
-                $salesN = (int) ($p['sales'] ?? 0);
-                $salesGoal = (int) ($p['sales_goal'] ?? 0);
                 $agentHref = url('admin_sales.php?tab=agent&agent=' . (int) $a['id'] . '&period=daily');
                 ?>
               <tr>
@@ -299,7 +295,6 @@ layout_admin_start('Sales', $user);
                 <td><?= $location !== '' ? h($location) : '—' ?></td>
                 <td class="sales-agents-goal-targets">
                   <?php sales_render_goal_bars($p, ['compact' => true, 'force_reach' => true, 'force_sales' => true]); ?>
-                  <div class="muted mono" style="margin-top:4px"><?= $reach ?>/<?= $reachGoal ?: '-' ?> leads · <?= $salesN ?>/<?= $salesGoal ?: '-' ?> sales</div>
                 </td>
                 <td class="mono"><?= $clockedOutAt !== '' ? h(sales_format_clock_time($clockedOutAt)) : ($isIn ? 'In field' : '—') ?></td>
               </tr>
