@@ -42,6 +42,27 @@ function render_top_term(?array $company): void
 function render_nav_boot_script(): void
 {
     ?>
+<style id="vellisys-tabbar-pin">
+@media (max-width: 1024px) {
+  html, body.desk-body, body.sales-body { overflow-x: visible !important; }
+  nav.app-tabbar[data-app-tabbar] {
+    display: grid !important;
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    top: auto !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    z-index: 9999 !important;
+    transform: translate3d(0,0,0);
+  }
+}
+@media (min-width: 1025px) {
+  nav.app-tabbar[data-app-tabbar] { display: none !important; }
+}
+</style>
 <script>
 (function () {
   function navScrim() { return document.querySelector('[data-nav-scrim]'); }
@@ -56,12 +77,22 @@ function render_nav_boot_script(): void
     if (scrim) scrim.hidden = !open;
   }
   window.vellisysSetNav = setNav;
-  document.addEventListener('DOMContentLoaded', function () {
+  function pinBar() {
     var bar = document.querySelector('nav.app-tabbar');
-    if (bar && bar.parentElement !== document.body) {
-      document.body.appendChild(bar);
-    }
-  });
+    if (!bar || !document.body) return;
+    if (bar.parentElement !== document.body) document.body.appendChild(bar);
+    if (window.matchMedia && window.matchMedia('(min-width: 1025px)').matches) return;
+    bar.style.setProperty('position', 'fixed', 'important');
+    bar.style.setProperty('left', '0px', 'important');
+    bar.style.setProperty('right', '0px', 'important');
+    bar.style.setProperty('bottom', '0px', 'important');
+    bar.style.setProperty('top', 'auto', 'important');
+    bar.style.setProperty('width', '100%', 'important');
+    bar.style.setProperty('z-index', '9999', 'important');
+    bar.style.setProperty('display', 'grid', 'important');
+  }
+  document.addEventListener('DOMContentLoaded', pinBar);
+  window.addEventListener('load', pinBar);
   document.addEventListener('click', function (e) {
     var el = e.target;
     if (el && el.nodeType === 3) el = el.parentElement;
@@ -581,7 +612,7 @@ function render_app_tabbar(): void
     $repOn = in_array($here, ['reports.php', 'pnl.php', 'pnl_entries.php', 'pnl_savings.php', 'pnl_banking.php', 'debtors.php', 'creditors.php'], true)
         || in_array($kind, ['refund', 'return_note'], true);
     ?>
-<nav class="app-tabbar" aria-label="App">
+<nav class="app-tabbar" aria-label="App" data-app-tabbar style="position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;z-index:9999;margin:0">
   <a class="app-tab<?= $homeOn ? ' is-on' : '' ?>" href="<?= h(url('dashboard.php')) ?>">
     <?= icon('home', 22) ?><span>Home</span>
   </a>
@@ -611,7 +642,7 @@ function render_admin_tabbar(): void
     $reportsOn = $here === 'admin_reports.php';
     $systemOn = $here === 'admin_system.php';
     ?>
-<nav class="app-tabbar admin-tabbar" aria-label="Admin">
+<nav class="app-tabbar admin-tabbar" aria-label="Admin" data-app-tabbar style="position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;z-index:9999;margin:0">
   <a class="app-tab<?= $dashOn ? ' is-on' : '' ?>" href="<?= h(url('admin_dashboard.php')) ?>">
     <?= icon('home', 22) ?><span>Dashboard</span>
   </a>
