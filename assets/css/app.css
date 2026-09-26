@@ -636,7 +636,8 @@ summary {
   .people-access-head .btn { width: 100%; }
   .lp-stock-addon { align-items: flex-start; }
 }
-.content { padding: 24px 22px 72px; max-width: none; width: 100%; min-width: 0; overflow-x: clip; }
+/* Avoid overflow-x:clip here — it forces overflow-y:auto and can truncate long desk pages. */
+.content { padding: 24px 22px 72px; max-width: none; width: 100%; min-width: 0; overflow-x: visible; }
 .flash {
   margin: 16px 22px 0;
   max-width: none;
@@ -3920,24 +3921,36 @@ input, select, textarea { font-weight: 400; }
   input, select, textarea, .btn { font-size: 16px; }
   .qty-btn { min-width: 40px; min-height: 40px; }
   /*
-   * Do NOT set overflow-x:hidden on .desk-body — on iOS Safari that makes
-   * position:fixed children (app tab bar) scroll with the page and appear mid-screen.
-   * Clip horizontal overflow on html / main / content instead.
+   * Horizontal overflow: clip only on html.
+   * Never clip .app / .main / .content — overflow-x other than visible computes
+   * overflow-y to auto and truncates long pages mid-card (empty gap + watermark).
+   * Keep .desk-body overflow visible so the bottom tab bar stays position:fixed on iOS.
    */
   html:has(.desk-body),
-  html:has(.print-body) {
+  html:has(.print-body),
+  html:has(.sales-body) {
     overflow-x: clip;
+    max-width: 100%;
   }
   .desk-body,
-  .print-body {
+  .print-body,
+  .sales-body {
     overflow-x: visible;
     overflow-y: visible;
   }
   .desk-body .app,
   .desk-body .main,
-  .desk-body .content {
-    overflow-x: clip;
+  .desk-body .content,
+  .sales-body .app,
+  .sales-body .main,
+  .sales-body .content {
+    overflow: visible;
     max-width: 100%;
+    height: auto;
+  }
+  .desk-body .main,
+  .sales-body .main {
+    min-height: 100vh;
   }
   .content { min-width: 0; }
   .document-form input,
@@ -5566,7 +5579,7 @@ a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--lin
 }
 .sales-body .content {
   max-width: 920px;
-  overflow-x: clip;
+  overflow-x: visible;
 }
 .sales-body .page-head,
 .sales-body .page-head > div,
