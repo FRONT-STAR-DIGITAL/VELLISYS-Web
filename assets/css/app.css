@@ -5394,6 +5394,13 @@ a.branch-activity-row:hover { text-decoration: none; }
     filter: none !important;
     contain: none;
   }
+  .app-tabbar.sales-tabbar {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  .app-tabbar.sales-tabbar .app-tab {
+    font-size: 8px;
+    padding: 2px 0 0;
+  }
   .app-tab {
     appearance: none;
     border: 0;
