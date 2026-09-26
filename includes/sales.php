@@ -523,8 +523,8 @@ function sales_agent_line_color(int $agentId, int $index = 0): string
     if ($n < 1) {
         return '#1E4EFF';
     }
-    $pick = $agentId > 0 ? ($agentId % $n) : ($index % $n);
-    return $palette[$pick];
+    // Prefer legend/series index so neighbouring agents never share similar hues.
+    return $palette[$index % $n];
 }
 
 /**
@@ -645,6 +645,11 @@ function sales_hours_series_by_agents(?int $agentId, string $from, string $to): 
         $cmp = ($b['total_hours'] <=> $a['total_hours']);
         return $cmp !== 0 ? $cmp : strcasecmp((string) $a['name'], (string) $b['name']);
     });
+
+    foreach ($series as $idx => &$agentSeries) {
+        $agentSeries['color'] = sales_agent_line_color((int) ($agentSeries['id'] ?? 0), $idx);
+    }
+    unset($agentSeries);
 
     return [
         'dates' => $dates,
