@@ -251,9 +251,16 @@ layout_start($heading, $user, ['kind' => $kind]);
       }
     ?></p>
   </div>
-  <?php if ($kind === 'letter'): ?>
+  <?php if ($existing || $kind === 'letter'): ?>
   <div class="actions page-actions">
-    <a class="btn ghost" href="<?= h(url('letter_docx.php' . ($existing ? '?id=' . (int) $existing['id'] : ''))) ?>" data-letter-docx><?= icon('download', 16) ?>Word template</a>
+    <?php if ($existing): ?>
+      <?php render_pdf_download_link($existing, 'btn ghost sm', true); ?>
+      <a class="btn ghost sm" href="<?= h(url('document_view.php?id=' . (int) $existing['id'] . '&print=1')) ?>"><?= icon('printer', 15) ?> Print</a>
+      <a class="btn ghost sm" href="<?= h(url('document_view.php?id=' . (int) $existing['id'])) ?>"><?= icon('eye', 15) ?> View</a>
+    <?php endif; ?>
+    <?php if ($kind === 'letter'): ?>
+      <a class="btn ghost" href="<?= h(url('letter_docx.php' . ($existing ? '?id=' . (int) $existing['id'] : ''))) ?>" data-letter-docx><?= icon('download', 16) ?>Word template</a>
+    <?php endif; ?>
   </div>
   <?php endif; ?>
 </div>

@@ -48,6 +48,11 @@ layout_start('Email ' . $doc['number'], $user, ['kind' => $doc['kind']]);
     <h1><?= icon('send') ?>Email <?= h($meta['singular']) ?></h1>
     <p class="lede"><?php if ($sendAcct): ?>Sends as <strong><?= h($fromName) ?></strong> &lt;<?= h($fromEmail) ?>&gt; - the company mailbox Vellisys assigned, with your logo on a white band. A copy goes to <?= h(product_email()) ?> so Vellisys can follow up. For a reminder, a note to a supplier, or any other letter, use Email in the menu.<?php else: ?>Vellisys has not assigned a sending mailbox yet. You can still print and share a link. Ask the platform admin to add the Hostinger address on the company.<?php endif; ?></p>
   </div>
+  <div class="actions page-actions">
+    <?php render_pdf_download_link($doc, 'btn ghost sm', true); ?>
+    <a class="btn ghost sm" href="<?= h(url('document_view.php?id=' . $id . '&print=1')) ?>"><?= icon('printer', 15) ?> Print</a>
+    <a class="btn ghost sm" href="<?= h(url('document_view.php?id=' . $id)) ?>"><?= icon('eye', 15) ?> View</a>
+  </div>
 </div>
 
 <form class="card form" method="post">

@@ -39,12 +39,14 @@ $brand = branding_for((int) $probe['company_id']);
 $print = isset($_GET['print']);
 $asSheet = isset($_GET['sheet']);
 $asDownload = isset($_GET['download']);
+$auto = isset($_GET['autodownload']);
 $asOg = isset($_GET['og']);
 if ($asOg) {
     document_send_share_preview($doc);
 }
 if ($asDownload) {
-    send_document_download($doc);
+    $shareAuto = 'share.php?id=' . $id . '&t=' . rawurlencode($token) . '&autodownload=1';
+    send_document_download($doc, $shareAuto);
 }
 if ($print) {
     if (send_document_print_pdf($doc)) {
@@ -57,6 +59,10 @@ if ($print) {
 require ROOT_PATH . '/includes/sheet.php';
 $copy = document_share_preview_copy($doc, $brand);
 $pdfName = document_download_filename($doc);
+$thermal = doc_template_key($doc) === 'thermal'
+    && ($doc['kind'] ?? '') !== 'custom'
+    && ($doc['kind'] ?? '') !== 'expense';
+$fitOff = $asSheet || $auto;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -72,15 +78,22 @@ $pdfName = document_download_filename($doc);
   <?php folio_font_links(); ?>
   <style>
     :root { <?= brand_css_vars($brand) ?> }
-    @page { size: A4; margin: 0; }
+    @page { size: <?= $thermal ? '80mm auto' : 'A4' ?>; margin: 0; }
     .share-toolbar {
       max-width: 210mm;
       margin: 16px auto;
       padding: 0 16px;
       display: flex;
       justify-content: flex-end;
+      flex-wrap: wrap;
       gap: 8px;
     }
+    <?php if ($fitOff): ?>
+    html, body.print-body { background: #fff !important; margin: 0; padding: 0; }
+    .sheet-wrap, .sheet-stage { padding: 0 !important; margin: 0 !important; }
+    .invoice-sheet { transform: none !important; zoom: 1 !important; box-shadow: none !important; margin: 0 auto !important; }
+    .share-toolbar { display: none !important; }
+    <?php endif; ?>
     @media (max-width: 720px) {
       .share-toolbar { max-width: none; padding: 12px; }
       .share-toolbar .btn { flex: 1; min-height: 44px; }
@@ -91,9 +104,23 @@ $pdfName = document_download_filename($doc);
     }
   </style>
 </head>
-<body class="print-body">
-  <?php if (!$print && !$asSheet): ?>
+<body
+  class="print-body<?= $thermal ? ' print-thermal' : '' ?>"
+  data-pdf-name="<?= h($pdfName) ?>"
+  <?= $auto ? ' data-autodownload="1" data-pdf-exact="1"' : '' ?>
+>
+  <?php if (!$print && !$asSheet && !$auto): ?>
     <div class="share-toolbar">
+      <a
+        class="btn ghost sm"
+        href="<?= h(url('share.php?id=' . $id . '&t=' . $token . '&download=1')) ?>"
+        data-pdf-download
+        data-doc-id="<?= $id ?>"
+        data-pdf-name="<?= h($pdfName) ?>"
+        download="<?= h($pdfName) ?>"
+        title="Download PDF"
+        aria-label="Download PDF"
+      ><?= icon('pdf', 15) ?> PDF</a>
       <a class="btn ghost sm" href="<?= h(url('share.php?id=' . $id . '&t=' . $token . '&print=1')) ?>"><?= icon('printer', 15) ?>Print</a>
     </div>
   <?php endif; ?>
@@ -102,8 +129,14 @@ $pdfName = document_download_filename($doc);
       <?php render_sheet($brand, $doc); ?>
     </div>
   </div>
-  <?php if (!$asSheet): ?>
+  <?php if (!$fitOff): ?>
   <script src="<?= h(asset('js/sheet-fit.js')) ?>"></script>
+  <?php endif; ?>
+  <?php if ($auto): ?>
+  <script src="<?= h(asset('js/vendor/html2pdf.bundle.min.js')) ?>"></script>
+  <script src="<?= h(asset('js/pdf-download.js')) ?>" defer data-html2pdf="<?= h(asset('js/vendor/html2pdf.bundle.min.js')) ?>"></script>
+  <?php elseif (!$asSheet): ?>
+  <script src="<?= h(asset('js/pdf-download.js')) ?>" defer data-html2pdf="<?= h(asset('js/vendor/html2pdf.bundle.min.js')) ?>"></script>
   <?php endif; ?>
   <?php if ($print): ?>
     <script src="<?= h(asset('js/print-sheet.js')) ?>"></script>

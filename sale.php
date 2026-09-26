@@ -74,6 +74,7 @@ layout_start('Sale', $user);
   </div>
   <?php if ($lastPrint): ?>
     <div class="actions page-actions">
+      <a class="btn ghost" href="<?= h(url('document_download.php?id=' . $lastPrint)) ?>" data-pdf-download data-doc-id="<?= (int) $lastPrint ?>" title="Download PDF" aria-label="Download PDF"><?= icon('pdf', 16) ?> PDF last</a>
       <a class="btn ghost" href="<?= h(url('document_view.php?id=' . $lastPrint . '&print=1')) ?>"><?= icon('printer', 16) ?>Print last</a>
     </div>
   <?php endif; ?>
@@ -150,6 +151,7 @@ layout_start('Sale', $user);
       <button class="btn pos-save" type="submit" name="do_print" value="1" <?= $dayOpen ? '' : 'disabled' ?>><?= icon('printer') ?>Save and print</button>
       <button class="btn" type="submit" <?= $dayOpen ? '' : 'disabled' ?>><?= icon('check') ?>Save sale</button>
       <?php if ($lastPrint): ?>
+        <a class="btn ghost" href="<?= h(url('document_download.php?id=' . $lastPrint)) ?>" data-pdf-download data-doc-id="<?= (int) $lastPrint ?>" title="Download PDF" aria-label="Download PDF"><?= icon('pdf') ?> PDF last</a>
         <a class="btn ghost pos-print-last" href="<?= h(url('document_view.php?id=' . $lastPrint . '&print=1')) ?>"><?= icon('printer') ?>Print last</a>
       <?php endif; ?>
     </div>

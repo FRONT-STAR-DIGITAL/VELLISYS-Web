@@ -1228,7 +1228,100 @@ function document_download_filename(array $doc): string
     return $base . '.pdf';
 }
 
-/** Cached PDF path for a document (invalidates when number/template/status/items fingerprint changes). */
+/**
+ * Branding fingerprint so PDF cache invalidates when colours, logo, signature,
+ * letterhead copy, tax, or company template change.
+ */
+function document_brand_fingerprint(array $doc): string
+{
+    $cid = (int) ($doc['company_id'] ?? 0);
+    if ($cid < 1) {
+        $cid = (int) current_company_id();
+    }
+    $brand = $cid > 0 ? branding_for($cid) : branding();
+    $logoRel = ltrim((string) ($brand['logo_path'] ?? ''), '/');
+    $sigRel = ltrim((string) ($brand['signature_path'] ?? ''), '/');
+    $logoM = ($logoRel !== '' && is_file(ROOT_PATH . '/' . $logoRel)) ? (string) filemtime(ROOT_PATH . '/' . $logoRel) : '';
+    $sigM = ($sigRel !== '' && is_file(ROOT_PATH . '/' . $sigRel)) ? (string) filemtime(ROOT_PATH . '/' . $sigRel) : '';
+    $parts = [
+        (string) ($brand['name'] ?? ''),
+        (string) ($brand['tagline'] ?? ''),
+        (string) ($brand['tin'] ?? ''),
+        (string) ($brand['vat_no'] ?? ''),
+        (string) ($brand['address'] ?? ''),
+        (string) ($brand['city'] ?? ''),
+        (string) ($brand['phone'] ?? ''),
+        (string) ($brand['email'] ?? ''),
+        (string) ($brand['website'] ?? ''),
+        (string) ($brand['bank_name'] ?? ''),
+        (string) ($brand['account_name'] ?? ''),
+        (string) ($brand['account_number'] ?? ''),
+        (string) ($brand['brand_color'] ?? ''),
+        (string) ($brand['brand_accent'] ?? ''),
+        (string) ($brand['brand_deep'] ?? ''),
+        $logoRel,
+        $logoM,
+        $sigRel,
+        $sigM,
+        (string) ($brand['prefix'] ?? ''),
+        (string) ($brand['payment_note'] ?? ''),
+        (string) ($brand['invoice_comments'] ?? ''),
+        (string) ($brand['receipt_comments'] ?? ''),
+        (string) ($brand['currency'] ?? ''),
+        (string) ($brand['fx_ugx_per_usd'] ?? ''),
+        (string) ($brand['doc_template'] ?? ''),
+        (string) ($brand['letter_templates'] ?? ''),
+        (string) ($brand['number_format'] ?? ''),
+        (string) ($brand['logo_bg'] ?? '0'),
+        (string) ($brand['tax_name'] ?? ''),
+        (string) ($brand['tax_rate'] ?? ''),
+        (string) ($brand['tax_default'] ?? '0'),
+    ];
+    return hash('sha256', implode('|', $parts));
+}
+
+/** Document content fingerprint (structure, lines, status, template, signature flag). */
+function document_content_fingerprint(array $doc): string
+{
+    $items = $doc['items'] ?? null;
+    if (!is_array($items) && (int) ($doc['id'] ?? 0) > 0) {
+        $items = db_all('SELECT item_name, description, qty, unit, rate, taxed FROM document_items WHERE document_id = ? ORDER BY id', 'i', [(int) $doc['id']]);
+    }
+    $payload = [
+        (string) ($doc['number'] ?? ''),
+        (string) ($doc['kind'] ?? ''),
+        (string) ($doc['status'] ?? ''),
+        (string) ($doc['date'] ?? ''),
+        (string) ($doc['due_date'] ?? ''),
+        (string) ($doc['notes'] ?? ''),
+        (string) ($doc['subject'] ?? ''),
+        (string) ($doc['body'] ?? ''),
+        is_array($doc['custom_values'] ?? null)
+            ? (string) json_encode($doc['custom_values'], JSON_UNESCAPED_UNICODE)
+            : (string) ($doc['custom_values'] ?? ''),
+        is_array($doc['party_extras'] ?? null)
+            ? (string) json_encode($doc['party_extras'], JSON_UNESCAPED_UNICODE)
+            : (string) ($doc['party_extras'] ?? ''),
+        (string) ($doc['letter_template'] ?? ''),
+        doc_template_key($doc),
+        (string) ($doc['add_signature'] ?? '0'),
+        (string) ($doc['currency'] ?? ''),
+        (string) ($doc['vat_rate'] ?? ''),
+        (string) ($doc['payment_method'] ?? ''),
+        (string) ($doc['payment_ref'] ?? ''),
+        (string) ($doc['allocated_amount'] ?? ''),
+        (string) ($doc['expense_category'] ?? ''),
+        (string) ($doc['party_id'] ?? ''),
+        (string) ($doc['party_name'] ?? ''),
+        (string) ($doc['related_id'] ?? ''),
+        (string) ($doc['branch_id'] ?? ''),
+        (string) json_encode($items ?: [], JSON_UNESCAPED_UNICODE),
+        (string) ($doc['updated_at'] ?? $doc['created_at'] ?? ''),
+    ];
+    return hash('sha256', implode('|', $payload));
+}
+
+/** Cached PDF path — invalidates when document content or company branding changes. */
 function document_pdf_cache_path(array $doc): string
 {
     $dir = ROOT_PATH . '/uploads/pdfs';
@@ -1236,8 +1329,7 @@ function document_pdf_cache_path(array $doc): string
         @mkdir($dir, 0755, true);
     }
     $id = (int) ($doc['id'] ?? 0);
-    $stamp = (string) ($doc['updated_at'] ?? $doc['created_at'] ?? '');
-    $fp = hash('sha256', $id . '|' . (string) ($doc['number'] ?? '') . '|' . $stamp . '|' . doc_template_key($doc) . '|' . (string) ($doc['status'] ?? ''));
+    $fp = hash('sha256', $id . '|' . document_content_fingerprint($doc) . '|' . document_brand_fingerprint($doc));
     return $dir . '/doc-' . $id . '-' . substr($fp, 0, 16) . '.pdf';
 }
 
@@ -1260,6 +1352,28 @@ function document_pdf_cache_write(array $doc, string $bytes): void
     }
     $path = document_pdf_cache_path($doc);
     @file_put_contents($path, $bytes);
+}
+
+/** Drop cached PDFs for every document in a company (call after branding / template / signature changes). */
+function document_pdf_cache_clear_company(int $companyId): void
+{
+    $dir = ROOT_PATH . '/uploads/pdfs';
+    if ($companyId < 1 || !is_dir($dir)) {
+        return;
+    }
+    $rows = db_all('SELECT id FROM documents WHERE company_id = ?', 'i', [$companyId]);
+    $ids = [];
+    foreach ($rows as $row) {
+        $ids[(int) ($row['id'] ?? 0)] = true;
+    }
+    if (!$ids) {
+        return;
+    }
+    foreach (glob($dir . '/doc-*.pdf') ?: [] as $file) {
+        if (preg_match('/^doc-(\d+)-/i', basename($file), $m) && isset($ids[(int) $m[1]])) {
+            @unlink($file);
+        }
+    }
 }
 
 function document_local_file_uri(string $abs): string
@@ -1471,7 +1585,12 @@ function send_document_pdf(array $doc, string $disposition = 'attachment'): void
     exit;
 }
 
-function send_document_download(array $doc): void
+/**
+ * Instant PDF download of the exact branded sheet.
+ * $fallbackUrl: when Chrome is unavailable (e.g. Hostinger), redirect here for HTML→PDF
+ * of the unfitted sheet (share links must pass a public autodownload URL).
+ */
+function send_document_download(array $doc, ?string $fallbackUrl = null): void
 {
     // Instant path: cached PDF already on disk.
     $cached = document_pdf_cache_read($doc);
@@ -1487,8 +1606,11 @@ function send_document_download(array $doc): void
     try {
         send_document_pdf($doc, 'attachment');
     } catch (Throwable $e) {
-        // Hostinger / no Chrome: jump straight to the real sheet autodownload (same designs).
-        redirect('document_sheet.php?id=' . (int) ($doc['id'] ?? 0) . '&autodownload=1');
+        // Hostinger / no Chrome: unfitted sheet page captures the real design.
+        $fallback = $fallbackUrl !== null && $fallbackUrl !== ''
+            ? $fallbackUrl
+            : ('document_sheet.php?id=' . (int) ($doc['id'] ?? 0) . '&autodownload=1');
+        redirect($fallback);
     }
 }
 
@@ -2100,6 +2222,28 @@ function render_make_payment_button(array $doc, bool $labeled = false): void
     <?php
 }
 
+/** Labeled PDF download control — exact branded sheet via document_download. */
+function render_pdf_download_link(array $doc, string $class = 'btn ghost sm', bool $showLabel = true): void
+{
+    $id = (int) ($doc['id'] ?? 0);
+    if ($id < 1 || strtolower((string) ($doc['status'] ?? '')) === 'void') {
+        return;
+    }
+    $name = document_download_filename($doc);
+    ?>
+        <a
+          class="<?= h($class) ?>"
+          href="<?= h(url('document_download.php?id=' . $id)) ?>"
+          data-pdf-download
+          data-doc-id="<?= $id ?>"
+          data-pdf-name="<?= h($name) ?>"
+          download="<?= h($name) ?>"
+          title="Download PDF"
+          aria-label="Download PDF"
+        ><?= icon('pdf', 15) ?><?php if ($showLabel): ?> PDF<?php endif; ?></a>
+    <?php
+}
+
 function render_doc_actions(array $doc, bool $labeled = false): void
 {
     $id = (int) $doc['id'];
@@ -2123,16 +2267,7 @@ function render_doc_actions(array $doc, bool $labeled = false): void
       <?php endif; ?>
       <a class="<?= $cls ?>" href="<?= h(url('document_view.php?id=' . $id . '&print=1')) ?>" title="Print" aria-label="Print"><?= icon('printer', 15) ?><?php if ($labeled): ?> Print<?php endif; ?></a>
       <?php if (!$void): ?>
-        <a
-          class="<?= $cls ?>"
-          href="<?= h(url('document_download.php?id=' . $id)) ?>"
-          data-pdf-download
-          data-doc-id="<?= $id ?>"
-          data-pdf-name="<?= h(document_download_filename($doc)) ?>"
-          download="<?= h(document_download_filename($doc)) ?>"
-          title="Download PDF"
-          aria-label="Download PDF"
-        ><?= icon('pdf', 15) ?> PDF</a>
+        <?php render_pdf_download_link($doc, $cls, true); ?>
         <details class="share-pop">
           <summary class="<?= $cls ?>" title="Share" aria-label="Share"><?= icon('share', 15) ?><?php if ($labeled): ?> Share<?php endif; ?></summary>
           <div class="share-pop-panel" role="menu">

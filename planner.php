@@ -144,6 +144,8 @@ layout_start('Planner', $user);
               <td class="date-cell"><?= h(format_date($doc['due_date'])) ?><?= $doc['due_date'] < $today ? ' · overdue' : '' ?></td>
               <td class="right mono"><?= h(money($doc['balance'], doc_currency($doc))) ?></td>
               <td class="row-actions">
+                <?php render_pdf_download_link($doc, 'btn ghost sm', true); ?>
+                <a class="btn ghost sm" href="<?= h(url('document_view.php?id=' . (int) $doc['id'] . '&print=1')) ?>" title="Print" aria-label="Print"><?= icon('printer', 14) ?> Print</a>
                 <a class="btn ghost sm" href="<?= h(url('planner_calendar.php?date=' . urlencode((string) $doc['due_date']) . '&title=' . urlencode('Collect ' . $doc['number']) . '&kind=deadline&party=' . (int) $doc['party_id'] . '&document=' . (int) $doc['id'])) ?>"><?= icon('plus', 14) ?>Deadline</a>
               </td>
             </tr>

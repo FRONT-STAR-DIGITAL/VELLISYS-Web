@@ -1,6 +1,11 @@
 /**
- * Instant PDF: prefer the on-page sheet (exact desk design) with no "Preparing…" UI.
- * Otherwise the PDF link navigates to document_download.php (cached file or server PDF).
+ * Instant PDF: the PDF control is a normal link to document_download.php
+ * (cached file or server print of the unfitted branded sheet).
+ *
+ * Never capture the on-page preview — sheet-fit.js scales it for the viewport
+ * and that would corrupt colours, layout, and multi-page structure.
+ * Exact capture runs only on document_sheet / share autodownload pages
+ * (data-pdf-exact), which render full-size unfitted sheets.
  */
 (function () {
   var html2pdfLoading = null;
@@ -31,7 +36,14 @@
     return html2pdfLoading;
   }
 
-  function saveSheet(sheet, filename) {
+  function exactSheetRoot() {
+    // Prefer the stage (all pages / booklet sections) over a single scaled article.
+    return document.querySelector('.sheet-stage') || document.querySelector('.invoice-sheet');
+  }
+
+  function saveExactSheet(filename) {
+    var sheet = exactSheetRoot();
+    if (!sheet) return Promise.reject(new Error('sheet'));
     return loadHtml2Pdf().then(function (html2pdf) {
       var thermal = !!(document.body && document.body.classList.contains('print-thermal'));
       var nodes = document.querySelectorAll('.invoice-sheet');
@@ -39,7 +51,9 @@
         nodes[i].style.transform = 'none';
         nodes[i].style.zoom = '1';
         nodes[i].style.marginLeft = '0';
+        nodes[i].style.boxShadow = 'none';
       }
+      var h = Math.max(sheet.scrollHeight || 0, sheet.offsetHeight || 0, 1123);
       return html2pdf().set({
         margin: 0,
         filename: filename || 'document.pdf',
@@ -50,10 +64,11 @@
           allowTaint: true,
           backgroundColor: '#ffffff',
           logging: false,
+          windowWidth: sheet.scrollWidth || 794,
         },
         jsPDF: {
           unit: 'mm',
-          format: thermal ? [80, Math.max(120, Math.round((sheet.scrollHeight || 1123) * 0.2646))] : 'a4',
+          format: thermal ? [80, Math.max(120, Math.round(h * 0.2646))] : 'a4',
           orientation: 'portrait',
         },
         pagebreak: { mode: ['css', 'legacy'] },
@@ -77,35 +92,42 @@
   document.addEventListener('click', function (e) {
     var a = e.target && e.target.closest ? e.target.closest('a[data-pdf-download]') : null;
     if (!a) return;
-    var sheet = document.querySelector('.invoice-sheet');
-    if (!sheet) {
-      // Let the browser hit document_download.php immediately (no Preparing UI).
+    // Exact autodownload pages may capture locally; everywhere else navigate instantly.
+    var exact = document.body && document.body.getAttribute('data-pdf-exact') === '1';
+    if (!exact) {
       return;
     }
     e.preventDefault();
     var name = a.getAttribute('data-pdf-name') || a.getAttribute('download') || 'document.pdf';
-    saveSheet(sheet, name).catch(function () {
-      // If capture fails, fall through to the server/autodownload URL.
+    saveExactSheet(name).catch(function () {
       window.location.href = a.href;
     });
   }, true);
 
-  // On a document detail page, warm the server cache so the next list download is a file hit.
-  if (document.querySelector('.invoice-sheet')) {
-    var link = document.querySelector('a[data-pdf-download][data-doc-id]');
-    var id = link ? parseInt(link.getAttribute('data-doc-id') || '0', 10) : 0;
-    if (id) {
-      if (window.requestIdleCallback) {
-        window.requestIdleCallback(function () { warmServer(id); }, { timeout: 2500 });
-      } else {
-        setTimeout(function () { warmServer(id); }, 800);
-      }
+  // Autodownload: capture the unfitted sheet as soon as assets are ready.
+  if (document.body && document.body.getAttribute('data-autodownload') === '1') {
+    var autoName = document.body.getAttribute('data-pdf-name') || 'document.pdf';
+    function runAuto() {
+      saveExactSheet(autoName).then(function () {
+        setTimeout(function () {
+          if (window.history.length > 1) window.history.back();
+        }, 400);
+      }).catch(function () {
+        document.title = 'Download failed';
+      });
     }
-    // Prefetch html2pdf so the first click on this page is immediate.
+    if (document.readyState === 'complete') setTimeout(runAuto, 40);
+    else window.addEventListener('load', function () { setTimeout(runAuto, 40); });
+  }
+
+  // On a document detail page, warm the server cache so the next list download is a file hit.
+  var link = document.querySelector('a[data-pdf-download][data-doc-id]');
+  var id = link ? parseInt(link.getAttribute('data-doc-id') || '0', 10) : 0;
+  if (id && document.querySelector('.invoice-sheet') && !(document.body && document.body.getAttribute('data-autodownload'))) {
     if (window.requestIdleCallback) {
-      window.requestIdleCallback(function () { loadHtml2Pdf().catch(function () {}); }, { timeout: 3000 });
+      window.requestIdleCallback(function () { warmServer(id); }, { timeout: 2500 });
     } else {
-      setTimeout(function () { loadHtml2Pdf().catch(function () {}); }, 1000);
+      setTimeout(function () { warmServer(id); }, 800);
     }
   }
 })();

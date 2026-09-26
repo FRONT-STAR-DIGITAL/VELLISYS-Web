@@ -728,7 +728,7 @@ function layout_end(string $extra = ''): void
 <?php
 $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
 $sheetJs = in_array($here, ['document_view.php', 'document_new.php', 'document_action.php', 'share.php', 'document_download.php', 'document_pdf.php', 'document_sheet.php', 'documents.php'], true);
-$pdfJs = $sheetJs || in_array($here, ['dashboard.php', 'debtors.php', 'creditors.php', 'client_view.php', 'reports.php', 'stock.php'], true);
+$pdfJs = $sheetJs || in_array($here, ['dashboard.php', 'debtors.php', 'creditors.php', 'client_view.php', 'reports.php', 'stock.php', 'sale.php', 'planner.php', 'document_email.php', 'document_new.php'], true);
 if ($sheetJs): ?>
 <script src="<?= h(asset('js/sheet-fit.js')) ?>"></script>
 <?php endif; ?>

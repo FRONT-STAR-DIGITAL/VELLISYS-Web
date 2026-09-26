@@ -177,6 +177,9 @@ function apply_company_doc_template(string $key): void
     db_exec('UPDATE branding SET doc_template = ? WHERE company_id = ?', 'si', [$key, $cid]);
     db_exec('UPDATE documents SET doc_template = ? WHERE company_id = ?', 'si', [$key, $cid]);
     branding(true);
+    if (function_exists('document_pdf_cache_clear_company')) {
+        document_pdf_cache_clear_company($cid);
+    }
 }
 
 function apply_fx_rate(string $raw): float
@@ -2723,6 +2726,9 @@ function save_company_signature_png(string $dataUrl): string
         }
     }
     branding(true);
+    if (function_exists('document_pdf_cache_clear_company')) {
+        document_pdf_cache_clear_company($cid);
+    }
     return $rel;
 }
 
@@ -2777,6 +2783,9 @@ function save_company_signature_upload(array $file): string
         }
     }
     branding(true);
+    if (function_exists('document_pdf_cache_clear_company')) {
+        document_pdf_cache_clear_company($cid);
+    }
     return $rel;
 }
 
@@ -2790,6 +2799,9 @@ function clear_company_signature(): void
         @unlink($old);
     }
     branding(true);
+    if (function_exists('document_pdf_cache_clear_company')) {
+        document_pdf_cache_clear_company($cid);
+    }
 }
 
 function period_range(): array

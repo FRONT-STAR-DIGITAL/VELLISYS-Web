@@ -207,6 +207,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tpl = array_key_exists(post('doc_template'), doc_templates()) ? post('doc_template') : 'folio';
         db_exec('UPDATE documents SET doc_template = ? WHERE company_id = ?', 'si', [$tpl, current_company_id()]);
         branding(true);
+        if (function_exists('document_pdf_cache_clear_company')) {
+            document_pdf_cache_clear_company($cid);
+        }
         $tz = company_timezone_id();
         if (db_has_column(db(), 'companies', 'timezone')) {
             $tz = sanitize_company_timezone(post('timezone'));

@@ -41,6 +41,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 db_exec('UPDATE companies SET name=?, status=?, plan=?, notes=?, enabled_kinds=?, custom_doc=?, nature_of_business=?, client_audience=?, client_fields=?, line_columns=?, user_limit=?, planner_enabled=?, pnl_enabled=?, stock_enabled=? WHERE id=?', 'ssssssssssiiiii', [$name, $status, $plan, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), sanitize_nature_of_business(post('nature_of_business')), posted_client_fields()['audience'], posted_client_fields_json(), posted_document_line_columns(), $limit, $plannerOn, $pnlOn, !empty($_POST['stock_enabled']) ? 1 : 0, $id]);
                 db_exec('UPDATE branding SET name=? WHERE company_id=?', 'si', [$name, $id]);
+                if (function_exists('document_pdf_cache_clear_company')) {
+                    document_pdf_cache_clear_company($id);
+                }
             } catch (Throwable $e) {
                 $error = 'Could not save the company profile. Check the form and try again.';
             }
@@ -111,6 +114,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $id,
                     ]
                 );
+                if (function_exists('document_pdf_cache_clear_company')) {
+                    document_pdf_cache_clear_company($id);
+                }
                 flash('Stationery saved for ' . $company['name'] . '.');
                 redirect('admin_company.php?id=' . $id);
             } catch (Throwable $e) {
