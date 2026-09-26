@@ -450,6 +450,17 @@ summary {
 .top-term .icon { flex-shrink: 0; color: var(--brand); }
 .top-clock .icon { width: 18px; height: 18px; }
 .top-clock-dot { color: var(--muted); }
+.top-clock-tz {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 12%, #fff);
+  border-radius: 999px;
+  padding: 2px 6px;
+  line-height: 1.2;
+}
 .top-term-left { font-weight: 700; white-space: nowrap; }
 .top-term-exp { color: var(--muted); white-space: nowrap; }
 .top-term-ok { background: #e8f0d8; border-color: #c5d9a6; }
