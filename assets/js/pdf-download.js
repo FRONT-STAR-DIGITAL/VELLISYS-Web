@@ -1,15 +1,15 @@
 /**
  * Instant PDF of the exact branded desk sheet (same design as on-view preview).
  *
- * Desk PDF controls always open document_sheet.php?autodownload=1 — one path
- * every time, so refresh never switches to a differently styled server cache.
- *
- * Capture mutates ONLY the html2canvas clone (never the live page), so the
- * sheet does not flash / restyle before the file is saved.
+ * Always opens document_sheet.php?autodownload=1 — one path every click/refresh.
+ * Capture mutates ONLY the html2canvas clone. Desktop A4 sheets are forced to a
+ * single page (scale-to-fit + drop a trailing blank page) so short docs never
+ * download as page-1 content + page-2 empty.
  */
 (function () {
   var html2pdfLoading = null;
   var busy = false;
+  var A4_PX = 1122.52; // 297mm at 96dpi
 
   function loadHtml2Pdf() {
     if (typeof window.html2pdf === 'function') {
@@ -40,7 +40,8 @@
     return document.querySelector('.invoice-sheet') || document.querySelector('.sheet-stage');
   }
 
-  function prepareCloneForCapture(clonedDoc) {
+  function prepareCloneForCapture(clonedDoc, liveRoot, opts) {
+    opts = opts || {};
     var cloned = clonedDoc.querySelector('.invoice-sheet') || clonedDoc.querySelector('.sheet-stage');
     if (!cloned) return null;
 
@@ -79,17 +80,20 @@
       auths[a].style.marginTop = '14px';
     }
 
-    // Flatten paints on the CLONE only (live preview stays untouched).
-    var nodes = [cloned].concat(Array.prototype.slice.call(cloned.querySelectorAll('*')));
-    for (var j = 0; j < nodes.length; j++) {
-      var el = nodes[j];
-      if (!el || el.nodeType !== 1) continue;
+    // Read computed paints from the LIVE sheet; write onto the clone only.
+    var liveNodes = liveRoot
+      ? [liveRoot].concat(Array.prototype.slice.call(liveRoot.querySelectorAll('*')))
+      : [];
+    var cloneNodes = [cloned].concat(Array.prototype.slice.call(cloned.querySelectorAll('*')));
+    var len = Math.min(liveNodes.length, cloneNodes.length);
+    for (var j = 0; j < len; j++) {
+      var liveEl = liveNodes[j];
+      var el = cloneNodes[j];
+      if (!liveEl || !el || el.nodeType !== 1) continue;
       if (el.classList && (el.classList.contains('bill-corner') || el.classList.contains('d-watermark'))) {
         continue;
       }
-      var cs = clonedDoc.defaultView
-        ? clonedDoc.defaultView.getComputedStyle(el)
-        : window.getComputedStyle(el);
+      var cs = window.getComputedStyle(liveEl);
       if (!cs) continue;
       if (cs.clipPath && cs.clipPath !== 'none') continue;
       el.style.setProperty('-webkit-print-color-adjust', 'exact', 'important');
@@ -102,6 +106,24 @@
       if (cs.borderRightColor) el.style.borderRightColor = cs.borderRightColor;
       if (cs.borderBottomColor) el.style.borderBottomColor = cs.borderBottomColor;
       if (cs.borderLeftColor) el.style.borderLeftColor = cs.borderLeftColor;
+    }
+
+    // Desktop often measures a hair over A4 and html2pdf invents a blank page 2.
+    // Scale the clone uniformly into one A4 when we are forcing a single page.
+    if (opts.forceSingle && !opts.thermal) {
+      void cloned.offsetHeight;
+      var cloneH = Math.max(cloned.scrollHeight || 0, cloned.offsetHeight || 0, opts.liveHeight || 0);
+      if (cloneH > A4_PX + 1) {
+        var sc = A4_PX / cloneH;
+        cloned.style.transformOrigin = 'top left';
+        cloned.style.transform = 'scale(' + sc + ')';
+        var parent = cloned.parentElement;
+        if (parent) {
+          parent.style.width = (cloned.offsetWidth || opts.liveWidth || 794) + 'px';
+          parent.style.height = A4_PX + 'px';
+          parent.style.overflow = 'hidden';
+        }
+      }
     }
 
     return cloned;
@@ -119,18 +141,32 @@
     return Promise.all([fonts].concat(pending));
   }
 
+  function trimTrailingBlankPages(pdf, maxKeep) {
+    maxKeep = Math.max(1, maxKeep || 1);
+    try {
+      var total = pdf.internal.getNumberOfPages();
+      while (total > maxKeep) {
+        pdf.deletePage(total);
+        total--;
+      }
+    } catch (e) {}
+    return pdf;
+  }
+
   function saveExactSheet(filename) {
     var sheet = exactSheetRoot();
     if (!sheet) return Promise.reject(new Error('sheet'));
     return waitAssets().then(function () {
       return loadHtml2Pdf().then(function (html2pdf) {
         var thermal = !!(document.body && document.body.classList.contains('print-thermal'));
-        // Measure the live (unmutated) sheet — document_sheet already collapses min-height in CSS.
+        var multipage = !!(sheet.classList && sheet.classList.contains('is-multipage'));
         var w = Math.max(sheet.scrollWidth || 0, sheet.offsetWidth || 0, thermal ? 302 : 794);
         var h = Math.max(sheet.scrollHeight || 0, sheet.offsetHeight || 0, 1);
-        var a4px = 1123;
-        var fitsOne = !thermal && h <= a4px + 8;
-        return html2pdf().set({
+        // Short desk sheets (desktop + mobile): one A4. Only true multipage / very tall keep >1.
+        var forceSingle = !thermal && !multipage && h <= A4_PX * 1.45;
+        var captureH = forceSingle ? Math.min(h, Math.ceil(A4_PX)) : h;
+
+        var worker = html2pdf().set({
           margin: 0,
           filename: filename || 'document.pdf',
           image: { type: 'jpeg', quality: 0.98 },
@@ -141,13 +177,18 @@
             backgroundColor: '#ffffff',
             logging: false,
             width: w,
-            height: h,
+            height: captureH,
             windowWidth: w,
-            windowHeight: h,
+            windowHeight: captureH,
             scrollX: 0,
             scrollY: 0,
             onclone: function (clonedDoc) {
-              prepareCloneForCapture(clonedDoc);
+              prepareCloneForCapture(clonedDoc, sheet, {
+                forceSingle: forceSingle,
+                thermal: thermal,
+                liveHeight: h,
+                liveWidth: w,
+              });
             },
           },
           jsPDF: {
@@ -157,8 +198,20 @@
               : 'a4',
             orientation: 'portrait',
           },
-          pagebreak: { mode: fitsOne || thermal ? ['avoid-all'] : ['css', 'legacy'] },
-        }).from(sheet).save();
+          pagebreak: { mode: forceSingle || thermal ? ['avoid-all'] : ['css', 'legacy'] },
+        }).from(sheet);
+
+        if (!forceSingle) {
+          return worker.save();
+        }
+
+        // Build PDF, drop any trailing blank page html2pdf adds on desktop, then save.
+        return worker.toPdf().get('pdf').then(function (pdf) {
+          trimTrailingBlankPages(pdf, 1);
+          return pdf;
+        }).then(function (pdf) {
+          pdf.save(filename || 'document.pdf');
+        });
       });
     });
   }
@@ -175,7 +228,6 @@
     var a = e.target && e.target.closest ? e.target.closest('a[data-pdf-download]') : null;
     if (!a) return;
 
-    // Autodownload / exact sheet page: capture here (clone-only mutations).
     var onExact = document.body
       && (document.body.getAttribute('data-pdf-exact') === '1'
         || document.body.getAttribute('data-autodownload') === '1');
@@ -189,14 +241,11 @@
       return;
     }
 
-    // Everywhere else: always open the same unfitted sheet autodownload page.
-    // Do not fetch a server/cache PDF — that path looked different after refresh.
     e.preventDefault();
     e.stopPropagation();
     window.location.href = sheetUrlFromLink(a);
   }, true);
 
-  // Autodownload: wait for paint, then capture without touching the live DOM.
   if (document.body && document.body.getAttribute('data-autodownload') === '1') {
     var autoName = document.body.getAttribute('data-pdf-name') || 'document.pdf';
     function runAuto() {
