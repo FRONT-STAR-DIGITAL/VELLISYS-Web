@@ -1,11 +1,11 @@
 /**
- * Instant PDF of the exact branded desk sheet.
+ * Instant PDF of the exact branded desk sheet (same design as on view).
  *
- * 1) Fetch document_download.php as a blob (real PDF when Chrome/cache available).
- * 2) Otherwise open the unfitted sheet autodownload page and capture with html2pdf.
+ * 1) Fetch document_download.php as a blob when the server can print it.
+ * 2) Otherwise open the unfitted sheet autodownload and capture with html2pdf.
  *
- * Never use the HTML download= attribute on redirecting URLs (saves HTML as a fake PDF).
- * Never capture the fitted on-page preview (sheet-fit scales it and drops layout).
+ * Capture rules: use .invoice-sheet only, collapse screen min-height (297mm),
+ * avoid blank second pages, keep A4 (thermal = roll width).
  */
 (function () {
   var html2pdfLoading = null;
@@ -38,18 +38,63 @@
   }
 
   function exactSheetRoot() {
-    return document.querySelector('.sheet-stage') || document.querySelector('.invoice-sheet');
+    // Always the sheet article — never .sheet-stage (padding/fit height → blank page 2).
+    return document.querySelector('.invoice-sheet') || document.querySelector('.sheet-stage');
   }
 
-  /** Resolve CSS variables / color-mix into concrete colours html2canvas can paint. */
+  /** Collapse screen-only A4 min-height so capture matches print (no empty footer page). */
+  function prepareSheetForCapture(sheet) {
+    var nodes = document.querySelectorAll('.invoice-sheet');
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      n.style.transform = 'none';
+      n.style.zoom = '1';
+      n.style.marginLeft = '0';
+      n.style.boxShadow = 'none';
+      n.style.height = 'auto';
+      n.style.minHeight = '0';
+      n.style.pageBreakAfter = 'avoid';
+      n.style.breakAfter = 'avoid';
+    }
+    var stage = document.querySelector('.sheet-stage');
+    if (stage) {
+      stage.style.height = 'auto';
+      stage.style.minHeight = '0';
+      stage.style.overflow = 'visible';
+      stage.style.padding = '0';
+      stage.style.margin = '0';
+    }
+    var stretch = document.querySelectorAll(
+      '.sheet-frame .page-frame, .sheet-inset .page-inset, .booklet-page, .chit-page'
+    );
+    for (var s = 0; s < stretch.length; s++) {
+      stretch[s].style.minHeight = '0';
+      stretch[s].style.height = 'auto';
+    }
+    var auths = document.querySelectorAll('.doc-authenticity');
+    for (var a = 0; a < auths.length; a++) {
+      auths[a].style.marginTop = '14px';
+    }
+    if (sheet) {
+      sheet.style.height = 'auto';
+      sheet.style.minHeight = '0';
+    }
+  }
+
+  /** Resolve CSS variables / color-mix into concrete paints (skip clip-path corners). */
   function flattenPaintStyles(root) {
     if (!root) return;
     var nodes = [root].concat(Array.prototype.slice.call(root.querySelectorAll('*')));
     for (var i = 0; i < nodes.length; i++) {
       var el = nodes[i];
       if (!el || el.nodeType !== 1) continue;
+      // clip-path corners must keep their own background; flattening breaks them.
+      if (el.classList && (el.classList.contains('bill-corner') || el.classList.contains('d-watermark'))) {
+        continue;
+      }
       var cs = window.getComputedStyle(el);
       if (!cs) continue;
+      if (cs.clipPath && cs.clipPath !== 'none') continue;
       el.style.setProperty('-webkit-print-color-adjust', 'exact', 'important');
       el.style.setProperty('print-color-adjust', 'exact', 'important');
       if (cs.backgroundColor && cs.backgroundColor !== 'rgba(0, 0, 0, 0)' && cs.backgroundColor !== 'transparent') {
@@ -60,14 +105,6 @@
       if (cs.borderRightColor) el.style.borderRightColor = cs.borderRightColor;
       if (cs.borderBottomColor) el.style.borderBottomColor = cs.borderBottomColor;
       if (cs.borderLeftColor) el.style.borderLeftColor = cs.borderLeftColor;
-      if (cs.outlineColor) el.style.outlineColor = cs.outlineColor;
-      if (cs.boxShadow && cs.boxShadow !== 'none') el.style.boxShadow = cs.boxShadow;
-      if (cs.backgroundImage && cs.backgroundImage !== 'none') {
-        el.style.backgroundImage = cs.backgroundImage;
-        el.style.backgroundSize = cs.backgroundSize;
-        el.style.backgroundPosition = cs.backgroundPosition;
-        el.style.backgroundRepeat = cs.backgroundRepeat;
-      }
     }
   }
 
@@ -87,17 +124,17 @@
     var sheet = exactSheetRoot();
     if (!sheet) return Promise.reject(new Error('sheet'));
     return waitAssets().then(function () {
-      var nodes = document.querySelectorAll('.invoice-sheet');
-      for (var i = 0; i < nodes.length; i++) {
-        nodes[i].style.transform = 'none';
-        nodes[i].style.zoom = '1';
-        nodes[i].style.marginLeft = '0';
-        nodes[i].style.boxShadow = 'none';
-      }
+      prepareSheetForCapture(sheet);
+      // Re-measure after collapsing min-height.
+      void sheet.offsetHeight;
       flattenPaintStyles(sheet);
       return loadHtml2Pdf().then(function (html2pdf) {
         var thermal = !!(document.body && document.body.classList.contains('print-thermal'));
-        var h = Math.max(sheet.scrollHeight || 0, sheet.offsetHeight || 0, 1123);
+        var w = Math.max(sheet.scrollWidth || 0, sheet.offsetWidth || 0, thermal ? 302 : 794);
+        var h = Math.max(sheet.scrollHeight || 0, sheet.offsetHeight || 0, 1);
+        // A4 height at 96dpi ≈ 1123px. If we fit, force one page (no blank page 2).
+        var a4px = 1123;
+        var fitsOne = !thermal && h <= a4px + 8;
         return html2pdf().set({
           margin: 0,
           filename: filename || 'document.pdf',
@@ -108,25 +145,44 @@
             allowTaint: true,
             backgroundColor: '#ffffff',
             logging: false,
-            windowWidth: Math.max(sheet.scrollWidth || 0, 794),
+            width: w,
+            height: h,
+            windowWidth: w,
+            windowHeight: h,
+            scrollX: 0,
+            scrollY: 0,
             onclone: function (clonedDoc) {
-              var cloned = clonedDoc.querySelector('.sheet-stage') || clonedDoc.querySelector('.invoice-sheet');
+              var cloned = clonedDoc.querySelector('.invoice-sheet') || clonedDoc.querySelector('.sheet-stage');
               if (!cloned) return;
-              var list = [cloned].concat(Array.prototype.slice.call(cloned.querySelectorAll('*')));
-              for (var j = 0; j < list.length; j++) {
-                var el = list[j];
-                if (!el || el.nodeType !== 1) continue;
-                el.style.setProperty('-webkit-print-color-adjust', 'exact', 'important');
-                el.style.setProperty('print-color-adjust', 'exact', 'important');
+              cloned.style.minHeight = '0';
+              cloned.style.height = 'auto';
+              cloned.style.transform = 'none';
+              cloned.style.boxShadow = 'none';
+              var stage = clonedDoc.querySelector('.sheet-stage');
+              if (stage) {
+                stage.style.height = 'auto';
+                stage.style.minHeight = '0';
+                stage.style.padding = '0';
+                stage.style.margin = '0';
+              }
+              var stretch = clonedDoc.querySelectorAll(
+                '.sheet-frame .page-frame, .sheet-inset .page-inset, .booklet-page, .chit-page'
+              );
+              for (var i = 0; i < stretch.length; i++) {
+                stretch[i].style.minHeight = '0';
+                stretch[i].style.height = 'auto';
               }
             },
           },
           jsPDF: {
             unit: 'mm',
-            format: thermal ? [80, Math.max(120, Math.round(h * 0.2646))] : 'a4',
+            format: thermal
+              ? [80, Math.max(120, Math.round(h * 0.2646))]
+              : 'a4',
             orientation: 'portrait',
           },
-          pagebreak: { mode: ['css', 'legacy'] },
+          // avoid-all prevents html2pdf from inventing a blank trailing page.
+          pagebreak: { mode: fitsOne || thermal ? ['avoid-all'] : ['css', 'legacy'] },
         }).from(sheet).save();
       });
     });
@@ -165,17 +221,12 @@
       if (!res.ok || type.indexOf('pdf') === -1) {
         throw new Error('not-pdf');
       }
-      return res.blob();
-    }).then(function (blob) {
-      if (!blob || blob.size < 800 || (blob.type && blob.type.indexOf('pdf') === -1 && blob.type !== 'application/octet-stream')) {
-        // Some servers omit type; sniff magic in next step via arrayBuffer if needed.
-      }
-      return blob.arrayBuffer().then(function (buf) {
-        var head = new Uint8Array(buf.slice(0, 4));
-        var isPdf = head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46; // %PDF
-        if (!isPdf) throw new Error('not-pdf');
-        triggerBlobDownload(new Blob([buf], { type: 'application/pdf' }), filename);
-      });
+      return res.arrayBuffer();
+    }).then(function (buf) {
+      var head = new Uint8Array(buf.slice(0, 4));
+      var isPdf = head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46;
+      if (!isPdf) throw new Error('not-pdf');
+      triggerBlobDownload(new Blob([buf], { type: 'application/pdf' }), filename);
     });
   }
 
@@ -201,7 +252,6 @@
     var name = a.getAttribute('data-pdf-name') || 'document.pdf';
     var exact = document.body && document.body.getAttribute('data-pdf-exact') === '1';
 
-    // Already on the unfitted sheet page — capture here.
     if (exact || document.body.getAttribute('data-autodownload') === '1') {
       busy = true;
       saveExactSheet(name).finally(function () { busy = false; });
@@ -217,7 +267,6 @@
     });
   }, true);
 
-  // Autodownload: capture the unfitted sheet as soon as assets are ready.
   if (document.body && document.body.getAttribute('data-autodownload') === '1') {
     var autoName = document.body.getAttribute('data-pdf-name') || 'document.pdf';
     function runAuto() {

@@ -1329,8 +1329,8 @@ function document_pdf_cache_path(array $doc): string
         @mkdir($dir, 0755, true);
     }
     $id = (int) ($doc['id'] ?? 0);
-    // pdf-v3: CDP printBackground + exact colour capture (invalidate older washed-out caches).
-    $fp = hash('sha256', $id . '|pdf-v3|' . document_content_fingerprint($doc) . '|' . document_brand_fingerprint($doc));
+    // pdf-v4: no blank page-2 / content-height print HTML (invalidate stretched caches).
+    $fp = hash('sha256', $id . '|pdf-v4|' . document_content_fingerprint($doc) . '|' . document_brand_fingerprint($doc));
     return $dir . '/doc-' . $id . '-' . substr($fp, 0, 16) . '.pdf';
 }
 
@@ -1458,8 +1458,33 @@ function document_sheet_print_html(array $doc): string
     html, body.print-body { background: #fff !important; margin: 0; padding: 0; }
     a[href]::after, a[href]::before { content: none !important; }
     a { color: inherit !important; text-decoration: none !important; }
-    .sheet-wrap, .sheet-stage { padding: 0 !important; margin: 0 !important; }
-    .invoice-sheet { transform: none !important; zoom: 1 !important; box-shadow: none !important; }
+    .sheet-wrap, .sheet-stage { padding: 0 !important; margin: 0 !important; height: auto !important; }
+    .invoice-sheet {
+      transform: none !important;
+      zoom: 1 !important;
+      box-shadow: none !important;
+      height: auto !important;
+      min-height: 0 !important;
+      page-break-after: avoid !important;
+      break-after: avoid !important;
+    }
+    .invoice-sheet.sheet-thermal {
+      width: 80mm !important;
+      max-width: 80mm !important;
+      min-height: 0 !important;
+    }
+    .invoice-sheet:not(.sheet-thermal) {
+      width: 210mm !important;
+      max-width: 210mm !important;
+    }
+    .sheet-frame .page-frame,
+    .sheet-inset .page-inset,
+    .booklet-page,
+    .chit-page {
+      min-height: 0 !important;
+      height: auto !important;
+    }
+    .doc-authenticity { margin-top: 14px !important; }
   </style>
 </head>
 <body class="print-body<?= $thermal ? ' print-thermal' : '' ?>">
@@ -1938,6 +1963,16 @@ function send_document_download(array $doc, ?string $fallbackUrl = null): void
         $fallback = $fallbackUrl !== null && $fallbackUrl !== ''
             ? $fallbackUrl
             : ('document_sheet.php?id=' . (int) ($doc['id'] ?? 0) . '&autodownload=1');
+        // XHR/fetch callers should fall through to the sheet URL — do not return HTML as a "PDF".
+        $xhr = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest'
+            || str_contains(strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? '')), 'application/json');
+        if ($xhr) {
+            http_response_code(503);
+            header('Content-Type: application/json; charset=utf-8');
+            header('Cache-Control: no-store');
+            echo json_encode(['ok' => false, 'sheet' => $fallback], JSON_UNESCAPED_SLASHES);
+            exit;
+        }
         redirect($fallback);
     }
 }
@@ -2596,7 +2631,7 @@ function render_doc_actions(array $doc, bool $labeled = false): void
       <?php endif; ?>
       <a class="<?= $cls ?>" href="<?= h(url('document_view.php?id=' . $id . '&print=1')) ?>" title="Print" aria-label="Print"><?= icon('printer', 15) ?><?php if ($labeled): ?> Print<?php endif; ?></a>
       <?php if (!$void): ?>
-        <?php render_pdf_download_link($doc, $cls, true); ?>
+        <?php render_pdf_download_link($doc, $cls, $labeled); ?>
         <details class="share-pop">
           <summary class="<?= $cls ?>" title="Share" aria-label="Share"><?= icon('share', 15) ?><?php if ($labeled): ?> Share<?php endif; ?></summary>
           <div class="share-pop-panel" role="menu">

@@ -696,7 +696,18 @@ h1 .icon { color: var(--brand); }
 .btn.ghost:hover, a.btn.ghost:hover { background: #fff; color: var(--ink); }
 .btn.danger { background: var(--danger); }
 .btn.sm { padding: 4px 7px; font-size: 11.5px; }
-.btn.icon-only { padding: 4px; width: 26px; height: 26px; }
+.btn.icon-only {
+  padding: 4px;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  max-width: 26px;
+  flex: 0 0 26px;
+  overflow: hidden;
+  gap: 0;
+  box-sizing: border-box;
+}
+.btn.icon-only .icon { flex-shrink: 0; }
 .btn[disabled] { opacity: .45; }
 form.actions, td form { display: inline; margin: 0; }
 
@@ -1733,12 +1744,34 @@ td.row-actions {
   flex-direction: row;
   flex-wrap: nowrap;
   justify-content: flex-end;
-  gap: 3px;
+  gap: 4px;
   align-items: center;
+}
+.row-actions .actions > .btn,
+.row-actions .actions > form,
+.row-actions .actions > .share-pop {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 1;
+}
+.row-actions .actions > form {
+  display: inline-flex;
+  margin: 0;
+}
+.row-actions .actions > .btn.icon-only,
+.row-actions .actions > .share-pop > summary.btn.icon-only,
+.row-actions .actions > form > .btn.icon-only {
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  max-width: 26px;
+  padding: 4px;
+  overflow: hidden;
 }
 .share-pop {
   position: relative;
   display: inline-flex;
+  flex: 0 0 auto;
 }
 .share-pop > summary.btn {
   display: inline-flex;
@@ -1893,6 +1926,7 @@ input:focus, select:focus, textarea:focus {
   width: 210mm;
   max-width: 210mm;
   height: auto;
+  /* Screen preview looks like an A4 sheet; print/PDF collapse this (see @media print). */
   min-height: 297mm;
   overflow-x: hidden;
   overflow-y: visible;
@@ -1920,9 +1954,16 @@ input:focus, select:focus, textarea:focus {
 .invoice-sheet.sheet-stripe,
 .invoice-sheet.sheet-frame,
 .invoice-sheet.sheet-inset,
-.invoice-sheet.sheet-thermal {
+.invoice-sheet.sheet-thermal,
+.invoice-sheet.sheet-booklet,
+.invoice-sheet.sheet-chit {
   background: #fff;
   color: #000;
+}
+/* Twin stays A4 width (two copies side by side). Thermal is roll width. */
+.invoice-sheet.sheet-twin {
+  width: 210mm;
+  max-width: 210mm;
 }
 .invoice-sheet.sheet-thermal {
   width: 80mm;
@@ -4193,18 +4234,44 @@ body.tut-lightbox-open { overflow: hidden; }
     box-shadow: none;
     transform: none !important;
     zoom: 1 !important;
-    margin-left: 0 !important;
+    margin: 0 auto !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
     height: auto !important;
     min-height: 0 !important;
     overflow: visible;
-    page-break-after: auto;
-    break-after: auto;
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+  .invoice-sheet.sheet-thermal {
+    width: 80mm !important;
+    max-width: 80mm !important;
+    min-height: 0 !important;
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
+  .invoice-sheet:not(.sheet-thermal):not(.sheet-twin) {
+    width: 210mm !important;
+    max-width: 210mm !important;
   }
   .invoice-sheet:not(.is-multipage) {
     page-break-after: avoid;
     break-after: avoid;
+  }
+  /* Do not stretch sheets to full A4 with empty bottom space when printing. */
+  .sheet-frame .page-frame,
+  .sheet-inset .page-inset,
+  .booklet-page,
+  .chit-page {
+    min-height: 0 !important;
+  }
+  .sheet-frame .page-frame-inner > .doc-authenticity,
+  .sheet-inset .page-inset > .doc-authenticity,
+  .booklet-page > .doc-authenticity,
+  .chit-page > .doc-authenticity,
+  .stripe-inner > .doc-authenticity,
+  .bill-pad > .doc-authenticity {
+    margin-top: 14px !important;
   }
 }
 

@@ -2128,17 +2128,23 @@
 @media print {
   .invoice-sheet .doc-authenticity,
   .expense-card .doc-authenticity {
-    margin-top: 16px;
+    margin-top: 14px !important;
     padding: 5px 7px;
   }
-  /* Keep frame/inset/booklet/chit QR sticky to page-1 bottom when space remains */
-  .sheet-frame .page-frame {
-    min-height: calc(297mm - 14mm) !important;
+  /* Print/PDF: content height only — no forced full-A4 empty footer band. */
+  .sheet-frame .page-frame,
+  .sheet-inset .page-inset,
+  .booklet-page,
+  .chit-page {
+    min-height: 0 !important;
+    height: auto !important;
   }
   .sheet-frame .page-frame-inner,
   .sheet-inset .page-inset,
   .booklet-page,
-  .chit-page {
+  .chit-page,
+  .bill-pad,
+  .stripe-inner {
     display: flex !important;
     flex-direction: column !important;
   }
@@ -2146,7 +2152,8 @@
   .sheet-inset .page-inset > .doc-authenticity,
   .booklet-page > .doc-authenticity,
   .chit-page > .doc-authenticity,
-  .stripe-inner > .doc-authenticity {
-    margin-top: auto !important;
+  .stripe-inner > .doc-authenticity,
+  .bill-pad > .doc-authenticity {
+    margin-top: 14px !important;
   }
 }

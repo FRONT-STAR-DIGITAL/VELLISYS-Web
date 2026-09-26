@@ -45,8 +45,24 @@ $auto = isset($_GET['autodownload']);
       color-adjust: exact !important;
     }
     html, body.print-body { background: #fff !important; margin: 0; padding: 0; }
-    .sheet-wrap, .sheet-stage { padding: 0 !important; margin: 0 !important; background: #fff; }
-    .invoice-sheet { transform: none !important; zoom: 1 !important; box-shadow: none !important; margin: 0 auto !important; }
+    .sheet-wrap, .sheet-stage { padding: 0 !important; margin: 0 !important; background: #fff; height: auto !important; }
+    .invoice-sheet {
+      transform: none !important;
+      zoom: 1 !important;
+      box-shadow: none !important;
+      margin: 0 auto !important;
+      height: auto !important;
+      min-height: 0 !important;
+      page-break-after: avoid !important;
+      break-after: avoid !important;
+    }
+    .invoice-sheet.sheet-thermal { width: 80mm !important; max-width: 80mm !important; }
+    .invoice-sheet:not(.sheet-thermal) { width: 210mm !important; max-width: 210mm !important; }
+    .sheet-frame .page-frame,
+    .sheet-inset .page-inset,
+    .booklet-page,
+    .chit-page { min-height: 0 !important; height: auto !important; }
+    .doc-authenticity { margin-top: 14px !important; }
   </style>
 </head>
 <body
