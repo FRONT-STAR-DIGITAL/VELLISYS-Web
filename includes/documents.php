@@ -746,9 +746,54 @@ function render_document_authenticity(array $brand, array $doc): void
 }
 
 /**
+ * Offset of the matching </div> that closes the first element with $class.
+ * Depth-counts nested <div> tags so outer wrappers (e.g. page-frame) are not
+ * mistaken for the inner content box (page-frame-inner).
+ */
+function html_close_of_class(string $html, string $class): ?int
+{
+    $pattern = '/<div\b[^>]*\bclass=(["\'])([^"\']*\b'
+        . preg_quote($class, '/')
+        . '\b[^"\']*)\1[^>]*>/i';
+    if (!preg_match($pattern, $html, $m, PREG_OFFSET_CAPTURE)) {
+        return null;
+    }
+    $openEnd = $m[0][1] + strlen($m[0][0]);
+    $len = strlen($html);
+    $depth = 1;
+    $pos = $openEnd;
+    while ($pos < $len && $depth > 0) {
+        $nextOpen = stripos($html, '<div', $pos);
+        $nextClose = stripos($html, '</div>', $pos);
+        if ($nextClose === false) {
+            return null;
+        }
+        if ($nextOpen !== false && $nextOpen < $nextClose) {
+            $gt = strpos($html, '>', $nextOpen);
+            if ($gt === false) {
+                return null;
+            }
+            // Treat <div ... /> as a no-op for depth.
+            $tag = substr($html, $nextOpen, $gt - $nextOpen + 1);
+            if (!str_ends_with(rtrim(substr($tag, 0, -1)), '/')) {
+                $depth++;
+            }
+            $pos = $gt + 1;
+            continue;
+        }
+        $depth--;
+        if ($depth === 0) {
+            return $nextClose;
+        }
+        $pos = $nextClose + 6;
+    }
+    return null;
+}
+
+/**
  * Place authenticity block at the bottom of the sheet (centered via CSS).
- * Injects inside the main content container when present so flex layouts
- * (e.g. stripe) do not park the QR as a mid-page sibling.
+ * Injects inside the main content container (depth-matched) so flex sticky
+ * footers (page frame / inset) keep the QR on page 1 when space remains.
  */
 function inject_document_authenticity(string $html, array $brand, array $doc): string
 {
@@ -759,30 +804,18 @@ function inject_document_authenticity(string $html, array $brand, array $doc): s
     if ($block === '') {
         return $html;
     }
-    // Prefer end of known inner content wrappers (stripe, bill pad, booklet, chit, inset).
+    // Prefer end of known inner content wrappers (must be inside, not after).
     foreach ([
+        'page-frame-inner',
+        'page-inset',
         'stripe-inner',
         'bill-pad',
         'booklet-page',
         'chit-page',
-        'page-inset',
-        'page-frame-inner',
     ] as $innerClass) {
-        $open = 'class="' . $innerClass . '"';
-        $openPos = stripos($html, $open);
-        if ($openPos === false) {
-            continue;
-        }
-        // Find the matching close of that inner div by scanning from article end:
-        // insert immediately before the last </div> that precedes </article>.
-        $articleClose = strripos($html, '</article>');
-        if ($articleClose === false) {
-            break;
-        }
-        $before = substr($html, 0, $articleClose);
-        $divClose = strripos($before, '</div>');
-        if ($divClose !== false && $divClose > $openPos) {
-            return substr($html, 0, $divClose) . $block . "\n" . substr($html, $divClose);
+        $closePos = html_close_of_class($html, $innerClass);
+        if ($closePos !== null) {
+            return substr($html, 0, $closePos) . $block . "\n" . substr($html, $closePos);
         }
     }
     $needle = '</article>';

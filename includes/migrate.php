@@ -2008,6 +2008,10 @@ function folio_migrate_sales_field(mysqli $db): void
         @$db->query("ALTER TABLE users ADD COLUMN avatar_path VARCHAR(255) NOT NULL DEFAULT '' AFTER phone");
         db_has_column($db, 'users', 'avatar_path', true);
     }
+    if (!db_has_column($db, 'users', 'employee_id')) {
+        @$db->query("ALTER TABLE users ADD COLUMN employee_id VARCHAR(40) NOT NULL DEFAULT '' AFTER phone");
+        db_has_column($db, 'users', 'employee_id', true);
+    }
     $db->query("CREATE TABLE IF NOT EXISTS sales_clock_ins (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       user_id INT UNSIGNED NOT NULL,

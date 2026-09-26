@@ -691,7 +691,18 @@
 /* Accent stripe */
 .sheet-stripe { padding: 0; overflow: hidden; display: flex; }
 .stripe-rail { width: 14px; background: var(--brand-2); flex-shrink: 0; }
-.stripe-inner { flex: 1; padding: 16px 22px 28px; }
+.stripe-inner {
+  flex: 1;
+  padding: 16px 22px 28px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.stripe-inner > .doc-authenticity {
+  margin-top: auto;
+  flex-shrink: 0;
+}
 .stripe-banner {
   background: var(--brand);
   color: var(--on-brand);
@@ -1054,11 +1065,18 @@
 }
 .sheet-frame .page-frame-inner {
   flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
   box-sizing: border-box;
   border: 1px solid var(--brand-2);
   padding: 10mm 12mm 12mm;
+  min-height: 0;
 }
 .sheet-frame .page-frame-inner .d-row { margin-bottom: 8px; }
+.sheet-frame .page-frame-inner > .doc-authenticity {
+  margin-top: auto;
+  flex-shrink: 0;
+}
 
 /* Inset border — thick brand margin + inner rule */
 .invoice-sheet.sheet-inset { padding: 0; }
@@ -1068,6 +1086,12 @@
   border: 9px solid var(--brand);
   box-shadow: inset 0 0 0 1.5px var(--brand-2);
   padding: 12mm 14mm 14mm;
+  display: flex;
+  flex-direction: column;
+}
+.sheet-inset .page-inset > .doc-authenticity {
+  margin-top: auto;
+  flex-shrink: 0;
 }
 .inset-to {
   margin: 8px 0 14px;
@@ -1186,6 +1210,12 @@
   padding: 10mm 11mm 12mm;
   min-height: calc(297mm - 20mm);
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+.booklet-page > .doc-authenticity {
+  margin-top: auto;
+  flex-shrink: 0;
 }
 .booklet-head { margin-bottom: 8px; }
 .booklet-logo { margin-bottom: 8px; }
@@ -1347,6 +1377,12 @@
   padding: 10mm 11mm 12mm;
   min-height: calc(297mm - 24mm);
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+.chit-page > .doc-authenticity {
+  margin-top: auto;
+  flex-shrink: 0;
 }
 .chit-head { text-align: center; margin-bottom: 10px; }
 .chit-head .d-logo { margin: 0 auto 8px; }
@@ -1959,7 +1995,7 @@
   border-bottom: 1px solid #111 !important;
 }
 
-/* Document authenticity QR — compact boxed strip at the bottom */
+/* Document authenticity QR — compact boxed strip at the bottom of the page */
 .invoice-sheet .doc-authenticity,
 .expense-card .doc-authenticity {
   display: flex;
@@ -1978,6 +2014,8 @@
   box-sizing: border-box;
   break-inside: avoid;
   page-break-inside: avoid;
+  break-before: avoid-page;
+  page-break-before: avoid;
 }
 .doc-auth-qr {
   flex: 0 0 auto;
@@ -2083,5 +2121,23 @@
   .expense-card .doc-authenticity {
     margin-top: 16px;
     padding: 5px 7px;
+  }
+  /* Keep frame/inset/booklet/chit QR sticky to page-1 bottom when space remains */
+  .sheet-frame .page-frame {
+    min-height: calc(297mm - 14mm) !important;
+  }
+  .sheet-frame .page-frame-inner,
+  .sheet-inset .page-inset,
+  .booklet-page,
+  .chit-page {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .sheet-frame .page-frame-inner > .doc-authenticity,
+  .sheet-inset .page-inset > .doc-authenticity,
+  .booklet-page > .doc-authenticity,
+  .chit-page > .doc-authenticity,
+  .stripe-inner > .doc-authenticity {
+    margin-top: auto !important;
   }
 }

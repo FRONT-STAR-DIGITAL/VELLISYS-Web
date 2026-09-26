@@ -200,11 +200,23 @@ function sales_agent(int $id): ?array
     return db_one("SELECT * FROM users WHERE id = ? AND role = 'sales_agent'", 'i', [$id]);
 }
 
+/** Display Employee ID for a sales agent (auto SA-0001 style when unset). */
+function sales_employee_id(array $agent): string
+{
+    $code = trim((string) ($agent['employee_id'] ?? ''));
+    if ($code !== '') {
+        return $code;
+    }
+    $id = (int) ($agent['id'] ?? 0);
+    return $id > 0 ? ('SA-' . str_pad((string) $id, 4, '0', STR_PAD_LEFT)) : '';
+}
+
 function sales_agent_save(array $fields, ?int $id = null): array
 {
     $name = mb_substr(trim((string) ($fields['name'] ?? '')), 0, 120);
     $email = strtolower(mb_substr(trim((string) ($fields['email'] ?? '')), 0, 190));
     $phone = mb_substr(trim((string) ($fields['phone'] ?? '')), 0, 40);
+    $employeeId = mb_substr(trim((string) ($fields['employee_id'] ?? '')), 0, 40);
     $job = mb_substr(trim((string) ($fields['job_title'] ?? 'Sales agent')), 0, 80) ?: 'Sales agent';
     $password = (string) ($fields['password'] ?? '');
     if ($name === '' || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -214,18 +226,32 @@ function sales_agent_save(array $fields, ?int $id = null): array
     if ($dup) {
         return ['ok' => false, 'error' => 'That email already has a login.'];
     }
+    if ($employeeId !== '') {
+        $eidDup = db_one(
+            "SELECT id FROM users WHERE employee_id = ? AND role = 'sales_agent' AND id <> ?",
+            'si',
+            [$employeeId, (int) ($id ?? 0)]
+        );
+        if ($eidDup) {
+            return ['ok' => false, 'error' => 'That Employee ID is already in use.'];
+        }
+    }
     if ($id) {
         $row = sales_agent($id);
         if (!$row) {
             return ['ok' => false, 'error' => 'Sales agent not found.'];
         }
         db_exec(
-            "UPDATE users SET name=?, email=?, job_title=?, phone=? WHERE id=? AND role='sales_agent'",
-            'ssssi',
-            [$name, $email, $job, $phone, $id]
+            "UPDATE users SET name=?, email=?, job_title=?, phone=?, employee_id=? WHERE id=? AND role='sales_agent'",
+            'sssssi',
+            [$name, $email, $job, $phone, $employeeId, $id]
         );
         if ($password !== '') {
             db_exec('UPDATE users SET password_hash=? WHERE id=?', 'si', [password_hash($password, PASSWORD_DEFAULT), $id]);
+        }
+        if ($employeeId === '') {
+            $auto = 'SA-' . str_pad((string) $id, 4, '0', STR_PAD_LEFT);
+            db_exec("UPDATE users SET employee_id=? WHERE id=? AND role='sales_agent' AND employee_id=''", 'si', [$auto, $id]);
         }
         return ['ok' => true, 'id' => $id];
     }
@@ -233,11 +259,16 @@ function sales_agent_save(array $fields, ?int $id = null): array
         $password = function_exists('generate_desk_password') ? generate_desk_password() : ('Vs-' . bin2hex(random_bytes(4)));
     }
     $newId = db_exec(
-        "INSERT INTO users (name, job_title, email, password_hash, role, access, company_id, status, phone) VALUES (?,?,?,?, 'sales_agent', 'sales', NULL, 'live', ?)",
-        'sssss',
-        [$name, $job, $email, password_hash($password, PASSWORD_DEFAULT), $phone]
+        "INSERT INTO users (name, job_title, email, password_hash, role, access, company_id, status, phone, employee_id) VALUES (?,?,?,?, 'sales_agent', 'sales', NULL, 'live', ?, ?)",
+        'ssssss',
+        [$name, $job, $email, password_hash($password, PASSWORD_DEFAULT), $phone, $employeeId]
     );
-    return ['ok' => true, 'id' => (int) $newId, 'password' => $password];
+    $newId = (int) $newId;
+    if ($newId > 0 && $employeeId === '') {
+        $auto = 'SA-' . str_pad((string) $newId, 4, '0', STR_PAD_LEFT);
+        db_exec("UPDATE users SET employee_id=? WHERE id=? AND role='sales_agent'", 'si', [$auto, $newId]);
+    }
+    return ['ok' => true, 'id' => $newId, 'password' => $password];
 }
 
 function sales_agent_set_status(int $id, string $status): array

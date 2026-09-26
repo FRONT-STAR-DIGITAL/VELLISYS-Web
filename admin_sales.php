@@ -35,6 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'email' => post('email'),
             'phone' => post('phone'),
             'job_title' => post('job_title'),
+            'employee_id' => post('employee_id'),
             'password' => post('password'),
         ], $id);
         if (empty($saved['ok'])) {
@@ -598,6 +599,7 @@ if ($tab === 'agents'):
     <div><label>Name</label><input name="name" required value="<?= h((string) ($edit['name'] ?? post('name'))) ?>"></div>
     <div><label>Email</label><input name="email" type="email" required value="<?= h((string) ($edit['email'] ?? post('email'))) ?>"></div>
     <div><label>Phone</label><input name="phone" value="<?= h((string) ($edit['phone'] ?? post('phone'))) ?>"></div>
+    <div><label>Employee ID</label><input name="employee_id" value="<?= h((string) ($edit['employee_id'] ?? post('employee_id') ?: ($edit ? sales_employee_id($edit) : ''))) ?>" placeholder="e.g. SA-0001"></div>
     <div><label>Title</label><input name="job_title" value="<?= h((string) ($edit['job_title'] ?? 'Sales agent')) ?>"></div>
     <div><label>Password<?= $edit ? ' (blank = keep)' : '' ?></label><input name="password" type="text" autocomplete="new-password" placeholder="<?= $edit ? 'Leave blank to keep' : 'Auto if blank' ?>"></div>
     <div class="actions" style="grid-column:1/-1"><button class="btn" type="submit"><?= icon('check') ?>Save</button></div>
@@ -607,13 +609,14 @@ if ($tab === 'agents'):
 <div class="card">
   <div class="table-scroll">
     <table class="grid">
-      <thead><tr><th>Name</th><th>Email</th><th>Status</th><th>Today</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Employee ID</th><th>Email</th><th>Status</th><th>Today</th><th></th></tr></thead>
       <tbody>
         <?php foreach ($agents as $a):
             $day = sales_progress((int) $a['id'], 'daily');
             ?>
           <tr>
             <td><a href="<?= h(url('admin_sales.php?tab=agent&agent=' . (int) $a['id'] . '&period=daily')) ?>"><?= h($a['name']) ?></a></td>
+            <td class="mono"><?= h(sales_employee_id($a)) ?></td>
             <td><?= h($a['email']) ?></td>
             <td><span class="pill"><?= h(($a['status'] ?? 'live') === 'suspended' ? 'Suspended' : 'Live') ?></span></td>
             <td class="mono"><?= (int) $day['reach'] ?>/<?= (int) $day['reach_goal'] ?> leads · <?= (int) $day['sales'] ?>/<?= (int) $day['sales_goal'] ?> sales</td>

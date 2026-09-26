@@ -39,7 +39,7 @@ sales_layout_start('Profile', $fresh);
 <div class="page-head">
   <div>
     <h1><?= icon('user') ?>Profile</h1>
-    <p class="lede">Update your photo and password. Name and email are set by Vellisys admin.</p>
+    <p class="lede">Update your photo and password. Name, email, phone and Employee ID are set by Vellisys admin.</p>
   </div>
 </div>
 <?php if ($error): ?><p class="flash flash-err"><?= h($error) ?></p><?php endif; ?>
@@ -72,6 +72,9 @@ sales_layout_start('Profile', $fresh);
   <div class="card">
     <div class="card-head"><h2><?= icon('lock', 16) ?>Account</h2></div>
     <div class="pad-form">
+      <label>Employee ID
+        <input value="<?= h(sales_employee_id($fresh)) ?>" readonly>
+      </label>
       <label>Name
         <input value="<?= h((string) $fresh['name']) ?>" readonly>
       </label>
@@ -81,7 +84,7 @@ sales_layout_start('Profile', $fresh);
       <label>Phone
         <input value="<?= h((string) ($fresh['phone'] ?? '')) ?>" readonly>
       </label>
-      <p class="hint">Ask a Vellisys admin if your name, email or phone needs changing.</p>
+      <p class="hint">Ask a Vellisys admin if your name, email, phone or Employee ID needs changing.</p>
     </div>
   </div>
 </div>
