@@ -126,4 +126,14 @@ sales_layout_start('Profile', $fresh);
     </div>
   </form>
 </div>
+
+<div class="card" style="margin-top:16px;max-width:32rem">
+  <div class="card-head"><h2><?= icon('logout', 16) ?>Session</h2></div>
+  <div class="pad-form">
+    <p class="hint" style="margin-top:0">Signed in as <?= h((string) $fresh['email']) ?>.</p>
+    <div class="actions">
+      <a class="btn ghost sales-sign-out" href="<?= h(url('logout.php')) ?>"><?= icon('logout', 16) ?>Sign out</a>
+    </div>
+  </div>
+</div>
 <?php sales_layout_end(); ?>

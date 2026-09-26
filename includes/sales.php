@@ -1837,6 +1837,7 @@ function sales_layout_start(string $title, array $user): void
           ?>
         <a class="<?= $active ? 'is-on' : '' ?>" href="<?= h(url($href)) ?>" title="<?= h($label) ?>"<?= $badge ? ' data-badge="' . (int) $badge . '"' : '' ?>><?= icon($iconName, 18) ?><span><?= h($label) ?></span></a>
       <?php endforeach; ?>
+      <a class="nav-sign-out" href="<?= h(url('logout.php')) ?>" title="Sign out"><?= icon('logout', 18) ?><span>Sign out</span></a>
     </nav>
     <div class="nav-user">
       <span class="nav-user-name">
@@ -1849,7 +1850,7 @@ function sales_layout_start(string $title, array $user): void
       </span>
       <span class="nav-user-mail"><?= h($user['email']) ?></span>
       <a href="<?= h(url('sales_profile.php')) ?>" title="Profile"><?= icon('user', 15) ?><span>Profile</span></a>
-      <a href="<?= h(url('logout.php')) ?>" title="Sign out"><?= icon('logout', 15) ?><span>Sign out</span></a>
+      <a class="nav-sign-out" href="<?= h(url('logout.php')) ?>" title="Sign out"><?= icon('logout', 15) ?><span>Sign out</span></a>
     </div>
   </aside>
   <div class="main">
@@ -1884,6 +1885,7 @@ function sales_layout_start(string $title, array $user): void
             <?php endif; ?>
           </div>
         </details>
+        <a class="btn ghost sales-sign-out" href="<?= h(url('logout.php')) ?>" title="Sign out" aria-label="Sign out"><?= icon('logout', 16) ?><span>Sign out</span></a>
         <a class="btn" href="<?= h(url('sales_lead_edit.php')) ?>"><?= icon('plus', 16) ?>New lead</a>
       </div>
     </header>
