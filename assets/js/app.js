@@ -5,18 +5,13 @@ try {
 (function pinTabbarBoot() {
   function run() {
     if (typeof pinAppTabbar === 'function') pinAppTabbar();
-    else {
-      var bar = document.querySelector('nav.app-tabbar');
-      if (bar && document.body && bar.parentElement !== document.body) {
-        document.body.appendChild(bar);
-      }
-    }
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', run);
   } else {
     run();
   }
+  window.addEventListener('load', run);
 })();
 
 window.vellisysChartMoney = function (currency) {
@@ -54,13 +49,55 @@ function closestEl(e, sel) {
 function navScrim() {
   return document.querySelector('[data-nav-scrim]');
 }
-/** Keep bottom tab bars as direct body children so overflow/transform ancestors cannot trap position:fixed. */
+/** Pin bottom tab bars to the visual viewport on every portal (admin, desk, sales). */
 function pinAppTabbar() {
   var bar = document.querySelector('nav.app-tabbar');
   if (!bar || !document.body) return;
   if (bar.parentElement !== document.body) {
     document.body.appendChild(bar);
   }
+  if (window.matchMedia && window.matchMedia('(min-width: 1025px)').matches) {
+    bar.style.removeProperty('position');
+    bar.style.removeProperty('left');
+    bar.style.removeProperty('right');
+    bar.style.removeProperty('bottom');
+    bar.style.removeProperty('top');
+    bar.style.removeProperty('width');
+    bar.style.removeProperty('z-index');
+    bar.style.removeProperty('display');
+    return;
+  }
+  bar.style.setProperty('display', 'grid', 'important');
+  bar.style.setProperty('position', 'fixed', 'important');
+  bar.style.setProperty('left', '0px', 'important');
+  bar.style.setProperty('right', '0px', 'important');
+  bar.style.setProperty('top', 'auto', 'important');
+  bar.style.setProperty('width', '100%', 'important');
+  bar.style.setProperty('max-width', '100vw', 'important');
+  bar.style.setProperty('margin', '0', 'important');
+  bar.style.setProperty('z-index', '9999', 'important');
+  bar.style.setProperty('transform', 'translate3d(0,0,0)', 'important');
+  bar.style.setProperty('webkit-transform', 'translate3d(0,0,0)', 'important');
+  function placeBottom() {
+    var bottom = 0;
+    var vv = window.visualViewport;
+    if (vv) {
+      // Keep bar glued to the visible bottom when the iOS chrome/keyboard moves.
+      bottom = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    }
+    bar.style.setProperty('bottom', bottom + 'px', 'important');
+  }
+  placeBottom();
+  if (!bar._tabbarPinned) {
+    bar._tabbarPinned = true;
+    window.addEventListener('resize', placeBottom);
+    window.addEventListener('orientationchange', placeBottom);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', placeBottom);
+      window.visualViewport.addEventListener('scroll', placeBottom);
+    }
+  }
+  document.documentElement.style.setProperty('--app-tabbar-h', Math.max(48, bar.offsetHeight || 48) + 'px');
 }
 function setNavOpen(open) {
   if (typeof window.vellisysSetNav === 'function') {

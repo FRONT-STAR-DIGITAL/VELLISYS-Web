@@ -3479,9 +3479,13 @@ input, select, textarea { font-weight: 400; }
     min-height: 38px;
     padding: 7px 14px 7px 18px;
   }
-  /* Lock scroll on html, not body — body overflow:hidden breaks fixed tab bars on iOS. */
-  html:has(.desk-body.nav-open) { overflow: hidden; }
-  .desk-body.nav-open { overflow: visible; overscroll-behavior: none; }
+  /* Nav drawer open: freeze background without overflow on body/html (keeps tab bar fixed). */
+  html:has(.desk-body.nav-open),
+  html:has(.desk-body.nav-open) body {
+    overscroll-behavior: none;
+    touch-action: none;
+  }
+  .desk-body.nav-open { overflow: visible; }
   .desk-body .nav-user {
     flex-shrink: 0;
     background: #fff;
@@ -3930,22 +3934,21 @@ input, select, textarea { font-weight: 400; }
   input, select, textarea, .btn { font-size: 16px; }
   .qty-btn { min-width: 40px; min-height: 40px; }
   /*
-   * Horizontal overflow: clip only on html.
-   * Never clip .app / .main / .content — overflow-x other than visible computes
-   * overflow-y to auto and truncates long pages mid-card (empty gap + watermark).
-   * Keep .desk-body overflow visible so the bottom tab bar stays position:fixed on iOS.
+   * Never set overflow-x:clip/hidden on html or body — that makes position:fixed
+   * descendants (bottom tab bar) use the document as containing block and sit mid-page.
+   * Contain width with max-width / min-width:0; scroll wide tables in .table-scroll only.
    */
   html:has(.desk-body),
   html:has(.print-body),
   html:has(.sales-body) {
-    overflow-x: clip;
+    overflow-x: visible;
     max-width: 100%;
   }
   .desk-body,
   .print-body,
   .sales-body {
-    overflow-x: visible;
-    overflow-y: visible;
+    overflow: visible;
+    max-width: 100%;
   }
   .desk-body .app,
   .desk-body .main,
