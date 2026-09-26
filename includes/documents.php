@@ -732,7 +732,7 @@ function document_authenticity_html(array $brand, array $doc): string
   </div>
   <div class="doc-auth-meta">
     <p class="doc-auth-hint">Scan to verify authenticity</p>
-    <p class="doc-auth-powered">Powered by <a href="<?= h($site) ?>"><?= h($host) ?></a></p>
+    <p class="doc-auth-powered">Powered by <span><?= h($host) ?></span></p>
   </div>
 </div>
     <?php

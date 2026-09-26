@@ -983,7 +983,7 @@ function render_sheet_stripe(array $d): void
       <span><?= h($d['heading']) ?></span>
     </div>
     <div class="stripe-parties">
-      <div>
+      <div class="stripe-from">
         <span>From</span>
         <b><?= h($brand['name']) ?></b>
         <p>
@@ -994,11 +994,11 @@ function render_sheet_stripe(array $d): void
           <?php if (!empty($brand['tin'])): ?><br>TIN <?= h($brand['tin']) ?><?php endif; ?>
         </p>
       </div>
-      <div>
+      <div class="stripe-to">
         <span>To</span>
-      </div>
-      <div class="stripe-to-fields">
-        <?php render_party_contact($doc); ?>
+        <div class="stripe-to-fields">
+          <?php render_party_contact($doc, true); ?>
+        </div>
       </div>
     </div>
     <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
