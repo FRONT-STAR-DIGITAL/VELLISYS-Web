@@ -1885,19 +1885,40 @@ function company_timezone_identifiers(): array
     return $ids;
 }
 
+/** Vellisys headquarters / Super Admin default: East Africa Time (UTC+3, no DST). */
+function platform_timezone_id(): string
+{
+    return 'Africa/Kampala';
+}
+
 function sanitize_company_timezone(string $id): string
 {
     $id = trim($id);
     if ($id !== '' && in_array($id, company_timezone_identifiers(), true)) {
         return $id;
     }
-    return 'Africa/Kampala';
+    return platform_timezone_id();
 }
 
 function company_timezone_id(?array $company = null): string
 {
     $company = $company ?? current_company();
     return sanitize_company_timezone((string) ($company['timezone'] ?? ''));
+}
+
+/** Active zone for the signed-in surface: Super Admin is always EAT. */
+function desk_timezone_id(): string
+{
+    if (($_SESSION['role'] ?? '') === 'platform') {
+        return platform_timezone_id();
+    }
+    if (function_exists('is_platform') && is_platform() && empty($_SESSION['acting_company_id'])) {
+        return platform_timezone_id();
+    }
+    if (current_company_id() <= 0) {
+        return platform_timezone_id();
+    }
+    return company_timezone_id();
 }
 
 function desk_timezone_groups(): array
@@ -1917,31 +1938,60 @@ function company_timezone_label(string $id): string
     $name = str_replace('_', ' ', $id);
     try {
         $now = new DateTimeImmutable('now', new DateTimeZone($id));
-        return 'GMT' . $now->format('P') . ' · ' . $name;
+        $label = 'GMT' . $now->format('P') . ' · ' . $name;
+        if ($id === platform_timezone_id()) {
+            $label .= ' (EAT)';
+        }
+        return $label;
     } catch (Throwable $e) {
         return $name;
     }
 }
 
+/** MySQL session offset for a PHP zone (EAT has no DST → +03:00). */
+function timezone_mysql_offset(string $tzName): string
+{
+    try {
+        $tz = new DateTimeZone($tzName);
+        $now = new DateTimeImmutable('now', $tz);
+        return $now->format('P'); // e.g. +03:00
+    } catch (Throwable $e) {
+        return '+03:00';
+    }
+}
+
+function apply_mysql_timezone(?string $tzName = null): void
+{
+    $tzName = $tzName ?: desk_timezone_id();
+    $offset = timezone_mysql_offset($tzName);
+    try {
+        if (function_exists('db')) {
+            @db()->query("SET time_zone = '" . db()->real_escape_string($offset) . "'");
+        }
+    } catch (Throwable $e) {
+        // ignore if DB not ready
+    }
+}
+
 function apply_desk_timezone(): void
 {
-    if (($_SESSION['role'] ?? '') === 'platform') {
-        date_default_timezone_set('Africa/Kampala');
-        return;
+    $name = desk_timezone_id();
+    try {
+        date_default_timezone_set($name);
+    } catch (Throwable $e) {
+        date_default_timezone_set(platform_timezone_id());
+        $name = platform_timezone_id();
     }
-    if (current_company_id() <= 0) {
-        return;
-    }
-    date_default_timezone_set(company_timezone_id());
+    apply_mysql_timezone($name);
 }
 
 function desk_now(): DateTimeImmutable
 {
-    $name = (($_SESSION['role'] ?? '') === 'platform') ? 'Africa/Kampala' : company_timezone_id();
+    $name = desk_timezone_id();
     try {
         $tz = new DateTimeZone($name);
     } catch (Throwable $e) {
-        $tz = new DateTimeZone('Africa/Kampala');
+        $tz = new DateTimeZone(platform_timezone_id());
     }
     return new DateTimeImmutable('now', $tz);
 }

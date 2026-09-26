@@ -4,14 +4,18 @@ declare(strict_types=1);
 function render_top_clock(): void
 {
     $now = desk_now();
-    $tz = company_timezone_id();
-    if (($_SESSION['role'] ?? '') === 'platform') {
-        $tz = 'Africa/Kampala';
+    $tz = function_exists('desk_timezone_id') ? desk_timezone_id() : 'Africa/Kampala';
+    $title = str_replace('_', ' ', $tz);
+    if ($tz === 'Africa/Kampala' || (function_exists('platform_timezone_id') && $tz === platform_timezone_id())) {
+        $title = 'East Africa Time (EAT) · ' . $title;
     }
     ?>
-    <div class="top-clock" data-clock data-timezone="<?= h($tz) ?>" title="<?= h(str_replace('_', ' ', $tz)) ?>">
+    <div class="top-clock" data-clock data-timezone="<?= h($tz) ?>" title="<?= h($title) ?>">
       <?= icon('calendar', 18) ?>
       <span data-clock-date><?= h($now->format('D j M Y')) ?></span>
+      <?php if (($_SESSION['role'] ?? '') === 'platform'): ?>
+        <span class="top-clock-tz" aria-label="East Africa Time">EAT</span>
+      <?php endif; ?>
     </div>
     <?php
 }

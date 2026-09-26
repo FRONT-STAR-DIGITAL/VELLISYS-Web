@@ -252,11 +252,21 @@ function format_when(?string $dt): string
     if ($dt === null || trim($dt) === '') {
         return 'Never';
     }
-    $t = strtotime($dt);
-    if ($t === false) {
-        return 'Never';
+    $raw = trim($dt);
+    try {
+        $tz = new DateTimeZone(function_exists('desk_timezone_id') ? desk_timezone_id() : 'Africa/Kampala');
+        // Naive MySQL datetimes are wall-clock in the active desk/platform zone (EAT for Super Admin).
+        if (preg_match('/^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?/', $raw)) {
+            $dtObj = new DateTimeImmutable(str_replace('T', ' ', substr($raw, 0, 19)), $tz);
+        } else {
+            $dtObj = new DateTimeImmutable($raw);
+            $dtObj = $dtObj->setTimezone($tz);
+        }
+        return $dtObj->format('j M Y, H:i');
+    } catch (Throwable $e) {
+        $t = strtotime($raw);
+        return $t === false ? 'Never' : date('j M Y, H:i', $t);
     }
-    return date('j M Y, H:i', $t);
 }
 
 function platform_countries(): array

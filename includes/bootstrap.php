@@ -12,6 +12,7 @@ session_set_cookie_params([
     'samesite' => 'Lax',
 ]);
 session_start();
+// Super Admin / platform default: East Africa Time (EAT, Africa/Kampala, UTC+3).
 date_default_timezone_set('Africa/Kampala');
 
 if (!headers_sent()) {
@@ -80,5 +81,11 @@ if (function_exists('apply_desk_timezone')) {
         apply_desk_timezone();
     } catch (Throwable $e) {
         date_default_timezone_set('Africa/Kampala');
+        if (function_exists('apply_mysql_timezone')) {
+            try {
+                apply_mysql_timezone('Africa/Kampala');
+            } catch (Throwable $e2) {
+            }
+        }
     }
 }

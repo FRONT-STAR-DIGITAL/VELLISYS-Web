@@ -35,6 +35,16 @@ function db(): mysqli
         }
     }
     $mysqli->set_charset('utf8mb4');
+    // Align MySQL NOW()/CURDATE() with PHP. Super Admin defaults to EAT (+03:00).
+    $tzOffset = '+03:00';
+    if (function_exists('desk_timezone_id') && function_exists('timezone_mysql_offset')) {
+        try {
+            $tzOffset = timezone_mysql_offset(desk_timezone_id());
+        } catch (Throwable $e) {
+            $tzOffset = '+03:00';
+        }
+    }
+    @$mysqli->query("SET time_zone = '" . $mysqli->real_escape_string($tzOffset) . "'");
     if ($mysqli->select_db($cfg['name'] ?? '')) {
         require_once ROOT_PATH . '/includes/migrate.php';
         try {
