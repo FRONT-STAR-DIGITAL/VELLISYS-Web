@@ -186,6 +186,239 @@ function apply_letterhead_to_branding(array $fields): void
     branding(true);
 }
 
+/**
+ * Find a client by id/name or create one for a quick debtor/creditor entry.
+ * $partyKind is customer (debtor) or supplier (creditor).
+ */
+function find_or_create_ledger_party(string $name, string $contact, string $entity, string $partyKind, int $partyId = 0): int
+{
+    $cid = current_company_id();
+    $name = mb_substr(trim($name), 0, 190);
+    $contact = mb_substr(trim($contact), 0, 190);
+    $entity = function_exists('normalize_party_entity') ? normalize_party_entity($entity) : 'person';
+    if (!in_array($partyKind, ['customer', 'supplier', 'both'], true)) {
+        $partyKind = 'customer';
+    }
+    if ($name === '') {
+        throw new RuntimeException('Name is required.');
+    }
+
+    $row = null;
+    if ($partyId > 0) {
+        $row = db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$partyId, $cid]);
+    }
+    if (!$row) {
+        $row = db_one(
+            'SELECT * FROM parties WHERE company_id = ? AND LOWER(name) = LOWER(?) ORDER BY id DESC LIMIT 1',
+            'is',
+            [$cid, $name]
+        );
+    }
+
+    $phone = null;
+    $email = null;
+    if ($contact !== '') {
+        if (str_contains($contact, '@')) {
+            $email = $contact;
+        } else {
+            $phone = $contact;
+        }
+    }
+
+    if ($row) {
+        $id = (int) $row['id'];
+        $nextKind = (string) ($row['kind'] ?? 'customer');
+        if ($nextKind !== $partyKind && $nextKind !== 'both' && $partyKind !== 'both') {
+            $nextKind = 'both';
+        } elseif ($partyKind === 'both') {
+            $nextKind = 'both';
+        }
+        db_exec(
+            'UPDATE parties SET name=?, kind=?,
+                phone=COALESCE(NULLIF(?, \'\'), phone),
+                email=COALESCE(NULLIF(?, \'\'), email)
+             WHERE id=? AND company_id=?',
+            'ssssii',
+            [$name, $nextKind, $phone ?? '', $email ?? '', $id, $cid]
+        );
+        if (function_exists('persist_party_client_fields')) {
+            persist_party_client_fields($id, ['entity' => $entity]);
+        }
+        return $id;
+    }
+
+    $id = (int) db_exec(
+        'INSERT INTO parties (company_id, name, kind, status, contact_person, phone, email) VALUES (?,?,?,?,?,?,?)',
+        'issssss',
+        [$cid, $name, $partyKind, 'active', null, $phone, $email]
+    );
+    if (function_exists('persist_party_client_fields')) {
+        persist_party_client_fields($id, ['entity' => $entity]);
+    }
+    if (function_exists('record_company_activity')) {
+        record_company_activity('client', 'Added ' . $name, [
+            'href' => 'client_view.php?id=' . $id,
+            'ref_type' => 'party',
+            'ref_id' => $id,
+        ]);
+    }
+    return $id;
+}
+
+/** Quick unpaid invoice (debtor) or expense (creditor) from name/contact/reason/amount. */
+function create_quick_ledger_entry(string $side): int
+{
+    $side = $side === 'creditor' ? 'creditor' : 'debtor';
+    $name = trim(post('name', '', 190));
+    $contact = trim(post('contact', '', 190));
+    $reason = trim(post('reason', '', 500));
+    $amount = function_exists('money_parse') ? money_parse(post('amount')) : (float) post('amount');
+    $entity = post('entity') ?: 'person';
+    $partyId = (int) post('party_id');
+
+    if ($name === '') {
+        throw new RuntimeException('Name is required.');
+    }
+    if ($reason === '') {
+        throw new RuntimeException('Reason is required.');
+    }
+    if ($amount <= 0) {
+        throw new RuntimeException('Enter an amount greater than zero.');
+    }
+
+    $partyKind = $side === 'creditor' ? 'supplier' : 'customer';
+    $partyId = find_or_create_ledger_party($name, $contact, $entity, $partyKind, $partyId);
+    $kind = $side === 'creditor' ? 'expense' : 'invoice';
+    $label = $side === 'creditor' ? 'Amount owed' : 'Amount due';
+
+    return create_document([
+        'kind' => $kind,
+        'party_id' => $partyId,
+        'date' => today(),
+        'due_date' => $kind === 'invoice' ? today() : null,
+        'vat_rate' => 0,
+        'currency' => default_currency(),
+        'notes' => $reason,
+        'expense_category' => $kind === 'expense' ? 'Other' : null,
+        'items' => [[
+            'item_name' => $label,
+            'description' => $reason,
+            'qty' => 1,
+            'unit' => 'lot',
+            'rate' => $amount,
+            'taxed' => 0,
+        ]],
+    ]);
+}
+
+function ledger_parties_for_picker(): array
+{
+    return db_all(
+        "SELECT id, name, phone, email, contact_person, entity FROM parties
+         WHERE company_id = ? AND (status IS NULL OR status = 'active')
+         ORDER BY name",
+        'i',
+        [current_company_id()]
+    );
+}
+
+/** Render Add new debtor/creditor form (name from clients, or create if missing). */
+function render_ledger_add_form(string $side, array $parties, bool $open = false, string $error = ''): void
+{
+    $side = $side === 'creditor' ? 'creditor' : 'debtor';
+    $title = $side === 'creditor' ? 'Add creditor' : 'Add debtor';
+    $hint = $side === 'creditor'
+        ? 'Pick a client or type a new name. New names are saved as a supplier.'
+        : 'Pick a client or type a new name. New names are saved as a customer.';
+    $action = $side === 'creditor' ? 'creditors.php' : 'debtors.php';
+    $partyPayload = [];
+    foreach ($parties as $p) {
+        $partyPayload[] = [
+            'id' => (int) $p['id'],
+            'name' => (string) $p['name'],
+            'phone' => (string) ($p['phone'] ?? ''),
+            'email' => (string) ($p['email'] ?? ''),
+            'entity' => function_exists('party_entity') ? party_entity($p) : (string) ($p['entity'] ?? 'person'),
+        ];
+    }
+    ?>
+<details class="card ledger-add" id="ledger-add"<?= $open ? ' open' : '' ?>>
+  <summary class="ledger-add-summary">
+    <?= icon('plus', 16) ?>
+    <strong><?= h($title) ?></strong>
+    <span>Name, contact, reason and amount</span>
+  </summary>
+  <form class="ledger-add-form" method="post" action="<?= h(url($action)) ?>" autocomplete="off">
+    <?= csrf_field() ?>
+    <input type="hidden" name="action" value="add_ledger">
+    <input type="hidden" name="party_id" value="0" data-ledger-party-id>
+    <?php if ($error !== ''): ?>
+      <p class="flash flash-err" style="margin:0 0 12px"><?= h($error) ?></p>
+    <?php endif; ?>
+    <p class="hint"><?= h($hint) ?></p>
+    <div class="form-grid two">
+      <div>
+        <label for="ledger-name">Name</label>
+        <input id="ledger-name" name="name" list="ledger-party-list" required placeholder="Type or pick a client" autocomplete="off" data-ledger-name>
+        <datalist id="ledger-party-list">
+          <?php foreach ($parties as $p): ?>
+            <option value="<?= h((string) $p['name']) ?>"></option>
+          <?php endforeach; ?>
+        </datalist>
+      </div>
+      <div>
+        <label for="ledger-entity">Individual or company</label>
+        <select id="ledger-entity" name="entity" data-ledger-entity>
+          <option value="person">Individual</option>
+          <option value="organisation">Company / organisation</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div>
+        <label for="ledger-contact">Contact</label>
+        <input id="ledger-contact" name="contact" placeholder="Phone or email" autocomplete="off" data-ledger-contact>
+      </div>
+      <div>
+        <label for="ledger-amount">Amount</label>
+        <input id="ledger-amount" name="amount" inputmode="decimal" required placeholder="0.00">
+      </div>
+      <div class="doc-span">
+        <label for="ledger-reason">Reason</label>
+        <input id="ledger-reason" name="reason" required placeholder="What this amount is for" maxlength="500">
+      </div>
+    </div>
+    <div class="actions" style="margin-top:14px">
+      <button class="btn" type="submit"><?= icon('check', 16) ?>Save</button>
+    </div>
+  </form>
+  <script>
+  (function () {
+    var root = document.getElementById('ledger-add');
+    if (!root) return;
+    var parties = <?= json_encode($partyPayload, JSON_UNESCAPED_UNICODE) ?> || [];
+    var nameEl = root.querySelector('[data-ledger-name]');
+    var idEl = root.querySelector('[data-ledger-party-id]');
+    var contactEl = root.querySelector('[data-ledger-contact]');
+    var entityEl = root.querySelector('[data-ledger-entity]');
+    function matchParty() {
+      var q = (nameEl.value || '').trim().toLowerCase();
+      if (!q) { idEl.value = '0'; return; }
+      var hit = parties.find(function (p) { return (p.name || '').toLowerCase() === q; });
+      idEl.value = hit ? String(hit.id) : '0';
+      if (!hit) return;
+      if (contactEl && !contactEl.value) {
+        contactEl.value = hit.phone || hit.email || '';
+      }
+      if (entityEl && hit.entity) entityEl.value = hit.entity;
+    }
+    nameEl.addEventListener('change', matchParty);
+    nameEl.addEventListener('blur', matchParty);
+  })();
+  </script>
+</details>
+    <?php
+}
+
 function ensure_document_party(string $kind): int
 {
     $cid = current_company_id();

@@ -3,6 +3,21 @@ declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
 $user = require_member();
 
+$addError = '';
+$showAdd = isset($_GET['add']);
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'add_ledger') {
+    csrf_check();
+    $showAdd = true;
+    try {
+        $id = create_quick_ledger_entry('debtor');
+        $doc = load_document($id);
+        flash('Debtor saved' . ($doc ? ' as ' . $doc['number'] : '') . '.');
+        redirect('debtors.php');
+    } catch (Throwable $e) {
+        $addError = $e->getMessage();
+    }
+}
+
 $rows = list_open_debtors();
 $total = array_sum(array_map(static fn ($d) => convert_money(document_due_amount($d), doc_currency($d), default_currency()), $rows));
 $overdue = array_sum(array_map(static function ($d) {
@@ -26,6 +41,7 @@ foreach ($rows as $doc) {
     }
 }
 uasort($byClient, static fn ($a, $b) => $b['balance'] <=> $a['balance']);
+$parties = ledger_parties_for_picker();
 
 layout_start('Debtors', $user);
 ?>
@@ -34,9 +50,14 @@ layout_start('Debtors', $user);
     <h1><?= icon('clients') ?>Debtors</h1>
     <p class="lede">Clients who still owe you - open invoices and quick receipts that were only part paid. Mixed currencies convert at your <?= h(default_currency()) ?> / USD rate. Take a receipt, email a reminder from the company mailbox, or print the document.</p>
   </div>
-  <a class="btn" href="<?= h(url('document_new.php?kind=invoice')) ?>"><?= icon('invoice') ?>New invoice</a>
-  <a class="btn ghost" href="<?= h(export_query('debtors')) ?>"><?= icon('download', 16) ?>Export CSV</a>
+  <div class="actions">
+    <a class="btn" href="<?= h(url('debtors.php?add=1#ledger-add')) ?>"><?= icon('plus', 16) ?>Add new</a>
+    <a class="btn ghost" href="<?= h(url('document_new.php?kind=invoice')) ?>"><?= icon('invoice') ?>New invoice</a>
+    <a class="btn ghost" href="<?= h(export_query('debtors')) ?>"><?= icon('download', 16) ?>Export CSV</a>
+  </div>
 </div>
+
+<?php render_ledger_add_form('debtor', $parties, $showAdd || $addError !== '', $addError); ?>
 
 <?php render_filters('debtors.php'); ?>
 
