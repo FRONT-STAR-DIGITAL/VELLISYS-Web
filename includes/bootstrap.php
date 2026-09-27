@@ -14,8 +14,12 @@ if (is_dir($sessionDir) && is_writable($sessionDir)) {
 }
 
 // Honour Remember me before session_start — otherwise lifetime:0 turns it into a session cookie.
+// Sliding window: 7 days without a request → session cookie expires / login cleared.
+if (!defined('REMEMBER_LIFETIME_SECONDS')) {
+    define('REMEMBER_LIFETIME_SECONDS', 60 * 60 * 24 * 7);
+}
 $rememberMe = (string) ($_COOKIE['vellisys_rm'] ?? '') === '1';
-$cookieLifetime = $rememberMe ? (60 * 60 * 24 * 400) : 0;
+$cookieLifetime = $rememberMe ? REMEMBER_LIFETIME_SECONDS : 0;
 @ini_set('session.gc_maxlifetime', (string) ($rememberMe ? $cookieLifetime : 28800));
 @ini_set('session.cookie_lifetime', (string) $cookieLifetime);
 session_set_cookie_params([
