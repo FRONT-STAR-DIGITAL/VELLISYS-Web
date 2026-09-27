@@ -33,6 +33,7 @@ if ($doc['kind'] === 'invoice') {
     $s = $doc['settlement'] ?? [];
     $ledeExtra = ' · RECEIVED ' . money($s['received'] ?? $doc['paid'], doc_currency($doc)) . ' · DUE ' . money((float) (($s['invoice_balance'] ?? 0) > 0.009 ? $s['invoice_balance'] : ($s['balance'] ?? 0)), doc_currency($doc));
 }
+$pdfName = document_download_filename($doc);
 ?>
 <div class="page-head">
   <div>
@@ -53,7 +54,7 @@ if ($doc['kind'] === 'invoice') {
   <?php render_doc_actions($doc, true); ?>
 </div>
 
-<div class="sheet-wrap<?= $doc['kind'] === 'expense' ? ' expense-wrap' : '' ?>">
+<div class="sheet-wrap<?= $doc['kind'] === 'expense' ? ' expense-wrap' : '' ?>" data-pdf-name="<?= h($pdfName) ?>">
   <div class="sheet-stage">
     <?php render_sheet(branding(), $doc); ?>
   </div>
