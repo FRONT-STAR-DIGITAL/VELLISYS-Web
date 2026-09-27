@@ -2061,7 +2061,8 @@ input:focus, select:focus, textarea:focus {
   height: auto;
   /* Screen preview looks like an A4 sheet; print/PDF collapse this (see @media print). */
   min-height: 297mm;
-  overflow-x: hidden;
+  /* visible so PDF capture never clips seal meta / party / item columns */
+  overflow-x: visible;
   overflow-y: visible;
   margin: 0 auto;
   background: #fff;

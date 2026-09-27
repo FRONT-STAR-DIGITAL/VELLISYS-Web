@@ -1688,8 +1688,8 @@ function document_pdf_cache_path(array $doc): string
         @mkdir($dir, 0755, true);
     }
     $id = (int) ($doc['id'] ?? 0);
-    // pdf-v4: no blank page-2 / content-height print HTML (invalidate stretched caches).
-    $fp = hash('sha256', $id . '|pdf-v4|' . document_content_fingerprint($doc) . '|' . document_brand_fingerprint($doc));
+    // pdf-v5: capture matches on-view seal/folio sheet (invalidate older clipped caches).
+    $fp = hash('sha256', $id . '|pdf-v5|' . document_content_fingerprint($doc) . '|' . document_brand_fingerprint($doc));
     return $dir . '/doc-' . $id . '-' . substr($fp, 0, 16) . '.pdf';
 }
 

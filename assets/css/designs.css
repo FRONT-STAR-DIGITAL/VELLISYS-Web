@@ -1526,15 +1526,29 @@
 }
 .seal-meta {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 16px;
   text-align: center;
+  width: 100%;
 }
+.seal-meta > div { min-width: 0; }
 .seal-meta span { display: block; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--brand-2); font-weight: 700; }
 .seal-meta b { display: block; margin-top: 4px; font-size: 13px; }
-.seal-for { margin: 0 0 14px; font-size: 13px; }
-.seal-for > span { letter-spacing: .1em; text-transform: uppercase; font-size: 10px; color: var(--brand-2); font-weight: 700; margin-right: 8px; }
+.seal-for { margin: 0 0 14px; font-size: 13px; width: 100%; }
+.seal-for > span {
+  display: block;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  font-size: 10px;
+  color: var(--brand-2);
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+.sheet-seal .d-party-block.d-party-cols {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  width: 100%;
+}
 .seal-for .d-party-k,
 .seal-for .d-party-v { display: inline !important; letter-spacing: 0; text-transform: none; font-size: inherit; color: inherit; font-weight: inherit; margin: 0; }
 .seal-end { display: flex; justify-content: space-between; gap: 24px; margin-top: 16px; align-items: start; }
