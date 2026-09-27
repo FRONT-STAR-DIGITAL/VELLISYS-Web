@@ -237,6 +237,32 @@ summary {
   transition: opacity .22s ease, max-width .32s cubic-bezier(.22, 1, .36, 1);
 }
 .nav nav { display: flex; flex-direction: column; padding: 8px 0; gap: 2px; flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; }
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.nav-group + .nav-group {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(8, 20, 58, .06);
+}
+.nav-group-label {
+  margin: 0 10px 2px 12px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  line-height: 1.2;
+  white-space: nowrap;
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: opacity .18s ease, max-height .28s cubic-bezier(.22, 1, .36, 1), margin .28s ease;
+}
 .nav-user {
   margin: 8px 8px 0;
   padding: 12px 8px 4px;
@@ -363,6 +389,12 @@ summary {
   .nav:focus-within .nav-user a span {
     opacity: 1;
     transform: none;
+  }
+  .nav:hover .nav-group-label,
+  .nav:focus-within .nav-group-label {
+    opacity: 1;
+    max-height: 20px;
+    margin: 0 14px 4px 22px;
   }
   .nav:hover nav a[data-badge]::after,
   .nav:focus-within nav a[data-badge]::after {
@@ -3489,6 +3521,11 @@ input, select, textarea { font-weight: 400; }
     opacity: 1;
     transform: none;
     max-width: none;
+  }
+  .nav .nav-group-label {
+    opacity: 1;
+    max-height: 20px;
+    margin: 0 14px 4px 18px;
   }
   .nav nav a {
     margin: 2px 14px 2px 0;

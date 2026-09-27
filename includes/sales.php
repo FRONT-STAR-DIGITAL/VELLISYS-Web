@@ -1982,16 +1982,26 @@ function sales_layout_start(string $title, array $user): void
     $notes = sales_notifications_for_agent((int) $user['id']);
     $noteCount = count($notes);
     $avatar = sales_avatar_url($user);
-    // Strategic field nav: daily work → chat → results → tools → account.
-    $nav = [
-        ['sales_home.php', 'Home', 'home'],
-        ['sales_leads.php', 'Leads', 'clients'],
-        ['sales_messages.php', 'Messages', 'mail'],
-        ['sales_performance.php', 'Performance', 'reports'],
-        ['sales_demo.php', 'Demo', 'building'],
-        // Same-origin marketing home — session stays; index.php allows sales_agent viewers.
-        ['index.php', 'Website', 'globe'],
-        ['sales_profile.php', 'Profile', 'user'],
+    // Grouped field nav: work → chat → results → tools → account.
+    $navGroups = [
+        ['label' => 'Work', 'items' => [
+            ['sales_home.php', 'Home', 'home'],
+            ['sales_leads.php', 'Leads', 'clients'],
+        ]],
+        ['label' => 'Chat', 'items' => [
+            ['sales_messages.php', 'Messages', 'mail'],
+        ]],
+        ['label' => 'Results', 'items' => [
+            ['sales_performance.php', 'Performance', 'reports'],
+        ]],
+        ['label' => 'Tools', 'items' => [
+            ['sales_demo.php', 'Demo', 'building'],
+            // Same-origin marketing home — session stays; index.php allows sales_agent viewers.
+            ['index.php', 'Website', 'globe'],
+        ]],
+        ['label' => 'Account', 'items' => [
+            ['sales_profile.php', 'Profile', 'user'],
+        ]],
     ];
     ?>
 <!DOCTYPE html>
@@ -2017,15 +2027,22 @@ function sales_layout_start(string $title, array $user): void
       <strong>Sales field</strong>
     </a>
     <nav>
-      <?php foreach ($nav as $item):
-          [$href, $label, $iconName] = $item;
-          $external = !empty($item[3]);
-          $file = $external ? '' : (string) strtok($href, '?');
-          $active = !$external && ($file === $here || ($here === 'sales_lead_edit.php' && $file === 'sales_leads.php'));
-          $badge = (!$external && $file === 'sales_messages.php' && $unread) ? $unread : 0;
-          $linkHref = $external ? $href : url($href);
-          ?>
-        <a class="<?= $active ? 'is-on' : '' ?>" href="<?= h($linkHref) ?>" title="<?= h($label) ?>"<?= $external ? ' target="_blank" rel="noopener noreferrer"' : '' ?><?= $badge ? ' data-badge="' . (int) $badge . '"' : '' ?>><?= icon($iconName, 18) ?><span><?= h($label) ?></span></a>
+      <?php foreach ($navGroups as $group): ?>
+        <div class="nav-group">
+          <?php if (($group['label'] ?? '') !== ''): ?>
+            <p class="nav-group-label"><?= h((string) $group['label']) ?></p>
+          <?php endif; ?>
+          <?php foreach ($group['items'] as $item):
+              [$href, $label, $iconName] = $item;
+              $external = !empty($item[3]);
+              $file = $external ? '' : (string) strtok($href, '?');
+              $active = !$external && ($file === $here || ($here === 'sales_lead_edit.php' && $file === 'sales_leads.php'));
+              $badge = (!$external && $file === 'sales_messages.php' && $unread) ? $unread : 0;
+              $linkHref = $external ? $href : url($href);
+              ?>
+            <a class="<?= $active ? 'is-on' : '' ?>" href="<?= h($linkHref) ?>" title="<?= h($label) ?>"<?= $external ? ' target="_blank" rel="noopener noreferrer"' : '' ?><?= $badge ? ' data-badge="' . (int) $badge . '"' : '' ?>><?= icon($iconName, 18) ?><span><?= h($label) ?></span></a>
+          <?php endforeach; ?>
+        </div>
       <?php endforeach; ?>
       <a class="nav-sign-out" href="<?= h(url('logout.php')) ?>" title="Sign out"><?= icon('logout', 18) ?><span>Sign out</span></a>
     </nav>
