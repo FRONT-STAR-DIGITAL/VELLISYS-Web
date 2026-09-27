@@ -34,8 +34,8 @@ RUN { \
       echo 'session.cookie_secure=0'; \
       echo 'session.cookie_httponly=1'; \
       echo 'session.cookie_samesite=Lax'; \
-      echo 'session.cookie_lifetime=604800'; \
-      echo 'session.gc_maxlifetime=2592000'; \
+      echo 'session.cookie_lifetime=315360000'; \
+      echo 'session.gc_maxlifetime=315360000'; \
       echo 'session.gc_probability=1'; \
       echo 'session.gc_divisor=1000'; \
       echo 'session.use_strict_mode=1'; \

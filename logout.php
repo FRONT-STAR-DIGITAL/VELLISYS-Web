@@ -15,6 +15,7 @@ if (function_exists('clear_remember_cookies')) {
     ];
     setcookie(session_name(), '', $past);
     setcookie('vellisys_rm', '', $past);
+    setcookie('vellisys_auth', '', $past);
 }
 if (session_status() === PHP_SESSION_ACTIVE) {
     session_destroy();

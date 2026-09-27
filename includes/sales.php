@@ -157,6 +157,9 @@ function require_sales_agent(): array
     }
     if (($user['status'] ?? 'live') === 'suspended') {
         unset($_SESSION['user_id'], $_SESSION['company_id'], $_SESSION['role']);
+        if (function_exists('clear_remember_cookies')) {
+            clear_remember_cookies();
+        }
         flash('Your sales login is suspended. Contact Vellisys.', 'err');
         redirect('login.php');
     }

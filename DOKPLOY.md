@@ -72,6 +72,14 @@ FOLIO_SMTP_FROM=info@vellisys.com
 FOLIO_SMTP_FROM_NAME=VELLISYS
 ```
 
+Optional (recommended on VPS — keeps logins stable across redeploys):
+
+```env
+FOLIO_AUTH_SECRET=paste-a-long-random-string-here
+```
+
+Logins are stored in MySQL (`php_sessions`) plus a signed cookie. There is no idle logout — only **Sign out** clears a login.
+
 **Save** the environment.
 
 > Mailboxes stay on Hostinger email. The app only *sends* through SMTP.  

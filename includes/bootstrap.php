@@ -3,41 +3,33 @@ declare(strict_types=1);
 
 define('ROOT_PATH', dirname(__DIR__));
 require_once ROOT_PATH . '/config/env.php';
+require_once ROOT_PATH . '/includes/session_store.php';
 
-// Persist PHP sessions on disk (Docker volume) so logins survive restarts.
-$sessionDir = ROOT_PATH . '/storage/sessions';
-if (!is_dir($sessionDir)) {
-    @mkdir($sessionDir, 0770, true);
+// Sessions persist until Sign out — no idle expiry.
+// Prefer MySQL (survives Docker redeploys); fall back to storage/sessions.
+if (!defined('SESSION_PERSIST_SECONDS')) {
+    define('SESSION_PERSIST_SECONDS', 60 * 60 * 24 * 365 * 10); // ~10 years
 }
-if (is_dir($sessionDir) && is_writable($sessionDir)) {
-    session_save_path($sessionDir);
-}
-
-// Session cookies must be persistent (never lifetime 0). Mobile browsers often
-// discard "session" cookies within minutes, which looked like a 5‑minute logout.
-// Always start with the long window so session_start() never emits a short cookie;
-// refresh_remembered_session() then slides the correct window per role/remember.
 if (!defined('REMEMBER_LIFETIME_SECONDS')) {
-    define('REMEMBER_LIFETIME_SECONDS', 60 * 60 * 24 * 7);
+    define('REMEMBER_LIFETIME_SECONDS', SESSION_PERSIST_SECONDS);
 }
 if (!defined('SESSION_COOKIE_SECONDS')) {
-    define('SESSION_COOKIE_SECONDS', 60 * 60 * 12);
+    define('SESSION_COOKIE_SECONDS', SESSION_PERSIST_SECONDS);
 }
-// Super admin / platform: 30-day sliding idle (PC + phone).
 if (!defined('PLATFORM_LIFETIME_SECONDS')) {
-    define('PLATFORM_LIFETIME_SECONDS', 60 * 60 * 24 * 30);
+    define('PLATFORM_LIFETIME_SECONDS', SESSION_PERSIST_SECONDS);
 }
-$rememberMe = (string) ($_COOKIE['vellisys_rm'] ?? '') === '1';
-// Prefer the longest window at bootstrap so a missing marker cookie cannot
-// shrink a super-admin or Remember-me session on the first hop.
-$cookieLifetime = $rememberMe ? REMEMBER_LIFETIME_SECONDS : SESSION_COOKIE_SECONDS;
-$maxLifetime = max(PLATFORM_LIFETIME_SECONDS, REMEMBER_LIFETIME_SECONDS, SESSION_COOKIE_SECONDS);
-@ini_set('session.gc_maxlifetime', (string) $maxLifetime);
-@ini_set('session.cookie_lifetime', (string) max($cookieLifetime, REMEMBER_LIFETIME_SECONDS));
+
+$persist = SESSION_PERSIST_SECONDS;
+@ini_set('session.gc_maxlifetime', (string) $persist);
+@ini_set('session.cookie_lifetime', (string) $persist);
 @ini_set('session.use_strict_mode', '1');
 @ini_set('session.use_only_cookies', '1');
+
+folio_register_session_store();
+
 session_set_cookie_params([
-    'lifetime' => max($cookieLifetime, REMEMBER_LIFETIME_SECONDS),
+    'lifetime' => $persist,
     'path' => '/',
     'secure' => folio_request_is_https(),
     'httponly' => true,
@@ -85,7 +77,10 @@ require_once ROOT_PATH . '/includes/search.php';
 require_once ROOT_PATH . '/includes/pricing.php';
 require_once ROOT_PATH . '/includes/auth.php';
 
-// Slide cookies immediately — before heavier includes can send output and block Set-Cookie.
+// Resume signed login cookie if the PHP session row was lost, then slide cookies.
+if (function_exists('folio_auth_resume')) {
+    folio_auth_resume();
+}
 if (function_exists('refresh_remembered_session')) {
     refresh_remembered_session();
 }

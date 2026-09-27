@@ -25,19 +25,18 @@ form_mark_open('login');
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $remember = post('remember') === '1';
     if (!csrf_valid()) {
-        $error = 'Your session expired. Please sign in again.';
+        $error = 'Please refresh this page and sign in again.';
     } elseif (form_is_spam('login', 0)) {
         $error = 'Please try again.';
     } elseif (form_rate_blocked('login', 8, 900)) {
         $error = 'Please wait a few minutes before trying again.';
     } elseif (attempt_login(strtolower(post_plain('email', 190)), post('password', '', 256))) {
         $user = current_user();
-        // Super admin always stays signed in (30-day sliding); others honour the checkbox.
+        // Stay signed in until Sign out (durable cookie + DB session).
+        remember_login(true);
         if (($user['role'] ?? '') === 'platform') {
-            remember_login(true);
             redirect(platform_home());
         }
-        remember_login($remember);
         if (($user['role'] ?? '') === 'sales_agent') {
             redirect(function_exists('sales_home') ? sales_home() : 'sales_home.php');
         }
@@ -108,7 +107,7 @@ $showDemoKeys = !folio_is_live_host();
       <div class="gate-row">
         <label class="gate-check">
           <input type="checkbox" name="remember" value="1" <?= $remember ? 'checked' : '' ?>>
-          Remember me
+          Stay signed in
         </label>
         <a class="gate-forgot" href="<?= h(url('forgot.php')) ?>">Forgot password?</a>
       </div>

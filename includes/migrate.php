@@ -25,7 +25,22 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '52';
+    return '53';
+}
+
+function folio_ensure_php_sessions(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    @$db->query("CREATE TABLE IF NOT EXISTS php_sessions (
+        id VARCHAR(128) NOT NULL PRIMARY KEY,
+        data MEDIUMBLOB NOT NULL,
+        expires_at INT UNSIGNED NOT NULL,
+        KEY idx_php_sessions_expires (expires_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
 function folio_schema_ready_file(): string
@@ -528,6 +543,7 @@ function folio_migrate(mysqli $db): void
     }
 
     try {
+    folio_ensure_php_sessions($db);
     folio_ensure_logo_bg($db);
     folio_ensure_optional_doc_party($db);
     folio_ensure_receipt_comments($db);
