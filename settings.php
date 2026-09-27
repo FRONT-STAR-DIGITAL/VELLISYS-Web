@@ -13,10 +13,6 @@ $used = company_seat_count($cid);
 $editUserId = (int) ($_GET['edit'] ?? 0);
 $editMember = $editUserId ? load_desk_user($cid, $editUserId) : null;
 
-if (isset($_GET['backup'])) {
-    company_backup_send((string) $_GET['backup']);
-}
-
 if (isset($_GET['import_template'])) {
     import_send_template((string) $_GET['import_template']);
 }
@@ -232,28 +228,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'dismiss_welcome') {
         unset($_SESSION['branding_welcome']);
         redirect('settings.php');
-    } elseif ($action === 'backup_now') {
-        $path = company_backup_write(true);
-        flash($path ? 'Backup saved. You can download it below.' : 'Could not write a backup.', $path ? 'ok' : 'err');
-        redirect('settings.php#backup');
-    } elseif ($action === 'restore_backup') {
-        $file = $_FILES['backup'] ?? [];
-        if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
-            $error = 'Choose a backup file to restore.';
-        } else {
-            $payload = company_backup_read_file($file['tmp_name']);
-            if (!$payload) {
-                $error = 'That file is not a Vellisys backup.';
-            } else {
-                $res = company_backup_restore_payload($payload, $cid, ['branding' => true]);
-                if (empty($res['ok'])) {
-                    $error = (string) ($res['error'] ?? 'Could not restore.');
-                } else {
-                    flash('Desk restored from backup.');
-                    redirect('settings.php#backup');
-                }
-            }
-        }
     } elseif ($action === 'import_history') {
         $kind = post('import_kind');
         $file = $_FILES['import_file'] ?? [];
@@ -307,7 +281,6 @@ layout_start('Settings', $user);
     <a href="#documents"><?= icon('invoice', 16) ?>Documents</a>
     <a href="#templates"><?= icon('palette', 16) ?>Templates</a>
     <a href="#import"><?= icon('upload', 16) ?>Bring in books</a>
-    <a href="#backup"><?= icon('download', 16) ?>Backup</a>
   </aside>
 
   <div class="settings-stack">
@@ -837,7 +810,7 @@ layout_start('Settings', $user);
     </form>
     <section class="card settings-card" id="import">
       <h2><?= icon('upload') ?>Bring in books</h2>
-      <p class="lede">After onboarding, drop in clients, old invoices, receipts and sales from a spreadsheet. Vellisys <strong>adds</strong> them to this desk. It does not replace what you have already issued, and it is not a backup restore.</p>
+      <p class="lede">After onboarding, drop in clients, old invoices, receipts and sales from a spreadsheet. Vellisys <strong>adds</strong> them to this desk. It does not replace what you have already issued.</p>
       <ol class="import-steps">
         <li>Download the matching Excel template. Keep the header row. Sample rows show the shape - delete them before you upload, or leave them if they are real.</li>
         <li>Copy from your old books, a notebook, or another system. Dates as <span class="mono">YYYY-MM-DD</span> (for example 2025-06-15). On documents and sales, the same <strong>Group</strong> number means one sheet with several lines.</li>
@@ -873,46 +846,6 @@ layout_start('Settings', $user);
         <p class="hint">Excel (.xlsx) or CSV. Maximum 4 MB and about 2,500 rows. Matching client names are reused, not duplicated. Stock opening quantities only apply to new products.</p>
         <div class="actions" style="margin-top:12px">
           <button class="btn" type="submit"><?= icon('upload') ?>Upload and add to this desk</button>
-        </div>
-      </form>
-    </section>
-    <section class="card settings-card" id="backup">
-      <h2><?= icon('download') ?>Backup</h2>
-      <p class="lede">A copy of this desk is saved each day. Download it, or upload a copy to restore products, sales, purchases and documents. Logins are not replaced.</p>
-      <?php $backs = company_backup_list(); ?>
-      <div class="actions" style="margin-bottom:12px">
-        <form method="post">
-          <?= csrf_field() ?>
-          <input type="hidden" name="action" value="backup_now">
-          <button class="btn ghost" type="submit"><?= icon('download', 16) ?>Save backup now</button>
-        </form>
-      </div>
-      <?php if (!$backs): ?>
-        <p class="empty">No backups yet. Open the desk or tap Save backup now.</p>
-      <?php else: ?>
-        <div class="table-scroll">
-          <table class="grid">
-            <thead><tr><th>File</th><th>When</th><th></th></tr></thead>
-            <tbody>
-              <?php foreach ($backs as $bfile): ?>
-                <tr>
-                  <td class="mono"><?= h($bfile['file']) ?></td>
-                  <td><?= h(date('j M Y H:i', $bfile['mtime'])) ?></td>
-                  <td><a class="btn ghost sm" href="<?= h(url('settings.php?backup=' . urlencode($bfile['file']))) ?>">Download</a></td>
-                </tr>
-              <?php endforeach; ?>
-            </tbody>
-          </table>
-        </div>
-      <?php endif; ?>
-      <form method="post" enctype="multipart/form-data" style="margin-top:16px">
-        <?= csrf_field() ?>
-        <input type="hidden" name="action" value="restore_backup">
-        <label for="backup">Restore from a file</label>
-        <input id="backup" name="backup" type="file" accept=".gz,.json,application/gzip" required>
-        <p class="hint">This replaces products, parties and documents on this desk with the file. It cannot be undone except by another backup.</p>
-        <div class="actions" style="margin-top:12px">
-          <button class="btn" type="submit"><?= icon('check') ?>Restore backup</button>
         </div>
       </form>
     </section>

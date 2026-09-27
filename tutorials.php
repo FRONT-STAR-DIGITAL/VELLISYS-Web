@@ -239,7 +239,6 @@ $lessons = [
             'Filter Day with today, this week, this month or this year. Charts follow the dates you pick. Products and services sold sit on the Day report.',
             'Add products and services, or download the Excel, fill it and upload. Low stock shows when quantity hits the reorder level. Services have no quantity.',
             'Purchases become expenses. Unpaid purchases sit on Creditors. Sale and Documents share the same products when both are on; each can also be used on its own.',
-            'Settings has a daily backup you can download or restore.',
         ],
     ],
     [
@@ -346,7 +345,6 @@ $lessons = [
         'points' => [
             'Primary paints the desk and the strong bars. Accent marks rails, rules and highlights. Tap a colour square for the colour picker, or use Eyedrop to sample from the page.',
             'The sending mailbox is assigned by Vellisys. You can see the address. You cannot change the password.',
-            'Backup writes a file of this desk. Download it, or restore one if you need to roll back. Stock desks get a daily copy too.',
             'Bring in books (Settings) is how you load old clients, invoices, receipts and sales from Excel after onboarding. Download a template, fill it, upload. Vellisys adds to this desk; it does not wipe what is already issued.',
             'If a colour or logo is wrong, fix it here. Old documents keep the layout you pick now when you reprint.',
         ],
