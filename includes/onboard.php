@@ -104,9 +104,8 @@ function create_company_from_paid_order(array $order): int
     if ($cid < 1) {
         return 0;
     }
-    if (!empty($order['stock_addon'])) {
-        db_exec('UPDATE companies SET stock_enabled = 1 WHERE id = ?', 'i', [$cid]);
-    }
+    // Stock management is included in every public package.
+    db_exec('UPDATE companies SET stock_enabled = 1 WHERE id = ?', 'i', [$cid]);
     $nature = '';
     $signupId = (int) ($order['signup_id'] ?? 0);
     if ($signupId > 0) {
