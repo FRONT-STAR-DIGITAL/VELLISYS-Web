@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Please wait a few minutes before trying again.';
     } elseif (attempt_login(strtolower(post_plain('email', 190)), post('password', '', 256))) {
         $user = current_user();
-        // Super admin always stays signed in (7-day sliding); others honour the checkbox.
+        // Super admin always stays signed in (30-day sliding); others honour the checkbox.
         if (($user['role'] ?? '') === 'platform') {
             remember_login(true);
             redirect(platform_home());

@@ -753,7 +753,6 @@ function render_sheet_folio(array $d): void
   <?php endif; ?>
   <?php render_authorized_signoff($doc); ?>
   <footer class="d-foot">
-    <p>If you have questions, contact <?= h($brand['phone']) ?> or <?= h($brand['email']) ?>.</p>
     <p class="thanks">Thank You For Your Business!</p>
   </footer>
 </article>
