@@ -58,6 +58,7 @@ layout_start('Creditors', $user);
           <th>Bill</th>
           <th>Supplier</th>
           <th>Date</th>
+          <th>Due</th>
           <th>Category</th>
           <th class="right">Amount</th>
           <th class="right">Paid</th>
@@ -76,6 +77,7 @@ layout_start('Creditors', $user);
               No payee
             <?php endif; ?></td>
             <td class="date-cell"><?= h(format_date($doc['date'])) ?></td>
+            <td class="date-cell"><?= h(!empty($doc['due_date']) ? format_date($doc['due_date']) : '—') ?></td>
             <td><?= h($doc['expense_category'] ?: 'Other') ?></td>
             <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>
             <td class="right mono"><?= h(money($doc['paid'], doc_currency($doc))) ?></td>
@@ -87,7 +89,7 @@ layout_start('Creditors', $user);
       </tbody>
       <tfoot>
         <tr>
-          <td colspan="4">Totals</td>
+          <td colspan="5">Totals</td>
           <td class="right mono"><?= h(ugx(documents_sum($rows))) ?></td>
           <td class="right mono"><?= h(ugx(documents_sum($rows, 'paid'))) ?></td>
           <td class="right mono"><?= h(ugx($total)) ?></td>

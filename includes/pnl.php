@@ -1308,6 +1308,28 @@ function enrich_planner_notifications(array $items): array
                 ['label' => 'Receive', 'href' => url('document_action.php?receive=' . $n['document_id']), 'class' => 'btn sm'],
                 ['label' => 'View', 'href' => $n['href'], 'class' => 'btn ghost sm'],
             ];
+        } elseif ($type === 'debtor_due') {
+            $id = (int) ($n['document_id'] ?? 0);
+            if ($id < 1 && preg_match('/receive=(\d+)/', (string) ($n['href'] ?? ''), $m)) {
+                $id = (int) $m[1];
+            }
+            $n['document_id'] = $id;
+            if (empty($n['key'])) {
+                $n['key'] = 'debtor-due:' . $id;
+            }
+            $n['actions'] = [
+                ['label' => 'Receive', 'href' => url('document_action.php?receive=' . $id), 'class' => 'btn sm'],
+                ['label' => 'Debtors', 'href' => url('debtors.php'), 'class' => 'btn ghost sm'],
+            ];
+        } elseif ($type === 'creditor_due') {
+            $id = (int) ($n['document_id'] ?? 0);
+            if (empty($n['key'])) {
+                $n['key'] = 'creditor-due:' . $id;
+            }
+            $n['actions'] = [
+                ['label' => 'Pay', 'href' => $id > 0 ? url('document_action.php?pay=' . $id) : url('creditors.php'), 'class' => 'btn sm'],
+                ['label' => 'Creditors', 'href' => url('creditors.php'), 'class' => 'btn ghost sm'],
+            ];
         } elseif ($type === 'stock_low') {
             $id = (int) ($n['item_id'] ?? 0);
             if ($id < 1 && preg_match('/edit=(\d+)/', (string) ($n['href'] ?? ''), $m)) {
@@ -1348,6 +1370,10 @@ function desk_notifications(int $limit = 40): array
     }
     if (function_exists('company_stock_enabled') && company_stock_enabled() && is_desk_admin() && function_exists('stock_low_notifications')) {
         $items = array_merge($items, stock_low_notifications(20));
+    }
+    // Debtor / creditor due reminders (day before, due today, overdue).
+    if (function_exists('ledger_due_reminder_notifications')) {
+        $items = array_merge($items, ledger_due_reminder_notifications(20));
     }
     // Feedback replies addressed to this login only.
     if ($uid > 0 && function_exists('desk_feedback_for_company')) {
