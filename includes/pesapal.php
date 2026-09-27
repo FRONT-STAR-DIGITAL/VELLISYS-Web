@@ -293,10 +293,8 @@ function save_website_order(array $data, ?int $id = null): array
         $status = 'draft';
     }
     $amountUgx = (float) $plan['price_ugx'];
-    $stockOn = !empty($data['stock_addon']);
-    if ($stockOn) {
-        $amountUgx += pricing_stock_addon_ugx($plan['key']);
-    }
+    // Stock management is included in every package (no paid add-on).
+    $stockOn = true;
     $amount = pricing_convert_ugx($amountUgx, $currency);
     $now = desk_now()->format('Y-m-d H:i:s');
     if ($id) {

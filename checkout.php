@@ -105,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !platform_signups_open()) {
             'phone' => post_plain('contact_phone', 40),
             'city' => post_plain('city', 80),
             'country' => post_plain('country', 80),
-            'stock_addon' => !empty($_POST['stock_addon']) ? 1 : 0,
+            'stock_addon' => 1,
             'status' => $action === 'draft' ? 'draft' : 'pending',
         ];
         $id = $existing ? (int) $existing['id'] : 0;
@@ -198,14 +198,11 @@ if ($existing && ($existing['status'] ?? '') === 'paid') {
     }
 }
 
-$addonUgx = pricing_stock_addon_ugx($pkg['key']);
-$stockOn = (int) ($existing['stock_addon'] ?? 0) === 1;
-$totalUgx = (int) $pkg['price_ugx'] + ($stockOn ? $addonUgx : 0);
+$totalUgx = (int) $pkg['price_ugx'];
 $priceNow = pricing_format((float) $pkg['price_ugx'], $ccy);
 $priceWas = pricing_format((float) $pkg['was_ugx'], $ccy);
 $payCcy = pricing_pay_currency($ccy);
 $payNow = pricing_format($totalUgx, $payCcy);
-$addonNow = pricing_format($addonUgx, $ccy);
 $termLabel = pricing_section()['term_label'];
 $seats = (int) $pkg['seats'];
 $seatLabel = pricing_staff_label($seats);
@@ -322,11 +319,9 @@ $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'
               <option value="<?= h($n) ?>">
             <?php endforeach; ?>
           </datalist>
-          <label class="lp-stock-addon" for="stock_addon">
-            <input id="stock_addon" name="stock_addon" type="checkbox" value="1" <?= $stockOn ? 'checked' : '' ?> data-stock-addon data-package-ugx="<?= (int) $pkg['price_ugx'] ?>" data-stock-ugx="<?= (int) $addonUgx ?>">
-            <span>Add stock management for <strong data-ugx="<?= (int) $addonUgx ?>"><?= h($addonNow) ?></strong> a year. Single-branch packages add <?= h(pricing_format(pricing_stock_addon_solo_ugx(), $ccy)) ?> worth; more than one branch adds <?= h(pricing_format(pricing_stock_addon_multi_ugx(), $ccy)) ?> worth, converted to the currency you picked.</span>
-          </label>
-          <button class="lp-btn lp-btn-solid lp-btn-lg" type="submit" data-pay-btn data-pay-prefix="Continue to pay " data-stock-total data-ugx="<?= (int) $totalUgx ?>">Continue to pay <?= h($payNow) ?></button>
+          <input type="hidden" name="stock_addon" value="1">
+          <p class="lp-checkout-note">Stock management is included in this package.</p>
+          <button class="lp-btn lp-btn-solid lp-btn-lg" type="submit" data-pay-btn data-pay-prefix="Continue to pay " data-ugx="<?= (int) $totalUgx ?>">Continue to pay <?= h($payNow) ?></button>
           <p class="lp-checkout-note">Prefer we set the desk up for you? <a href="<?= h(url('register.php')) ?>">Request a desk</a>. Or <a href="<?= h(url('demo.php')) ?>">book a demo</a>.</p>
         </form>
     <?php endif; ?>

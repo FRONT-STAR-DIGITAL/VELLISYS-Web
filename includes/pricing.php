@@ -39,15 +39,17 @@ function pricing_package_defaults(): array
             'price_ugx' => 150000,
             'was_ugx' => 200000,
             'cta' => 'Select Vellisys Start',
-            'lead' => 'Up to 2 people on the desk. Head office only. The books in your colours.',
+            'lead' => 'Up to 2 people on the desk. Head office only. Stock, branded books with QR, and the sales loop in your colours.',
             'points' => [
                 'Up to 2 people on the desk',
                 'Head office only (no extra branches)',
-                'Branded quotations, invoices and receipts',
-                'Clients, debtors and share by email or WhatsApp',
-                'Print and PDF from the browser',
+                'Stock management: items, counts, Sale till, day open and close',
+                'Branded quotations, invoices and receipts with authenticity QR codes to stop duplicates',
+                'Clients, debtors and creditors with due dates and day-before reminders',
+                'Share branded PDFs by email or WhatsApp; print matches the on-screen sheet',
                 'Reports for the person who signs in',
                 'Activity log of major desk events',
+                'Stay signed in until you sign out',
             ],
             'sort' => 10,
         ],
@@ -61,7 +63,7 @@ function pricing_package_defaults(): array
             'price_ugx' => 200000,
             'was_ugx' => 280000,
             'cta' => 'Select Vellisys Business',
-            'lead' => 'Up to 3 people on the desk and up to 2 branches. Access levels and the full sales loop.',
+            'lead' => 'Up to 3 people on the desk and up to 2 branches. Stock, QR documents, access levels and the full sales loop.',
             'points' => [
                 'Up to 3 people on the desk',
                 'Access levels: Books or Sales',
@@ -83,7 +85,7 @@ function pricing_package_defaults(): array
             'price_ugx' => 250000,
             'was_ugx' => 350000,
             'cta' => 'Select Vellisys Pro',
-            'lead' => 'Up to 4 people on the desk and up to 3 branches. Every document the desk can print.',
+            'lead' => 'Up to 4 people on the desk and up to 3 branches. Stock, QR documents, custom sheets and Profit & Loss.',
             'points' => [
                 'Up to 4 people on the desk',
                 'Access levels for each extra seat',
@@ -591,7 +593,6 @@ function render_landing_pricing(): void
           </article>
         <?php endforeach; ?>
       </div>
-      <p class="lp-pricing-stock">Need stock management in the package? It is an add-on of <strong data-ugx="<?= (int) pricing_stock_addon_solo_ugx() ?>"><?= h(pricing_format(pricing_stock_addon_solo_ugx(), $ccy)) ?></strong> on a single-branch package and <strong data-ugx="<?= (int) pricing_stock_addon_multi_ugx() ?>"><?= h(pricing_format(pricing_stock_addon_multi_ugx(), $ccy)) ?></strong> where the package has more than one branch, on any package you pick. Tick it when you proceed to checkout.</p>
       <?php if (trim((string) $section['register_copy']) !== ''): ?>
         <p class="lp-pricing-register"><?= $register ?></p>
       <?php endif; ?>

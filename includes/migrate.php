@@ -25,7 +25,7 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '53';
+    return '54';
 }
 
 function folio_ensure_php_sessions(mysqli $db): void
@@ -463,39 +463,19 @@ function folio_ensure_package_branch_copy(mysqli $db): void
       v VARCHAR(40) NOT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     $flag = @$db->query("SELECT v FROM schema_meta WHERE k = 'pkg_copy_vellisys'");
-    if ($flag && ($r = $flag->fetch_assoc()) && (string) $r['v'] === '2') {
+    if ($flag && ($r = $flag->fetch_assoc()) && (string) $r['v'] === '3') {
         return;
     }
-    $packages = [
-        'solo' => [
-            'name' => 'Vellisys Start',
-            'cta' => 'Select Vellisys Start',
-            'seats' => 2,
-            'lead' => 'Up to 2 users. Head office only. The books in your colours. Vellisys sets how many logins this desk actually gets.',
-            'points' => "Up to 2 users: company admin plus one. Vellisys sets the number\nHead office only (no extra branches)\nBranded quotations, invoices and receipts\nClients, debtors and share by email or WhatsApp\nPrint and PDF from the browser\nReports for the person who signs in\nActivity log of major desk events",
-        ],
-        'studio' => [
-            'name' => 'Vellisys Business',
-            'cta' => 'Select Vellisys Business',
-            'seats' => 3,
-            'lead' => 'Up to 3 users and up to 2 branches. Access levels and the full sales loop. Vellisys sets how many logins this desk actually gets.',
-            'points' => "Up to 3 users: admin plus two. Vellisys sets the number\nAccess levels: Books or Sales\nEverything in Vellisys Start\nExpenses, creditors and delivery notes\nPlanner notes, budget, calendar, and tasks\nHeaded letters from the company mailbox\nUp to 2 branches (Head office plus named shops). Several users can share a branch",
-        ],
-        'practice' => [
-            'name' => 'Vellisys Pro',
-            'cta' => 'Select Vellisys Pro',
-            'seats' => 4,
-            'lead' => 'Up to 4 users and up to 3 branches. Every document the desk can print. Vellisys sets how many logins this desk actually gets.',
-            'points' => "Up to 4 users: admin plus three. Vellisys sets the number\nAccess levels for each extra seat\nEverything in Vellisys Business\nCustom documents and all letter layouts\nProfit & Loss bookkeeping with refunds and returns\nUp to 3 branches (Head office plus named shops). Several users can share a branch\nPriority onboarding from Vellisys",
-        ],
-    ];
+    if (!function_exists('pricing_package_defaults')) {
+        require_once ROOT_PATH . '/includes/pricing.php';
+    }
     $changed = false;
-    foreach ($packages as $key => $want) {
-        $name = $want['name'];
-        $cta = $want['cta'];
+    foreach (pricing_package_defaults() as $key => $want) {
+        $name = (string) $want['name'];
+        $cta = (string) $want['cta'];
         $seats = (int) $want['seats'];
-        $lead = $want['lead'];
-        $points = $want['points'];
+        $lead = (string) $want['lead'];
+        $points = implode("\n", $want['points'] ?? []);
         $stmt = $db->prepare('UPDATE landing_packages SET name=?, cta=?, seats=?, lead=?, points=? WHERE pkg_key=?');
         if (!$stmt) {
             continue;
@@ -507,7 +487,7 @@ function folio_ensure_package_branch_copy(mysqli $db): void
         }
         $stmt->close();
     }
-    @$db->query("REPLACE INTO schema_meta (k, v) VALUES ('pkg_copy_vellisys', '2')");
+    @$db->query("REPLACE INTO schema_meta (k, v) VALUES ('pkg_copy_vellisys', '3')");
     if ($changed && function_exists('folio_cache_bust')) {
         folio_cache_bust();
     }
