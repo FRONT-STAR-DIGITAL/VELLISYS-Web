@@ -81,6 +81,15 @@ function touch_user_seen(int $userId, bool $login = false): void
     if ($userId < 1) {
         return;
     }
+    // Throttle presence writes — every page was doing an UPDATE.
+    if (!$login) {
+        $key = 'seen_at_' . $userId;
+        $last = (int) ($_SESSION[$key] ?? 0);
+        if ($last > 0 && (time() - $last) < 180) {
+            return;
+        }
+        $_SESSION[$key] = time();
+    }
     try {
         if ($login && db_has_column(db(), 'users', 'last_login_at')) {
             db_exec('UPDATE users SET last_seen_at = NOW(), last_login_at = NOW() WHERE id = ?', 'i', [$userId]);
@@ -124,7 +133,13 @@ function record_platform_perf(int $ms, string $path = ''): void
     $path = mb_substr($path !== '' ? $path : (string) ($_SERVER['SCRIPT_NAME'] ?? ''), 0, 120);
     try {
         db_exec('INSERT INTO platform_perf_samples (ms, path, created_at) VALUES (?,?,NOW())', 'is', [$ms, $path]);
-        db_exec('DELETE FROM platform_perf_samples WHERE created_at < DATE_SUB(NOW(), INTERVAL 30 DAY)');
+        // Prune at most once per day — DELETE on every ping was wasteful.
+        $pruneKey = 'perf_prune_day';
+        $day = date('Y-m-d');
+        if ((string) ($_SESSION[$pruneKey] ?? '') !== $day) {
+            $_SESSION[$pruneKey] = $day;
+            db_exec('DELETE FROM platform_perf_samples WHERE created_at < DATE_SUB(NOW(), INTERVAL 30 DAY)');
+        }
     } catch (Throwable $e) {
         // ignore
     }

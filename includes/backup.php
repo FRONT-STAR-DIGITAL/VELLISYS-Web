@@ -95,9 +95,35 @@ function company_backup_maybe(bool $force = false): void
         return;
     }
     try {
-        if (company_backup_write($force)) {
-            $done = true;
+        $cid = function_exists('current_company_id') ? (int) current_company_id() : 0;
+        if ($cid < 1) {
+            return;
         }
+        // Cheap existence check — never build the full dump on the hot path.
+        $todayPath = company_backup_dir($cid) . '/' . today() . '.json.gz';
+        if (!$force && is_file($todayPath)) {
+            $done = true;
+            return;
+        }
+        $done = true;
+        $run = static function () use ($force): void {
+            try {
+                company_backup_write($force);
+            } catch (Throwable $e) {
+                // Backup must never block the desk.
+            }
+        };
+        if ($force) {
+            $run();
+            return;
+        }
+        // Finish the HTTP response first (FPM), then write the daily dump.
+        register_shutdown_function(static function () use ($run): void {
+            if (function_exists('fastcgi_finish_request')) {
+                @fastcgi_finish_request();
+            }
+            $run();
+        });
     } catch (Throwable $e) {
         // Backup must never block the desk.
     }
