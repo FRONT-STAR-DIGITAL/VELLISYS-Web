@@ -285,6 +285,7 @@ function create_quick_ledger_entry(string $side): int
     $amount = function_exists('money_parse') ? money_parse(post('amount')) : (float) post('amount');
     $entity = post('to_entity') ?: (post('entity') ?: 'person');
     $partyId = (int) post('party_id');
+    $dueRaw = trim(post('due_date', '', 20));
 
     if ($name === '') {
         throw new RuntimeException('Name is required.');
@@ -294,6 +295,17 @@ function create_quick_ledger_entry(string $side): int
     }
     if ($amount <= 0) {
         throw new RuntimeException('Enter an amount greater than zero.');
+    }
+    $dueDate = null;
+    if ($dueRaw !== '') {
+        $dt = DateTimeImmutable::createFromFormat('Y-m-d', $dueRaw);
+        if (!$dt || $dt->format('Y-m-d') !== $dueRaw) {
+            throw new RuntimeException('Enter a valid due date.');
+        }
+        $dueDate = $dueRaw;
+    }
+    if ($dueDate === null) {
+        throw new RuntimeException('Due date is required so a reminder can be sent the day before.');
     }
 
     $partyKind = $side === 'creditor' ? 'supplier' : 'customer';
@@ -305,7 +317,7 @@ function create_quick_ledger_entry(string $side): int
         'kind' => $kind,
         'party_id' => $partyId,
         'date' => today(),
-        'due_date' => $kind === 'invoice' ? today() : null,
+        'due_date' => $dueDate,
         'vat_rate' => 0,
         'currency' => default_currency(),
         'notes' => $reason,
@@ -363,7 +375,7 @@ function render_ledger_add_form(string $side, array $parties, bool $open = false
   <summary class="ledger-add-summary">
     <?= icon('plus', 16) ?>
     <strong><?= h($title) ?></strong>
-    <span>Name, contact, reason and amount</span>
+    <span>Name, contact, reason, amount and due date</span>
   </summary>
   <form class="ledger-add-form" method="post" action="<?= h(url($action)) ?>" autocomplete="off" data-party-book="<?= h($bookJson) ?>">
     <?= csrf_field() ?>
@@ -401,6 +413,16 @@ function render_ledger_add_form(string $side, array $parties, bool $open = false
         <label for="ledger-amount">Amount</label>
         <input id="ledger-amount" name="amount" inputmode="decimal" required placeholder="0.00">
       </div>
+      <div>
+        <label for="ledger-due">Due date</label>
+        <?php
+          $defaultDue = function_exists('desk_now')
+              ? desk_now()->modify('+7 days')->format('Y-m-d')
+              : date('Y-m-d', strtotime('+7 days'));
+        ?>
+        <input id="ledger-due" name="due_date" type="date" required value="<?= h($defaultDue) ?>">
+        <p class="hint">A reminder shows in notifications the day before this date.</p>
+      </div>
       <div class="doc-span">
         <label for="ledger-reason">Reason</label>
         <input id="ledger-reason" name="reason" required placeholder="What this amount is for" maxlength="500">
@@ -412,6 +434,115 @@ function render_ledger_add_form(string $side, array $parties, bool $open = false
   </form>
 </details>
     <?php
+}
+
+/**
+ * Desk/push reminders for open debtors (invoices) and creditors (expenses)
+ * the day before due, on the due day, and when overdue.
+ */
+function ledger_due_reminder_notifications(int $limit = 20): array
+{
+    $canDebt = function_exists('is_desk_admin') && is_desk_admin()
+        || (function_exists('user_can_feature') && user_can_feature('debtors'));
+    $canCred = function_exists('is_desk_admin') && is_desk_admin()
+        || (function_exists('user_can_feature') && user_can_feature('creditors'));
+    if (!$canDebt && !$canCred) {
+        return [];
+    }
+    $kinds = [];
+    if ($canDebt) {
+        $kinds[] = 'invoice';
+    }
+    if ($canCred) {
+        $kinds[] = 'expense';
+    }
+    $cid = current_company_id();
+    $today = today();
+    $tomorrow = function_exists('desk_now')
+        ? desk_now()->modify('+1 day')->format('Y-m-d')
+        : date('Y-m-d', strtotime('+1 day'));
+    $oldest = function_exists('desk_now')
+        ? desk_now()->modify('-90 days')->format('Y-m-d')
+        : date('Y-m-d', strtotime('-90 days'));
+    $in = implode(',', array_fill(0, count($kinds), '?'));
+    $types = 'i' . str_repeat('s', count($kinds)) . 'ss';
+    $params = array_merge([$cid], $kinds, [$oldest, $tomorrow]);
+    try {
+        $rows = attach_document_totals(db_all(
+            "SELECT d.*, p.name AS party_name FROM documents d
+             LEFT JOIN parties p ON p.id = d.party_id
+             WHERE d.company_id = ? AND d.kind IN ($in) AND d.status <> 'void'
+               AND d.due_date IS NOT NULL AND d.due_date <> ''
+               AND d.due_date >= ? AND d.due_date <= ?
+             ORDER BY d.due_date, d.id
+             LIMIT 60",
+            $types,
+            $params
+        ));
+    } catch (Throwable $e) {
+        return [];
+    }
+    $items = [];
+    foreach ($rows as $doc) {
+        $kind = (string) ($doc['kind'] ?? '');
+        $due = (string) ($doc['due_date'] ?? '');
+        if ($due === '') {
+            continue;
+        }
+        $balance = $kind === 'expense'
+            ? (float) ($doc['balance'] ?? (function_exists('expense_balance') ? expense_balance($doc) : 0))
+            : (float) (function_exists('document_due_amount') ? document_due_amount($doc) : ($doc['balance'] ?? 0));
+        if ($balance <= 0.009) {
+            continue;
+        }
+        $party = trim((string) ($doc['party_name'] ?? 'Client'));
+        $number = (string) ($doc['number'] ?? '');
+        $money = function_exists('money') ? money($balance, doc_currency($doc)) : (string) $balance;
+        if ($due === $tomorrow) {
+            $title = $kind === 'expense'
+                ? 'Pay ' . $party . ' tomorrow'
+                : 'Collect from ' . $party . ' tomorrow';
+            $meta = ($kind === 'expense' ? 'Creditor' : 'Debtor') . ' · Due ' . format_date($due) . ' · ' . $money;
+            $tone = 'warn';
+            $sort = '0-' . $due . '-' . $kind;
+        } elseif ($due === $today) {
+            $title = $kind === 'expense'
+                ? 'Pay ' . $party . ' today'
+                : 'Collect from ' . $party . ' today';
+            $meta = ($kind === 'expense' ? 'Creditor' : 'Debtor') . ' · Due today · ' . $money;
+            $tone = 'warn';
+            $sort = '1-' . $due . '-' . $kind;
+        } elseif ($due < $today) {
+            $title = $kind === 'expense'
+                ? 'Overdue payment to ' . $party
+                : 'Overdue from ' . $party;
+            $meta = ($kind === 'expense' ? 'Creditor' : 'Debtor') . ' · Was due ' . format_date($due) . ' · ' . $money;
+            $tone = 'warn';
+            $sort = '2-' . $due . '-' . $kind;
+        } else {
+            continue;
+        }
+        if ($number !== '') {
+            $meta .= ' · ' . $number;
+        }
+        $href = $kind === 'expense'
+            ? url('creditors.php')
+            : url('document_action.php?receive=' . (int) $doc['id']);
+        $items[] = [
+            'type' => $kind === 'expense' ? 'creditor_due' : 'debtor_due',
+            'tone' => $tone,
+            'title' => $title,
+            'meta' => $meta,
+            'href' => $href,
+            'key' => ($kind === 'expense' ? 'creditor-due:' : 'debtor-due:') . (int) $doc['id'] . ':' . $due,
+            'document_id' => (int) $doc['id'],
+            'sort' => $sort,
+        ];
+        if (count($items) >= $limit) {
+            break;
+        }
+    }
+    return $items;
 }
 
 function ensure_document_party(string $kind): int
