@@ -33,6 +33,10 @@ RUN { \
       echo 'max_execution_time=120'; \
       echo 'session.cookie_secure=0'; \
       echo 'session.cookie_httponly=1'; \
+      echo 'session.cookie_samesite=Lax'; \
+      echo 'session.gc_maxlifetime=604800'; \
+      echo 'session.gc_probability=1'; \
+      echo 'session.gc_divisor=1000'; \
       echo 'realpath_cache_size=4096K'; \
       echo 'realpath_cache_ttl=600'; \
     } > /usr/local/etc/php/conf.d/vellisys.ini \

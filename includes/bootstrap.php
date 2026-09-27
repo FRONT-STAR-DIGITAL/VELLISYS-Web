@@ -13,14 +13,19 @@ if (is_dir($sessionDir) && is_writable($sessionDir)) {
     session_save_path($sessionDir);
 }
 
-// Honour Remember me before session_start — otherwise lifetime:0 turns it into a session cookie.
-// Sliding window: 7 days without a request → session cookie expires / login cleared.
+// Session cookies must be persistent (never lifetime 0). Mobile browsers often
+// discard "session" cookies within minutes, which looked like a 5‑minute logout.
+// Remember me: 7-day sliding idle window. Otherwise: 12-hour sliding window.
 if (!defined('REMEMBER_LIFETIME_SECONDS')) {
     define('REMEMBER_LIFETIME_SECONDS', 60 * 60 * 24 * 7);
 }
+if (!defined('SESSION_COOKIE_SECONDS')) {
+    define('SESSION_COOKIE_SECONDS', 60 * 60 * 12);
+}
 $rememberMe = (string) ($_COOKIE['vellisys_rm'] ?? '') === '1';
-$cookieLifetime = $rememberMe ? REMEMBER_LIFETIME_SECONDS : 0;
-@ini_set('session.gc_maxlifetime', (string) ($rememberMe ? $cookieLifetime : 28800));
+$cookieLifetime = $rememberMe ? REMEMBER_LIFETIME_SECONDS : SESSION_COOKIE_SECONDS;
+// Keep session files at least as long as the longest cookie window.
+@ini_set('session.gc_maxlifetime', (string) REMEMBER_LIFETIME_SECONDS);
 @ini_set('session.cookie_lifetime', (string) $cookieLifetime);
 session_set_cookie_params([
     'lifetime' => $cookieLifetime,

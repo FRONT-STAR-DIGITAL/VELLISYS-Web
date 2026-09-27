@@ -31,11 +31,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (form_rate_blocked('login', 8, 900)) {
         $error = 'Please wait a few minutes before trying again.';
     } elseif (attempt_login(strtolower(post_plain('email', 190)), post('password', '', 256))) {
-        remember_login($remember);
         $user = current_user();
+        // Super admin always stays signed in (7-day sliding); others honour the checkbox.
         if (($user['role'] ?? '') === 'platform') {
+            remember_login(true);
             redirect(platform_home());
         }
+        remember_login($remember);
         if (($user['role'] ?? '') === 'sales_agent') {
             redirect(function_exists('sales_home') ? sales_home() : 'sales_home.php');
         }

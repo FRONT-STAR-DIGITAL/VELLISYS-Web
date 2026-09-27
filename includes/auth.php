@@ -401,7 +401,7 @@ function remember_cookie_name(): string
     return 'vellisys_rm';
 }
 
-/** Sliding inactivity window: 7 consecutive days without usage → logged out. */
+/** Sliding inactivity window with Remember me: 7 consecutive days without usage → logged out. */
 function remember_lifetime_seconds(): int
 {
     return defined('REMEMBER_LIFETIME_SECONDS')
@@ -409,8 +409,19 @@ function remember_lifetime_seconds(): int
         : (60 * 60 * 24 * 7);
 }
 
+/** Sliding window when Remember me is off (still persistent — never lifetime 0). */
+function session_cookie_seconds(): int
+{
+    return defined('SESSION_COOKIE_SECONDS')
+        ? (int) SESSION_COOKIE_SECONDS
+        : (60 * 60 * 12);
+}
+
 function remember_requested(): bool
 {
+    if ((string) ($_SESSION['role'] ?? '') === 'platform') {
+        return true; // Super admin always gets the durable window.
+    }
     return (string) ($_COOKIE[remember_cookie_name()] ?? '') === '1'
         || !empty($_SESSION['remember']);
 }
@@ -426,55 +437,65 @@ function folio_session_cookie_options(int $expires): array
     ];
 }
 
-function expire_remembered_session(): void
+function expire_active_session(): void
 {
     $_SESSION = [];
     clear_remember_cookies();
-    if (session_status() === PHP_SESSION_ACTIVE) {
-        session_regenerate_id(true);
-    }
+}
+
+/** @deprecated Use expire_active_session() */
+function expire_remembered_session(): void
+{
+    expire_active_session();
 }
 
 function remember_login(bool $remember): void
 {
-    $_SESSION['remember'] = $remember ? 1 : 0;
-    $rm = remember_cookie_name();
-    if ($remember) {
-        $lifetime = remember_lifetime_seconds();
-        $_SESSION['last_activity'] = time();
-        @ini_set('session.gc_maxlifetime', (string) $lifetime);
-        $expires = time() + $lifetime;
-        setcookie($rm, '1', folio_session_cookie_options($expires));
-        setcookie(session_name(), session_id(), folio_session_cookie_options($expires));
-        return;
+    // Platform / super admin: always durable (same as Remember me).
+    if ((string) ($_SESSION['role'] ?? '') === 'platform') {
+        $remember = true;
     }
-    unset($_SESSION['last_activity']);
-    setcookie($rm, '', folio_session_cookie_options(time() - 3600));
-    // Browser session only — cleared when the browser quits.
-    setcookie(session_name(), session_id(), folio_session_cookie_options(0));
+    $_SESSION['remember'] = $remember ? 1 : 0;
+    $_SESSION['last_activity'] = time();
+    $rm = remember_cookie_name();
+    $lifetime = $remember ? remember_lifetime_seconds() : session_cookie_seconds();
+    @ini_set('session.gc_maxlifetime', (string) remember_lifetime_seconds());
+    $expires = time() + $lifetime;
+    if ($remember) {
+        setcookie($rm, '1', folio_session_cookie_options($expires));
+    } else {
+        setcookie($rm, '', folio_session_cookie_options(time() - 3600));
+    }
+    setcookie(session_name(), session_id(), folio_session_cookie_options($expires));
 }
 
 /**
- * On each request while Remember me is on: extend cookies by 7 days from now.
- * If 7 consecutive days pass with no request, clear the session (logged out).
+ * Keep every logged-in portal alive with a sliding cookie.
+ * Remember me / super admin: 7 days idle. Others: 12 hours idle.
+ * Never uses a browser-session cookie (lifetime 0) — those die on mobile.
  */
 function refresh_remembered_session(): void
 {
-    if (empty($_SESSION['user_id']) || !remember_requested()) {
+    if (empty($_SESSION['user_id'])) {
         return;
     }
-    $lifetime = remember_lifetime_seconds();
+    $remember = remember_requested();
+    if ($remember) {
+        $_SESSION['remember'] = 1;
+    }
+    $lifetime = $remember ? remember_lifetime_seconds() : session_cookie_seconds();
     $now = time();
     $last = (int) ($_SESSION['last_activity'] ?? 0);
     if ($last > 0 && ($now - $last) > $lifetime) {
-        expire_remembered_session();
+        expire_active_session();
         return;
     }
-    $_SESSION['remember'] = 1;
     $_SESSION['last_activity'] = $now;
-    @ini_set('session.gc_maxlifetime', (string) $lifetime);
+    @ini_set('session.gc_maxlifetime', (string) remember_lifetime_seconds());
     $expires = $now + $lifetime;
-    setcookie(remember_cookie_name(), '1', folio_session_cookie_options($expires));
+    if ($remember) {
+        setcookie(remember_cookie_name(), '1', folio_session_cookie_options($expires));
+    }
     setcookie(session_name(), session_id(), folio_session_cookie_options($expires));
 }
 
