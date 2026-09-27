@@ -407,34 +407,37 @@ function platform_delete_company(int $id): array
     $name = (string) $company['name'];
     $db = db();
     $userIds = array_map(static fn ($r) => (int) $r['id'], db_all("SELECT id FROM users WHERE company_id = ? AND role <> 'platform'", 'i', [$id]));
-    $docIds = function_exists('company_reset_ids')
+    $hasReset = function_exists('company_reset_ids')
+        && function_exists('company_reset_has_table')
+        && function_exists('company_reset_in');
+    $docIds = $hasReset
         ? company_reset_ids('SELECT id FROM documents WHERE company_id = ?', 'i', [$id])
         : [];
-    $countIds = (function_exists('company_reset_has_table') && company_reset_has_table('stock_counts'))
+    $countIds = ($hasReset && company_reset_has_table('stock_counts'))
         ? company_reset_ids('SELECT id FROM stock_counts WHERE company_id = ?', 'i', [$id])
         : [];
 
     $db->begin_transaction();
     try {
-        if ($docIds && company_reset_has_table('emails')) {
+        if ($hasReset && $docIds && company_reset_has_table('emails')) {
             company_reset_in('DELETE FROM emails WHERE document_id IN', $docIds);
         }
-        if ($docIds) {
+        if ($hasReset && $docIds) {
             company_reset_in('DELETE FROM document_items WHERE document_id IN', $docIds);
         }
-        if ($countIds && company_reset_has_table('stock_count_lines')) {
+        if ($hasReset && $countIds && company_reset_has_table('stock_count_lines')) {
             company_reset_in('DELETE FROM stock_count_lines WHERE count_id IN', $countIds);
         }
-        if ($userIds && company_reset_has_table('notification_dismissals')) {
+        if ($hasReset && $userIds && company_reset_has_table('notification_dismissals')) {
             company_reset_in('DELETE FROM notification_dismissals WHERE user_id IN', $userIds);
         }
-        if ($userIds && company_reset_has_table('push_sent')) {
+        if ($hasReset && $userIds && company_reset_has_table('push_sent')) {
             company_reset_in('DELETE FROM push_sent WHERE user_id IN', $userIds);
         }
-        if ($userIds && company_reset_has_table('push_subscriptions')) {
+        if ($hasReset && $userIds && company_reset_has_table('push_subscriptions')) {
             company_reset_in('DELETE FROM push_subscriptions WHERE user_id IN', $userIds);
         }
-        if ($userIds && company_reset_has_table('emails')) {
+        if ($hasReset && $userIds && company_reset_has_table('emails')) {
             company_reset_in('DELETE FROM emails WHERE document_id IS NULL AND user_id IN', $userIds);
         }
 
@@ -460,10 +463,10 @@ function platform_delete_company(int $id): array
             db_exec("DELETE FROM {$safe} WHERE company_id = ?", 'i', [$id]);
         }
         db_exec("DELETE FROM users WHERE company_id = ? AND role <> 'platform'", 'i', [$id]);
-        if (company_reset_has_table('signups') && db_has_column($db, 'signups', 'company_id')) {
+        if ($hasReset && company_reset_has_table('signups') && db_has_column($db, 'signups', 'company_id')) {
             db_exec('UPDATE signups SET company_id = NULL WHERE company_id = ?', 'i', [$id]);
         }
-        if (company_reset_has_table('website_orders') && db_has_column($db, 'website_orders', 'company_id')) {
+        if ($hasReset && company_reset_has_table('website_orders') && db_has_column($db, 'website_orders', 'company_id')) {
             db_exec('UPDATE website_orders SET company_id = NULL WHERE company_id = ?', 'i', [$id]);
         }
         db_exec('DELETE FROM companies WHERE id = ?', 'i', [$id]);

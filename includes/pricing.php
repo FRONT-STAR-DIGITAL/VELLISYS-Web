@@ -379,6 +379,21 @@ function pricing_section(): array
     return $cached;
 }
 
+/** Short stable key from a package display name (max 16 chars for pkg_key). */
+function pricing_make_key(string $name): string
+{
+    $k = strtolower(trim($name));
+    $k = preg_replace('/[^a-z0-9]+/', '_', $k) ?? '';
+    $k = trim($k, '_');
+    if ($k === '') {
+        $k = 'pkg';
+    }
+    if (str_starts_with($k, 'vellisys_')) {
+        $k = substr($k, 9) ?: 'pkg';
+    }
+    return substr($k, 0, 16);
+}
+
 function pricing_next_key(string $name): string
 {
     $base = pricing_make_key($name);

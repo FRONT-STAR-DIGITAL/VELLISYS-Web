@@ -392,23 +392,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     if ($action === 'reset_training') {
-        $confirm = trim(post('reset_confirm'));
-        $scopes = $_POST['reset_scope'] ?? [];
-        if (!is_array($scopes)) {
-            $scopes = [];
-        }
-        if (post('reset_all') !== '') {
-            $scopes = array_keys(company_reset_scopes());
-        }
-        if (strcasecmp($confirm, (string) $company['name']) !== 0) {
-            $error = 'Type the company name exactly to confirm the reset.';
+        if (!function_exists('company_reset_scopes') || !function_exists('company_reset_training_data')) {
+            $error = 'Training reset is temporarily unavailable. Redeploy or clear OPcache, then try again.';
         } else {
-            $done = company_reset_training_data($id, $scopes);
-            if (empty($done['ok'])) {
-                $error = (string) ($done['error'] ?? 'Could not reset that desk.');
+            $confirm = trim(post('reset_confirm'));
+            $scopes = $_POST['reset_scope'] ?? [];
+            if (!is_array($scopes)) {
+                $scopes = [];
+            }
+            if (post('reset_all') !== '') {
+                $scopes = array_keys(company_reset_scopes());
+            }
+            if (strcasecmp($confirm, (string) $company['name']) !== 0) {
+                $error = 'Type the company name exactly to confirm the reset.';
             } else {
-                flash($company['name'] . ' is ready for official use. Cleared: ' . implode(', ', $done['cleared'] ?? []) . '. Logins, branding, mailbox and paid term were kept.');
-                redirect('admin_company.php?id=' . $id);
+                $done = company_reset_training_data($id, $scopes);
+                if (empty($done['ok'])) {
+                    $error = (string) ($done['error'] ?? 'Could not reset that desk.');
+                } else {
+                    flash($company['name'] . ' is ready for official use. Cleared: ' . implode(', ', $done['cleared'] ?? []) . '. Logins, branding, mailbox and paid term were kept.');
+                    redirect('admin_company.php?id=' . $id);
+                }
             }
         }
     }
@@ -461,7 +465,7 @@ try {
 } catch (Throwable $e) {
 }
 $deskHealth = platform_desk_health(['last_seen_at' => $lastSeen, 'last_login_at' => $lastLogin]);
-$resetScopes = company_reset_scopes();
+$resetScopes = function_exists('company_reset_scopes') ? company_reset_scopes() : [];
 $deskEmails = [];
 $toList = [];
 foreach ($members as $m) {
