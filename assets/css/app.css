@@ -6059,6 +6059,34 @@ a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--lin
   text-transform: uppercase;
 }
 .admin-metric-label .icon { color: var(--brand); }
+.admin-metric-refresh {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--brand) 18%, #d7deea);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--brand);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.admin-metric-refresh:hover {
+  background: color-mix(in srgb, var(--brand) 8%, #fff);
+}
+.admin-metric-refresh:disabled {
+  opacity: .55;
+  cursor: wait;
+}
+.admin-metric-refresh.is-busy .icon {
+  animation: admin-metric-spin .7s linear infinite;
+}
+@keyframes admin-metric-spin {
+  to { transform: rotate(360deg); }
+}
 .admin-metric-row {
   display: flex;
   align-items: flex-end;

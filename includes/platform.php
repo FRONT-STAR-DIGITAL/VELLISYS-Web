@@ -172,6 +172,40 @@ function platform_health_from_ms(?float $ms): array
     return ['key' => 'slow', 'label' => 'Slow', 'ms' => $ms];
 }
 
+/** Classify download speed (Mbps) for the Internet speed sensor. */
+function platform_health_from_mbps(?float $mbps): array
+{
+    if ($mbps === null) {
+        return ['key' => 'healthy', 'label' => 'Normal', 'mbps' => null];
+    }
+    if ($mbps >= 25) {
+        return ['key' => 'fast', 'label' => 'Fast', 'mbps' => $mbps];
+    }
+    if ($mbps >= 5) {
+        return ['key' => 'healthy', 'label' => 'Normal', 'mbps' => $mbps];
+    }
+    return ['key' => 'slow', 'label' => 'Slow', 'mbps' => $mbps];
+}
+
+function platform_reload_stats(int $limit = 20): array
+{
+    $ms = platform_avg_reload_ms($limit);
+    $health = platform_health_from_ms($ms);
+    $spark = [];
+    try {
+        $samples = db_all('SELECT ms FROM platform_perf_samples ORDER BY id DESC LIMIT 24');
+        $spark = array_map(static fn ($r) => (float) ($r['ms'] ?? 0), array_reverse($samples));
+    } catch (Throwable $e) {
+        $spark = [];
+    }
+    return [
+        'ms' => $ms,
+        'label' => $ms === null ? '-' : ((int) round($ms) . ' ms'),
+        'health' => $health,
+        'spark' => $spark,
+    ];
+}
+
 function platform_online_users(): array
 {
     try {

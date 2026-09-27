@@ -337,16 +337,35 @@ layout_admin_start('Dashboard', $user);
 </div>
 
 <div class="admin-metric-grid">
-  <article class="admin-metric card">
-    <div class="admin-metric-label"><?= icon('clock', 16) ?><span>Reload speed</span></div>
+  <article class="admin-metric card" data-speed-sensor="reload">
+    <div class="admin-metric-label">
+      <?= icon('clock', 16) ?><span>Reload speed</span>
+      <button type="button" class="admin-metric-refresh" data-refresh-reload title="Refresh reload speed" aria-label="Refresh reload speed"><?= icon('refresh', 14) ?></button>
+    </div>
     <div class="admin-metric-row">
       <div>
-        <strong><?= $ms === null ? '-' : ((int) round($ms) . ' ms') ?></strong>
-        <em class="admin-trend is-<?= h($reloadTrend['tone']) ?>"><?= h($reloadTrend['text']) ?></em>
+        <strong data-reload-ms><?= $ms === null ? '-' : ((int) round($ms) . ' ms') ?></strong>
+        <em class="admin-trend is-<?= h($reloadTrend['tone']) ?>" data-reload-trend><?= h($reloadTrend['text']) ?></em>
       </div>
       <div class="admin-metric-aside">
-        <?= $spark($reloadSpark ?: [($ms ?? 0), ($ms ?? 0)]) ?>
-        <span class="admin-chip is-<?= h($health['key']) ?>"><?= h($health['label']) ?></span>
+        <span data-reload-spark><?= $spark($reloadSpark ?: [($ms ?? 0), ($ms ?? 0)]) ?></span>
+        <span class="admin-chip is-<?= h($health['key']) ?>" data-reload-chip><?= h($health['label']) ?></span>
+      </div>
+    </div>
+  </article>
+
+  <article class="admin-metric card" data-speed-sensor="internet">
+    <div class="admin-metric-label">
+      <?= icon('globe', 16) ?><span>Internet speed</span>
+      <button type="button" class="admin-metric-refresh" data-refresh-internet title="Refresh internet speed" aria-label="Refresh internet speed"><?= icon('refresh', 14) ?></button>
+    </div>
+    <div class="admin-metric-row">
+      <div>
+        <strong data-net-mbps>-</strong>
+        <em class="admin-trend is-flat" data-net-trend>Tap refresh to measure</em>
+      </div>
+      <div class="admin-metric-aside">
+        <span class="admin-chip is-healthy" data-net-chip>Normal</span>
       </div>
     </div>
   </article>
@@ -657,6 +676,132 @@ layout_end(
   var c2=document.getElementById("admin-dash-docs");
   if(c2){
     new Chart(c2,{type:"bar",data:{labels:d.labels,datasets:[{label:"Documents",data:d.docs,backgroundColor:brand,borderRadius:6,barPercentage:.55},{label:"Events",data:d.acts,backgroundColor:barSoft,borderRadius:6,barPercentage:.55}]},options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{stacked:false,grid:{display:false},ticks:{color:"#6b7280",font:{size:11}}},y:{beginAtZero:true,grid:{color:"rgba(8,20,58,.06)"},ticks:{color:"#6b7280",precision:0,font:{size:11}}}}});
+  }
+})();
+</script>
+<script>
+(function(){
+  var ping = ' . json_encode(url('ping.php')) . ';
+  var reloadBtn = document.querySelector("[data-refresh-reload]");
+  var netBtn = document.querySelector("[data-refresh-internet]");
+  function setBusy(btn, on){
+    if(!btn) return;
+    btn.disabled = !!on;
+    btn.classList.toggle("is-busy", !!on);
+  }
+  function chipClass(key){
+    return "admin-chip is-" + (key || "healthy");
+  }
+  function healthFromMbps(mbps){
+    if(mbps >= 25) return {key:"fast", label:"Fast"};
+    if(mbps >= 5) return {key:"healthy", label:"Normal"};
+    return {key:"slow", label:"Slow"};
+  }
+  function fmtMbps(mbps){
+    if(!(mbps > 0)) return "-";
+    if(mbps >= 100) return Math.round(mbps) + " Mbps";
+    if(mbps >= 10) return mbps.toFixed(1) + " Mbps";
+    return mbps.toFixed(2) + " Mbps";
+  }
+  function sparkSvg(values){
+    values = (values || []).map(Number);
+    if(values.length < 2) values = values.length ? [values[0], values[0]] : [0, 0];
+    var min = Math.min.apply(null, values);
+    var max = Math.max.apply(null, values);
+    var span = Math.max(0.0001, max - min);
+    var w = 72, h = 28, n = values.length, pts = [];
+    for(var i = 0; i < n; i++){
+      var x = n === 1 ? 0 : (i / (n - 1)) * w;
+      var y = h - ((values[i] - min) / span) * (h - 4) - 2;
+      pts.push(x.toFixed(1) + "," + y.toFixed(1));
+    }
+    return \'<svg class="admin-spark" viewBox="0 0 \' + w + \' \' + h + \'" width="\' + w + \'" height="\' + h + \'" aria-hidden="true"><polyline fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" points="\' + pts.join(" ") + \'"/></svg>\';
+  }
+  async function refreshReload(){
+    setBusy(reloadBtn, true);
+    var msEl = document.querySelector("[data-reload-ms]");
+    var chipEl = document.querySelector("[data-reload-chip]");
+    var trendEl = document.querySelector("[data-reload-trend]");
+    var sparkEl = document.querySelector("[data-reload-spark]");
+    try {
+      var t0 = performance.now();
+      await fetch(ping + "?action=echo&_=" + Date.now(), {credentials:"same-origin", cache:"no-store"});
+      var sample = Math.round(performance.now() - t0);
+      if(sample > 0){
+        await fetch(ping + "?ms=" + encodeURIComponent(sample) + "&path=" + encodeURIComponent("manual-reload"), {credentials:"same-origin", cache:"no-store"});
+      }
+      var res = await fetch(ping + "?action=stats&_=" + Date.now(), {credentials:"same-origin", cache:"no-store"});
+      var data = await res.json();
+      var reload = (data && data.reload) || {};
+      if(msEl) msEl.textContent = reload.label || (sample ? sample + " ms" : "-");
+      if(chipEl && reload.health){
+        chipEl.textContent = reload.health.label || "Healthy";
+        chipEl.className = chipClass(reload.health.key);
+      }
+      if(trendEl){
+        trendEl.textContent = sample ? ("Just now · " + sample + " ms sample") : "Updated";
+        trendEl.className = "admin-trend is-flat";
+      }
+      if(sparkEl && reload.spark && reload.spark.length){
+        sparkEl.innerHTML = sparkSvg(reload.spark);
+      }
+    } catch (e) {
+      if(trendEl){
+        trendEl.textContent = "Could not refresh";
+        trendEl.className = "admin-trend is-down";
+      }
+    } finally {
+      setBusy(reloadBtn, false);
+    }
+  }
+  async function refreshInternet(){
+    setBusy(netBtn, true);
+    var mbpsEl = document.querySelector("[data-net-mbps]");
+    var chipEl = document.querySelector("[data-net-chip]");
+    var trendEl = document.querySelector("[data-net-trend]");
+    if(trendEl){
+      trendEl.textContent = "Measuring…";
+      trendEl.className = "admin-trend is-flat";
+    }
+    try {
+      var bytes = 262144;
+      var url = ping + "?action=blob&bytes=" + bytes + "&_=" + Date.now();
+      var t0 = performance.now();
+      var res = await fetch(url, {credentials:"same-origin", cache:"no-store"});
+      var buf = await res.arrayBuffer();
+      var ms = Math.max(1, performance.now() - t0);
+      var mbps = (buf.byteLength * 8) / (ms / 1000) / 1e6;
+      var health = healthFromMbps(mbps);
+      if(mbpsEl) mbpsEl.textContent = fmtMbps(mbps);
+      if(chipEl){
+        chipEl.textContent = health.label;
+        chipEl.className = chipClass(health.key);
+      }
+      if(trendEl){
+        trendEl.textContent = "Round trip " + Math.round(ms) + " ms";
+        trendEl.className = "admin-trend is-" + (health.key === "slow" ? "down" : (health.key === "fast" ? "up" : "flat"));
+      }
+    } catch (e) {
+      if(mbpsEl) mbpsEl.textContent = "-";
+      if(trendEl){
+        trendEl.textContent = "Could not measure";
+        trendEl.className = "admin-trend is-down";
+      }
+      if(chipEl){
+        chipEl.textContent = "Slow";
+        chipEl.className = chipClass("slow");
+      }
+    } finally {
+      setBusy(netBtn, false);
+    }
+  }
+  if(reloadBtn) reloadBtn.addEventListener("click", refreshReload);
+  if(netBtn) netBtn.addEventListener("click", refreshInternet);
+  // Auto-measure internet once the dashboard is idle.
+  if(netBtn && "requestIdleCallback" in window){
+    requestIdleCallback(function(){ refreshInternet(); }, {timeout:2500});
+  } else if(netBtn){
+    setTimeout(refreshInternet, 900);
   }
 })();
 </script>'
