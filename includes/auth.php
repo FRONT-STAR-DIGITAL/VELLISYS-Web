@@ -395,16 +395,18 @@ function attempt_login(string $email, string $password): bool
     return true;
 }
 
-/** Long-lived “remember me” marker cookie (separate from the PHP session id). */
+/** Remember-me marker cookie (separate from the PHP session id). */
 function remember_cookie_name(): string
 {
     return 'vellisys_rm';
 }
 
-/** Keep remembered logins for ~13 months (browser caps are often ~400 days). */
+/** Sliding inactivity window: 7 consecutive days without usage → logged out. */
 function remember_lifetime_seconds(): int
 {
-    return 60 * 60 * 24 * 400;
+    return defined('REMEMBER_LIFETIME_SECONDS')
+        ? (int) REMEMBER_LIFETIME_SECONDS
+        : (60 * 60 * 24 * 7);
 }
 
 function remember_requested(): bool
@@ -424,33 +426,54 @@ function folio_session_cookie_options(int $expires): array
     ];
 }
 
+function expire_remembered_session(): void
+{
+    $_SESSION = [];
+    clear_remember_cookies();
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_regenerate_id(true);
+    }
+}
+
 function remember_login(bool $remember): void
 {
     $_SESSION['remember'] = $remember ? 1 : 0;
     $rm = remember_cookie_name();
     if ($remember) {
         $lifetime = remember_lifetime_seconds();
+        $_SESSION['last_activity'] = time();
         @ini_set('session.gc_maxlifetime', (string) $lifetime);
         $expires = time() + $lifetime;
         setcookie($rm, '1', folio_session_cookie_options($expires));
         setcookie(session_name(), session_id(), folio_session_cookie_options($expires));
         return;
     }
+    unset($_SESSION['last_activity']);
     setcookie($rm, '', folio_session_cookie_options(time() - 3600));
     // Browser session only — cleared when the browser quits.
     setcookie(session_name(), session_id(), folio_session_cookie_options(0));
 }
 
-/** Refresh persistent cookies on activity so Remember me lasts until Sign out. */
+/**
+ * On each request while Remember me is on: extend cookies by 7 days from now.
+ * If 7 consecutive days pass with no request, clear the session (logged out).
+ */
 function refresh_remembered_session(): void
 {
     if (empty($_SESSION['user_id']) || !remember_requested()) {
         return;
     }
-    $_SESSION['remember'] = 1;
     $lifetime = remember_lifetime_seconds();
+    $now = time();
+    $last = (int) ($_SESSION['last_activity'] ?? 0);
+    if ($last > 0 && ($now - $last) > $lifetime) {
+        expire_remembered_session();
+        return;
+    }
+    $_SESSION['remember'] = 1;
+    $_SESSION['last_activity'] = $now;
     @ini_set('session.gc_maxlifetime', (string) $lifetime);
-    $expires = time() + $lifetime;
+    $expires = $now + $lifetime;
     setcookie(remember_cookie_name(), '1', folio_session_cookie_options($expires));
     setcookie(session_name(), session_id(), folio_session_cookie_options($expires));
 }
