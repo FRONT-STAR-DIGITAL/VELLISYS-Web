@@ -255,7 +255,7 @@ $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'
           <span><?= h($termLabel) ?></span>
         </p>
         <p class="lp-check-seats"><?= h($seatLabel) ?> · billed <?= h($termLabel) ?></p>
-        <p><?= h(pricing_swap_legacy_names($pkg['lead'])) ?> After payment you choose how you sign in, then add your logo and colours.</p>
+        <p>After payment you choose how you sign in, then add your logo and colours.</p>
         <details class="lp-check-points" open>
           <summary>What is included</summary>
           <ul>
