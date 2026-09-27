@@ -154,6 +154,42 @@ function render_page_loader(): void
     <?php
 }
 
+function nav_item_allowed(array $item): bool
+{
+    $href = (string) ($item[0] ?? '');
+    if ($href === '') {
+        return false;
+    }
+    $file = (string) strtok($href, '?');
+    $kind = '';
+    if (str_contains($href, 'kind=')) {
+        $kind = (string) substr((string) strstr($href, 'kind='), 5);
+        $kind = (string) strtok($kind, '&');
+    }
+    return !function_exists('user_can_open') || user_can_open($file, $kind);
+}
+
+/** Drop empty groups after permission filtering. Each group: ['label' => string, 'items' => list]. */
+function filter_nav_groups(array $groups): array
+{
+    $out = [];
+    foreach ($groups as $group) {
+        $items = [];
+        foreach ($group['items'] ?? [] as $item) {
+            if (is_array($item) && nav_item_allowed($item)) {
+                $items[] = $item;
+            }
+        }
+        if ($items !== []) {
+            $out[] = [
+                'label' => (string) ($group['label'] ?? ''),
+                'items' => $items,
+            ];
+        }
+    }
+    return $out;
+}
+
 function layout_start(string $title, array $user, array $opts = []): void
 {
     if (function_exists('handle_desk_welcome_dismiss')) {
@@ -167,39 +203,49 @@ function layout_start(string $title, array $user, array $opts = []): void
         flash('Your login cannot open that page.', 'err');
         redirect('dashboard.php');
     }
-    // Strategic desk nav: daily work → books → people/money → ops → insights → support → settings.
-    $nav = [
-        ['dashboard.php', 'Desk', 'desk'],
-    ];
+    // Grouped desk nav: work → books → accounts → ops → insights → support → account.
+    $work = [['dashboard.php', 'Desk', 'desk']];
     if (function_exists('company_stock_enabled') && company_stock_enabled()) {
-        $nav[] = ['sale.php', 'Sale', 'cart'];
+        $work[] = ['sale.php', 'Sale', 'cart'];
     }
-    $nav = array_merge($nav, desk_kind_nav_items());
+    $books = desk_kind_nav_items();
     if (function_exists('company_stock_enabled') && company_stock_enabled()) {
-        $nav[] = ['stock.php', 'Stock', 'package'];
+        $books[] = ['stock.php', 'Stock', 'package'];
     }
-    $nav = array_merge($nav, [
-        ['clients.php', 'Clients', 'building'],
-        ['debtors.php', 'Debtors', 'clients'],
-        ['creditors.php', 'Creditors', 'bank'],
-        ['desk_mail.php', 'Email', 'send'],
-    ]);
+    $ops = [];
     if (company_branches_enabled()) {
-        $nav[] = ['branches.php', 'Branches', 'pin'];
+        $ops[] = ['branches.php', 'Branches', 'pin'];
     }
     if (company_planner_enabled() && is_desk_admin()) {
-        $nav[] = ['planner.php', 'Planner', 'calendar'];
+        $ops[] = ['planner.php', 'Planner', 'calendar'];
     }
+    $insights = [];
     if (company_pnl_enabled() && is_desk_admin()) {
-        $nav[] = ['pnl.php', 'P&L', 'reports'];
+        $insights[] = ['pnl.php', 'P&L', 'reports'];
     }
-    $nav = array_merge($nav, [
+    $insights = array_merge($insights, [
         ['reports.php', 'Reports', 'reports'],
         ['activities.php', 'Activities', 'clock'],
-        ['tutorials.php', 'Tutorials', 'book'],
-        ['help.php', 'Need Help?', 'phone'],
-        ['feedback.php', 'Feedback', 'help'],
-        ['settings.php', 'Settings', 'settings'],
+    ]);
+    $navGroups = filter_nav_groups([
+        ['label' => 'Work', 'items' => $work],
+        ['label' => 'Books', 'items' => $books],
+        ['label' => 'Accounts', 'items' => [
+            ['clients.php', 'Clients', 'building'],
+            ['debtors.php', 'Debtors', 'clients'],
+            ['creditors.php', 'Creditors', 'bank'],
+            ['desk_mail.php', 'Email', 'send'],
+        ]],
+        ['label' => 'Ops', 'items' => $ops],
+        ['label' => 'Insights', 'items' => $insights],
+        ['label' => 'Support', 'items' => [
+            ['tutorials.php', 'Tutorials', 'book'],
+            ['help.php', 'Need Help?', 'phone'],
+            ['feedback.php', 'Feedback', 'help'],
+        ]],
+        ['label' => 'Account', 'items' => [
+            ['settings.php', 'Settings', 'settings'],
+        ]],
     ]);
     if (function_exists('record_site_visit')) {
         record_site_visit();
@@ -207,14 +253,6 @@ function layout_start(string $title, array $user, array $opts = []): void
     if (function_exists('touch_user_seen') && !empty($user['id'])) {
         touch_user_seen((int) $user['id']);
     }
-    $nav = array_values(array_filter($nav, static function (array $item) {
-        $file = (string) strtok($item[0], '?');
-        $kind = '';
-        if (str_contains($item[0], 'kind=')) {
-            $kind = (string) substr((string) strstr($item[0], 'kind='), 5);
-        }
-        return user_can_open($file, $kind);
-    }));
     $notes = function_exists('desk_notifications_enabled') && desk_notifications_enabled()
         ? desk_notifications(40)
         : [];
@@ -254,47 +292,54 @@ function layout_start(string $title, array $user, array $opts = []): void
       <img class="brand-logo" src="<?= h(logo_url($brand)) ?>" alt="<?= h($brand['name']) ?>">
     </a>
     <nav>
-      <?php foreach ($nav as [$href, $label, $iconName]):
-          $file = strtok($href, '?');
-          $active = $file === $here && (strpos($href, 'kind=') === false || str_contains($href, 'kind=' . $kind));
-          if (in_array($here, ['document_view.php', 'document_new.php', 'document_email.php', 'document_action.php'], true)) {
-              $active = $file === 'documents.php' && str_contains($href, 'kind=' . $kind);
-              if ($here === 'document_action.php' && isset($_GET['pay'])) {
-                  $active = $file === 'creditors.php' || ($file === 'documents.php' && str_contains($href, 'kind=expense'));
+      <?php foreach ($navGroups as $group): ?>
+        <div class="nav-group">
+          <?php if (($group['label'] ?? '') !== ''): ?>
+            <p class="nav-group-label"><?= h((string) $group['label']) ?></p>
+          <?php endif; ?>
+          <?php foreach ($group['items'] as [$href, $label, $iconName]):
+              $file = strtok($href, '?');
+              $active = $file === $here && (strpos($href, 'kind=') === false || str_contains($href, 'kind=' . $kind));
+              if (in_array($here, ['document_view.php', 'document_new.php', 'document_email.php', 'document_action.php'], true)) {
+                  $active = $file === 'documents.php' && str_contains($href, 'kind=' . $kind);
+                  if ($here === 'document_action.php' && isset($_GET['pay'])) {
+                      $active = $file === 'creditors.php' || ($file === 'documents.php' && str_contains($href, 'kind=expense'));
+                  }
+                  if ($here === 'document_action.php' && isset($_GET['receive'])) {
+                      $active = $file === 'debtors.php' || ($file === 'documents.php' && str_contains($href, 'kind=invoice'));
+                  }
               }
-              if ($here === 'document_action.php' && isset($_GET['receive'])) {
-                  $active = $file === 'debtors.php' || ($file === 'documents.php' && str_contains($href, 'kind=invoice'));
+              if (in_array($here, ['client_view.php', 'client_edit.php'], true)) {
+                  $active = $file === 'clients.php';
               }
-          }
-          if (in_array($here, ['client_view.php', 'client_edit.php'], true)) {
-              $active = $file === 'clients.php';
-          }
-          if (str_starts_with($here, 'planner')) {
-              $active = $file === 'planner.php' || str_starts_with((string) $file, 'planner');
-              if ($file === 'planner.php') {
-                  $active = in_array($here, ['planner.php', 'planner_notes.php', 'planner_goals.php', 'planner_budget.php', 'planner_calendar.php'], true);
-              } else {
+              if (str_starts_with($here, 'planner')) {
+                  $active = $file === 'planner.php' || str_starts_with((string) $file, 'planner');
+                  if ($file === 'planner.php') {
+                      $active = in_array($here, ['planner.php', 'planner_notes.php', 'planner_goals.php', 'planner_budget.php', 'planner_calendar.php'], true);
+                  } else {
+                      $active = $file === $here;
+                  }
+              }
+              if (str_starts_with($here, 'pnl')) {
+                  $active = $file === 'pnl.php' || str_starts_with((string) $file, 'pnl');
+              }
+              if (in_array($here, ['stock.php', 'sale.php'], true)) {
                   $active = $file === $here;
               }
-          }
-          if (str_starts_with($here, 'pnl')) {
-              $active = $file === 'pnl.php' || str_starts_with((string) $file, 'pnl');
-          }
-          if (in_array($here, ['stock.php', 'sale.php'], true)) {
-              $active = $file === $here;
-          }
-          // Refunds and returns live under P&L, not the main kind nav.
-          if (in_array($kind, ['refund', 'return_note'], true) && in_array($here, ['documents.php', 'document_view.php', 'document_new.php', 'document_email.php', 'document_action.php'], true)) {
-              $active = $file === 'pnl.php';
-          }
-          if ($here === 'branding.php') {
-              $active = $file === 'settings.php';
-          }
-          if ($here === 'branches.php') {
-              $active = $file === 'branches.php';
-          }
-          ?>
-        <a class="<?= $active ? 'is-on' : '' ?>" href="<?= h(url($href)) ?>" title="<?= h($label) ?>"><?= icon($iconName, 18) ?><span><?= h($label) ?></span></a>
+              // Refunds and returns live under P&L, not the main kind nav.
+              if (in_array($kind, ['refund', 'return_note'], true) && in_array($here, ['documents.php', 'document_view.php', 'document_new.php', 'document_email.php', 'document_action.php'], true)) {
+                  $active = $file === 'pnl.php';
+              }
+              if ($here === 'branding.php') {
+                  $active = $file === 'settings.php';
+              }
+              if ($here === 'branches.php') {
+                  $active = $file === 'branches.php';
+              }
+              ?>
+            <a class="<?= $active ? 'is-on' : '' ?>" href="<?= h(url($href)) ?>" title="<?= h($label) ?>"><?= icon($iconName, 18) ?><span><?= h($label) ?></span></a>
+          <?php endforeach; ?>
+        </div>
       <?php endforeach; ?>
     </nav>
     <div class="nav-user">
@@ -425,25 +470,39 @@ function layout_admin_start(string $title, array $user): void
     if (function_exists('record_site_visit')) {
         record_site_visit();
     }
-    // Strategic platform nav: overview → inbound → field sales → portfolio → money → site → platform.
-    $nav = [
-        ['admin_dashboard.php', 'Dashboard', 'reports'],
-        ['admin_reports.php', 'Reports', 'file'],
-        ['admin_signups.php', 'Sign-ups', 'letter'],
-        ['admin_questions.php', 'Questions', 'help'],
-        ['admin_feedback.php', 'Feedback', 'letter'],
-        ['admin_sales.php', 'Sales', 'cart'],
-        ['admin_sales.php?tab=messages', 'Messages', 'mail'],
-        ['sales_demo.php', 'Demo', 'building'],
-        ['admin_passwords.php', 'Passwords', 'lock'],
-        ['admin_companies.php', 'Companies', 'building'],
-        ['admin_locations.php', 'Locations', 'pin'],
-        ['admin_finances.php', 'Finances', 'bank'],
-        ['admin_landing.php', 'Landing', 'image'],
-        ['admin_mail.php', 'Email', 'send'],
-        ['admin_system.php', 'System', 'clock'],
-        ['admin_settings.php', 'Settings', 'settings'],
-        ['admin_admins.php', 'Admins', 'user'],
+    // Grouped platform nav: overview → inbox → sales → companies → money → site → platform.
+    $navGroups = [
+        ['label' => 'Overview', 'items' => [
+            ['admin_dashboard.php', 'Dashboard', 'reports'],
+            ['admin_reports.php', 'Reports', 'file'],
+        ]],
+        ['label' => 'Inbox', 'items' => [
+            ['admin_signups.php', 'Sign-ups', 'letter'],
+            ['admin_questions.php', 'Questions', 'help'],
+            ['admin_feedback.php', 'Feedback', 'letter'],
+        ]],
+        ['label' => 'Sales', 'items' => [
+            ['admin_sales.php', 'Sales', 'cart'],
+            ['admin_sales.php?tab=messages', 'Messages', 'mail'],
+            ['sales_demo.php', 'Demo', 'building'],
+            ['admin_passwords.php', 'Passwords', 'lock'],
+        ]],
+        ['label' => 'Companies', 'items' => [
+            ['admin_companies.php', 'Companies', 'building'],
+            ['admin_locations.php', 'Locations', 'pin'],
+        ]],
+        ['label' => 'Money', 'items' => [
+            ['admin_finances.php', 'Finances', 'bank'],
+        ]],
+        ['label' => 'Site', 'items' => [
+            ['admin_landing.php', 'Landing', 'image'],
+            ['admin_mail.php', 'Email', 'send'],
+        ]],
+        ['label' => 'Platform', 'items' => [
+            ['admin_system.php', 'System', 'clock'],
+            ['admin_settings.php', 'Settings', 'settings'],
+            ['admin_admins.php', 'Admins', 'user'],
+        ]],
     ];
     $notes = platform_notifications(40);
     $noteCount = count($notes);
@@ -475,29 +534,36 @@ function layout_admin_start(string $title, array $user): void
       <strong>Platform admin</strong>
     </a>
     <nav>
-      <?php foreach ($nav as [$href, $label, $iconName]):
-          $file = strtok($href, '?');
-          $active = $file === $here
-              || (in_array($here, ['admin_company.php', 'admin_company_new.php'], true) && $file === 'admin_companies.php')
-              || ($here === 'admin_question.php' && $file === 'admin_questions.php')
-              || ($here === 'admin_feedback.php' && $file === 'admin_feedback.php')
-              || (str_starts_with($here, 'admin_sales') && $file === 'admin_sales.php' && !str_contains($href, 'tab=messages') && (string) ($_GET['tab'] ?? '') !== 'messages')
-              || ($file === 'admin_sales.php' && str_contains($href, 'tab=messages') && $here === 'admin_sales.php' && (string) ($_GET['tab'] ?? '') === 'messages')
-              || ($here === 'sales_demo.php' && $file === 'sales_demo.php')
-              || ($here === 'admin_passwords.php' && $file === 'admin_passwords.php');
-          $count = 0;
-          if ($file === 'admin_signups.php') {
-              $count = $signupNew;
-          } elseif ($file === 'admin_questions.php') {
-              $count = $questionNew;
-          } elseif ($file === 'admin_feedback.php') {
-              $count = $feedbackNew;
-          } elseif ($file === 'admin_sales.php' && str_contains($href, 'tab=messages')) {
-              $count = $salesMsgUnread;
-              $active = $here === 'admin_sales.php' && (string) ($_GET['tab'] ?? '') === 'messages';
-          }
-          ?>
-        <a class="<?= $active ? 'is-on' : '' ?>" href="<?= h(url($href)) ?>" title="<?= h($label) ?>"<?= $count ? ' data-badge="' . (int) $count . '"' : '' ?>><?= icon($iconName, 18) ?><span><?= h($label) ?></span></a>
+      <?php foreach ($navGroups as $group): ?>
+        <div class="nav-group">
+          <?php if (($group['label'] ?? '') !== ''): ?>
+            <p class="nav-group-label"><?= h((string) $group['label']) ?></p>
+          <?php endif; ?>
+          <?php foreach ($group['items'] as [$href, $label, $iconName]):
+              $file = strtok($href, '?');
+              $active = $file === $here
+                  || (in_array($here, ['admin_company.php', 'admin_company_new.php'], true) && $file === 'admin_companies.php')
+                  || ($here === 'admin_question.php' && $file === 'admin_questions.php')
+                  || ($here === 'admin_feedback.php' && $file === 'admin_feedback.php')
+                  || (str_starts_with($here, 'admin_sales') && $file === 'admin_sales.php' && !str_contains($href, 'tab=messages') && (string) ($_GET['tab'] ?? '') !== 'messages')
+                  || ($file === 'admin_sales.php' && str_contains($href, 'tab=messages') && $here === 'admin_sales.php' && (string) ($_GET['tab'] ?? '') === 'messages')
+                  || ($here === 'sales_demo.php' && $file === 'sales_demo.php')
+                  || ($here === 'admin_passwords.php' && $file === 'admin_passwords.php');
+              $count = 0;
+              if ($file === 'admin_signups.php') {
+                  $count = $signupNew;
+              } elseif ($file === 'admin_questions.php') {
+                  $count = $questionNew;
+              } elseif ($file === 'admin_feedback.php') {
+                  $count = $feedbackNew;
+              } elseif ($file === 'admin_sales.php' && str_contains($href, 'tab=messages')) {
+                  $count = $salesMsgUnread;
+                  $active = $here === 'admin_sales.php' && (string) ($_GET['tab'] ?? '') === 'messages';
+              }
+              ?>
+            <a class="<?= $active ? 'is-on' : '' ?>" href="<?= h(url($href)) ?>" title="<?= h($label) ?>"<?= $count ? ' data-badge="' . (int) $count . '"' : '' ?>><?= icon($iconName, 18) ?><span><?= h($label) ?></span></a>
+          <?php endforeach; ?>
+        </div>
       <?php endforeach; ?>
     </nav>
     <div class="nav-user">
