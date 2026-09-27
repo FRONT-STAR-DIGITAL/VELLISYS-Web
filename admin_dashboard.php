@@ -14,6 +14,11 @@ $ms = platform_avg_reload_ms();
 $health = platform_health_from_ms($ms);
 $online = platform_online_users();
 $onlineCount = count($online);
+$deviceStats = function_exists('platform_device_install_stats')
+    ? platform_device_install_stats()
+    : ['installs' => 0, 'live' => 0, 'users' => 0];
+$deviceInstalls = (int) ($deviceStats['installs'] ?? 0);
+$deviceLive = (int) ($deviceStats['live'] ?? 0);
 
 $companies = [];
 try {
@@ -287,6 +292,10 @@ if ($reloadTrend['tone'] === 'down') {
     $reloadTrend['tone'] = 'down';
 }
 $activeTrend = $trend((float) $onlineCount, (float) $onlineCount, 'vs. last hour');
+$deviceTrend = [
+    'tone' => $deviceLive > 0 ? 'up' : 'flat',
+    'text' => $deviceLive . ' live now',
+];
 $liveTrend = $trend((float) $live, (float) $livePrev, 'vs. yesterday', true);
 $peopleTrend = $trend((float) $deskUsers, (float) $deskUsersYesterday, 'vs. yesterday', true);
 $branchTrend = $trend((float) $branches, (float) $branchesPrevMonth, 'vs. last month', true);
@@ -380,6 +389,20 @@ layout_admin_start('Dashboard', $user);
       <div class="admin-metric-aside">
         <?= icon('clients', 28) ?>
         <span class="admin-chip"><?= $onlineCount ? 'Online' : 'No users' ?></span>
+      </div>
+    </div>
+  </article>
+
+  <article class="admin-metric card">
+    <div class="admin-metric-label"><?= icon('phone', 16) ?><span>App devices</span></div>
+    <div class="admin-metric-row">
+      <div>
+        <strong><?= $deviceInstalls ?></strong>
+        <em class="admin-trend is-<?= h($deviceTrend['tone']) ?>"><?= h($deviceTrend['text']) ?></em>
+      </div>
+      <div class="admin-metric-aside">
+        <?= icon('bell', 28) ?>
+        <span class="admin-chip<?= $deviceLive > 0 ? ' is-healthy' : '' ?>"><?= $deviceLive > 0 ? ($deviceLive . ' live') : 'No installs' ?></span>
       </div>
     </div>
   </article>

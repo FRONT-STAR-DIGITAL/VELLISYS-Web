@@ -206,6 +206,40 @@ function platform_reload_stats(int $limit = 20): array
     ];
 }
 
+/**
+ * Devices that installed the app and allowed alerts (push subscriptions).
+ * Live = last_seen within the same online window as Active now.
+ *
+ * @return array{installs:int,live:int,users:int}
+ */
+function platform_device_install_stats(): array
+{
+    $out = ['installs' => 0, 'live' => 0, 'users' => 0];
+    try {
+        if (function_exists('vapid_ensure_tables')) {
+            vapid_ensure_tables();
+        }
+        $mins = max(1, platform_online_window_minutes());
+        $row = db_one(
+            'SELECT
+                COUNT(*) AS installs,
+                COUNT(DISTINCT user_id) AS users,
+                SUM(CASE WHEN last_seen > DATE_SUB(NOW(), INTERVAL ? MINUTE) THEN 1 ELSE 0 END) AS live
+             FROM push_subscriptions',
+            'i',
+            [$mins]
+        );
+        if ($row) {
+            $out['installs'] = (int) ($row['installs'] ?? 0);
+            $out['users'] = (int) ($row['users'] ?? 0);
+            $out['live'] = (int) ($row['live'] ?? 0);
+        }
+    } catch (Throwable $e) {
+        // Table may not exist yet on a fresh install.
+    }
+    return $out;
+}
+
 function platform_online_users(): array
 {
     try {
