@@ -395,16 +395,69 @@ function attempt_login(string $email, string $password): bool
     return true;
 }
 
-function remember_login(bool $remember): void
+/** Long-lived “remember me” marker cookie (separate from the PHP session id). */
+function remember_cookie_name(): string
 {
-    $lifetime = $remember ? 60 * 60 * 24 * 30 : 0;
-    $_SESSION['remember'] = $remember ? 1 : 0;
-    $params = session_get_cookie_params();
-    setcookie(session_name(), session_id(), [
-        'expires' => $lifetime > 0 ? time() + $lifetime : 0,
-        'path' => $params['path'] ?: '/',
-        'secure' => folio_request_is_https(),
+    return 'vellisys_rm';
+}
+
+/** Keep remembered logins for ~13 months (browser caps are often ~400 days). */
+function remember_lifetime_seconds(): int
+{
+    return 60 * 60 * 24 * 400;
+}
+
+function remember_requested(): bool
+{
+    return (string) ($_COOKIE[remember_cookie_name()] ?? '') === '1'
+        || !empty($_SESSION['remember']);
+}
+
+function folio_session_cookie_options(int $expires): array
+{
+    return [
+        'expires' => $expires,
+        'path' => '/',
+        'secure' => function_exists('folio_request_is_https') && folio_request_is_https(),
         'httponly' => true,
         'samesite' => 'Lax',
-    ]);
+    ];
+}
+
+function remember_login(bool $remember): void
+{
+    $_SESSION['remember'] = $remember ? 1 : 0;
+    $rm = remember_cookie_name();
+    if ($remember) {
+        $lifetime = remember_lifetime_seconds();
+        @ini_set('session.gc_maxlifetime', (string) $lifetime);
+        $expires = time() + $lifetime;
+        setcookie($rm, '1', folio_session_cookie_options($expires));
+        setcookie(session_name(), session_id(), folio_session_cookie_options($expires));
+        return;
+    }
+    setcookie($rm, '', folio_session_cookie_options(time() - 3600));
+    // Browser session only — cleared when the browser quits.
+    setcookie(session_name(), session_id(), folio_session_cookie_options(0));
+}
+
+/** Refresh persistent cookies on activity so Remember me lasts until Sign out. */
+function refresh_remembered_session(): void
+{
+    if (empty($_SESSION['user_id']) || !remember_requested()) {
+        return;
+    }
+    $_SESSION['remember'] = 1;
+    $lifetime = remember_lifetime_seconds();
+    @ini_set('session.gc_maxlifetime', (string) $lifetime);
+    $expires = time() + $lifetime;
+    setcookie(remember_cookie_name(), '1', folio_session_cookie_options($expires));
+    setcookie(session_name(), session_id(), folio_session_cookie_options($expires));
+}
+
+function clear_remember_cookies(): void
+{
+    $opts = folio_session_cookie_options(time() - 3600);
+    setcookie(remember_cookie_name(), '', $opts);
+    setcookie(session_name(), '', $opts);
 }

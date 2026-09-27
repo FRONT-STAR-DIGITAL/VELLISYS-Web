@@ -4,8 +4,22 @@ declare(strict_types=1);
 define('ROOT_PATH', dirname(__DIR__));
 require_once ROOT_PATH . '/config/env.php';
 
+// Persist PHP sessions on disk (Docker volume) so logins survive restarts.
+$sessionDir = ROOT_PATH . '/storage/sessions';
+if (!is_dir($sessionDir)) {
+    @mkdir($sessionDir, 0770, true);
+}
+if (is_dir($sessionDir) && is_writable($sessionDir)) {
+    session_save_path($sessionDir);
+}
+
+// Honour Remember me before session_start — otherwise lifetime:0 turns it into a session cookie.
+$rememberMe = (string) ($_COOKIE['vellisys_rm'] ?? '') === '1';
+$cookieLifetime = $rememberMe ? (60 * 60 * 24 * 400) : 0;
+@ini_set('session.gc_maxlifetime', (string) ($rememberMe ? $cookieLifetime : 28800));
+@ini_set('session.cookie_lifetime', (string) $cookieLife);
 session_set_cookie_params([
-    'lifetime' => 0,
+    'lifetime' => $cookieLife,
     'path' => '/',
     'secure' => folio_request_is_https(),
     'httponly' => true,
@@ -75,6 +89,10 @@ require_once ROOT_PATH . '/includes/docx.php';
 require_once ROOT_PATH . '/includes/pdf.php';
 require_once ROOT_PATH . '/includes/layout.php';
 require_once ROOT_PATH . '/includes/push.php';
+
+if (function_exists('refresh_remembered_session')) {
+    refresh_remembered_session();
+}
 
 if (function_exists('apply_desk_timezone')) {
     try {

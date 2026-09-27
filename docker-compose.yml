@@ -43,6 +43,8 @@ services:
       - ../files/uploads:/var/www/html/uploads
       # Schema-ready + short caches — survives container rebuilds
       - ../files/cache:/var/www/html/storage/cache
+      # PHP sessions — Remember me / logins survive app redeploys
+      - ../files/sessions:/var/www/html/storage/sessions
     depends_on:
       db:
         condition: service_healthy

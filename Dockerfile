@@ -55,8 +55,8 @@ WORKDIR /var/www/html
 COPY --chown=www-data:www-data . /var/www/html
 
 # uploads/ is gitignored — ensure the folder exists for the volume mount
-RUN mkdir -p /var/www/html/uploads /var/www/html/storage/cache \
+RUN mkdir -p /var/www/html/uploads /var/www/html/storage/cache /var/www/html/storage/sessions \
     && chown -R www-data:www-data /var/www/html/uploads /var/www/html/storage \
-    && chmod -R 775 /var/www/html/uploads /var/www/html/storage/cache
+    && chmod -R 775 /var/www/html/uploads /var/www/html/storage/cache /var/www/html/storage/sessions
 
 EXPOSE 80
