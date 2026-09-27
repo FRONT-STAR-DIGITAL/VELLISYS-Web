@@ -1,0 +1,51 @@
+# Vellisys on Dokploy (Ubuntu VPS)
+# Domains / SSL are set in the Dokploy UI (Traefik), not here.
+#
+# Important Dokploy volume rule: use ../files/... so data survives redeploys.
+
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${FOLIO_DB_NAME:-vellisys}
+      MYSQL_USER: ${FOLIO_DB_USER:-vellisys}
+      MYSQL_PASSWORD: ${FOLIO_DB_PASS}
+      MYSQL_ROOT_PASSWORD: ${FOLIO_DB_ROOT_PASS}
+    volumes:
+      - ../files/mysql:/var/lib/mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+    networks:
+      - dokploy-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${FOLIO_DB_ROOT_PASS}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      FOLIO_LIVE: ${FOLIO_LIVE:-1}
+      FOLIO_DB_HOST: db
+      FOLIO_DB_NAME: ${FOLIO_DB_NAME:-vellisys}
+      FOLIO_DB_USER: ${FOLIO_DB_USER:-vellisys}
+      FOLIO_DB_PASS: ${FOLIO_DB_PASS}
+    volumes:
+      # Company logos, avatars, landing photos — survives git redeploys
+      - ../files/uploads:/var/www/html/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - dokploy-network
+
+networks:
+  dokploy-network:
+    external: true
