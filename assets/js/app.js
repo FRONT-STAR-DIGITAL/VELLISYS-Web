@@ -49,7 +49,7 @@ function closestEl(e, sel) {
 function navScrim() {
   return document.querySelector('[data-nav-scrim]');
 }
-/** Pin bottom tab bars to the visual viewport on every portal (admin, desk, sales). */
+/** Pin bottom tab bars to the layout viewport on every portal (admin, desk, sales). */
 function pinAppTabbar() {
   var bar = document.querySelector('nav.app-tabbar');
   if (!bar || !document.body) return;
@@ -65,37 +65,28 @@ function pinAppTabbar() {
     bar.style.removeProperty('width');
     bar.style.removeProperty('z-index');
     bar.style.removeProperty('display');
+    bar.style.removeProperty('transform');
     return;
   }
+  // Always glue to the screen bottom. Do NOT offset with visualViewport —
+  // that math floats the bar mid-page when mobile chrome moves on scroll.
   bar.style.setProperty('display', 'grid', 'important');
   bar.style.setProperty('position', 'fixed', 'important');
   bar.style.setProperty('left', '0px', 'important');
   bar.style.setProperty('right', '0px', 'important');
+  bar.style.setProperty('bottom', '0px', 'important');
   bar.style.setProperty('top', 'auto', 'important');
   bar.style.setProperty('width', '100%', 'important');
   bar.style.setProperty('max-width', '100vw', 'important');
   bar.style.setProperty('margin', '0', 'important');
   bar.style.setProperty('z-index', '9999', 'important');
-  bar.style.setProperty('transform', 'translate3d(0,0,0)', 'important');
-  bar.style.setProperty('webkit-transform', 'translate3d(0,0,0)', 'important');
-  function placeBottom() {
-    var bottom = 0;
-    var vv = window.visualViewport;
-    if (vv) {
-      // Keep bar glued to the visible bottom when the iOS chrome/keyboard moves.
-      bottom = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-    }
-    bar.style.setProperty('bottom', bottom + 'px', 'important');
-  }
-  placeBottom();
+  bar.style.setProperty('transform', 'none', 'important');
+  bar.style.setProperty('webkit-transform', 'none', 'important');
   if (!bar._tabbarPinned) {
     bar._tabbarPinned = true;
-    window.addEventListener('resize', placeBottom);
-    window.addEventListener('orientationchange', placeBottom);
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', placeBottom);
-      window.visualViewport.addEventListener('scroll', placeBottom);
-    }
+    window.addEventListener('resize', pinAppTabbar);
+    window.addEventListener('orientationchange', pinAppTabbar);
+    window.addEventListener('scroll', pinAppTabbar, { passive: true });
   }
   document.documentElement.style.setProperty('--app-tabbar-h', Math.max(48, bar.offsetHeight || 48) + 'px');
 }
