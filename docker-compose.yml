@@ -5,23 +5,24 @@
 
 services:
   db:
-    image: mysql:8.0
+    # MariaDB matches Hostinger dumps (collations like utf8mb4_uca1400_ai_ci).
+    image: mariadb:11.4
     restart: unless-stopped
     environment:
       MYSQL_DATABASE: ${FOLIO_DB_NAME:-vellisys}
       MYSQL_USER: ${FOLIO_DB_USER:-vellisys}
       MYSQL_PASSWORD: ${FOLIO_DB_PASS}
       MYSQL_ROOT_PASSWORD: ${FOLIO_DB_ROOT_PASS}
+      MARIADB_AUTO_UPGRADE: "1"
     volumes:
       - ../files/mysql:/var/lib/mysql
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
-      - --default-authentication-plugin=mysql_native_password
     networks:
       - dokploy-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${FOLIO_DB_ROOT_PASS}"]
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
       timeout: 5s
       retries: 10

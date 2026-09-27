@@ -150,6 +150,13 @@ If the dump was made as the old Hostinger database name, either:
 - edit the SQL header so it uses database `vellisys`, or  
 - create/import with matching name.
 
+If import fails with `Unknown collation: 'utf8mb4_uca1400_ai_ci'`, the dump is from Hostinger MariaDB and the DB image must be MariaDB (this repo’s compose uses `mariadb:11.4`). Quick fix without rebuilding:
+
+```bash
+sed 's/utf8mb4_uca1400_ai_ci/utf8mb4_unicode_ci/g' /root/vellisys.sql > /root/vellisys-fixed.sql
+docker exec -i YOUR_DB_CONTAINER mysql -uvellisys -p'YOUR_DB_PASS' vellisys < /root/vellisys-fixed.sql
+```
+
 After import, open the app URL and try login.
 
 ---
