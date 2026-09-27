@@ -216,6 +216,16 @@ Planned user impact: about **30–60 minutes** if prep is done.
 
 ---
 
+## Speed (reload feel)
+
+After go-live, desk reloads are usually a bit slower than classic Hostinger web hosting because traffic goes **Traefik → Docker → Apache/PHP → MariaDB**. We keep quality (live data, correct schema) and cut waste:
+
+- Schema “ensure” work runs once, then a cache stamp skips it on later requests
+- Production PHP OPcache is on in the Docker image
+- `uploads/` and `storage/cache` persist on VPS volumes
+
+If a page still feels heavy, it is usually that page’s queries (reports/charts), not DNS. Redeploy after pulling `main` to pick up speed fixes.
+
 ## Day-2 updates (this is the easy part)
 
 After go-live, every code update is:

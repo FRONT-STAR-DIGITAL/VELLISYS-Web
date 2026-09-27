@@ -25,7 +25,7 @@ RUN sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf
 # Quiet Apache ServerName warning
 RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
 
-# PHP defaults suitable for a desk app
+# PHP defaults: desk app + production OPcache (Dokploy rebuild refreshes bytecode)
 RUN { \
       echo 'upload_max_filesize=64M'; \
       echo 'post_max_size=64M'; \
@@ -33,15 +33,30 @@ RUN { \
       echo 'max_execution_time=120'; \
       echo 'session.cookie_secure=0'; \
       echo 'session.cookie_httponly=1'; \
-    } > /usr/local/etc/php/conf.d/vellisys.ini
+      echo 'realpath_cache_size=4096K'; \
+      echo 'realpath_cache_ttl=600'; \
+    } > /usr/local/etc/php/conf.d/vellisys.ini \
+ && { \
+      echo 'opcache.enable=1'; \
+      echo 'opcache.enable_cli=0'; \
+      echo 'opcache.memory_consumption=128'; \
+      echo 'opcache.interned_strings_buffer=16'; \
+      echo 'opcache.max_accelerated_files=20000'; \
+      echo 'opcache.validate_timestamps=0'; \
+      echo 'opcache.revalidate_freq=0'; \
+      echo 'opcache.save_comments=1'; \
+      echo 'opcache.fast_shutdown=1'; \
+      echo 'opcache.jit=1255'; \
+      echo 'opcache.jit_buffer_size=64M'; \
+    } > /usr/local/etc/php/conf.d/opcache-vellisys.ini
 
 WORKDIR /var/www/html
 
 COPY --chown=www-data:www-data . /var/www/html
 
 # uploads/ is gitignored — ensure the folder exists for the volume mount
-RUN mkdir -p /var/www/html/uploads \
-    && chown -R www-data:www-data /var/www/html/uploads \
-    && chmod -R 775 /var/www/html/uploads
+RUN mkdir -p /var/www/html/uploads /var/www/html/storage/cache \
+    && chown -R www-data:www-data /var/www/html/uploads /var/www/html/storage \
+    && chmod -R 775 /var/www/html/uploads /var/www/html/storage/cache
 
 EXPOSE 80

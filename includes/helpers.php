@@ -928,6 +928,13 @@ function folio_ip_rate_hit(string $bucket, int $seconds = 3600): void
 
 function folio_cache_dir(): string
 {
+    // Prefer a persistent app path (Dokploy volume) so schema-ready stamps survive restarts.
+    if (defined('ROOT_PATH')) {
+        $preferred = ROOT_PATH . '/storage/cache';
+        if (is_dir($preferred) || @mkdir($preferred, 0775, true)) {
+            return $preferred;
+        }
+    }
     $dir = rtrim(sys_get_temp_dir(), '/\\') . '/vellisys-cache';
     if (!is_dir($dir)) {
         @mkdir($dir, 0700, true);

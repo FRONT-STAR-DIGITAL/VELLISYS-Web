@@ -41,6 +41,8 @@ services:
     volumes:
       # Company logos, avatars, landing photos — survives git redeploys
       - ../files/uploads:/var/www/html/uploads
+      # Schema-ready + short caches — survives container rebuilds
+      - ../files/cache:/var/www/html/storage/cache
     depends_on:
       db:
         condition: service_healthy

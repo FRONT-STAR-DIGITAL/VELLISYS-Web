@@ -22,13 +22,19 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
     return $cache[$key];
 }
 
+/** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
+function folio_schema_stamp(): string
+{
+    return '52';
+}
+
 function folio_schema_ready_file(): string
 {
     $dir = function_exists('folio_cache_dir') ? folio_cache_dir() : (rtrim(sys_get_temp_dir(), '/\\') . '/vellisys-cache');
     if (!is_dir($dir)) {
         @mkdir($dir, 0700, true);
     }
-    return $dir . '/schema-48.ok';
+    return $dir . '/schema-' . folio_schema_stamp() . '.ok';
 }
 
 function folio_ensure_optional_doc_party(mysqli $db): void
@@ -513,6 +519,14 @@ function folio_migrate(mysqli $db): void
     }
     // Soft schema ensures use @query / failed prepares; PHP 8+ mysqli exceptions abort otherwise.
     mysqli_report(MYSQLI_REPORT_OFF);
+
+    // Fast path: after the first successful ensure pass, skip dozens of SHOW COLUMNS per request.
+    $ready = folio_schema_ready_file();
+    if (is_file($ready) && (int) @filemtime($ready) > time() - 604800) {
+        $done = true;
+        return;
+    }
+
     try {
     folio_ensure_logo_bg($db);
     folio_ensure_optional_doc_party($db);
@@ -537,18 +551,16 @@ function folio_migrate(mysqli $db): void
     folio_ensure_banking($db);
     folio_ensure_pnl_branch_books($db);
     folio_migrate_sales_field($db);
-    $ready = folio_schema_ready_file();
-    if (is_file($ready) && filemtime($ready) > time() - 86400) {
-        $done = true;
-        return;
-    }
+
     $tables = $db->query("SHOW TABLES LIKE 'users'");
     if (!$tables || $tables->num_rows === 0) {
         return;
     }
+    // Mark schema warm so the next HTTP request skips ensure_* work.
+    @file_put_contents($ready, folio_schema_stamp() . "\n" . date('c'), LOCK_EX);
+
     $verRow = @$db->query("SELECT v FROM schema_meta WHERE k='version'");
     if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 50) {
-        @touch($ready);
         $done = true;
         return;
     }
