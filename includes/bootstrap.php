@@ -17,9 +17,9 @@ if (is_dir($sessionDir) && is_writable($sessionDir)) {
 $rememberMe = (string) ($_COOKIE['vellisys_rm'] ?? '') === '1';
 $cookieLifetime = $rememberMe ? (60 * 60 * 24 * 400) : 0;
 @ini_set('session.gc_maxlifetime', (string) ($rememberMe ? $cookieLifetime : 28800));
-@ini_set('session.cookie_lifetime', (string) $cookieLife);
+@ini_set('session.cookie_lifetime', (string) $cookieLifetime);
 session_set_cookie_params([
-    'lifetime' => $cookieLife,
+    'lifetime' => $cookieLifetime,
     'path' => '/',
     'secure' => folio_request_is_https(),
     'httponly' => true,
