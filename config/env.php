@@ -23,6 +23,22 @@ function folio_request_is_https(): bool
     if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
         return true;
     }
+    $scheme = strtolower((string) ($_SERVER['REQUEST_SCHEME'] ?? ''));
+    if ($scheme === 'https') {
+        return true;
+    }
+    if (strtolower((string) ($_SERVER['HTTP_X_FORWARDED_SSL'] ?? '')) === 'on') {
+        return true;
+    }
     $fwd = strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''));
-    return $fwd === 'https' || $fwd === 'https,http';
+    if ($fwd === '') {
+        return false;
+    }
+    // Traefik may send "https" or "https,http".
+    foreach (explode(',', $fwd) as $part) {
+        if (trim($part) === 'https') {
+            return true;
+        }
+    }
+    return false;
 }

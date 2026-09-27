@@ -401,12 +401,25 @@ function remember_cookie_name(): string
     return 'vellisys_rm';
 }
 
+function session_is_platform(): bool
+{
+    return (string) ($_SESSION['role'] ?? '') === 'platform';
+}
+
 /** Sliding inactivity window with Remember me: 7 consecutive days without usage → logged out. */
 function remember_lifetime_seconds(): int
 {
     return defined('REMEMBER_LIFETIME_SECONDS')
         ? (int) REMEMBER_LIFETIME_SECONDS
         : (60 * 60 * 24 * 7);
+}
+
+/** Super admin / platform sliding window (30 days). */
+function platform_lifetime_seconds(): int
+{
+    return defined('PLATFORM_LIFETIME_SECONDS')
+        ? (int) PLATFORM_LIFETIME_SECONDS
+        : (60 * 60 * 24 * 30);
 }
 
 /** Sliding window when Remember me is off (still persistent — never lifetime 0). */
@@ -417,9 +430,21 @@ function session_cookie_seconds(): int
         : (60 * 60 * 12);
 }
 
+/** Active idle/cookie window for this login. */
+function active_session_lifetime_seconds(): int
+{
+    if (session_is_platform()) {
+        return platform_lifetime_seconds();
+    }
+    if (remember_requested()) {
+        return remember_lifetime_seconds();
+    }
+    return session_cookie_seconds();
+}
+
 function remember_requested(): bool
 {
-    if ((string) ($_SESSION['role'] ?? '') === 'platform') {
+    if (session_is_platform()) {
         return true; // Super admin always gets the durable window.
     }
     return (string) ($_COOKIE[remember_cookie_name()] ?? '') === '1'
@@ -437,6 +462,37 @@ function folio_session_cookie_options(int $expires): array
     ];
 }
 
+/** Write session + remember cookies only when headers can still change. */
+function folio_emit_session_cookies(int $lifetime, bool $remember): void
+{
+    if (headers_sent()) {
+        return;
+    }
+    $lifetime = max(3600, $lifetime);
+    $expires = time() + $lifetime;
+    @ini_set('session.gc_maxlifetime', (string) max($lifetime, platform_lifetime_seconds()));
+    @ini_set('session.cookie_lifetime', (string) $lifetime);
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_set_cookie_params([
+            'lifetime' => $lifetime,
+            'path' => '/',
+            'secure' => function_exists('folio_request_is_https') && folio_request_is_https(),
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+    }
+    $opts = folio_session_cookie_options($expires);
+    if ($remember || session_is_platform()) {
+        setcookie(remember_cookie_name(), '1', $opts);
+    } else {
+        setcookie(remember_cookie_name(), '', folio_session_cookie_options(time() - 3600));
+    }
+    $sid = session_id();
+    if ($sid !== '') {
+        setcookie(session_name(), $sid, $opts);
+    }
+}
+
 function expire_active_session(): void
 {
     $_SESSION = [];
@@ -451,27 +507,18 @@ function expire_remembered_session(): void
 
 function remember_login(bool $remember): void
 {
-    // Platform / super admin: always durable (same as Remember me).
-    if ((string) ($_SESSION['role'] ?? '') === 'platform') {
+    // Platform / super admin: always durable.
+    if (session_is_platform()) {
         $remember = true;
     }
     $_SESSION['remember'] = $remember ? 1 : 0;
     $_SESSION['last_activity'] = time();
-    $rm = remember_cookie_name();
-    $lifetime = $remember ? remember_lifetime_seconds() : session_cookie_seconds();
-    @ini_set('session.gc_maxlifetime', (string) remember_lifetime_seconds());
-    $expires = time() + $lifetime;
-    if ($remember) {
-        setcookie($rm, '1', folio_session_cookie_options($expires));
-    } else {
-        setcookie($rm, '', folio_session_cookie_options(time() - 3600));
-    }
-    setcookie(session_name(), session_id(), folio_session_cookie_options($expires));
+    folio_emit_session_cookies(active_session_lifetime_seconds(), $remember);
 }
 
 /**
  * Keep every logged-in portal alive with a sliding cookie.
- * Remember me / super admin: 7 days idle. Others: 12 hours idle.
+ * Super admin: 30 days idle. Remember me: 7 days. Others: 12 hours.
  * Never uses a browser-session cookie (lifetime 0) — those die on mobile.
  */
 function refresh_remembered_session(): void
@@ -479,28 +526,30 @@ function refresh_remembered_session(): void
     if (empty($_SESSION['user_id'])) {
         return;
     }
-    $remember = remember_requested();
+    $remember = remember_requested() || session_is_platform();
     if ($remember) {
         $_SESSION['remember'] = 1;
     }
-    $lifetime = $remember ? remember_lifetime_seconds() : session_cookie_seconds();
+    $lifetime = active_session_lifetime_seconds();
     $now = time();
     $last = (int) ($_SESSION['last_activity'] ?? 0);
+    // Ignore impossible future timestamps (clock skew) instead of treating as idle.
+    if ($last > $now + 300) {
+        $last = $now;
+    }
     if ($last > 0 && ($now - $last) > $lifetime) {
         expire_active_session();
         return;
     }
     $_SESSION['last_activity'] = $now;
-    @ini_set('session.gc_maxlifetime', (string) remember_lifetime_seconds());
-    $expires = $now + $lifetime;
-    if ($remember) {
-        setcookie(remember_cookie_name(), '1', folio_session_cookie_options($expires));
-    }
-    setcookie(session_name(), session_id(), folio_session_cookie_options($expires));
+    folio_emit_session_cookies($lifetime, $remember);
 }
 
 function clear_remember_cookies(): void
 {
+    if (headers_sent()) {
+        return;
+    }
     $opts = folio_session_cookie_options(time() - 3600);
     setcookie(remember_cookie_name(), '', $opts);
     setcookie(session_name(), '', $opts);

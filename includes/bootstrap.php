@@ -15,20 +15,29 @@ if (is_dir($sessionDir) && is_writable($sessionDir)) {
 
 // Session cookies must be persistent (never lifetime 0). Mobile browsers often
 // discard "session" cookies within minutes, which looked like a 5‑minute logout.
-// Remember me: 7-day sliding idle window. Otherwise: 12-hour sliding window.
+// Always start with the long window so session_start() never emits a short cookie;
+// refresh_remembered_session() then slides the correct window per role/remember.
 if (!defined('REMEMBER_LIFETIME_SECONDS')) {
     define('REMEMBER_LIFETIME_SECONDS', 60 * 60 * 24 * 7);
 }
 if (!defined('SESSION_COOKIE_SECONDS')) {
     define('SESSION_COOKIE_SECONDS', 60 * 60 * 12);
 }
+// Super admin / platform: 30-day sliding idle (PC + phone).
+if (!defined('PLATFORM_LIFETIME_SECONDS')) {
+    define('PLATFORM_LIFETIME_SECONDS', 60 * 60 * 24 * 30);
+}
 $rememberMe = (string) ($_COOKIE['vellisys_rm'] ?? '') === '1';
+// Prefer the longest window at bootstrap so a missing marker cookie cannot
+// shrink a super-admin or Remember-me session on the first hop.
 $cookieLifetime = $rememberMe ? REMEMBER_LIFETIME_SECONDS : SESSION_COOKIE_SECONDS;
-// Keep session files at least as long as the longest cookie window.
-@ini_set('session.gc_maxlifetime', (string) REMEMBER_LIFETIME_SECONDS);
-@ini_set('session.cookie_lifetime', (string) $cookieLifetime);
+$maxLifetime = max(PLATFORM_LIFETIME_SECONDS, REMEMBER_LIFETIME_SECONDS, SESSION_COOKIE_SECONDS);
+@ini_set('session.gc_maxlifetime', (string) $maxLifetime);
+@ini_set('session.cookie_lifetime', (string) max($cookieLifetime, REMEMBER_LIFETIME_SECONDS));
+@ini_set('session.use_strict_mode', '1');
+@ini_set('session.use_only_cookies', '1');
 session_set_cookie_params([
-    'lifetime' => $cookieLifetime,
+    'lifetime' => max($cookieLifetime, REMEMBER_LIFETIME_SECONDS),
     'path' => '/',
     'secure' => folio_request_is_https(),
     'httponly' => true,
@@ -75,6 +84,12 @@ require_once ROOT_PATH . '/includes/client_fields.php';
 require_once ROOT_PATH . '/includes/search.php';
 require_once ROOT_PATH . '/includes/pricing.php';
 require_once ROOT_PATH . '/includes/auth.php';
+
+// Slide cookies immediately — before heavier includes can send output and block Set-Cookie.
+if (function_exists('refresh_remembered_session')) {
+    refresh_remembered_session();
+}
+
 require_once ROOT_PATH . '/includes/icons.php';
 require_once ROOT_PATH . '/includes/documents.php';
 require_once ROOT_PATH . '/includes/stock.php';
@@ -98,10 +113,6 @@ require_once ROOT_PATH . '/includes/docx.php';
 require_once ROOT_PATH . '/includes/pdf.php';
 require_once ROOT_PATH . '/includes/layout.php';
 require_once ROOT_PATH . '/includes/push.php';
-
-if (function_exists('refresh_remembered_session')) {
-    refresh_remembered_session();
-}
 
 if (function_exists('apply_desk_timezone')) {
     try {
