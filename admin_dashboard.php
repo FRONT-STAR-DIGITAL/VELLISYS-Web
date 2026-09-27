@@ -402,7 +402,7 @@ layout_admin_start('Dashboard', $user);
       </div>
       <div class="admin-metric-aside">
         <?= icon('bell', 28) ?>
-        <span class="admin-chip<?= $deviceLive > 0 ? ' is-healthy' : '' ?>"><?= $deviceLive > 0 ? ($deviceLive . ' live') : 'No installs' ?></span>
+        <span class="admin-chip<?= $deviceLive > 0 ? ' is-healthy' : '' ?>"><?= $deviceInstalls < 1 ? 'No installs' : ($deviceLive . ' live') ?></span>
       </div>
     </div>
   </article>
