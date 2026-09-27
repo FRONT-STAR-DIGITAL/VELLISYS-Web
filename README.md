@@ -180,9 +180,14 @@ The public website still opens on the **landing page**. Sign in at `login.php`. 
 
 When someone installs the web app, the icon opens **login**, not the landing page. After they sign in, they go to the desk as usual. A browser tab on the domain is unchanged. Waiting desk notices put a number on the installed app icon (iPhone, many Androids, Windows), like Gmail. If the network drops, the app shows a Vellisys offline page with **Try again** instead of the browser’s default error screen (Chrome dinosaur, Safari cannot connect). They must have opened the site once while online so the page can be stored.
 
+## VPS + Dokploy (KVM 2)
+
+To run the same app on a Hostinger **KVM 2** VPS with **Dokploy** (Ubuntu), follow **[DOKPLOY.md](DOKPLOY.md)**.  
+That guide uses `Dockerfile` + `docker-compose.yml` in this repo. No page redesign — same PHP app. Keep Hostinger mailboxes; only the website moves.
+
 ## Hostinger (`www.vellisys.com`)
 
-There is **no `.env` file**. Do not add one. On `www.vellisys.com` the app already uses the Hostinger database and mailbox from `config/database.php` and `config/mail.php`.
+There is **no `.env` file** on classic web hosting. Do not add one there. On `www.vellisys.com` the app already uses the Hostinger database and mailbox from `config/database.php` and `config/mail.php`. On Dokploy, set `FOLIO_DB_*` in the Dokploy Environment tab instead.
 
 1. In hPanel, point **www.vellisys.com** (and the apex `vellisys.com`) at this hosting. Turn on SSL. The included `.htaccess` sends apex and HTTP to `https://www.vellisys.com`.
 2. Set PHP to **8.2 or 8.3**.
