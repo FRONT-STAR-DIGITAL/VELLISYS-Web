@@ -825,14 +825,30 @@ function layout_end(string $extra = ''): void
 <script>
 (function () {
   var ping = <?= json_encode(url('ping.php')) ?>;
-  function beat(ms) {
-    var q = ping + (ms ? ('?ms=' + encodeURIComponent(ms)) : '');
+  function beat(ms, path) {
+    var q = ping;
+    if (ms) {
+      q += '?ms=' + encodeURIComponent(ms);
+      if (path) q += '&path=' + encodeURIComponent(path);
+    }
     try { fetch(q, { credentials: 'same-origin', cache: 'no-store' }); } catch (e) {}
   }
-  var t0 = (window.performance && performance.now) ? performance.now() : 0;
   function first() {
-    var ms = t0 && performance.now ? Math.round(performance.now() - t0) : 0;
-    beat(ms);
+    var ms = 0;
+    var path = location.pathname || '';
+    try {
+      var nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+      if (nav && nav.duration) {
+        // Full navigation (TTFB + download + parse + load) — not footer-script delta.
+        ms = Math.round(nav.duration);
+      } else if (performance.timing) {
+        var t = performance.timing;
+        if (t.navigationStart && t.loadEventEnd) {
+          ms = Math.round(t.loadEventEnd - t.navigationStart);
+        }
+      }
+    } catch (e) {}
+    if (ms > 0) beat(ms, path);
   }
   if (document.readyState === 'complete') first();
   else window.addEventListener('load', first);
