@@ -17,4 +17,12 @@ if ($ms > 0) {
     record_platform_perf($ms, (string) ($_GET['path'] ?? $_SERVER['HTTP_REFERER'] ?? ''));
 }
 
+// Daily company dump runs here (background beat), not on desk page renders.
+if (function_exists('company_backup_maybe') && (($user['role'] ?? '') !== 'platform')) {
+    company_backup_maybe();
+}
+
 echo json_encode(['ok' => true]);
+if (function_exists('fastcgi_finish_request')) {
+    @fastcgi_finish_request();
+}

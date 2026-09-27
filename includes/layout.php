@@ -269,9 +269,6 @@ function layout_start(string $title, array $user, array $opts = []): void
     if ($noteCount && function_exists('push_schedule_sync')) {
         push_schedule_sync();
     }
-    if (function_exists('company_backup_maybe')) {
-        company_backup_maybe();
-    }
     ?>
 <!DOCTYPE html>
 <html lang="en"<?= function_exists('folio_html_root_attrs') ? folio_html_root_attrs() : '' ?>>
