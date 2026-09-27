@@ -5111,6 +5111,58 @@ a.branch-activity-row:hover { text-decoration: none; }
     grid-template-columns: 1fr;
     gap: 12px;
   }
+  /* Kill page-level horizontal scroll on phones; tables stay inside .table-scroll. */
+  html {
+    overflow-x: hidden;
+  }
+  body.admin-body,
+  body.desk-body,
+  body.sales-body {
+    overflow-x: hidden;
+    max-width: 100%;
+  }
+  .app,
+  .main {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: clip;
+  }
+  .content {
+    max-width: 100%;
+    box-sizing: border-box;
+    padding-left: 14px;
+    padding-right: 14px;
+    overflow-x: hidden;
+  }
+  .content .table-scroll,
+  .admin-body .table-scroll {
+    overflow-x: auto;
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+  .page-head,
+  .card,
+  .q-detail {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .q-detail .actions,
+  .page-head > .actions,
+  .page-head > .page-actions {
+    flex-wrap: wrap !important;
+    width: 100%;
+  }
+  .top {
+    max-width: 100%;
+    box-sizing: border-box;
+    gap: 6px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .top-actions {
+    gap: 4px;
+    min-width: 0;
+  }
   .admin-body .top-actions .btn {
     min-height: 40px;
     padding: 8px 10px;

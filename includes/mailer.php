@@ -12,6 +12,12 @@ function vellisys_email_wrap(string $innerHtml, string $kicker = 'Vellisys'): st
     $maker = product_maker_name();
     $box = product_po_box();
     $site = product_maker_url();
+    // Embed logo as data-URI so info@ mail shows the mark in-body (not as a download attachment).
+    $logoSrc = 'cid:vellisys-logo';
+    $logoFile = function_exists('product_email_logo_file') ? product_email_logo_file() : '';
+    if ($logoFile !== '' && is_file($logoFile)) {
+        $logoSrc = 'data:image/png;base64,' . base64_encode((string) file_get_contents($logoFile));
+    }
 
     return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vellisys</title></head>'
         . '<body style="margin:0;padding:0;background:' . $white . ';-webkit-text-size-adjust:100%;">'
@@ -21,7 +27,7 @@ function vellisys_email_wrap(string $innerHtml, string $kicker = 'Vellisys'): st
         . '<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background:' . $white . ';border:1px solid ' . $navy . ';">'
         . '<tr><td style="height:8px;line-height:8px;font-size:0;background:' . $blue . ';">&nbsp;</td></tr>'
         . '<tr><td align="center" style="padding:24px 32px 18px;background:' . $white . ';text-align:center;">'
-        . '<img src="cid:vellisys-logo" alt="Vellisys" width="176" style="display:inline-block;margin:0 auto;border:0;outline:none;text-decoration:none;height:auto;max-width:176px;background:' . $white . ';">'
+        . '<img src="' . $logoSrc . '" alt="Vellisys" width="176" style="display:inline-block;margin:0 auto;border:0;outline:none;text-decoration:none;height:auto;max-width:176px;background:' . $white . ';">'
         . '</td></tr>'
         . '<tr><td align="center" style="background:' . $navy . ';padding:13px 32px;text-align:center;">'
         . '<p style="margin:0;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:' . $white . ';font-weight:700;text-align:center;">' . h($kicker) . '</p>'

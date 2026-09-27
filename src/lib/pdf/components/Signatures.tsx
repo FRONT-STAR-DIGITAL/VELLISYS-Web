@@ -11,7 +11,7 @@ type Props = {
 
 export function Signatures({ doc, styles, qrDataUrl }: Props) {
   const sig = doc.createdBy?.signaturePath || doc.brand.signatureUrl || '';
-  const label = doc.createdBy?.title || 'Authorized by';
+  const label = doc.createdBy?.title || 'Authorized Signature';
 
   return (
     <View>

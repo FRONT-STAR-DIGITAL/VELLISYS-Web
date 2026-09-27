@@ -2738,7 +2738,7 @@ function render_add_signature_checkbox(?array $existing = null, bool $preferOn =
       <span>Add signature</span>
     </label>
     <?php if ($hasSig): ?>
-      <p class="hint" data-sign-hint>Stamps the approved signature from Settings on Authorized by and company sign-off lines.</p>
+      <p class="hint" data-sign-hint>Stamps the approved signature from Settings on Authorized Signature and company sign-off lines.</p>
     <?php else: ?>
       <p class="hint" data-sign-need>Approve a signature in Settings first. It will stamp here when you tick Add signature.</p>
     <?php endif; ?>

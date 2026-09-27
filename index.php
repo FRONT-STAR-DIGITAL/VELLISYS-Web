@@ -2,7 +2,11 @@
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
 if ($user = current_user()) {
-    redirect(($user['role'] ?? '') === 'platform' ? platform_home() : 'dashboard.php');
+    $role = (string) ($user['role'] ?? '');
+    // Sales agents may open the marketing home while staying signed in (Website tab).
+    if ($role !== 'sales_agent') {
+        redirect($role === 'platform' ? platform_home() : 'dashboard.php');
+    }
 }
 $familiar = landing_cards('familiar');
 $help = landing_cards('help');

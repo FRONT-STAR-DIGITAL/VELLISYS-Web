@@ -746,7 +746,7 @@ function document_full_payload(array $doc): array
         ],
         'createdBy' => [
             'fullName' => (string) ($brand['name'] ?? ''),
-            'title' => 'Authorized by',
+            'title' => 'Authorized Signature',
             'signaturePath' => $signature,
         ],
         'approvedBy' => null,

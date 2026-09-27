@@ -553,7 +553,7 @@ function render_letter_signature(array $doc): void
     render_company_signature($doc);
 }
 
-function render_authorized_signoff(array $doc, string $label = 'Authorized by'): void
+function render_authorized_signoff(array $doc, string $label = 'Authorized Signature'): void
 {
     if (($doc['kind'] ?? '') === 'letter') {
         return;
@@ -898,7 +898,7 @@ function render_sheet_bill(array $d, string $variant): void
     <?php endif; ?>
     <div class="bill-signs">
       <div>Received by</div>
-      <div<?= document_has_e_signature($doc) ? ' class="has-stamp"' : '' ?>><?php render_company_signature($doc); ?>Authorized by</div>
+      <div<?= document_has_e_signature($doc) ? ' class="has-stamp"' : '' ?>><?php render_company_signature($doc); ?>Authorized Signature</div>
     </div>
   <?php endif; ?>
   </div>
