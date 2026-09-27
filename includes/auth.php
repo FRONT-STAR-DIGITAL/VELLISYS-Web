@@ -462,7 +462,12 @@ function folio_session_cookie_options(int $expires): array
     ];
 }
 
-/** Write session + remember cookies only when headers can still change. */
+/**
+ * Slide session + remember cookies.
+ * Never call session_set_cookie_params() here — the session is already active
+ * (started in bootstrap). Doing so emits a warning, which sends output, which
+ * blocks Set-Cookie and logs everyone out on the next navigation/app switch.
+ */
 function folio_emit_session_cookies(int $lifetime, bool $remember): void
 {
     if (headers_sent()) {
@@ -472,15 +477,6 @@ function folio_emit_session_cookies(int $lifetime, bool $remember): void
     $expires = time() + $lifetime;
     @ini_set('session.gc_maxlifetime', (string) max($lifetime, platform_lifetime_seconds()));
     @ini_set('session.cookie_lifetime', (string) $lifetime);
-    if (session_status() === PHP_SESSION_ACTIVE) {
-        session_set_cookie_params([
-            'lifetime' => $lifetime,
-            'path' => '/',
-            'secure' => function_exists('folio_request_is_https') && folio_request_is_https(),
-            'httponly' => true,
-            'samesite' => 'Lax',
-        ]);
-    }
     $opts = folio_session_cookie_options($expires);
     if ($remember || session_is_platform()) {
         setcookie(remember_cookie_name(), '1', $opts);
