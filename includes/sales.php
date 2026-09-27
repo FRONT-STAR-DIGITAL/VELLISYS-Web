@@ -1982,12 +1982,13 @@ function sales_layout_start(string $title, array $user): void
     $notes = sales_notifications_for_agent((int) $user['id']);
     $noteCount = count($notes);
     $avatar = sales_avatar_url($user);
+    // Strategic field nav: daily work → chat → results → tools → account.
     $nav = [
         ['sales_home.php', 'Home', 'home'],
         ['sales_leads.php', 'Leads', 'clients'],
+        ['sales_messages.php', 'Messages', 'mail'],
         ['sales_performance.php', 'Performance', 'reports'],
         ['sales_demo.php', 'Demo', 'building'],
-        ['sales_messages.php', 'Messages', 'mail'],
         // Same-origin marketing home — session stays; index.php allows sales_agent viewers.
         ['index.php', 'Website', 'globe'],
         ['sales_profile.php', 'Profile', 'user'],
@@ -2095,7 +2096,6 @@ function sales_layout_end(string $extra = ''): void
   <a class="app-tab<?= basename($_SERVER['SCRIPT_NAME'] ?? '') === 'sales_home.php' ? ' is-on' : '' ?>" href="<?= h(url('sales_home.php')) ?>"><?= icon('home', 22) ?><span>Home</span></a>
   <a class="app-tab<?= in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['sales_leads.php', 'sales_lead_edit.php'], true) ? ' is-on' : '' ?>" href="<?= h(url('sales_leads.php')) ?>"><?= icon('clients', 22) ?><span>Leads</span></a>
   <a class="app-tab app-tab-create" href="<?= h(url('sales_lead_edit.php')) ?>"><span class="app-tab-plus"><?= icon('plus', 26) ?></span><span>New</span></a>
-  <a class="app-tab<?= basename($_SERVER['SCRIPT_NAME'] ?? '') === 'sales_performance.php' ? ' is-on' : '' ?>" href="<?= h(url('sales_performance.php')) ?>"><?= icon('reports', 22) ?><span>Stats</span></a>
   <a class="app-tab<?= basename($_SERVER['SCRIPT_NAME'] ?? '') === 'sales_messages.php' ? ' is-on' : '' ?>" href="<?= h(url('sales_messages.php')) ?>"><?= icon('mail', 22) ?><span>Chat</span></a>
   <a class="app-tab<?= basename($_SERVER['SCRIPT_NAME'] ?? '') === 'index.php' ? ' is-on' : '' ?>" href="<?= h(url('index.php')) ?>" title="Vellisys home page"><?= icon('globe', 22) ?><span>Website</span></a>
 </nav>

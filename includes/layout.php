@@ -167,23 +167,23 @@ function layout_start(string $title, array $user, array $opts = []): void
         flash('Your login cannot open that page.', 'err');
         redirect('dashboard.php');
     }
+    // Strategic desk nav: daily work → books → people/money → ops → insights → support → settings.
     $nav = [
         ['dashboard.php', 'Desk', 'desk'],
     ];
     if (function_exists('company_stock_enabled') && company_stock_enabled()) {
         $nav[] = ['sale.php', 'Sale', 'cart'];
+    }
+    $nav = array_merge($nav, desk_kind_nav_items());
+    if (function_exists('company_stock_enabled') && company_stock_enabled()) {
         $nav[] = ['stock.php', 'Stock', 'package'];
     }
-    $nav = array_merge(
-        $nav,
-        desk_kind_nav_items(),
-        [
-            ['desk_mail.php', 'Email', 'send'],
-            ['debtors.php', 'Debtors', 'clients'],
-            ['creditors.php', 'Creditors', 'bank'],
-            ['clients.php', 'Clients', 'building'],
-        ]
-    );
+    $nav = array_merge($nav, [
+        ['clients.php', 'Clients', 'building'],
+        ['debtors.php', 'Debtors', 'clients'],
+        ['creditors.php', 'Creditors', 'bank'],
+        ['desk_mail.php', 'Email', 'send'],
+    ]);
     if (company_branches_enabled()) {
         $nav[] = ['branches.php', 'Branches', 'pin'];
     }
@@ -194,11 +194,11 @@ function layout_start(string $title, array $user, array $opts = []): void
         $nav[] = ['pnl.php', 'P&L', 'reports'];
     }
     $nav = array_merge($nav, [
+        ['reports.php', 'Reports', 'reports'],
         ['activities.php', 'Activities', 'clock'],
         ['tutorials.php', 'Tutorials', 'book'],
-        ['feedback.php', 'Feedback', 'help'],
         ['help.php', 'Need Help?', 'phone'],
-        ['reports.php', 'Reports', 'reports'],
+        ['feedback.php', 'Feedback', 'help'],
         ['settings.php', 'Settings', 'settings'],
     ]);
     if (function_exists('record_site_visit')) {
@@ -425,22 +425,23 @@ function layout_admin_start(string $title, array $user): void
     if (function_exists('record_site_visit')) {
         record_site_visit();
     }
+    // Strategic platform nav: overview → inbound → field sales → portfolio → money → site → platform.
     $nav = [
         ['admin_dashboard.php', 'Dashboard', 'reports'],
-        ['admin_landing.php', 'Landing', 'image'],
+        ['admin_reports.php', 'Reports', 'file'],
         ['admin_signups.php', 'Sign-ups', 'letter'],
+        ['admin_questions.php', 'Questions', 'help'],
+        ['admin_feedback.php', 'Feedback', 'letter'],
         ['admin_sales.php', 'Sales', 'cart'],
         ['admin_sales.php?tab=messages', 'Messages', 'mail'],
         ['sales_demo.php', 'Demo', 'building'],
         ['admin_passwords.php', 'Passwords', 'lock'],
-        ['admin_questions.php', 'Questions', 'help'],
-        ['admin_feedback.php', 'Feedback', 'letter'],
         ['admin_companies.php', 'Companies', 'building'],
         ['admin_locations.php', 'Locations', 'pin'],
         ['admin_finances.php', 'Finances', 'bank'],
-        ['admin_system.php', 'System', 'clock'],
-        ['admin_reports.php', 'Reports', 'file'],
+        ['admin_landing.php', 'Landing', 'image'],
         ['admin_mail.php', 'Email', 'send'],
+        ['admin_system.php', 'System', 'clock'],
         ['admin_settings.php', 'Settings', 'settings'],
         ['admin_admins.php', 'Admins', 'user'],
     ];
@@ -611,9 +612,12 @@ function render_app_tabbar(): void
     $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
     $kind = (string) ($_GET['kind'] ?? '');
     $reportsHref = function_exists('user_can_open') && user_can_open('reports.php') ? 'reports.php' : 'debtors.php';
+    $moneyHref = function_exists('user_can_open') && user_can_open('debtors.php') ? 'debtors.php' : $reportsHref;
     $homeOn = $here === 'dashboard.php';
     $clientsOn = in_array($here, ['clients.php', 'client_view.php', 'client_edit.php'], true);
-    $repOn = in_array($here, ['reports.php', 'pnl.php', 'pnl_entries.php', 'pnl_savings.php', 'pnl_banking.php', 'debtors.php', 'creditors.php'], true)
+    $moneyOn = in_array($here, ['debtors.php', 'creditors.php'], true)
+        || ($here === 'document_action.php' && (isset($_GET['pay']) || isset($_GET['receive'])));
+    $repOn = in_array($here, ['reports.php', 'pnl.php', 'pnl_entries.php', 'pnl_savings.php', 'pnl_banking.php'], true)
         || in_array($kind, ['refund', 'return_note'], true);
     ?>
 <nav class="app-tabbar" aria-label="App" data-app-tabbar style="position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;z-index:9999;margin:0">
@@ -627,12 +631,12 @@ function render_app_tabbar(): void
     <span class="app-tab-plus"><?= icon('plus', 26) ?></span>
     <span>Create</span>
   </button>
+  <a class="app-tab<?= $moneyOn ? ' is-on' : '' ?>" href="<?= h(url($moneyHref)) ?>">
+    <?= icon('bank', 22) ?><span>Money</span>
+  </a>
   <a class="app-tab<?= $repOn ? ' is-on' : '' ?>" href="<?= h(url($reportsHref)) ?>">
     <?= icon('reports', 22) ?><span>Reports</span>
   </a>
-  <button type="button" class="app-tab" data-calc-toggle aria-label="Calculator">
-    <?= icon('calculator', 22) ?><span>Calculator</span>
-  </button>
 </nav>
     <?php
 }
@@ -642,9 +646,9 @@ function render_admin_tabbar(): void
     $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
     $dashOn = $here === 'admin_dashboard.php';
     $companiesOn = in_array($here, ['admin_companies.php', 'admin_company.php', 'admin_company_new.php'], true);
-    $salesOn = str_starts_with($here, 'admin_sales');
-    $reportsOn = $here === 'admin_reports.php';
-    $systemOn = $here === 'admin_system.php';
+    $salesOn = str_starts_with($here, 'admin_sales') || $here === 'sales_demo.php' || $here === 'admin_passwords.php';
+    $signupsOn = in_array($here, ['admin_signups.php', 'admin_questions.php', 'admin_question.php', 'admin_feedback.php'], true);
+    $financesOn = $here === 'admin_finances.php';
     ?>
 <nav class="app-tabbar admin-tabbar" aria-label="Admin" data-app-tabbar style="position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;z-index:9999;margin:0">
   <a class="app-tab<?= $dashOn ? ' is-on' : '' ?>" href="<?= h(url('admin_dashboard.php')) ?>">
@@ -656,11 +660,11 @@ function render_admin_tabbar(): void
   <a class="app-tab<?= $salesOn ? ' is-on' : '' ?>" href="<?= h(url('admin_sales.php')) ?>">
     <?= icon('cart', 22) ?><span>Sales</span>
   </a>
-  <a class="app-tab<?= $reportsOn ? ' is-on' : '' ?>" href="<?= h(url('admin_reports.php')) ?>">
-    <?= icon('reports', 22) ?><span>Reports</span>
+  <a class="app-tab<?= $signupsOn ? ' is-on' : '' ?>" href="<?= h(url('admin_signups.php')) ?>">
+    <?= icon('letter', 22) ?><span>Inbox</span>
   </a>
-  <a class="app-tab<?= $systemOn ? ' is-on' : '' ?>" href="<?= h(url('admin_system.php')) ?>">
-    <?= icon('clock', 22) ?><span>System</span>
+  <a class="app-tab<?= $financesOn ? ' is-on' : '' ?>" href="<?= h(url('admin_finances.php')) ?>">
+    <?= icon('bank', 22) ?><span>Finances</span>
   </a>
 </nav>
     <?php
