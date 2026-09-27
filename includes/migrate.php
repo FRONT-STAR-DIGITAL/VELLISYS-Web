@@ -25,7 +25,7 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '54';
+    return '55';
 }
 
 function folio_ensure_php_sessions(mysqli $db): void
@@ -463,7 +463,7 @@ function folio_ensure_package_branch_copy(mysqli $db): void
       v VARCHAR(40) NOT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     $flag = @$db->query("SELECT v FROM schema_meta WHERE k = 'pkg_copy_vellisys'");
-    if ($flag && ($r = $flag->fetch_assoc()) && (string) $r['v'] === '3') {
+    if ($flag && ($r = $flag->fetch_assoc()) && (string) $r['v'] === '4') {
         return;
     }
     if (!function_exists('pricing_package_defaults')) {
@@ -487,7 +487,7 @@ function folio_ensure_package_branch_copy(mysqli $db): void
         }
         $stmt->close();
     }
-    @$db->query("REPLACE INTO schema_meta (k, v) VALUES ('pkg_copy_vellisys', '3')");
+    @$db->query("REPLACE INTO schema_meta (k, v) VALUES ('pkg_copy_vellisys', '4')");
     if ($changed && function_exists('folio_cache_bust')) {
         folio_cache_bust();
     }
