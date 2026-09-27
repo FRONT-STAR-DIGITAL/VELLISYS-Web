@@ -48,7 +48,7 @@ function render_nav_boot_script(): void
     ?>
 <style id="vellisys-tabbar-pin">
 @media (max-width: 1024px) {
-  html, body.desk-body, body.sales-body { overflow-x: visible !important; }
+  html, body.desk-body, body.admin-body, body.sales-body { overflow-x: visible !important; }
   nav.app-tabbar[data-app-tabbar] {
     display: grid !important;
     position: fixed !important;
@@ -60,7 +60,8 @@ function render_nav_boot_script(): void
     max-width: 100vw !important;
     margin: 0 !important;
     z-index: 9999 !important;
-    transform: translate3d(0,0,0);
+    transform: none !important;
+    -webkit-transform: none !important;
   }
 }
 @media (min-width: 1025px) {
@@ -92,11 +93,16 @@ function render_nav_boot_script(): void
     bar.style.setProperty('bottom', '0px', 'important');
     bar.style.setProperty('top', 'auto', 'important');
     bar.style.setProperty('width', '100%', 'important');
+    bar.style.setProperty('max-width', '100vw', 'important');
+    bar.style.setProperty('margin', '0', 'important');
     bar.style.setProperty('z-index', '9999', 'important');
     bar.style.setProperty('display', 'grid', 'important');
+    bar.style.setProperty('transform', 'none', 'important');
   }
   document.addEventListener('DOMContentLoaded', pinBar);
   window.addEventListener('load', pinBar);
+  window.addEventListener('scroll', pinBar, { passive: true });
+  window.addEventListener('resize', pinBar);
   document.addEventListener('click', function (e) {
     var el = e.target;
     if (el && el.nodeType === 3) el = el.parentElement;
@@ -470,7 +476,7 @@ function layout_admin_start(string $title, array $user): void
     if (function_exists('record_site_visit')) {
         record_site_visit();
     }
-    // Grouped platform nav: overview → inbox → sales → companies → money → site → platform.
+    // Grouped platform nav: overview → inbox → companies → sales → money → site → platform.
     $navGroups = [
         ['label' => 'Overview', 'items' => [
             ['admin_dashboard.php', 'Dashboard', 'reports'],
@@ -481,15 +487,15 @@ function layout_admin_start(string $title, array $user): void
             ['admin_questions.php', 'Questions', 'help'],
             ['admin_feedback.php', 'Feedback', 'letter'],
         ]],
+        ['label' => 'Companies', 'items' => [
+            ['admin_companies.php', 'Companies', 'building'],
+            ['admin_locations.php', 'Locations', 'pin'],
+        ]],
         ['label' => 'Sales', 'items' => [
             ['admin_sales.php', 'Sales', 'cart'],
             ['admin_sales.php?tab=messages', 'Messages', 'mail'],
             ['sales_demo.php', 'Demo', 'building'],
             ['admin_passwords.php', 'Passwords', 'lock'],
-        ]],
-        ['label' => 'Companies', 'items' => [
-            ['admin_companies.php', 'Companies', 'building'],
-            ['admin_locations.php', 'Locations', 'pin'],
         ]],
         ['label' => 'Money', 'items' => [
             ['admin_finances.php', 'Finances', 'bank'],
@@ -678,17 +684,14 @@ function render_app_tabbar(): void
     $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
     $kind = (string) ($_GET['kind'] ?? '');
     $reportsHref = function_exists('user_can_open') && user_can_open('reports.php') ? 'reports.php' : 'debtors.php';
-    $moneyHref = function_exists('user_can_open') && user_can_open('debtors.php') ? 'debtors.php' : $reportsHref;
     $homeOn = $here === 'dashboard.php';
     $clientsOn = in_array($here, ['clients.php', 'client_view.php', 'client_edit.php'], true);
-    $moneyOn = in_array($here, ['debtors.php', 'creditors.php'], true)
-        || ($here === 'document_action.php' && (isset($_GET['pay']) || isset($_GET['receive'])));
     $repOn = in_array($here, ['reports.php', 'pnl.php', 'pnl_entries.php', 'pnl_savings.php', 'pnl_banking.php'], true)
         || in_array($kind, ['refund', 'return_note'], true);
     ?>
 <nav class="app-tabbar" aria-label="App" data-app-tabbar style="position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;z-index:9999;margin:0">
   <a class="app-tab<?= $homeOn ? ' is-on' : '' ?>" href="<?= h(url('dashboard.php')) ?>">
-    <?= icon('home', 22) ?><span>Home</span>
+    <?= icon('home', 22) ?><span>Dashboard</span>
   </a>
   <a class="app-tab<?= $clientsOn ? ' is-on' : '' ?>" href="<?= h(url('clients.php')) ?>">
     <?= icon('building', 22) ?><span>Clients</span>
@@ -697,12 +700,12 @@ function render_app_tabbar(): void
     <span class="app-tab-plus"><?= icon('plus', 26) ?></span>
     <span>Create</span>
   </button>
-  <a class="app-tab<?= $moneyOn ? ' is-on' : '' ?>" href="<?= h(url($moneyHref)) ?>">
-    <?= icon('bank', 22) ?><span>Money</span>
-  </a>
   <a class="app-tab<?= $repOn ? ' is-on' : '' ?>" href="<?= h(url($reportsHref)) ?>">
     <?= icon('reports', 22) ?><span>Reports</span>
   </a>
+  <button type="button" class="app-tab" data-calc-toggle aria-label="Calculator">
+    <?= icon('calculator', 22) ?><span>Calculator</span>
+  </button>
 </nav>
     <?php
 }
@@ -713,8 +716,8 @@ function render_admin_tabbar(): void
     $dashOn = $here === 'admin_dashboard.php';
     $companiesOn = in_array($here, ['admin_companies.php', 'admin_company.php', 'admin_company_new.php'], true);
     $salesOn = str_starts_with($here, 'admin_sales') || $here === 'sales_demo.php' || $here === 'admin_passwords.php';
-    $signupsOn = in_array($here, ['admin_signups.php', 'admin_questions.php', 'admin_question.php', 'admin_feedback.php'], true);
-    $financesOn = $here === 'admin_finances.php';
+    $reportsOn = $here === 'admin_reports.php';
+    $systemOn = in_array($here, ['admin_system.php', 'admin_settings.php', 'admin_admins.php'], true);
     ?>
 <nav class="app-tabbar admin-tabbar" aria-label="Admin" data-app-tabbar style="position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;z-index:9999;margin:0">
   <a class="app-tab<?= $dashOn ? ' is-on' : '' ?>" href="<?= h(url('admin_dashboard.php')) ?>">
@@ -726,11 +729,11 @@ function render_admin_tabbar(): void
   <a class="app-tab<?= $salesOn ? ' is-on' : '' ?>" href="<?= h(url('admin_sales.php')) ?>">
     <?= icon('cart', 22) ?><span>Sales</span>
   </a>
-  <a class="app-tab<?= $signupsOn ? ' is-on' : '' ?>" href="<?= h(url('admin_signups.php')) ?>">
-    <?= icon('letter', 22) ?><span>Inbox</span>
+  <a class="app-tab<?= $reportsOn ? ' is-on' : '' ?>" href="<?= h(url('admin_reports.php')) ?>">
+    <?= icon('file', 22) ?><span>Reports</span>
   </a>
-  <a class="app-tab<?= $financesOn ? ' is-on' : '' ?>" href="<?= h(url('admin_finances.php')) ?>">
-    <?= icon('bank', 22) ?><span>Finances</span>
+  <a class="app-tab<?= $systemOn ? ' is-on' : '' ?>" href="<?= h(url('admin_system.php')) ?>">
+    <?= icon('clock', 22) ?><span>System</span>
   </a>
 </nav>
     <?php
