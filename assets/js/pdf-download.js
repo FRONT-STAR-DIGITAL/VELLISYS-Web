@@ -268,7 +268,7 @@
     });
   }
 
-  function saveExactSheet(filename) {
+  function buildExactSheetWorker(filename) {
     var sheet = exactSheetRoot();
     if (!sheet) return Promise.reject(new Error('sheet'));
     var prevFit = null;
@@ -325,24 +325,92 @@
           pagebreak: { mode: forceSingle || thermal ? ['avoid-all'] : ['css', 'legacy'] },
         }).from(sheet);
 
-        var done;
-        if (!forceSingle) {
-          done = worker.save();
-        } else {
-          done = worker.toPdf().get('pdf').then(function (pdf) {
-            trimTrailingBlankPages(pdf, 1);
-            return pdf;
-          }).then(function (pdf) {
-            pdf.save(filename || 'document.pdf');
-          });
-        }
-        return done.finally(function () {
-          restoreLiveSheet(sheet, prevFit);
-        });
+        return {
+          worker: worker,
+          forceSingle: forceSingle,
+          sheet: sheet,
+          prevFit: prevFit,
+          filename: filename || 'document.pdf',
+        };
       });
     }).catch(function (err) {
       restoreLiveSheet(sheet, prevFit);
       throw err;
+    });
+  }
+
+  function pdfBlobFromWorker(built) {
+    var worker = built.worker;
+    var chain = worker.toPdf().get('pdf').then(function (pdf) {
+      if (built.forceSingle) {
+        trimTrailingBlankPages(pdf, 1);
+      }
+      return pdf.output('blob');
+    });
+    return chain.finally(function () {
+      restoreLiveSheet(built.sheet, built.prevFit);
+    });
+  }
+
+  function saveExactSheet(filename) {
+    return buildExactSheetWorker(filename).then(function (built) {
+      return pdfBlobFromWorker(built).then(function (blob) {
+        var name = built.filename;
+        // Prefer an <a download> so mobile never opens a blob: tab that gets shared as a link.
+        var url = URL.createObjectURL(blob);
+        try {
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = name;
+          a.rel = 'noopener';
+          a.style.display = 'none';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        } finally {
+          setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+        }
+      });
+    });
+  }
+
+  function canSharePdfFile(file) {
+    try {
+      return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [file] }));
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
+   * Share the PDF file alone (document number as the filename).
+   * Never pass url/text — those become the useless blob:https://… link in WhatsApp.
+   */
+  function shareExactSheet(filename) {
+    var name = filename || 'document.pdf';
+    if (!/\.pdf$/i.test(name)) name += '.pdf';
+    return buildExactSheetWorker(name).then(function (built) {
+      return pdfBlobFromWorker(built).then(function (blob) {
+        var file = new File([blob], name, { type: 'application/pdf' });
+        if (canSharePdfFile(file)) {
+          // files only — no url, no text, no title that some apps turn into a link
+          return navigator.share({ files: [file] });
+        }
+        // Desktop / unsupported: download the labeled PDF instead of opening a blob tab.
+        var url = URL.createObjectURL(blob);
+        try {
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = name;
+          a.rel = 'noopener';
+          a.style.display = 'none';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        } finally {
+          setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+        }
+      });
     });
   }
 
@@ -355,6 +423,31 @@
   }
 
   document.addEventListener('click', function (e) {
+    var shareA = e.target && e.target.closest ? e.target.closest('a[data-pdf-share]') : null;
+    if (shareA) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (busy) return;
+      var shareName = shareA.getAttribute('data-pdf-name')
+        || (document.body && document.body.getAttribute('data-pdf-name'))
+        || 'document.pdf';
+      if (!exactSheetRoot()) {
+        var go = shareA.getAttribute('href');
+        if (!go || go === '#') {
+          var docId = shareA.getAttribute('data-doc-id');
+          if (docId) go = 'document_view.php?id=' + encodeURIComponent(docId) + '&sharepdf=1';
+        }
+        if (go && go !== '#') window.location.href = go;
+        return;
+      }
+      busy = true;
+      shareExactSheet(shareName).catch(function (err) {
+        // User dismissed the share sheet — not an error.
+        if (err && (err.name === 'AbortError' || err.name === 'NotAllowedError')) return;
+      }).finally(function () { busy = false; });
+      return;
+    }
+
     var a = e.target && e.target.closest ? e.target.closest('a[data-pdf-download]') : null;
     if (!a) return;
 
@@ -392,5 +485,35 @@
     }
     if (document.readyState === 'complete') setTimeout(runAuto, 80);
     else window.addEventListener('load', function () { setTimeout(runAuto, 80); });
+  }
+
+  function pdfNameFromPage() {
+    var named = document.querySelector('[data-pdf-name]');
+    if (named && named.getAttribute('data-pdf-name')) {
+      return named.getAttribute('data-pdf-name');
+    }
+    if (document.body && document.body.getAttribute('data-pdf-name')) {
+      return document.body.getAttribute('data-pdf-name');
+    }
+    return 'document.pdf';
+  }
+
+  // document_view.php?sharepdf=1 — open system share with the PDF file only.
+  if (/(?:^|[?&])sharepdf=1(?:&|$)/.test(location.search || '') && exactSheetRoot()) {
+    function runShareAuto() {
+      if (busy) return;
+      busy = true;
+      shareExactSheet(pdfNameFromPage()).catch(function (err) {
+        if (err && (err.name === 'AbortError' || err.name === 'NotAllowedError')) return;
+      }).finally(function () {
+        busy = false;
+        try {
+          var clean = location.pathname + location.search.replace(/([?&])sharepdf=1&?/, '$1').replace(/[?&]$/, '');
+          history.replaceState({}, '', clean || location.pathname);
+        } catch (e) {}
+      });
+    }
+    if (document.readyState === 'complete') setTimeout(runShareAuto, 200);
+    else window.addEventListener('load', function () { setTimeout(runShareAuto, 200); });
   }
 })();

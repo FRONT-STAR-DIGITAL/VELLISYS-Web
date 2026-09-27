@@ -2996,11 +2996,18 @@ function render_doc_actions(array $doc, bool $labeled = false): void
           <summary class="<?= $cls ?>" title="Share" aria-label="Share"><?= icon('share', 15) ?><?php if ($labeled): ?> Share<?php endif; ?></summary>
           <div class="share-pop-panel" role="menu">
             <p class="share-pop-head">Share this sheet</p>
-            <a class="share-pop-item is-wa" href="<?= h(document_whatsapp_url($doc)) ?>" target="_blank" rel="noopener" role="menuitem">
-              <span class="share-pop-ico" aria-hidden="true"><?= icon('whatsapp', 18) ?></span>
+            <a
+              class="share-pop-item is-wa"
+              href="<?= h(url('document_view.php?id=' . $id . '&sharepdf=1')) ?>"
+              data-pdf-share
+              data-doc-id="<?= $id ?>"
+              data-pdf-name="<?= h(document_download_filename($doc)) ?>"
+              role="menuitem"
+            >
+              <span class="share-pop-ico" aria-hidden="true"><?= icon('pdf', 18) ?></span>
               <span class="share-pop-copy">
-                <strong>WhatsApp</strong>
-                <small>Send the link in chat</small>
+                <strong>Share PDF</strong>
+                <small><?= h(document_download_filename($doc)) ?> only — no link</small>
               </span>
             </a>
             <a class="share-pop-item is-mail" href="<?= h(url('document_email.php?id=' . $id)) ?>" role="menuitem">
