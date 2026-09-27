@@ -1219,7 +1219,16 @@ function render_sheet_seal(array $d): void
     </div>
   </header>
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
-  <div class="seal-meta">
+  <?php
+    $sealMetaCount = 2; // date + reference
+    if (!empty($doc['due_date'])) {
+        $sealMetaCount++;
+    }
+    if (sheet_shows_money($d)) {
+        $sealMetaCount++;
+    }
+  ?>
+  <div class="seal-meta" style="grid-template-columns:repeat(<?= (int) $sealMetaCount ?>,minmax(0,1fr))">
     <div><span>Reference</span><b><?= h($doc['number']) ?></b></div>
     <div><span>Date</span><b><?= h(format_date($doc['date'])) ?></b></div>
     <?php if (!empty($doc['due_date'])): ?><div><span>Due</span><b><?= h(format_date($doc['due_date'])) ?></b></div><?php endif; ?>
