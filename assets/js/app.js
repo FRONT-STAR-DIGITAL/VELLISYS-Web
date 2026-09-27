@@ -1565,7 +1565,7 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
     var row = book[id] || book[String(id)] || {};
     var map = {
       to_name: row.name || search.value,
-      to_phone: row.phone || '',
+      to_phone: row.phone || row.email || '',
       to_phone2: row.phone2 || '',
       to_email: row.email || '',
       to_address: row.address || '',
