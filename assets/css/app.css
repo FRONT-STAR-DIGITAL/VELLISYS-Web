@@ -833,6 +833,36 @@ form.actions, td form { display: inline; margin: 0; }
 .form-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 20px; }
 .form-grid > div { min-width: 0; }
 .doc-span { grid-column: 1 / -1; }
+.ledger-add {
+  margin-bottom: 16px;
+  padding: 0;
+  overflow: hidden;
+}
+.ledger-add-summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  color: var(--brand-ink);
+  font-weight: 600;
+}
+.ledger-add-summary::-webkit-details-marker { display: none; }
+.ledger-add-summary span {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.ledger-add-summary .icon { color: var(--brand); }
+.ledger-add[open] .ledger-add-summary {
+  border-bottom: 1px solid var(--line);
+}
+.ledger-add-form {
+  padding: 16px 18px 20px;
+}
+.ledger-add-form .hint { margin: 0 0 12px; }
 .doc-client-block { margin: 4px 0 8px; }
 .doc-client-title {
   margin: 4px 0 12px;

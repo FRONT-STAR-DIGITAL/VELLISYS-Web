@@ -3,8 +3,24 @@ declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
 $user = require_member();
 
+$addError = '';
+$showAdd = isset($_GET['add']);
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'add_ledger') {
+    csrf_check();
+    $showAdd = true;
+    try {
+        $id = create_quick_ledger_entry('creditor');
+        $doc = load_document($id);
+        flash('Creditor saved' . ($doc ? ' as ' . $doc['number'] : '') . '.');
+        redirect('creditors.php');
+    } catch (Throwable $e) {
+        $addError = $e->getMessage();
+    }
+}
+
 $rows = array_values(array_filter(list_documents('expense'), static fn ($d) => $d['status'] !== 'void' && ($d['balance'] ?? 0) > 0));
 $total = documents_sum($rows, 'balance');
+$parties = ledger_parties_for_picker();
 
 layout_start('Creditors', $user);
 ?>
@@ -14,10 +30,13 @@ layout_start('Creditors', $user);
     <p class="lede">Suppliers you still need to pay. Record a payment against the bill, or email them from the company mailbox. Totals sit at the foot of the table.</p>
   </div>
   <div class="actions">
+    <a class="btn" href="<?= h(url('creditors.php?add=1#ledger-add')) ?>"><?= icon('plus', 16) ?>Add new</a>
     <a class="btn ghost" href="<?= h(export_query('creditors')) ?>"><?= icon('download', 16) ?>Export CSV</a>
-    <a class="btn" href="<?= h(url('document_new.php?kind=expense')) ?>"><?= icon('expense') ?>Record expense</a>
+    <a class="btn ghost" href="<?= h(url('document_new.php?kind=expense')) ?>"><?= icon('expense') ?>Record expense</a>
   </div>
 </div>
+
+<?php render_ledger_add_form('creditor', $parties, $showAdd || $addError !== '', $addError); ?>
 
 <?php render_filters('creditors.php'); ?>
 
