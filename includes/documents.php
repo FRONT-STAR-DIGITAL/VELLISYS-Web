@@ -269,11 +269,21 @@ function find_or_create_ledger_party(string $name, string $contact, string $enti
 function create_quick_ledger_entry(string $side): int
 {
     $side = $side === 'creditor' ? 'creditor' : 'debtor';
-    $name = trim(post('name', '', 190));
-    $contact = trim(post('contact', '', 190));
+    // Same field names as invoice To-client picker (to_name / to_phone / to_entity).
+    $name = trim(post('to_name', '', 190));
+    if ($name === '') {
+        $name = trim(post('name', '', 190));
+    }
+    $contact = trim(post('to_phone', '', 190));
+    if ($contact === '') {
+        $contact = trim(post('to_email', '', 190));
+    }
+    if ($contact === '') {
+        $contact = trim(post('contact', '', 190));
+    }
     $reason = trim(post('reason', '', 500));
     $amount = function_exists('money_parse') ? money_parse(post('amount')) : (float) post('amount');
-    $entity = post('entity') ?: 'person';
+    $entity = post('to_entity') ?: (post('entity') ?: 'person');
     $partyId = (int) post('party_id');
 
     if ($name === '') {
@@ -314,7 +324,7 @@ function create_quick_ledger_entry(string $side): int
 function ledger_parties_for_picker(): array
 {
     return db_all(
-        "SELECT id, name, phone, email, contact_person, entity FROM parties
+        "SELECT * FROM parties
          WHERE company_id = ? AND (status IS NULL OR status = 'active')
          ORDER BY name",
         'i',
@@ -322,25 +332,32 @@ function ledger_parties_for_picker(): array
     );
 }
 
-/** Render Add new debtor/creditor form (name from clients, or create if missing). */
+/** Render Add new debtor/creditor form — invoice-style client suggestions. */
 function render_ledger_add_form(string $side, array $parties, bool $open = false, string $error = ''): void
 {
     $side = $side === 'creditor' ? 'creditor' : 'debtor';
     $title = $side === 'creditor' ? 'Add creditor' : 'Add debtor';
     $hint = $side === 'creditor'
-        ? 'Pick a client or type a new name. New names are saved as a supplier.'
-        : 'Pick a client or type a new name. New names are saved as a customer.';
+        ? 'Choose a saved client or type a new one. New names are saved as a supplier.'
+        : 'Choose a saved client or type a new one. New names are saved as a customer.';
     $action = $side === 'creditor' ? 'creditors.php' : 'debtors.php';
-    $partyPayload = [];
+    $partyBook = [];
     foreach ($parties as $p) {
-        $partyPayload[] = [
-            'id' => (int) $p['id'],
-            'name' => (string) $p['name'],
+        $partyBook[(int) $p['id']] = [
+            'name' => (string) ($p['name'] ?? ''),
+            'contact' => (string) ($p['contact_person'] ?? ''),
+            'tin' => (string) ($p['tin'] ?? ''),
             'phone' => (string) ($p['phone'] ?? ''),
+            'phone2' => (string) ($p['phone2'] ?? ''),
             'email' => (string) ($p['email'] ?? ''),
-            'entity' => function_exists('party_entity') ? party_entity($p) : (string) ($p['entity'] ?? 'person'),
+            'address' => (string) ($p['address'] ?? ''),
+            'city' => (string) ($p['city'] ?? ''),
+            'country' => (string) ($p['country'] ?? ''),
+            'entity' => function_exists('party_entity') ? party_entity($p) : 'person',
+            'extras' => function_exists('party_profile') ? party_profile($p) : [],
         ];
     }
+    $bookJson = json_encode($partyBook, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
     ?>
 <details class="card ledger-add" id="ledger-add"<?= $open ? ' open' : '' ?>>
   <summary class="ledger-add-summary">
@@ -348,35 +365,37 @@ function render_ledger_add_form(string $side, array $parties, bool $open = false
     <strong><?= h($title) ?></strong>
     <span>Name, contact, reason and amount</span>
   </summary>
-  <form class="ledger-add-form" method="post" action="<?= h(url($action)) ?>" autocomplete="off">
+  <form class="ledger-add-form" method="post" action="<?= h(url($action)) ?>" autocomplete="off" data-party-book="<?= h($bookJson) ?>">
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="add_ledger">
-    <input type="hidden" name="party_id" value="0" data-ledger-party-id>
     <?php if ($error !== ''): ?>
       <p class="flash flash-err" style="margin:0 0 12px"><?= h($error) ?></p>
     <?php endif; ?>
     <p class="hint"><?= h($hint) ?></p>
     <div class="form-grid two">
       <div>
-        <label for="ledger-name">Name</label>
-        <input id="ledger-name" name="name" list="ledger-party-list" required placeholder="Type or pick a client" autocomplete="off" data-ledger-name>
-        <datalist id="ledger-party-list">
-          <?php foreach ($parties as $p): ?>
-            <option value="<?= h((string) $p['name']) ?>"></option>
-          <?php endforeach; ?>
-        </datalist>
-      </div>
-      <div>
-        <label for="ledger-entity">Individual or company</label>
-        <select id="ledger-entity" name="entity" data-ledger-entity>
-          <option value="person">Individual</option>
-          <option value="organisation">Company / organisation</option>
+        <label for="to_entity">This client is</label>
+        <select id="to_entity" name="to_entity" data-to-entity>
+          <option value="person">An individual</option>
+          <option value="organisation">A company / organisation</option>
           <option value="other">Other</option>
         </select>
       </div>
       <div>
-        <label for="ledger-contact">Contact</label>
-        <input id="ledger-contact" name="contact" placeholder="Phone or email" autocomplete="off" data-ledger-contact>
+        <label for="to_name">Name</label>
+        <div class="client-combo" data-client-combo>
+          <input type="hidden" id="party_id" name="party_id" value="">
+          <input id="to_name" name="to_name" required autocomplete="off" placeholder="Start typing a name…" data-client-search>
+          <div class="client-combo-panel" data-client-panel hidden>
+            <button type="button" class="client-combo-scroll" data-client-scroll="-1" aria-label="Scroll client list up"><?= icon('chevron-up', 16) ?></button>
+            <ul class="client-combo-list" data-client-list></ul>
+            <button type="button" class="client-combo-scroll" data-client-scroll="1" aria-label="Scroll client list down"><?= icon('chevron-down', 16) ?></button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <label for="to_phone">Contact</label>
+        <input id="to_phone" name="to_phone" placeholder="Phone or email" autocomplete="off">
       </div>
       <div>
         <label for="ledger-amount">Amount</label>
@@ -391,30 +410,6 @@ function render_ledger_add_form(string $side, array $parties, bool $open = false
       <button class="btn" type="submit"><?= icon('check', 16) ?>Save</button>
     </div>
   </form>
-  <script>
-  (function () {
-    var root = document.getElementById('ledger-add');
-    if (!root) return;
-    var parties = <?= json_encode($partyPayload, JSON_UNESCAPED_UNICODE) ?> || [];
-    var nameEl = root.querySelector('[data-ledger-name]');
-    var idEl = root.querySelector('[data-ledger-party-id]');
-    var contactEl = root.querySelector('[data-ledger-contact]');
-    var entityEl = root.querySelector('[data-ledger-entity]');
-    function matchParty() {
-      var q = (nameEl.value || '').trim().toLowerCase();
-      if (!q) { idEl.value = '0'; return; }
-      var hit = parties.find(function (p) { return (p.name || '').toLowerCase() === q; });
-      idEl.value = hit ? String(hit.id) : '0';
-      if (!hit) return;
-      if (contactEl && !contactEl.value) {
-        contactEl.value = hit.phone || hit.email || '';
-      }
-      if (entityEl && hit.entity) entityEl.value = hit.entity;
-    }
-    nameEl.addEventListener('change', matchParty);
-    nameEl.addEventListener('blur', matchParty);
-  })();
-  </script>
 </details>
     <?php
 }

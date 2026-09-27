@@ -877,9 +877,6 @@ function stock_complete_sale(array $input): array
             'items' => [],
         ]);
     }
-    if (function_exists('company_backup_maybe')) {
-        company_backup_maybe();
-    }
     return [
         'ok' => true,
         'invoice_id' => $invoiceId,
@@ -962,9 +959,6 @@ function stock_complete_purchase(array $input): array
             'notes' => $paid + 0.009 < $grand ? 'Part payment on stock purchase' : 'Stock purchase paid',
             'items' => [],
         ]);
-    }
-    if (function_exists('company_backup_maybe')) {
-        company_backup_maybe();
     }
     return ['ok' => true, 'expense_id' => $expenseId, 'receipt_id' => $receiptId, 'balance' => max(0, round($grand - min($paid, $grand), 2))];
 }

@@ -15,10 +15,6 @@ $error = '';
 $editUserId = (int) ($_GET['edit_user'] ?? 0);
 $editMember = $editUserId ? load_desk_user($id, $editUserId) : null;
 
-if (isset($_GET['backup'])) {
-    company_backup_send((string) $_GET['backup'], $id);
-}
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
     $action = post('action');
@@ -416,25 +412,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
-    if ($action === 'restore_backup') {
-        $file = $_FILES['backup'] ?? [];
-        if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
-            $error = 'Choose a Vellisys backup file to restore.';
-        } else {
-            $payload = company_backup_read_file($file['tmp_name']);
-            if (!$payload) {
-                $error = 'That file is not a Vellisys backup.';
-            } else {
-                $res = company_backup_restore_payload($payload, $id, ['branding' => post('restore_branding') !== '']);
-                if (empty($res['ok'])) {
-                    $error = (string) ($res['error'] ?? 'Could not restore that backup.');
-                } else {
-                    flash('Backup restored onto ' . $company['name'] . '. The desk is no longer empty.');
-                    redirect('admin_company.php?id=' . $id);
-                }
-            }
-        }
-    }
     if ($action === 'delete_company') {
         $confirm = trim(post('delete_confirm'));
         if (strcasecmp($confirm, (string) $company['name']) !== 0) {
@@ -485,7 +462,6 @@ try {
 }
 $deskHealth = platform_desk_health(['last_seen_at' => $lastSeen, 'last_login_at' => $lastLogin]);
 $resetScopes = company_reset_scopes();
-$deskBackups = company_backup_list($id);
 $deskEmails = [];
 $toList = [];
 foreach ($members as $m) {
@@ -1130,44 +1106,7 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
       <label for="reset_confirm">Type <?= h($company['name']) ?> to confirm</label>
       <input id="reset_confirm" name="reset_confirm" required autocomplete="off" placeholder="<?= h($company['name']) ?>">
       <div class="actions" style="margin:12px 0 8px">
-        <button class="btn danger" type="submit" onclick="return confirm('Clear the selected practice data on <?= h($company['name']) ?>? This cannot be undone except by restoring a backup.');"><?= icon('alert', 16) ?>Reset selected data</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<div class="card form-wide" style="margin-top:16px" id="backup">
-  <div class="card-head"><h2><?= icon('file', 16) ?>Backup restore</h2></div>
-  <div style="padding:0 22px 22px">
-    <p class="lede">If they saved a Vellisys backup before the reset, upload it here to put documents, clients and stock back.</p>
-    <?php if ($deskBackups): ?>
-      <div class="table-scroll" style="margin-bottom:16px">
-        <table class="grid">
-          <thead><tr><th>File</th><th>When</th><th></th></tr></thead>
-          <tbody>
-            <?php foreach ($deskBackups as $bfile): ?>
-              <tr>
-                <td class="mono"><?= h($bfile['file']) ?></td>
-                <td><?= h(date('j M Y H:i', $bfile['mtime'])) ?></td>
-                <td><a class="btn ghost sm" href="<?= h(url('admin_company.php?id=' . $id . '&backup=' . rawurlencode($bfile['file']))) ?>">Download</a></td>
-              </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
-      </div>
-    <?php else: ?>
-      <p class="hint">No automatic backups on file for this desk yet.</p>
-    <?php endif; ?>
-    <form method="post" enctype="multipart/form-data">
-      <?= csrf_field() ?>
-      <input type="hidden" name="id" value="<?= $id ?>">
-      <input type="hidden" name="action" value="restore_backup">
-      <label for="backup_file">Upload backup</label>
-      <input id="backup_file" name="backup" type="file" accept=".gz,.json,application/gzip" required>
-      <label class="check" style="margin-top:10px"><input type="checkbox" name="restore_branding" value="1"> Also restore letterhead fields from the file</label>
-      <p class="hint">Restores clients, stock and documents. Stationery stays unless you tick the box.</p>
-      <div class="actions" style="margin-top:12px">
-        <button class="btn" type="submit"><?= icon('check') ?>Restore backup</button>
+        <button class="btn danger" type="submit" onclick="return confirm('Clear the selected practice data on <?= h($company['name']) ?>? This cannot be undone.');"><?= icon('alert', 16) ?>Reset selected data</button>
       </div>
     </form>
   </div>
