@@ -6991,3 +6991,75 @@ a.cdash-metric:hover {
   .pay-receipt-actions,
   .no-print { display: none !important; }
 }
+
+/* Sales testing desks + admin testing table */
+.wrap-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.inline-form {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  margin: 0;
+}
+.testing-expiry-form input[type="date"],
+.testing-delete-form input[type="text"] {
+  min-height: 30px;
+  padding: 4px 8px;
+  font-size: 12px;
+  max-width: 140px;
+}
+.sales-creds-card code {
+  word-break: break-all;
+}
+.sales-test-form fieldset {
+  margin: 0 0 18px;
+  padding: 0;
+  border: 0;
+}
+.sales-test-form legend {
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.sales-test-create > summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.sales-test-create > summary::-webkit-details-marker { display: none; }
+@media (max-width: 720px) {
+  .sales-body .sales-creds-card .actions,
+  .sales-body .page-head .page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .sales-body .sales-creds-card .actions .btn,
+  .sales-body .page-head .page-actions .btn {
+    flex: 1 1 auto;
+    min-height: 42px;
+    justify-content: center;
+  }
+  .admin-body .wrap-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .admin-body .inline-form {
+    width: 100%;
+  }
+  .admin-body .inline-form .btn,
+  .admin-body .testing-expiry-form input[type="date"],
+  .admin-body .testing-delete-form input[type="text"] {
+    width: 100%;
+    max-width: none;
+  }
+  .admin-body #testing .table-scroll td.row-actions {
+    min-width: 0;
+  }
+}

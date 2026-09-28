@@ -68,6 +68,19 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
   <p class="flash"><?= ($lead['status'] ?? '') === 'onboarding'
     ? 'This lead is in company onboarding. Finish setup under Companies, then mark the desk live.'
     : 'This lead is onboarded. Ask admin if you need changes.' ?></p>
+<?php elseif ($lead && ($lead['status'] ?? '') === 'interested'): ?>
+  <?php
+    $testCo = !empty($lead['company_id'])
+        ? db_one('SELECT id, testing_mode FROM companies WHERE id = ?', 'i', [(int) $lead['company_id']])
+        : null;
+  ?>
+  <?php if ($testCo && !empty($testCo['testing_mode'])): ?>
+    <p class="flash">This lead already has a <a href="<?= h(url('sales_company.php?id=' . (int) $testCo['id'])) ?>">testing desk</a>.</p>
+  <?php else: ?>
+    <p class="flash">Interested but wants to try first?
+      <a class="btn sm" href="<?= h(url('sales_company_new.php?lead=' . (int) $lead['id'])) ?>"><?= icon('plus', 14) ?>Put in testing mode</a>
+    </p>
+  <?php endif; ?>
 <?php endif; ?>
 
 <form method="post" class="card pad-form sales-lead-form" data-sales-lead>

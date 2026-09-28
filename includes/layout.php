@@ -357,8 +357,12 @@ function layout_start(string $title, array $user, array $opts = []): void
       <?php if (is_acting_admin()): ?>
         <a href="<?= h(url('admin_desk.php?leave=1')) ?>" title="Leave desk"><?= icon('logout', 15) ?><span>Leave desk</span></a>
       <?php endif; ?>
-      <?php if (function_exists('sales_demo_active') && sales_demo_active()): ?>
-        <a href="<?= h(url('sales_demo.php?leave=1')) ?>" title="Leave demo"><?= icon('logout', 15) ?><span>Leave demo</span></a>
+      <?php if (function_exists('sales_demo_active') && sales_demo_active()):
+          $leaveTesting = !empty($_SESSION['sales_demo_return']['from_testing']);
+          $leaveHref = $leaveTesting ? 'sales_desk.php?leave=1' : 'sales_demo.php?leave=1';
+          $leaveLabel = $leaveTesting ? 'Leave desk' : 'Leave demo';
+          ?>
+        <a href="<?= h(url($leaveHref)) ?>" title="<?= h($leaveLabel) ?>"><?= icon('logout', 15) ?><span><?= h($leaveLabel) ?></span></a>
       <?php endif; ?>
       <a href="<?= h(url('logout.php')) ?>" title="Sign out"><?= icon('logout', 15) ?><span>Sign out</span></a>
     </div>
@@ -370,10 +374,13 @@ function layout_start(string $title, array $user, array $opts = []): void
         <a href="<?= h(url('admin_desk.php?leave=1')) ?>">Leave desk</a>
       </div>
     <?php endif; ?>
-    <?php if (function_exists('sales_demo_active') && sales_demo_active()): ?>
+    <?php if (function_exists('sales_demo_active') && sales_demo_active()):
+        $leaveTesting = !empty($_SESSION['sales_demo_return']['from_testing']);
+        $leaveHref = $leaveTesting ? 'sales_desk.php?leave=1' : 'sales_demo.php?leave=1';
+        ?>
       <div class="acting-bar">
-        <span>Sales demo desk · show this to clients</span>
-        <a href="<?= h(url('sales_demo.php?leave=1')) ?>">Leave demo</a>
+        <span><?= $leaveTesting ? 'Client testing desk · walkthrough' : 'Sales demo desk · show this to clients' ?></span>
+        <a href="<?= h(url($leaveHref)) ?>"><?= $leaveTesting ? 'Leave desk' : 'Leave demo' ?></a>
       </div>
     <?php endif; ?>
     <header class="top">

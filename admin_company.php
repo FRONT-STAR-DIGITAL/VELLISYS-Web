@@ -18,6 +18,25 @@ $editMember = $editUserId ? load_desk_user($id, $editUserId) : null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
     $action = post('action');
+    if ($action === 'testing_extend') {
+        $days = (int) post('days');
+        if ($days === 0) {
+            $days = 7;
+        }
+        $done = sales_adjust_testing_days($id, $days);
+        flash(empty($done['ok']) ? ($done['error'] ?? 'Failed') : 'Testing time updated.', empty($done['ok']) ? 'err' : 'ok');
+        redirect('admin_company.php?id=' . $id);
+    }
+    if ($action === 'testing_set_expiry') {
+        $done = sales_set_testing_expiry($id, post('testing_expires_at'));
+        flash(empty($done['ok']) ? ($done['error'] ?? 'Failed') : 'Testing end date saved.', empty($done['ok']) ? 'err' : 'ok');
+        redirect('admin_company.php?id=' . $id);
+    }
+    if ($action === 'testing_promote') {
+        $done = sales_promote_testing_to_onboard($id);
+        flash(empty($done['ok']) ? ($done['error'] ?? 'Could not promote.') : 'Promoted from testing to onboard. Finish emails and advanced settings below.', empty($done['ok']) ? 'err' : 'ok');
+        redirect('admin_company.php?id=' . $id);
+    }
     if ($action === 'profile') {
         $status = post('status') ?: 'onboarding';
         if (!in_array($status, ['onboarding', 'live', 'suspended'], true)) {
@@ -483,16 +502,22 @@ if ($toList) {
     );
 }
 
+$isTesting = company_is_testing($company);
+$testingCreds = $isTesting ? sales_testing_credentials($id) : null;
 layout_admin_start($company['name'], $user);
 ?>
 <div class="page-head">
   <div>
     <h1><?= icon('building') ?><?= h($company['name']) ?></h1>
-    <p class="lede"><?= h(ucfirst((string) $company['status'])) ?> · <?= h($brand['currency'] ?? 'UGX') ?> · <?= count($members) ?> / <?= (int) company_user_limit($company) ?> user<?= count($members) === 1 ? '' : 's' ?> · <?= h(company_term_label($company)) ?><?php if (company_expires_on($company)): ?> · <?= h(company_remaining_phrase($company)) ?> · <?= h(company_expiry_date_label($company)) ?><?php endif; ?><?php $nob = trim((string) ($company['nature_of_business'] ?? '')); if ($nob !== ''): ?> · <?= h($nob) ?><?php endif; ?></p>
+    <p class="lede"><?php if ($isTesting): ?>Testing mode · <?= h(company_testing_remaining_label($company)) ?> · <?php endif; ?><?= h(ucfirst((string) $company['status'])) ?> · <?= h($brand['currency'] ?? 'UGX') ?> · <?= count($members) ?> / <?= (int) company_user_limit($company) ?> user<?= count($members) === 1 ? '' : 's' ?> · <?= h(company_term_label($company)) ?><?php if (company_expires_on($company)): ?> · <?= h(company_remaining_phrase($company)) ?> · <?= h(company_expiry_date_label($company)) ?><?php endif; ?><?php $nob = trim((string) ($company['nature_of_business'] ?? '')); if ($nob !== ''): ?> · <?= h($nob) ?><?php endif; ?></p>
   </div>
   <div class="actions">
-    <a class="btn" href="<?= h(url('admin_desk.php?id=' . $id)) ?>"><?= icon('desk') ?>Open desk</a>
-    <?php if ($company['status'] !== 'live'): ?>
+    <?php if ($isTesting): ?>
+      <a class="btn" href="<?= h(url('sales_desk.php?id=' . $id . '&go=1')) ?>"><?= icon('desk') ?>Open desk</a>
+    <?php else: ?>
+      <a class="btn" href="<?= h(url('admin_desk.php?id=' . $id)) ?>"><?= icon('desk') ?>Open desk</a>
+    <?php endif; ?>
+    <?php if (!$isTesting && $company['status'] !== 'live'): ?>
       <form method="post">
         <?= csrf_field() ?>
         <input type="hidden" name="id" value="<?= $id ?>">
@@ -504,6 +529,50 @@ layout_admin_start($company['name'], $user);
 </div>
 
 <?php if ($error): ?><p class="flash flash-err" style="margin:0 0 16px"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
+
+<?php if ($isTesting): ?>
+<div class="card pad-form" style="margin-bottom:16px" id="testing-controls">
+  <h2 style="margin-top:0">Testing mode</h2>
+  <p class="lede" style="margin-top:0">
+    Ends <?= !empty($company['testing_expires_at']) ? h(format_date((string) $company['testing_expires_at'])) : '-' ?>
+    · <?= h(company_testing_remaining_label($company)) ?>.
+    Promote when the client is ready for full onboard (emails, paid term, mailbox).
+  </p>
+  <?php if ($testingCreds): ?>
+    <p><strong>Username:</strong> <code><?= h((string) ($testingCreds['email'] ?: '-')) ?></code></p>
+    <p><strong>Password:</strong> <code><?= h((string) ($testingCreds['password'] !== '' ? $testingCreds['password'] : '-')) ?></code></p>
+  <?php endif; ?>
+  <div class="actions wrap-actions" style="margin-top:12px">
+    <form method="post" class="inline-form">
+      <?= csrf_field() ?>
+      <input type="hidden" name="id" value="<?= $id ?>">
+      <input type="hidden" name="action" value="testing_extend">
+      <input type="hidden" name="days" value="7">
+      <button class="btn ghost sm" type="submit">+7 days</button>
+    </form>
+    <form method="post" class="inline-form">
+      <?= csrf_field() ?>
+      <input type="hidden" name="id" value="<?= $id ?>">
+      <input type="hidden" name="action" value="testing_extend">
+      <input type="hidden" name="days" value="-7">
+      <button class="btn ghost sm" type="submit">-7 days</button>
+    </form>
+    <form method="post" class="inline-form testing-expiry-form">
+      <?= csrf_field() ?>
+      <input type="hidden" name="id" value="<?= $id ?>">
+      <input type="hidden" name="action" value="testing_set_expiry">
+      <input type="date" name="testing_expires_at" value="<?= h(!empty($company['testing_expires_at']) ? substr((string) $company['testing_expires_at'], 0, 10) : '') ?>" required>
+      <button class="btn ghost sm" type="submit">Set end date</button>
+    </form>
+    <form method="post" class="inline-form" onsubmit="return confirm('Promote to full onboard?');">
+      <?= csrf_field() ?>
+      <input type="hidden" name="id" value="<?= $id ?>">
+      <input type="hidden" name="action" value="testing_promote">
+      <button class="btn sm" type="submit"><?= icon('check', 14) ?>Promote to onboard</button>
+    </form>
+  </div>
+</div>
+<?php endif; ?>
 
 <div class="stats">
   <div class="card stat">

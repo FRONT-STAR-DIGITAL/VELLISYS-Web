@@ -36,6 +36,7 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - **Sales demo desk** (for field agents to show clients): `demo@vellisys.ug` / `demo-sales-2026` — also open from Sales → Demo (agents) or Demo in super admin nav
 - Super admin sets **daily / weekly / monthly** goals (defaults: 10 leads + 2 sales a day, 10 sales a week, 30 a month), sees per-agent daily progress on **Sales**, opens charts by period, messages agents, CRUD businesses, and onboards interested leads. Deleting an agent requires typing their email.
 - Agents clock in daily with a city, see daily goal bars (over-goal still shown), log businesses (status first: Interested / Follow up / Rejected), and open Performance for daily / weekly / monthly charts + chat
+- **Testing mode** (strictly 2 weeks): from **My companies** or an interested lead, the agent opens a trial desk (business name, contacts, document fields/columns), gets a username and password to hand to the client, and can Open or Desk that company. Super admin sees a separate Testing table under Companies with extend/shorten time, onboard (promote), edit, delete, and create
 - Client desk passwords are stored under admin **Passwords** (copy when helping a client sign in)
 
 ## What you get

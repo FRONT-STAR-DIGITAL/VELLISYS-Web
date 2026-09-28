@@ -1361,6 +1361,445 @@ function sales_sync_lead_for_company_status(int $companyId, string $status): voi
     }
 }
 
+/** Default length of a sales-agent testing desk (strictly 2 weeks). */
+function sales_testing_default_days(): int
+{
+    return 14;
+}
+
+function company_is_testing(?array $company): bool
+{
+    return $company && !empty($company['testing_mode']);
+}
+
+function company_testing_expires_at(?array $company): ?DateTimeImmutable
+{
+    if (!$company || empty($company['testing_expires_at'])) {
+        return null;
+    }
+    try {
+        return new DateTimeImmutable((string) $company['testing_expires_at']);
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+function company_testing_expired(?array $company): bool
+{
+    if (!company_is_testing($company)) {
+        return false;
+    }
+    $exp = company_testing_expires_at($company);
+    if (!$exp) {
+        return true;
+    }
+    $now = function_exists('desk_now') ? desk_now() : new DateTimeImmutable('now');
+    return $exp < $now;
+}
+
+function company_testing_remaining_label(?array $company): string
+{
+    if (!company_is_testing($company)) {
+        return '';
+    }
+    $exp = company_testing_expires_at($company);
+    if (!$exp) {
+        return 'No end date';
+    }
+    $now = function_exists('desk_now') ? desk_now() : new DateTimeImmutable('now');
+    if ($exp < $now) {
+        return 'Expired';
+    }
+    $secs = $exp->getTimestamp() - $now->getTimestamp();
+    $days = (int) floor($secs / 86400);
+    if ($days >= 1) {
+        return $days . ' day' . ($days === 1 ? '' : 's') . ' left';
+    }
+    $hours = max(1, (int) ceil($secs / 3600));
+    return $hours . ' hour' . ($hours === 1 ? '' : 's') . ' left';
+}
+
+function sales_testing_generate_login(string $seed = ''): string
+{
+    $base = 'test' . preg_replace('/[^a-z0-9]/', '', strtolower($seed));
+    if ($base === 'test' || strlen($base) < 6) {
+        $base = 'test' . substr(bin2hex(random_bytes(3)), 0, 6);
+    }
+    $base = substr($base, 0, 24);
+    $email = strtolower($base . '.' . substr(bin2hex(random_bytes(2)), 0, 4) . '@test.vellisys.ug');
+    while (db_one('SELECT id FROM users WHERE email = ?', 's', [$email])) {
+        $email = strtolower($base . '.' . substr(bin2hex(random_bytes(3)), 0, 6) . '@test.vellisys.ug');
+    }
+    return $email;
+}
+
+/**
+ * Create a 2-week testing desk for a sales agent (or platform admin).
+ * Expects POST fields: name, contact_name, phone, city, address, nature_of_business,
+ * enabled_kinds[], client fields, line_columns[], optional lead_id / testing_owner_id / days.
+ */
+function sales_create_testing_company(array $fields, int $actorId, bool $asPlatform = false): array
+{
+    $name = trim((string) ($fields['name'] ?? $fields['business_name'] ?? ''));
+    $contact = trim((string) ($fields['contact_name'] ?? $fields['user_name'] ?? ''));
+    $phone = trim((string) ($fields['phone'] ?? $fields['contact_phone'] ?? ''));
+    $city = trim((string) ($fields['city'] ?? ''));
+    $address = trim((string) ($fields['address'] ?? ''));
+    $nature = function_exists('sanitize_nature_of_business')
+        ? sanitize_nature_of_business((string) ($fields['nature_of_business'] ?? ''))
+        : trim((string) ($fields['nature_of_business'] ?? ''));
+    $ownerId = $asPlatform
+        ? ((int) ($fields['testing_owner_id'] ?? 0) ?: $actorId)
+        : $actorId;
+    $days = (int) ($fields['days'] ?? sales_testing_default_days());
+    if ($days < 1) {
+        $days = sales_testing_default_days();
+    }
+    if ($days > 90) {
+        $days = 90;
+    }
+    $leadId = (int) ($fields['lead_id'] ?? 0);
+
+    if ($name === '') {
+        return ['ok' => false, 'error' => 'Enter the business name.'];
+    }
+    if ($contact === '') {
+        return ['ok' => false, 'error' => 'Enter the contact person name.'];
+    }
+    if ($phone === '') {
+        return ['ok' => false, 'error' => 'Enter a contact phone number.'];
+    }
+
+    $kindsPosted = $fields['enabled_kinds'] ?? ($_POST['enabled_kinds'] ?? []);
+    if (!is_array($kindsPosted) || $kindsPosted === []) {
+        return ['ok' => false, 'error' => 'Select at least one document type for this test desk.'];
+    }
+    $kinds = function_exists('posted_enabled_kinds') ? posted_enabled_kinds() : implode(',', array_map('strval', $kindsPosted));
+    $customDoc = function_exists('posted_custom_doc') ? posted_custom_doc() : null;
+    $lineCols = function_exists('posted_document_line_columns') ? posted_document_line_columns() : null;
+    $plan = normalize_company_plan((string) ($fields['plan'] ?? 'sme'));
+    $limit = plan_user_limit_max($plan);
+    $notes = trim('Testing mode · agent #' . $ownerId
+        . ($leadId ? ' · lead #' . $leadId : '')
+        . "\nStrict 2-week trial. Promote to onboard when the client is ready.");
+
+    $expires = (function_exists('desk_now') ? desk_now() : new DateTimeImmutable('now'))
+        ->modify('+' . $days . ' days')
+        ->format('Y-m-d H:i:s');
+
+    $cid = db_exec(
+        'INSERT INTO companies (name, status, plan, notes, enabled_kinds, custom_doc, user_limit, nature_of_business, testing_mode, testing_owner_id, testing_expires_at) VALUES (?,?,?,?,?,?,?,?,1,?,?)',
+        'ssssssisis',
+        [$name, 'onboarding', $plan, $notes, $kinds, $customDoc, $limit, $nature, $ownerId, $expires]
+    );
+    if ($cid < 1) {
+        return ['ok' => false, 'error' => 'Could not create the testing company.'];
+    }
+
+    if (function_exists('posted_client_fields')) {
+        $cfg = posted_client_fields();
+        db_exec(
+            'UPDATE companies SET client_audience=?, client_fields=?, line_columns=? WHERE id=?',
+            'sssi',
+            [$cfg['audience'], json_encode($cfg, JSON_UNESCAPED_UNICODE) ?: '{}', $lineCols ?? '', $cid]
+        );
+    } elseif ($lineCols !== null) {
+        db_exec('UPDATE companies SET line_columns=? WHERE id=?', 'si', [$lineCols, $cid]);
+    }
+
+    $userEmail = sales_testing_generate_login(preg_replace('/\s+/', '', $name));
+    $password = function_exists('generate_desk_password') ? generate_desk_password() : ('Vs-' . bin2hex(random_bytes(5)));
+    $color = '#1E4EFF';
+    $accent = '#C6A15B';
+    $deep = function_exists('hex_shade') ? hex_shade($color, 0.52) : '#08143A';
+    $prefix = function_exists('prefix_from_name') ? prefix_from_name($name) : 'VEL';
+
+    db_exec(
+        'INSERT INTO branding (company_id, name, tagline, tin, vat_no, address, city, phone, email, website, bank_name, account_name, account_number, brand_color, brand_accent, brand_deep, logo_path, prefix, payment_note, invoice_comments, receipt_comments, plan, currency)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'issssssssssssssssssssss',
+        [
+            $cid, $name, 'Testing mode', '', '', $address, $city, $phone, '', '', '', $name, '',
+            $color, $accent, $deep, '', $prefix,
+            'Make payment to ' . $name . '.',
+            "1. Payment is due by the date shown above.\n2. Quote the invoice number on the transfer.",
+            'Payments made are not refundable.',
+            'sme', 'UGX',
+        ]
+    );
+
+    $made = create_desk_user($cid, [
+        'name' => $contact,
+        'email' => $userEmail,
+        'password' => $password,
+        'job_title' => 'Administrator',
+        'access' => 'admin',
+    ]);
+    if (empty($made['ok'])) {
+        if (function_exists('platform_delete_company')) {
+            platform_delete_company($cid);
+        }
+        return ['ok' => false, 'error' => (string) ($made['error'] ?? 'Could not create the desk login.')];
+    }
+
+    if (function_exists('company_mark_onboard_step')) {
+        company_mark_onboard_step($cid, 'desk_login');
+    }
+
+    if ($leadId > 0) {
+        $lead = sales_lead($leadId);
+        if ($lead && (empty($lead['company_id']) || (int) $lead['company_id'] === $cid)) {
+            db_exec(
+                'UPDATE sales_leads SET company_id=?, updated_at=NOW() WHERE id=?',
+                'ii',
+                [$cid, $leadId]
+            );
+            sales_lead_event($leadId, $actorId, 'testing', (string) ($lead['status'] ?? 'interested'), (string) ($lead['status'] ?? 'interested'), 'Testing company #' . $cid . ' for 2 weeks');
+        }
+    }
+
+    sales_vault_save([
+        'company_id' => $cid,
+        'company_name' => $name,
+        'email' => $userEmail,
+        'password' => (string) ($made['password'] ?? $password),
+        'notes' => 'Testing mode · expires ' . $expires . ' · hand credentials to the client',
+    ]);
+
+    return [
+        'ok' => true,
+        'company_id' => $cid,
+        'name' => $name,
+        'email' => $userEmail,
+        'password' => (string) ($made['password'] ?? $password),
+        'expires_at' => $expires,
+        'days' => $days,
+        'owner_id' => $ownerId,
+    ];
+}
+
+function sales_testing_companies_for_agent(int $agentId): array
+{
+    if ($agentId < 1) {
+        return [];
+    }
+    return db_all(
+        "SELECT c.*,
+                (SELECT u.email FROM users u WHERE u.company_id = c.id AND u.role = 'admin' ORDER BY u.id ASC LIMIT 1) AS desk_email,
+                (SELECT COUNT(*) FROM users u2 WHERE u2.company_id = c.id) AS users
+         FROM companies c
+         WHERE c.testing_mode = 1 AND c.testing_owner_id = ?
+         ORDER BY c.testing_expires_at ASC, c.id DESC",
+        'i',
+        [$agentId]
+    );
+}
+
+function admin_testing_companies(): array
+{
+    return db_all(
+        "SELECT c.*,
+                u.name AS owner_name,
+                u.email AS owner_email,
+                (SELECT du.email FROM users du WHERE du.company_id = c.id AND du.role = 'admin' ORDER BY du.id ASC LIMIT 1) AS desk_email,
+                (SELECT COUNT(*) FROM users u2 WHERE u2.company_id = c.id) AS users
+         FROM companies c
+         LEFT JOIN users u ON u.id = c.testing_owner_id
+         WHERE c.testing_mode = 1
+         ORDER BY c.testing_expires_at ASC, c.id DESC"
+    );
+}
+
+function sales_testing_company(int $companyId, ?int $agentId = null): ?array
+{
+    $row = db_one('SELECT * FROM companies WHERE id = ? AND testing_mode = 1', 'i', [$companyId]);
+    if (!$row) {
+        return null;
+    }
+    if ($agentId !== null && (int) ($row['testing_owner_id'] ?? 0) !== $agentId) {
+        return null;
+    }
+    return $row;
+}
+
+function sales_testing_credentials(int $companyId): array
+{
+    $vault = db_one('SELECT * FROM sales_vault WHERE company_id = ? ORDER BY id DESC LIMIT 1', 'i', [$companyId]);
+    $admin = db_one("SELECT id, name, email FROM users WHERE company_id = ? AND role = 'admin' ORDER BY id ASC LIMIT 1", 'i', [$companyId]);
+    $email = (string) ($admin['email'] ?? ($vault['email'] ?? ''));
+    $password = $vault ? sales_vault_decrypt((string) $vault['password_enc']) : '';
+    return [
+        'user_id' => (int) ($admin['id'] ?? 0),
+        'name' => (string) ($admin['name'] ?? ''),
+        'email' => $email,
+        'password' => $password,
+    ];
+}
+
+function sales_adjust_testing_days(int $companyId, int $deltaDays): array
+{
+    $company = db_one('SELECT * FROM companies WHERE id = ? AND testing_mode = 1', 'i', [$companyId]);
+    if (!$company) {
+        return ['ok' => false, 'error' => 'Testing company not found.'];
+    }
+    $exp = company_testing_expires_at($company) ?: (function_exists('desk_now') ? desk_now() : new DateTimeImmutable('now'));
+    $now = function_exists('desk_now') ? desk_now() : new DateTimeImmutable('now');
+    if ($exp < $now) {
+        $exp = $now;
+    }
+    $next = $exp->modify(($deltaDays >= 0 ? '+' : '') . $deltaDays . ' days');
+    if ($next < $now) {
+        $next = $now->modify('+1 hour');
+    }
+    $stamp = $next->format('Y-m-d H:i:s');
+    db_exec('UPDATE companies SET testing_expires_at = ? WHERE id = ?', 'si', [$stamp, $companyId]);
+    return ['ok' => true, 'expires_at' => $stamp];
+}
+
+function sales_set_testing_expiry(int $companyId, string $when): array
+{
+    $company = db_one('SELECT * FROM companies WHERE id = ? AND testing_mode = 1', 'i', [$companyId]);
+    if (!$company) {
+        return ['ok' => false, 'error' => 'Testing company not found.'];
+    }
+    $when = trim($when);
+    if ($when === '') {
+        return ['ok' => false, 'error' => 'Pick an end date.'];
+    }
+    try {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $when)) {
+            $when .= ' 23:59:59';
+        }
+        $dt = new DateTimeImmutable($when);
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'That end date is not valid.'];
+    }
+    $stamp = $dt->format('Y-m-d H:i:s');
+    db_exec('UPDATE companies SET testing_expires_at = ? WHERE id = ?', 'si', [$stamp, $companyId]);
+    return ['ok' => true, 'expires_at' => $stamp];
+}
+
+/** Clear testing flags so the desk can be finished as a normal onboard. */
+function sales_promote_testing_to_onboard(int $companyId): array
+{
+    $company = db_one('SELECT * FROM companies WHERE id = ? AND testing_mode = 1', 'i', [$companyId]);
+    if (!$company) {
+        return ['ok' => false, 'error' => 'Testing company not found.'];
+    }
+    db_exec(
+        "UPDATE companies SET testing_mode = 0, testing_owner_id = NULL, testing_expires_at = NULL, status = 'onboarding',
+         notes = CONCAT(COALESCE(notes,''), '\nPromoted from testing mode on ', DATE_FORMAT(NOW(), '%Y-%m-%d'))
+         WHERE id = ?",
+        'i',
+        [$companyId]
+    );
+    $lead = db_one('SELECT id, status FROM sales_leads WHERE company_id = ? ORDER BY id DESC LIMIT 1', 'i', [$companyId]);
+    if ($lead && (string) $lead['status'] === 'interested') {
+        db_exec("UPDATE sales_leads SET status='onboarding', updated_at=NOW() WHERE id=?", 'i', [(int) $lead['id']]);
+        sales_lead_event((int) $lead['id'], (int) (current_user()['id'] ?? 0), 'onboarding', 'interested', 'onboarding', 'Promoted testing company #' . $companyId);
+    }
+    return ['ok' => true, 'company_id' => $companyId];
+}
+
+function sales_update_testing_company(int $companyId, array $fields, ?int $agentId = null): array
+{
+    $company = sales_testing_company($companyId, $agentId);
+    if (!$company && $agentId === null) {
+        $company = db_one('SELECT * FROM companies WHERE id = ? AND testing_mode = 1', 'i', [$companyId]);
+    }
+    if (!$company) {
+        return ['ok' => false, 'error' => 'Testing company not found.'];
+    }
+    $name = trim((string) ($fields['name'] ?? $company['name']));
+    $phone = trim((string) ($fields['phone'] ?? ''));
+    $city = trim((string) ($fields['city'] ?? ''));
+    $address = trim((string) ($fields['address'] ?? ''));
+    $nature = function_exists('sanitize_nature_of_business')
+        ? sanitize_nature_of_business((string) ($fields['nature_of_business'] ?? ($company['nature_of_business'] ?? '')))
+        : trim((string) ($fields['nature_of_business'] ?? ''));
+    if ($name === '') {
+        return ['ok' => false, 'error' => 'Enter the business name.'];
+    }
+    $kindsPosted = $fields['enabled_kinds'] ?? ($_POST['enabled_kinds'] ?? null);
+    $kinds = is_array($kindsPosted) && $kindsPosted !== [] && function_exists('posted_enabled_kinds')
+        ? posted_enabled_kinds()
+        : (string) ($company['enabled_kinds'] ?? '');
+    $customDoc = function_exists('posted_custom_doc') && is_array($kindsPosted)
+        ? posted_custom_doc()
+        : (string) ($company['custom_doc'] ?? '');
+    $lineCols = function_exists('posted_document_line_columns') && isset($_POST['line_columns'])
+        ? posted_document_line_columns()
+        : (string) ($company['line_columns'] ?? '');
+
+    db_exec(
+        'UPDATE companies SET name=?, nature_of_business=?, enabled_kinds=?, custom_doc=?, line_columns=? WHERE id=?',
+        'sssssi',
+        [$name, $nature, $kinds, $customDoc, $lineCols, $companyId]
+    );
+    if (function_exists('posted_client_fields') && !empty($_POST['to_order_present'])) {
+        $cfg = posted_client_fields();
+        db_exec(
+            'UPDATE companies SET client_audience=?, client_fields=? WHERE id=?',
+            'ssi',
+            [$cfg['audience'], json_encode($cfg, JSON_UNESCAPED_UNICODE) ?: '{}', $companyId]
+        );
+    }
+    db_exec(
+        'UPDATE branding SET name=?, phone=?, city=?, address=?, account_name=? WHERE company_id=?',
+        'sssssi',
+        [$name, $phone, $city, $address, $name, $companyId]
+    );
+    $contact = trim((string) ($fields['contact_name'] ?? ''));
+    if ($contact !== '') {
+        $admin = db_one("SELECT id FROM users WHERE company_id = ? AND role = 'admin' ORDER BY id ASC LIMIT 1", 'i', [$companyId]);
+        if ($admin) {
+            db_exec('UPDATE users SET name = ? WHERE id = ?', 'si', [$contact, (int) $admin['id']]);
+        }
+    }
+    return ['ok' => true, 'company_id' => $companyId];
+}
+
+/** Open a testing desk as the desk admin (agent walkthrough), with return to sales portal. */
+function sales_testing_desk_enter(int $companyId, array $fromUser): array
+{
+    $role = (string) ($fromUser['role'] ?? '');
+    $agentId = $role === 'platform' ? null : (int) ($fromUser['id'] ?? 0);
+    $company = $agentId ? sales_testing_company($companyId, $agentId) : db_one('SELECT * FROM companies WHERE id = ? AND testing_mode = 1', 'i', [$companyId]);
+    if (!$company) {
+        return ['ok' => false, 'error' => 'Testing company not found.'];
+    }
+    if (company_testing_expired($company)) {
+        return ['ok' => false, 'error' => 'This testing desk has expired. Ask admin to extend the time or promote to onboard.'];
+    }
+    $admin = db_one("SELECT * FROM users WHERE company_id = ? AND role = 'admin' ORDER BY id ASC LIMIT 1", 'i', [$companyId]);
+    if (!$admin) {
+        return ['ok' => false, 'error' => 'No desk login on this testing company.'];
+    }
+    $_SESSION['sales_demo_return'] = [
+        'user_id' => (int) $fromUser['id'],
+        'company_id' => (int) ($fromUser['company_id'] ?? 0),
+        'role' => $role,
+        'acting_company_id' => (int) ($_SESSION['acting_company_id'] ?? 0),
+        'from_testing' => $companyId,
+    ];
+    unset($_SESSION['acting_company_id']);
+    $_SESSION['user_id'] = (int) $admin['id'];
+    $_SESSION['company_id'] = $companyId;
+    $_SESSION['role'] = (string) ($admin['role'] ?? 'admin');
+    unset($_SESSION['desk_welcome']);
+    if (function_exists('mark_desk_welcome_seen')) {
+        mark_desk_welcome_seen((int) $admin['id']);
+    }
+    if (function_exists('branding')) {
+        try {
+            branding(true);
+        } catch (Throwable $e) {
+            // ignore
+        }
+    }
+    return ['ok' => true, 'company_id' => $companyId, 'name' => (string) $company['name']];
+}
+
 function sales_leads_query(array $opts = []): array
 {
     $where = ['1=1'];
@@ -2473,11 +2912,12 @@ function sales_layout_start(string $title, array $user): void
     $notes = sales_notifications_for_agent((int) $user['id']);
     $noteCount = count($notes);
     $avatar = sales_avatar_url($user);
-    // Grouped field nav: work → chat → results → tools → account.
+    // Grouped field nav: work → companies → chat → results → tools → account.
     $navGroups = [
         ['label' => 'Work', 'items' => [
             ['sales_home.php', 'Home', 'home'],
             ['sales_leads.php', 'Leads', 'clients'],
+            ['sales_companies.php', 'My companies', 'building'],
         ]],
         ['label' => 'Chat', 'items' => [
             ['sales_messages.php', 'Messages', 'mail'],
@@ -2486,7 +2926,7 @@ function sales_layout_start(string $title, array $user): void
             ['sales_performance.php', 'Performance', 'reports'],
         ]],
         ['label' => 'Tools', 'items' => [
-            ['sales_demo.php', 'Demo', 'building'],
+            ['sales_demo.php', 'Demo', 'desk'],
             // Same-origin marketing home - session stays; index.php allows sales_agent viewers.
             ['index.php', 'Website', 'globe'],
         ]],
@@ -2527,7 +2967,11 @@ function sales_layout_start(string $title, array $user): void
               [$href, $label, $iconName] = $item;
               $external = !empty($item[3]);
               $file = $external ? '' : (string) strtok($href, '?');
-              $active = !$external && ($file === $here || ($here === 'sales_lead_edit.php' && $file === 'sales_leads.php'));
+              $active = !$external && (
+                  $file === $here
+                  || ($here === 'sales_lead_edit.php' && $file === 'sales_leads.php')
+                  || (in_array($here, ['sales_company.php', 'sales_company_new.php', 'sales_desk.php'], true) && $file === 'sales_companies.php')
+              );
               $badge = (!$external && $file === 'sales_messages.php' && $unread) ? $unread : 0;
               $linkHref = $external ? $href : url($href);
               ?>
@@ -2602,9 +3046,9 @@ function sales_layout_end(string $extra = ''): void
 <nav class="app-tabbar sales-tabbar" aria-label="Sales" data-app-tabbar style="position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;z-index:9999;margin:0">
   <a class="app-tab<?= basename($_SERVER['SCRIPT_NAME'] ?? '') === 'sales_home.php' ? ' is-on' : '' ?>" href="<?= h(url('sales_home.php')) ?>"><?= icon('home', 22) ?><span>Home</span></a>
   <a class="app-tab<?= in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['sales_leads.php', 'sales_lead_edit.php'], true) ? ' is-on' : '' ?>" href="<?= h(url('sales_leads.php')) ?>"><?= icon('clients', 22) ?><span>Leads</span></a>
-  <a class="app-tab app-tab-create" href="<?= h(url('sales_lead_edit.php')) ?>"><span class="app-tab-plus"><?= icon('plus', 26) ?></span><span>New</span></a>
+  <a class="app-tab<?= in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['sales_companies.php', 'sales_company.php', 'sales_company_new.php', 'sales_desk.php'], true) ? ' is-on' : '' ?>" href="<?= h(url('sales_companies.php')) ?>"><?= icon('building', 22) ?><span>Companies</span></a>
+  <a class="app-tab app-tab-create" href="<?= h(url('sales_company_new.php')) ?>"><span class="app-tab-plus"><?= icon('plus', 26) ?></span><span>Test</span></a>
   <a class="app-tab<?= basename($_SERVER['SCRIPT_NAME'] ?? '') === 'sales_messages.php' ? ' is-on' : '' ?>" href="<?= h(url('sales_messages.php')) ?>"><?= icon('mail', 22) ?><span>Chat</span></a>
-  <a class="app-tab<?= basename($_SERVER['SCRIPT_NAME'] ?? '') === 'index.php' ? ' is-on' : '' ?>" href="<?= h(url('index.php')) ?>" title="Vellisys home page"><?= icon('globe', 22) ?><span>Website</span></a>
 </nav>
 <script src="<?= h(asset('js/app.js')) ?>" defer></script>
 <?= $extra ?>

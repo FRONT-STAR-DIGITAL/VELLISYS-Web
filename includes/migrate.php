@@ -25,7 +25,7 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '58';
+    return '59';
 }
 
 /** Strip temporary desk login addresses off document letterheads. */
@@ -851,13 +851,34 @@ function folio_migrate(mysqli $db): void
     if ($ver < 51) {
         folio_migrate_purge_ofagros_fees($db);
     }
+    if ($ver < 52) {
+        folio_migrate_testing_mode($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '51')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '52')");
     @touch($ready);
     $done = true;
     } finally {
         mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
     }
+}
+
+/** Sales-agent testing desks: 2-week trial companies owned by an agent. */
+function folio_migrate_testing_mode(mysqli $db): void
+{
+    if (!db_has_column($db, 'companies', 'testing_mode')) {
+        @$db->query('ALTER TABLE companies ADD COLUMN testing_mode TINYINT(1) NOT NULL DEFAULT 0');
+        db_has_column($db, 'companies', 'testing_mode', true);
+    }
+    if (!db_has_column($db, 'companies', 'testing_owner_id')) {
+        @$db->query('ALTER TABLE companies ADD COLUMN testing_owner_id INT UNSIGNED NULL');
+        db_has_column($db, 'companies', 'testing_owner_id', true);
+    }
+    if (!db_has_column($db, 'companies', 'testing_expires_at')) {
+        @$db->query('ALTER TABLE companies ADD COLUMN testing_expires_at DATETIME NULL');
+        db_has_column($db, 'companies', 'testing_expires_at', true);
+    }
+    @$db->query('CREATE INDEX idx_companies_testing ON companies (testing_mode, testing_owner_id)');
 }
 
 function folio_migrate_platform_ops(mysqli $db): void
@@ -2261,6 +2282,7 @@ function folio_migrate_sales_field(mysqli $db): void
       KEY user_id (user_id),
       KEY status_created (status, created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    folio_migrate_testing_mode($db);
 }
 
 function folio_ensure_sales_demo(mysqli $db): void
