@@ -292,21 +292,24 @@ layout_admin_start('Finances', $user);
   <?php endif; ?>
 </div>
 
-<?php if (array_sum($chart) > 0): ?>
-<script src="<?= h(asset('js/chart.umd.min.js')) ?>"></script>
-<script>
-(function () {
-  var el = document.getElementById('chart-finance');
-  if (!el || !window.Chart) return;
-  new Chart(el, {
-    type: 'line',
-    data: {
-      labels: <?= json_encode($months) ?>,
-      datasets: [{ label: <?= json_encode('Taken in (' . $ccy . ')') ?>, data: <?= json_encode($chart) ?>, borderColor: '#1E4EFF', tension: 0.25, fill: false }]
-    },
-    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
-  });
+<?php
+$financeChartJs = '';
+if (array_sum($chart) > 0) {
+    $financeChartJs = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script>
+(function(){
+  function go(){
+    if(!window.Chart||typeof window.vellisysChartTooltip!=="function"){ setTimeout(go,40); return; }
+    var el=document.getElementById("chart-finance");
+    if(!el) return;
+    new Chart(el,{
+      type:"line",
+      data:{labels:' . json_encode($months) . ',datasets:[{label:' . json_encode('Taken in (' . $ccy . ')') . ',data:' . json_encode($chart) . ',borderColor:"#1E4EFF",tension:0.25,fill:false}]},
+      options:{responsive:true,plugins:{legend:{display:false},tooltip:window.vellisysChartTooltip()},scales:{y:{beginAtZero:true}}}
+    });
+  }
+  go();
 })();
-</script>
-<?php endif; ?>
-<?php layout_end(); ?>
+</script>';
+}
+layout_end($financeChartJs);
+?>

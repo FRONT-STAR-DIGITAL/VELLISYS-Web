@@ -486,6 +486,8 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
 $payload = json_encode($adminChart, JSON_UNESCAPED_UNICODE);
 $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script>
 (function(){
+  function go(){
+  if(!window.Chart||typeof window.vellisysChartTooltip!=="function"){ setTimeout(go,40); return; }
   var d = ' . $payload . ';
   Chart.defaults.font.family = "Montserrat, sans-serif";
   Chart.defaults.color = "#66705f";
@@ -515,15 +517,19 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
           { label: "Companies created", data: d.companies, borderColor: "#82B440", backgroundColor: "rgba(130,180,64,.18)", tension: .25, fill: true }
         ]
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, scales: { y: { ticks: { precision: 0 } } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, tooltip: window.vellisysChartTooltip() }, scales: { y: { ticks: { precision: 0 } } } }
     });
   }
+  var tipCount = window.vellisysChartTooltip();
+  var tipMoney = window.vellisysChartTooltip(money);
+  var piePlug = window.vellisysPiePercentPlugins();
   var status = document.getElementById("chart-status");
   if (status) {
     new Chart(status, {
       type: "pie",
       data: { labels: d.statusLabels, datasets: [{ data: d.statusValues, backgroundColor: ["#c4a35a","#82B440","#b42318"] }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, tooltip: tipCount } },
+      plugins: piePlug
     });
   }
   var expiry = document.getElementById("chart-expiry");
@@ -531,7 +537,8 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
     new Chart(expiry, {
       type: "doughnut",
       data: { labels: d.expiryLabels, datasets: [{ data: d.expiryValues, backgroundColor: ["#82B440","#c4a35a","#b42318","#6b7c5e"] }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, tooltip: tipCount } },
+      plugins: piePlug
     });
   }
   var funnel = document.getElementById("chart-funnel");
@@ -539,7 +546,8 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
     new Chart(funnel, {
       type: "pie",
       data: { labels: d.funnelLabels, datasets: [{ data: d.funnelValues, backgroundColor: palette }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, tooltip: tipCount } },
+      plugins: piePlug
     });
   }
   var fees = document.getElementById("chart-fees");
@@ -553,7 +561,7 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
           { label: "Balance", data: d.feeBalance, backgroundColor: "#b42318" }
         ]
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, scales: { x: { stacked: true }, y: { stacked: true, ticks: { callback: money } } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, tooltip: tipMoney }, scales: { x: { stacked: true }, y: { stacked: true, ticks: { callback: money } } } }
     });
   }
   var visits = document.getElementById("chart-visits");
@@ -568,7 +576,7 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
           { label: "App", data: d.visitApp, borderColor: "#82B440", backgroundColor: "rgba(130,180,64,.14)", tension: .25, fill: true }
         ]
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, scales: { y: { ticks: { precision: 0 } } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, tooltip: tipCount }, scales: { y: { ticks: { precision: 0 } } } }
     });
   }
   var visitCountries = document.getElementById("chart-visit-countries");
@@ -576,9 +584,11 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
     new Chart(visitCountries, {
       type: "bar",
       data: { labels: d.visitCountryNames, datasets: [{ label: "Visits", data: d.visitCountryValues, backgroundColor: "#1E4EFF" }] },
-      options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { precision: 0 } } } }
+      options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: tipCount }, scales: { x: { ticks: { precision: 0 } } } }
     });
   }
+  }
+  go();
 })();
 </script>';
 layout_end($script);

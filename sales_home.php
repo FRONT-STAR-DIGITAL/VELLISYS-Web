@@ -217,12 +217,14 @@ if ($clockedIn) {
     $extra = '<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script defer>
 (function(){
   function go(){
-    if(!window.Chart){ setTimeout(go,40); return; }
+    if(!window.Chart||typeof window.vellisysChartTooltip!=="function"){ setTimeout(go,40); return; }
     var d=' . $payload . ';
+    var tip=window.vellisysChartTooltip();
+    var piePlug=window.vellisysPiePercentPlugins();
     var pie=document.getElementById("home-pie");
-    if(pie){ new Chart(pie,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"}},maintainAspectRatio:false}}); }
+    if(pie){ new Chart(pie,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"},tooltip:tip},maintainAspectRatio:false},plugins:piePlug}); }
     var bar=document.getElementById("home-bar");
-    if(bar){ new Chart(bar,{type:"bar",data:{labels:d.barLabels,datasets:[{data:d.barValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderRadius:6}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}}); }
+    if(bar){ new Chart(bar,{type:"bar",data:{labels:d.barLabels,datasets:[{data:d.barValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderRadius:6}]},options:{plugins:{legend:{display:false},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}}); }
   }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",go); else go();
 })();

@@ -538,8 +538,9 @@ $chartPayload = json_encode([
 layout_end(
     '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script>
 (function(){
+  function go(){
+  if(!window.Chart||typeof window.vellisysChartTooltip!=="function"){ setTimeout(go,40); return; }
   var d=' . $chartPayload . ';
-  if(!window.Chart) return;
   var brand=d.color||"#1E4EFF";
   var soft="rgba(30,78,255,.18)";
   try {
@@ -615,8 +616,10 @@ layout_end(
   var barSoft="color-mix(in srgb, "+brand+" 35%, #c5d4ff)";
   var c2=document.getElementById("admin-dash-docs");
   if(c2){
-    new Chart(c2,{type:"bar",data:{labels:d.labels,datasets:[{label:"Documents",data:d.docs,backgroundColor:brand,borderRadius:6,barPercentage:.55},{label:"Events",data:d.acts,backgroundColor:barSoft,borderRadius:6,barPercentage:.55}]},options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{stacked:false,grid:{display:false},ticks:{color:"#6b7280",font:{size:11}}},y:{beginAtZero:true,grid:{color:"rgba(8,20,58,.06)"},ticks:{color:"#6b7280",precision:0,font:{size:11}}}}});
+    new Chart(c2,{type:"bar",data:{labels:d.labels,datasets:[{label:"Documents",data:d.docs,backgroundColor:brand,borderRadius:6,barPercentage:.55},{label:"Events",data:d.acts,backgroundColor:barSoft,borderRadius:6,barPercentage:.55}]},options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:window.vellisysChartTooltip()},scales:{x:{stacked:false,grid:{display:false},ticks:{color:"#6b7280",font:{size:11}}},y:{beginAtZero:true,grid:{color:"rgba(8,20,58,.06)"},ticks:{color:"#6b7280",precision:0,font:{size:11}}}}});
   }
+  }
+  go();
 })();
 </script>
 <script>

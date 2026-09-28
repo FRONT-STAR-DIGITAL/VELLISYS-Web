@@ -152,25 +152,27 @@ $payload = json_encode([
 $extra = '<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script defer>
 (function(){
   function go(){
-    if(!window.Chart){ setTimeout(go,40); return; }
+    if(!window.Chart||typeof window.vellisysChartTooltip!=="function"){ setTimeout(go,40); return; }
     var d=' . $payload . ';
+    var tip=window.vellisysChartTooltip();
+    var piePlug=window.vellisysPiePercentPlugins();
     var pie=document.getElementById("chart-pie");
-    if(pie){ new Chart(pie,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"}},maintainAspectRatio:false}}); }
+    if(pie){ new Chart(pie,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"},tooltip:tip},maintainAspectRatio:false},plugins:piePlug}); }
     var line=document.getElementById("chart-line");
     if(line){
       if(d.daily){
-        new Chart(line,{type:"bar",data:{labels:d.barLabels,datasets:[{data:d.barValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderRadius:6}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});
+        new Chart(line,{type:"bar",data:{labels:d.barLabels,datasets:[{data:d.barValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderRadius:6}]},options:{plugins:{legend:{display:false},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});
       } else {
-        new Chart(line,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Sales",data:d.wins,borderColor:"#0f766e",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"}},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});
+        new Chart(line,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Sales",data:d.wins,borderColor:"#0f766e",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});
       }
     }
     var hours=document.getElementById("chart-hours");
     if(hours){
-      new Chart(hours,{type:"line",data:{labels:d.hourLabels,datasets:[{label:"Hours in field",data:d.hours,borderColor:d.color,backgroundColor:d.color+"33",tension:.35,fill:true,pointRadius:3}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,title:{display:true,text:"Hours"}}},maintainAspectRatio:false}});
+      new Chart(hours,{type:"line",data:{labels:d.hourLabels,datasets:[{label:"Hours in field",data:d.hours,borderColor:d.color,backgroundColor:d.color+"33",tension:.35,fill:true,pointRadius:3}]},options:{plugins:{legend:{display:false},tooltip:tip},scales:{y:{beginAtZero:true,title:{display:true,text:"Hours"}}},maintainAspectRatio:false}});
     }
     var clientTime=document.getElementById("chart-client-time");
     if(clientTime){
-      new Chart(clientTime,{type:"line",data:{labels:d.clientTimeLabels,datasets:[{label:"Avg minutes / client",data:d.clientTime,borderColor:"#0f766e",backgroundColor:"rgba(15,118,110,.18)",tension:.35,fill:true,pointRadius:3}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,title:{display:true,text:"Minutes"}}},maintainAspectRatio:false}});
+      new Chart(clientTime,{type:"line",data:{labels:d.clientTimeLabels,datasets:[{label:"Avg minutes / client",data:d.clientTime,borderColor:"#0f766e",backgroundColor:"rgba(15,118,110,.18)",tension:.35,fill:true,pointRadius:3}]},options:{plugins:{legend:{display:false},tooltip:tip},scales:{y:{beginAtZero:true,title:{display:true,text:"Minutes"}}},maintainAspectRatio:false}});
     }
   }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",go); else go();

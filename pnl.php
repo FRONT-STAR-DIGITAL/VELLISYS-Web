@@ -248,8 +248,10 @@ layout_start('Profit & Loss', $user);
 $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script>
 document.addEventListener("DOMContentLoaded", function () {
 (function(){
+  function go(){
+  if (!window.Chart || typeof window.vellisysChartTooltip !== "function") { setTimeout(go, 40); return; }
   var d = ' . $chartPayload . ';
-  if (!window.Chart || !d) return;
+  if (!d) return;
   Chart.defaults.font.family = "Montserrat, sans-serif";
   Chart.defaults.color = "#66705f";
   var brand = getComputedStyle(document.documentElement).getPropertyValue("--brand").trim() || "#82B440";
@@ -282,9 +284,11 @@ document.addEventListener("DOMContentLoaded", function () {
           { label: "Net", data: d.net, borderColor: deep, tension: .3, fill: false }
         ]
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, scales: { y: { ticks: { callback: money } } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, tooltip: window.vellisysChartTooltip(money) }, scales: { y: { ticks: { callback: money } } } }
     });
   }
+  var tipMoney = window.vellisysChartTooltip(money);
+  var piePlug = window.vellisysPiePercentPlugins();
   var cash = document.getElementById("pnl-chart-cash");
   if (cash) {
     new Chart(cash, {
@@ -293,7 +297,7 @@ document.addEventListener("DOMContentLoaded", function () {
         labels: d.months,
         datasets: [{ label: "Cash net", data: d.cash, backgroundColor: d.cash.map(function(v){ return v < 0 ? "#b42318" : brand; }) }]
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: money } } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: tipMoney }, scales: { y: { ticks: { callback: money } } } }
     });
   }
   var income = document.getElementById("pnl-chart-income");
@@ -301,7 +305,8 @@ document.addEventListener("DOMContentLoaded", function () {
     new Chart(income, {
       type: "doughnut",
       data: { labels: d.incomeCatLabels, datasets: [{ data: d.incomeCatValues, backgroundColor: palette }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, tooltip: tipMoney } },
+      plugins: piePlug
     });
   }
   var expense = document.getElementById("pnl-chart-expense");
@@ -309,9 +314,12 @@ document.addEventListener("DOMContentLoaded", function () {
     new Chart(expense, {
       type: "doughnut",
       data: { labels: d.expenseCatLabels, datasets: [{ data: d.expenseCatValues, backgroundColor: palette.slice().reverse() }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, tooltip: tipMoney } },
+      plugins: piePlug
     });
   }
+  }
+  go();
 })();
 });
 </script>';

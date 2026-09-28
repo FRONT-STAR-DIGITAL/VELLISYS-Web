@@ -278,20 +278,25 @@ layout_start('Branches', $user);
     ], JSON_UNESCAPED_UNICODE);
     $extraJs = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script>
 (function(){
+  function go(){
+  if(!window.Chart||typeof window.vellisysChartTooltip!=="function"){ setTimeout(go,40); return; }
   var d = ' . $payload . ';
   var brand = d.color || "#82B440";
   var palette = [brand, "#1f3a12", "#b42318", "#1E4EFF", "#c4a35a", "#4a6fa5", "#66705f", "#82B440"];
   function pie(id, values) {
     var el = document.getElementById(id);
-    if (!el || !window.Chart) return;
+    if (!el) return;
     new Chart(el, {
       type: "pie",
       data: { labels: d.incomeLabels, datasets: [{ data: values, backgroundColor: palette }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, tooltip: window.vellisysChartTooltip() } },
+      plugins: window.vellisysPiePercentPlugins()
     });
   }
   pie("chart-branch-income", d.incomeValues);
   pie("chart-branch-expense", d.expenseValues);
+  }
+  go();
 })();
 </script>';
     echo '</div>';

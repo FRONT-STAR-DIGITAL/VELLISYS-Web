@@ -52,7 +52,12 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom' } },
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: typeof window.vellisysChartTooltip === 'function'
+            ? window.vellisysChartTooltip(function (v) { return money(boot, v); })
+            : undefined
+        },
         scales: {
           y: {
             beginAtZero: true,
@@ -72,7 +77,7 @@
   function whenReady(fn) {
     var tries = 0;
     function go() {
-      if (window.Chart) {
+      if (window.Chart && typeof window.vellisysChartTooltip === 'function') {
         fn();
         return;
       }

@@ -443,9 +443,10 @@ layout_start('Banking', $user);
 <?php
     $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script>
 document.addEventListener("DOMContentLoaded", function () {
+  function go(){
+  if (!window.Chart || typeof window.vellisysChartTooltip !== "function") { setTimeout(go, 40); return; }
   var d = ' . $payload . ';
   var brand = d.color || "#1E4EFF";
-  if (typeof Chart === "undefined") return;
   Chart.defaults.font.family = "Montserrat, sans-serif";
   Chart.defaults.color = "#66705f";
   function money(v){
@@ -465,9 +466,10 @@ document.addEventListener("DOMContentLoaded", function () {
           { label: "Withdrawals", data: d.withdrawals, backgroundColor: "#b42318" }
         ]
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, scales: { y: { ticks: { callback: money } } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, tooltip: window.vellisysChartTooltip(money) }, scales: { y: { ticks: { callback: money } } } }
     });
   }
+  var tipMoney = window.vellisysChartTooltip(money);
   var ac = document.getElementById("chart-bank-accounts");
   if (ac) {
     new Chart(ac, {
@@ -479,7 +481,7 @@ document.addEventListener("DOMContentLoaded", function () {
           { label: "Withdrawals", data: d.acctWd, backgroundColor: "#b42318" }
         ]
       },
-      options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, scales: { x: { ticks: { callback: money } } } }
+      options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, tooltip: tipMoney }, scales: { x: { ticks: { callback: money } } } }
     });
   }
   var purpose = document.getElementById("chart-bank-purpose");
@@ -487,9 +489,12 @@ document.addEventListener("DOMContentLoaded", function () {
     new Chart(purpose, {
       type: "doughnut",
       data: { labels: d.purposeLabels, datasets: [{ data: d.purposeValues, backgroundColor: [brand,"#1f3a12","#c4a35a","#4a6fa5","#b42318","#6b7c5e","#8d6e63","#546e7a"] }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, tooltip: tipMoney } },
+      plugins: window.vellisysPiePercentPlugins()
     });
   }
+  }
+  go();
 });
 </script>';
     layout_end($script);

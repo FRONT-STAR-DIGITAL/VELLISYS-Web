@@ -37,6 +37,105 @@ window.vellisysChartMoney = function (currency) {
   };
 };
 
+/** Hover tooltips that always show the numeric value (and % for pie/doughnut). Optional fmt(n) for money. */
+window.vellisysChartTooltip = function (fmt) {
+  return {
+    enabled: true,
+    callbacks: {
+      label: function (ctx) {
+        var type = (ctx.chart && ctx.chart.config && ctx.chart.config.type) || '';
+        var label = ctx.dataset.label || ctx.label || '';
+        var raw = ctx.parsed;
+        var v = (raw && typeof raw === 'object') ? (raw.y != null ? raw.y : (raw.r != null ? raw.r : 0)) : raw;
+        if (v == null || v === '') v = ctx.raw;
+        v = Number(v);
+        if (!isFinite(v)) v = 0;
+        var shown = typeof fmt === 'function' ? fmt(v) : (Math.round(v * 10) / 10).toLocaleString('en-US');
+        if (type === 'doughnut' || type === 'pie') {
+          var data = ctx.dataset.data || [];
+          var total = 0;
+          for (var i = 0; i < data.length; i++) total += Number(data[i]) || 0;
+          var pct = total > 0 ? Math.round((v / total) * 100) : 0;
+          return (label ? label + ': ' : '') + shown + ' (' + pct + '%)';
+        }
+        return (label ? label + ': ' : '') + shown;
+      }
+    }
+  };
+};
+
+/** Draw percentages inside pie/doughnut slices. */
+window.vellisysPiePercentPlugin = {
+  id: 'vellisysPiePercent',
+  afterDatasetsDraw: function (chart) {
+    var type = (chart.config && chart.config.type) || '';
+    if (type !== 'doughnut' && type !== 'pie') return;
+    var meta = chart.getDatasetMeta(0);
+    if (!meta || !meta.data) return;
+    var data = (chart.data.datasets[0] && chart.data.datasets[0].data) || [];
+    var total = 0;
+    for (var i = 0; i < data.length; i++) total += Number(data[i]) || 0;
+    if (total <= 0) return;
+    var ctx = chart.ctx;
+    meta.data.forEach(function (el, idx) {
+      var v = Number(data[idx]) || 0;
+      if (v <= 0) return;
+      var pct = Math.round((v / total) * 100);
+      if (pct < 6) return;
+      var pos = el.tooltipPosition();
+      ctx.save();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '700 12px "DM Sans", system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(pct + '%', pos.x, pos.y);
+      ctx.restore();
+    });
+  }
+};
+window.vellisysPiePercentPlugins = function () {
+  return [window.vellisysPiePercentPlugin];
+};
+
+/** Stop double-clicks from posting the same form twice (network lag / impatient taps). */
+(function bindSingleSubmit() {
+  function isPostForm(form) {
+    if (!form) return false;
+    if (form.getAttribute('data-allow-resubmit') === '1') return false;
+    var method = (form.getAttribute('method') || form.method || 'get').toLowerCase();
+    return method === 'post';
+  }
+  function lockForm(form) {
+    if (!isPostForm(form)) return false;
+    if (form.dataset.submitting === '1') return true;
+    form.dataset.submitting = '1';
+    var buttons = form.querySelectorAll('button[type="submit"], input[type="submit"]');
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].disabled = true;
+      buttons[i].setAttribute('aria-busy', 'true');
+    }
+    return false;
+  }
+  document.addEventListener('submit', function (e) {
+    var form = e.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    if (lockForm(form)) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, true);
+  document.addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest('button[type="submit"], input[type="submit"]') : null;
+    if (!btn || btn.disabled) return;
+    var form = btn.form || (btn.closest ? btn.closest('form') : null);
+    if (!form || !isPostForm(form)) return;
+    if (form.dataset.submitting === '1') {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, true);
+})();
+
 function eventEl(e) {
   var el = e && e.target;
   if (el && el.nodeType === 3) el = el.parentElement;

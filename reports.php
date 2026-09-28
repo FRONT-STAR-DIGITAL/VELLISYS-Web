@@ -709,8 +709,9 @@ if (!is_string($payload) || $payload === '') {
 $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script>
 (function(){
   function start(){
+  if (!window.Chart || typeof window.vellisysChartTooltip !== "function") { setTimeout(start, 40); return; }
   var d = ' . $payload . ';
-  if (!d || typeof d !== "object" || !window.Chart) return;
+  if (!d || typeof d !== "object") return;
   var brand = d.color || "#82B440";
   Chart.defaults.font.family = "Montserrat, sans-serif";
   Chart.defaults.color = "#66705f";
@@ -734,6 +735,9 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
     if (arr && arr.length) return arr;
     var z = []; for (var i = 0; i < (n || 1); i++) z.push(0); return z;
   }
+  var tipMoney = window.vellisysChartTooltip(money);
+  var tipCount = window.vellisysChartTooltip();
+  var piePlug = window.vellisysPiePercentPlugins();
   var line = document.getElementById("chart-series");
   if (line) {
     var labs = safeLabels(d.labels);
@@ -749,7 +753,7 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
           { label: "Net profit", data: safeData(d.net, labs.length), borderColor: "#1E4EFF", backgroundColor: "transparent", tension: .25, fill: false }
         ]
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, scales: { y: { beginAtZero: true, ticks: { callback: money } } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, tooltip: tipMoney }, scales: { y: { beginAtZero: true, ticks: { callback: money } } } }
     });
   }
   var pie = document.getElementById("chart-pie");
@@ -757,7 +761,8 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
     new Chart(pie, {
       type: "pie",
       data: { labels: safeLabels(d.pieLabels), datasets: [{ data: safeData(d.pieValues), backgroundColor: palette }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, tooltip: tipMoney } },
+      plugins: piePlug
     });
   }
   var bar = document.getElementById("chart-bar");
@@ -765,7 +770,7 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
     new Chart(bar, {
       type: "bar",
       data: { labels: safeLabels(d.barLabels), datasets: [{ label: "Balance", data: safeData(d.barValues), backgroundColor: brand }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { callback: money } } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: tipMoney }, scales: { y: { beginAtZero: true, ticks: { callback: money } } } }
     });
   }
   var collect = document.getElementById("chart-collect");
@@ -773,7 +778,8 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
     new Chart(collect, {
       type: "doughnut",
       data: { labels: d.collectLabels || ["Collected", "Outstanding"], datasets: [{ data: safeData(d.collectValues, 2), backgroundColor: [brand, "#b42318"] }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, tooltip: tipMoney } },
+      plugins: piePlug
     });
   }
   var quotes = document.getElementById("chart-quotes");
@@ -781,7 +787,8 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
     new Chart(quotes, {
       type: "pie",
       data: { labels: d.quoteLabels || ["Converted", "Still open"], datasets: [{ data: safeData(d.quoteValues, 2), backgroundColor: [brand, "#c4a35a"] }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, tooltip: tipCount } },
+      plugins: piePlug
     });
   }
   var clients = document.getElementById("chart-clients");
@@ -789,7 +796,7 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
     new Chart(clients, {
       type: "bar",
       data: { labels: safeLabels(d.clientLabels), datasets: [{ label: "Billed", data: safeData(d.clientValues), backgroundColor: brand }] },
-      options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { callback: money } } } }
+      options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: tipMoney }, scales: { x: { beginAtZero: true, ticks: { callback: money } } } }
     });
   }
   var mix = document.getElementById("chart-mix");
@@ -807,7 +814,7 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
           { label: "Letters", data: safeData(d.mixLetters, mixLabs.length), backgroundColor: "#c4a35a" }
         ]
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, tooltip: tipCount }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } } }
     });
   }
   }

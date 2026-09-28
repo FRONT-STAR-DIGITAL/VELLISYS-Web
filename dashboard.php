@@ -409,6 +409,8 @@ $payload = json_encode([
 ], JSON_UNESCAPED_UNICODE);
 $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script>
 (function(){
+  function go(){
+  if(!window.Chart||typeof window.vellisysChartTooltip!=="function"){ setTimeout(go,40); return; }
   var d = ' . $payload . ';
   var brand = d.color || "#1E4EFF";
   Chart.defaults.font.family = "Montserrat, sans-serif";
@@ -440,15 +442,18 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
           { label: "Cash in", data: d.cash, borderColor: "#0f766e", backgroundColor: "transparent", tension: .35, fill: false, borderWidth: 2, pointRadius: 3 }
         ]
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, scales: { y: { beginAtZero: true, ticks: { callback: money }, grid: { color: "rgba(8,20,58,.06)" } }, x: { grid: { display: false } } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, tooltip: window.vellisysChartTooltip(money) }, scales: { y: { beginAtZero: true, ticks: { callback: money }, grid: { color: "rgba(8,20,58,.06)" } }, x: { grid: { display: false } } } }
     });
   }
+  var tipMoney = window.vellisysChartTooltip(money);
+  var piePlug = window.vellisysPiePercentPlugins();
   var collect = document.getElementById("desk-chart-collect");
   if (collect) {
     new Chart(collect, {
       type: "doughnut",
       data: { labels: ["Collected", "Still open"], datasets: [{ data: d.collect, backgroundColor: [brand, "rgba(8,20,58,.12)"], borderWidth: 0 }] },
-      options: { cutout: "68%", responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
+      options: { cutout: "68%", responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, tooltip: tipMoney } },
+      plugins: piePlug
     });
   }
   var spend = document.getElementById("desk-chart-spend");
@@ -456,7 +461,8 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
     new Chart(spend, {
       type: "doughnut",
       data: { labels: d.cats, datasets: [{ data: d.catVals, backgroundColor: [brand, "#08143A", "#c4a35a", "#0f766e", "#b42318", "#64748b"], borderWidth: 0 }] },
-      options: { cutout: "58%", responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
+      options: { cutout: "58%", responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, tooltip: tipMoney } },
+      plugins: piePlug
     });
   }
   var clients = document.getElementById("desk-chart-clients");
@@ -464,9 +470,11 @@ $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><scrip
     new Chart(clients, {
       type: "bar",
       data: { labels: d.clients, datasets: [{ label: "Billed", data: d.clientVals, backgroundColor: brand, borderRadius: 8 }] },
-      options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { callback: money }, grid: { color: "rgba(8,20,58,.06)" } }, y: { grid: { display: false } } } }
+      options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: tipMoney }, scales: { x: { ticks: { callback: money }, grid: { color: "rgba(8,20,58,.06)" } }, y: { grid: { display: false } } } }
     });
   }
+  }
+  go();
 })();
 </script>';
 if (function_exists('render_desk_need_help')) {

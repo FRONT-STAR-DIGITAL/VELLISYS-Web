@@ -990,6 +990,26 @@ function sales_lead_save(array $fields, ?int $id = null, ?int $agentId = null): 
         return ['ok' => true, 'id' => $id];
     }
 
+    // Ignore a second submit of the same lead within ~2 minutes (double-tap / slow network).
+    try {
+        $dup = db_one(
+            "SELECT id FROM sales_leads
+             WHERE agent_id = ? AND status = ? AND business_name = ? AND city = ?
+               AND nature_of_business = ? AND rejected_category = ? AND rejected_reason = ?
+               AND COALESCE(contact_phone,'') = ? AND COALESCE(follow_up_date,'') = COALESCE(?,'')
+               AND deleted_at IS NULL
+               AND created_at >= DATE_SUB(NOW(), INTERVAL 2 MINUTE)
+             ORDER BY id DESC LIMIT 1",
+            'issssssss',
+            [$agentId, $status, $business, $city, $nature, $rejectedCat, $rejected, $contactPhone, $followDate]
+        );
+        if ($dup && (int) ($dup['id'] ?? 0) > 0) {
+            return ['ok' => true, 'id' => (int) $dup['id'], 'duplicate' => true];
+        }
+    } catch (Throwable $e) {
+        // Continue to insert if the guard query fails.
+    }
+
     $newId = db_exec(
         'INSERT INTO sales_leads (agent_id, status, business_name, address, contact_name, contact_phone, city,
          nature_of_business, package_chosen, onboard_date, follow_up_date, follow_up_time, interest_rating, rejected_reason, rejected_category, notes)
