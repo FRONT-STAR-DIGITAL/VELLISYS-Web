@@ -713,7 +713,8 @@ function sales_lead_save(array $fields, ?int $id = null, ?int $agentId = null): 
     $contactName = mb_substr(trim((string) ($fields['contact_name'] ?? '')), 0, 120);
     $contactPhone = mb_substr(trim((string) ($fields['contact_phone'] ?? '')), 0, 40);
     $city = mb_substr(trim((string) ($fields['city'] ?? '')), 0, 120);
-    $notes = mb_substr(trim((string) ($fields['notes'] ?? '')), 0, 2000);
+    $notesProvided = array_key_exists('notes', $fields);
+    $notes = $notesProvided ? mb_substr(trim((string) ($fields['notes'] ?? '')), 0, 2000) : '';
     $nature = '';
     $package = '';
     $onboardDate = null;
@@ -740,11 +741,15 @@ function sales_lead_save(array $fields, ?int $id = null, ?int $agentId = null): 
     } elseif ($status === 'rejected') {
         $rejectedCat = trim((string) ($fields['rejected_category'] ?? ''));
         if (!isset(sales_reject_reasons()[$rejectedCat])) {
-            return ['ok' => false, 'error' => 'Pick a rejection reason from the list.'];
+            return ['ok' => false, 'error' => 'Pick why they rejected Vellisys from the list.'];
         }
         $rejected = mb_substr(trim((string) ($fields['rejected_reason'] ?? '')), 0, 500);
         if ($rejected === '') {
-            return ['ok' => false, 'error' => 'Explain the rejection below the dropdown.'];
+            return ['ok' => false, 'error' => 'Explain the rejection.'];
+        }
+        $nature = mb_substr(trim((string) ($fields['nature_of_business'] ?? '')), 0, 190);
+        if ($nature === '') {
+            return ['ok' => false, 'error' => 'Add the nature of business.'];
         }
     }
 
@@ -755,6 +760,9 @@ function sales_lead_save(array $fields, ?int $id = null, ?int $agentId = null): 
         }
         if (!empty($row['deleted_at'])) {
             return ['ok' => false, 'error' => 'That lead was removed.'];
+        }
+        if (!$notesProvided) {
+            $notes = (string) ($row['notes'] ?? '');
         }
         $from = (string) $row['status'];
         $followDone = $row['follow_up_done_at'] ?? null;
@@ -772,10 +780,11 @@ function sales_lead_save(array $fields, ?int $id = null, ?int $agentId = null): 
             'sssssssssssisssi',
             [$status, $business, $address, $contactName, $contactPhone, $city, $nature, $package, $onboardDate, $followDate, $followDone, $interest, $rejected, $rejectedCat, $notes, $id]
         );
+        $eventNote = $status === 'rejected' ? $rejected : $notes;
         if ($from !== $status) {
-            sales_lead_event($id, $agentId, 'status_change', $from, $status, $notes);
+            sales_lead_event($id, $agentId, 'status_change', $from, $status, $eventNote);
         } else {
-            sales_lead_event($id, $agentId, 'update', $from, $status, $notes);
+            sales_lead_event($id, $agentId, 'update', $from, $status, $eventNote);
         }
         return ['ok' => true, 'id' => $id];
     }
@@ -787,7 +796,7 @@ function sales_lead_save(array $fields, ?int $id = null, ?int $agentId = null): 
         'issssssssssisss',
         [$agentId, $status, $business, $address, $contactName, $contactPhone, $city, $nature, $package, $onboardDate, $followDate, $interest, $rejected, $rejectedCat, $notes]
     );
-    sales_lead_event((int) $newId, $agentId, 'create', null, $status, $notes);
+    sales_lead_event((int) $newId, $agentId, 'create', null, $status, $status === 'rejected' ? $rejected : $notes);
     return ['ok' => true, 'id' => (int) $newId];
 }
 

@@ -38,7 +38,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'interest_rating' => (int) post('interest_rating'),
         'rejected_category' => post('rejected_category'),
         'rejected_reason' => post('rejected_reason'),
-        'notes' => post('notes'),
     ], $id ?: null, (int) $user['id']);
     if (empty($saved['ok'])) {
         $error = (string) ($saved['error'] ?? 'Could not save.');
@@ -57,7 +56,7 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
 <div class="page-head">
   <div>
     <h1><?= icon($id ? 'pencil' : 'plus') ?><?= $id ? 'Edit lead' : 'New lead' ?></h1>
-    <p class="lede">Pick the status first. Rejected needs a reason from the list plus a short explanation. Follow-up needs an interest rating.</p>
+    <p class="lede">Pick the status first. Rejected needs why they rejected Vellisys, an explanation, and nature of business. Follow-up needs an interest rating.</p>
   </div>
   <div class="actions page-actions">
     <a class="btn ghost" href="<?= h(url('sales_leads.php')) ?>">Back</a>
@@ -93,7 +92,9 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
       <?php endforeach; ?>
     </select>
     <label for="rejected_reason" style="margin-top:12px">Explain the rejection</label>
-    <textarea id="rejected_reason" name="rejected_reason" rows="3" placeholder="Short note on what they said"><?= h((string) ($_POST['rejected_reason'] ?? $lead['rejected_reason'] ?? '')) ?></textarea>
+    <textarea id="rejected_reason" name="rejected_reason" rows="3" placeholder="What they said about turning Vellisys down"><?= h((string) ($_POST['rejected_reason'] ?? $lead['rejected_reason'] ?? '')) ?></textarea>
+    <label for="nature_rejected" style="margin-top:12px">Nature of business</label>
+    <input id="nature_rejected" name="nature_of_business" value="<?= h((string) ($_POST['nature_of_business'] ?? $lead['nature_of_business'] ?? '')) ?>" placeholder="Shop, clinic, transport…">
   </div>
 
   <div data-panel="details" <?= $status === 'rejected' ? 'hidden' : '' ?>>
@@ -124,7 +125,7 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
       <div class="form-grid">
         <div>
           <label for="nature_of_business">Nature of business</label>
-          <input id="nature_of_business" name="nature_of_business" value="<?= h((string) ($_POST['nature_of_business'] ?? $lead['nature_of_business'] ?? '')) ?>">
+          <input id="nature_of_business" name="nature_of_business" value="<?= h((string) ($_POST['nature_of_business'] ?? $lead['nature_of_business'] ?? '')) ?>" <?= $status === 'interested' ? '' : 'disabled' ?>>
         </div>
         <div>
           <label for="package_chosen">Package</label>
@@ -156,9 +157,6 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
     </div>
   </div>
 
-  <label for="notes">Notes (optional)</label>
-  <textarea id="notes" name="notes" rows="3"><?= h((string) ($_POST['notes'] ?? $lead['notes'] ?? '')) ?></textarea>
-
   <div class="actions" style="margin-top:16px">
     <button class="btn" type="submit" <?= in_array(($lead['status'] ?? ''), ['onboarded', 'onboarding'], true) ? 'disabled' : '' ?>><?= icon('check') ?>Save</button>
   </div>
@@ -178,6 +176,11 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
       else if (name === 'rejected') p.hidden = st !== 'rejected';
       else p.hidden = st !== name;
     });
+    // Only one nature_of_business field should submit (interested vs rejected panels).
+    var interestedNature = form.querySelector('#nature_of_business');
+    var rejectedNature = form.querySelector('#nature_rejected');
+    if (interestedNature) interestedNature.disabled = st !== 'interested';
+    if (rejectedNature) rejectedNature.disabled = st !== 'rejected';
   }
   form.querySelectorAll('[data-status-radio]').forEach(function(r){ r.addEventListener('change', sync); });
   sync();
