@@ -764,12 +764,29 @@ summary {
 }
 .sales-agents-goal-table {
   width: 100%;
+  min-width: 760px;
   margin: 0;
+  table-layout: fixed;
 }
 .sales-agents-goal-table th,
 .sales-agents-goal-table td {
   vertical-align: top;
+  /* Beat global grid td max-width/ellipsis so 9/10 and bars are not clipped on desktop. */
+  max-width: none !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  white-space: normal !important;
 }
+.sales-agents-goal-table th:nth-child(1),
+.sales-agents-goal-table td:nth-child(1) { width: 26%; }
+.sales-agents-goal-table th:nth-child(2),
+.sales-agents-goal-table td:nth-child(2) { width: 9%; }
+.sales-agents-goal-table th:nth-child(3),
+.sales-agents-goal-table td:nth-child(3) { width: 16%; }
+.sales-agents-goal-table th:nth-child(4),
+.sales-agents-goal-table td:nth-child(4) { width: 37%; }
+.sales-agents-goal-table th:nth-child(5),
+.sales-agents-goal-table td:nth-child(5) { width: 12%; }
 .sales-agents-goal-table .sales-agent-name-link {
   font-weight: 700;
   text-decoration: none;
@@ -777,15 +794,45 @@ summary {
 .sales-agents-goal-table .sales-agent-name-link:hover {
   text-decoration: underline;
 }
+.sales-agents-goal-table .muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .sales-agents-goal-table .sales-agents-goal-targets {
-  min-width: 180px;
-  max-width: 280px;
+  min-width: 0;
+  max-width: none;
 }
 .sales-agents-goal-table .sales-goal-bars.is-compact {
-  gap: 6px;
+  gap: 8px;
+  min-width: 0;
+}
+.sales-agents-goal-table .sales-goal-meta {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
 }
 .sales-agents-goal-table .sales-goal-meta span {
   font-size: 11px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sales-agents-goal-table .sales-goal-meta strong {
+  flex: 0 0 auto;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.sales-agents-goal-table .sales-goal-track {
+  width: 100%;
+}
+.sales-agents-goal-table .sales-goal-over,
+.sales-agents-goal-table .sales-goal-remain {
+  white-space: nowrap;
 }
 @media (max-width: 720px) {
   .people-access-head { width: 100%; }

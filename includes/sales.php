@@ -1493,13 +1493,15 @@ function sales_render_goal_bars(array $progress, array $opts = []): void
         return;
     }
     $rowOpts = ['hide_remaining' => $compact];
+    $reachLabel = $compact ? 'Leads reached' : 'Leads reached';
+    $salesLabel = $compact ? 'Interested clients' : 'Interested clients (sales wins)';
     ?>
 <div class="sales-goal-bars<?= $compact ? ' is-compact' : '' ?>">
   <?php if ($showReach): ?>
-    <?php sales_render_goal_row('Leads reached', $reach, $reachGoal, $rowOpts); ?>
+    <?php sales_render_goal_row($reachLabel, $reach, $reachGoal, $rowOpts); ?>
   <?php endif; ?>
   <?php if ($showSales): ?>
-    <?php sales_render_goal_row('Interested clients (sales wins)', $sales, $salesGoal, $rowOpts); ?>
+    <?php sales_render_goal_row($salesLabel, $sales, $salesGoal, $rowOpts); ?>
   <?php endif; ?>
 </div>
     <?php
