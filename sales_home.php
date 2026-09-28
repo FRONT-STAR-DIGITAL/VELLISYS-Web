@@ -170,7 +170,7 @@ sales_layout_start('Home', $user);
       <a class="work-row" href="<?= h(url('sales_lead_edit.php?id=' . (int) $lead['id'])) ?>">
         <div>
           <strong><?= h(trim((string) $lead['business_name']) ?: 'Business') ?></strong>
-          <span>Due <?= h(format_date($lead['follow_up_date'])) ?><?= $lead['city'] ? ' · ' . h($lead['city']) : '' ?></span>
+          <span>Due <?= h(sales_format_follow_up($lead)) ?><?= $lead['city'] ? ' · ' . h($lead['city']) : '' ?></span>
         </div>
         <b><?= icon('arrow-right', 16) ?></b>
       </a>

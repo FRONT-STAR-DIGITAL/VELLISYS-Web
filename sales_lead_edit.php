@@ -35,6 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'package_chosen' => post('package_chosen'),
         'onboard_date' => post('onboard_date'),
         'follow_up_date' => post('follow_up_date'),
+        'follow_up_time' => post('follow_up_time'),
         'interest_rating' => (int) post('interest_rating'),
         'rejected_category' => post('rejected_category'),
         'rejected_reason' => post('rejected_reason'),
@@ -144,9 +145,17 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
     </div>
 
     <div data-panel="follow_up" <?= $status === 'follow_up' ? '' : 'hidden' ?>>
-      <label for="follow_up_date">Follow-up date</label>
-      <input id="follow_up_date" name="follow_up_date" type="date" value="<?= h((string) ($_POST['follow_up_date'] ?? $lead['follow_up_date'] ?? '')) ?>">
-      <p class="hint">You get a reminder the day before.</p>
+      <div class="form-grid">
+        <div>
+          <label for="follow_up_date">Follow-up date</label>
+          <input id="follow_up_date" name="follow_up_date" type="date" value="<?= h((string) ($_POST['follow_up_date'] ?? $lead['follow_up_date'] ?? '')) ?>">
+        </div>
+        <div>
+          <label for="follow_up_time">Time <span class="muted">(optional)</span></label>
+          <input id="follow_up_time" name="follow_up_time" type="time" value="<?= h(sales_follow_up_time_input((string) ($_POST['follow_up_time'] ?? $lead['follow_up_time'] ?? ''))) ?>">
+        </div>
+      </div>
+      <p class="hint">You get a reminder the day before. Add a time if you booked a slot.</p>
       <label for="interest_rating" style="margin-top:12px">Interest in Vellisys (1-5)</label>
       <select id="interest_rating" name="interest_rating">
         <option value="0">Rate interest</option>

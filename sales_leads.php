@@ -71,7 +71,7 @@ sales_layout_start('Leads', $user);
               <td><span class="<?= h(sales_status_pill_class((string) $lead['status'])) ?>"><?= h(sales_status_label((string) $lead['status'])) ?></span></td>
               <td><?= h(trim((string) $lead['contact_name'] . ' ' . $lead['contact_phone'])) ?></td>
               <td><?= h((string) $lead['city']) ?></td>
-              <td class="date-cell"><?= !empty($lead['follow_up_date']) ? h(format_date($lead['follow_up_date'])) : '-' ?></td>
+              <td class="date-cell"><?= !empty($lead['follow_up_date']) ? h(sales_format_follow_up($lead)) : '-' ?></td>
               <td class="row-actions"><a class="btn ghost sm" href="<?= h(url('sales_lead_edit.php?id=' . (int) $lead['id'])) ?>">Edit</a></td>
             </tr>
           <?php endforeach; ?>

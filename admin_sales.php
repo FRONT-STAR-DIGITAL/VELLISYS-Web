@@ -112,6 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'package_chosen' => post('package_chosen'),
             'onboard_date' => post('onboard_date'),
             'follow_up_date' => post('follow_up_date'),
+            'follow_up_time' => post('follow_up_time'),
             'interest_rating' => (int) post('interest_rating'),
             'rejected_category' => post('rejected_category'),
             'rejected_reason' => post('rejected_reason'),
@@ -466,7 +467,7 @@ if ($tab === 'leads'):
             </td>
             <td><?= h(trim($lead['contact_name'] . ' ' . $lead['contact_phone'])) ?></td>
             <td><?= h((string) $lead['city']) ?></td>
-            <td class="date-cell"><?= !empty($lead['follow_up_date']) ? h(format_date($lead['follow_up_date'])) : '-' ?></td>
+            <td class="date-cell"><?= !empty($lead['follow_up_date']) ? h(sales_format_follow_up($lead)) : '-' ?></td>
             <td class="date-cell"><?= h(format_date(substr((string) $lead['created_at'], 0, 10))) ?></td>
             <td class="row-actions">
               <a class="btn ghost sm" href="<?= h(url('admin_sales.php?tab=lead&id=' . (int) $lead['id'])) ?>">Edit</a>
@@ -565,6 +566,10 @@ if ($tab === 'lead'):
   <div data-admin-panel="follow_up">
     <label>Follow-up date</label>
     <input type="date" name="follow_up_date" value="<?= h((string) ($_POST['follow_up_date'] ?? $editLead['follow_up_date'] ?? '')) ?>">
+  </div>
+  <div data-admin-panel="follow_up">
+    <label>Time <span class="muted">(optional)</span></label>
+    <input type="time" name="follow_up_time" value="<?= h(sales_follow_up_time_input((string) ($_POST['follow_up_time'] ?? $editLead['follow_up_time'] ?? ''))) ?>">
   </div>
   <div data-admin-panel="follow_up">
     <label>Interest in Vellisys (1-5)</label>

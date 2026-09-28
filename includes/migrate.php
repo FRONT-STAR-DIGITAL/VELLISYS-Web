@@ -25,7 +25,7 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '57';
+    return '58';
 }
 
 /** Strip temporary desk login addresses off document letterheads. */
@@ -2138,6 +2138,7 @@ function folio_migrate_sales_field(mysqli $db): void
       package_chosen VARCHAR(40) NOT NULL DEFAULT '',
       onboard_date DATE NULL,
       follow_up_date DATE NULL,
+      follow_up_time TIME NULL,
       follow_up_done_at DATETIME NULL,
       rejected_reason VARCHAR(500) NOT NULL DEFAULT '',
       notes TEXT NULL,
@@ -2223,6 +2224,10 @@ function folio_migrate_sales_field(mysqli $db): void
     if (!db_has_column($db, 'sales_leads', 'interest_rating')) {
         @$db->query('ALTER TABLE sales_leads ADD COLUMN interest_rating TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER follow_up_done_at');
         db_has_column($db, 'sales_leads', 'interest_rating', true);
+    }
+    if (!db_has_column($db, 'sales_leads', 'follow_up_time')) {
+        @$db->query('ALTER TABLE sales_leads ADD COLUMN follow_up_time TIME NULL AFTER follow_up_date');
+        db_has_column($db, 'sales_leads', 'follow_up_time', true);
     }
     $db->query("CREATE TABLE IF NOT EXISTS platform_alerts (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

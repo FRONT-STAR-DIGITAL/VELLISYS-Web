@@ -28,6 +28,55 @@ function sales_status_pill_class(string $status): string
     return 'pill';
 }
 
+/** Optional follow-up clock time as HH:MM:SS, or null when blank/invalid. */
+function sales_normalize_follow_up_time(?string $raw): ?string
+{
+    $raw = trim((string) $raw);
+    if ($raw === '') {
+        return null;
+    }
+    if (preg_match('/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/', $raw, $m)) {
+        $h = (int) $m[1];
+        $i = (int) $m[2];
+        if ($h >= 0 && $h <= 23 && $i >= 0 && $i <= 59) {
+            return sprintf('%02d:%02d:00', $h, $i);
+        }
+    }
+    return null;
+}
+
+/** Value for <input type="time"> from a DB TIME / posted string. */
+function sales_follow_up_time_input(?string $raw): string
+{
+    $t = sales_normalize_follow_up_time($raw);
+    return $t !== null ? substr($t, 0, 5) : '';
+}
+
+function sales_format_follow_up_time(?string $raw): string
+{
+    $t = sales_normalize_follow_up_time($raw);
+    if ($t === null) {
+        return '';
+    }
+    $ts = strtotime('1970-01-01 ' . $t);
+    return $ts ? date('g:i A', $ts) : '';
+}
+
+/** Date plus optional time for lists and reminders. */
+function sales_format_follow_up(?array $lead): string
+{
+    $d = trim((string) ($lead['follow_up_date'] ?? ''));
+    if ($d === '') {
+        return '-';
+    }
+    $out = function_exists('format_date') ? format_date($d) : $d;
+    $timeLabel = sales_format_follow_up_time($lead['follow_up_time'] ?? null);
+    if ($timeLabel !== '') {
+        $out .= ' · ' . $timeLabel;
+    }
+    return $out;
+}
+
 function sales_reject_reasons(): array
 {
     return [
@@ -719,6 +768,7 @@ function sales_lead_save(array $fields, ?int $id = null, ?int $agentId = null): 
     $package = '';
     $onboardDate = null;
     $followDate = null;
+    $followTime = null;
     $rejected = '';
     $rejectedCat = '';
     $interest = 0;
@@ -734,6 +784,7 @@ function sales_lead_save(array $fields, ?int $id = null, ?int $agentId = null): 
             return ['ok' => false, 'error' => 'Set a follow-up date.'];
         }
         $followDate = $fd;
+        $followTime = sales_normalize_follow_up_time($fields['follow_up_time'] ?? null);
         $interest = max(0, min(5, (int) ($fields['interest_rating'] ?? 0)));
         if ($interest < 1) {
             return ['ok' => false, 'error' => 'Rate their interest from 1 to 5.'];
@@ -769,16 +820,20 @@ function sales_lead_save(array $fields, ?int $id = null, ?int $agentId = null): 
         if ($from === 'follow_up' && $status !== 'follow_up') {
             $followDone = date('Y-m-d H:i:s');
         }
-        if ($status === 'follow_up' && $followDate !== ($row['follow_up_date'] ?? null)) {
+        $prevFollowTime = sales_normalize_follow_up_time($row['follow_up_time'] ?? null);
+        if ($status === 'follow_up' && (
+            $followDate !== ($row['follow_up_date'] ?? null)
+            || $followTime !== $prevFollowTime
+        )) {
             $followDone = null;
         }
         db_exec(
             'UPDATE sales_leads SET status=?, business_name=?, address=?, contact_name=?, contact_phone=?, city=?,
-             nature_of_business=?, package_chosen=?, onboard_date=?, follow_up_date=?, follow_up_done_at=?, interest_rating=?,
+             nature_of_business=?, package_chosen=?, onboard_date=?, follow_up_date=?, follow_up_time=?, follow_up_done_at=?, interest_rating=?,
              rejected_reason=?, rejected_category=?, notes=?, updated_at=NOW()
              WHERE id=?',
-            'sssssssssssisssi',
-            [$status, $business, $address, $contactName, $contactPhone, $city, $nature, $package, $onboardDate, $followDate, $followDone, $interest, $rejected, $rejectedCat, $notes, $id]
+            'ssssssssssssisssi',
+            [$status, $business, $address, $contactName, $contactPhone, $city, $nature, $package, $onboardDate, $followDate, $followTime, $followDone, $interest, $rejected, $rejectedCat, $notes, $id]
         );
         $eventNote = $status === 'rejected' ? $rejected : $notes;
         if ($from !== $status) {
@@ -791,10 +846,10 @@ function sales_lead_save(array $fields, ?int $id = null, ?int $agentId = null): 
 
     $newId = db_exec(
         'INSERT INTO sales_leads (agent_id, status, business_name, address, contact_name, contact_phone, city,
-         nature_of_business, package_chosen, onboard_date, follow_up_date, interest_rating, rejected_reason, rejected_category, notes)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        'issssssssssisss',
-        [$agentId, $status, $business, $address, $contactName, $contactPhone, $city, $nature, $package, $onboardDate, $followDate, $interest, $rejected, $rejectedCat, $notes]
+         nature_of_business, package_chosen, onboard_date, follow_up_date, follow_up_time, interest_rating, rejected_reason, rejected_category, notes)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'isssssssssssisss',
+        [$agentId, $status, $business, $address, $contactName, $contactPhone, $city, $nature, $package, $onboardDate, $followDate, $followTime, $interest, $rejected, $rejectedCat, $notes]
     );
     sales_lead_event((int) $newId, $agentId, 'create', null, $status, $status === 'rejected' ? $rejected : $notes);
     return ['ok' => true, 'id' => (int) $newId];
@@ -1298,6 +1353,7 @@ function sales_lead_admin_save(array $fields, ?int $id = null): array
     $package = mb_substr(trim((string) ($fields['package_chosen'] ?? '')), 0, 40);
     $onboardDate = null;
     $followDate = null;
+    $followTime = null;
     $rejected = '';
     $rejectedCat = '';
     $interest = max(0, min(5, (int) ($fields['interest_rating'] ?? 0)));
@@ -1308,6 +1364,9 @@ function sales_lead_admin_save(array $fields, ?int $id = null): array
     $fd = trim((string) ($fields['follow_up_date'] ?? ''));
     if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fd)) {
         $followDate = $fd;
+    }
+    if ($status === 'follow_up') {
+        $followTime = sales_normalize_follow_up_time($fields['follow_up_time'] ?? null);
     }
     if ($status === 'follow_up' && !$followDate) {
         return ['ok' => false, 'error' => 'Set a follow-up date.'];
@@ -1336,7 +1395,11 @@ function sales_lead_admin_save(array $fields, ?int $id = null): array
         if ($from === 'follow_up' && $status !== 'follow_up') {
             $followDone = date('Y-m-d H:i:s');
         }
-        if ($status === 'follow_up' && $followDate !== ($row['follow_up_date'] ?? null)) {
+        $prevFollowTime = sales_normalize_follow_up_time($row['follow_up_time'] ?? null);
+        if ($status === 'follow_up' && (
+            $followDate !== ($row['follow_up_date'] ?? null)
+            || $followTime !== $prevFollowTime
+        )) {
             $followDone = null;
         }
         if ($status === 'onboarded' && $from !== 'onboarded') {
@@ -1344,10 +1407,10 @@ function sales_lead_admin_save(array $fields, ?int $id = null): array
         }
         db_exec(
             'UPDATE sales_leads SET agent_id=?, status=?, business_name=?, address=?, contact_name=?, contact_phone=?, city=?,
-             nature_of_business=?, package_chosen=?, onboard_date=?, follow_up_date=?, follow_up_done_at=?, interest_rating=?,
+             nature_of_business=?, package_chosen=?, onboard_date=?, follow_up_date=?, follow_up_time=?, follow_up_done_at=?, interest_rating=?,
              rejected_reason=?, rejected_category=?, notes=?, deleted_at=NULL, updated_at=NOW() WHERE id=?',
-            'isssssssssssisssi',
-            [$agentId, $status, $business, $address, $contactName, $contactPhone, $city, $nature, $package, $onboardDate, $followDate, $followDone, $interest, $rejected, $rejectedCat, $notes, $id]
+            'issssssssssssisssi',
+            [$agentId, $status, $business, $address, $contactName, $contactPhone, $city, $nature, $package, $onboardDate, $followDate, $followTime, $followDone, $interest, $rejected, $rejectedCat, $notes, $id]
         );
         if ($from !== $status) {
             sales_lead_event($id, $actor ?: $agentId, 'status_change', $from, $status, $notes);
@@ -1358,10 +1421,10 @@ function sales_lead_admin_save(array $fields, ?int $id = null): array
     }
     $newId = db_exec(
         'INSERT INTO sales_leads (agent_id, status, business_name, address, contact_name, contact_phone, city,
-         nature_of_business, package_chosen, onboard_date, follow_up_date, interest_rating, rejected_reason, rejected_category, notes)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        'issssssssssisss',
-        [$agentId, $status, $business, $address, $contactName, $contactPhone, $city, $nature, $package, $onboardDate, $followDate, $interest, $rejected, $rejectedCat, $notes]
+         nature_of_business, package_chosen, onboard_date, follow_up_date, follow_up_time, interest_rating, rejected_reason, rejected_category, notes)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'isssssssssssisss',
+        [$agentId, $status, $business, $address, $contactName, $contactPhone, $city, $nature, $package, $onboardDate, $followDate, $followTime, $interest, $rejected, $rejectedCat, $notes]
     );
     sales_lead_event((int) $newId, $actor ?: $agentId, 'create', null, $status, $notes);
     return ['ok' => true, 'id' => (int) $newId];
@@ -1895,11 +1958,14 @@ function sales_notifications_for_agent(int $userId): array
     foreach (sales_followups_due($userId, 1) as $lead) {
         $when = (string) ($lead['follow_up_date'] ?? '');
         $label = $when === today() ? 'today' : 'tomorrow';
+        $timeLabel = sales_format_follow_up_time($lead['follow_up_time'] ?? null);
         $notes[] = [
             'type' => 'follow_up',
             'key' => 'sales-fu-' . (int) $lead['id'] . '-' . $when,
             'title' => 'Follow up: ' . (trim((string) $lead['business_name']) ?: 'Business'),
-            'meta' => 'Due ' . $label . ($lead['city'] ? ' · ' . $lead['city'] : ''),
+            'meta' => 'Due ' . $label
+                . ($timeLabel !== '' ? ' · ' . $timeLabel : '')
+                . ($lead['city'] ? ' · ' . $lead['city'] : ''),
             'href' => url('sales_lead_edit.php?id=' . (int) $lead['id']),
             'tone' => 'warn',
         ];

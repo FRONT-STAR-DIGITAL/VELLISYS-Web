@@ -101,7 +101,7 @@ sales_layout_start('Performance', $user);
       <div class="work-list">
         <?php foreach (array_slice($pending, 0, 8) as $lead): ?>
           <a class="work-row" href="<?= h(url('sales_lead_edit.php?id=' . (int) $lead['id'])) ?>">
-            <div><strong><?= h(trim((string) $lead['business_name']) ?: 'Business') ?></strong><span><?= h(format_date($lead['follow_up_date'])) ?></span></div>
+            <div><strong><?= h(trim((string) $lead['business_name']) ?: 'Business') ?></strong><span><?= h(sales_format_follow_up($lead)) ?></span></div>
           </a>
         <?php endforeach; ?>
       </div>
