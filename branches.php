@@ -446,8 +446,9 @@ endif; ?>
         <input id="phone" name="phone" value="<?= h((string) ($edit['phone'] ?? post('phone'))) ?>">
       </div>
       <div>
-        <label for="email">Email</label>
-        <input id="email" name="email" type="email" value="<?= h((string) ($edit['email'] ?? post('email'))) ?>">
+        <label for="email">Email on documents</label>
+        <input id="email" name="email" type="email" value="<?= h((string) ($edit['email'] ?? post('email'))) ?>" placeholder="shop@company.com">
+        <p class="hint">Printed on sheets for this branch. Not a sign-in email.</p>
       </div>
       <div>
         <label for="brand_color">Brand colour</label>
