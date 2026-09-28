@@ -779,7 +779,7 @@ if ($tab === 'agent' && $agentRow):
     <?php else: ?>
       <div class="table-scroll"><table class="grid"><thead><tr><th>Business</th><th>Due</th></tr></thead><tbody>
         <?php foreach ($agentPending as $lead): ?>
-          <tr><td><a href="<?= h(url('admin_sales.php?tab=lead&id=' . (int) $lead['id'])) ?>"><?= h(trim((string) $lead['business_name']) ?: '-') ?></a></td><td><?= h(format_date($lead['follow_up_date'])) ?></td></tr>
+          <tr><td><a href="<?= h(url('admin_sales.php?tab=lead&id=' . (int) $lead['id'])) ?>"><?= h(trim((string) $lead['business_name']) ?: '-') ?></a></td><td><?= h(sales_format_follow_up($lead)) ?></td></tr>
         <?php endforeach; ?>
       </tbody></table></div>
     <?php endif; ?>
