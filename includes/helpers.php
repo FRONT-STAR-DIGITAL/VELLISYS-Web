@@ -2386,6 +2386,8 @@ function platform_create_company(?int $signupId = null): array
     $name = post('name');
     $userName = post('user_name');
     $userEmail = strtolower(post('user_email'));
+    // Document contact email (printed on sheets) — separate from the desk login email.
+    $docEmail = strtolower(trim(post('doc_email') !== '' ? post('doc_email') : post('email')));
     $password = post('user_password');
     $generated = false;
     if ($password === '') {
@@ -2398,13 +2400,16 @@ function platform_create_company(?int $signupId = null): array
         $status = 'onboarding';
     }
     if ($name === '' || $userName === '' || !filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
-        return ['ok' => false, 'error' => 'Company name, desk admin and a valid email are required.'];
+        return ['ok' => false, 'error' => 'Company name, desk admin and a valid sign-in email are required.'];
     }
     if (strlen($password) < 8) {
         return ['ok' => false, 'error' => 'Password must be at least 8 characters, or leave it blank to generate one.'];
     }
     if (db_one('SELECT id FROM users WHERE email = ?', 's', [$userEmail])) {
         return ['ok' => false, 'error' => 'That email already has a Vellisys login.'];
+    }
+    if ($docEmail !== '' && !filter_var($docEmail, FILTER_VALIDATE_EMAIL)) {
+        return ['ok' => false, 'error' => 'The email on documents must be a valid email, or leave it blank.'];
     }
     if (!is_array($kindsPosted) || $kindsPosted === []) {
         return ['ok' => false, 'error' => 'Select at least one document type this company will use.'];
@@ -2514,7 +2519,7 @@ function platform_create_company(?int $signupId = null): array
             post('address'),
             post('city'),
             post('phone'),
-            $userEmail,
+            $docEmail,
             post('website'),
             post('bank_name'),
             $accountName,

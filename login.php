@@ -90,7 +90,7 @@ $showDemoKeys = !folio_is_live_host();
       <h2>Welcome back</h2>
       <p class="gate-lead">Sign in to your account to continue</p>
       <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
-      <label class="gate-field" for="email">Email</label>
+      <label class="gate-field" for="email">Sign-in email</label>
       <div class="gate-control">
         <?= icon('mail', 18) ?>
         <input id="email" name="email" type="email" required maxlength="190" value="<?= h(post('email') ?: $prefillEmail) ?>" autocomplete="username" placeholder="you@company.com">

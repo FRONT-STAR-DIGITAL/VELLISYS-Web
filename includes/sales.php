@@ -872,7 +872,8 @@ function sales_begin_company_onboard(int $leadId): array
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         'issssssssssssssssssssss',
         [
-            $cid, $name, '', '', '', $address, $city, $phone, $userEmail, '', '', $name, '',
+            // Login email stays on the user row; document email starts blank until they set it.
+            $cid, $name, '', '', '', $address, $city, $phone, '', '', '', $name, '',
             $color, $accent, $deep, '', $prefix,
             'Make payment to ' . $name . '.',
             "1. Payment is due by the date shown above.\n2. Quote the invoice number on the transfer.",

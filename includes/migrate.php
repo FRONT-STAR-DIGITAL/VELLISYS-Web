@@ -25,7 +25,28 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '55';
+    return '56';
+}
+
+/** Strip temporary desk login addresses off document letterheads. */
+function folio_ensure_doc_email_not_login(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    @$db->query("CREATE TABLE IF NOT EXISTS schema_meta (
+      k VARCHAR(40) PRIMARY KEY,
+      v VARCHAR(40) NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $flag = @$db->query("SELECT v FROM schema_meta WHERE k = 'doc_email_sep_v1'");
+    if ($flag && ($r = $flag->fetch_assoc()) && (string) $r['v'] === '1') {
+        return;
+    }
+    // Sales onboard used @onboard.vellisys.ug as both login and branding email.
+    @$db->query("UPDATE branding SET email = '' WHERE email LIKE '%@onboard.vellisys.ug'");
+    @$db->query("REPLACE INTO schema_meta (k, v) VALUES ('doc_email_sep_v1', '1')");
 }
 
 function folio_ensure_php_sessions(mysqli $db): void
@@ -524,6 +545,7 @@ function folio_migrate(mysqli $db): void
 
     try {
     folio_ensure_php_sessions($db);
+    folio_ensure_doc_email_not_login($db);
     folio_ensure_logo_bg($db);
     folio_ensure_optional_doc_party($db);
     folio_ensure_receipt_comments($db);

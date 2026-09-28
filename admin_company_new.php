@@ -40,6 +40,7 @@ $pref = static function (string $key, string $fallback = '') use ($signup, $sale
         'name' => (string) $signup['company'],
         'user_name' => (string) $signup['name'],
         'user_email' => (string) $signup['email'],
+        'doc_email' => (string) $signup['email'],
         'phone' => (string) $signup['phone'],
         'notes' => 'Website sign-up. Contact ' . $signup['name'] . ' on ' . $signup['phone'] . ' / ' . $signup['email'] . '.',
         default => $fallback,
@@ -201,8 +202,9 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
       <input id="user_title" name="user_title" value="<?= h(post('user_title') ?: 'Administrator') ?>">
     </div>
     <div>
-      <label for="user_email">Desk email</label>
-      <input id="user_email" name="user_email" type="email" required value="<?= h($pref('user_email')) ?>" placeholder="accounts@company.com">
+      <label for="user_email">Sign-in email</label>
+      <input id="user_email" name="user_email" type="email" required value="<?= h($pref('user_email')) ?>" placeholder="admin@company.com">
+      <p class="hint">Used only to open the desk. Not printed on documents.</p>
     </div>
     <div>
       <label for="user_password">Temporary password</label>
@@ -212,7 +214,7 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
   </div>
 
   <div class="card-head" style="margin-top:8px"><h2><?= icon('palette', 16) ?>Stationery</h2></div>
-  <p class="lede" style="padding:0 22px">Logo, colours, TIN, bank. This prints on every sheet. Skip what you do not have yet. On a colour, hex and R G B show the exact code. Pick takes a colour from anywhere on the screen.</p>
+  <p class="lede" style="padding:0 22px">Logo, colours, TIN, bank and the email that prints on every sheet. Sign-in email stays separate. On a colour, hex and R G B show the exact code. Pick takes a colour from anywhere on the screen.</p>
   <div class="form-grid" style="padding:0 22px">
     <div>
       <label for="logo">Logo</label>
@@ -246,6 +248,11 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
     <div>
       <label for="phone">Phone</label>
       <input id="phone" name="phone" value="<?= h($pref('phone')) ?>">
+    </div>
+    <div>
+      <label for="doc_email">Email on documents</label>
+      <input id="doc_email" name="doc_email" type="email" value="<?= h(post('doc_email') !== '' ? post('doc_email') : $pref('doc_email')) ?>" placeholder="accounts@company.com">
+      <p class="hint">Printed on quotations, invoices and receipts. Can differ from the sign-in email.</p>
     </div>
     <div>
       <label for="city">City</label>

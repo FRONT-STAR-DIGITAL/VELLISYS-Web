@@ -663,7 +663,7 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
     <?php else: ?>
       <div class="table-scroll">
       <table class="grid">
-        <thead><tr><th>Name</th><th>Title</th><th>Email</th><th>Access</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Title</th><th>Sign-in email</th><th>Access</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead>
         <tbody>
           <?php foreach ($members as $m): ?>
             <tr>
@@ -731,8 +731,9 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
       <input id="edit_user_name" name="user_name" required value="<?= h((string) $editMember['name']) ?>">
       <label for="edit_user_title">Title</label>
       <input id="edit_user_title" name="user_title" value="<?= h((string) ($editMember['job_title'] ?? '')) ?>">
-      <label for="edit_user_email">Email</label>
+      <label for="edit_user_email">Sign-in email</label>
       <input id="edit_user_email" name="user_email" type="email" required value="<?= h((string) $editMember['email']) ?>">
+      <p class="hint">Used to open the desk. Not printed on documents.</p>
       <?php if (!$eIsAdmin): ?>
       <label for="edit_user_access">Access</label>
       <select id="edit_user_access" name="user_access" data-access-select>
@@ -766,8 +767,9 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
       <input id="user_name" name="user_name" required placeholder="Name">
       <label for="user_title">Title</label>
       <input id="user_title" name="user_title" placeholder="Accountant">
-      <label for="user_email">Email</label>
-      <input id="user_email" name="user_email" type="email" required>
+      <label for="user_email">Sign-in email</label>
+      <input id="user_email" name="user_email" type="email" required placeholder="admin@company.com">
+      <p class="hint">Used to open the desk. Not printed on documents.</p>
       <label for="user_access">Access</label>
       <select id="user_access" name="user_access" data-access-select>
         <?php foreach (desk_staff_access_levels() as $key => $info): ?>
@@ -1037,8 +1039,9 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
       <input id="phone" name="phone" value="<?= h((string) ($brand['phone'] ?? '')) ?>">
     </div>
     <div>
-      <label for="email">Public email</label>
-      <input id="email" name="email" type="email" value="<?= h((string) ($brand['email'] ?? '')) ?>">
+      <label for="email">Email on documents</label>
+      <input id="email" name="email" type="email" value="<?= h((string) ($brand['email'] ?? '')) ?>" placeholder="accounts@company.com">
+      <p class="hint">Printed on sheets. Desk sign-in emails are managed under People / Logins.</p>
     </div>
     <div>
       <label for="website">Website</label>

@@ -340,8 +340,9 @@ layout_start('Settings', $user);
               <input id="edit_user_title" name="user_title" value="<?= h(post('user_title') !== '' ? post('user_title') : (string) ($editMember['job_title'] ?? '')) ?>">
             </div>
             <div>
-              <label for="edit_user_email">Email</label>
+              <label for="edit_user_email">Sign-in email</label>
               <input id="edit_user_email" name="user_email" type="email" required value="<?= h(post('user_email') !== '' ? post('user_email') : (string) $editMember['email']) ?>">
+              <p class="hint">Used to open the desk. Not printed on documents.</p>
             </div>
             <?php if (!$eIsAdmin): ?>
             <div>
@@ -387,7 +388,7 @@ layout_start('Settings', $user);
             <tr>
               <th>Name</th>
               <th>Title</th>
-              <th>Email</th>
+              <th>Sign-in email</th>
               <th>Access</th>
               <th>Presence</th>
               <th>Status</th>
@@ -503,8 +504,9 @@ layout_start('Settings', $user);
               <input id="user_title" name="user_title" value="<?= h(post('user_title')) ?>" placeholder="Accountant">
             </div>
             <div>
-              <label for="user_email">Email</label>
+              <label for="user_email">Sign-in email</label>
               <input id="user_email" name="user_email" type="email" required value="<?= h(post('user_email')) ?>">
+              <p class="hint">Used to open the desk. Not printed on documents.</p>
             </div>
             <div>
               <label for="user_access">Access</label>
@@ -601,7 +603,7 @@ layout_start('Settings', $user);
 
     <section class="card settings-card" id="company">
       <h2><?= icon('building') ?>Company</h2>
-      <p class="lede">Printed on every Head office sheet under the logo. Named branches (Business and Pro) keep their own address.</p>
+      <p class="lede">Printed on every Head office sheet under the logo. The email here is the company contact on documents — not the sign-in emails under People. Named branches (Business and Pro) keep their own address.</p>
       <div class="form-grid">
         <div>
           <label for="name">Company name</label>
@@ -616,8 +618,9 @@ layout_start('Settings', $user);
           <input id="phone" name="phone" value="<?= h($b['phone']) ?>">
         </div>
         <div>
-          <label for="email">Email</label>
-          <input id="email" name="email" type="email" value="<?= h($b['email']) ?>">
+          <label for="email">Email on documents</label>
+          <input id="email" name="email" type="email" value="<?= h($b['email']) ?>" placeholder="accounts@company.com">
+          <p class="hint">Shows on quotations, invoices and receipts. Keep sign-in emails under People.</p>
         </div>
         <div>
           <label for="website">Website</label>
