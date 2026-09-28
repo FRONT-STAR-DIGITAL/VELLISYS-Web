@@ -25,7 +25,7 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '56';
+    return '57';
 }
 
 /** Strip temporary desk login addresses off document letterheads. */
@@ -569,6 +569,7 @@ function folio_migrate(mysqli $db): void
     folio_ensure_banking($db);
     folio_ensure_pnl_branch_books($db);
     folio_migrate_sales_field($db);
+    folio_ensure_purge_ofagros_fees($db);
 
     $tables = $db->query("SHOW TABLES LIKE 'users'");
     if (!$tables || $tables->num_rows === 0) {
@@ -1394,21 +1395,63 @@ function folio_migrate_fees(mysqli $db): void
     $db->query("UPDATE companies SET fee_amount = 450000, fee_paid = 450000, fee_currency = 'UGX' WHERE name = 'Ofagros Limited' AND fee_amount = 0 AND fee_paid = 0");
 }
 
-/** Drop demo Ofagros fee rows and orphan ledger lines left after company delete. */
+/**
+ * Drop demo Ofagros fee rows (UGX 450k) and orphan ledger lines left after company delete.
+ * Uses separate DELETEs — a single OR+subquery statement can fail silently under @.
+ */
 function folio_migrate_purge_ofagros_fees(mysqli $db): void
 {
     $has = @$db->query("SHOW TABLES LIKE 'platform_fee_ledger'");
     if (!$has || $has->num_rows < 1) {
         return;
     }
-    @$db->query(
-        "DELETE FROM platform_fee_ledger
-         WHERE company_id IN (SELECT id FROM companies WHERE name LIKE '%Ofagros%')
-            OR note LIKE '%Ofagros%'
-            OR company_id IS NULL
-            OR company_id = 0
-            OR company_id NOT IN (SELECT id FROM companies)"
+    @$db->query("DELETE FROM platform_fee_ledger WHERE note LIKE '%Ofagro%'");
+    @$db->query("DELETE FROM platform_fee_ledger WHERE note LIKE '%Ofagros%'");
+    @$db->query("DELETE FROM platform_fee_ledger WHERE company_id IS NULL OR company_id = 0");
+    $cos = @$db->query("SELECT id FROM companies WHERE name LIKE '%Ofagro%'");
+    if ($cos) {
+        while ($c = $cos->fetch_assoc()) {
+            $cid = (int) ($c['id'] ?? 0);
+            if ($cid > 0) {
+                @$db->query('DELETE FROM platform_fee_ledger WHERE company_id = ' . $cid);
+            }
+        }
+    }
+    // Orphans: fee rows whose company no longer exists.
+    $orphans = @$db->query(
+        'SELECT l.id FROM platform_fee_ledger l
+         LEFT JOIN companies c ON c.id = l.company_id
+         WHERE l.company_id IS NOT NULL AND l.company_id > 0 AND c.id IS NULL'
     );
+    if ($orphans) {
+        $ids = [];
+        while ($r = $orphans->fetch_assoc()) {
+            $ids[] = (int) $r['id'];
+        }
+        if ($ids) {
+            @$db->query('DELETE FROM platform_fee_ledger WHERE id IN (' . implode(',', $ids) . ')');
+        }
+    }
+}
+
+/** One-shot purge so it runs even when schema version already skipped the numbered migrate path. */
+function folio_ensure_purge_ofagros_fees(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    @$db->query("CREATE TABLE IF NOT EXISTS schema_meta (
+      k VARCHAR(40) PRIMARY KEY,
+      v VARCHAR(40) NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $flag = @$db->query("SELECT v FROM schema_meta WHERE k = 'purge_ofagros_fees_v2'");
+    if ($flag && ($r = $flag->fetch_assoc()) && (string) $r['v'] === '1') {
+        return;
+    }
+    folio_migrate_purge_ofagros_fees($db);
+    @$db->query("REPLACE INTO schema_meta (k, v) VALUES ('purge_ofagros_fees_v2', '1')");
 }
 
 function folio_migrate_mailboxes(mysqli $db): void
