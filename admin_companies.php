@@ -27,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'address' => post('address'),
             'nature_of_business' => post('nature_of_business'),
             'testing_owner_id' => $ownerId,
+            'user_email' => post('user_email'),
             'days' => (int) post('days') ?: sales_testing_default_days(),
             'enabled_kinds' => $_POST['enabled_kinds'] ?? [],
         ], (int) $user['id'], true);
@@ -50,6 +51,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'testing_set_expiry') {
         $done = sales_set_testing_expiry($tid, post('testing_expires_at'));
         flash(empty($done['ok']) ? ($done['error'] ?? 'Failed') : 'Testing end date saved.', empty($done['ok']) ? 'err' : 'ok');
+        redirect('admin_companies.php#testing');
+    } elseif ($action === 'testing_set_login') {
+        $done = sales_testing_set_login($tid, post('desk_email'), post('reset_password') !== '');
+        flash(empty($done['ok']) ? ($done['error'] ?? 'Failed') : ('Desk login updated to ' . ($done['email'] ?? '') . (post('reset_password') !== '' ? ' · password Folio2026' : '')), empty($done['ok']) ? 'err' : 'ok');
         redirect('admin_companies.php#testing');
     } elseif ($action === 'testing_promote') {
         $done = sales_promote_testing_to_onboard($tid);
@@ -102,12 +107,20 @@ layout_admin_start('Companies', $user);
 <?php if ($error): ?><p class="flash flash-err"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
 
 <div class="card" id="live">
-  <h2 style="margin:0 0 12px">Live and onboarding</h2>
+  <div class="company-table-head">
+    <h2 style="margin:0">Live and onboarding</h2>
+    <?php if ($companies): ?>
+      <label class="company-table-search">
+        <span class="sr-only">Search live companies</span>
+        <input type="search" data-table-filter="live-companies" placeholder="Search companies..." autocomplete="off">
+      </label>
+    <?php endif; ?>
+  </div>
   <?php if (!$companies): ?>
     <p class="empty">No companies yet. <a href="<?= h(url('admin_company_new.php')) ?>">Create the first one from scratch</a>.</p>
   <?php else: ?>
     <div class="table-scroll">
-    <table class="grid">
+    <table class="grid" data-filterable="live-companies">
       <thead>
         <tr>
           <th>Company</th>
@@ -130,8 +143,11 @@ layout_admin_start('Companies', $user);
             $onlineN = (int) ($p['online_users'] ?? 0);
             $use = platform_usage_counts((int) $c['id'], $from, $to);
             $onboard = company_onboard_progress($c);
+            $searchBlob = strtolower(trim(
+                (string) $c['name'] . ' ' . company_loc($c, 'country') . ' ' . (string) $c['status']
+            ));
             ?>
-          <tr>
+          <tr data-search="<?= h($searchBlob) ?>">
             <td><a href="<?= h(url('admin_company.php?id=' . $c['id'])) ?>"><strong><?= h($c['name']) ?></strong></a></td>
             <td><?= company_loc($c, 'country') !== '' ? h(company_loc($c, 'country')) : '<span class="muted">-</span>' ?></td>
             <td><span class="pill<?= $c['status'] === 'live' ? '' : ($c['status'] === 'suspended' ? ' bad' : ' warn') ?>"><?= h($c['status']) ?></span></td>
@@ -159,85 +175,101 @@ layout_admin_start('Companies', $user);
 </div>
 
 <div class="card" id="testing" style="margin-top:20px">
-  <div class="page-head" style="margin-bottom:12px;padding:0">
+  <div class="company-table-head">
     <div>
       <h2 style="margin:0">Testing mode</h2>
       <p class="lede" style="margin:6px 0 0">Sales-agent trial desks. Default 2 weeks. Extend, shorten, promote to onboard, or delete.</p>
     </div>
+    <?php if ($testing): ?>
+      <label class="company-table-search">
+        <span class="sr-only">Search testing companies</span>
+        <input type="search" data-table-filter="testing-companies" placeholder="Search testing companies..." autocomplete="off">
+      </label>
+    <?php endif; ?>
   </div>
 
   <?php if (!$testing): ?>
     <p class="empty">No companies in testing mode right now.</p>
   <?php else: ?>
-    <div class="testing-desk-list">
-      <?php foreach ($testing as $c):
-          $expired = company_testing_expired($c);
-          $expVal = '';
-          if (!empty($c['testing_expires_at'])) {
-              $expVal = substr((string) $c['testing_expires_at'], 0, 10);
-          }
-          $cid = (int) $c['id'];
-          ?>
-        <article class="testing-desk-card">
-          <div class="testing-desk-main">
-            <div class="testing-desk-title">
+    <div class="table-scroll">
+    <table class="grid testing-companies-table" data-filterable="testing-companies">
+      <thead>
+        <tr>
+          <th>Company</th>
+          <th>Agent</th>
+          <th>Desk login</th>
+          <th>Ends</th>
+          <th>Time left</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($testing as $c):
+            $expired = company_testing_expired($c);
+            $expVal = '';
+            if (!empty($c['testing_expires_at'])) {
+                $expVal = substr((string) $c['testing_expires_at'], 0, 10);
+            }
+            $cid = (int) $c['id'];
+            $searchBlob = strtolower(trim(
+                (string) $c['name'] . ' ' . (string) ($c['owner_name'] ?? '') . ' ' . (string) ($c['desk_email'] ?? '')
+            ));
+            ?>
+          <tr data-search="<?= h($searchBlob) ?>">
+            <td>
               <a href="<?= h(url('admin_company.php?id=' . $cid)) ?>"><strong><?= h((string) $c['name']) ?></strong></a>
               <?php if ($expired): ?><span class="pill bad">Expired</span><?php else: ?><span class="pill warn">Testing</span><?php endif; ?>
-            </div>
-            <dl class="testing-desk-meta">
-              <div><dt>Agent</dt><dd><?= h((string) ($c['owner_name'] ?: '-')) ?></dd></div>
-              <div><dt>Desk login</dt><dd class="mono"><?= h((string) ($c['desk_email'] ?? '-')) ?></dd></div>
-              <div><dt>Ends</dt><dd><?= $expVal !== '' ? h(format_date($expVal)) : '-' ?></dd></div>
-              <div><dt>Time left</dt><dd><?= h(company_testing_remaining_label($c)) ?></dd></div>
-            </dl>
-          </div>
-          <div class="testing-desk-actions">
-            <div class="actions-row">
-              <a class="btn sm" href="<?= h(url('admin_company.php?id=' . $cid)) ?>"><?= icon('eye', 14) ?>Open</a>
-              <a class="btn ghost sm" href="<?= h(url('sales_desk.php?id=' . $cid . '&go=1')) ?>"><?= icon('desk', 14) ?>Desk</a>
-              <form method="post" class="inline-form">
-                <?= csrf_field() ?>
-                <input type="hidden" name="action" value="testing_extend">
-                <input type="hidden" name="company_id" value="<?= $cid ?>">
-                <input type="hidden" name="days" value="7">
-                <button class="btn ghost sm" type="submit">+7 days</button>
-              </form>
-              <form method="post" class="inline-form">
-                <?= csrf_field() ?>
-                <input type="hidden" name="action" value="testing_extend">
-                <input type="hidden" name="company_id" value="<?= $cid ?>">
-                <input type="hidden" name="days" value="-7">
-                <button class="btn ghost sm" type="submit">-7 days</button>
-              </form>
-              <form method="post" class="inline-form" onsubmit="return confirm('Promote to full onboard? Testing limits will clear.');">
-                <?= csrf_field() ?>
-                <input type="hidden" name="action" value="testing_promote">
-                <input type="hidden" name="company_id" value="<?= $cid ?>">
-                <button class="btn sm" type="submit">Onboard</button>
-              </form>
-            </div>
-            <div class="actions-row testing-desk-secondary">
-              <form method="post" class="inline-form testing-expiry-form">
-                <?= csrf_field() ?>
-                <input type="hidden" name="action" value="testing_set_expiry">
-                <input type="hidden" name="company_id" value="<?= $cid ?>">
-                <label class="sr-only" for="testing_end_<?= $cid ?>">End date</label>
-                <input id="testing_end_<?= $cid ?>" type="date" name="testing_expires_at" value="<?= h($expVal) ?>" required>
-                <button class="btn ghost sm" type="submit">Set end</button>
-              </form>
-              <form method="post" class="inline-form testing-delete-form">
-                <?= csrf_field() ?>
-                <input type="hidden" name="action" value="testing_delete">
-                <input type="hidden" name="company_id" value="<?= $cid ?>">
-                <label class="sr-only" for="testing_del_<?= $cid ?>">Type company name to delete</label>
-                <input id="testing_del_<?= $cid ?>" type="text" name="delete_confirm" placeholder="Type name to delete" required autocomplete="off">
-                <button class="btn danger sm" type="submit">Delete</button>
-              </form>
-            </div>
-          </div>
-        </article>
-      <?php endforeach; ?>
+            </td>
+            <td><?= h((string) ($c['owner_name'] ?: '-')) ?></td>
+            <td class="mono"><?= h((string) ($c['desk_email'] ?? '-')) ?></td>
+            <td class="mono"><?= $expVal !== '' ? h(format_date($expVal)) : '-' ?></td>
+            <td><?= h(company_testing_remaining_label($c)) ?></td>
+            <td class="row-actions">
+              <div class="actions testing-row-actions">
+                <a class="btn sm" href="<?= h(url('admin_company.php?id=' . $cid)) ?>"><?= icon('eye', 14) ?>Open</a>
+                <a class="btn ghost sm" href="<?= h(url('sales_desk.php?id=' . $cid . '&go=1')) ?>"><?= icon('desk', 14) ?>Desk</a>
+                <form method="post" class="inline-form">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="action" value="testing_extend">
+                  <input type="hidden" name="company_id" value="<?= $cid ?>">
+                  <input type="hidden" name="days" value="7">
+                  <button class="btn ghost sm" type="submit">+7 days</button>
+                </form>
+                <form method="post" class="inline-form">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="action" value="testing_extend">
+                  <input type="hidden" name="company_id" value="<?= $cid ?>">
+                  <input type="hidden" name="days" value="-7">
+                  <button class="btn ghost sm" type="submit">-7 days</button>
+                </form>
+                <form method="post" class="inline-form testing-expiry-form">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="action" value="testing_set_expiry">
+                  <input type="hidden" name="company_id" value="<?= $cid ?>">
+                  <input type="date" name="testing_expires_at" value="<?= h($expVal) ?>" required aria-label="End date">
+                  <button class="btn ghost sm" type="submit">Set end</button>
+                </form>
+                <form method="post" class="inline-form" onsubmit="return confirm('Promote to full onboard? Testing limits will clear.');">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="action" value="testing_promote">
+                  <input type="hidden" name="company_id" value="<?= $cid ?>">
+                  <button class="btn sm" type="submit">Onboard</button>
+                </form>
+                <form method="post" class="inline-form testing-delete-form">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="action" value="testing_delete">
+                  <input type="hidden" name="company_id" value="<?= $cid ?>">
+                  <input type="text" name="delete_confirm" placeholder="Type name" aria-label="Confirm delete" required autocomplete="off">
+                  <button class="btn danger sm" type="submit">Delete</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
     </div>
+    <p class="hint">Scroll sideways on a phone to see every action. Desk login defaults to FirstWord@vellisys.com · password Folio2026. Edit the login on the company page.</p>
   <?php endif; ?>
 
   <details class="sales-test-create" style="margin-top:20px">
@@ -268,6 +300,11 @@ layout_admin_start('Companies', $user);
           <input id="t_phone" name="phone" inputmode="tel" required value="<?= h(post('phone')) ?>">
         </div>
         <div>
+          <label for="t_email">Desk login email</label>
+          <input id="t_email" name="user_email" type="email" value="<?= h(post('user_email')) ?>" placeholder="FirstWord@vellisys.com">
+          <p class="hint" style="margin:4px 0 0">Leave blank to use the first word of the business name @vellisys.com. Password is always Folio2026.</p>
+        </div>
+        <div>
           <label for="t_city">City</label>
           <input id="t_city" name="city" value="<?= h(post('city')) ?>">
         </div>
@@ -294,4 +331,21 @@ layout_admin_start('Companies', $user);
     </form>
   </details>
 </div>
+<script>
+(function(){
+  document.querySelectorAll('[data-table-filter]').forEach(function(input){
+    var key = input.getAttribute('data-table-filter');
+    var table = document.querySelector('table[data-filterable="' + key + '"]');
+    if (!table) return;
+    var rows = table.querySelectorAll('tbody tr[data-search]');
+    input.addEventListener('input', function(){
+      var q = (input.value || '').toLowerCase().trim();
+      rows.forEach(function(row){
+        var hay = row.getAttribute('data-search') || '';
+        row.hidden = q !== '' && hay.indexOf(q) === -1;
+      });
+    });
+  });
+})();
+</script>
 <?php layout_end(); ?>

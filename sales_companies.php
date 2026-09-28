@@ -15,7 +15,7 @@ sales_layout_start('My companies', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('building') ?>My companies</h1>
-    <p class="lede">Testing desks you opened for interested clients. Each runs for 2 weeks. Hand them the username and password, then promote to full onboard when they are ready.</p>
+    <p class="lede">Testing desks you opened for interested clients. Each runs for 2 weeks. Hand them FirstWord@vellisys.com and password Folio2026, then promote to full onboard when they are ready.</p>
   </div>
   <div class="actions page-actions">
     <a class="btn" href="<?= h(url('sales_company_new.php')) ?>"><?= icon('plus') ?>New test desk</a>

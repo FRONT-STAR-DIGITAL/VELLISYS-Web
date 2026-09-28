@@ -603,7 +603,7 @@ layout_start('Settings', $user);
 
     <section class="card settings-card" id="company">
       <h2><?= icon('building') ?>Company</h2>
-      <p class="lede">Printed on every Head office sheet under the logo. The email here is the company contact on documents — not the sign-in emails under People. Named branches (Business and Pro) keep their own address.</p>
+      <p class="lede">Printed on every Head office sheet under the logo. The email here is the company contact on documents - not the sign-in emails under People. Named branches (Business and Pro) keep their own address.</p>
       <div class="form-grid">
         <div>
           <label for="name">Company name</label>

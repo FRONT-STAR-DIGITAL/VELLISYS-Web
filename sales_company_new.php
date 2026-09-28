@@ -70,7 +70,7 @@ sales_layout_start('New test desk', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('plus') ?>New test desk</h1>
-    <p class="lede">For interested clients who want to try first. Runs strictly for 2 weeks. You get a username and password to hand over.</p>
+    <p class="lede">For interested clients who want to try first. Runs strictly for 2 weeks. Login is FirstWord@vellisys.com · password Folio2026.</p>
   </div>
   <div class="actions page-actions">
     <a class="btn ghost" href="<?= h(url('sales_companies.php')) ?>">Back</a>

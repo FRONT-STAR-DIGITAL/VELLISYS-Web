@@ -37,6 +37,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash(empty($done['ok']) ? ($done['error'] ?? 'Could not promote.') : 'Promoted from testing to onboard. Finish emails and advanced settings below.', empty($done['ok']) ? 'err' : 'ok');
         redirect('admin_company.php?id=' . $id);
     }
+    if ($action === 'testing_set_login') {
+        $done = sales_testing_set_login($id, post('desk_email'), true);
+        flash(
+            empty($done['ok'])
+                ? ($done['error'] ?? 'Could not update desk login.')
+                : ('Desk login set to ' . ($done['email'] ?? '') . ' · password Folio2026'),
+            empty($done['ok']) ? 'err' : 'ok'
+        );
+        redirect('admin_company.php?id=' . $id);
+    }
     if ($action === 'profile') {
         $status = post('status') ?: 'onboarding';
         if (!in_array($status, ['onboarding', 'live', 'suspended'], true)) {
@@ -540,8 +550,21 @@ layout_admin_start($company['name'], $user);
   </p>
   <?php if ($testingCreds): ?>
     <p><strong>Username:</strong> <code><?= h((string) ($testingCreds['email'] ?: '-')) ?></code></p>
-    <p><strong>Password:</strong> <code><?= h((string) ($testingCreds['password'] !== '' ? $testingCreds['password'] : '-')) ?></code></p>
+    <p><strong>Password:</strong> <code><?= h((string) (($testingCreds['password'] !== '' ? $testingCreds['password'] : sales_testing_default_password()))) ?></code></p>
   <?php endif; ?>
+  <form method="post" class="form-grid" style="margin-top:12px">
+    <?= csrf_field() ?>
+    <input type="hidden" name="id" value="<?= $id ?>">
+    <input type="hidden" name="action" value="testing_set_login">
+    <div class="full">
+      <label for="desk_email">Desk login email</label>
+      <input id="desk_email" name="desk_email" type="email" required value="<?= h((string) ($testingCreds['email'] ?? '')) ?>" placeholder="FirstWord@vellisys.com">
+      <p class="hint" style="margin:4px 0 0">Editable. Saving also resets the password to Folio2026.</p>
+    </div>
+    <div class="full actions">
+      <button class="btn sm" type="submit"><?= icon('check', 14) ?>Save login</button>
+    </div>
+  </form>
   <div class="actions wrap-actions" style="margin-top:12px">
     <form method="post" class="inline-form">
       <?= csrf_field() ?>

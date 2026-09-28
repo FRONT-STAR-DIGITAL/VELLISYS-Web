@@ -1419,37 +1419,108 @@ function company_testing_remaining_label(?array $company): string
     return $hours . ' hour' . ($hours === 1 ? '' : 's') . ' left';
 }
 
-/** Short desk login from a business name - no "test" prefix. e.g. markconst@desk.vellisys.ug */
-function sales_testing_generate_login(string $seed = ''): string
+/** Default password for every testing desk. */
+function sales_testing_default_password(): string
 {
-    $slug = preg_replace('/[^a-z0-9]+/', '', strtolower(trim($seed)));
-    if (strlen($slug) < 3) {
-        $slug = 'desk' . substr(bin2hex(random_bytes(2)), 0, 3);
+    return 'Folio2026';
+}
+
+/**
+ * Desk login from the first word of the business name: mark@vellisys.com
+ * Optional $preferred overrides when super admin sets a custom email.
+ */
+function sales_testing_generate_login(string $seed = '', string $preferred = ''): string
+{
+    $preferred = strtolower(trim($preferred));
+    if ($preferred !== '' && filter_var($preferred, FILTER_VALIDATE_EMAIL)) {
+        if (!db_one('SELECT id FROM users WHERE email = ?', 's', [$preferred])) {
+            return $preferred;
+        }
+        return ''; // caller treats empty as "taken"
     }
-    // Keep it short and readable for handing over in person.
-    $slug = substr($slug, 0, 14);
-    $email = $slug . '@desk.vellisys.ug';
+    $parts = preg_split('/\s+/u', trim($seed)) ?: [];
+    $first = preg_replace('/[^a-zA-Z0-9]+/', '', (string) ($parts[0] ?? ''));
+    if ($first === '') {
+        $first = 'desk';
+    }
+    $local = strtolower(substr($first, 0, 40));
+    $email = $local . '@vellisys.com';
     $n = 0;
     while (db_one('SELECT id FROM users WHERE email = ?', 's', [$email])) {
         $n++;
-        $suffix = (string) $n;
-        $email = substr($slug, 0, max(3, 14 - strlen($suffix))) . $suffix . '@desk.vellisys.ug';
-        if ($n > 50) {
-            $email = substr($slug, 0, 8) . substr(bin2hex(random_bytes(2)), 0, 4) . '@desk.vellisys.ug';
+        $email = $local . $n . '@vellisys.com';
+        if ($n > 99) {
+            $email = $local . substr(bin2hex(random_bytes(2)), 0, 4) . '@vellisys.com';
             if (!db_one('SELECT id FROM users WHERE email = ?', 's', [$email])) {
                 break;
             }
         }
     }
-    return strtolower($email);
+    return $email;
 }
 
-/** Memorable desk password clients can say aloud - e.g. LakeSun42 */
 function sales_testing_generate_password(): string
 {
-    $a = ['Lake', 'Hill', 'River', 'Palm', 'Gold', 'Blue', 'Green', 'Sun', 'Moon', 'Star', 'Stone', 'Cedar', 'Olive', 'Coral', 'Amber', 'Pearl', 'Maple', 'Ivory'];
-    $b = ['Gate', 'Path', 'View', 'Park', 'Yard', 'Dock', 'Bay', 'Cove', 'Peak', 'Ridge', 'Field', 'Grove', 'Shore', 'Bridge', 'Plaza', 'Trail', 'Haven', 'Point'];
-    return $a[random_int(0, count($a) - 1)] . $b[random_int(0, count($b) - 1)] . (string) random_int(10, 99);
+    return sales_testing_default_password();
+}
+
+/** Super admin can change the testing desk sign-in email (and keep Folio2026). */
+function sales_testing_set_login(int $companyId, string $email, bool $resetPassword = false): array
+{
+    $company = db_one('SELECT * FROM companies WHERE id = ? AND testing_mode = 1', 'i', [$companyId]);
+    if (!$company) {
+        return ['ok' => false, 'error' => 'Testing company not found.'];
+    }
+    $email = strtolower(trim($email));
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return ['ok' => false, 'error' => 'Enter a valid desk login email.'];
+    }
+    $admin = db_one("SELECT id, email FROM users WHERE company_id = ? AND role = 'admin' ORDER BY id ASC LIMIT 1", 'i', [$companyId]);
+    if (!$admin) {
+        return ['ok' => false, 'error' => 'No desk login on this testing company.'];
+    }
+    $uid = (int) $admin['id'];
+    $taken = db_one('SELECT id FROM users WHERE email = ? AND id <> ?', 'si', [$email, $uid]);
+    if ($taken) {
+        return ['ok' => false, 'error' => 'That email already has a Vellisys login.'];
+    }
+    $password = sales_testing_default_password();
+    if ($resetPassword) {
+        db_exec(
+            'UPDATE users SET email = ?, password_hash = ? WHERE id = ? AND company_id = ?',
+            'ssii',
+            [$email, password_hash($password, PASSWORD_DEFAULT), $uid, $companyId]
+        );
+    } else {
+        db_exec('UPDATE users SET email = ? WHERE id = ? AND company_id = ?', 'sii', [$email, $uid, $companyId]);
+        $password = '';
+        $vault = db_one('SELECT password_enc FROM sales_vault WHERE company_id = ? ORDER BY id DESC LIMIT 1', 'i', [$companyId]);
+        if ($vault) {
+            $password = sales_vault_decrypt((string) $vault['password_enc']);
+        }
+        if ($password === '') {
+            $password = sales_testing_default_password();
+        }
+    }
+    $vaultRow = db_one('SELECT id FROM sales_vault WHERE company_id = ? ORDER BY id DESC LIMIT 1', 'i', [$companyId]);
+    if ($vaultRow) {
+        sales_vault_save([
+            'company_id' => $companyId,
+            'company_name' => (string) $company['name'],
+            'email' => $email,
+            'password' => $password !== '' ? $password : sales_testing_default_password(),
+            'notes' => 'Trial desk · hand credentials to the client',
+        ], (int) $vaultRow['id']);
+    } else {
+        sales_vault_save([
+            'company_id' => $companyId,
+            'company_name' => (string) $company['name'],
+            'email' => $email,
+            'password' => $password !== '' ? $password : sales_testing_default_password(),
+            'notes' => 'Trial desk · hand credentials to the client',
+        ]);
+    }
+    return ['ok' => true, 'email' => $email, 'password' => $password !== '' ? $password : sales_testing_default_password()];
 }
 
 /**
@@ -1493,6 +1564,12 @@ function sales_create_testing_company(array $fields, int $actorId, bool $asPlatf
     if (!is_array($kindsPosted) || $kindsPosted === []) {
         return ['ok' => false, 'error' => 'Select at least one document type for this test desk.'];
     }
+    $preferredEmail = strtolower(trim((string) ($fields['user_email'] ?? $fields['desk_email'] ?? '')));
+    $userEmail = sales_testing_generate_login($name, $preferredEmail);
+    if ($userEmail === '') {
+        return ['ok' => false, 'error' => 'That desk login email is already in use. Pick another.'];
+    }
+    $password = sales_testing_default_password();
     $kinds = function_exists('posted_enabled_kinds') ? posted_enabled_kinds() : implode(',', array_map('strval', $kindsPosted));
     $customDoc = function_exists('posted_custom_doc') ? posted_custom_doc() : null;
     $lineCols = function_exists('posted_document_line_columns') ? posted_document_line_columns() : null;
@@ -1525,9 +1602,6 @@ function sales_create_testing_company(array $fields, int $actorId, bool $asPlatf
     } elseif ($lineCols !== null) {
         db_exec('UPDATE companies SET line_columns=? WHERE id=?', 'si', [$lineCols, $cid]);
     }
-
-    $userEmail = sales_testing_generate_login($name);
-    $password = sales_testing_generate_password();
     $color = '#1E4EFF';
     $accent = '#C6A15B';
     $deep = function_exists('hex_shade') ? hex_shade($color, 0.52) : '#08143A';
