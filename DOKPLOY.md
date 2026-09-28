@@ -58,7 +58,11 @@ FOLIO_DB_NAME=vellisys
 FOLIO_DB_USER=vellisys
 FOLIO_DB_PASS=ChooseAStrongPassword123!
 FOLIO_DB_ROOT_PASS=ChooseAnotherStrongRootPass456!
+FOLIO_REDIS_PASS=ChooseAStrongRedisPassword789!
 ```
+
+`FOLIO_REDIS_PASS` protects the Redis container on the Docker network (short app cache).  
+Logins stay in MySQL — Redis is optional cache only. If Redis is unhealthy, the desk still works with file cache.
 
 Optional (only if you want to override platform mail from env):
 
@@ -91,11 +95,12 @@ Logins are stored in MySQL (`php_sessions`) plus a signed cookie. There is no id
 
 1. Click **Deploy**.
 2. Open **Deployments** / **Logs**.
-3. Wait until both services are healthy:
+3. Wait until these services are healthy:
    - `db` (MySQL)
+   - `redis` (cache)
    - `app` (PHP + Apache)
 
-First build can take **5–15 minutes** (downloads PHP/MySQL images).
+First build can take **5–15 minutes** (downloads PHP/MySQL/Redis images).
 
 If it fails, read the red log line. Common fixes:
 
@@ -230,9 +235,49 @@ After go-live, desk reloads are usually a bit slower than classic Hostinger web 
 
 - Schema “ensure” work runs once, then a cache stamp skips it on later requests
 - Production PHP OPcache is on in the Docker image
+- **Redis** holds short-lived app cache (`folio_remember`) so common lookups hit RAM instead of MySQL/files
 - `uploads/` and `storage/cache` persist on VPS volumes
 
 If a page still feels heavy, it is usually that page’s queries (reports/charts), not DNS. Redeploy after pulling `main` to pick up speed fixes.
+
+---
+
+## Cloudflare Free (in front of the VPS)
+
+Cloudflare Free sits in front of Dokploy. It caches static files, absorbs junk traffic, and gives free DDoS protection. **No Cloudflare bill** if you stay on Free and do not buy Workers/Images add-ons.
+
+### A) Add the domain (Cloudflare dashboard)
+
+1. Account home → **Add a domain** (middle card).
+2. Type: `vellisys.com` (apex — Cloudflare will cover `www` too).
+3. Continue → choose **Free** plan → Continue.
+4. Cloudflare scans DNS. Keep existing **MX** records for Hostinger/Titan mail (do not delete mail rows).
+5. Finish until Cloudflare shows **two nameservers** (e.g. `ada.ns.cloudflare.com` and `bob.ns.cloudflare.com`).
+
+### B) Point the domain at Cloudflare
+
+1. Open the place that currently holds DNS for `vellisys.com` (Hostinger domain / registrar).
+2. Change **nameservers** to the two Cloudflare nameservers.
+3. Wait for Cloudflare status **Active** (can be minutes to a few hours).
+
+### C) Proxy + SSL (after Active)
+
+1. Cloudflare → your domain → **DNS**.
+2. For `vellisys.com` and `www`, set **A** (or CNAME) to your **VPS IP** (Dokploy).
+3. Turn the cloud **orange** (Proxied) for those web records.
+4. Leave **MX** as DNS only (grey cloud) — mail stays on Hostinger.
+5. **SSL/TLS** → Overview → encryption mode:
+   - Prefer **Full (strict)** once Dokploy Let’s Encrypt is working for `www.vellisys.com`.
+   - Use **Full** temporarily if the origin cert is not ready yet.
+   - Avoid **Flexible** (can break logins / mixed HTTPS).
+
+### D) Caching (optional, Free)
+
+1. **Caching** → Configuration → Caching Level: **Standard**.
+2. Browser Cache TTL can stay default.
+3. Do **not** “Cache Everything” for the whole site — PHP desk pages must stay dynamic. Static assets already send long `Cache-Control` from Apache.
+
+Ignore sidebar **Storage & databases** / Workers for this setup — Redis runs inside Dokploy on your VPS, not in Cloudflare.
 
 ## Day-2 updates (this is the easy part)
 

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 define('ROOT_PATH', dirname(__DIR__));
 require_once ROOT_PATH . '/config/env.php';
+require_once ROOT_PATH . '/includes/redis.php';
 require_once ROOT_PATH . '/includes/session_store.php';
 
 // Sessions persist until Sign out — no idle expiry.

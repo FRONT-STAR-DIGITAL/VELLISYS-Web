@@ -27,6 +27,25 @@ services:
       timeout: 5s
       retries: 10
 
+  # Short-lived app cache (folio_remember). Free self-hosted — not Redis Cloud.
+  # Sessions stay in MySQL. If Redis is down, the app falls back to file cache.
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${FOLIO_REDIS_PASS:-vellisys-redis-change-me}
+    command:
+      - sh
+      - -c
+      - redis-server --requirepass "$$REDIS_PASSWORD" --maxmemory 128mb --maxmemory-policy allkeys-lru --save "" --appendonly no
+    networks:
+      - dokploy-network
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   app:
     build: .
     restart: unless-stopped
@@ -38,6 +57,9 @@ services:
       FOLIO_DB_NAME: ${FOLIO_DB_NAME:-vellisys}
       FOLIO_DB_USER: ${FOLIO_DB_USER:-vellisys}
       FOLIO_DB_PASS: ${FOLIO_DB_PASS}
+      FOLIO_REDIS_HOST: redis
+      FOLIO_REDIS_PORT: "6379"
+      FOLIO_REDIS_PASS: ${FOLIO_REDIS_PASS:-vellisys-redis-change-me}
     volumes:
       # Company logos, avatars, landing photos — survives git redeploys
       - ../files/uploads:/var/www/html/uploads
@@ -47,6 +69,8 @@ services:
       - ../files/sessions:/var/www/html/storage/sessions
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - dokploy-network

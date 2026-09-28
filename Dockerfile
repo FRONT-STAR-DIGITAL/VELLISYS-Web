@@ -2,6 +2,7 @@ FROM php:8.3-apache
 
 # Extensions Vellisys needs (MySQL, uploads, zip/PDF helpers, HTTPS clients)
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        $PHPIZE_DEPS \
         libzip-dev \
         libpng-dev \
         libjpeg62-turbo-dev \
@@ -16,8 +17,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         zip \
         intl \
         opcache \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
     && a2enmod rewrite headers expires deflate \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get purge -y --auto-remove $PHPIZE_DEPS \
+    && rm -rf /var/lib/apt/lists/* /tmp/pear
 
 # Allow .htaccess (www redirects, caching) to work
 RUN sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf

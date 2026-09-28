@@ -948,6 +948,14 @@ function folio_remember(string $key, callable $fill, int $ttl = 90): mixed
     if (array_key_exists($key, $mem)) {
         return $mem[$key];
     }
+    $cacheKey = 'cache:' . hash('sha256', $key);
+    if (function_exists('folio_redis_get')) {
+        $cached = folio_redis_get($cacheKey);
+        if ($cached !== null) {
+            $mem[$key] = $cached;
+            return $cached;
+        }
+    }
     $file = folio_cache_dir() . '/' . hash('sha256', $key) . '.ser';
     if (is_file($file) && filemtime($file) > time() - $ttl) {
         $raw = @file_get_contents($file);
@@ -955,18 +963,27 @@ function folio_remember(string $key, callable $fill, int $ttl = 90): mixed
             $val = @unserialize($raw, ['allowed_classes' => false]);
             if ($val !== false || $raw === 'b:0;') {
                 $mem[$key] = $val;
+                if (function_exists('folio_redis_set')) {
+                    folio_redis_set($cacheKey, $val, $ttl);
+                }
                 return $val;
             }
         }
     }
     $val = $fill();
     $mem[$key] = $val;
+    if (function_exists('folio_redis_set')) {
+        folio_redis_set($cacheKey, $val, $ttl);
+    }
     @file_put_contents($file, serialize($val), LOCK_EX);
     return $val;
 }
 
 function folio_cache_bust(): void
 {
+    if (function_exists('folio_redis_flush_prefix')) {
+        folio_redis_flush_prefix();
+    }
     $dir = folio_cache_dir();
     foreach (glob($dir . '/*.ser') ?: [] as $file) {
         @unlink($file);
