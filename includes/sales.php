@@ -2105,7 +2105,6 @@ function sales_layout_start(string $title, array $user): void
             <?php endif; ?>
           </div>
         </details>
-        <a class="btn ghost sales-sign-out" href="<?= h(url('logout.php')) ?>" title="Sign out" aria-label="Sign out"><?= icon('logout', 16) ?><span>Sign out</span></a>
         <a class="btn" href="<?= h(url('sales_lead_edit.php')) ?>"><?= icon('plus', 16) ?>New lead</a>
       </div>
     </header>

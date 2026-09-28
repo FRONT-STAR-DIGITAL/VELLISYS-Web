@@ -5834,16 +5834,22 @@ a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--lin
   min-width: 0;
   box-sizing: border-box;
 }
-.sales-body .top-actions {
-  flex-shrink: 1;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  max-width: 100%;
-  min-width: 0;
+.sales-body .top {
+  flex-wrap: nowrap;
+  gap: 8px;
 }
-.sales-body .top-actions .sales-sign-out {
+.sales-body .top-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+.sales-body .top-actions {
   flex: 0 0 auto;
-  white-space: nowrap;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: none;
+  min-width: 0;
 }
 .sales-body .nav a.nav-sign-out {
   margin-top: 6px;
@@ -5859,22 +5865,12 @@ a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--lin
   display: none;
 }
 @media (max-width: 600px) {
-  .sales-body .top-actions .sales-sign-out span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
+  .sales-body .top-clock span {
+    max-width: 7.5rem;
   }
-  .sales-body .top-actions .sales-sign-out {
-    width: 40px;
-    min-width: 40px;
-    padding-inline: 0;
-    justify-content: center;
+  .sales-body .top-actions .btn {
+    padding-inline: 8px;
+    white-space: nowrap;
   }
 }
 .sales-lead-form [data-panel] {
