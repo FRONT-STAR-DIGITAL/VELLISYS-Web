@@ -7029,6 +7029,16 @@ a.cdash-metric:hover {
   border-radius: 10px;
   background: #fff;
 }
+.admin-body #testing .table-scroll,
+.admin-body #live .table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.admin-body #testing .testing-companies-table,
+.admin-body #live table.grid {
+  width: max-content;
+  min-width: 100%;
+}
 .testing-companies-table td.row-actions,
 .testing-companies-table th:last-child {
   white-space: nowrap;
@@ -7038,6 +7048,7 @@ a.cdash-metric:hover {
   flex-wrap: nowrap;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
 }
 .testing-expiry-form input[type="date"],
 .testing-delete-form input[type="text"] {
@@ -7080,20 +7091,15 @@ a.cdash-metric:hover {
     min-height: 42px;
     justify-content: center;
   }
-  .admin-body .wrap-actions {
+  .company-table-head {
     flex-direction: column;
     align-items: stretch;
   }
-  .admin-body .inline-form {
-    width: 100%;
-  }
-  .admin-body .inline-form .btn,
-  .admin-body .testing-expiry-form input[type="date"],
-  .admin-body .testing-delete-form input[type="text"] {
-    width: 100%;
+  .company-table-search {
     max-width: none;
   }
-  .admin-body #testing .table-scroll td.row-actions {
-    min-width: 0;
+  /* Keep testing actions on one row; table-scroll handles sideways pan. */
+  .admin-body #testing .testing-row-actions {
+    flex-wrap: nowrap;
   }
 }

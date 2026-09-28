@@ -1464,6 +1464,45 @@ function sales_testing_generate_password(): string
     return sales_testing_default_password();
 }
 
+/**
+ * One-time / deploy: rewrite legacy trial logins (test*@test…, *@desk…) to
+ * FirstWord@vellisys.com and set every testing desk password to Folio2026.
+ * Keeps an existing *@vellisys.com login if a super admin already customized it.
+ */
+function sales_testing_normalize_logins(): int
+{
+    $rows = db_all('SELECT id, name FROM companies WHERE testing_mode = 1 ORDER BY id ASC');
+    $n = 0;
+    foreach ($rows as $row) {
+        $cid = (int) $row['id'];
+        $admin = db_one(
+            "SELECT id, email FROM users WHERE company_id = ? AND role = 'admin' ORDER BY id ASC LIMIT 1",
+            'i',
+            [$cid]
+        );
+        if (!$admin) {
+            continue;
+        }
+        $current = strtolower(trim((string) ($admin['email'] ?? '')));
+        $email = $current;
+        $needsRewrite = $current === ''
+            || !str_ends_with($current, '@vellisys.com')
+            || str_starts_with($current, 'test')
+            || str_contains($current, '@test.');
+        if ($needsRewrite) {
+            $email = sales_testing_generate_login((string) $row['name']);
+            if ($email === '') {
+                continue;
+            }
+        }
+        $done = sales_testing_set_login($cid, $email, true);
+        if (!empty($done['ok'])) {
+            $n++;
+        }
+    }
+    return $n;
+}
+
 /** Super admin can change the testing desk sign-in email (and keep Folio2026). */
 function sales_testing_set_login(int $companyId, string $email, bool $resetPassword = false): array
 {

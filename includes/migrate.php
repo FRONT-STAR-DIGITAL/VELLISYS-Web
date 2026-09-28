@@ -25,7 +25,40 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '59';
+    return '60';
+}
+
+/** Trial desks: FirstWord@vellisys.com + Folio2026 (once per deploy via schema_meta). */
+function folio_migrate_testing_logins_vellisys(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    @$db->query("CREATE TABLE IF NOT EXISTS schema_meta (
+      k VARCHAR(40) PRIMARY KEY,
+      v VARCHAR(40) NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $flag = @$db->query("SELECT v FROM schema_meta WHERE k = 'testing_login_vellisys_v1'");
+    if ($flag && ($r = $flag->fetch_assoc()) && (string) $r['v'] === '1') {
+        return;
+    }
+    if (!function_exists('sales_testing_normalize_logins')) {
+        $sales = dirname(__DIR__) . '/includes/sales.php';
+        if (is_file($sales)) {
+            require_once $sales;
+        }
+    }
+    if (function_exists('sales_testing_normalize_logins')) {
+        try {
+            sales_testing_normalize_logins();
+        } catch (Throwable $e) {
+            // Leave flag unset so the next request can retry.
+            return;
+        }
+    }
+    @$db->query("REPLACE INTO schema_meta (k, v) VALUES ('testing_login_vellisys_v1', '1')");
 }
 
 /** Strip temporary desk login addresses off document letterheads. */
@@ -546,6 +579,7 @@ function folio_migrate(mysqli $db): void
     try {
     folio_ensure_php_sessions($db);
     folio_ensure_doc_email_not_login($db);
+    folio_migrate_testing_logins_vellisys($db);
     folio_ensure_logo_bg($db);
     folio_ensure_optional_doc_party($db);
     folio_ensure_receipt_comments($db);
