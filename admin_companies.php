@@ -169,83 +169,74 @@ layout_admin_start('Companies', $user);
   <?php if (!$testing): ?>
     <p class="empty">No companies in testing mode right now.</p>
   <?php else: ?>
-    <div class="table-scroll">
-    <table class="grid">
-      <thead>
-        <tr>
-          <th>Company</th>
-          <th>Agent</th>
-          <th>Desk login</th>
-          <th>Ends</th>
-          <th>Time left</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php foreach ($testing as $c):
-            $expired = company_testing_expired($c);
-            $expVal = '';
-            if (!empty($c['testing_expires_at'])) {
-                $expVal = substr((string) $c['testing_expires_at'], 0, 10);
-            }
-            ?>
-          <tr>
-            <td>
-              <a href="<?= h(url('admin_company.php?id=' . (int) $c['id'])) ?>"><strong><?= h((string) $c['name']) ?></strong></a>
+    <div class="testing-desk-list">
+      <?php foreach ($testing as $c):
+          $expired = company_testing_expired($c);
+          $expVal = '';
+          if (!empty($c['testing_expires_at'])) {
+              $expVal = substr((string) $c['testing_expires_at'], 0, 10);
+          }
+          $cid = (int) $c['id'];
+          ?>
+        <article class="testing-desk-card">
+          <div class="testing-desk-main">
+            <div class="testing-desk-title">
+              <a href="<?= h(url('admin_company.php?id=' . $cid)) ?>"><strong><?= h((string) $c['name']) ?></strong></a>
               <?php if ($expired): ?><span class="pill bad">Expired</span><?php else: ?><span class="pill warn">Testing</span><?php endif; ?>
-            </td>
-            <td><?= h((string) ($c['owner_name'] ?: '-')) ?></td>
-            <td class="mono"><?= h((string) ($c['desk_email'] ?? '-')) ?></td>
-            <td class="mono"><?= $expVal !== '' ? h(format_date($expVal)) : '-' ?></td>
-            <td><?= h(company_testing_remaining_label($c)) ?></td>
-            <td class="row-actions">
-              <div class="wrap-actions">
-                <div class="actions-row">
-                  <a class="btn sm" href="<?= h(url('admin_company.php?id=' . (int) $c['id'])) ?>"><?= icon('eye', 14) ?>Open</a>
-                  <a class="btn ghost sm" href="<?= h(url('sales_desk.php?id=' . (int) $c['id'] . '&go=1')) ?>"><?= icon('desk', 14) ?>Desk</a>
-                </div>
-                <div class="actions-row">
-                  <form method="post" class="inline-form">
-                    <?= csrf_field() ?>
-                    <input type="hidden" name="action" value="testing_extend">
-                    <input type="hidden" name="company_id" value="<?= (int) $c['id'] ?>">
-                    <input type="hidden" name="days" value="7">
-                    <button class="btn ghost sm" type="submit">+7 days</button>
-                  </form>
-                  <form method="post" class="inline-form">
-                    <?= csrf_field() ?>
-                    <input type="hidden" name="action" value="testing_extend">
-                    <input type="hidden" name="company_id" value="<?= (int) $c['id'] ?>">
-                    <input type="hidden" name="days" value="-7">
-                    <button class="btn ghost sm" type="submit">-7 days</button>
-                  </form>
-                </div>
-                <form method="post" class="inline-form testing-expiry-form">
-                  <?= csrf_field() ?>
-                  <input type="hidden" name="action" value="testing_set_expiry">
-                  <input type="hidden" name="company_id" value="<?= (int) $c['id'] ?>">
-                  <input type="date" name="testing_expires_at" value="<?= h($expVal) ?>" required aria-label="End date">
-                  <button class="btn ghost sm" type="submit">Set end</button>
-                </form>
-                <form method="post" class="inline-form" onsubmit="return confirm('Promote to full onboard? Testing limits will clear.');">
-                  <?= csrf_field() ?>
-                  <input type="hidden" name="action" value="testing_promote">
-                  <input type="hidden" name="company_id" value="<?= (int) $c['id'] ?>">
-                  <button class="btn sm" type="submit">Onboard</button>
-                </form>
-                <form method="post" class="inline-form testing-delete-form">
-                  <?= csrf_field() ?>
-                  <input type="hidden" name="action" value="testing_delete">
-                  <input type="hidden" name="company_id" value="<?= (int) $c['id'] ?>">
-                  <input type="text" name="delete_confirm" placeholder="Type name" aria-label="Confirm delete" required>
-                  <button class="btn danger sm" type="submit">Delete</button>
-                </form>
-              </div>
-            </td>
-          </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
+            </div>
+            <dl class="testing-desk-meta">
+              <div><dt>Agent</dt><dd><?= h((string) ($c['owner_name'] ?: '-')) ?></dd></div>
+              <div><dt>Desk login</dt><dd class="mono"><?= h((string) ($c['desk_email'] ?? '-')) ?></dd></div>
+              <div><dt>Ends</dt><dd><?= $expVal !== '' ? h(format_date($expVal)) : '-' ?></dd></div>
+              <div><dt>Time left</dt><dd><?= h(company_testing_remaining_label($c)) ?></dd></div>
+            </dl>
+          </div>
+          <div class="testing-desk-actions">
+            <div class="actions-row">
+              <a class="btn sm" href="<?= h(url('admin_company.php?id=' . $cid)) ?>"><?= icon('eye', 14) ?>Open</a>
+              <a class="btn ghost sm" href="<?= h(url('sales_desk.php?id=' . $cid . '&go=1')) ?>"><?= icon('desk', 14) ?>Desk</a>
+              <form method="post" class="inline-form">
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="testing_extend">
+                <input type="hidden" name="company_id" value="<?= $cid ?>">
+                <input type="hidden" name="days" value="7">
+                <button class="btn ghost sm" type="submit">+7 days</button>
+              </form>
+              <form method="post" class="inline-form">
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="testing_extend">
+                <input type="hidden" name="company_id" value="<?= $cid ?>">
+                <input type="hidden" name="days" value="-7">
+                <button class="btn ghost sm" type="submit">-7 days</button>
+              </form>
+              <form method="post" class="inline-form" onsubmit="return confirm('Promote to full onboard? Testing limits will clear.');">
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="testing_promote">
+                <input type="hidden" name="company_id" value="<?= $cid ?>">
+                <button class="btn sm" type="submit">Onboard</button>
+              </form>
+            </div>
+            <div class="actions-row testing-desk-secondary">
+              <form method="post" class="inline-form testing-expiry-form">
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="testing_set_expiry">
+                <input type="hidden" name="company_id" value="<?= $cid ?>">
+                <label class="sr-only" for="testing_end_<?= $cid ?>">End date</label>
+                <input id="testing_end_<?= $cid ?>" type="date" name="testing_expires_at" value="<?= h($expVal) ?>" required>
+                <button class="btn ghost sm" type="submit">Set end</button>
+              </form>
+              <form method="post" class="inline-form testing-delete-form">
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="testing_delete">
+                <input type="hidden" name="company_id" value="<?= $cid ?>">
+                <label class="sr-only" for="testing_del_<?= $cid ?>">Type company name to delete</label>
+                <input id="testing_del_<?= $cid ?>" type="text" name="delete_confirm" placeholder="Type name to delete" required autocomplete="off">
+                <button class="btn danger sm" type="submit">Delete</button>
+              </form>
+            </div>
+          </div>
+        </article>
+      <?php endforeach; ?>
     </div>
   <?php endif; ?>
 

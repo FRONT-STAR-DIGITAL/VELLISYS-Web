@@ -248,6 +248,7 @@ layout_admin_start('Sales', $user);
   <div class="card stat"><?= icon('heart', 20) ?><span>Interested</span><strong><?= (int) $overall['interested'] ?></strong></div>
   <div class="card stat"><?= icon('check', 20) ?><span>Onboarded</span><strong><?= (int) $overall['onboarded'] ?></strong></div>
   <div class="card stat"><?= icon('flag', 20) ?><span>Sales (wins)</span><strong><?= (int) $overall['wins'] ?></strong></div>
+  <div class="card stat"><?= icon('building', 20) ?><span>On test</span><strong><?= (int) ($overall['on_test'] ?? 0) ?></strong><em class="muted"><?= (int) ($overall['testing_active'] ?? 0) ?> active now</em></div>
 </div>
 
 <div class="card" style="margin-bottom:16px">
@@ -301,6 +302,8 @@ layout_admin_start('Sales', $user);
                 <td><?= $location !== '' ? h($location) : '-' ?></td>
                 <td class="sales-agents-goal-targets">
                   <?php sales_render_goal_bars($p, ['compact' => true, 'force_reach' => true, 'force_sales' => true]); ?>
+                  <div class="muted" style="margin-top:6px">On test today: <strong class="mono"><?= (int) ($row['on_test'] ?? 0) ?></strong>
+                    · active <strong class="mono"><?= (int) ($row['testing_active'] ?? 0) ?></strong></div>
                 </td>
                 <td class="mono"><?= $clockedOutAt !== '' ? h(sales_format_clock_time($clockedOutAt)) : ($isIn ? 'In field' : '-') ?></td>
               </tr>
@@ -355,13 +358,14 @@ layout_admin_start('Sales', $user);
   <div class="card-head"><h2>Top performers</h2></div>
   <div class="table-scroll">
     <table class="grid">
-      <thead><tr><th>Agent</th><th class="right">Reach</th><th class="right">Sales</th><th class="right">Follow up</th><th class="right">Onboarded</th><th class="right">Rejected</th><th></th></tr></thead>
+      <thead><tr><th>Agent</th><th class="right">Reach</th><th class="right">Sales</th><th class="right">On test</th><th class="right">Follow up</th><th class="right">Onboarded</th><th class="right">Rejected</th><th></th></tr></thead>
       <tbody>
         <?php foreach ($top as $row): ?>
           <tr>
             <td><?= h($row['name']) ?><div class="muted"><?= h($row['email']) ?></div></td>
             <td class="right mono"><?= (int) $row['reach'] ?></td>
             <td class="right mono"><?= (int) $row['sales'] ?></td>
+            <td class="right mono"><?= (int) ($row['on_test'] ?? 0) ?></td>
             <td class="right mono"><?= (int) ($row['follow_up'] ?? 0) ?></td>
             <td class="right mono"><?= (int) ($row['onboarded'] ?? 0) ?></td>
             <td class="right mono"><?= (int) $row['rejected'] ?></td>
@@ -426,11 +430,12 @@ if (!$clientTimeAgentDatasets) {
     ];
 }
 $payload = json_encode([
-    'pieLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded'],
-    'pieValues' => [(int) $overall['interested'], (int) $overall['follow_up'], (int) $overall['rejected'], (int) $overall['onboarded']],
+    'pieLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded', 'On test'],
+    'pieValues' => [(int) $overall['interested'], (int) $overall['follow_up'], (int) $overall['rejected'], (int) $overall['onboarded'], (int) ($overall['on_test'] ?? 0)],
     'labels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $series),
     'reach' => array_column($series, 'reach'),
     'wins' => array_map(static fn ($r) => (int) $r['interested'] + (int) $r['onboarded'], $series),
+    'onTest' => array_map(static fn ($r) => (int) ($r['on_test'] ?? 0), $series),
     'hourLabels' => $hoursByAgent['labels'] ?? array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $hoursSeries),
     'hourDatasets' => $hourAgentDatasets,
     'clientTimeLabels' => $clientTimeByAgent['labels'] ?? array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $clientTimeSeries),
@@ -438,7 +443,7 @@ $payload = json_encode([
     'color' => brand_color(),
 ], JSON_UNESCAPED_UNICODE);
 layout_end('<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script defer>
-(function(){function go(){if(!window.Chart||typeof window.vellisysChartTooltip!=="function"){setTimeout(go,40);return;}var d=' . $payload . ';var tip=window.vellisysChartTooltip();var piePlug=window.vellisysPiePercentPlugins();var p=document.getElementById("admin-pie");if(p)new Chart(p,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"},tooltip:tip},maintainAspectRatio:false},plugins:piePlug});var l=document.getElementById("admin-line");if(l)new Chart(l,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Sales",data:d.wins,borderColor:"#0f766e",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});var h=document.getElementById("admin-hours");if(h)new Chart(h,{type:"line",data:{labels:d.hourLabels,datasets:d.hourDatasets||[]},options:{interaction:{mode:"nearest",axis:"x",intersect:false},plugins:{legend:{display:true,position:"bottom",labels:{boxWidth:12,usePointStyle:true,pointStyle:"circle"}},tooltip:tip},scales:{y:{beginAtZero:true,title:{display:true,text:"Hours"}}},maintainAspectRatio:false}});var ct=document.getElementById("admin-client-time");if(ct)new Chart(ct,{type:"line",data:{labels:d.clientTimeLabels,datasets:d.clientTimeDatasets||[]},options:{interaction:{mode:"nearest",axis:"x",intersect:false},plugins:{legend:{display:true,position:"bottom",labels:{boxWidth:12,usePointStyle:true,pointStyle:"circle"}},tooltip:tip},scales:{y:{beginAtZero:true,title:{display:true,text:"Minutes"}}},maintainAspectRatio:false}});}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",go);else go();})();
+(function(){function go(){if(!window.Chart||typeof window.vellisysChartTooltip!=="function"){setTimeout(go,40);return;}var d=' . $payload . ';var tip=window.vellisysChartTooltip();var piePlug=window.vellisysPiePercentPlugins();var p=document.getElementById("admin-pie");if(p)new Chart(p,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e","#7c3aed"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"},tooltip:tip},maintainAspectRatio:false},plugins:piePlug});var l=document.getElementById("admin-line");if(l)new Chart(l,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Sales",data:d.wins,borderColor:"#0f766e",tension:.3,fill:false},{label:"On test",data:d.onTest||[],borderColor:"#7c3aed",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});var h=document.getElementById("admin-hours");if(h)new Chart(h,{type:"line",data:{labels:d.hourLabels,datasets:d.hourDatasets||[]},options:{interaction:{mode:"nearest",axis:"x",intersect:false},plugins:{legend:{display:true,position:"bottom",labels:{boxWidth:12,usePointStyle:true,pointStyle:"circle"}},tooltip:tip},scales:{y:{beginAtZero:true,title:{display:true,text:"Hours"}}},maintainAspectRatio:false}});var ct=document.getElementById("admin-client-time");if(ct)new Chart(ct,{type:"line",data:{labels:d.clientTimeLabels,datasets:d.clientTimeDatasets||[]},options:{interaction:{mode:"nearest",axis:"x",intersect:false},plugins:{legend:{display:true,position:"bottom",labels:{boxWidth:12,usePointStyle:true,pointStyle:"circle"}},tooltip:tip},scales:{y:{beginAtZero:true,title:{display:true,text:"Minutes"}}},maintainAspectRatio:false}});}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",go);else go();})();
 </script>');
 return;
 endif;
@@ -805,6 +810,7 @@ if ($tab === 'agent' && $agentRow):
     <?php sales_render_goal_chip((int) $agentProgress['sales'], (int) $agentProgress['sales_goal'], 'interested'); ?>
   </div>
   <div class="card stat"><span>Interested only</span><strong><?= (int) $agentStats['interested'] ?></strong></div>
+  <div class="card stat"><span>On test</span><strong><?= (int) ($agentStats['on_test'] ?? 0) ?></strong><em class="muted"><?= (int) ($agentStats['testing_active'] ?? 0) ?> active now</em></div>
   <div class="card stat"><span>Field hours</span><strong><?= h(sales_format_hours($agentHoursTotal)) ?></strong></div>
 </div>
 <div class="chart-grid equal" style="margin-bottom:16px">
@@ -868,13 +874,14 @@ if ($tab === 'agent' && $agentRow):
 </div>
 <?php
 $payload = json_encode([
-    'pieLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded'],
-    'pieValues' => [(int) $agentStats['interested'], (int) $agentStats['follow_up'], (int) $agentStats['rejected'], (int) $agentStats['onboarded']],
+    'pieLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded', 'On test'],
+    'pieValues' => [(int) $agentStats['interested'], (int) $agentStats['follow_up'], (int) $agentStats['rejected'], (int) $agentStats['onboarded'], (int) ($agentStats['on_test'] ?? 0)],
     'labels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $agentSeries),
     'reach' => array_column($agentSeries, 'reach'),
     'wins' => array_map(static fn ($r) => (int) $r['interested'] + (int) $r['onboarded'], $agentSeries),
-    'barLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded'],
-    'barValues' => [(int) $agentStats['interested'], (int) $agentStats['follow_up'], (int) $agentStats['rejected'], (int) $agentStats['onboarded']],
+    'onTest' => array_map(static fn ($r) => (int) ($r['on_test'] ?? 0), $agentSeries),
+    'barLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded', 'On test'],
+    'barValues' => [(int) $agentStats['interested'], (int) $agentStats['follow_up'], (int) $agentStats['rejected'], (int) $agentStats['onboarded'], (int) ($agentStats['on_test'] ?? 0)],
     'hourLabels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $agentHoursSeries),
     'hours' => array_map(static fn ($r) => (float) $r['hours'], $agentHoursSeries),
     'clientTimeLabels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $agentClientTimeSeries),
@@ -882,7 +889,7 @@ $payload = json_encode([
     'daily' => $periodKind === 'daily',
     'color' => brand_color(),
 ], JSON_UNESCAPED_UNICODE);
-layout_end('<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script defer>(function(){function go(){if(!window.Chart||typeof window.vellisysChartTooltip!=="function"){setTimeout(go,40);return;}var d=' . $payload . ';var tip=window.vellisysChartTooltip();var piePlug=window.vellisysPiePercentPlugins();var p=document.getElementById("agent-pie");if(p)new Chart(p,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"},tooltip:tip},maintainAspectRatio:false},plugins:piePlug});var l=document.getElementById("agent-line");if(l){if(d.daily){new Chart(l,{type:"bar",data:{labels:d.barLabels,datasets:[{data:d.barValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderRadius:6}]},options:{plugins:{legend:{display:false},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});}else{new Chart(l,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Sales",data:d.wins,borderColor:"#0f766e",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});}}var h=document.getElementById("agent-hours");if(h)new Chart(h,{type:"line",data:{labels:d.hourLabels,datasets:[{label:"Hours in field",data:d.hours,borderColor:d.color,backgroundColor:d.color+"33",tension:.35,fill:true,pointRadius:3}]},options:{plugins:{legend:{display:false},tooltip:tip},scales:{y:{beginAtZero:true,title:{display:true,text:"Hours"}}},maintainAspectRatio:false}});var ct=document.getElementById("agent-client-time");if(ct)new Chart(ct,{type:"line",data:{labels:d.clientTimeLabels,datasets:[{label:"Avg minutes / client",data:d.clientTime,borderColor:"#0f766e",backgroundColor:"rgba(15,118,110,.18)",tension:.35,fill:true,pointRadius:3}]},options:{plugins:{legend:{display:false},tooltip:tip},scales:{y:{beginAtZero:true,title:{display:true,text:"Minutes"}}},maintainAspectRatio:false}});}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",go);else go();})();</script>');
+layout_end('<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script defer>(function(){function go(){if(!window.Chart||typeof window.vellisysChartTooltip!=="function"){setTimeout(go,40);return;}var d=' . $payload . ';var tip=window.vellisysChartTooltip();var piePlug=window.vellisysPiePercentPlugins();var p=document.getElementById("agent-pie");if(p)new Chart(p,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e","#7c3aed"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"},tooltip:tip},maintainAspectRatio:false},plugins:piePlug});var l=document.getElementById("agent-line");if(l){if(d.daily){new Chart(l,{type:"bar",data:{labels:d.barLabels,datasets:[{data:d.barValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e","#7c3aed"],borderRadius:6}]},options:{plugins:{legend:{display:false},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});}else{new Chart(l,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Sales",data:d.wins,borderColor:"#0f766e",tension:.3,fill:false},{label:"On test",data:d.onTest||[],borderColor:"#7c3aed",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});}}var h=document.getElementById("agent-hours");if(h)new Chart(h,{type:"line",data:{labels:d.hourLabels,datasets:[{label:"Hours in field",data:d.hours,borderColor:d.color,backgroundColor:d.color+"33",tension:.35,fill:true,pointRadius:3}]},options:{plugins:{legend:{display:false},tooltip:tip},scales:{y:{beginAtZero:true,title:{display:true,text:"Hours"}}},maintainAspectRatio:false}});var ct=document.getElementById("agent-client-time");if(ct)new Chart(ct,{type:"line",data:{labels:d.clientTimeLabels,datasets:[{label:"Avg minutes / client",data:d.clientTime,borderColor:"#0f766e",backgroundColor:"rgba(15,118,110,.18)",tension:.35,fill:true,pointRadius:3}]},options:{plugins:{legend:{display:false},tooltip:tip},scales:{y:{beginAtZero:true,title:{display:true,text:"Minutes"}}},maintainAspectRatio:false}});}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",go);else go();})();</script>');
 return;
 endif;
 

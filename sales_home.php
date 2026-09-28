@@ -128,6 +128,12 @@ sales_layout_start('Home', $user);
     <strong><?= (int) $todayStats['wins'] ?><?= (int) $daily['sales_goal'] > 0 ? '/' . (int) $daily['sales_goal'] : '' ?></strong>
     <?php sales_render_goal_chip((int) $daily['sales'], (int) $daily['sales_goal'], 'interested'); ?>
   </div>
+  <div class="card stat">
+    <?= icon('building', 20) ?>
+    <span>On test today</span>
+    <strong><?= (int) ($todayStats['on_test'] ?? 0) ?></strong>
+    <em class="muted"><?= (int) ($todayStats['testing_active'] ?? 0) ?> active now</em>
+  </div>
   <div class="card stat"><?= icon('calendar', 20) ?><span>Follow-ups due</span><strong><?= count($due) ?></strong></div>
   <div class="card stat">
     <?= icon('reports', 20) ?>
@@ -209,10 +215,10 @@ sales_layout_start('Home', $user);
 $extra = '';
 if ($clockedIn) {
     $payload = json_encode([
-        'pieLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded'],
-        'pieValues' => [(int) $todayStats['interested'], (int) $todayStats['follow_up'], (int) $todayStats['rejected'], (int) $todayStats['onboarded']],
-        'barLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded'],
-        'barValues' => [(int) $todayStats['interested'], (int) $todayStats['follow_up'], (int) $todayStats['rejected'], (int) $todayStats['onboarded']],
+        'pieLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded', 'On test'],
+        'pieValues' => [(int) $todayStats['interested'], (int) $todayStats['follow_up'], (int) $todayStats['rejected'], (int) $todayStats['onboarded'], (int) ($todayStats['on_test'] ?? 0)],
+        'barLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded', 'On test'],
+        'barValues' => [(int) $todayStats['interested'], (int) $todayStats['follow_up'], (int) $todayStats['rejected'], (int) $todayStats['onboarded'], (int) ($todayStats['on_test'] ?? 0)],
         'color' => brand_color(),
     ], JSON_UNESCAPED_UNICODE);
     $extra = '<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script defer>
@@ -223,9 +229,9 @@ if ($clockedIn) {
     var tip=window.vellisysChartTooltip();
     var piePlug=window.vellisysPiePercentPlugins();
     var pie=document.getElementById("home-pie");
-    if(pie){ new Chart(pie,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"},tooltip:tip},maintainAspectRatio:false},plugins:piePlug}); }
+    if(pie){ new Chart(pie,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e","#7c3aed"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"},tooltip:tip},maintainAspectRatio:false},plugins:piePlug}); }
     var bar=document.getElementById("home-bar");
-    if(bar){ new Chart(bar,{type:"bar",data:{labels:d.barLabels,datasets:[{data:d.barValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderRadius:6}]},options:{plugins:{legend:{display:false},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}}); }
+    if(bar){ new Chart(bar,{type:"bar",data:{labels:d.barLabels,datasets:[{data:d.barValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e","#7c3aed"],borderRadius:6}]},options:{plugins:{legend:{display:false},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}}); }
   }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",go); else go();
 })();

@@ -75,6 +75,12 @@ sales_layout_start('Performance', $user);
     <?php sales_render_goal_chip((int) $progress['sales'], (int) $progress['sales_goal'], 'interested'); ?>
   </div>
   <div class="card stat"><?= icon('heart', 20) ?><span>Interested only</span><strong><?= (int) $stats['interested'] ?></strong></div>
+  <div class="card stat">
+    <?= icon('building', 20) ?>
+    <span>On test</span>
+    <strong><?= (int) ($stats['on_test'] ?? 0) ?></strong>
+    <em class="muted"><?= (int) ($stats['testing_active'] ?? 0) ?> active now</em>
+  </div>
   <div class="card stat"><?= icon('clock', 20) ?><span>Field hours</span><strong><?= h(sales_format_hours($hoursTotal)) ?></strong></div>
 </div>
 
@@ -135,13 +141,14 @@ sales_layout_start('Performance', $user);
 </div>
 <?php
 $payload = json_encode([
-    'pieLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded'],
-    'pieValues' => [(int) $stats['interested'], (int) $stats['follow_up'], (int) $stats['rejected'], (int) $stats['onboarded']],
+    'pieLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded', 'On test'],
+    'pieValues' => [(int) $stats['interested'], (int) $stats['follow_up'], (int) $stats['rejected'], (int) $stats['onboarded'], (int) ($stats['on_test'] ?? 0)],
     'labels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $series),
     'reach' => array_column($series, 'reach'),
     'wins' => array_map(static fn ($r) => (int) $r['interested'] + (int) $r['onboarded'], $series),
-    'barLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded'],
-    'barValues' => [(int) $stats['interested'], (int) $stats['follow_up'], (int) $stats['rejected'], (int) $stats['onboarded']],
+    'onTest' => array_map(static fn ($r) => (int) ($r['on_test'] ?? 0), $series),
+    'barLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded', 'On test'],
+    'barValues' => [(int) $stats['interested'], (int) $stats['follow_up'], (int) $stats['rejected'], (int) $stats['onboarded'], (int) ($stats['on_test'] ?? 0)],
     'hourLabels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $hoursSeries),
     'hours' => array_map(static fn ($r) => (float) $r['hours'], $hoursSeries),
     'clientTimeLabels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $clientTimeSeries),
@@ -157,13 +164,13 @@ $extra = '<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><
     var tip=window.vellisysChartTooltip();
     var piePlug=window.vellisysPiePercentPlugins();
     var pie=document.getElementById("chart-pie");
-    if(pie){ new Chart(pie,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"},tooltip:tip},maintainAspectRatio:false},plugins:piePlug}); }
+    if(pie){ new Chart(pie,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e","#7c3aed"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"},tooltip:tip},maintainAspectRatio:false},plugins:piePlug}); }
     var line=document.getElementById("chart-line");
     if(line){
       if(d.daily){
-        new Chart(line,{type:"bar",data:{labels:d.barLabels,datasets:[{data:d.barValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderRadius:6}]},options:{plugins:{legend:{display:false},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});
+        new Chart(line,{type:"bar",data:{labels:d.barLabels,datasets:[{data:d.barValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e","#7c3aed"],borderRadius:6}]},options:{plugins:{legend:{display:false},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});
       } else {
-        new Chart(line,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Sales",data:d.wins,borderColor:"#0f766e",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});
+        new Chart(line,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Sales",data:d.wins,borderColor:"#0f766e",tension:.3,fill:false},{label:"On test",data:d.onTest||[],borderColor:"#7c3aed",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});
       }
     }
     var hours=document.getElementById("chart-hours");

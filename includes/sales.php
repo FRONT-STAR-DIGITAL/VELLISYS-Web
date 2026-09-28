@@ -1419,18 +1419,37 @@ function company_testing_remaining_label(?array $company): string
     return $hours . ' hour' . ($hours === 1 ? '' : 's') . ' left';
 }
 
+/** Short desk login from a business name - no "test" prefix. e.g. markconst@desk.vellisys.ug */
 function sales_testing_generate_login(string $seed = ''): string
 {
-    $base = 'test' . preg_replace('/[^a-z0-9]/', '', strtolower($seed));
-    if ($base === 'test' || strlen($base) < 6) {
-        $base = 'test' . substr(bin2hex(random_bytes(3)), 0, 6);
+    $slug = preg_replace('/[^a-z0-9]+/', '', strtolower(trim($seed)));
+    if (strlen($slug) < 3) {
+        $slug = 'desk' . substr(bin2hex(random_bytes(2)), 0, 3);
     }
-    $base = substr($base, 0, 24);
-    $email = strtolower($base . '.' . substr(bin2hex(random_bytes(2)), 0, 4) . '@test.vellisys.ug');
+    // Keep it short and readable for handing over in person.
+    $slug = substr($slug, 0, 14);
+    $email = $slug . '@desk.vellisys.ug';
+    $n = 0;
     while (db_one('SELECT id FROM users WHERE email = ?', 's', [$email])) {
-        $email = strtolower($base . '.' . substr(bin2hex(random_bytes(3)), 0, 6) . '@test.vellisys.ug');
+        $n++;
+        $suffix = (string) $n;
+        $email = substr($slug, 0, max(3, 14 - strlen($suffix))) . $suffix . '@desk.vellisys.ug';
+        if ($n > 50) {
+            $email = substr($slug, 0, 8) . substr(bin2hex(random_bytes(2)), 0, 4) . '@desk.vellisys.ug';
+            if (!db_one('SELECT id FROM users WHERE email = ?', 's', [$email])) {
+                break;
+            }
+        }
     }
-    return $email;
+    return strtolower($email);
+}
+
+/** Memorable desk password clients can say aloud - e.g. LakeSun42 */
+function sales_testing_generate_password(): string
+{
+    $a = ['Lake', 'Hill', 'River', 'Palm', 'Gold', 'Blue', 'Green', 'Sun', 'Moon', 'Star', 'Stone', 'Cedar', 'Olive', 'Coral', 'Amber', 'Pearl', 'Maple', 'Ivory'];
+    $b = ['Gate', 'Path', 'View', 'Park', 'Yard', 'Dock', 'Bay', 'Cove', 'Peak', 'Ridge', 'Field', 'Grove', 'Shore', 'Bridge', 'Plaza', 'Trail', 'Haven', 'Point'];
+    return $a[random_int(0, count($a) - 1)] . $b[random_int(0, count($b) - 1)] . (string) random_int(10, 99);
 }
 
 /**
@@ -1507,8 +1526,8 @@ function sales_create_testing_company(array $fields, int $actorId, bool $asPlatf
         db_exec('UPDATE companies SET line_columns=? WHERE id=?', 'si', [$lineCols, $cid]);
     }
 
-    $userEmail = sales_testing_generate_login(preg_replace('/\s+/', '', $name));
-    $password = function_exists('generate_desk_password') ? generate_desk_password() : ('Vs-' . bin2hex(random_bytes(5)));
+    $userEmail = sales_testing_generate_login($name);
+    $password = sales_testing_generate_password();
     $color = '#1E4EFF';
     $accent = '#C6A15B';
     $deep = function_exists('hex_shade') ? hex_shade($color, 0.52) : '#08143A';
@@ -1519,7 +1538,8 @@ function sales_create_testing_company(array $fields, int $actorId, bool $asPlatf
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         'issssssssssssssssssssss',
         [
-            $cid, $name, 'Testing mode', '', '', $address, $city, $phone, '', '', '', $name, '',
+            // Neutral tagline - client should not feel they are in a trial desk.
+            $cid, $name, '', '', '', $address, $city, $phone, '', '', '', $name, '',
             $color, $accent, $deep, '', $prefix,
             'Make payment to ' . $name . '.',
             "1. Payment is due by the date shown above.\n2. Quote the invoice number on the transfer.",
@@ -1563,7 +1583,7 @@ function sales_create_testing_company(array $fields, int $actorId, bool $asPlatf
         'company_name' => $name,
         'email' => $userEmail,
         'password' => (string) ($made['password'] ?? $password),
-        'notes' => 'Testing mode · expires ' . $expires . ' · hand credentials to the client',
+        'notes' => 'Trial desk · expires ' . $expires . ' · hand credentials to the client',
     ]);
 
     return [
@@ -1861,6 +1881,46 @@ function sales_period_bounds(): array
     return [$from, $to, $p];
 }
 
+/** Companies put into testing mode in a date range (by company created_at). */
+function sales_testing_count(?int $agentId, string $from, string $to): int
+{
+    $where = 'testing_mode = 1 AND DATE(created_at) >= ? AND DATE(created_at) <= ?';
+    $types = 'ss';
+    $params = [$from, $to];
+    if ($agentId) {
+        $where .= ' AND testing_owner_id = ?';
+        $types .= 'i';
+        $params[] = $agentId;
+    }
+    try {
+        $row = db_one("SELECT COUNT(*) AS n FROM companies WHERE {$where}", $types, $params);
+        return (int) ($row['n'] ?? 0);
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
+/** Currently active testing desks (not filtered by report period). */
+function sales_testing_active_count(?int $agentId = null): int
+{
+    $where = 'testing_mode = 1';
+    $types = '';
+    $params = [];
+    if ($agentId) {
+        $where .= ' AND testing_owner_id = ?';
+        $types = 'i';
+        $params[] = $agentId;
+    }
+    try {
+        $row = $types === ''
+            ? db_one("SELECT COUNT(*) AS n FROM companies WHERE {$where}")
+            : db_one("SELECT COUNT(*) AS n FROM companies WHERE {$where}", $types, $params);
+        return (int) ($row['n'] ?? 0);
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
 function sales_stats(?int $agentId, string $from, string $to): array
 {
     // Soft-deleted rejected leads still count in reports.
@@ -1887,6 +1947,7 @@ function sales_stats(?int $agentId, string $from, string $to): array
     }
     $reach = array_sum($by);
     $wins = $by['onboarded'] + $by['onboarding'] + $by['interested'];
+    $onTest = sales_testing_count($agentId, $from, $to);
     return [
         'by_status' => $by,
         'reach' => $reach,
@@ -1897,6 +1958,9 @@ function sales_stats(?int $agentId, string $from, string $to): array
         'rejected' => $by['rejected'],
         'onboarding' => $by['onboarding'],
         'onboarded' => $by['onboarded'],
+        'on_test' => $onTest,
+        'testing' => $onTest,
+        'testing_active' => sales_testing_active_count($agentId),
     ];
 }
 
@@ -2055,6 +2119,8 @@ function sales_agents_daily_progress(): array
             'agent' => $agent,
             'progress' => $progress,
             'clock' => sales_today_clock($id),
+            'on_test' => (int) ($progress['stats']['on_test'] ?? 0),
+            'testing_active' => sales_testing_active_count($id),
         ];
     }
     return $out;
@@ -2340,13 +2406,13 @@ function sales_series(?int $agentId, string $from, string $to): array
     if ($start && $end && ($end - $start) / 86400 <= 62) {
         for ($t = $start; $t <= $end; $t += 86400) {
             $d = date('Y-m-d', $t);
-            $out[$d] = ['date' => $d, 'reach' => 0, 'interested' => 0, 'follow_up' => 0, 'rejected' => 0, 'onboarded' => 0];
+            $out[$d] = ['date' => $d, 'reach' => 0, 'interested' => 0, 'follow_up' => 0, 'rejected' => 0, 'onboarded' => 0, 'on_test' => 0];
         }
     }
     foreach ($rows as $r) {
         $d = (string) $r['d'];
         if (!isset($out[$d])) {
-            $out[$d] = ['date' => $d, 'reach' => 0, 'interested' => 0, 'follow_up' => 0, 'rejected' => 0, 'onboarded' => 0];
+            $out[$d] = ['date' => $d, 'reach' => 0, 'interested' => 0, 'follow_up' => 0, 'rejected' => 0, 'onboarded' => 0, 'on_test' => 0];
         }
         $st = (string) $r['status'];
         $n = (int) $r['n'];
@@ -2354,6 +2420,30 @@ function sales_series(?int $agentId, string $from, string $to): array
         if (isset($out[$d][$st])) {
             $out[$d][$st] += $n;
         }
+    }
+    try {
+        $tWhere = 'testing_mode = 1 AND DATE(created_at) >= ? AND DATE(created_at) <= ?';
+        $tTypes = 'ss';
+        $tParams = [$from, $to];
+        if ($agentId) {
+            $tWhere .= ' AND testing_owner_id = ?';
+            $tTypes .= 'i';
+            $tParams[] = $agentId;
+        }
+        $tRows = db_all(
+            "SELECT DATE(created_at) d, COUNT(*) n FROM companies WHERE {$tWhere} GROUP BY DATE(created_at)",
+            $tTypes,
+            $tParams
+        );
+        foreach ($tRows as $tr) {
+            $d = (string) $tr['d'];
+            if (!isset($out[$d])) {
+                $out[$d] = ['date' => $d, 'reach' => 0, 'interested' => 0, 'follow_up' => 0, 'rejected' => 0, 'onboarded' => 0, 'on_test' => 0];
+            }
+            $out[$d]['on_test'] = (int) $tr['n'];
+        }
+    } catch (Throwable $e) {
+        // ignore if testing columns not ready
     }
     ksort($out);
     return array_values($out);
@@ -2368,7 +2458,10 @@ function sales_top_agents(string $from, string $to, int $limit = 8): array
                 SUM(CASE WHEN l.status = 'onboarded' THEN 1 ELSE 0 END) AS onboarded,
                 SUM(CASE WHEN l.status = 'interested' THEN 1 ELSE 0 END) AS interested,
                 SUM(CASE WHEN l.status = 'rejected' THEN 1 ELSE 0 END) AS rejected,
-                SUM(CASE WHEN l.status = 'follow_up' THEN 1 ELSE 0 END) AS follow_up
+                SUM(CASE WHEN l.status = 'follow_up' THEN 1 ELSE 0 END) AS follow_up,
+                (SELECT COUNT(*) FROM companies c
+                  WHERE c.testing_mode = 1 AND c.testing_owner_id = u.id
+                    AND DATE(c.created_at) >= ? AND DATE(c.created_at) <= ?) AS on_test
          FROM users u
          LEFT JOIN sales_leads l ON l.agent_id = u.id
               AND DATE(l.created_at) >= ? AND DATE(l.created_at) <= ?
@@ -2376,8 +2469,8 @@ function sales_top_agents(string $from, string $to, int $limit = 8): array
          GROUP BY u.id, u.name, u.email
          ORDER BY sales DESC, reach DESC, u.name
          LIMIT " . (int) $limit,
-        'ss',
-        [$from, $to]
+        'ssss',
+        [$from, $to, $from, $to]
     );
     return $rows;
 }
