@@ -15,6 +15,8 @@ $stats = $progress['stats'];
 $series = sales_series($uid, $from, $to);
 $hoursSeries = sales_hours_series($uid, $from, $to);
 $hoursTotal = sales_hours_total($uid, $from, $to);
+$clientTimeSeries = sales_client_time_series($uid, $from, $to);
+$clientTimeAvg = sales_client_time_avg($uid, $from, $to);
 $rejectionReport = sales_rejection_breakdown($uid, $from, $to);
 $followed = sales_leads_query(['agent_id' => $uid, 'follow_bucket' => 'done', 'from' => $from, 'to' => $to]);
 $pending = sales_leads_query(['agent_id' => $uid, 'follow_bucket' => 'due']);
@@ -87,9 +89,19 @@ sales_layout_start('Performance', $user);
   </div>
 </div>
 
-<div class="card chart-box" style="margin-bottom:16px">
-  <div class="card-head"><h2><?= icon('clock', 16) ?>Hours in the field</h2></div>
-  <div class="pad-form" style="height:240px"><canvas id="chart-hours"></canvas></div>
+<div class="chart-grid equal sales-hours-charts" style="margin-bottom:16px">
+  <div class="card chart-box">
+    <div class="card-head"><h2><?= icon('clock', 16) ?>Hours in the field</h2></div>
+    <div class="pad-form" style="height:240px"><canvas id="chart-hours"></canvas></div>
+  </div>
+  <div class="card chart-box">
+    <div class="card-head">
+      <h2><?= icon('clients', 16) ?>Avg time per client</h2>
+      <span class="muted"><?= $clientTimeAvg > 0 ? h(rtrim(rtrim(number_format($clientTimeAvg, 1), '0'), '.') . ' min') : '—' ?></span>
+    </div>
+    <p class="hint" style="margin:0 16px 0">Average minutes between visits (from clock-in to each lead you log).</p>
+    <div class="pad-form" style="height:240px"><canvas id="chart-client-time"></canvas></div>
+  </div>
 </div>
 <?php sales_render_rejection_report($rejectionReport); ?>
 
@@ -132,6 +144,8 @@ $payload = json_encode([
     'barValues' => [(int) $stats['interested'], (int) $stats['follow_up'], (int) $stats['rejected'], (int) $stats['onboarded']],
     'hourLabels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $hoursSeries),
     'hours' => array_map(static fn ($r) => (float) $r['hours'], $hoursSeries),
+    'clientTimeLabels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $clientTimeSeries),
+    'clientTime' => array_map(static fn ($r) => (float) $r['minutes'], $clientTimeSeries),
     'daily' => $periodKind === 'daily',
     'color' => brand_color(),
 ], JSON_UNESCAPED_UNICODE);
@@ -153,6 +167,10 @@ $extra = '<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><
     var hours=document.getElementById("chart-hours");
     if(hours){
       new Chart(hours,{type:"line",data:{labels:d.hourLabels,datasets:[{label:"Hours in field",data:d.hours,borderColor:d.color,backgroundColor:d.color+"33",tension:.35,fill:true,pointRadius:3}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,title:{display:true,text:"Hours"}}},maintainAspectRatio:false}});
+    }
+    var clientTime=document.getElementById("chart-client-time");
+    if(clientTime){
+      new Chart(clientTime,{type:"line",data:{labels:d.clientTimeLabels,datasets:[{label:"Avg minutes / client",data:d.clientTime,borderColor:"#0f766e",backgroundColor:"rgba(15,118,110,.18)",tension:.35,fill:true,pointRadius:3}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,title:{display:true,text:"Minutes"}}},maintainAspectRatio:false}});
     }
   }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",go); else go();

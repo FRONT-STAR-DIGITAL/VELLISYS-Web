@@ -445,6 +445,152 @@ function sales_format_clock_time(?string $dt): string
     }
 }
 
+/** Admin-only: date + submit time for a lead form (e.g. 28 Sep 2026 · 10:42). */
+function sales_format_lead_submitted_at(?string $dt): string
+{
+    $raw = trim((string) $dt);
+    if ($raw === '') {
+        return '—';
+    }
+    $day = function_exists('format_date') ? format_date(substr($raw, 0, 10)) : substr($raw, 0, 10);
+    $time = sales_format_clock_time($raw);
+    if ($time === '—' || $time === '') {
+        return $day !== '' ? $day : '—';
+    }
+    return ($day !== '' ? $day . ' · ' : '') . $time;
+}
+
+/**
+ * Average minutes spent per client (gap from clock-in→first lead, then lead→lead).
+ * Used for the “avg time per client” chart on agent + admin dashboards.
+ *
+ * @return list<array{date:string,minutes:float,samples:int}>
+ */
+function sales_client_time_series(?int $agentId, string $from, string $to): array
+{
+    $where = 'DATE(created_at) >= ? AND DATE(created_at) <= ? AND deleted_at IS NULL';
+    $types = 'ss';
+    $params = [$from, $to];
+    if ($agentId) {
+        $where .= ' AND agent_id = ?';
+        $types .= 'i';
+        $params[] = $agentId;
+    }
+    $leads = [];
+    try {
+        $leads = db_all(
+            "SELECT id, agent_id, created_at, DATE(created_at) AS day_date
+             FROM sales_leads
+             WHERE {$where}
+             ORDER BY agent_id ASC, created_at ASC, id ASC",
+            $types,
+            $params
+        );
+    } catch (Throwable $e) {
+        $leads = [];
+    }
+
+    $clockByAgentDay = [];
+    try {
+        $cWhere = 'day_date >= ? AND day_date <= ?';
+        $cTypes = 'ss';
+        $cParams = [$from, $to];
+        if ($agentId) {
+            $cWhere .= ' AND user_id = ?';
+            $cTypes .= 'i';
+            $cParams[] = $agentId;
+        }
+        $clocks = db_all(
+            "SELECT user_id, day_date, clocked_at FROM sales_clock_ins WHERE {$cWhere}",
+            $cTypes,
+            $cParams
+        );
+        foreach ($clocks as $c) {
+            $key = (int) ($c['user_id'] ?? 0) . '|' . (string) ($c['day_date'] ?? '');
+            $clockByAgentDay[$key] = (string) ($c['clocked_at'] ?? '');
+        }
+    } catch (Throwable $e) {
+        // Clock table may be missing on old installs.
+    }
+
+    // Group intervals by calendar day across agents.
+    $dayIntervals = [];
+    $prevByAgentDay = [];
+    foreach ($leads as $lead) {
+        $aid = (int) ($lead['agent_id'] ?? 0);
+        $day = (string) ($lead['day_date'] ?? substr((string) ($lead['created_at'] ?? ''), 0, 10));
+        $created = trim((string) ($lead['created_at'] ?? ''));
+        if ($aid < 1 || $day === '' || $created === '') {
+            continue;
+        }
+        $key = $aid . '|' . $day;
+        $createdTs = strtotime($created);
+        if ($createdTs === false) {
+            continue;
+        }
+        if (!isset($prevByAgentDay[$key])) {
+            $clockAt = $clockByAgentDay[$key] ?? '';
+            $prevTs = $clockAt !== '' ? strtotime($clockAt) : false;
+            // First lead of the day: prefer gap from clock-in; otherwise start the chain here.
+            if ($prevTs !== false && $prevTs <= $createdTs) {
+                $mins = (int) round(($createdTs - $prevTs) / 60);
+                if ($mins >= 1 && $mins <= 180) {
+                    $dayIntervals[$day][] = $mins;
+                }
+            }
+            $prevByAgentDay[$key] = $createdTs;
+            continue;
+        }
+        $prevTs = (int) $prevByAgentDay[$key];
+        $mins = (int) round(($createdTs - $prevTs) / 60);
+        if ($mins >= 1 && $mins <= 180) {
+            $dayIntervals[$day][] = $mins;
+        }
+        $prevByAgentDay[$key] = $createdTs;
+    }
+
+    $out = [];
+    $start = strtotime($from);
+    $end = strtotime($to);
+    if ($start && $end && ($end - $start) / 86400 <= 93) {
+        for ($t = $start; $t <= $end; $t += 86400) {
+            $d = date('Y-m-d', $t);
+            $samples = $dayIntervals[$d] ?? [];
+            $avg = $samples ? round(array_sum($samples) / count($samples), 1) : 0.0;
+            $out[] = [
+                'date' => $d,
+                'minutes' => $avg,
+                'samples' => count($samples),
+            ];
+        }
+        return $out;
+    }
+    ksort($dayIntervals);
+    foreach ($dayIntervals as $d => $samples) {
+        $out[] = [
+            'date' => $d,
+            'minutes' => $samples ? round(array_sum($samples) / count($samples), 1) : 0.0,
+            'samples' => count($samples),
+        ];
+    }
+    return $out;
+}
+
+function sales_client_time_avg(?int $agentId, string $from, string $to): float
+{
+    $total = 0.0;
+    $n = 0;
+    foreach (sales_client_time_series($agentId, $from, $to) as $row) {
+        $samples = (int) ($row['samples'] ?? 0);
+        if ($samples < 1) {
+            continue;
+        }
+        $total += (float) ($row['minutes'] ?? 0) * $samples;
+        $n += $samples;
+    }
+    return $n > 0 ? round($total / $n, 1) : 0.0;
+}
+
 function sales_clock_in(int $userId, string $city, string $notes = ''): array
 {
     $city = mb_substr(trim($city), 0, 120);
