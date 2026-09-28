@@ -1174,6 +1174,26 @@ function sales_progress_pct(int $current, int $goal): int
     return (int) round(100 * $current / $goal);
 }
 
+/** open | hit | over | none */
+function sales_goal_status(int $current, int $goal): string
+{
+    if ($goal < 1) {
+        return 'none';
+    }
+    if ($current > $goal) {
+        return 'over';
+    }
+    if ($current >= $goal) {
+        return 'hit';
+    }
+    return 'open';
+}
+
+function sales_goal_over_by(int $current, int $goal): int
+{
+    return ($goal > 0 && $current > $goal) ? ($current - $goal) : 0;
+}
+
 function sales_agents_daily_progress(): array
 {
     $out = [];
@@ -1347,6 +1367,50 @@ function sales_lead_admin_save(array $fields, ?int $id = null): array
     return ['ok' => true, 'id' => (int) $newId];
 }
 
+function sales_render_goal_row(string $label, int $current, int $goal, array $opts = []): void
+{
+    $status = sales_goal_status($current, $goal);
+    $overBy = sales_goal_over_by($current, $goal);
+    $pct = sales_progress_pct($current, max(1, $goal));
+    // When over target, fill the track and mark where the goal sat.
+    if ($status === 'over' && $current > 0) {
+        $fill = 100;
+        $mark = (int) round(100 * $goal / $current);
+    } else {
+        $fill = min(100, $pct);
+        $mark = null;
+    }
+    $aria = $goal > 0
+        ? ($status === 'over'
+            ? "{$label}: {$current}, exceeded target {$goal} by {$overBy}"
+            : "{$label}: {$current} of {$goal}")
+        : "{$label}: {$current}";
+    $rowClass = 'sales-goal-row'
+        . ($status === 'hit' ? ' is-hit' : '')
+        . ($status === 'over' ? ' is-over' : '');
+    ?>
+    <div class="<?= h($rowClass) ?>">
+      <div class="sales-goal-meta">
+        <span><?= h($label) ?></span>
+        <strong class="mono"><?= $current ?><?= $goal > 0 ? '/' . $goal : '' ?></strong>
+      </div>
+      <div class="sales-goal-track<?= $status === 'over' ? ' is-over' : '' ?>" role="img" aria-label="<?= h($aria) ?>">
+        <span class="sales-goal-fill" style="width:<?= $fill ?>%"></span>
+        <?php if ($mark !== null): ?>
+          <i class="sales-goal-mark" style="left:<?= max(4, min(96, $mark)) ?>%" title="Target <?= $goal ?>"></i>
+        <?php endif; ?>
+      </div>
+      <?php if ($status === 'over'): ?>
+        <span class="sales-goal-over">Exceeded by +<?= $overBy ?> · target was <?= $goal ?></span>
+      <?php elseif ($status === 'hit'): ?>
+        <span class="sales-goal-over is-hit">Target hit</span>
+      <?php elseif ($goal > 0 && empty($opts['hide_remaining'])): ?>
+        <span class="sales-goal-remain"><?= max(0, $goal - $current) ?> to go</span>
+      <?php endif; ?>
+    </div>
+    <?php
+}
+
 function sales_render_goal_bars(array $progress, array $opts = []): void
 {
     $compact = !empty($opts['compact']);
@@ -1360,48 +1424,33 @@ function sales_render_goal_bars(array $progress, array $opts = []): void
         echo '<p class="muted">No goals set for this period.</p>';
         return;
     }
-    $reachPct = sales_progress_pct($reach, max(1, $reachGoal));
-    $salesPct = sales_progress_pct($sales, max(1, $salesGoal));
-    $reachHit = $reachGoal > 0 && $reach >= $reachGoal;
-    $salesHit = $salesGoal > 0 && $sales >= $salesGoal;
-    $reachFill = min(100, $reachPct);
-    $salesFill = min(100, $salesPct);
+    $rowOpts = ['hide_remaining' => $compact];
     ?>
 <div class="sales-goal-bars<?= $compact ? ' is-compact' : '' ?>">
   <?php if ($showReach): ?>
-    <div class="sales-goal-row<?= $reachHit ? ' is-hit' : '' ?>">
-      <div class="sales-goal-meta">
-        <span>Leads reached</span>
-        <strong class="mono"><?= $reach ?>/<?= $reachGoal ?: '-' ?></strong>
-      </div>
-      <div class="sales-goal-track" role="img" aria-label="Leads <?= $reach ?> of <?= $reachGoal ?>">
-        <span style="width:<?= $reachFill ?>%"></span>
-      </div>
-      <?php if ($reachHit && $reach > $reachGoal): ?>
-        <span class="sales-goal-over">+<?= $reach - $reachGoal ?> over</span>
-      <?php elseif ($reachHit): ?>
-        <span class="sales-goal-over">Goal hit</span>
-      <?php endif; ?>
-    </div>
+    <?php sales_render_goal_row('Leads reached', $reach, $reachGoal, $rowOpts); ?>
   <?php endif; ?>
   <?php if ($showSales): ?>
-    <div class="sales-goal-row<?= $salesHit ? ' is-hit' : '' ?>">
-      <div class="sales-goal-meta">
-        <span>Sales (interested + onboarded)</span>
-        <strong class="mono"><?= $sales ?>/<?= $salesGoal ?: '-' ?></strong>
-      </div>
-      <div class="sales-goal-track" role="img" aria-label="Sales <?= $sales ?> of <?= $salesGoal ?>">
-        <span style="width:<?= $salesFill ?>%"></span>
-      </div>
-      <?php if ($salesHit && $sales > $salesGoal): ?>
-        <span class="sales-goal-over">+<?= $sales - $salesGoal ?> over</span>
-      <?php elseif ($salesHit): ?>
-        <span class="sales-goal-over">Goal hit</span>
-      <?php endif; ?>
-    </div>
+    <?php sales_render_goal_row('Interested clients (sales wins)', $sales, $salesGoal, $rowOpts); ?>
   <?php endif; ?>
 </div>
     <?php
+}
+
+/** Short chip for dashboards when a goal is exceeded. */
+function sales_render_goal_chip(int $current, int $goal, string $noun = ''): void
+{
+    $status = sales_goal_status($current, $goal);
+    if ($status === 'over') {
+        $over = sales_goal_over_by($current, $goal);
+        echo '<em class="sales-goal-chip is-over">+' . $over . ' over'
+            . ($noun !== '' ? ' ' . h($noun) : '')
+            . '</em>';
+        return;
+    }
+    if ($status === 'hit') {
+        echo '<em class="sales-goal-chip is-hit">Target hit</em>';
+    }
 }
 
 function sales_series(?int $agentId, string $from, string $to): array

@@ -48,7 +48,7 @@ sales_layout_start('Home', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('home') ?>Field home</h1>
-    <p class="lede">Clock in once a day, then log businesses you reach. Daily goals stay visible after you hit them - keep going.</p>
+    <p class="lede">Clock in once a day, then log businesses you reach. Goals stay visible after you hit them — and show clearly when you exceed them.</p>
   </div>
   <div class="actions page-actions">
     <a class="btn" href="<?= h(url('sales_lead_edit.php')) ?>"><?= icon('plus', 16) ?>New lead</a>
@@ -94,15 +94,46 @@ sales_layout_start('Home', $user);
     <a class="btn ghost sm" href="<?= h(url('sales_performance.php?period=daily')) ?>">All periods</a>
   </div>
   <div class="pad-form">
+    <?php
+    $reachOver = sales_goal_over_by((int) $daily['reach'], (int) $daily['reach_goal']);
+    $salesOver = sales_goal_over_by((int) $daily['sales'], (int) $daily['sales_goal']);
+    if ($reachOver > 0 || $salesOver > 0):
+        ?>
+      <div class="sales-goal-banner">
+        <?= icon('flag', 16) ?>
+        <span>You exceeded today’s target<?= ($reachOver > 0 && $salesOver > 0) ? 's' : '' ?>.</span>
+        <?php if ($reachOver > 0): ?>
+          <span class="sales-goal-over">Reach +<?= $reachOver ?> (<?= (int) $daily['reach'] ?>/<?= (int) $daily['reach_goal'] ?>)</span>
+        <?php endif; ?>
+        <?php if ($salesOver > 0): ?>
+          <span class="sales-goal-over">Interested +<?= $salesOver ?> (<?= (int) $daily['sales'] ?>/<?= (int) $daily['sales_goal'] ?>)</span>
+        <?php endif; ?>
+      </div>
+    <?php endif; ?>
     <?php sales_render_goal_bars($daily, ['force_reach' => true, 'force_sales' => true]); ?>
   </div>
 </div>
 
 <div class="stats">
-  <div class="card stat"><?= icon('clients', 20) ?><span>Reached today</span><strong><?= (int) $todayStats['reach'] ?></strong></div>
-  <div class="card stat"><?= icon('heart', 20) ?><span>Sales today</span><strong><?= (int) $todayStats['wins'] ?></strong></div>
+  <div class="card stat">
+    <?= icon('clients', 20) ?>
+    <span>Reached today</span>
+    <strong><?= (int) $todayStats['reach'] ?><?= (int) $daily['reach_goal'] > 0 ? '/' . (int) $daily['reach_goal'] : '' ?></strong>
+    <?php sales_render_goal_chip((int) $daily['reach'], (int) $daily['reach_goal'], 'reach'); ?>
+  </div>
+  <div class="card stat">
+    <?= icon('heart', 20) ?>
+    <span>Interested today</span>
+    <strong><?= (int) $todayStats['wins'] ?><?= (int) $daily['sales_goal'] > 0 ? '/' . (int) $daily['sales_goal'] : '' ?></strong>
+    <?php sales_render_goal_chip((int) $daily['sales'], (int) $daily['sales_goal'], 'interested'); ?>
+  </div>
   <div class="card stat"><?= icon('calendar', 20) ?><span>Follow-ups due</span><strong><?= count($due) ?></strong></div>
-  <div class="card stat"><?= icon('reports', 20) ?><span>Week sales</span><strong><?= (int) $weekly['sales'] ?>/<?= (int) $weekly['sales_goal'] ?></strong></div>
+  <div class="card stat">
+    <?= icon('reports', 20) ?>
+    <span>Week interested</span>
+    <strong><?= (int) $weekly['sales'] ?>/<?= (int) $weekly['sales_goal'] ?></strong>
+    <?php sales_render_goal_chip((int) $weekly['sales'], (int) $weekly['sales_goal']); ?>
+  </div>
 </div>
 
 <div class="chart-grid equal" style="margin-bottom:16px">

@@ -250,7 +250,7 @@ layout_admin_start('Sales', $user);
     <a class="btn ghost sm" href="<?= h(url('admin_sales.php?tab=targets')) ?>">Edit goals</a>
   </div>
   <div class="pad-form">
-    <p class="hint" style="margin:0 0 12px">Defaults: <?= (int) $goalDefaults['daily_reach'] ?> leads · <?= (int) $goalDefaults['daily_sales'] ?> sales (interested + onboarded). Open an agent name for their full performance and detailed reports.</p>
+    <p class="hint" style="margin:0 0 12px">Defaults: <?= (int) $goalDefaults['daily_reach'] ?> leads reached · <?= (int) $goalDefaults['daily_sales'] ?> interested clients (sales wins). Bars stay visible past the target and call out how far each agent exceeded it.</p>
     <?php if (!$dailyBoard): ?>
       <p class="empty">No live sales agents yet.</p>
     <?php else: ?>
@@ -674,7 +674,16 @@ if ($tab === 'agents'):
             <td class="mono"><?= h(sales_employee_id($a)) ?></td>
             <td><?= h($a['email']) ?></td>
             <td><span class="pill"><?= h(($a['status'] ?? 'live') === 'suspended' ? 'Suspended' : 'Live') ?></span></td>
-            <td class="mono"><?= (int) $day['reach'] ?>/<?= (int) $day['reach_goal'] ?> leads · <?= (int) $day['sales'] ?>/<?= (int) $day['sales_goal'] ?> sales</td>
+            <td class="mono">
+              <?= (int) $day['reach'] ?>/<?= (int) $day['reach_goal'] ?> leads
+              <?php if (sales_goal_over_by((int) $day['reach'], (int) $day['reach_goal']) > 0): ?>
+                <span class="sales-goal-chip is-over">+<?= sales_goal_over_by((int) $day['reach'], (int) $day['reach_goal']) ?></span>
+              <?php endif; ?>
+              · <?= (int) $day['sales'] ?>/<?= (int) $day['sales_goal'] ?> interested
+              <?php if (sales_goal_over_by((int) $day['sales'], (int) $day['sales_goal']) > 0): ?>
+                <span class="sales-goal-chip is-over">+<?= sales_goal_over_by((int) $day['sales'], (int) $day['sales_goal']) ?></span>
+              <?php endif; ?>
+            </td>
             <td class="row-actions">
               <a class="btn ghost sm" href="<?= h(url('admin_sales.php?tab=agent&agent=' . (int) $a['id'] . '&period=daily')) ?>">Stats</a>
               <a class="btn ghost sm" href="<?= h(url('admin_sales.php?tab=agents&edit=' . (int) $a['id'])) ?>">Edit</a>
@@ -716,13 +725,37 @@ if ($tab === 'agent' && $agentRow):
 <div class="card" style="margin-bottom:16px">
   <div class="card-head"><h2><?= icon('flag', 16) ?><?= h($periodLabels[$periodKind]) ?> goals</h2></div>
   <div class="pad-form">
+    <?php
+    $agentReachOver = sales_goal_over_by((int) $agentProgress['reach'], (int) $agentProgress['reach_goal']);
+    $agentSalesOver = sales_goal_over_by((int) $agentProgress['sales'], (int) $agentProgress['sales_goal']);
+    if ($agentReachOver > 0 || $agentSalesOver > 0):
+        ?>
+      <div class="sales-goal-banner">
+        <?= icon('flag', 16) ?>
+        <span><?= h($agentRow['name']) ?> exceeded the <?= h(strtolower($periodLabels[$periodKind])) ?> target<?= ($agentReachOver > 0 && $agentSalesOver > 0) ? 's' : '' ?>.</span>
+        <?php if ($agentReachOver > 0): ?>
+          <span class="sales-goal-over">Reach +<?= $agentReachOver ?> (<?= (int) $agentProgress['reach'] ?>/<?= (int) $agentProgress['reach_goal'] ?>)</span>
+        <?php endif; ?>
+        <?php if ($agentSalesOver > 0): ?>
+          <span class="sales-goal-over">Interested +<?= $agentSalesOver ?> (<?= (int) $agentProgress['sales'] ?>/<?= (int) $agentProgress['sales_goal'] ?>)</span>
+        <?php endif; ?>
+      </div>
+    <?php endif; ?>
     <?php sales_render_goal_bars($agentProgress, ['force_reach' => $periodKind === 'daily', 'force_sales' => true]); ?>
   </div>
 </div>
 <div class="stats">
-  <div class="card stat"><span>Reach</span><strong><?= (int) $agentStats['reach'] ?></strong></div>
-  <div class="card stat"><span>Sales (wins)</span><strong><?= (int) $agentStats['wins'] ?></strong></div>
-  <div class="card stat"><span>Interested</span><strong><?= (int) $agentStats['interested'] ?></strong></div>
+  <div class="card stat">
+    <span>Reach</span>
+    <strong><?= (int) $agentStats['reach'] ?><?= (int) $agentProgress['reach_goal'] > 0 ? '/' . (int) $agentProgress['reach_goal'] : '' ?></strong>
+    <?php sales_render_goal_chip((int) $agentProgress['reach'], (int) $agentProgress['reach_goal'], 'reach'); ?>
+  </div>
+  <div class="card stat">
+    <span>Interested / sales</span>
+    <strong><?= (int) $agentStats['wins'] ?><?= (int) $agentProgress['sales_goal'] > 0 ? '/' . (int) $agentProgress['sales_goal'] : '' ?></strong>
+    <?php sales_render_goal_chip((int) $agentProgress['sales'], (int) $agentProgress['sales_goal'], 'interested'); ?>
+  </div>
+  <div class="card stat"><span>Interested only</span><strong><?= (int) $agentStats['interested'] ?></strong></div>
   <div class="card stat"><span>Field hours</span><strong><?= h(sales_format_hours($agentHoursTotal)) ?></strong></div>
 </div>
 <div class="chart-grid equal" style="margin-bottom:16px">
@@ -798,7 +831,7 @@ if ($tab === 'targets'): ?>
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="save_goals">
     <div><label>Daily · leads reached</label><input type="number" name="daily_reach" min="0" value="<?= (int) $goalDefaults['daily_reach'] ?>"></div>
-    <div><label>Daily · sales (interested + onboarded)</label><input type="number" name="daily_sales" min="0" value="<?= (int) $goalDefaults['daily_sales'] ?>"></div>
+    <div><label>Daily · interested clients (sales wins)</label><input type="number" name="daily_sales" min="0" value="<?= (int) $goalDefaults['daily_sales'] ?>"></div>
     <div><label>Weekly · leads reached</label><input type="number" name="weekly_reach" min="0" value="<?= (int) $goalDefaults['weekly_reach'] ?>"></div>
     <div><label>Weekly · sales</label><input type="number" name="weekly_sales" min="0" value="<?= (int) $goalDefaults['weekly_sales'] ?>"></div>
     <div><label>Monthly · leads reached</label><input type="number" name="monthly_reach" min="0" value="<?= (int) $goalDefaults['monthly_reach'] ?>"></div>

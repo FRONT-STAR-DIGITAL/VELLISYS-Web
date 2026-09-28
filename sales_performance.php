@@ -25,7 +25,7 @@ sales_layout_start('Performance', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('reports') ?>Performance</h1>
-    <p class="lede">Your daily, weekly and monthly goals with charts that match what admin sees.</p>
+    <p class="lede">Your daily, weekly and monthly goals with charts that match what admin sees — including when you beat the target.</p>
   </div>
 </div>
 
@@ -39,14 +39,40 @@ sales_layout_start('Performance', $user);
 <div class="card" style="margin-bottom:16px">
   <div class="card-head"><h2><?= icon('flag', 16) ?><?= h($periodLabels[$periodKind]) ?> goals</h2></div>
   <div class="pad-form">
+    <?php
+    $reachOver = sales_goal_over_by((int) $progress['reach'], (int) $progress['reach_goal']);
+    $salesOver = sales_goal_over_by((int) $progress['sales'], (int) $progress['sales_goal']);
+    if ($reachOver > 0 || $salesOver > 0):
+        ?>
+      <div class="sales-goal-banner">
+        <?= icon('flag', 16) ?>
+        <span>You beat the <?= h(strtolower($periodLabels[$periodKind])) ?> target<?= ($reachOver > 0 && $salesOver > 0) ? 's' : '' ?>.</span>
+        <?php if ($reachOver > 0): ?>
+          <span class="sales-goal-over">Reach +<?= $reachOver ?> (<?= (int) $progress['reach'] ?>/<?= (int) $progress['reach_goal'] ?>)</span>
+        <?php endif; ?>
+        <?php if ($salesOver > 0): ?>
+          <span class="sales-goal-over">Interested +<?= $salesOver ?> (<?= (int) $progress['sales'] ?>/<?= (int) $progress['sales_goal'] ?>)</span>
+        <?php endif; ?>
+      </div>
+    <?php endif; ?>
     <?php sales_render_goal_bars($progress, ['force_reach' => $periodKind === 'daily', 'force_sales' => true]); ?>
   </div>
 </div>
 
 <div class="stats">
-  <div class="card stat"><?= icon('clients', 20) ?><span>Reach</span><strong><?= (int) $stats['reach'] ?><?= $progress['reach_goal'] ? ' / ' . (int) $progress['reach_goal'] : '' ?></strong></div>
-  <div class="card stat"><?= icon('flag', 20) ?><span>Sales</span><strong><?= (int) $stats['wins'] ?><?= $progress['sales_goal'] ? ' / ' . (int) $progress['sales_goal'] : '' ?></strong></div>
-  <div class="card stat"><?= icon('heart', 20) ?><span>Interested</span><strong><?= (int) $stats['interested'] ?></strong></div>
+  <div class="card stat">
+    <?= icon('clients', 20) ?>
+    <span>Reach</span>
+    <strong><?= (int) $stats['reach'] ?><?= $progress['reach_goal'] ? '/' . (int) $progress['reach_goal'] : '' ?></strong>
+    <?php sales_render_goal_chip((int) $progress['reach'], (int) $progress['reach_goal'], 'reach'); ?>
+  </div>
+  <div class="card stat">
+    <?= icon('flag', 20) ?>
+    <span>Interested / sales</span>
+    <strong><?= (int) $stats['wins'] ?><?= $progress['sales_goal'] ? '/' . (int) $progress['sales_goal'] : '' ?></strong>
+    <?php sales_render_goal_chip((int) $progress['sales'], (int) $progress['sales_goal'], 'interested'); ?>
+  </div>
+  <div class="card stat"><?= icon('heart', 20) ?><span>Interested only</span><strong><?= (int) $stats['interested'] ?></strong></div>
   <div class="card stat"><?= icon('clock', 20) ?><span>Field hours</span><strong><?= h(sales_format_hours($hoursTotal)) ?></strong></div>
 </div>
 

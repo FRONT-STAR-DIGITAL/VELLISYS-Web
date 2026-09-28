@@ -627,25 +627,93 @@ summary {
   }
 }
 .sales-goal-track {
+  position: relative;
   height: 10px;
   background: #e8ebf2;
   border-radius: 999px;
-  overflow: hidden;
+  overflow: visible;
 }
-.sales-goal-track span {
+.sales-goal-track .sales-goal-fill,
+.sales-goal-track > span:not(.sales-goal-mark) {
   display: block;
   height: 100%;
-  background: var(--brand, #82B440);
+  background: var(--brand, #1E4EFF);
   border-radius: inherit;
   transition: width 0.35s ease;
 }
-.sales-goal-row.is-hit .sales-goal-track span {
+.sales-goal-row.is-hit .sales-goal-fill {
   background: #0f766e;
 }
+.sales-goal-row.is-over .sales-goal-fill {
+  background: linear-gradient(90deg, #0f766e 0%, #0f766e 70%, #c9a227 70%, #c9a227 100%);
+}
+.sales-goal-mark {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  background: #0b3d3a;
+  border-radius: 2px;
+  pointer-events: none;
+  box-shadow: 0 0 0 2px #fff;
+}
 .sales-goal-over {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #8a6d12;
+  background: #fff4d6;
+  border: 1px solid #e6c56a;
+  border-radius: 999px;
+  padding: 2px 8px;
+  width: fit-content;
+}
+.sales-goal-over.is-hit {
+  color: #0f5c3a;
+  background: #dff5e8;
+  border-color: #9ed4b8;
+}
+.sales-goal-remain {
   font-size: 0.78rem;
   font-weight: 600;
-  color: #0f766e;
+  color: var(--muted, #5b6472);
+}
+.sales-goal-row.is-over .sales-goal-meta strong {
+  color: #8a6d12;
+}
+.sales-goal-chip {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-style: normal;
+  line-height: 1.2;
+}
+.sales-goal-chip.is-over {
+  color: #8a6d12;
+}
+.sales-goal-chip.is-hit {
+  color: #0f5c3a;
+}
+.sales-goal-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fff8e6;
+  border: 1px solid #e6c56a;
+  color: #5c4a10;
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+.sales-goal-banner .sales-goal-over {
+  margin: 0;
 }
 .sales-agent-goal-card {
   display: block;
