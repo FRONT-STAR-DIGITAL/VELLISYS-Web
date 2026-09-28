@@ -1373,12 +1373,14 @@ function sales_render_goal_row(string $label, int $current, int $goal, array $op
     $overBy = sales_goal_over_by($current, $goal);
     $pct = sales_progress_pct($current, max(1, $goal));
     // When over target, fill the track and mark where the goal sat.
+    $mark = null;
+    $baseFill = min(100, $pct);
+    $extraFill = 0;
     if ($status === 'over' && $current > 0) {
-        $fill = 100;
         $mark = (int) round(100 * $goal / $current);
-    } else {
-        $fill = min(100, $pct);
-        $mark = null;
+        $mark = max(4, min(96, $mark));
+        $baseFill = $mark;
+        $extraFill = 100 - $mark;
     }
     $aria = $goal > 0
         ? ($status === 'over'
@@ -1395,9 +1397,12 @@ function sales_render_goal_row(string $label, int $current, int $goal, array $op
         <strong class="mono"><?= $current ?><?= $goal > 0 ? '/' . $goal : '' ?></strong>
       </div>
       <div class="sales-goal-track<?= $status === 'over' ? ' is-over' : '' ?>" role="img" aria-label="<?= h($aria) ?>">
-        <span class="sales-goal-fill" style="width:<?= $fill ?>%"></span>
+        <span class="sales-goal-fill" style="width:<?= $baseFill ?>%"></span>
+        <?php if ($extraFill > 0): ?>
+          <span class="sales-goal-fill is-extra" style="left:<?= $baseFill ?>%;width:<?= $extraFill ?>%"></span>
+        <?php endif; ?>
         <?php if ($mark !== null): ?>
-          <i class="sales-goal-mark" style="left:<?= max(4, min(96, $mark)) ?>%" title="Target <?= $goal ?>"></i>
+          <i class="sales-goal-mark" style="left:<?= $mark ?>%" title="Target <?= $goal ?>"></i>
         <?php endif; ?>
       </div>
       <?php if ($status === 'over'): ?>

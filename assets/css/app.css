@@ -631,21 +631,31 @@ summary {
   height: 10px;
   background: #e8ebf2;
   border-radius: 999px;
+  overflow: hidden;
+}
+.sales-goal-track.is-over {
   overflow: visible;
 }
-.sales-goal-track .sales-goal-fill,
-.sales-goal-track > span:not(.sales-goal-mark) {
+.sales-goal-fill {
   display: block;
   height: 100%;
-  background: var(--brand, #1E4EFF);
+  background: var(--brand, #82B440);
   border-radius: inherit;
   transition: width 0.35s ease;
 }
-.sales-goal-row.is-hit .sales-goal-fill {
+.sales-goal-fill.is-extra {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: #c9a227;
+  border-radius: 0 999px 999px 0;
+}
+.sales-goal-row.is-hit .sales-goal-fill:not(.is-extra) {
   background: #0f766e;
 }
-.sales-goal-row.is-over .sales-goal-fill {
-  background: linear-gradient(90deg, #0f766e 0%, #0f766e 70%, #c9a227 70%, #c9a227 100%);
+.sales-goal-row.is-over .sales-goal-fill:not(.is-extra) {
+  background: #0f766e;
+  border-radius: 999px 0 0 999px;
 }
 .sales-goal-mark {
   position: absolute;
@@ -657,6 +667,7 @@ summary {
   border-radius: 2px;
   pointer-events: none;
   box-shadow: 0 0 0 2px #fff;
+  z-index: 1;
 }
 .sales-goal-over {
   display: inline-flex;
