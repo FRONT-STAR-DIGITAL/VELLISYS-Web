@@ -132,10 +132,31 @@ function record_site_visit(?string $script = null): void
     $done = true;
 }
 
-function visit_report(int $days = 30): array
+/**
+ * @param int $days Fallback window when $from/$to are not set
+ */
+function visit_report(int $days = 30, ?string $from = null, ?string $to = null): array
 {
+    $today = today();
+    $from = $from !== null && $from !== '' ? $from : '';
+    $to = $to !== null && $to !== '' ? $to : '';
+    if ($from === '' || $to === '') {
+        $to = $today;
+        $from = (clone desk_now())->modify('-' . max(0, $days - 1) . ' days')->format('Y-m-d');
+    }
+    if ($from > $to) {
+        [$from, $to] = [$to, $from];
+    }
+    $fromDt = DateTime::createFromFormat('Y-m-d', $from) ?: new DateTime($from);
+    $toDt = DateTime::createFromFormat('Y-m-d', $to) ?: new DateTime($to);
+    $span = (int) $fromDt->diff($toDt)->days + 1;
+    if ($span < 1) {
+        $span = 1;
+    }
     $empty = [
-        'days' => $days,
+        'days' => $span,
+        'from' => $from,
+        'to' => $to,
         'landing' => 0,
         'desk' => 0,
         'app' => 0,
@@ -152,15 +173,19 @@ function visit_report(int $days = 30): array
     } catch (Throwable $e) {
         return $empty;
     }
-    $since = desk_now()->modify('-' . max(1, $days) . ' days')->format('Y-m-d 00:00:00');
-    $rows = db_all('SELECT occurred_at, page_kind, country, country_name, is_app FROM site_visits WHERE occurred_at >= ?', 's', [$since]);
+    $rows = db_all(
+        'SELECT occurred_at, page_kind, country, country_name, is_app FROM site_visits
+         WHERE occurred_at >= ? AND occurred_at <= ?',
+        'ss',
+        [$from . ' 00:00:00', $to . ' 23:59:59']
+    );
     $counts = ['landing' => 0, 'desk' => 0, 'app' => 0, 'checkout' => 0, 'login' => 0, 'onboard' => 0, 'admin' => 0, 'other' => 0];
     $countries = [];
     $daily = [];
-    $today = desk_now();
-    for ($i = $days - 1; $i >= 0; $i--) {
-        $key = $today->modify('-' . $i . ' days')->format('Y-m-d');
-        $daily[$key] = ['landing' => 0, 'desk' => 0, 'app' => 0];
+    $cursor = clone $fromDt;
+    while ($cursor <= $toDt) {
+        $daily[$cursor->format('Y-m-d')] = ['landing' => 0, 'desk' => 0, 'app' => 0];
+        $cursor->modify('+1 day');
     }
     foreach ($rows as $row) {
         $kind = (string) ($row['page_kind'] ?? 'other');
@@ -191,7 +216,9 @@ function visit_report(int $days = 30): array
     }
     usort($countries, static fn ($a, $b) => $b['visits'] <=> $a['visits']);
     return [
-        'days' => $days,
+        'days' => $span,
+        'from' => $from,
+        'to' => $to,
         'landing' => $counts['landing'] + $counts['checkout'],
         'desk' => $counts['desk'] + $counts['login'] + $counts['onboard'],
         'app' => $counts['app'],

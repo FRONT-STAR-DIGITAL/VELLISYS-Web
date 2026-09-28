@@ -3,6 +3,7 @@ declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
 $user = require_platform();
 
+admin_period_default_today();
 $period = period_range();
 $from = $period['from'] !== '' ? $period['from'] : desk_now()->modify('-30 days')->format('Y-m-d');
 $to = $period['to'] !== '' ? $period['to'] : desk_now()->format('Y-m-d');

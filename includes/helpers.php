@@ -2893,6 +2893,14 @@ function period_range(): array
     return ['preset' => 'all', 'from' => '', 'to' => ''];
 }
 
+/** Super-admin reports: open on Today unless a range or custom dates are already chosen. */
+function admin_period_default_today(): void
+{
+    if (!isset($_GET['range']) && trim((string) ($_GET['from'] ?? '')) === '' && trim((string) ($_GET['to'] ?? '')) === '') {
+        $_GET['range'] = 'today';
+    }
+}
+
 function period_sql(string $column = 'd.date'): array
 {
     $p = period_range();

@@ -20,8 +20,8 @@ if ($tab === 'agent' && $agentId < 1) {
 $error = '';
 $tempPassword = '';
 
-if (!isset($_GET['range']) && trim((string) ($_GET['from'] ?? '')) === '' && in_array($tab, ['overview', 'leads'], true)) {
-    $_GET['range'] = 'this_month';
+if (in_array($tab, ['overview', 'leads'], true)) {
+    admin_period_default_today();
 }
 [$from, $to, $period] = sales_period_bounds();
 
@@ -147,11 +147,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'delete_lead') {
         $done = sales_lead_soft_delete((int) post('lead_id'));
         flash(empty($done['ok']) ? ($done['error'] ?? 'Failed') : 'Not-interested business removed from the list. Reports still count it.', empty($done['ok']) ? 'err' : 'ok');
-        redirect('admin_sales.php?tab=leads&range=' . urlencode((string) ($period['preset'] ?? 'this_month')));
+        redirect('admin_sales.php?tab=leads&range=' . urlencode((string) ($period['preset'] ?? 'today')));
     } elseif ($action === 'hard_delete_lead') {
         $done = sales_lead_hard_delete((int) post('lead_id'));
         flash(empty($done['ok']) ? ($done['error'] ?? 'Failed') : 'Not-interested business deleted.', empty($done['ok']) ? 'err' : 'ok');
-        redirect('admin_sales.php?tab=leads&range=' . urlencode((string) ($period['preset'] ?? 'this_month')));
+        redirect('admin_sales.php?tab=leads&range=' . urlencode((string) ($period['preset'] ?? 'today')));
     } elseif ($action === 'send_message') {
         $to = (int) post('to_user_id');
         $sent = sales_message_send((int) $user['id'], $to, post('body'));
@@ -315,7 +315,7 @@ layout_admin_start('Sales', $user);
 <p class="hint" style="margin:-8px 0 16px">Team totals for <?= $period['from'] ? h(format_date($from) . ' - ' . format_date($to)) : 'all dates' ?>.</p>
 <form method="get" class="filters" style="margin-bottom:16px">
   <input type="hidden" name="tab" value="overview">
-  <input type="hidden" name="range" value="<?= h((string) ($period['preset'] ?? 'this_month')) ?>">
+  <input type="hidden" name="range" value="<?= h((string) ($period['preset'] ?? 'today')) ?>">
   <input type="hidden" name="from" value="<?= h($from) ?>">
   <input type="hidden" name="to" value="<?= h($to) ?>">
   <label>Filter by agent

@@ -123,6 +123,15 @@ foreach ($signups as $s) {
     }
 }
 
+admin_period_default_today();
+$period = period_range();
+$from = $period['from'] !== '' ? $period['from'] : today();
+$to = $period['to'] !== '' ? $period['to'] : today();
+if ($period['preset'] === 'all' && $period['from'] === '') {
+    $from = desk_now()->modify('-29 days')->format('Y-m-d');
+    $to = today();
+}
+
 $export = (string) ($_GET['export'] ?? '');
 if ($export === 'fees') {
     $rows = [];
@@ -143,13 +152,14 @@ if ($export === 'fees') {
     csv_download('vellisys-fees.csv', ['Company', 'Status', 'Term', 'Remaining', 'Expires', 'Fee', 'Paid', 'Balance', 'Unused value', 'Currency'], $rows);
 }
 
-$traffic = visit_report(30);
+$traffic = visit_report(1, $from, $to);
 if ((string) ($_GET['export'] ?? '') === 'visits') {
     $rows = [];
     foreach ($traffic['countries'] as $c) {
         $rows[] = [$c['name'], $c['code'], $c['visits']];
     }
-    csv_download('vellisys-visits.csv', ['Country', 'Code', 'Visits (30 days)'], $rows);
+    $visitLabel = $from === $to ? format_date($from) : (format_date($from) . ' - ' . format_date($to));
+    csv_download('vellisys-visits.csv', ['Country', 'Code', 'Visits (' . $visitLabel . ')'], $rows);
 }
 
 $adminChart = [
@@ -175,6 +185,7 @@ $adminChart = [
 ];
 
 layout_admin_start('Reports', $user);
+$rangeLabel = $from === $to ? format_date($from) : (format_date($from) . ' - ' . format_date($to));
 
 $expiryCell = static function (array $c): string {
     $state = company_expiry_state($c);
@@ -218,11 +229,12 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
     <p class="lede">Onboarding, expiry, site visits, and renewal letters. Money Vellisys has taken in lives under Finances. How desks run lives under System.</p>
   </div>
   <div class="actions">
-    <a class="btn ghost" href="<?= h(url('admin_reports.php?export=fees')) ?>"><?= icon('download', 16) ?>Fees CSV</a>
+    <a class="btn ghost" href="<?= h(url('admin_reports.php?export=fees&' . http_build_query(array_filter(['range' => $period['preset'] ?? '', 'from' => $period['from'] ?? '', 'to' => $period['to'] ?? ''])))) ?>"><?= icon('download', 16) ?>Fees CSV</a>
     <a class="btn ghost" href="<?= h(url('admin_finances.php')) ?>"><?= icon('bank', 16) ?>Finances</a>
-    <a class="btn ghost" href="<?= h(url('admin_reports.php?export=visits')) ?>"><?= icon('globe', 16) ?>Visits CSV</a>
+    <a class="btn ghost" href="<?= h(url('admin_reports.php?export=visits&' . http_build_query(array_filter(['range' => $period['preset'] ?? '', 'from' => $period['from'] ?? '', 'to' => $period['to'] ?? ''])))) ?>"><?= icon('globe', 16) ?>Visits CSV</a>
   </div>
 </div>
+<?php render_filters('admin_reports.php', [], ['live' => true]); ?>
 
 <div class="stats">
   <div class="card stat"><?= icon('building', 20) ?><span>Companies</span><strong><?= count($companies) ?></strong></div>
@@ -239,7 +251,7 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
 <div class="page-head" style="margin-top:8px">
   <div>
     <h2 style="margin:0;font-size:18px"><?= icon('globe', 18) ?>Site visits and app use</h2>
-    <p class="lede">Landing page, checkout, desk and installed-app traffic for the last <?= (int) $traffic['days'] ?> days, grouped by country when the network or timezone tells us.</p>
+    <p class="lede">Landing page, checkout, desk and installed-app traffic for <?= h($rangeLabel) ?>, grouped by country when the network or timezone tells us.</p>
   </div>
 </div>
 <div class="stats">
@@ -268,7 +280,7 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
 </div>
 <?php if ($traffic['countries']): ?>
 <div class="card" style="margin-bottom:24px">
-  <div class="card-head"><h2><?= icon('globe', 16) ?>Countries this month</h2></div>
+  <div class="card-head"><h2><?= icon('globe', 16) ?>Countries · <?= h($rangeLabel) ?></h2></div>
   <div class="table-scroll">
     <table class="grid">
       <thead><tr><th>Country</th><th class="right">Visits</th></tr></thead>
