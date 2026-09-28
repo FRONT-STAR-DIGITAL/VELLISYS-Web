@@ -199,23 +199,27 @@ layout_admin_start('Companies', $user);
             <td class="mono"><?= $expVal !== '' ? h(format_date($expVal)) : '-' ?></td>
             <td><?= h(company_testing_remaining_label($c)) ?></td>
             <td class="row-actions">
-              <div class="actions wrap-actions">
-                <a class="btn sm" href="<?= h(url('admin_company.php?id=' . (int) $c['id'])) ?>"><?= icon('eye', 14) ?>Open</a>
-                <a class="btn ghost sm" href="<?= h(url('sales_desk.php?id=' . (int) $c['id'] . '&go=1')) ?>"><?= icon('desk', 14) ?>Desk</a>
-                <form method="post" class="inline-form">
-                  <?= csrf_field() ?>
-                  <input type="hidden" name="action" value="testing_extend">
-                  <input type="hidden" name="company_id" value="<?= (int) $c['id'] ?>">
-                  <input type="hidden" name="days" value="7">
-                  <button class="btn ghost sm" type="submit">+7 days</button>
-                </form>
-                <form method="post" class="inline-form">
-                  <?= csrf_field() ?>
-                  <input type="hidden" name="action" value="testing_extend">
-                  <input type="hidden" name="company_id" value="<?= (int) $c['id'] ?>">
-                  <input type="hidden" name="days" value="-7">
-                  <button class="btn ghost sm" type="submit">-7 days</button>
-                </form>
+              <div class="wrap-actions">
+                <div class="actions-row">
+                  <a class="btn sm" href="<?= h(url('admin_company.php?id=' . (int) $c['id'])) ?>"><?= icon('eye', 14) ?>Open</a>
+                  <a class="btn ghost sm" href="<?= h(url('sales_desk.php?id=' . (int) $c['id'] . '&go=1')) ?>"><?= icon('desk', 14) ?>Desk</a>
+                </div>
+                <div class="actions-row">
+                  <form method="post" class="inline-form">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="testing_extend">
+                    <input type="hidden" name="company_id" value="<?= (int) $c['id'] ?>">
+                    <input type="hidden" name="days" value="7">
+                    <button class="btn ghost sm" type="submit">+7 days</button>
+                  </form>
+                  <form method="post" class="inline-form">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="testing_extend">
+                    <input type="hidden" name="company_id" value="<?= (int) $c['id'] ?>">
+                    <input type="hidden" name="days" value="-7">
+                    <button class="btn ghost sm" type="submit">-7 days</button>
+                  </form>
+                </div>
                 <form method="post" class="inline-form testing-expiry-form">
                   <?= csrf_field() ?>
                   <input type="hidden" name="action" value="testing_set_expiry">

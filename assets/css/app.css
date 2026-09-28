@@ -6999,6 +6999,25 @@ a.cdash-metric:hover {
   gap: 6px;
   align-items: center;
 }
+#testing td.row-actions {
+  min-width: 220px;
+  max-width: 280px;
+  white-space: normal;
+}
+#testing .wrap-actions {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+#testing .wrap-actions > .btn,
+#testing .wrap-actions > .inline-form {
+  width: 100%;
+}
+#testing .wrap-actions .actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 .inline-form {
   display: inline-flex;
   flex-wrap: wrap;
@@ -7012,6 +7031,7 @@ a.cdash-metric:hover {
   padding: 4px 8px;
   font-size: 12px;
   max-width: 140px;
+  flex: 1 1 auto;
 }
 .sales-creds-card code {
   word-break: break-all;
