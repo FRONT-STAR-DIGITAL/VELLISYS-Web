@@ -94,7 +94,7 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
     <label for="rejected_reason" style="margin-top:12px">Explain the rejection</label>
     <textarea id="rejected_reason" name="rejected_reason" rows="3" placeholder="What they said about turning Vellisys down"><?= h((string) ($_POST['rejected_reason'] ?? $lead['rejected_reason'] ?? '')) ?></textarea>
     <label for="nature_rejected" style="margin-top:12px">Nature of business</label>
-    <input id="nature_rejected" name="nature_of_business" value="<?= h((string) ($_POST['nature_of_business'] ?? $lead['nature_of_business'] ?? '')) ?>" placeholder="Shop, clinic, transport…">
+    <input id="nature_rejected" name="nature_of_business" value="<?= h((string) ($_POST['nature_of_business'] ?? $lead['nature_of_business'] ?? '')) ?>" placeholder="Shop, clinic, transport…" <?= $status === 'rejected' ? '' : 'disabled' ?>>
   </div>
 
   <div data-panel="details" <?= $status === 'rejected' ? 'hidden' : '' ?>>
