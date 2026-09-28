@@ -48,6 +48,83 @@ function platform_money(float $amount, string $from = 'USD'): string
     return money(platform_convert($amount, $from, $ccy), $ccy);
 }
 
+/**
+ * Sum ledger rows in platform currency from original amount+currency.
+ * Avoids UGX→USD→UGX round-trip drift on amount_usd (e.g. 200,000 → 200,022).
+ *
+ * @return float Total in platform_currency()
+ */
+function platform_fee_sum(?string $fromDate = null, ?string $toDate = null): float
+{
+    $ccy = platform_currency();
+    $sql = 'SELECT currency, COALESCE(SUM(amount),0) AS t FROM platform_fee_ledger';
+    $types = '';
+    $params = [];
+    if ($fromDate !== null && $toDate !== null && $fromDate === $toDate) {
+        $sql .= ' WHERE DATE(occurred_at) = ?';
+        $types = 's';
+        $params = [$fromDate];
+    } elseif ($fromDate !== null && $toDate !== null) {
+        $sql .= ' WHERE DATE(occurred_at) BETWEEN ? AND ?';
+        $types = 'ss';
+        $params = [$fromDate, $toDate];
+    } elseif ($fromDate !== null) {
+        $sql .= ' WHERE DATE(occurred_at) = ?';
+        $types = 's';
+        $params = [$fromDate];
+    }
+    $sql .= ' GROUP BY currency';
+    try {
+        $rows = $types !== '' ? db_all($sql, $types, $params) : db_all($sql);
+    } catch (Throwable $e) {
+        return 0.0;
+    }
+    $total = 0.0;
+    foreach ($rows as $r) {
+        $total += platform_convert((float) ($r['t'] ?? 0), (string) ($r['currency'] ?? 'USD'), $ccy);
+    }
+    return round_money($total, $ccy);
+}
+
+/**
+ * Daily (or monthly) series of fee totals in platform currency.
+ *
+ * @param 'day'|'month' $grain
+ * @return array<string, float> keyed by Y-m-d or Y-m
+ */
+function platform_fee_series(string $fromDate, string $toDate, string $grain = 'day'): array
+{
+    $ccy = platform_currency();
+    $expr = $grain === 'month' ? 'DATE_FORMAT(occurred_at, "%Y-%m")' : 'DATE(occurred_at)';
+    try {
+        $rows = db_all(
+            "SELECT {$expr} AS bucket, currency, COALESCE(SUM(amount),0) AS t
+             FROM platform_fee_ledger
+             WHERE DATE(occurred_at) BETWEEN ? AND ?
+             GROUP BY bucket, currency",
+            'ss',
+            [$fromDate, $toDate]
+        );
+    } catch (Throwable $e) {
+        return [];
+    }
+    $out = [];
+    foreach ($rows as $r) {
+        $key = (string) ($r['bucket'] ?? '');
+        if ($key === '') {
+            continue;
+        }
+        if (!isset($out[$key])) {
+            $out[$key] = 0.0;
+        }
+        $out[$key] += platform_convert((float) ($r['t'] ?? 0), (string) ($r['currency'] ?? 'USD'), $ccy);
+    }
+    foreach ($out as $k => $v) {
+        $out[$k] = round_money($v, $ccy);
+    }
+    return $out;
+}
+
 function platform_money_company_fee(array $company, string $field = 'paid'): string
 {
     $amt = match ($field) {
@@ -509,7 +586,7 @@ function platform_delete_company(int $id): array
             company_reset_in('DELETE FROM emails WHERE document_id IS NULL AND user_id IN', $userIds);
         }
 
-        $keep = ['companies', 'signups', 'website_orders', 'platform_fee_ledger'];
+        $keep = ['companies', 'signups', 'website_orders'];
         $res = $db->query('SHOW TABLES');
         $tables = [];
         if ($res) {
@@ -529,6 +606,12 @@ function platform_delete_company(int $id): array
             }
             $safe = '`' . str_replace('`', '', $table) . '`';
             db_exec("DELETE FROM {$safe} WHERE company_id = ?", 'i', [$id]);
+        }
+        // Drop fee rows for this desk so deleted demo accounts (e.g. Ofagros) do not inflate Taken in.
+        try {
+            db_exec('DELETE FROM platform_fee_ledger WHERE company_id = ?', 'i', [$id]);
+        } catch (Throwable $e) {
+            // Table may not exist on very old installs.
         }
         db_exec("DELETE FROM users WHERE company_id = ? AND role <> 'platform'", 'i', [$id]);
         if ($hasReset && company_reset_has_table('signups') && db_has_column($db, 'signups', 'company_id')) {

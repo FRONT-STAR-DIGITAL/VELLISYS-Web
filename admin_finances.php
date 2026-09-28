@@ -70,14 +70,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$allUsd = 0.0;
-$periodUsd = 0.0;
+$allTaken = 0.0;
+$periodTaken = 0.0;
 $ledger = [];
+$ccy = platform_currency();
 try {
-    $row = db_one('SELECT COALESCE(SUM(amount_usd),0) AS t FROM platform_fee_ledger');
-    $allUsd = (float) ($row['t'] ?? 0);
-    $row = db_one('SELECT COALESCE(SUM(amount_usd),0) AS t FROM platform_fee_ledger WHERE DATE(occurred_at) BETWEEN ? AND ?', 'ss', [$from, $to]);
-    $periodUsd = (float) ($row['t'] ?? 0);
+    $allTaken = platform_fee_sum();
+    $periodTaken = platform_fee_sum($from, $to);
     $ledger = db_all(
         'SELECT l.*, c.name AS company_name
          FROM platform_fee_ledger l
@@ -95,26 +94,25 @@ try {
 $companies = db_all('SELECT * FROM companies ORDER BY name');
 $feeBalance = 0.0;
 foreach ($companies as $c) {
-    $feeBalance += platform_convert(company_fee_balance($c), company_fee_currency($c), 'USD');
+    $feeBalance += platform_convert(company_fee_balance($c), company_fee_currency($c), $ccy);
 }
 
 $months = month_axis(12);
 $monthSum = array_fill_keys($months, 0.0);
 try {
-    $series = db_all('SELECT DATE_FORMAT(occurred_at, "%Y-%m") AS ym, SUM(amount_usd) AS t FROM platform_fee_ledger GROUP BY ym');
-    foreach ($series as $s) {
-        $ym = (string) ($s['ym'] ?? '');
+    $seriesStart = $months[0] . '-01';
+    $seriesEnd = desk_now()->format('Y-m-d');
+    foreach (platform_fee_series($seriesStart, $seriesEnd, 'month') as $ym => $t) {
         if (isset($monthSum[$ym])) {
-            $monthSum[$ym] = (float) $s['t'];
+            $monthSum[$ym] = (float) $t;
         }
     }
 } catch (Throwable $e) {
 }
 
-$ccy = platform_currency();
 $chart = [];
 foreach ($months as $ym) {
-    $chart[] = round(platform_convert($monthSum[$ym], 'USD', $ccy), 2);
+    $chart[] = round($monthSum[$ym], 2);
 }
 
 $payCompany = null;
@@ -137,9 +135,9 @@ layout_admin_start('Finances', $user);
 <?php if ($error): ?><p class="flash flash-err"><?= h($error) ?></p><?php endif; ?>
 
 <div class="stats">
-  <div class="card stat"><?= icon('invoice', 20) ?><span>This period</span><strong><?= h(platform_money($periodUsd, 'USD')) ?></strong></div>
-  <div class="card stat"><?= icon('bank', 20) ?><span>All time</span><strong><?= h(platform_money($allUsd, 'USD')) ?></strong></div>
-  <div class="card stat"><?= icon('receipt', 20) ?><span>Still due on terms</span><strong><?= h(platform_money($feeBalance, 'USD')) ?></strong></div>
+  <div class="card stat"><?= icon('invoice', 20) ?><span>This period</span><strong><?= h(money($periodTaken, $ccy)) ?></strong></div>
+  <div class="card stat"><?= icon('bank', 20) ?><span>All time</span><strong><?= h(money($allTaken, $ccy)) ?></strong></div>
+  <div class="card stat"><?= icon('receipt', 20) ?><span>Still due on terms</span><strong><?= h(money($feeBalance, $ccy)) ?></strong></div>
   <div class="card stat"><?= icon('building', 20) ?><span>Paying companies</span><strong><?= count(array_filter($companies, static fn ($c) => company_fee_paid($c) > 0)) ?></strong></div>
 </div>
 

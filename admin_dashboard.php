@@ -60,33 +60,15 @@ try {
 } catch (Throwable $e) {
 }
 
-$branches = 0;
-$branchesPrevMonth = 0;
+$todayTaken = 0.0;
+$yesterdayTaken = 0.0;
+$allTaken = 0.0;
+$prevMonthTaken = 0.0;
 try {
-    $b = db_one('SELECT COUNT(*) AS c FROM branches');
-    $branches = (int) ($b['c'] ?? 0);
-    $b2 = db_one('SELECT COUNT(*) AS c FROM branches WHERE DATE(created_at) <= ?', 's', [$prevMonthEnd]);
-    $branchesPrevMonth = (int) ($b2['c'] ?? $branches);
-} catch (Throwable $e) {
-}
-
-$todayUsd = 0.0;
-$yesterdayUsd = 0.0;
-$allUsd = 0.0;
-$prevMonthUsd = 0.0;
-try {
-    $row = db_one('SELECT COALESCE(SUM(amount_usd),0) AS t FROM platform_fee_ledger');
-    $allUsd = (float) ($row['t'] ?? 0);
-    $row = db_one('SELECT COALESCE(SUM(amount_usd),0) AS t FROM platform_fee_ledger WHERE DATE(occurred_at) = ?', 's', [$today]);
-    $todayUsd = (float) ($row['t'] ?? 0);
-    $row = db_one('SELECT COALESCE(SUM(amount_usd),0) AS t FROM platform_fee_ledger WHERE DATE(occurred_at) = ?', 's', [$yesterday]);
-    $yesterdayUsd = (float) ($row['t'] ?? 0);
-    $row = db_one(
-        'SELECT COALESCE(SUM(amount_usd),0) AS t FROM platform_fee_ledger WHERE DATE(occurred_at) BETWEEN ? AND ?',
-        'ss',
-        [$prevMonthStart, $prevMonthEnd]
-    );
-    $prevMonthUsd = (float) ($row['t'] ?? 0);
+    $allTaken = platform_fee_sum();
+    $todayTaken = platform_fee_sum($today, $today);
+    $yesterdayTaken = platform_fee_sum($yesterday, $yesterday);
+    $prevMonthTaken = platform_fee_sum($prevMonthStart, $prevMonthEnd);
 } catch (Throwable $e) {
 }
 
@@ -112,16 +94,9 @@ $collectionsSeries = array_fill_keys($days, 0.0);
 $docsSeries = array_fill_keys($days, 0);
 $actsSeries = array_fill_keys($days, 0);
 try {
-    $rows = db_all(
-        'SELECT DATE(occurred_at) d, SUM(amount_usd) t FROM platform_fee_ledger
-         WHERE DATE(occurred_at) BETWEEN ? AND ? GROUP BY DATE(occurred_at)',
-        'ss',
-        [$days[0], $today]
-    );
-    foreach ($rows as $r) {
-        $d = (string) ($r['d'] ?? '');
+    foreach (platform_fee_series($days[0], $today, 'day') as $d => $t) {
         if (isset($collectionsSeries[$d])) {
-            $collectionsSeries[$d] = (float) ($r['t'] ?? 0);
+            $collectionsSeries[$d] = (float) $t;
         }
     }
 } catch (Throwable $e) {
@@ -163,12 +138,7 @@ $prevWeekEnd = (clone $now)->modify('-7 days')->format('Y-m-d');
 $prevWeekCollections = 0.0;
 $prevWeekDocs = 0;
 try {
-    $row = db_one(
-        'SELECT COALESCE(SUM(amount_usd),0) AS t FROM platform_fee_ledger WHERE DATE(occurred_at) BETWEEN ? AND ?',
-        'ss',
-        [$prevWeekStart, $prevWeekEnd]
-    );
-    $prevWeekCollections = (float) ($row['t'] ?? 0);
+    $prevWeekCollections = platform_fee_sum($prevWeekStart, $prevWeekEnd);
 } catch (Throwable $e) {
 }
 try {
@@ -208,18 +178,6 @@ try {
     } catch (Throwable $e2) {
         $recent = [];
     }
-}
-
-$branchRows = [];
-try {
-    $branchRows = db_all(
-        'SELECT b.id, b.name, b.city, c.name AS company_name, c.id AS company_id
-         FROM branches b
-         LEFT JOIN companies c ON c.id = b.company_id
-         ORDER BY b.id DESC LIMIT 6'
-    );
-} catch (Throwable $e) {
-    $branchRows = [];
 }
 
 $trend = static function (float $current, float $previous, string $vs, bool $absolute = false): array {
@@ -298,9 +256,8 @@ $deviceTrend = [
 ];
 $liveTrend = $trend((float) $live, (float) $livePrev, 'vs. yesterday', true);
 $peopleTrend = $trend((float) $deskUsers, (float) $deskUsersYesterday, 'vs. yesterday', true);
-$branchTrend = $trend((float) $branches, (float) $branchesPrevMonth, 'vs. last month', true);
-$todayTrend = $trend($todayUsd, $yesterdayUsd, 'vs. yesterday');
-$allTrend = $trend($allUsd, max(0.0, $allUsd - $prevMonthUsd), 'vs. last month');
+$todayTrend = $trend($todayTaken, $yesterdayTaken, 'vs. yesterday');
+$allTrend = $trend($allTaken, max(0.0, $allTaken - $prevMonthTaken), 'vs. last month');
 $companyTrend = $trend((float) $companyCount, (float) $companiesPrevMonth, 'vs. last month', true);
 $weekCollTrend = $trend($weekCollections, $prevWeekCollections, '');
 $weekDocTrend = $trend((float) $weekDocs, (float) $prevWeekDocs, '');
@@ -430,21 +387,10 @@ layout_admin_start('Dashboard', $user);
   </article>
 
   <article class="admin-metric card">
-    <div class="admin-metric-label"><?= icon('pin', 16) ?><span>Named branches</span></div>
-    <div class="admin-metric-row">
-      <div>
-        <strong><?= $branches ?></strong>
-        <em class="admin-trend is-<?= h($branchTrend['tone']) ?>"><?= h($branchTrend['text']) ?></em>
-      </div>
-      <div class="admin-metric-aside"><?= icon('building', 28) ?></div>
-    </div>
-  </article>
-
-  <article class="admin-metric card">
     <div class="admin-metric-label"><?= icon('bank', 16) ?><span>Taken in today</span></div>
     <div class="admin-metric-row">
       <div>
-        <strong><?= h(platform_money($todayUsd, 'USD')) ?></strong>
+        <strong><?= h(money($todayTaken, $ccy)) ?></strong>
         <em class="admin-trend is-<?= h($todayTrend['tone']) ?>"><?= h($todayTrend['text']) ?></em>
       </div>
       <div class="admin-metric-aside"><?= $bars(array_values($collectionsSeries)) ?></div>
@@ -455,10 +401,10 @@ layout_admin_start('Dashboard', $user);
     <div class="admin-metric-label"><?= icon('invoice', 16) ?><span>Taken in, all time</span></div>
     <div class="admin-metric-row">
       <div>
-        <strong><?= h(platform_money($allUsd, 'USD')) ?></strong>
+        <strong><?= h(money($allTaken, $ccy)) ?></strong>
         <em class="admin-trend is-<?= h($allTrend['tone']) ?>"><?= h($allTrend['text']) ?></em>
       </div>
-      <div class="admin-metric-aside"><?= $bars([max(0, $allUsd - $prevMonthUsd), $allUsd * 0.7, $allUsd * 0.85, $allUsd]) ?></div>
+      <div class="admin-metric-aside"><?= $bars([max(0, $allTaken - $prevMonthTaken), $allTaken * 0.7, $allTaken * 0.85, $allTaken]) ?></div>
     </div>
   </article>
 
@@ -480,7 +426,7 @@ layout_admin_start('Dashboard', $user);
       <div>
         <h2><?= icon('reports', 16) ?>Collections / Taken in</h2>
         <div class="admin-dash-chart-meta">
-          <strong><?= h(platform_money($weekCollections, 'USD')) ?></strong>
+          <strong><?= h(money($weekCollections, $ccy)) ?></strong>
           <em class="admin-trend is-<?= h($weekCollTrend['tone']) ?>"><?= h(trim($weekCollTrend['text']) ?: '-') ?></em>
         </div>
       </div>
@@ -575,35 +521,6 @@ layout_admin_start('Dashboard', $user);
       </div>
     <?php endif; ?>
   </section>
-
-  <section class="card admin-dash-panel admin-dash-branches">
-    <div class="card-head">
-      <h2><?= icon('pin', 16) ?>Branches</h2>
-      <a class="btn ghost sm" href="<?= h(url('admin_locations.php')) ?>">View all</a>
-    </div>
-    <?php if (!$branchRows): ?>
-      <div class="admin-dash-empty">
-        <?= icon('pin', 36) ?>
-        <p>No branches yet</p>
-        <a class="btn ghost" href="<?= h(url('admin_companies.php')) ?>"><?= icon('plus', 14) ?>Add branch</a>
-      </div>
-    <?php else: ?>
-      <div class="work-list">
-        <?php foreach ($branchRows as $b): ?>
-          <a class="work-row" href="<?= h(url('admin_company.php?id=' . (int) ($b['company_id'] ?? 0))) ?>">
-            <div>
-              <strong><?= h((string) $b['name']) ?></strong>
-              <span><?= h(trim((string) ($b['company_name'] ?? '') . ($b['city'] ? ' · ' . $b['city'] : ''))) ?></span>
-            </div>
-            <b><?= icon('arrow-right', 16) ?></b>
-          </a>
-        <?php endforeach; ?>
-      </div>
-      <div class="pad-form" style="padding-top:0">
-        <a class="btn ghost" href="<?= h(url('admin_companies.php')) ?>"><?= icon('plus', 14) ?>Add branch</a>
-      </div>
-    <?php endif; ?>
-  </section>
 </div>
 
 <?php
@@ -611,7 +528,7 @@ $chartPayload = json_encode([
     'dates' => $days,
     'labels' => array_map(static fn ($d) => date('j M', strtotime($d)), $days),
     'fullLabels' => array_map(static fn ($d) => date('j M Y', strtotime($d)), $days),
-    'collections' => array_map(static fn ($v) => round(platform_convert((float) $v, 'USD', $ccy), 2), array_values($collectionsSeries)),
+    'collections' => array_map(static fn ($v) => round((float) $v, 2), array_values($collectionsSeries)),
     'docs' => array_values($docsSeries),
     'acts' => array_values($actsSeries),
     'color' => brand_color(),

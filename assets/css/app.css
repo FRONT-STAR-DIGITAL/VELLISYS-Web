@@ -6219,12 +6219,19 @@ a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--lin
 .admin-dash-empty .icon { color: color-mix(in srgb, var(--brand) 45%, #9db4ff); }
 .admin-dash-empty p { margin: 0; font-weight: 600; color: var(--ink, #10182c); }
 .admin-dash-online .work-row { align-items: center; }
-.admin-dash-activity-table { min-width: 0 !important; width: 100% !important; }
+/* Keep activity wide enough that .table-scroll can pan horizontally on phones. */
+.admin-dash-activity-table {
+  min-width: 560px;
+  width: max-content;
+  max-width: none;
+}
 .admin-dash-activity-table th,
 .admin-dash-activity-table td { white-space: nowrap; }
-.admin-dash-activity-table td:nth-child(3) {
-  white-space: normal;
-  overflow-wrap: anywhere;
+.admin-dash-panel.admin-dash-activity .table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  max-width: 100%;
 }
 .admin-act-type {
   display: inline-flex;
@@ -6237,7 +6244,6 @@ a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--lin
 @media (max-width: 1100px) {
   .admin-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .admin-dash-panels { grid-template-columns: 1fr 1fr; }
-  .admin-dash-branches { grid-column: 1 / -1; }
 }
 @media (max-width: 820px) {
   .admin-body .top-clock { display: none !important; }
@@ -6245,7 +6251,6 @@ a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--lin
   .admin-body .admin-dash-charts { grid-template-columns: 1fr; }
   .admin-body .admin-dash-panels { grid-template-columns: 1fr; }
   .admin-dash-docs-chart { display: none; }
-  .admin-dash-branches { display: none; }
   .admin-dash-hide-sm { display: none !important; }
   .admin-metric { min-height: 108px; padding: 14px; }
   .admin-metric strong { font-size: 18px; }

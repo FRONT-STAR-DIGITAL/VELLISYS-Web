@@ -14,15 +14,9 @@ $ms = platform_avg_reload_ms();
 $health = platform_health_from_ms($ms);
 $presence = platform_company_presence();
 $deskUsers = 0;
-$namedBranches = 0;
 try {
     $u = db_one("SELECT COUNT(*) AS c FROM users WHERE role <> 'platform'");
     $deskUsers = (int) ($u['c'] ?? 0);
-} catch (Throwable $e) {
-}
-try {
-    $b = db_one('SELECT COUNT(*) AS c FROM branches');
-    $namedBranches = (int) ($b['c'] ?? 0);
 } catch (Throwable $e) {
 }
 
@@ -63,7 +57,7 @@ layout_admin_start('System', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('settings') ?>System</h1>
-    <p class="lede">How the platform is running: speed, people on desks, branches, and which companies use it most. Filter the counts by date.</p>
+    <p class="lede">How the platform is running: speed, people on desks, and which companies use it most. Filter the counts by date.</p>
   </div>
 </div>
 <?php render_filters('admin_system.php', [], ['live' => true]); ?>
@@ -76,14 +70,13 @@ layout_admin_start('System', $user);
     <em class="admin-health is-<?= h($health['key']) ?>"><?= $ms === null ? 'Waiting for samples' : ((int) round($ms) . ' ms average') ?></em>
   </div>
   <div class="card stat"><?= icon('user', 20) ?><span>Users onboard</span><strong><?= $deskUsers ?></strong></div>
-  <div class="card stat"><?= icon('pin', 20) ?><span>Named branches</span><strong><?= $namedBranches ?></strong></div>
   <div class="card stat"><?= icon('clients', 20) ?><span>Active now</span><strong><?= $onlineNow ?></strong></div>
+  <div class="card stat"><?= icon('building', 20) ?><span>Companies</span><strong><?= count($presence) ?></strong></div>
 </div>
 <div class="stats">
   <div class="card stat"><?= icon('file', 20) ?><span>Sheets in range</span><strong><?= $docsPeriod ?></strong></div>
   <div class="card stat"><?= icon('clock', 20) ?><span>Desk events in range</span><strong><?= $actsPeriod ?></strong></div>
   <div class="card stat"><?= icon('letter', 20) ?><span>Sign-ups in range</span><strong><?= $signupsPeriod ?></strong></div>
-  <div class="card stat"><?= icon('building', 20) ?><span>Companies</span><strong><?= count($presence) ?></strong></div>
 </div>
 
 <div class="card" style="margin-bottom:24px">
@@ -100,7 +93,6 @@ layout_admin_start('System', $user);
             <th>Last sign-in</th>
             <th>Last seen</th>
             <th>People</th>
-            <th>Branches</th>
             <th>Desk</th>
             <th class="right">Use in range</th>
             <th></th>
@@ -120,7 +112,6 @@ layout_admin_start('System', $user);
               <td class="mono"><?= h(format_when($c['last_login_at'] ?? null)) ?></td>
               <td class="mono"><?= h(format_when($c['last_seen_at'] ?? null)) ?></td>
               <td class="mono"><?= (int) ($c['users'] ?? 0) ?></td>
-              <td class="mono"><?= (int) ($c['branches'] ?? 0) ?></td>
               <td><span class="admin-health is-<?= h($c['desk_health']['key']) ?>"><?= h($c['desk_health']['label']) ?></span></td>
               <td class="right mono"><?= (int) $c['use_score'] ?> <span class="muted">(<?= (int) $c['use_docs'] ?> sheets)</span></td>
               <td class="row-actions"><a class="btn ghost sm" href="<?= h(url('admin_company.php?id=' . $c['id'])) ?>">Open</a></td>

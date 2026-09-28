@@ -458,12 +458,6 @@ foreach ($members as $m) {
         $lastLogin = $login;
     }
 }
-$namedBranches = 0;
-try {
-    $br = db_one('SELECT COUNT(*) AS c FROM branches WHERE company_id = ?', 'i', [$id]);
-    $namedBranches = (int) ($br['c'] ?? 0);
-} catch (Throwable $e) {
-}
 $deskHealth = platform_desk_health(['last_seen_at' => $lastSeen, 'last_login_at' => $lastLogin]);
 $resetScopes = function_exists('company_reset_scopes') ? company_reset_scopes() : [];
 $deskEmails = [];
@@ -527,11 +521,6 @@ layout_admin_start($company['name'], $user);
     <?= icon('clients', 20) ?>
     <span>People onboard</span>
     <strong><?= count($members) ?> / <?= (int) company_user_limit($company) ?></strong>
-  </div>
-  <div class="card stat">
-    <?= icon('pin', 20) ?>
-    <span>Named branches</span>
-    <strong><?= $namedBranches ?></strong>
   </div>
 </div>
 <div class="stats">

@@ -847,8 +847,11 @@ function folio_migrate(mysqli $db): void
     if ($ver < 50) {
         folio_migrate_sales_field($db);
     }
+    if ($ver < 51) {
+        folio_migrate_purge_ofagros_fees($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '50')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '51')");
     @touch($ready);
     $done = true;
     } finally {
@@ -1389,6 +1392,23 @@ function folio_migrate_fees(mysqli $db): void
         $db->query("ALTER TABLE companies ADD COLUMN fee_currency CHAR(3) NOT NULL DEFAULT 'UGX'");
     }
     $db->query("UPDATE companies SET fee_amount = 450000, fee_paid = 450000, fee_currency = 'UGX' WHERE name = 'Ofagros Limited' AND fee_amount = 0 AND fee_paid = 0");
+}
+
+/** Drop demo Ofagros fee rows and orphan ledger lines left after company delete. */
+function folio_migrate_purge_ofagros_fees(mysqli $db): void
+{
+    $has = @$db->query("SHOW TABLES LIKE 'platform_fee_ledger'");
+    if (!$has || $has->num_rows < 1) {
+        return;
+    }
+    @$db->query(
+        "DELETE FROM platform_fee_ledger
+         WHERE company_id IN (SELECT id FROM companies WHERE name LIKE '%Ofagros%')
+            OR note LIKE '%Ofagros%'
+            OR company_id IS NULL
+            OR company_id = 0
+            OR company_id NOT IN (SELECT id FROM companies)"
+    );
 }
 
 function folio_migrate_mailboxes(mysqli $db): void
