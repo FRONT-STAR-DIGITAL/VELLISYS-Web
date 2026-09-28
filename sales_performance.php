@@ -27,7 +27,7 @@ sales_layout_start('Performance', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('reports') ?>Performance</h1>
-    <p class="lede">Your daily, weekly and monthly goals with charts that match what admin sees — including when you beat the target.</p>
+    <p class="lede">Your daily, weekly and monthly goals with charts that match what admin sees - including when you beat the target.</p>
   </div>
 </div>
 
@@ -97,7 +97,7 @@ sales_layout_start('Performance', $user);
   <div class="card chart-box">
     <div class="card-head">
       <h2><?= icon('clients', 16) ?>Avg time per client</h2>
-      <span class="muted"><?= $clientTimeAvg > 0 ? h(rtrim(rtrim(number_format($clientTimeAvg, 1), '0'), '.') . ' min') : '—' ?></span>
+      <span class="muted"><?= $clientTimeAvg > 0 ? h(rtrim(rtrim(number_format($clientTimeAvg, 1), '0'), '.') . ' min') : '-' ?></span>
     </div>
     <p class="hint" style="margin:0 16px 0">Average minutes between visits (from clock-in to each lead you log).</p>
     <div class="pad-form" style="height:240px"><canvas id="chart-client-time"></canvas></div>

@@ -107,7 +107,7 @@ $rowActions = static function (array $q): void {
               <div><a href="mailto:<?= h($q['email']) ?>"><?= h($q['email']) ?></a></div>
               <?php if ($q['phone'] !== ''): ?><div class="mono"><?= h($q['phone']) ?></div><?php endif; ?>
             </td>
-            <td><?= h(ask_contact_topic_label((string) ($q['topic'] ?? '')) ?: '—') ?></td>
+            <td><?= h(ask_contact_topic_label((string) ($q['topic'] ?? '')) ?: '-') ?></td>
             <td><a href="<?= h(url('admin_question.php?id=' . $q['id'])) ?>"><?= h(clip_text((string) $q['message'], 110)) ?></a></td>
             <td><?= $pill($q['status']) ?></td>
             <td class="row-actions"><?php $rowActions($q); ?></td>
@@ -147,7 +147,7 @@ $rowActions = static function (array $q): void {
               <strong><?= h($q['name']) ?></strong>
               <div><?= h($q['email']) ?></div>
             </td>
-            <td><?= h(ask_contact_topic_label((string) ($q['topic'] ?? '')) ?: '—') ?></td>
+            <td><?= h(ask_contact_topic_label((string) ($q['topic'] ?? '')) ?: '-') ?></td>
             <td><a href="<?= h(url('admin_question.php?id=' . $q['id'])) ?>"><?= h(clip_text((string) $q['message'], 110)) ?></a></td>
             <td><?= $pill($q['status']) ?></td>
             <td class="row-actions"><?php $rowActions($q); ?></td>

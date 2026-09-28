@@ -168,6 +168,7 @@ $hoursSeries = sales_hours_series($filterAgent ?: null, $from, $to);
 $hoursByAgent = sales_hours_series_by_agents($filterAgent ?: null, $from, $to);
 $hoursTotal = sales_hours_total($filterAgent ?: null, $from, $to);
 $clientTimeSeries = sales_client_time_series($filterAgent ?: null, $from, $to);
+$clientTimeByAgent = sales_client_time_series_by_agents($filterAgent ?: null, $from, $to);
 $clientTimeAvg = sales_client_time_avg($filterAgent ?: null, $from, $to);
 $top = sales_top_agents($from, $to);
 $dailyBoard = sales_agents_daily_progress();
@@ -296,12 +297,12 @@ layout_admin_start('Sales', $user);
                     <?php endif; ?>
                   </div>
                 </td>
-                <td class="mono"><?= $hasClock ? h(sales_format_clock_time($clockInAt)) : '—' ?></td>
-                <td><?= $location !== '' ? h($location) : '—' ?></td>
+                <td class="mono"><?= $hasClock ? h(sales_format_clock_time($clockInAt)) : '-' ?></td>
+                <td><?= $location !== '' ? h($location) : '-' ?></td>
                 <td class="sales-agents-goal-targets">
                   <?php sales_render_goal_bars($p, ['compact' => true, 'force_reach' => true, 'force_sales' => true]); ?>
                 </td>
-                <td class="mono"><?= $clockedOutAt !== '' ? h(sales_format_clock_time($clockedOutAt)) : ($isIn ? 'In field' : '—') ?></td>
+                <td class="mono"><?= $clockedOutAt !== '' ? h(sales_format_clock_time($clockedOutAt)) : ($isIn ? 'In field' : '-') ?></td>
               </tr>
             <?php endforeach; ?>
           </tbody>
@@ -337,16 +338,16 @@ layout_admin_start('Sales', $user);
       <h2><?= icon('clock', 16) ?>Field hours over time</h2>
       <span class="muted"><?= h(sales_format_hours($hoursTotal)) ?> total</span>
     </div>
-    <p class="hint" style="margin:0 16px 0">Clock-in / clock-out hours per sales agent — each line is one agent.</p>
+    <p class="hint" style="margin:0 16px 0">Clock-in / clock-out hours per sales agent - each line is one agent.</p>
     <div class="pad-form" style="height:<?= count($hoursByAgent['agents'] ?? []) > 4 ? '320' : '280' ?>px"><canvas id="admin-hours"></canvas></div>
   </div>
   <div class="card chart-box">
     <div class="card-head">
       <h2><?= icon('clients', 16) ?>Avg time per client</h2>
-      <span class="muted"><?= $clientTimeAvg > 0 ? h(rtrim(rtrim(number_format($clientTimeAvg, 1), '0'), '.') . ' min') : '—' ?></span>
+      <span class="muted"><?= $clientTimeAvg > 0 ? h(rtrim(rtrim(number_format($clientTimeAvg, 1), '0'), '.') . ' min') : '-' ?></span>
     </div>
-    <p class="hint" style="margin:0 16px 0">Average minutes from clock-in to first lead, then between leads (admin timing for client visits).</p>
-    <div class="pad-form" style="height:280px"><canvas id="admin-client-time"></canvas></div>
+    <p class="hint" style="margin:0 16px 0">Average minutes from clock-in to first lead, then between leads - each line is one agent.</p>
+    <div class="pad-form" style="height:<?= count($clientTimeByAgent['agents'] ?? []) > 4 ? '320' : '280' ?>px"><canvas id="admin-client-time"></canvas></div>
   </div>
 </div>
 <?php sales_render_rejection_report($rejectionReport, ['title' => 'Rejections by reason']); ?>
@@ -398,6 +399,32 @@ if (!$hourAgentDatasets) {
         'borderWidth' => 2,
     ];
 }
+$clientTimeAgentDatasets = [];
+foreach (($clientTimeByAgent['agents'] ?? []) as $agentSeries) {
+    $clientTimeAgentDatasets[] = [
+        'label' => (string) ($agentSeries['name'] ?? 'Agent'),
+        'data' => array_map('floatval', $agentSeries['minutes'] ?? []),
+        'borderColor' => (string) ($agentSeries['color'] ?? brand_color()),
+        'backgroundColor' => 'transparent',
+        'tension' => 0.3,
+        'fill' => false,
+        'pointRadius' => 3,
+        'pointHoverRadius' => 5,
+        'borderWidth' => 2,
+    ];
+}
+if (!$clientTimeAgentDatasets) {
+    $clientTimeAgentDatasets[] = [
+        'label' => 'Avg minutes / client',
+        'data' => array_map(static fn ($r) => (float) $r['minutes'], $clientTimeSeries),
+        'borderColor' => '#0f766e',
+        'backgroundColor' => 'rgba(15,118,110,.18)',
+        'tension' => 0.35,
+        'fill' => true,
+        'pointRadius' => 3,
+        'borderWidth' => 2,
+    ];
+}
 $payload = json_encode([
     'pieLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded'],
     'pieValues' => [(int) $overall['interested'], (int) $overall['follow_up'], (int) $overall['rejected'], (int) $overall['onboarded']],
@@ -406,12 +433,12 @@ $payload = json_encode([
     'wins' => array_map(static fn ($r) => (int) $r['interested'] + (int) $r['onboarded'], $series),
     'hourLabels' => $hoursByAgent['labels'] ?? array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $hoursSeries),
     'hourDatasets' => $hourAgentDatasets,
-    'clientTimeLabels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $clientTimeSeries),
-    'clientTime' => array_map(static fn ($r) => (float) $r['minutes'], $clientTimeSeries),
+    'clientTimeLabels' => $clientTimeByAgent['labels'] ?? array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $clientTimeSeries),
+    'clientTimeDatasets' => $clientTimeAgentDatasets,
     'color' => brand_color(),
 ], JSON_UNESCAPED_UNICODE);
 layout_end('<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script defer>
-(function(){function go(){if(!window.Chart||typeof window.vellisysChartTooltip!=="function"){setTimeout(go,40);return;}var d=' . $payload . ';var tip=window.vellisysChartTooltip();var piePlug=window.vellisysPiePercentPlugins();var p=document.getElementById("admin-pie");if(p)new Chart(p,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"},tooltip:tip},maintainAspectRatio:false},plugins:piePlug});var l=document.getElementById("admin-line");if(l)new Chart(l,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Sales",data:d.wins,borderColor:"#0f766e",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});var h=document.getElementById("admin-hours");if(h)new Chart(h,{type:"line",data:{labels:d.hourLabels,datasets:d.hourDatasets||[]},options:{interaction:{mode:"nearest",axis:"x",intersect:false},plugins:{legend:{display:true,position:"bottom",labels:{boxWidth:12,usePointStyle:true,pointStyle:"circle"}},tooltip:tip},scales:{y:{beginAtZero:true,title:{display:true,text:"Hours"}}},maintainAspectRatio:false}});var ct=document.getElementById("admin-client-time");if(ct)new Chart(ct,{type:"line",data:{labels:d.clientTimeLabels,datasets:[{label:"Avg minutes / client",data:d.clientTime,borderColor:"#0f766e",backgroundColor:"rgba(15,118,110,.18)",tension:.35,fill:true,pointRadius:3}]},options:{plugins:{legend:{display:false},tooltip:tip},scales:{y:{beginAtZero:true,title:{display:true,text:"Minutes"}}},maintainAspectRatio:false}});}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",go);else go();})();
+(function(){function go(){if(!window.Chart||typeof window.vellisysChartTooltip!=="function"){setTimeout(go,40);return;}var d=' . $payload . ';var tip=window.vellisysChartTooltip();var piePlug=window.vellisysPiePercentPlugins();var p=document.getElementById("admin-pie");if(p)new Chart(p,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"},tooltip:tip},maintainAspectRatio:false},plugins:piePlug});var l=document.getElementById("admin-line");if(l)new Chart(l,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Sales",data:d.wins,borderColor:"#0f766e",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});var h=document.getElementById("admin-hours");if(h)new Chart(h,{type:"line",data:{labels:d.hourLabels,datasets:d.hourDatasets||[]},options:{interaction:{mode:"nearest",axis:"x",intersect:false},plugins:{legend:{display:true,position:"bottom",labels:{boxWidth:12,usePointStyle:true,pointStyle:"circle"}},tooltip:tip},scales:{y:{beginAtZero:true,title:{display:true,text:"Hours"}}},maintainAspectRatio:false}});var ct=document.getElementById("admin-client-time");if(ct)new Chart(ct,{type:"line",data:{labels:d.clientTimeLabels,datasets:d.clientTimeDatasets||[]},options:{interaction:{mode:"nearest",axis:"x",intersect:false},plugins:{legend:{display:true,position:"bottom",labels:{boxWidth:12,usePointStyle:true,pointStyle:"circle"}},tooltip:tip},scales:{y:{beginAtZero:true,title:{display:true,text:"Minutes"}}},maintainAspectRatio:false}});}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",go);else go();})();
 </script>');
 return;
 endif;
@@ -792,7 +819,7 @@ if ($tab === 'agent' && $agentRow):
   <div class="card chart-box">
     <div class="card-head">
       <h2><?= icon('clients', 16) ?>Avg time per client</h2>
-      <span class="muted"><?= $agentClientTimeAvg > 0 ? h(rtrim(rtrim(number_format($agentClientTimeAvg, 1), '0'), '.') . ' min') : '—' ?></span>
+      <span class="muted"><?= $agentClientTimeAvg > 0 ? h(rtrim(rtrim(number_format($agentClientTimeAvg, 1), '0'), '.') . ' min') : '-' ?></span>
     </div>
     <p class="hint" style="margin:0 16px 0">Minutes from clock-in to first lead, then between leads.</p>
     <div class="pad-form" style="height:240px"><canvas id="agent-client-time"></canvas></div>
@@ -825,7 +852,7 @@ if ($tab === 'agent' && $agentRow):
 </div>
 <div class="card">
   <div class="card-head"><h2>Businesses in this period</h2></div>
-  <p class="hint" style="margin:0 16px 8px">Submitted time is admin-only — used to judge visit length.</p>
+  <p class="hint" style="margin:0 16px 8px">Submitted time is admin-only - used to judge visit length.</p>
   <div class="table-scroll"><table class="grid"><thead><tr><th>Business</th><th>Status</th><th>City</th><th>Submitted</th><th></th></tr></thead><tbody>
     <?php foreach ($agentLeads as $lead): ?>
       <tr>

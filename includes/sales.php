@@ -427,7 +427,7 @@ function sales_format_hours(float $hours): string
 function sales_format_clock_time(?string $dt): string
 {
     if ($dt === null || trim($dt) === '') {
-        return '—';
+        return '-';
     }
     $raw = trim($dt);
     try {
@@ -441,7 +441,7 @@ function sales_format_clock_time(?string $dt): string
         return $dtObj->format('H:i');
     } catch (Throwable $e) {
         $t = strtotime($raw);
-        return $t === false ? '—' : date('H:i', $t);
+        return $t === false ? '-' : date('H:i', $t);
     }
 }
 
@@ -450,12 +450,12 @@ function sales_format_lead_submitted_at(?string $dt): string
 {
     $raw = trim((string) $dt);
     if ($raw === '') {
-        return '—';
+        return '-';
     }
     $day = function_exists('format_date') ? format_date(substr($raw, 0, 10)) : substr($raw, 0, 10);
     $time = sales_format_clock_time($raw);
-    if ($time === '—' || $time === '') {
-        return $day !== '' ? $day : '—';
+    if ($time === '-' || $time === '') {
+        return $day !== '' ? $day : '-';
     }
     return ($day !== '' ? $day . ' · ' : '') . $time;
 }
@@ -591,6 +591,197 @@ function sales_client_time_avg(?int $agentId, string $from, string $to): float
     return $n > 0 ? round($total / $n, 1) : 0.0;
 }
 
+/**
+ * Daily avg minutes/client broken out per sales agent for multi-line charts.
+ * Same shape as sales_hours_series_by_agents: dates, labels, agents[].
+ *
+ * @return array{dates:list<string>,labels:list<string>,agents:list<array{id:int,name:string,color:string,minutes:list<float>,samples:list<int>,avg:float}>}
+ */
+function sales_client_time_series_by_agents(?int $agentId, string $from, string $to): array
+{
+    $dates = [];
+    foreach (sales_client_time_series($agentId, $from, $to) as $row) {
+        $dates[] = (string) ($row['date'] ?? '');
+    }
+    $dates = array_values(array_filter($dates, static fn ($d) => $d !== ''));
+
+    $agents = [];
+    if ($agentId) {
+        $one = sales_agent($agentId);
+        if ($one) {
+            $agents = [$one];
+        }
+    } else {
+        $agents = sales_agents(false);
+    }
+
+    $where = 'DATE(created_at) >= ? AND DATE(created_at) <= ? AND deleted_at IS NULL';
+    $types = 'ss';
+    $params = [$from, $to];
+    if ($agentId) {
+        $where .= ' AND agent_id = ?';
+        $types .= 'i';
+        $params[] = $agentId;
+    }
+    $leads = [];
+    try {
+        $leads = db_all(
+            "SELECT id, agent_id, created_at, DATE(created_at) AS day_date
+             FROM sales_leads
+             WHERE {$where}
+             ORDER BY agent_id ASC, created_at ASC, id ASC",
+            $types,
+            $params
+        );
+    } catch (Throwable $e) {
+        $leads = [];
+    }
+
+    $clockByAgentDay = [];
+    try {
+        $cWhere = 'day_date >= ? AND day_date <= ?';
+        $cTypes = 'ss';
+        $cParams = [$from, $to];
+        if ($agentId) {
+            $cWhere .= ' AND user_id = ?';
+            $cTypes .= 'i';
+            $cParams[] = $agentId;
+        }
+        $clocks = db_all(
+            "SELECT user_id, day_date, clocked_at FROM sales_clock_ins WHERE {$cWhere}",
+            $cTypes,
+            $cParams
+        );
+        foreach ($clocks as $c) {
+            $key = (int) ($c['user_id'] ?? 0) . '|' . (string) ($c['day_date'] ?? '');
+            $clockByAgentDay[$key] = (string) ($c['clocked_at'] ?? '');
+        }
+    } catch (Throwable $e) {
+        // Clock table may be missing on old installs.
+    }
+
+    // Per agent, per day: list of interval minutes.
+    $byAgentDay = [];
+    $prevByAgentDay = [];
+    foreach ($leads as $lead) {
+        $aid = (int) ($lead['agent_id'] ?? 0);
+        $day = (string) ($lead['day_date'] ?? substr((string) ($lead['created_at'] ?? ''), 0, 10));
+        $created = trim((string) ($lead['created_at'] ?? ''));
+        if ($aid < 1 || $day === '' || $created === '') {
+            continue;
+        }
+        $key = $aid . '|' . $day;
+        $createdTs = strtotime($created);
+        if ($createdTs === false) {
+            continue;
+        }
+        if (!isset($prevByAgentDay[$key])) {
+            $clockAt = $clockByAgentDay[$key] ?? '';
+            $prevTs = $clockAt !== '' ? strtotime($clockAt) : false;
+            if ($prevTs !== false && $prevTs <= $createdTs) {
+                $mins = (int) round(($createdTs - $prevTs) / 60);
+                if ($mins >= 1 && $mins <= 180) {
+                    $byAgentDay[$aid][$day][] = $mins;
+                }
+            }
+            $prevByAgentDay[$key] = $createdTs;
+            continue;
+        }
+        $prevTs = (int) $prevByAgentDay[$key];
+        $mins = (int) round(($createdTs - $prevTs) / 60);
+        if ($mins >= 1 && $mins <= 180) {
+            $byAgentDay[$aid][$day][] = $mins;
+        }
+        $prevByAgentDay[$key] = $createdTs;
+    }
+
+    $knownIds = [];
+    foreach ($agents as $a) {
+        $knownIds[(int) $a['id']] = true;
+    }
+    foreach (array_keys($byAgentDay) as $uid) {
+        if (!isset($knownIds[$uid])) {
+            $extra = sales_agent((int) $uid);
+            if ($extra) {
+                $agents[] = $extra;
+                $knownIds[(int) $uid] = true;
+            }
+        }
+    }
+
+    if ($dates === []) {
+        $start = strtotime($from);
+        $end = strtotime($to);
+        if ($start && $end && ($end - $start) / 86400 <= 93) {
+            for ($t = $start; $t <= $end; $t += 86400) {
+                $dates[] = date('Y-m-d', $t);
+            }
+        }
+    }
+
+    $labels = array_map(static fn ($d) => date('j M', strtotime($d)), $dates);
+    $series = [];
+    $i = 0;
+    foreach ($agents as $a) {
+        $uid = (int) ($a['id'] ?? 0);
+        if ($uid < 1) {
+            continue;
+        }
+        $minutes = [];
+        $samples = [];
+        $weightSum = 0.0;
+        $sampleTotal = 0;
+        foreach ($dates as $d) {
+            $intervals = $byAgentDay[$uid][$d] ?? [];
+            $n = count($intervals);
+            $avg = $n > 0 ? round(array_sum($intervals) / $n, 1) : 0.0;
+            $minutes[] = $avg;
+            $samples[] = $n;
+            if ($n > 0) {
+                $weightSum += $avg * $n;
+                $sampleTotal += $n;
+            }
+        }
+        if (!$agentId && $sampleTotal <= 0 && count($agents) > 8) {
+            $i++;
+            continue;
+        }
+        $series[] = [
+            'id' => $uid,
+            'name' => trim((string) ($a['name'] ?? '')) ?: ('Agent #' . $uid),
+            'color' => sales_agent_line_color($uid, $i),
+            'minutes' => $minutes,
+            'samples' => $samples,
+            'avg' => $sampleTotal > 0 ? round($weightSum / $sampleTotal, 1) : 0.0,
+            'sample_total' => $sampleTotal,
+        ];
+        $i++;
+    }
+
+    if (!$agentId && count($series) > 12) {
+        $worked = array_values(array_filter($series, static fn ($s) => ((int) ($s['sample_total'] ?? 0)) > 0));
+        if ($worked) {
+            $series = $worked;
+        }
+    }
+
+    usort($series, static function ($a, $b) {
+        $cmp = (($b['avg'] ?? 0) <=> ($a['avg'] ?? 0));
+        return $cmp !== 0 ? $cmp : strcasecmp((string) $a['name'], (string) $b['name']);
+    });
+
+    foreach ($series as $idx => &$agentSeries) {
+        $agentSeries['color'] = sales_agent_line_color((int) ($agentSeries['id'] ?? 0), $idx);
+    }
+    unset($agentSeries);
+
+    return [
+        'dates' => $dates,
+        'labels' => $labels,
+        'agents' => $series,
+    ];
+}
+
 function sales_clock_in(int $userId, string $city, string $notes = ''): array
 {
     $city = mb_substr(trim($city), 0, 120);
@@ -719,7 +910,7 @@ function sales_hours_total(?int $agentId, string $from, string $to): float
 /** Distinct line colors for per-agent field-hours charts (stable by agent id). */
 function sales_agent_line_colors(): array
 {
-    // High-contrast set: blue, green, purple, yellow, red, black — then clear extras.
+    // High-contrast set: blue, green, purple, yellow, red, black - then clear extras.
     return [
         '#1E4EFF', // blue
         '#16a34a', // green
@@ -2296,7 +2487,7 @@ function sales_layout_start(string $title, array $user): void
         ]],
         ['label' => 'Tools', 'items' => [
             ['sales_demo.php', 'Demo', 'building'],
-            // Same-origin marketing home — session stays; index.php allows sales_agent viewers.
+            // Same-origin marketing home - session stays; index.php allows sales_agent viewers.
             ['index.php', 'Website', 'globe'],
         ]],
         ['label' => 'Account', 'items' => [

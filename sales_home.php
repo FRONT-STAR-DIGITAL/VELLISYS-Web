@@ -48,7 +48,7 @@ sales_layout_start('Home', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('home') ?>Field home</h1>
-    <p class="lede">Clock in once a day, then log businesses you reach. Goals stay visible after you hit them — and show clearly when you exceed them.</p>
+    <p class="lede">Clock in once a day, then log businesses you reach. Goals stay visible after you hit them - and show clearly when you exceed them.</p>
   </div>
   <div class="actions page-actions">
     <a class="btn" href="<?= h(url('sales_lead_edit.php')) ?>"><?= icon('plus', 16) ?>New lead</a>
