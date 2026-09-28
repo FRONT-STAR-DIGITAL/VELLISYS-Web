@@ -41,13 +41,29 @@ window.vellisysChartMoney = function (currency) {
 window.vellisysChartTooltip = function (fmt) {
   return {
     enabled: true,
+    displayColors: true,
     callbacks: {
       label: function (ctx) {
         var type = (ctx.chart && ctx.chart.config && ctx.chart.config.type) || '';
         var label = ctx.dataset.label || ctx.label || '';
-        var raw = ctx.parsed;
-        var v = (raw && typeof raw === 'object') ? (raw.y != null ? raw.y : (raw.r != null ? raw.r : 0)) : raw;
-        if (v == null || v === '') v = ctx.raw;
+        var v;
+        if (typeof ctx.raw === 'number') {
+          v = ctx.raw;
+        } else {
+          var parsed = ctx.parsed;
+          if (parsed && typeof parsed === 'object') {
+            var opts = (ctx.chart && ctx.chart.options) || {};
+            var horizontal = opts.indexAxis === 'y';
+            if (horizontal && parsed.x != null) v = parsed.x;
+            else if (!horizontal && parsed.y != null) v = parsed.y;
+            else if (parsed.y != null) v = parsed.y;
+            else if (parsed.x != null) v = parsed.x;
+            else if (parsed.r != null) v = parsed.r;
+            else v = 0;
+          } else {
+            v = parsed;
+          }
+        }
         v = Number(v);
         if (!isFinite(v)) v = 0;
         var shown = typeof fmt === 'function' ? fmt(v) : (Math.round(v * 10) / 10).toLocaleString('en-US');

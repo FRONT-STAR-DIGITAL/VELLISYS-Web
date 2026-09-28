@@ -2438,13 +2438,20 @@ table.grid tfoot td {
   position: relative;
   overflow: hidden;
 }
-.chart-box canvas {
+.chart-box canvas,
+.chart-frame canvas,
+.admin-dash-canvas-wrap canvas,
+.desk-chart canvas,
+.cdash-charts canvas {
   max-width: 100%;
-  max-height: 260px;
   display: block;
   position: relative;
   z-index: 0;
-  pointer-events: none;
+  /* Chart.js needs pointer events on the canvas for hover tooltips. */
+  pointer-events: auto !important;
+}
+.chart-box canvas {
+  max-height: 260px;
 }
 .expense-card {
   max-width: 640px;
