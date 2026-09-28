@@ -86,10 +86,8 @@ try {
 } catch (Throwable $e) {
 }
 
-$days = [];
-for ($i = 6; $i >= 0; $i--) {
-    $days[] = (clone $now)->modify("-{$i} days")->format('Y-m-d');
-}
+// Dashboard report charts default to Today (with yesterday for comparison).
+$days = [$yesterday, $today];
 $collectionsSeries = array_fill_keys($days, 0.0);
 $docsSeries = array_fill_keys($days, 0);
 $actsSeries = array_fill_keys($days, 0);
@@ -131,25 +129,10 @@ try {
 } catch (Throwable $e) {
 }
 
-$weekCollections = array_sum($collectionsSeries);
-$weekDocs = array_sum($docsSeries);
-$prevWeekStart = (clone $now)->modify('-13 days')->format('Y-m-d');
-$prevWeekEnd = (clone $now)->modify('-7 days')->format('Y-m-d');
-$prevWeekCollections = 0.0;
-$prevWeekDocs = 0;
-try {
-    $prevWeekCollections = platform_fee_sum($prevWeekStart, $prevWeekEnd);
-} catch (Throwable $e) {
-}
-try {
-    $row = db_one(
-        "SELECT COUNT(*) AS c FROM documents WHERE status = 'issued' AND date BETWEEN ? AND ?",
-        'ss',
-        [$prevWeekStart, $prevWeekEnd]
-    );
-    $prevWeekDocs = (int) ($row['c'] ?? 0);
-} catch (Throwable $e) {
-}
+$weekCollections = (float) ($collectionsSeries[$today] ?? $todayTaken);
+$weekDocs = (int) ($docsSeries[$today] ?? 0);
+$prevWeekCollections = (float) ($collectionsSeries[$yesterday] ?? $yesterdayTaken);
+$prevWeekDocs = (int) ($docsSeries[$yesterday] ?? 0);
 
 $recent = [];
 try {
@@ -259,8 +242,8 @@ $peopleTrend = $trend((float) $deskUsers, (float) $deskUsersYesterday, 'vs. yest
 $todayTrend = $trend($todayTaken, $yesterdayTaken, 'vs. yesterday');
 $allTrend = $trend($allTaken, max(0.0, $allTaken - $prevMonthTaken), 'vs. last month');
 $companyTrend = $trend((float) $companyCount, (float) $companiesPrevMonth, 'vs. last month', true);
-$weekCollTrend = $trend($weekCollections, $prevWeekCollections, '');
-$weekDocTrend = $trend((float) $weekDocs, (float) $prevWeekDocs, '');
+$weekCollTrend = $trend($weekCollections, $prevWeekCollections, 'vs. yesterday');
+$weekDocTrend = $trend((float) $weekDocs, (float) $prevWeekDocs, 'vs. yesterday');
 
 $ccy = platform_currency();
 $dateLabel = $now->format('D, j M Y');
@@ -430,7 +413,7 @@ layout_admin_start('Dashboard', $user);
           <em class="admin-trend is-<?= h($weekCollTrend['tone']) ?>"><?= h(trim($weekCollTrend['text']) ?: '-') ?></em>
         </div>
       </div>
-      <span class="admin-range-chip">Last 7 days</span>
+      <span class="admin-range-chip">Today</span>
     </div>
     <div class="admin-dash-canvas-wrap">
       <canvas id="admin-dash-collections" height="220"></canvas>
@@ -445,7 +428,7 @@ layout_admin_start('Dashboard', $user);
           <em class="admin-trend is-<?= h($weekDocTrend['tone']) ?>"><?= h(trim($weekDocTrend['text']) ?: '-') ?></em>
         </div>
       </div>
-      <span class="admin-range-chip">Last 7 days</span>
+      <span class="admin-range-chip">Today</span>
     </div>
     <div class="admin-dash-canvas-wrap">
       <canvas id="admin-dash-docs" height="220"></canvas>

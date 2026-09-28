@@ -477,7 +477,7 @@ function layout_admin_start(string $title, array $user): void
     $navGroups = [
         ['label' => 'Overview', 'items' => [
             ['admin_dashboard.php', 'Dashboard', 'reports'],
-            ['admin_reports.php', 'Reports', 'file'],
+            ['admin_reports.php?range=today', 'Reports', 'file'],
         ]],
         ['label' => 'Inbox', 'items' => [
             ['admin_signups.php', 'Sign-ups', 'letter'],
@@ -486,23 +486,23 @@ function layout_admin_start(string $title, array $user): void
         ]],
         ['label' => 'Companies', 'items' => [
             ['admin_companies.php', 'Companies', 'building'],
-            ['admin_locations.php', 'Locations', 'pin'],
+            ['admin_locations.php?range=today', 'Locations', 'pin'],
         ]],
         ['label' => 'Sales', 'items' => [
-            ['admin_sales.php', 'Sales', 'cart'],
+            ['admin_sales.php?range=today', 'Sales', 'cart'],
             ['admin_sales.php?tab=messages', 'Messages', 'mail'],
             ['sales_demo.php', 'Demo', 'building'],
             ['admin_passwords.php', 'Passwords', 'lock'],
         ]],
         ['label' => 'Money', 'items' => [
-            ['admin_finances.php', 'Finances', 'bank'],
+            ['admin_finances.php?range=today', 'Finances', 'bank'],
         ]],
         ['label' => 'Site', 'items' => [
             ['admin_landing.php', 'Landing', 'image'],
             ['admin_mail.php', 'Email', 'send'],
         ]],
         ['label' => 'Platform', 'items' => [
-            ['admin_system.php', 'System', 'clock'],
+            ['admin_system.php?range=today', 'System', 'clock'],
             ['admin_settings.php', 'Settings', 'settings'],
             ['admin_admins.php', 'Admins', 'user'],
         ]],
@@ -723,13 +723,13 @@ function render_admin_tabbar(): void
   <a class="app-tab<?= $companiesOn ? ' is-on' : '' ?>" href="<?= h(url('admin_companies.php')) ?>">
     <?= icon('building', 22) ?><span>Companies</span>
   </a>
-  <a class="app-tab<?= $salesOn ? ' is-on' : '' ?>" href="<?= h(url('admin_sales.php')) ?>">
+  <a class="app-tab<?= $salesOn ? ' is-on' : '' ?>" href="<?= h(url('admin_sales.php?range=today')) ?>">
     <?= icon('cart', 22) ?><span>Sales</span>
   </a>
-  <a class="app-tab<?= $reportsOn ? ' is-on' : '' ?>" href="<?= h(url('admin_reports.php')) ?>">
+  <a class="app-tab<?= $reportsOn ? ' is-on' : '' ?>" href="<?= h(url('admin_reports.php?range=today')) ?>">
     <?= icon('file', 22) ?><span>Reports</span>
   </a>
-  <a class="app-tab<?= $systemOn ? ' is-on' : '' ?>" href="<?= h(url('admin_system.php')) ?>">
+  <a class="app-tab<?= $systemOn ? ' is-on' : '' ?>" href="<?= h(url('admin_system.php?range=today')) ?>">
     <?= icon('clock', 22) ?><span>System</span>
   </a>
 </nav>

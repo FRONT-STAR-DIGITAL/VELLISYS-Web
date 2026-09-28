@@ -311,7 +311,7 @@ layout_admin_start('Sales', $user);
   </div>
 </div>
 
-<?php render_filters('admin_sales.php', array_filter(['tab' => 'overview', 'agent_filter' => $filterAgent ?: null]), ['live' => true]); ?>
+<?php render_filters('admin_sales.php', array_filter(['tab' => 'overview', 'agent_filter' => $filterAgent ?: null]), ['live' => true, 'today_first' => true]); ?>
 <p class="hint" style="margin:-8px 0 16px">Team totals for <?= $period['from'] ? h(format_date($from) . ' - ' . format_date($to)) : 'all dates' ?>.</p>
 <form method="get" class="filters" style="margin-bottom:16px">
   <input type="hidden" name="tab" value="overview">
@@ -427,7 +427,7 @@ if ($tab === 'leads'):
         $leads = sales_leads_query($leadOpts);
     }
     ?>
-<?php render_filters('admin_sales.php', array_filter(['tab' => 'leads', 'agent_filter' => $filterAgent ?: null, 'status' => $leadStatus ?: null]), ['live' => true]); ?>
+<?php render_filters('admin_sales.php', array_filter(['tab' => 'leads', 'agent_filter' => $filterAgent ?: null, 'status' => $leadStatus ?: null]), ['live' => true, 'today_first' => true]); ?>
 <p class="hint" style="margin:-8px 0 16px">Showing <?= $period['from'] ? h(format_date($from) . ' - ' . format_date($to)) : 'all dates' ?>.</p>
 <form method="get" class="filters" style="margin-bottom:12px">
   <input type="hidden" name="tab" value="leads">

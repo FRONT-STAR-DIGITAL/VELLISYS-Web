@@ -2896,7 +2896,10 @@ function period_range(): array
 /** Super-admin reports: open on Today unless a range or custom dates are already chosen. */
 function admin_period_default_today(): void
 {
-    if (!isset($_GET['range']) && trim((string) ($_GET['from'] ?? '')) === '' && trim((string) ($_GET['to'] ?? '')) === '') {
+    $range = trim((string) ($_GET['range'] ?? ''));
+    $from = trim((string) ($_GET['from'] ?? ''));
+    $to = trim((string) ($_GET['to'] ?? ''));
+    if ($range === '' && $from === '' && $to === '') {
         $_GET['range'] = 'today';
     }
 }
@@ -2917,15 +2920,19 @@ function render_filters(string $action, array $keep = [], array $opts = []): voi
         return http_build_query(array_merge($keep, $extra));
     };
     $chips = [
-        'all' => 'All',
         'today' => 'Today',
         'this_week' => 'This week',
         'last_week' => 'Last week',
         'this_month' => 'This month',
         'this_year' => 'This year',
+        'all' => 'All',
     ];
     if (!empty($opts['no_all'])) {
         unset($chips['all']);
+    }
+    // Super-admin report pages: keep Today first and selected by default.
+    if (!empty($opts['today_first'])) {
+        $chips = ['today' => 'Today'] + $chips;
     }
     $live = !empty($opts['live']);
     ?>

@@ -87,7 +87,7 @@ layout_admin_start('Locations', $user);
     <p class="lede">Where desks sit, how many you have in each country, and where use is strong or quiet. This map is Vellisys only - companies never see it.</p>
   </div>
 </div>
-<?php render_filters('admin_locations.php', $filterCountry !== '' ? ['country' => $filterCountry] : [], ['live' => true]); ?>
+<?php render_filters('admin_locations.php', $filterCountry !== '' ? ['country' => $filterCountry] : [], ['live' => true, 'today_first' => true]); ?>
 
 <div class="stats">
   <div class="card stat"><?= icon('building', 20) ?><span>Companies placed</span><strong><?= count($placed) ?></strong></div>

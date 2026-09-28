@@ -132,7 +132,7 @@ layout_admin_start('Finances', $user);
     <p class="lede">Companies, amounts paid and balances. Record a payment, preview the receipt, and share it on WhatsApp.</p>
   </div>
 </div>
-<?php render_filters('admin_finances.php', [], ['live' => true]); ?>
+<?php render_filters('admin_finances.php', [], ['live' => true, 'today_first' => true]); ?>
 <?php if ($error): ?><p class="flash flash-err"><?= h($error) ?></p><?php endif; ?>
 
 <div class="stats">

@@ -61,7 +61,7 @@ layout_admin_start('System', $user);
     <p class="lede">How the platform is running: speed, people on desks, and which companies use it most. Filter the counts by date.</p>
   </div>
 </div>
-<?php render_filters('admin_system.php', [], ['live' => true]); ?>
+<?php render_filters('admin_system.php', [], ['live' => true, 'today_first' => true]); ?>
 
 <div class="stats">
   <div class="card stat">

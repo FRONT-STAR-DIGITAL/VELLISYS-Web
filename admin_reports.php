@@ -234,7 +234,7 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
     <a class="btn ghost" href="<?= h(url('admin_reports.php?export=visits&' . http_build_query(array_filter(['range' => $period['preset'] ?? '', 'from' => $period['from'] ?? '', 'to' => $period['to'] ?? ''])))) ?>"><?= icon('globe', 16) ?>Visits CSV</a>
   </div>
 </div>
-<?php render_filters('admin_reports.php', [], ['live' => true]); ?>
+<?php render_filters('admin_reports.php', [], ['live' => true, 'today_first' => true]); ?>
 
 <div class="stats">
   <div class="card stat"><?= icon('building', 20) ?><span>Companies</span><strong><?= count($companies) ?></strong></div>
