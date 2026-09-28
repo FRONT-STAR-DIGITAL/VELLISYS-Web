@@ -354,13 +354,14 @@ layout_admin_start('Sales', $user);
   <div class="card-head"><h2>Top performers</h2></div>
   <div class="table-scroll">
     <table class="grid">
-      <thead><tr><th>Agent</th><th class="right">Reach</th><th class="right">Sales</th><th class="right">Onboarded</th><th class="right">Rejected</th><th></th></tr></thead>
+      <thead><tr><th>Agent</th><th class="right">Reach</th><th class="right">Sales</th><th class="right">Follow up</th><th class="right">Onboarded</th><th class="right">Rejected</th><th></th></tr></thead>
       <tbody>
         <?php foreach ($top as $row): ?>
           <tr>
             <td><?= h($row['name']) ?><div class="muted"><?= h($row['email']) ?></div></td>
             <td class="right mono"><?= (int) $row['reach'] ?></td>
             <td class="right mono"><?= (int) $row['sales'] ?></td>
+            <td class="right mono"><?= (int) ($row['follow_up'] ?? 0) ?></td>
             <td class="right mono"><?= (int) ($row['onboarded'] ?? 0) ?></td>
             <td class="right mono"><?= (int) $row['rejected'] ?></td>
             <td class="row-actions"><a class="btn ghost sm" href="<?= h(url('admin_sales.php?tab=agent&agent=' . (int) $row['id'] . '&period=daily')) ?>">Open</a></td>
