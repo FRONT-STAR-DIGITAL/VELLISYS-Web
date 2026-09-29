@@ -153,10 +153,14 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
 <?php if ($error): ?><p class="flash flash-err"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
 
 <?php if ($lead && !$locked && ($lead['status'] ?? '') === 'follow_up'): ?>
+  <?php $fuInterest = (int) ($lead['interest_rating'] ?? 0); ?>
   <div class="card pad-form lead-flow-card" id="lead-followup" style="margin-bottom:16px">
     <div class="card-head" style="padding:0;margin-bottom:8px;border:0">
       <h2 style="margin:0"><?= icon('calendar', 16) ?>Open follow-up</h2>
-      <span class="pill warn">Due <?= h(sales_format_follow_up($lead)) ?></span>
+      <div class="actions wrap-actions">
+        <span class="<?= h(sales_interest_pill_class($fuInterest)) ?>"><?= h(sales_interest_label($fuInterest)) ?></span>
+        <span class="pill warn">Due <?= h(sales_format_follow_up($lead)) ?></span>
+      </div>
     </div>
     <p class="lede" style="margin-top:0">Call or message the contact, then change status below to Interested, another Follow up date, or Rejected.</p>
     <?php sales_render_lead_contact($lead); ?>

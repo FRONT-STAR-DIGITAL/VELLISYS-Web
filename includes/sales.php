@@ -77,6 +77,59 @@ function sales_format_follow_up(?array $lead): string
     return $out;
 }
 
+/** Interest rating 1-5 label for follow-up tracking. */
+function sales_interest_label(int $rating): string
+{
+    return match (max(0, min(5, $rating))) {
+        1 => '1 · Low',
+        2 => '2',
+        3 => '3 · Medium',
+        4 => '4 · High',
+        5 => '5 · Very high',
+        default => 'Not rated',
+    };
+}
+
+function sales_interest_pill_class(int $rating): string
+{
+    $rating = max(0, min(5, $rating));
+    if ($rating >= 4) {
+        return 'pill sales-interest-high';
+    }
+    if ($rating === 3) {
+        return 'pill sales-interest-mid';
+    }
+    if ($rating >= 1) {
+        return 'pill sales-interest-low';
+    }
+    return 'pill muted';
+}
+
+/** Count of open follow-ups for a sales agent (menu badge). */
+function sales_open_followups_count(int $agentId): int
+{
+    static $cache = [];
+    if ($agentId < 1) {
+        return 0;
+    }
+    if (array_key_exists($agentId, $cache)) {
+        return $cache[$agentId];
+    }
+    try {
+        $row = db_one(
+            "SELECT COUNT(*) AS n FROM sales_leads
+             WHERE agent_id = ? AND status = 'follow_up' AND deleted_at IS NULL
+               AND follow_up_done_at IS NULL AND follow_up_date IS NOT NULL",
+            'i',
+            [$agentId]
+        );
+        $cache[$agentId] = (int) ($row['n'] ?? 0);
+    } catch (Throwable $e) {
+        $cache[$agentId] = 0;
+    }
+    return $cache[$agentId];
+}
+
 function sales_reject_reasons(): array
 {
     return [
@@ -2162,7 +2215,8 @@ function sales_leads_query(array $opts = []): array
             WHERE '
         . implode(' AND ', $where);
     if (!empty($opts['follow_bucket']) && in_array((string) $opts['follow_bucket'], ['due', 'overdue'], true)) {
-        $sql .= ' ORDER BY l.follow_up_date ASC, l.follow_up_time IS NULL, l.follow_up_time ASC, l.id ASC';
+        // High interest first so agents prioritise warm follow-ups.
+        $sql .= ' ORDER BY l.interest_rating DESC, l.follow_up_date ASC, l.follow_up_time IS NULL, l.follow_up_time ASC, l.id ASC';
     } else {
         $sql .= ' ORDER BY l.updated_at DESC, l.id DESC';
     }
@@ -3073,7 +3127,7 @@ function sales_followups_open(?int $agentId = null, int $limit = 80): array
             FROM sales_leads l
             LEFT JOIN users u ON u.id = l.agent_id
             WHERE {$where}
-            ORDER BY l.follow_up_date ASC, l.follow_up_time IS NULL, l.follow_up_time ASC, l.id ASC";
+            ORDER BY l.interest_rating DESC, l.follow_up_date ASC, l.follow_up_time IS NULL, l.follow_up_time ASC, l.id ASC";
     if ($limit > 0) {
         $sql .= ' LIMIT ' . max(1, min(200, $limit));
     }
@@ -3389,14 +3443,17 @@ function sales_layout_start(string $title, array $user): void
     $flash = flash();
     $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
     $unread = sales_unread_count((int) $user['id']);
+    $openFollowN = sales_open_followups_count((int) $user['id']);
     $notes = sales_notifications_for_agent((int) $user['id']);
     $noteCount = count($notes);
     $avatar = sales_avatar_url($user);
+    $leadsBucket = (string) ($_GET['bucket'] ?? '');
     // Grouped field nav: work → companies → chat → results → tools → account.
     $navGroups = [
         ['label' => 'Work', 'items' => [
             ['sales_home.php', 'Home', 'home'],
             ['sales_leads.php', 'Leads', 'clients'],
+            ['sales_leads.php?bucket=pending', 'Open follow-ups', 'calendar', false, 'followups'],
             ['sales_companies.php', 'My companies', 'building'],
         ]],
         ['label' => 'Chat', 'items' => [
@@ -3446,16 +3503,32 @@ function sales_layout_start(string $title, array $user): void
           <?php foreach ($group['items'] as $item):
               [$href, $label, $iconName] = $item;
               $external = !empty($item[3]);
+              $badgeKind = (string) ($item[4] ?? '');
               $file = $external ? '' : (string) strtok($href, '?');
-              $active = !$external && (
-                  $file === $here
-                  || ($here === 'sales_lead_edit.php' && $file === 'sales_leads.php')
-                  || (in_array($here, ['sales_company.php', 'sales_company_new.php', 'sales_desk.php'], true) && $file === 'sales_companies.php')
-              );
-              $badge = (!$external && $file === 'sales_messages.php' && $unread) ? $unread : 0;
+              $isFollowNav = !$external && str_contains($href, 'bucket=pending');
+              $active = false;
+              if (!$external) {
+                  if ($isFollowNav) {
+                      $active = $here === 'sales_leads.php' && $leadsBucket === 'pending';
+                  } elseif ($file === 'sales_leads.php') {
+                      $active = ($here === 'sales_leads.php' && $leadsBucket !== 'pending')
+                          || $here === 'sales_lead_edit.php';
+                  } else {
+                      $active = $file === $here
+                          || (in_array($here, ['sales_company.php', 'sales_company_new.php', 'sales_desk.php'], true) && $file === 'sales_companies.php');
+                  }
+              }
+              $badge = 0;
+              $badgeDanger = false;
+              if (!$external && $file === 'sales_messages.php' && $unread) {
+                  $badge = $unread;
+              } elseif ($badgeKind === 'followups' && $openFollowN > 0) {
+                  $badge = $openFollowN;
+                  $badgeDanger = true;
+              }
               $linkHref = $external ? $href : url($href);
               ?>
-            <a class="<?= $active ? 'is-on' : '' ?>" href="<?= h($linkHref) ?>" title="<?= h($label) ?>"<?= $external ? ' target="_blank" rel="noopener noreferrer"' : '' ?><?= $badge ? ' data-badge="' . (int) $badge . '"' : '' ?>><?= icon($iconName, 18) ?><span><?= h($label) ?></span></a>
+            <a class="<?= $active ? 'is-on' : '' ?>" href="<?= h($linkHref) ?>" title="<?= h($label) ?>"<?= $external ? ' target="_blank" rel="noopener noreferrer"' : '' ?><?= $badge ? ' data-badge="' . (int) $badge . '"' : '' ?><?= $badgeDanger ? ' data-badge-danger' : '' ?>><?= icon($iconName, 18) ?><span><?= h($label) ?></span></a>
           <?php endforeach; ?>
         </div>
       <?php endforeach; ?>

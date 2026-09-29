@@ -6147,6 +6147,56 @@ a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--lin
   align-items: center;
   justify-content: center;
 }
+.sales-body .nav a[data-badge-danger]::after {
+  background: #b42318;
+  box-shadow: 0 0 0 2px #fff;
+}
+.sales-follow-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35em;
+  height: 1.35em;
+  padding: 0 .4em;
+  margin-left: .25em;
+  border-radius: 999px;
+  background: #b42318;
+  color: #fff;
+  font-size: .72em;
+  font-weight: 800;
+  line-height: 1;
+  vertical-align: middle;
+}
+.chip .sales-follow-count {
+  margin-left: 6px;
+  font-size: 11px;
+  min-width: 18px;
+  height: 18px;
+}
+.pill.sales-interest-high {
+  background: color-mix(in srgb, #b42318 14%, #fff);
+  color: #912018;
+  border: 1px solid color-mix(in srgb, #b42318 28%, transparent);
+}
+.pill.sales-interest-mid {
+  background: color-mix(in srgb, #b45309 14%, #fff);
+  color: #9a3412;
+  border: 1px solid color-mix(in srgb, #b45309 28%, transparent);
+}
+.pill.sales-interest-low {
+  background: color-mix(in srgb, #66705f 12%, #fff);
+  color: #475467;
+  border: 1px solid var(--line);
+}
+.work-row.sales-follow-row.is-hot {
+  background: color-mix(in srgb, #b42318 5%, #fff);
+}
+tr.sales-fu-hot td {
+  background: color-mix(in srgb, #b42318 4%, #fff);
+}
+tr.sales-fu-overdue td {
+  background: color-mix(in srgb, #b42318 7%, #fff);
+}
 @media (max-width: 1024px) {
   .sales-body .content {
     padding-left: 14px;

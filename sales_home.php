@@ -187,13 +187,14 @@ sales_layout_start('Home', $user);
         $contact = trim((string) ($lead['contact_name'] ?? ''));
         $dueOn = (string) ($lead['follow_up_date'] ?? '');
         $overdue = $dueOn !== '' && $dueOn < today();
+        $interest = (int) ($lead['interest_rating'] ?? 0);
         $tel = $phone !== '' ? phone_tel_href($phone) : '';
         $wa = $phone !== '' ? phone_whatsapp_href($phone, 'Hi, following up about ' . trim((string) ($lead['business_name'] ?? 'your business'))) : '';
         ?>
-      <div class="work-row sales-follow-row<?= $overdue ? ' is-overdue' : '' ?>">
+      <div class="work-row sales-follow-row<?= $overdue ? ' is-overdue' : '' ?><?= $interest >= 4 ? ' is-hot' : '' ?>">
         <div class="sales-follow-main">
           <a href="<?= h(url('sales_lead_edit.php?id=' . (int) $lead['id'])) ?>">
-            <strong><?= h(trim((string) $lead['business_name']) ?: 'Business') ?></strong>
+            <strong><?= h(trim((string) $lead['business_name']) ?: 'Business') ?> <span class="<?= h(sales_interest_pill_class($interest)) ?>"><?= h(sales_interest_label($interest)) ?></span></strong>
             <span>
               Due <?= h(sales_format_follow_up($lead)) ?><?= $overdue ? ' · overdue' : '' ?>
               <?php if ($contact !== '' || $phone !== ''): ?>

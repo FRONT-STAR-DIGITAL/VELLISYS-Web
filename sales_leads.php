@@ -22,16 +22,22 @@ if ($bucket === 'followed') {
     $opts['on_test'] = true;
 }
 $leads = sales_leads_query($opts);
+$isOpenFollowView = $bucket === 'pending';
+$openFollowN = sales_open_followups_count((int) $user['id']);
 
-sales_layout_start('Leads', $user);
+sales_layout_start($isOpenFollowView ? 'Open follow-ups' : 'Leads', $user);
 ?>
 <div class="page-head">
   <div>
-    <h1><?= icon('clients') ?>Leads</h1>
-    <p class="lede"><?= $bucket === 'pending' ? 'Your open follow-ups. Open one to call the contact and change status.' : 'Status first. Rejected needs why they rejected Vellisys, an explanation, and nature of business.' ?></p>
+    <h1><?= icon($isOpenFollowView ? 'calendar' : 'clients') ?><?= $isOpenFollowView ? 'Open follow-ups' : 'Leads' ?><?php if ($isOpenFollowView && $openFollowN > 0): ?> <span class="sales-follow-count"><?= (int) $openFollowN ?></span><?php endif; ?></h1>
+    <p class="lede"><?= $isOpenFollowView ? 'High interest clients first. Open one to call, then change status after you follow up.' : 'Status first. Rejected needs why they rejected Vellisys, an explanation, and nature of business.' ?></p>
   </div>
   <div class="actions page-actions">
-    <a class="btn ghost" href="<?= h(url('sales_leads.php?bucket=pending')) ?>"><?= icon('calendar', 16) ?>Open follow-ups</a>
+    <?php if (!$isOpenFollowView): ?>
+      <a class="btn ghost" href="<?= h(url('sales_leads.php?bucket=pending')) ?>"><?= icon('calendar', 16) ?>Open follow-ups<?php if ($openFollowN > 0): ?> <span class="sales-follow-count"><?= (int) $openFollowN ?></span><?php endif; ?></a>
+    <?php else: ?>
+      <a class="btn ghost" href="<?= h(url('sales_leads.php')) ?>"><?= icon('clients', 16) ?>All leads</a>
+    <?php endif; ?>
     <a class="btn" href="<?= h(url('sales_lead_edit.php')) ?>"><?= icon('plus', 16) ?>New lead</a>
   </div>
 </div>
@@ -42,26 +48,30 @@ sales_layout_start('Leads', $user);
     <a class="chip<?= $status === $k ? ' is-on' : '' ?>" href="<?= h(url('sales_leads.php?status=' . urlencode($k))) ?>"><?= h($label) ?></a>
   <?php endforeach; ?>
   <a class="chip<?= $bucket === 'on_test' ? ' is-on' : '' ?>" href="<?= h(url('sales_leads.php?bucket=on_test')) ?>">On test</a>
-  <a class="chip<?= $bucket === 'pending' ? ' is-on' : '' ?>" href="<?= h(url('sales_leads.php?bucket=pending')) ?>">Follow-ups open</a>
+  <a class="chip<?= $bucket === 'pending' ? ' is-on' : '' ?>" href="<?= h(url('sales_leads.php?bucket=pending')) ?>">Open follow-ups<?php if ($openFollowN > 0): ?> <span class="sales-follow-count"><?= (int) $openFollowN ?></span><?php endif; ?></a>
   <a class="chip<?= $bucket === 'followed' ? ' is-on' : '' ?>" href="<?= h(url('sales_leads.php?bucket=followed')) ?>">Followed up</a>
 </div>
 <form class="stock-search" method="get" action="<?= h(url('sales_leads.php')) ?>" style="margin-bottom:16px">
   <?php if ($status !== ''): ?><input type="hidden" name="status" value="<?= h($status) ?>"><?php endif; ?>
   <?php if ($bucket !== ''): ?><input type="hidden" name="bucket" value="<?= h($bucket) ?>"><?php endif; ?>
-  <input type="search" name="q" value="<?= h($q) ?>" placeholder="Search business, contact, city" autocomplete="off">
+  <input type="search" name="q" value="<?= h($q) ?>" placeholder="Search business, contact, city, phone" autocomplete="off">
   <button class="btn ghost sm" type="submit"><?= icon('search', 14) ?>Search</button>
 </form>
 
 <div class="card">
   <?php if (!$leads): ?>
-    <p class="empty">No leads in this view. <a href="<?= h(url('sales_lead_edit.php')) ?>">Log a new lead</a>.</p>
+    <p class="empty"><?= $isOpenFollowView ? 'No open follow-ups right now.' : 'No leads in this view.' ?> <a href="<?= h(url('sales_lead_edit.php')) ?>">Log a new lead</a>.</p>
   <?php else: ?>
     <div class="table-scroll">
       <table class="grid">
         <thead>
           <tr>
             <th>Business</th>
-            <th>Status</th>
+            <?php if ($isOpenFollowView): ?>
+              <th>Interest</th>
+            <?php else: ?>
+              <th>Status</th>
+            <?php endif; ?>
             <th>Contact</th>
             <th>Phone</th>
             <th>City</th>
@@ -76,15 +86,32 @@ sales_layout_start('Leads', $user);
               $tel = $phone !== '' ? phone_tel_href($phone) : '';
               $wa = $phone !== '' ? phone_whatsapp_href($phone, 'Hi, following up about ' . trim((string) ($lead['business_name'] ?? 'your business'))) : '';
               $isOpenFu = (string) ($lead['status'] ?? '') === 'follow_up' && empty($lead['follow_up_done_at']);
+              $interest = (int) ($lead['interest_rating'] ?? 0);
+              $dueOn = (string) ($lead['follow_up_date'] ?? '');
+              $overdue = $isOpenFollowView && $dueOn !== '' && $dueOn < today();
+              $rowClass = [];
+              if ($overdue) {
+                  $rowClass[] = 'sales-fu-overdue';
+              }
+              if ($isOpenFollowView && $interest >= 4) {
+                  $rowClass[] = 'sales-fu-hot';
+              }
               ?>
-            <tr>
+            <tr<?= $rowClass ? ' class="' . h(implode(' ', $rowClass)) . '"' : '' ?>>
               <td>
                 <a href="<?= h(url('sales_lead_edit.php?id=' . (int) $lead['id'])) ?>"><strong><?= h(trim((string) $lead['business_name']) ?: '-') ?></strong></a>
                 <?php if ($testLabel !== ''): ?>
                   <span class="pill<?= $testLabel === 'Test ended' ? ' bad' : ' warn' ?>"><?= h($testLabel) ?></span>
                 <?php endif; ?>
+                <?php if ($overdue): ?>
+                  <span class="pill bad">Overdue</span>
+                <?php endif; ?>
               </td>
-              <td><span class="<?= h(sales_status_pill_class((string) $lead['status'])) ?>"><?= h(sales_status_label((string) $lead['status'])) ?></span></td>
+              <?php if ($isOpenFollowView): ?>
+                <td><span class="<?= h(sales_interest_pill_class($interest)) ?>"><?= h(sales_interest_label($interest)) ?></span></td>
+              <?php else: ?>
+                <td><span class="<?= h(sales_status_pill_class((string) $lead['status'])) ?>"><?= h(sales_status_label((string) $lead['status'])) ?></span></td>
+              <?php endif; ?>
               <td><?= h(trim((string) ($lead['contact_name'] ?? '')) ?: '-') ?></td>
               <td>
                 <?php if ($tel !== ''): ?>
