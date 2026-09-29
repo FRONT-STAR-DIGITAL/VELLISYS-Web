@@ -167,7 +167,7 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
         <a class="btn ghost" href="<?= h(url('sales_messages.php')) ?>"><?= icon('mail', 14) ?>Message admin</a>
       </div>
     <?php elseif ($testCompany && empty($testCompany['testing_mode'])): ?>
-      <p class="lede" style="margin-top:0">This lead’s company is past testing. Message admin if you need help.</p>
+      <p class="lede" style="margin-top:0">This lead's company is past testing. Message admin if you need help.</p>
     <?php else: ?>
       <p class="lede" style="margin-top:0">Open a test desk for this client. Login: first word of the business name @vellisys.com · Folio2026.</p>
       <form method="post" class="actions" style="margin-top:12px">

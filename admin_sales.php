@@ -548,7 +548,7 @@ if ($tab === 'lead'):
 <div class="page-head" style="margin-top:0">
   <div>
     <h2><?= $editLead ? 'Edit business' : 'New business' ?></h2>
-    <p class="lede">Full CRUD for field businesses. Interested clients can be onboarded from the list.</p>
+    <p class="lede">Field businesses. Onboard interested clients from the list.</p>
   </div>
   <div class="actions page-actions">
     <a class="btn ghost" href="<?= h(url('admin_sales.php?tab=leads')) ?>">Back</a>
