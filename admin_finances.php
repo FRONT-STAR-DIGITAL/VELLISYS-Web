@@ -9,13 +9,19 @@ $from = $period['from'] !== '' ? $period['from'] : '2000-01-01';
 $to = $period['to'] !== '' ? $period['to'] : desk_now()->format('Y-m-d');
 
 $tab = (string) ($_GET['tab'] ?? 'overview');
-if (!in_array($tab, ['overview', 'expenses', 'reports'], true)) {
+if (!in_array($tab, ['overview', 'expenses', 'banking', 'reports'], true)) {
     $tab = 'overview';
 }
 $payId = (int) ($_GET['pay'] ?? 0);
-$expenseNew = isset($_GET['new']) && (string) $_GET['new'] !== '' && (string) $_GET['new'] !== '0';
-$expenseEditId = (int) ($_GET['edit'] ?? 0);
-$expenseViewId = (int) ($_GET['view'] ?? 0);
+$wantsNew = isset($_GET['new']) && (string) $_GET['new'] !== '' && (string) $_GET['new'] !== '0';
+$editId = (int) ($_GET['edit'] ?? 0);
+$viewId = (int) ($_GET['view'] ?? 0);
+$expenseNew = $tab === 'expenses' && $wantsNew;
+$expenseEditId = $tab === 'expenses' ? $editId : 0;
+$expenseViewId = $tab === 'expenses' ? $viewId : 0;
+$bankNew = $tab === 'banking' && $wantsNew;
+$bankEditId = $tab === 'banking' ? $editId : 0;
+$bankViewId = $tab === 'banking' ? $viewId : 0;
 $error = '';
 $ccy = platform_currency();
 
@@ -59,6 +65,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $done = platform_expense_delete((int) post('expense_id'));
         flash(empty($done['ok']) ? ($done['error'] ?? 'Could not delete.') : 'Expense deleted.', empty($done['ok']) ? 'err' : 'ok');
         redirect($filterQs((string) (post('return_tab') ?: 'expenses')));
+    } elseif ($action === 'save_bank') {
+        $done = platform_bank_move_save([
+            'id' => (int) post('bank_id'),
+            'kind' => post('kind'),
+            'amount' => post('amount'),
+            'currency' => post('currency') !== '' ? post('currency') : $ccy,
+            'occurred_on' => post('occurred_on'),
+            'note' => post('note'),
+        ], (int) $user['id']);
+        if (empty($done['ok'])) {
+            $error = (string) ($done['error'] ?? 'Could not save bank line.');
+            $tab = 'banking';
+            $bid = (int) post('bank_id');
+            if ($bid > 0) {
+                $bankEditId = $bid;
+            } else {
+                $bankNew = true;
+            }
+        } else {
+            $kindLabel = platform_bank_normalize_kind(post('kind')) === 'withdraw' ? 'Withdrawal' : 'Savings';
+            flash((int) post('bank_id') > 0 ? ($kindLabel . ' updated.') : ($kindLabel . ' recorded.'));
+            redirect($filterQs('banking', ['view' => (string) ($done['id'] ?? '')]));
+        }
+    } elseif ($action === 'delete_bank') {
+        $done = platform_bank_move_delete((int) post('bank_id'));
+        flash(empty($done['ok']) ? ($done['error'] ?? 'Could not delete.') : 'Bank line deleted.', empty($done['ok']) ? 'err' : 'ok');
+        redirect($filterQs((string) (post('return_tab') ?: 'banking')));
     } elseif ($action === 'make_payment') {
         $cid = (int) post('company_id');
         $co = $cid > 0 ? db_one('SELECT * FROM companies WHERE id = ?', 'i', [$cid]) : null;
@@ -124,13 +157,24 @@ $allTaken = 0.0;
 $periodTaken = 0.0;
 $allExpenses = 0.0;
 $periodExpenses = 0.0;
+$allSaved = 0.0;
+$allWithdrawn = 0.0;
+$periodSaved = 0.0;
+$periodWithdrawn = 0.0;
+$bankBalance = 0.0;
 $ledger = [];
 $expenses = [];
+$bankMoves = [];
 try {
     $allTaken = platform_fee_sum();
     $periodTaken = platform_fee_sum($from, $to);
     $allExpenses = platform_expense_sum();
     $periodExpenses = platform_expense_sum($from, $to);
+    $allSaved = platform_bank_sum('save');
+    $allWithdrawn = platform_bank_sum('withdraw');
+    $periodSaved = platform_bank_sum('save', $from, $to);
+    $periodWithdrawn = platform_bank_sum('withdraw', $from, $to);
+    $bankBalance = platform_bank_balance();
     $ledger = db_all(
         'SELECT l.*, c.name AS company_name
          FROM platform_fee_ledger l
@@ -142,9 +186,11 @@ try {
         [$from, $to]
     );
     $expenses = platform_expenses_list($from, $to, 500);
+    $bankMoves = platform_bank_moves_list($from, $to, 500);
 } catch (Throwable $e) {
     $ledger = [];
     $expenses = [];
+    $bankMoves = [];
 }
 
 $periodProfit = round_money($periodTaken - $periodExpenses, $ccy);
@@ -167,7 +213,20 @@ if ($expenseViewId > 0 && !$expenseViewing) {
     $error = $error !== '' ? $error : 'Expense not found.';
     $expenseViewId = 0;
 }
-$showExpenseForm = $tab === 'expenses' && ($expenseNew || $expenseEditing || ($error !== '' && ($_SERVER['REQUEST_METHOD'] === 'POST') && in_array((string) post('action'), ['save_expense'], true)));
+$showExpenseForm = $tab === 'expenses' && ($expenseNew || $expenseEditing || ($error !== '' && ($_SERVER['REQUEST_METHOD'] === 'POST') && post('action') === 'save_expense'));
+
+$bankEditing = $bankEditId > 0 ? platform_bank_move_get($bankEditId) : null;
+$bankViewing = $bankViewId > 0 ? platform_bank_move_get($bankViewId) : null;
+if ($bankEditId > 0 && !$bankEditing) {
+    $error = $error !== '' ? $error : 'Bank line not found.';
+    $bankEditId = 0;
+}
+if ($bankViewId > 0 && !$bankViewing) {
+    $error = $error !== '' ? $error : 'Bank line not found.';
+    $bankViewId = 0;
+}
+$showBankForm = $tab === 'banking' && ($bankNew || $bankEditing || ($error !== '' && ($_SERVER['REQUEST_METHOD'] === 'POST') && post('action') === 'save_bank'));
+
 $payCompany = null;
 foreach ($companies as $c) {
     if ((int) $c['id'] === $payId) {
@@ -182,18 +241,24 @@ $daysSpan = max(1, (int) ((strtotime($to) - strtotime($from)) / 86400) + 1);
 if (!in_array($grain, ['day', 'month'], true)) {
     $grain = $daysSpan > 62 ? 'month' : 'day';
 }
-$axis = platform_finance_axis($from, $to, $grain);
 $takenSeries = platform_fee_series($from, $to, $grain);
 $expenseSeries = platform_expense_series($from, $to, $grain);
+$saveSeries = platform_bank_series('save', $from, $to, $grain);
+$withdrawSeries = platform_bank_series('withdraw', $from, $to, $grain);
+$axis = platform_finance_chart_axis($from, $to, $grain, $takenSeries, $expenseSeries, $saveSeries, $withdrawSeries);
 $takenChart = [];
 $expenseChart = [];
 $profitChart = [];
+$saveChart = [];
+$withdrawChart = [];
 foreach ($axis as $bucket) {
     $tin = (float) ($takenSeries[$bucket] ?? 0);
     $ex = (float) ($expenseSeries[$bucket] ?? 0);
     $takenChart[] = round($tin, 2);
     $expenseChart[] = round($ex, 2);
     $profitChart[] = round($tin - $ex, 2);
+    $saveChart[] = round((float) ($saveSeries[$bucket] ?? 0), 2);
+    $withdrawChart[] = round((float) ($withdrawSeries[$bucket] ?? 0), 2);
 }
 $axisLabels = array_map(static function (string $b) use ($grain): string {
     if ($grain === 'month') {
@@ -209,7 +274,10 @@ $expenseBreak = platform_expense_breakdown($from, $to, 10);
 $breakLabels = array_column($expenseBreak, 'title');
 $breakData = array_map(static fn ($r) => (float) $r['amount'], $expenseBreak);
 
-$hasCharts = array_sum($takenChart) > 0 || array_sum($expenseChart) > 0;
+$hasCharts = $periodTaken > 0.009 || $periodExpenses > 0.009
+    || array_sum($takenChart) > 0.009 || array_sum($expenseChart) > 0.009;
+$hasBankCharts = $periodSaved > 0.009 || $periodWithdrawn > 0.009
+    || array_sum($saveChart) > 0.009 || array_sum($withdrawChart) > 0.009;
 
 layout_admin_start('Finances', $user);
 ?>
@@ -222,12 +290,17 @@ layout_admin_start('Finances', $user);
     <div class="actions page-actions">
       <a class="btn" href="<?= h(url($filterQs('expenses', ['new' => '1']))) ?>"><?= icon('plus', 16) ?>New expense</a>
     </div>
+  <?php elseif ($tab === 'banking'): ?>
+    <div class="actions page-actions">
+      <a class="btn" href="<?= h(url($filterQs('banking', ['new' => '1']))) ?>"><?= icon('plus', 16) ?>New bank line</a>
+    </div>
   <?php endif; ?>
 </div>
 
 <nav class="planner-tabs" aria-label="Finance sections">
   <a class="planner-tab<?= $tab === 'overview' ? ' is-on' : '' ?>" href="<?= h(url($filterQs('overview'))) ?>"><?= icon('bank', 16) ?><span>Overview</span></a>
   <a class="planner-tab<?= $tab === 'expenses' ? ' is-on' : '' ?>" href="<?= h(url($filterQs('expenses'))) ?>"><?= icon('expense', 16) ?><span>Expenses</span></a>
+  <a class="planner-tab<?= $tab === 'banking' ? ' is-on' : '' ?>" href="<?= h(url($filterQs('banking'))) ?>"><?= icon('wallet', 16) ?><span>Banking</span></a>
   <a class="planner-tab<?= $tab === 'reports' ? ' is-on' : '' ?>" href="<?= h(url($filterQs('reports'))) ?>"><?= icon('reports', 16) ?><span>Reports</span></a>
 </nav>
 
@@ -244,6 +317,7 @@ render_filters('admin_finances.php', $filterKeep, ['live' => true, 'today_first'
   <div class="card stat"><?= icon('invoice', 20) ?><span>Taken in</span><strong><?= h(money($periodTaken, $ccy)) ?></strong><em>This period</em></div>
   <div class="card stat"><?= icon('expense', 20) ?><span>Expenses</span><strong><?= h(money($periodExpenses, $ccy)) ?></strong><em>This period</em></div>
   <div class="card stat"><?= icon('reports', 20) ?><span>Profit</span><strong class="<?= $periodProfit < 0 ? 'neg' : 'pos' ?>"><?= h(money($periodProfit, $ccy)) ?></strong><em>Taken in - expenses</em></div>
+  <div class="card stat"><?= icon('wallet', 20) ?><span>Bank balance</span><strong class="<?= $bankBalance < 0 ? 'neg' : '' ?>"><?= h(money($bankBalance, $ccy)) ?></strong><em>Savings - withdrawals</em></div>
   <div class="card stat"><?= icon('receipt', 20) ?><span>Still due</span><strong><?= h(money($feeBalance, $ccy)) ?></strong><em>On company terms</em></div>
 </div>
 
@@ -587,6 +661,151 @@ render_filters('admin_finances.php', $filterKeep, ['live' => true, 'today_first'
   <?php endif; ?>
 </div>
 
+<?php elseif ($tab === 'banking'): ?>
+
+<?php if ($bankViewing && !$showBankForm): ?>
+<div class="card pad-form" style="margin-bottom:24px" id="bank-view">
+  <div class="card-head">
+    <h2><?= icon('eye', 16) ?><?= platform_bank_normalize_kind((string) $bankViewing['kind']) === 'withdraw' ? 'Withdrawal' : 'Savings' ?></h2>
+    <div class="actions">
+      <a class="btn ghost sm" href="<?= h(url($filterQs('banking', ['edit' => (string) (int) $bankViewing['id']]))) ?>"><?= icon('pencil', 14) ?>Edit</a>
+      <a class="btn ghost sm" href="<?= h(url($filterQs('banking'))) ?>">Close</a>
+    </div>
+  </div>
+  <dl class="party-brief">
+    <div><dt>Type</dt><dd><?= platform_bank_normalize_kind((string) $bankViewing['kind']) === 'withdraw' ? 'Withdrawal' : 'Savings' ?></dd></div>
+    <div><dt>Date</dt><dd class="mono"><?= h(format_date((string) $bankViewing['occurred_on'])) ?></dd></div>
+    <div><dt>Amount</dt><dd class="mono"><?= h(platform_money((float) $bankViewing['amount'], (string) $bankViewing['currency'])) ?></dd></div>
+    <div><dt>Note</dt><dd><?= h((string) ($bankViewing['note'] ?? '')) !== '' ? h((string) $bankViewing['note']) : 'None' ?></dd></div>
+  </dl>
+  <div class="actions" style="margin-top:12px">
+    <form method="post" class="inline-form" onsubmit="return confirm('Delete this bank line?');">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="delete_bank">
+      <input type="hidden" name="bank_id" value="<?= (int) $bankViewing['id'] ?>">
+      <input type="hidden" name="return_tab" value="banking">
+      <button class="btn danger sm" type="submit"><?= icon('trash', 14) ?>Delete</button>
+    </form>
+  </div>
+</div>
+<?php endif; ?>
+
+<?php if ($showBankForm): ?>
+<?php
+  $postedBank = $_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'save_bank';
+  $bankFormKind = $postedBank ? platform_bank_normalize_kind(post('kind')) : platform_bank_normalize_kind((string) ($bankEditing['kind'] ?? 'save'));
+  $bankFormDate = $postedBank ? post('occurred_on') : (string) ($bankEditing['occurred_on'] ?? desk_now()->format('Y-m-d'));
+  $bankFormAmount = $postedBank ? post('amount') : (isset($bankEditing['amount']) ? (string) $bankEditing['amount'] : '');
+  $bankFormCcy = $postedBank ? (post('currency') !== '' ? post('currency') : $ccy) : (string) ($bankEditing['currency'] ?? $ccy);
+  $bankFormNote = $postedBank ? post('note') : (string) ($bankEditing['note'] ?? '');
+  $bankFormId = (int) ($bankEditing['id'] ?? ($postedBank ? post('bank_id') : 0));
+?>
+<div class="card pad-form" style="margin-bottom:24px" id="bank-form">
+  <div class="card-head">
+    <h2><?= $bankFormId > 0 ? icon('pencil', 16) . 'Edit bank line' : icon('plus', 16) . 'New bank line' ?></h2>
+    <a class="btn ghost sm" href="<?= h(url($filterQs('banking'))) ?>">Cancel</a>
+  </div>
+  <form method="post" class="pad-form">
+    <?= csrf_field() ?>
+    <input type="hidden" name="action" value="save_bank">
+    <input type="hidden" name="bank_id" value="<?= $bankFormId ?>">
+    <div class="form-grid">
+      <div>
+        <label for="kind">Type</label>
+        <select id="kind" name="kind" required>
+          <option value="save" <?= $bankFormKind === 'save' ? 'selected' : '' ?>>Savings</option>
+          <option value="withdraw" <?= $bankFormKind === 'withdraw' ? 'selected' : '' ?>>Withdrawal</option>
+        </select>
+      </div>
+      <div>
+        <label for="occurred_on">Date</label>
+        <input id="occurred_on" name="occurred_on" type="date" required value="<?= h($bankFormDate) ?>">
+      </div>
+      <div>
+        <label for="amount">Amount</label>
+        <input id="amount" name="amount" inputmode="decimal" required value="<?= h($bankFormAmount) ?>" placeholder="0">
+      </div>
+      <div>
+        <label for="currency">Currency</label>
+        <?php currency_field('currency', 'currency', $bankFormCcy); ?>
+      </div>
+      <div class="full">
+        <label for="note">Note <span class="muted">(optional)</span></label>
+        <input id="note" name="note" value="<?= h($bankFormNote) ?>" placeholder="e.g. Fixed deposit, Cash out for fuel">
+      </div>
+    </div>
+    <div class="actions" style="margin-top:12px">
+      <button class="btn" type="submit"><?= icon('check', 16) ?><?= $bankFormId > 0 ? 'Save changes' : 'Save' ?></button>
+      <a class="btn ghost" href="<?= h(url($filterQs('banking'))) ?>">Cancel</a>
+    </div>
+  </form>
+</div>
+<?php endif; ?>
+
+<div class="stats" style="margin-bottom:24px">
+  <div class="card stat"><?= icon('wallet', 20) ?><span>Balance</span><strong class="<?= $bankBalance < 0 ? 'neg' : 'pos' ?>"><?= h(money($bankBalance, $ccy)) ?></strong><em>All time</em></div>
+  <div class="card stat"><?= icon('plus', 20) ?><span>Savings</span><strong><?= h(money($periodSaved, $ccy)) ?></strong><em>This period</em></div>
+  <div class="card stat"><?= icon('upload', 20) ?><span>Withdrawals</span><strong><?= h(money($periodWithdrawn, $ccy)) ?></strong><em>This period</em></div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2><?= icon('wallet', 16) ?>Banking · <?= h(format_date($from)) ?><?= $from !== $to ? ' - ' . h(format_date($to)) : '' ?></h2>
+    <?php if (!$showBankForm): ?>
+      <a class="btn ghost sm" href="<?= h(url($filterQs('banking', ['new' => '1']))) ?>"><?= icon('plus', 14) ?>New bank line</a>
+    <?php endif; ?>
+  </div>
+  <?php if (!$bankMoves): ?>
+    <p class="empty">No savings or withdrawals in this date range. <a href="<?= h(url($filterQs('banking', ['new' => '1']))) ?>">New bank line</a>.</p>
+  <?php else: ?>
+    <div class="table-scroll">
+      <table class="grid finance-totals-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th class="right">Amount</th>
+            <th>Note</th>
+            <th class="row-actions"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($bankMoves as $mv): ?>
+            <?php
+              $mid = (int) $mv['id'];
+              $isOut = platform_bank_normalize_kind((string) $mv['kind']) === 'withdraw';
+            ?>
+            <tr>
+              <td class="mono"><?= h(format_date((string) $mv['occurred_on'])) ?></td>
+              <td><?= $isOut ? 'Withdrawal' : 'Savings' ?></td>
+              <td class="right mono <?= $isOut ? 'neg' : 'pos' ?>"><?= ($isOut ? '-' : '+') . h(platform_money((float) $mv['amount'], (string) $mv['currency'])) ?></td>
+              <td><?= h((string) ($mv['note'] ?? '')) ?></td>
+              <td class="row-actions">
+                <a class="btn icon-only" href="<?= h(url($filterQs('banking', ['view' => (string) $mid]))) ?>" title="View" aria-label="View"><?= icon('eye', 15) ?></a>
+                <a class="btn icon-only" href="<?= h(url($filterQs('banking', ['edit' => (string) $mid]))) ?>" title="Edit" aria-label="Edit"><?= icon('pencil', 15) ?></a>
+                <form method="post" class="inline-form" onsubmit="return confirm('Delete this bank line?');">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="action" value="delete_bank">
+                  <input type="hidden" name="bank_id" value="<?= $mid ?>">
+                  <input type="hidden" name="return_tab" value="banking">
+                  <button class="btn icon-only danger" type="submit" title="Delete" aria-label="Delete"><?= icon('trash', 15) ?></button>
+                </form>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2"><strong>Net this period</strong></td>
+            <td class="right mono"><strong class="<?= ($periodSaved - $periodWithdrawn) < 0 ? 'neg' : 'pos' ?>"><?= h(money($periodSaved - $periodWithdrawn, $ccy)) ?></strong></td>
+            <td colspan="2"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  <?php endif; ?>
+</div>
+
 <?php else: /* reports */ ?>
 
 <div class="filter-chips" style="margin:0 0 16px">
@@ -599,7 +818,7 @@ render_filters('admin_finances.php', $filterKeep, ['live' => true, 'today_first'
   <?php if (!$hasCharts): ?>
     <p class="empty">No taken-in or expense amounts in this range yet.</p>
   <?php else: ?>
-    <canvas id="chart-taken-vs-expenses" height="120"></canvas>
+    <div class="chart-frame"><canvas id="chart-taken-vs-expenses"></canvas></div>
   <?php endif; ?>
 </div>
 
@@ -608,7 +827,16 @@ render_filters('admin_finances.php', $filterKeep, ['live' => true, 'today_first'
   <?php if (!$hasCharts): ?>
     <p class="empty">Profit plots here once you have money in or expenses.</p>
   <?php else: ?>
-    <canvas id="chart-profit" height="120"></canvas>
+    <div class="chart-frame"><canvas id="chart-profit"></canvas></div>
+  <?php endif; ?>
+</div>
+
+<div class="card chart-box" style="margin-bottom:24px">
+  <div class="card-head"><h2><?= icon('wallet', 16) ?>Savings vs withdrawals</h2></div>
+  <?php if (!$hasBankCharts): ?>
+    <p class="empty">Record savings or withdrawals under Banking to plot them here.</p>
+  <?php else: ?>
+    <div class="chart-frame"><canvas id="chart-banking"></canvas></div>
   <?php endif; ?>
 </div>
 
@@ -616,12 +844,13 @@ render_filters('admin_finances.php', $filterKeep, ['live' => true, 'today_first'
   <div class="card stat"><?= icon('invoice', 20) ?><span>Taken in</span><strong><?= h(money($periodTaken, $ccy)) ?></strong></div>
   <div class="card stat"><?= icon('expense', 20) ?><span>Expenses</span><strong><?= h(money($periodExpenses, $ccy)) ?></strong></div>
   <div class="card stat"><?= icon('reports', 20) ?><span>Profit</span><strong class="<?= $periodProfit < 0 ? 'neg' : 'pos' ?>"><?= h(money($periodProfit, $ccy)) ?></strong></div>
+  <div class="card stat"><?= icon('wallet', 20) ?><span>Bank balance</span><strong class="<?= $bankBalance < 0 ? 'neg' : '' ?>"><?= h(money($bankBalance, $ccy)) ?></strong></div>
 </div>
 
 <?php if ($expenseBreak): ?>
 <div class="card chart-box" style="margin-bottom:24px">
   <div class="card-head"><h2><?= icon('expense', 16) ?>Expenses by name</h2></div>
-  <canvas id="chart-expense-break" height="120"></canvas>
+  <div class="chart-frame"><canvas id="chart-expense-break"></canvas></div>
 </div>
 <?php endif; ?>
 
@@ -652,6 +881,20 @@ render_filters('admin_finances.php', $filterKeep, ['live' => true, 'today_first'
           <td class="right mono"><strong class="<?= $periodProfit < 0 ? 'neg' : 'pos' ?>"><?= h(money($periodProfit, $ccy)) ?></strong></td>
           <td class="right mono"><strong class="<?= $allProfit < 0 ? 'neg' : 'pos' ?>"><?= h(money($allProfit, $ccy)) ?></strong></td>
         </tr>
+        <tr>
+          <td>Savings</td>
+          <td class="right mono"><?= h(money($periodSaved, $ccy)) ?></td>
+          <td class="right mono"><?= h(money($allSaved, $ccy)) ?></td>
+        </tr>
+        <tr>
+          <td>Withdrawals</td>
+          <td class="right mono"><?= h(money($periodWithdrawn, $ccy)) ?></td>
+          <td class="right mono"><?= h(money($allWithdrawn, $ccy)) ?></td>
+        </tr>
+        <tr>
+          <td><strong>Bank balance</strong></td>
+          <td class="right mono" colspan="2"><strong class="<?= $bankBalance < 0 ? 'neg' : 'pos' ?>"><?= h(money($bankBalance, $ccy)) ?></strong></td>
+        </tr>
       </tbody>
     </table>
   </div>
@@ -661,19 +904,30 @@ render_filters('admin_finances.php', $filterKeep, ['live' => true, 'today_first'
 
 <?php
 $chartJs = '';
-if ($tab === 'reports' && $hasCharts) {
+if ($tab === 'reports' && ($hasCharts || $hasBankCharts || $expenseBreak)) {
     $profitColors = array_map(static fn ($v) => $v < 0 ? 'rgba(180,35,24,0.75)' : 'rgba(30,78,255,0.75)', $profitChart);
     $chartJs = '<script src="' . h(asset('js/chart.umd.min.js')) . '"></script><script>
 (function(){
-  var labels=' . json_encode(array_values($axisLabels)) . ';
+  var labels=' . json_encode(array_values($axisLabels), JSON_UNESCAPED_UNICODE) . ';
   var taken=' . json_encode($takenChart) . ';
   var expenses=' . json_encode($expenseChart) . ';
   var profit=' . json_encode($profitChart) . ';
   var profitColors=' . json_encode(array_values($profitColors)) . ';
-  var breakLabels=' . json_encode(array_values($breakLabels)) . ';
+  var saves=' . json_encode($saveChart) . ';
+  var withdraws=' . json_encode($withdrawChart) . ';
+  var breakLabels=' . json_encode(array_values($breakLabels), JSON_UNESCAPED_UNICODE) . ';
   var breakData=' . json_encode(array_values($breakData)) . ';
   var moneyFmt=window.vellisysChartMoney ? window.vellisysChartMoney(' . json_encode($ccy) . ') : null;
   function tip(){ return (typeof window.vellisysChartTooltip==="function") ? window.vellisysChartTooltip(moneyFmt) : {enabled:true}; }
+  function baseOpts(extra){
+    return Object.assign({
+      responsive:true,
+      maintainAspectRatio:false,
+      interaction:{mode:"index",intersect:false},
+      plugins:{legend:{position:"bottom"},tooltip:tip()},
+      scales:{y:{beginAtZero:true,ticks:{maxTicksLimit:6}}}
+    }, extra||{});
+  }
   function go(){
     if(!window.Chart){ setTimeout(go,40); return; }
     var a=document.getElementById("chart-taken-vs-expenses");
@@ -681,10 +935,10 @@ if ($tab === 'reports' && $hasCharts) {
       new Chart(a,{
         type:"line",
         data:{labels:labels,datasets:[
-          {label:"Taken in",data:taken,borderColor:"#1E4EFF",backgroundColor:"rgba(30,78,255,0.12)",tension:0.25,fill:false},
-          {label:"Expenses",data:expenses,borderColor:"#b42318",backgroundColor:"rgba(180,35,24,0.12)",tension:0.25,fill:false}
+          {label:"Taken in",data:taken,borderColor:"#1E4EFF",backgroundColor:"rgba(30,78,255,0.12)",tension:0.25,fill:false,pointRadius:3,pointHoverRadius:5},
+          {label:"Expenses",data:expenses,borderColor:"#b42318",backgroundColor:"rgba(180,35,24,0.12)",tension:0.25,fill:false,pointRadius:3,pointHoverRadius:5}
         ]},
-        options:{responsive:true,interaction:{mode:"index",intersect:false},plugins:{legend:{position:"bottom"},tooltip:tip()},scales:{y:{beginAtZero:true}}}
+        options:baseOpts()
       });
     }
     var b=document.getElementById("chart-profit");
@@ -692,7 +946,18 @@ if ($tab === 'reports' && $hasCharts) {
       new Chart(b,{
         type:"bar",
         data:{labels:labels,datasets:[{label:"Profit",data:profit,backgroundColor:profitColors,borderRadius:4}]},
-        options:{responsive:true,plugins:{legend:{display:false},tooltip:tip()},scales:{y:{beginAtZero:true}}}
+        options:baseOpts({plugins:{legend:{display:false},tooltip:tip()}})
+      });
+    }
+    var bank=document.getElementById("chart-banking");
+    if(bank){
+      new Chart(bank,{
+        type:"line",
+        data:{labels:labels,datasets:[
+          {label:"Savings",data:saves,borderColor:"#0f766e",backgroundColor:"rgba(15,118,110,0.12)",tension:0.25,fill:false,pointRadius:3},
+          {label:"Withdrawals",data:withdraws,borderColor:"#b45309",backgroundColor:"rgba(180,83,9,0.12)",tension:0.25,fill:false,pointRadius:3}
+        ]},
+        options:baseOpts()
       });
     }
     var c=document.getElementById("chart-expense-break");
@@ -700,7 +965,7 @@ if ($tab === 'reports' && $hasCharts) {
       new Chart(c,{
         type:"doughnut",
         data:{labels:breakLabels,datasets:[{data:breakData,backgroundColor:["#1E4EFF","#0f766e","#b45309","#b42318","#6d28d9","#0369a1","#4d7c0f","#9f1239","#334155","#ca8a04"]}]},
-        options:{responsive:true,plugins:{legend:{position:"bottom"},tooltip:tip()}}
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom"},tooltip:tip()}}
       });
     }
   }

@@ -92,6 +92,18 @@ function platform_fee_sum(?string $fromDate = null, ?string $toDate = null): flo
  * @param 'day'|'month' $grain
  * @return array<string, float> keyed by Y-m-d or Y-m
  */
+function platform_finance_normalize_bucket(mixed $key, string $grain = 'day'): string
+{
+    $key = trim((string) $key);
+    if ($key === '') {
+        return '';
+    }
+    if ($grain === 'month') {
+        return preg_match('/^(\d{4}-\d{2})/', $key, $m) ? $m[1] : $key;
+    }
+    return preg_match('/^(\d{4}-\d{2}-\d{2})/', $key, $m) ? $m[1] : $key;
+}
+
 function platform_fee_series(string $fromDate, string $toDate, string $grain = 'day'): array
 {
     $ccy = platform_currency();
@@ -110,7 +122,7 @@ function platform_fee_series(string $fromDate, string $toDate, string $grain = '
     }
     $out = [];
     foreach ($rows as $r) {
-        $key = (string) ($r['bucket'] ?? '');
+        $key = platform_finance_normalize_bucket($r['bucket'] ?? '', $grain);
         if ($key === '') {
             continue;
         }
@@ -350,7 +362,7 @@ function platform_expense_series(string $fromDate, string $toDate, string $grain
     }
     $out = [];
     foreach ($rows as $r) {
-        $key = (string) ($r['bucket'] ?? '');
+        $key = platform_finance_normalize_bucket($r['bucket'] ?? '', $grain);
         if ($key === '') {
             continue;
         }
@@ -406,6 +418,7 @@ function platform_expense_breakdown(?string $fromDate = null, ?string $toDate = 
 
 /**
  * Fill day or month buckets between two dates with zeros.
+ * Long ranges keep the most recent buckets so charts stay aligned with current totals.
  *
  * @return list<string>
  */
@@ -427,9 +440,9 @@ function platform_finance_axis(string $fromDate, string $toDate, string $grain =
         while ($cursor <= $end) {
             $out[] = $cursor->format('Y-m');
             $cursor = $cursor->modify('+1 month');
-            if (count($out) > 60) {
-                break;
-            }
+        }
+        if (count($out) > 60) {
+            $out = array_values(array_slice($out, -60));
         }
         return $out;
     }
@@ -437,9 +450,225 @@ function platform_finance_axis(string $fromDate, string $toDate, string $grain =
     while ($cursor <= $to) {
         $out[] = $cursor->format('Y-m-d');
         $cursor = $cursor->modify('+1 day');
-        if (count($out) > 120) {
+    }
+    if (count($out) > 120) {
+        $out = array_values(array_slice($out, -120));
+    }
+    return $out;
+}
+
+/**
+ * Chart X-axis that stays aligned with real series data (avoids empty charts when
+ * long "by day" ranges or DATE key formatting would otherwise miss buckets).
+ *
+ * @param array<string, float> ...$seriesList
+ * @return list<string>
+ */
+function platform_finance_chart_axis(string $fromDate, string $toDate, string $grain, array ...$seriesList): array
+{
+    $axis = platform_finance_axis($fromDate, $toDate, $grain);
+    $dataKeys = [];
+    foreach ($seriesList as $series) {
+        foreach ($series as $k => $v) {
+            if (abs((float) $v) < 0.0001) {
+                continue;
+            }
+            $nk = platform_finance_normalize_bucket($k, $grain);
+            if ($nk !== '') {
+                $dataKeys[$nk] = true;
+            }
+        }
+    }
+    if (!$dataKeys) {
+        return $axis;
+    }
+    $keys = array_keys($dataKeys);
+    sort($keys);
+    $overlap = false;
+    foreach ($keys as $k) {
+        if (in_array($k, $axis, true)) {
+            $overlap = true;
             break;
         }
+    }
+    if (!$overlap) {
+        return platform_finance_axis($keys[0], $keys[count($keys) - 1], $grain);
+    }
+    $missing = false;
+    foreach ($keys as $k) {
+        if (!in_array($k, $axis, true)) {
+            $missing = true;
+            break;
+        }
+    }
+    if ($missing) {
+        return platform_finance_axis($keys[0], $keys[count($keys) - 1], $grain);
+    }
+    return $axis;
+}
+
+function platform_bank_move_get(int $id): ?array
+{
+    if ($id < 1) {
+        return null;
+    }
+    try {
+        return db_one('SELECT * FROM platform_bank_moves WHERE id = ?', 'i', [$id]);
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+function platform_bank_normalize_kind(string $kind): string
+{
+    $kind = strtolower(trim($kind));
+    return in_array($kind, ['save', 'deposit', 'saving'], true) ? 'save' : 'withdraw';
+}
+
+function platform_bank_move_save(array $fields, ?int $actorId = null): array
+{
+    $id = (int) ($fields['id'] ?? 0);
+    $kind = platform_bank_normalize_kind((string) ($fields['kind'] ?? 'save'));
+    $amount = function_exists('money_parse') ? money_parse((string) ($fields['amount'] ?? '0')) : (float) ($fields['amount'] ?? 0);
+    $currency = normalize_currency((string) ($fields['currency'] ?? platform_currency()), platform_currency());
+    $on = trim((string) ($fields['occurred_on'] ?? $fields['date'] ?? ''));
+    $note = mb_substr(trim((string) ($fields['note'] ?? '')), 0, 500);
+    if ($amount <= 0.009) {
+        return ['ok' => false, 'error' => 'Enter the amount.'];
+    }
+    if ($on === '' || !DateTime::createFromFormat('Y-m-d', $on)) {
+        return ['ok' => false, 'error' => 'Pick the date.'];
+    }
+    $usd = platform_convert($amount, $currency, 'USD');
+    $uid = (int) ($actorId ?? (current_user()['id'] ?? 0));
+    try {
+        if ($id > 0) {
+            if (!platform_bank_move_get($id)) {
+                return ['ok' => false, 'error' => 'Bank line not found.'];
+            }
+            db_exec(
+                'UPDATE platform_bank_moves SET kind=?, amount=?, currency=?, amount_usd=?, occurred_on=?, note=? WHERE id=?',
+                'sdsdssi',
+                [$kind, $amount, $currency, $usd, $on, $note, $id]
+            );
+            return ['ok' => true, 'id' => $id];
+        }
+        $newId = db_exec(
+            'INSERT INTO platform_bank_moves (kind, amount, currency, amount_usd, occurred_on, note, created_by) VALUES (?,?,?,?,?,?,?)',
+            'sdsdssi',
+            [$kind, $amount, $currency, $usd, $on, $note, $uid > 0 ? $uid : 0]
+        );
+        return ['ok' => true, 'id' => (int) $newId];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'Could not save that bank line.'];
+    }
+}
+
+function platform_bank_move_delete(int $id): array
+{
+    if ($id < 1) {
+        return ['ok' => false, 'error' => 'Bank line not found.'];
+    }
+    try {
+        if (!platform_bank_move_get($id)) {
+            return ['ok' => false, 'error' => 'Bank line not found.'];
+        }
+        db_exec('DELETE FROM platform_bank_moves WHERE id = ?', 'i', [$id]);
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'Could not delete that bank line.'];
+    }
+    return ['ok' => true];
+}
+
+/** @return list<array<string,mixed>> */
+function platform_bank_moves_list(?string $fromDate = null, ?string $toDate = null, int $limit = 500): array
+{
+    $sql = 'SELECT * FROM platform_bank_moves';
+    $types = '';
+    $params = [];
+    if ($fromDate !== null && $toDate !== null) {
+        $sql .= ' WHERE occurred_on BETWEEN ? AND ?';
+        $types = 'ss';
+        $params = [$fromDate, $toDate];
+    }
+    $sql .= ' ORDER BY occurred_on DESC, id DESC LIMIT ' . max(1, min(2000, $limit));
+    try {
+        return $types !== '' ? db_all($sql, $types, $params) : db_all($sql);
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function platform_bank_sum(string $kind = '', ?string $fromDate = null, ?string $toDate = null): float
+{
+    $ccy = platform_currency();
+    $sql = 'SELECT currency, COALESCE(SUM(amount),0) AS t FROM platform_bank_moves WHERE 1=1';
+    $types = '';
+    $params = [];
+    if ($kind !== '') {
+        $sql .= ' AND kind = ?';
+        $types .= 's';
+        $params[] = platform_bank_normalize_kind($kind);
+    }
+    if ($fromDate !== null && $toDate !== null) {
+        $sql .= ' AND occurred_on BETWEEN ? AND ?';
+        $types .= 'ss';
+        $params[] = $fromDate;
+        $params[] = $toDate;
+    }
+    $sql .= ' GROUP BY currency';
+    try {
+        $rows = $types !== '' ? db_all($sql, $types, $params) : db_all($sql);
+    } catch (Throwable $e) {
+        return 0.0;
+    }
+    $total = 0.0;
+    foreach ($rows as $r) {
+        $total += platform_convert((float) ($r['t'] ?? 0), (string) ($r['currency'] ?? 'USD'), $ccy);
+    }
+    return round_money($total, $ccy);
+}
+
+function platform_bank_balance(): float
+{
+    $ccy = platform_currency();
+    return round_money(platform_bank_sum('save') - platform_bank_sum('withdraw'), $ccy);
+}
+
+/**
+ * @param 'day'|'month' $grain
+ * @return array<string, float>
+ */
+function platform_bank_series(string $kind, string $fromDate, string $toDate, string $grain = 'day'): array
+{
+    $ccy = platform_currency();
+    $kind = platform_bank_normalize_kind($kind);
+    $expr = $grain === 'month' ? 'DATE_FORMAT(occurred_on, "%Y-%m")' : 'occurred_on';
+    try {
+        $rows = db_all(
+            "SELECT {$expr} AS bucket, currency, COALESCE(SUM(amount),0) AS t
+             FROM platform_bank_moves
+             WHERE kind = ? AND occurred_on BETWEEN ? AND ?
+             GROUP BY bucket, currency",
+            'sss',
+            [$kind, $fromDate, $toDate]
+        );
+    } catch (Throwable $e) {
+        return [];
+    }
+    $out = [];
+    foreach ($rows as $r) {
+        $key = platform_finance_normalize_bucket($r['bucket'] ?? '', $grain);
+        if ($key === '') {
+            continue;
+        }
+        if (!isset($out[$key])) {
+            $out[$key] = 0.0;
+        }
+        $out[$key] += platform_convert((float) ($r['t'] ?? 0), (string) ($r['currency'] ?? 'USD'), $ccy);
+    }
+    foreach ($out as $k => $v) {
+        $out[$k] = round_money($v, $ccy);
     }
     return $out;
 }

@@ -2435,8 +2435,20 @@ table.grid tfoot td {
 .chart-box { padding: 16px 18px 22px; min-height: 300px; position: relative; overflow: hidden; }
 .chart-frame {
   height: 260px;
+  width: 100%;
   position: relative;
   overflow: hidden;
+}
+.chart-box > .chart-frame {
+  height: min(52vw, 280px);
+  min-height: 220px;
+  max-height: 340px;
+}
+@media (min-width: 900px) {
+  .chart-box > .chart-frame {
+    height: 320px;
+    max-height: none;
+  }
 }
 .chart-box canvas,
 .chart-frame canvas,
