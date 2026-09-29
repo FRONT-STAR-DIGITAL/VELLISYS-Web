@@ -28,9 +28,10 @@ sales_layout_start('Leads', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('clients') ?>Leads</h1>
-    <p class="lede">Status first. Rejected needs why they rejected Vellisys, an explanation, and nature of business.</p>
+    <p class="lede"><?= $bucket === 'pending' ? 'Your open follow-ups. Open one to call the contact and change status.' : 'Status first. Rejected needs why they rejected Vellisys, an explanation, and nature of business.' ?></p>
   </div>
   <div class="actions page-actions">
+    <a class="btn ghost" href="<?= h(url('sales_leads.php?bucket=pending')) ?>"><?= icon('calendar', 16) ?>Open follow-ups</a>
     <a class="btn" href="<?= h(url('sales_lead_edit.php')) ?>"><?= icon('plus', 16) ?>New lead</a>
   </div>
 </div>

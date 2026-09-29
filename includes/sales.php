@@ -2160,7 +2160,12 @@ function sales_leads_query(array $opts = []): array
             LEFT JOIN users u ON u.id = l.agent_id
             LEFT JOIN companies c ON c.id = l.company_id
             WHERE '
-        . implode(' AND ', $where) . ' ORDER BY l.updated_at DESC, l.id DESC';
+        . implode(' AND ', $where);
+    if (!empty($opts['follow_bucket']) && in_array((string) $opts['follow_bucket'], ['due', 'overdue'], true)) {
+        $sql .= ' ORDER BY l.follow_up_date ASC, l.follow_up_time IS NULL, l.follow_up_time ASC, l.id ASC';
+    } else {
+        $sql .= ' ORDER BY l.updated_at DESC, l.id DESC';
+    }
     if (!empty($opts['limit'])) {
         $sql .= ' LIMIT ' . (int) $opts['limit'];
     }
