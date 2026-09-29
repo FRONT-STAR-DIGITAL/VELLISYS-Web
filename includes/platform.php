@@ -213,8 +213,21 @@ function platform_expense_titles(): array
     return array_values(array_filter(array_map(static fn ($r) => (string) ($r['title'] ?? ''), $rows)));
 }
 
+function platform_expense_get(int $id): ?array
+{
+    if ($id < 1) {
+        return null;
+    }
+    try {
+        return db_one('SELECT * FROM platform_expenses WHERE id = ?', 'i', [$id]);
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
 function platform_expense_save(array $fields, ?int $actorId = null): array
 {
+    $id = (int) ($fields['id'] ?? 0);
     $title = mb_substr(trim((string) ($fields['title'] ?? $fields['expense'] ?? '')), 0, 190);
     $amount = function_exists('money_parse') ? money_parse((string) ($fields['amount'] ?? '0')) : (float) ($fields['amount'] ?? 0);
     $currency = normalize_currency((string) ($fields['currency'] ?? platform_currency()), platform_currency());
@@ -232,15 +245,27 @@ function platform_expense_save(array $fields, ?int $actorId = null): array
     $usd = platform_convert($amount, $currency, 'USD');
     $uid = (int) ($actorId ?? (current_user()['id'] ?? 0));
     try {
-        $id = db_exec(
+        if ($id > 0) {
+            $existing = platform_expense_get($id);
+            if (!$existing) {
+                return ['ok' => false, 'error' => 'Expense not found.'];
+            }
+            db_exec(
+                'UPDATE platform_expenses SET title=?, amount=?, currency=?, amount_usd=?, occurred_on=?, note=? WHERE id=?',
+                'sdsdssi',
+                [$title, $amount, $currency, $usd, $on, $note, $id]
+            );
+            return ['ok' => true, 'id' => $id];
+        }
+        $newId = db_exec(
             'INSERT INTO platform_expenses (title, amount, currency, amount_usd, occurred_on, note, created_by) VALUES (?,?,?,?,?,?,?)',
             'sdsdssi',
             [$title, $amount, $currency, $usd, $on, $note, $uid > 0 ? $uid : 0]
         );
+        return ['ok' => true, 'id' => (int) $newId];
     } catch (Throwable $e) {
         return ['ok' => false, 'error' => 'Could not save that expense.'];
     }
-    return ['ok' => true, 'id' => (int) $id];
 }
 
 function platform_expense_delete(int $id): array
@@ -249,6 +274,10 @@ function platform_expense_delete(int $id): array
         return ['ok' => false, 'error' => 'Expense not found.'];
     }
     try {
+        $existing = platform_expense_get($id);
+        if (!$existing) {
+            return ['ok' => false, 'error' => 'Expense not found.'];
+        }
         db_exec('DELETE FROM platform_expenses WHERE id = ?', 'i', [$id]);
     } catch (Throwable $e) {
         return ['ok' => false, 'error' => 'Could not delete that expense.'];

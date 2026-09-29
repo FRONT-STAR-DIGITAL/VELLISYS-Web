@@ -13,6 +13,9 @@ if (!in_array($tab, ['overview', 'expenses', 'reports'], true)) {
     $tab = 'overview';
 }
 $payId = (int) ($_GET['pay'] ?? 0);
+$expenseNew = isset($_GET['new']) && (string) $_GET['new'] !== '' && (string) $_GET['new'] !== '0';
+$expenseEditId = (int) ($_GET['edit'] ?? 0);
+$expenseViewId = (int) ($_GET['view'] ?? 0);
 $error = '';
 $ccy = platform_currency();
 
@@ -30,8 +33,9 @@ $filterQs = static function (string $tabName, array $extra = []) use ($period): 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
     $action = (string) post('action');
-    if ($action === 'add_expense') {
+    if ($action === 'save_expense') {
         $done = platform_expense_save([
+            'id' => (int) post('expense_id'),
             'title' => post('title'),
             'amount' => post('amount'),
             'currency' => post('currency') !== '' ? post('currency') : $ccy,
@@ -41,9 +45,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($done['ok'])) {
             $error = (string) ($done['error'] ?? 'Could not save expense.');
             $tab = 'expenses';
+            $eid = (int) post('expense_id');
+            if ($eid > 0) {
+                $expenseEditId = $eid;
+            } else {
+                $expenseNew = true;
+            }
         } else {
-            flash('Expense saved.');
-            redirect($filterQs('expenses'));
+            flash((int) post('expense_id') > 0 ? 'Expense updated.' : 'Expense saved.');
+            redirect($filterQs('expenses', ['view' => (string) ($done['id'] ?? '')]));
         }
     } elseif ($action === 'delete_expense') {
         $done = platform_expense_delete((int) post('expense_id'));
@@ -147,6 +157,17 @@ foreach ($companies as $c) {
 }
 
 $expenseTitles = platform_expense_titles();
+$expenseEditing = $expenseEditId > 0 ? platform_expense_get($expenseEditId) : null;
+$expenseViewing = $expenseViewId > 0 ? platform_expense_get($expenseViewId) : null;
+if ($expenseEditId > 0 && !$expenseEditing) {
+    $error = $error !== '' ? $error : 'Expense not found.';
+    $expenseEditId = 0;
+}
+if ($expenseViewId > 0 && !$expenseViewing) {
+    $error = $error !== '' ? $error : 'Expense not found.';
+    $expenseViewId = 0;
+}
+$showExpenseForm = $tab === 'expenses' && ($expenseNew || $expenseEditing || ($error !== '' && ($_SERVER['REQUEST_METHOD'] === 'POST') && in_array((string) post('action'), ['save_expense'], true)));
 $payCompany = null;
 foreach ($companies as $c) {
     if ((int) $c['id'] === $payId) {
@@ -199,7 +220,7 @@ layout_admin_start('Finances', $user);
   </div>
   <?php if ($tab === 'expenses'): ?>
     <div class="actions page-actions">
-      <a class="btn" href="#add-expense"><?= icon('plus', 16) ?>Add expense</a>
+      <a class="btn" href="<?= h(url($filterQs('expenses', ['new' => '1']))) ?>"><?= icon('plus', 16) ?>New expense</a>
     </div>
   <?php endif; ?>
 </div>
@@ -222,7 +243,7 @@ render_filters('admin_finances.php', $filterKeep, ['live' => true, 'today_first'
 <div class="stats">
   <div class="card stat"><?= icon('invoice', 20) ?><span>Taken in</span><strong><?= h(money($periodTaken, $ccy)) ?></strong><em>This period</em></div>
   <div class="card stat"><?= icon('expense', 20) ?><span>Expenses</span><strong><?= h(money($periodExpenses, $ccy)) ?></strong><em>This period</em></div>
-  <div class="card stat"><?= icon('reports', 20) ?><span>Profit</span><strong class="<?= $periodProfit < 0 ? 'neg' : 'pos' ?>"><?= h(money($periodProfit, $ccy)) ?></strong><em>Taken in − expenses</em></div>
+  <div class="card stat"><?= icon('reports', 20) ?><span>Profit</span><strong class="<?= $periodProfit < 0 ? 'neg' : 'pos' ?>"><?= h(money($periodProfit, $ccy)) ?></strong><em>Taken in - expenses</em></div>
   <div class="card stat"><?= icon('receipt', 20) ?><span>Still due</span><strong><?= h(money($feeBalance, $ccy)) ?></strong><em>On company terms</em></div>
 </div>
 
@@ -327,10 +348,10 @@ render_filters('admin_finances.php', $filterKeep, ['live' => true, 'today_first'
 <div class="card" style="margin-bottom:24px">
   <div class="card-head">
     <h2><?= icon('expense', 16) ?>Expenses</h2>
-    <a class="btn ghost sm" href="<?= h(url($filterQs('expenses'))) ?>"><?= icon('plus', 14) ?>Add</a>
+    <a class="btn ghost sm" href="<?= h(url($filterQs('expenses', ['new' => '1']))) ?>"><?= icon('plus', 14) ?>New expense</a>
   </div>
   <?php if (!$expenses): ?>
-    <p class="empty">No expenses in this date range. <a href="<?= h(url($filterQs('expenses'))) ?>">Add an expense</a>.</p>
+    <p class="empty">No expenses in this date range. <a href="<?= h(url($filterQs('expenses', ['new' => '1']))) ?>">New expense</a>.</p>
   <?php else: ?>
     <div class="table-scroll">
       <table class="grid finance-totals-table">
@@ -340,15 +361,28 @@ render_filters('admin_finances.php', $filterKeep, ['live' => true, 'today_first'
             <th>Expense</th>
             <th class="right">Amount</th>
             <th>Note</th>
+            <th class="row-actions"></th>
           </tr>
         </thead>
         <tbody>
           <?php foreach ($expenses as $ex): ?>
+            <?php $xid = (int) $ex['id']; ?>
             <tr>
               <td class="mono"><?= h(format_date((string) $ex['occurred_on'])) ?></td>
               <td><?= h((string) $ex['title']) ?></td>
               <td class="right mono"><?= h(platform_money((float) $ex['amount'], (string) $ex['currency'])) ?></td>
               <td><?= h((string) ($ex['note'] ?? '')) ?></td>
+              <td class="row-actions">
+                <a class="btn icon-only" href="<?= h(url($filterQs('expenses', ['view' => (string) $xid]))) ?>" title="View" aria-label="View"><?= icon('eye', 15) ?></a>
+                <a class="btn icon-only" href="<?= h(url($filterQs('expenses', ['edit' => (string) $xid]))) ?>" title="Edit" aria-label="Edit"><?= icon('pencil', 15) ?></a>
+                <form method="post" class="inline-form" onsubmit="return confirm('Delete this expense?');">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="action" value="delete_expense">
+                  <input type="hidden" name="expense_id" value="<?= $xid ?>">
+                  <input type="hidden" name="return_tab" value="overview">
+                  <button class="btn icon-only danger" type="submit" title="Delete" aria-label="Delete"><?= icon('trash', 15) ?></button>
+                </form>
+              </td>
             </tr>
           <?php endforeach; ?>
         </tbody>
@@ -356,7 +390,7 @@ render_filters('admin_finances.php', $filterKeep, ['live' => true, 'today_first'
           <tr>
             <td colspan="2"><strong>Total</strong></td>
             <td class="right mono"><strong><?= h(money($periodExpenses, $ccy)) ?></strong></td>
-            <td></td>
+            <td colspan="2"></td>
           </tr>
         </tfoot>
       </table>
@@ -416,15 +450,56 @@ render_filters('admin_finances.php', $filterKeep, ['live' => true, 'today_first'
 
 <?php elseif ($tab === 'expenses'): ?>
 
-<div class="card pad-form" style="margin-bottom:24px" id="add-expense">
-  <div class="card-head"><h2><?= icon('plus', 16) ?>Add expense</h2></div>
+<?php if ($expenseViewing && !$showExpenseForm): ?>
+<div class="card pad-form" style="margin-bottom:24px" id="expense-view">
+  <div class="card-head">
+    <h2><?= icon('eye', 16) ?>Expense</h2>
+    <div class="actions">
+      <a class="btn ghost sm" href="<?= h(url($filterQs('expenses', ['edit' => (string) (int) $expenseViewing['id']]))) ?>"><?= icon('pencil', 14) ?>Edit</a>
+      <a class="btn ghost sm" href="<?= h(url($filterQs('expenses'))) ?>">Close</a>
+    </div>
+  </div>
+  <dl class="party-brief">
+    <div><dt>Expense</dt><dd><?= h((string) $expenseViewing['title']) ?></dd></div>
+    <div><dt>Date</dt><dd class="mono"><?= h(format_date((string) $expenseViewing['occurred_on'])) ?></dd></div>
+    <div><dt>Amount</dt><dd class="mono"><?= h(platform_money((float) $expenseViewing['amount'], (string) $expenseViewing['currency'])) ?></dd></div>
+    <div><dt>Note</dt><dd><?= h((string) ($expenseViewing['note'] ?? '')) !== '' ? h((string) $expenseViewing['note']) : 'None' ?></dd></div>
+  </dl>
+  <div class="actions" style="margin-top:12px">
+    <form method="post" class="inline-form" onsubmit="return confirm('Delete this expense?');">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="delete_expense">
+      <input type="hidden" name="expense_id" value="<?= (int) $expenseViewing['id'] ?>">
+      <input type="hidden" name="return_tab" value="expenses">
+      <button class="btn danger sm" type="submit"><?= icon('trash', 14) ?>Delete</button>
+    </form>
+  </div>
+</div>
+<?php endif; ?>
+
+<?php if ($showExpenseForm): ?>
+<?php
+  $postedExpense = $_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'save_expense';
+  $formTitle = $postedExpense ? post('title') : (string) ($expenseEditing['title'] ?? '');
+  $formDate = $postedExpense ? post('occurred_on') : (string) ($expenseEditing['occurred_on'] ?? desk_now()->format('Y-m-d'));
+  $formAmount = $postedExpense ? post('amount') : (isset($expenseEditing['amount']) ? (string) $expenseEditing['amount'] : '');
+  $formCcy = $postedExpense ? (post('currency') !== '' ? post('currency') : $ccy) : (string) ($expenseEditing['currency'] ?? $ccy);
+  $formNote = $postedExpense ? post('note') : (string) ($expenseEditing['note'] ?? '');
+  $formId = (int) ($expenseEditing['id'] ?? ($postedExpense ? post('expense_id') : 0));
+?>
+<div class="card pad-form" style="margin-bottom:24px" id="expense-form">
+  <div class="card-head">
+    <h2><?= $formId > 0 ? icon('pencil', 16) . 'Edit expense' : icon('plus', 16) . 'New expense' ?></h2>
+    <a class="btn ghost sm" href="<?= h(url($filterQs('expenses'))) ?>">Cancel</a>
+  </div>
   <form method="post" class="pad-form">
     <?= csrf_field() ?>
-    <input type="hidden" name="action" value="add_expense">
+    <input type="hidden" name="action" value="save_expense">
+    <input type="hidden" name="expense_id" value="<?= $formId ?>">
     <div class="form-grid">
       <div class="full">
         <label for="title">Expense</label>
-        <input id="title" name="title" list="expense-titles" required value="<?= h(post('title')) ?>" placeholder="e.g. Fuel, Hosting, Airtime" autocomplete="off">
+        <input id="title" name="title" list="expense-titles" required value="<?= h($formTitle) ?>" placeholder="e.g. Fuel, Hosting, Airtime" autocomplete="off">
         <datalist id="expense-titles">
           <?php foreach ($expenseTitles as $t): ?>
             <option value="<?= h($t) ?>"></option>
@@ -434,31 +509,38 @@ render_filters('admin_finances.php', $filterKeep, ['live' => true, 'today_first'
       </div>
       <div>
         <label for="occurred_on">Date</label>
-        <input id="occurred_on" name="occurred_on" type="date" required value="<?= h(post('occurred_on') !== '' ? post('occurred_on') : desk_now()->format('Y-m-d')) ?>">
+        <input id="occurred_on" name="occurred_on" type="date" required value="<?= h($formDate) ?>">
       </div>
       <div>
         <label for="amount">Amount</label>
-        <input id="amount" name="amount" inputmode="decimal" required value="<?= h(post('amount')) ?>" placeholder="0">
+        <input id="amount" name="amount" inputmode="decimal" required value="<?= h($formAmount) ?>" placeholder="0">
       </div>
       <div>
         <label for="currency">Currency</label>
-        <?php currency_field('currency', 'currency', post('currency') !== '' ? post('currency') : $ccy); ?>
+        <?php currency_field('currency', 'currency', $formCcy); ?>
       </div>
       <div class="full">
         <label for="note">Note <span class="muted">(optional)</span></label>
-        <input id="note" name="note" value="<?= h(post('note')) ?>" placeholder="Optional detail">
+        <input id="note" name="note" value="<?= h($formNote) ?>" placeholder="Optional detail">
       </div>
     </div>
     <div class="actions" style="margin-top:12px">
-      <button class="btn" type="submit"><?= icon('check', 16) ?>Save expense</button>
+      <button class="btn" type="submit"><?= icon('check', 16) ?><?= $formId > 0 ? 'Save changes' : 'Save expense' ?></button>
+      <a class="btn ghost" href="<?= h(url($filterQs('expenses'))) ?>">Cancel</a>
     </div>
   </form>
 </div>
+<?php endif; ?>
 
 <div class="card">
-  <div class="card-head"><h2><?= icon('expense', 16) ?>Expenses · <?= h(format_date($from)) ?><?= $from !== $to ? ' – ' . h(format_date($to)) : '' ?></h2></div>
+  <div class="card-head">
+    <h2><?= icon('expense', 16) ?>Expenses · <?= h(format_date($from)) ?><?= $from !== $to ? ' - ' . h(format_date($to)) : '' ?></h2>
+    <?php if (!$showExpenseForm): ?>
+      <a class="btn ghost sm" href="<?= h(url($filterQs('expenses', ['new' => '1']))) ?>"><?= icon('plus', 14) ?>New expense</a>
+    <?php endif; ?>
+  </div>
   <?php if (!$expenses): ?>
-    <p class="empty">No expenses in this date range.</p>
+    <p class="empty">No expenses in this date range. <a href="<?= h(url($filterQs('expenses', ['new' => '1']))) ?>">New expense</a>.</p>
   <?php else: ?>
     <div class="table-scroll">
       <table class="grid finance-totals-table">
@@ -473,18 +555,21 @@ render_filters('admin_finances.php', $filterKeep, ['live' => true, 'today_first'
         </thead>
         <tbody>
           <?php foreach ($expenses as $ex): ?>
+            <?php $xid = (int) $ex['id']; ?>
             <tr>
               <td class="mono"><?= h(format_date((string) $ex['occurred_on'])) ?></td>
               <td><?= h((string) $ex['title']) ?></td>
               <td class="right mono"><?= h(platform_money((float) $ex['amount'], (string) $ex['currency'])) ?></td>
               <td><?= h((string) ($ex['note'] ?? '')) ?></td>
               <td class="row-actions">
+                <a class="btn icon-only" href="<?= h(url($filterQs('expenses', ['view' => (string) $xid]))) ?>" title="View" aria-label="View"><?= icon('eye', 15) ?></a>
+                <a class="btn icon-only" href="<?= h(url($filterQs('expenses', ['edit' => (string) $xid]))) ?>" title="Edit" aria-label="Edit"><?= icon('pencil', 15) ?></a>
                 <form method="post" class="inline-form" onsubmit="return confirm('Delete this expense?');">
                   <?= csrf_field() ?>
                   <input type="hidden" name="action" value="delete_expense">
-                  <input type="hidden" name="expense_id" value="<?= (int) $ex['id'] ?>">
+                  <input type="hidden" name="expense_id" value="<?= $xid ?>">
                   <input type="hidden" name="return_tab" value="expenses">
-                  <button class="btn danger sm" type="submit">Delete</button>
+                  <button class="btn icon-only danger" type="submit" title="Delete" aria-label="Delete"><?= icon('trash', 15) ?></button>
                 </form>
               </td>
             </tr>
