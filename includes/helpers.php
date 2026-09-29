@@ -995,10 +995,10 @@ function folio_defaults(): array
     return [
         'name' => 'Folio',
         'tagline' => 'Your invoices, in your colours',
-        'brand_color' => '#82B440',
+        'brand_color' => '#1E4EFF',
         'brand_accent' => '#C6A15B',
-        'brand_deep' => '#1F3A12',
-        'logo_path' => 'assets/img/ofagros-logo.png',
+        'brand_deep' => '#08143A',
+        'logo_path' => '',
         'prefix' => 'FOL',
         'plan' => 'sme',
         'currency' => 'UGX',
@@ -1020,6 +1020,47 @@ function folio_defaults(): array
         'tax_default' => 0,
         'signature_path' => '',
     ];
+}
+
+/** True when logo_path is the seeded Ofagros asset (must not leak to other desks). */
+function brand_logo_path_is_ofagros_seed(string $path): bool
+{
+    $path = strtolower(ltrim(trim($path), '/'));
+    return $path !== '' && (bool) preg_match('#(?:^|/)ofagros-logo\.(png|svg|jpe?g|webp)$#', $path);
+}
+
+function brand_is_ofagros_company(?array $brand = null): bool
+{
+    $brand = $brand ?? branding();
+    $name = strtolower(trim((string) ($brand['name'] ?? '')));
+    $email = strtolower(trim((string) ($brand['email'] ?? '')));
+    return str_contains($name, 'ofagros') || str_contains($email, 'ofagros');
+}
+
+/** Initials from a company / brand name (e.g. "Acme Traders" -> "AT"). */
+function brand_initials(?array $brand = null, string $fallback = 'V'): string
+{
+    $brand = $brand ?? (function_exists('branding') ? branding() : []);
+    $name = trim((string) ($brand['name'] ?? ''));
+    if ($name === '') {
+        return $fallback;
+    }
+    $parts = preg_split('/\s+/u', $name) ?: [];
+    $letters = '';
+    foreach ($parts as $part) {
+        $part = trim((string) $part);
+        if ($part === '') {
+            continue;
+        }
+        $letters .= mb_strtoupper(mb_substr($part, 0, 1));
+        if (mb_strlen($letters) >= 2) {
+            break;
+        }
+    }
+    if ($letters === '') {
+        $letters = mb_strtoupper(mb_substr(preg_replace('/\s+/u', '', $name) ?: $fallback, 0, 2));
+    }
+    return $letters !== '' ? $letters : $fallback;
 }
 
 function branding_for(int $companyId): array
@@ -1186,20 +1227,19 @@ function logo_url(?array $brand = null): string
 {
     $brand = $brand ?? branding();
     $path = ltrim((string) ($brand['logo_path'] ?? ''), '/');
-    $cid = (int) ($brand['company_id'] ?? current_company_id());
+    $cid = (int) ($brand['company_id'] ?? (function_exists('current_company_id') ? current_company_id() : 0));
+    // Never show the Ofagros seed logo on other companies (including new test desks).
+    if ($path !== '' && brand_logo_path_is_ofagros_seed($path) && !brand_is_ofagros_company($brand)) {
+        $path = '';
+    }
     if ($path !== '' && is_file(ROOT_PATH . '/' . $path)) {
         return url($path) . '?v=' . filemtime(ROOT_PATH . '/' . $path);
     }
     if ($cid > 0 && branding_asset_stored($cid, 'logo')) {
         return url('brand_asset.php?k=logo&c=' . $cid);
     }
-    foreach (['assets/img/ofagros-logo.png', 'assets/img/ofagros-logo.svg'] as $rel) {
-        $full = ROOT_PATH . '/' . $rel;
-        if (is_file($full)) {
-            return url($rel) . '?v=' . filemtime($full);
-        }
-    }
-    return product_mark_url();
+    // Empty = callers should show company initials, not a shared default logo.
+    return '';
 }
 
 function parties_for(string $kind = 'customer'): array

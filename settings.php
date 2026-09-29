@@ -560,8 +560,10 @@ layout_start('Settings', $user);
         <div>
           <label for="logo">Logo</label>
           <input id="logo" name="logo" type="file" accept="image/*,.svg">
-          <?php if (!empty($b['logo_path'])): ?>
-            <div class="logo-preview"><img src="<?= h(logo_url()) ?>" alt=""></div>
+          <?php $settingsLogo = logo_url($b); if ($settingsLogo !== ''): ?>
+            <div class="logo-preview"><img src="<?= h($settingsLogo) ?>" alt=""></div>
+          <?php else: ?>
+            <p class="hint" style="margin:6px 0 0">No logo yet - initials <strong><?= h(brand_initials($b)) ?></strong> show on the desk until you upload one.</p>
           <?php endif; ?>
         </div>
       </div>

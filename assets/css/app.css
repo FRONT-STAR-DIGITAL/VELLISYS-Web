@@ -220,6 +220,18 @@ summary {
   border-radius: 6px;
   transition: width .32s cubic-bezier(.22, 1, .36, 1), margin .32s ease;
 }
+.brand-logo-initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--brand) 16%, #fff);
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  line-height: 1;
+  object-fit: unset;
+}
 .brand-kicker {
   display: none;
 }

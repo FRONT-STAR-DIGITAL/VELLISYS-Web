@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 function desk_name_initials(string $name): string
 {
+    if (function_exists('brand_initials')) {
+        return brand_initials(['name' => $name], 'V');
+    }
     $parts = preg_split('/\s+/', trim($name)) ?: [];
     $letters = '';
     foreach ($parts as $part) {
@@ -129,7 +132,7 @@ function render_desk_company_card(?array $company, array $opts = []): void
       <?php if ($logo !== ''): ?>
         <img src="<?= h($logo) ?>" alt="">
       <?php else: ?>
-        <span><?= h($initials) ?></span>
+        <span class="cdash-company-initials"><?= h($initials) ?></span>
       <?php endif; ?>
     </div>
     <div class="cdash-company-copy">

@@ -4,12 +4,17 @@ declare(strict_types=1);
 function logo_file(?array $brand = null): ?string
 {
     $brand = $brand ?? branding();
-    $path = ltrim((string) ($brand['logo_path'] ?? 'assets/img/ofagros-logo.png'), '/');
-    foreach ([$path, 'assets/img/ofagros-logo.png'] as $rel) {
-        $full = ROOT_PATH . '/' . $rel;
-        if ($rel !== '' && is_file($full) && preg_match('/\.(png|jpe?g|gif)$/i', $rel)) {
-            return $full;
-        }
+    $path = ltrim((string) ($brand['logo_path'] ?? ''), '/');
+    if ($path !== '' && function_exists('brand_logo_path_is_ofagros_seed') && brand_logo_path_is_ofagros_seed($path)
+        && function_exists('brand_is_ofagros_company') && !brand_is_ofagros_company($brand)) {
+        $path = '';
+    }
+    if ($path === '') {
+        return null;
+    }
+    $full = ROOT_PATH . '/' . $path;
+    if (is_file($full) && preg_match('/\.(png|jpe?g|gif|webp)$/i', $path)) {
+        return $full;
     }
     return null;
 }

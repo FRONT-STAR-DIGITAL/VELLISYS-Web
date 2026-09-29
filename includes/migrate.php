@@ -25,7 +25,32 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '62';
+    return '63';
+}
+
+/**
+ * Clear the seeded Ofagros logo path from every non-Ofagros desk so new/test
+ * companies show initials until they upload their own mark.
+ */
+function folio_ensure_clear_ofagros_logo_leak(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    $flag = @$db->query("SELECT v FROM schema_meta WHERE k = 'clear_ofagros_logo_leak_v1'");
+    if ($flag && ($row = $flag->fetch_assoc()) && (string) ($row['v'] ?? '') === '1') {
+        return;
+    }
+    @$db->query(
+        "UPDATE branding
+         SET logo_path = ''
+         WHERE (logo_path LIKE '%ofagros-logo.%' OR logo_path = 'assets/img/ofagros-logo.png' OR logo_path = 'assets/img/ofagros-logo.svg')
+           AND LOWER(COALESCE(name, '')) NOT LIKE '%ofagros%'
+           AND LOWER(COALESCE(email, '')) NOT LIKE '%ofagros%'"
+    );
+    @$db->query("REPLACE INTO schema_meta (k, v) VALUES ('clear_ofagros_logo_leak_v1', '1')");
 }
 
 /** Super-admin platform expenses (Vellisys operating costs). */
@@ -645,6 +670,7 @@ function folio_migrate(mysqli $db): void
         vapid_ensure_tables();
     }
     folio_ensure_ofagros_pro_plan($db);
+    folio_ensure_clear_ofagros_logo_leak($db);
     folio_ensure_stock($db);
     folio_ensure_access_addons($db);
     folio_migrate_client_profile($db);

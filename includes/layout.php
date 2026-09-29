@@ -292,7 +292,12 @@ function layout_start(string $title, array $user, array $opts = []): void
   <button type="button" class="bell-scrim" data-bell-scrim hidden aria-label="Close notifications"></button>
   <aside class="nav" data-nav>
     <a class="brand" href="<?= h(url('dashboard.php')) ?>" title="<?= h($brand['name']) ?>">
-      <img class="brand-logo" src="<?= h(logo_url($brand)) ?>" alt="<?= h($brand['name']) ?>">
+      <?php $navLogo = logo_url($brand); ?>
+      <?php if ($navLogo !== ''): ?>
+        <img class="brand-logo" src="<?= h($navLogo) ?>" alt="<?= h($brand['name']) ?>">
+      <?php else: ?>
+        <span class="brand-logo brand-logo-initials" aria-hidden="true"><?= h(brand_initials($brand)) ?></span>
+      <?php endif; ?>
     </a>
     <nav>
       <?php foreach ($navGroups as $group): ?>

@@ -375,8 +375,19 @@ function notify_platform(string $subject, string $html, string $text, string $re
 
 function company_logo_inlines(array $brand): array
 {
-    $logoPath = (string) ($brand['logo_path'] ?? '');
-    $logoFull = $logoPath !== '' ? ROOT_PATH . '/' . ltrim($logoPath, '/') : '';
+    if (function_exists('logo_file')) {
+        $logoFull = logo_file($brand);
+        if ($logoFull) {
+            return [['cid' => 'company-logo', 'path' => $logoFull, 'name' => basename($logoFull)]];
+        }
+        return [];
+    }
+    $logoPath = ltrim((string) ($brand['logo_path'] ?? ''), '/');
+    if ($logoPath !== '' && function_exists('brand_logo_path_is_ofagros_seed') && brand_logo_path_is_ofagros_seed($logoPath)
+        && function_exists('brand_is_ofagros_company') && !brand_is_ofagros_company($brand)) {
+        return [];
+    }
+    $logoFull = $logoPath !== '' ? ROOT_PATH . '/' . $logoPath : '';
     if ($logoFull !== '' && is_file($logoFull)) {
         return [['cid' => 'company-logo', 'path' => $logoFull, 'name' => basename($logoFull)]];
     }
