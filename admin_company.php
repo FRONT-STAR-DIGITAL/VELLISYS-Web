@@ -43,18 +43,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash((string) ($done['error'] ?? 'Could not promote.'), 'err');
             redirect('admin_company.php?id=' . $id . '#promote-onboard');
         }
-        $msg = 'Promoted to onboard.';
+        $msg = 'Promoted to onboard · ' . ($done['email'] ?? '');
         if (!empty($done['email_changed'])) {
-            $msg .= ' Login is now ' . ($done['email'] ?? '') . ' · password Folio2026.';
-        } else {
-            $msg .= ' Login kept as ' . ($done['email'] ?? '') . '.';
+            $msg .= ' · password Folio2026';
         }
         if (($done['data_mode'] ?? '') === 'clean') {
-            $msg .= ' Trial data cleaned.';
-        } else {
-            $msg .= ' Trial data kept.';
+            $msg .= ' · data cleaned';
         }
-        $msg .= ' Finish paid term, mailbox and advanced settings below.';
         flash($msg);
         redirect('admin_company.php?id=' . $id);
     }
@@ -567,7 +562,6 @@ layout_admin_start($company['name'], $user);
   <p class="lede" style="margin-top:0">
     Ends <?= !empty($company['testing_expires_at']) ? h(format_date((string) $company['testing_expires_at'])) : '-' ?>
     · <?= h(company_testing_remaining_label($company)) ?>.
-    Promote when the client is ready for full onboard (emails, paid term, mailbox).
   </p>
   <?php if ($testingCreds): ?>
     <p><strong>Username:</strong> <code><?= h((string) ($testingCreds['email'] ?: '-')) ?></code></p>
@@ -580,7 +574,7 @@ layout_admin_start($company['name'], $user);
     <div class="full">
       <label for="desk_email">Desk login email</label>
       <input id="desk_email" name="desk_email" type="email" required value="<?= h((string) ($testingCreds['email'] ?? '')) ?>" placeholder="FirstWord@vellisys.com">
-      <p class="hint" style="margin:4px 0 0">Editable. Saving also resets the password to Folio2026.</p>
+      <p class="hint" style="margin:4px 0 0">Saving resets the password to Folio2026.</p>
     </div>
     <div class="full actions">
       <button class="btn sm" type="submit"><?= icon('check', 14) ?>Save login</button>
@@ -612,31 +606,29 @@ layout_admin_start($company['name'], $user);
 
   <div class="testing-promote" id="promote-onboard">
     <h3 style="margin:18px 0 6px">Promote to onboard</h3>
-    <p class="lede" style="margin:0 0 12px">When the client is serious, set their lasting desk login and choose whether to keep the trial books.</p>
     <form method="post" class="pad-form testing-promote-form">
       <?= csrf_field() ?>
       <input type="hidden" name="id" value="<?= $id ?>">
       <input type="hidden" name="action" value="testing_promote">
       <div class="form-grid">
         <div class="full">
-          <label for="promote_email">Lasting desk login email</label>
+          <label for="promote_email">Desk login email</label>
           <input id="promote_email" name="promote_email" type="email" required value="<?= h((string) ($testingCreds['email'] ?? '')) ?>" placeholder="accounts@theircompany.com" data-promote-email>
-          <p class="hint" style="margin:4px 0 0">Give them a better production email, or keep the trial login if they want it.</p>
         </div>
         <div class="full">
-          <label class="check"><input type="checkbox" name="keep_email" value="1" data-keep-email> Keep the current email (client wants the same login)</label>
+          <label class="check"><input type="checkbox" name="keep_email" value="1" data-keep-email> Keep the current email</label>
         </div>
         <div class="full">
-          <span class="label-text">Trial data</span>
+          <span class="label-text">Data</span>
           <div class="testing-promote-choices">
-            <label class="check"><input type="radio" name="data_mode" value="keep" checked> Keep existing data - clients, sheets and stock stay</label>
-            <label class="check"><input type="radio" name="data_mode" value="clean"> Clean data - wipe practice books for a fresh start</label>
+            <label class="check"><input type="radio" name="data_mode" value="keep" checked> Keep existing data</label>
+            <label class="check"><input type="radio" name="data_mode" value="clean"> Clean data</label>
           </div>
-          <p class="hint" style="margin:6px 0 0">Cleaning removes documents, stock, clients, mail log, activities, planner and P&amp;L. Logins, branding and mailbox settings stay.</p>
+          <p class="hint" style="margin:6px 0 0">Clean removes documents, stock, clients, mail log, activities, planner and P&amp;L. Logins, branding and mailbox stay.</p>
         </div>
       </div>
       <div class="actions" style="margin-top:14px">
-        <button class="btn" type="submit" onclick="return confirm('Promote this testing desk to full onboard with the choices above?');"><?= icon('check') ?>Promote to onboard</button>
+        <button class="btn" type="submit" onclick="return confirm('Promote this testing desk to onboard?');"><?= icon('check') ?>Promote to onboard</button>
       </div>
     </form>
   </div>

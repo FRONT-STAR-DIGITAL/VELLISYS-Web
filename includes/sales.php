@@ -1903,12 +1903,12 @@ function sales_promote_testing_to_onboard(int $companyId, array $opts = []): arr
         $email = $currentEmail;
     }
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        return ['ok' => false, 'error' => 'Enter a valid lasting desk login email.'];
+        return ['ok' => false, 'error' => 'Enter a valid desk login email.'];
     }
 
     $dataMode = strtolower(trim((string) ($opts['data_mode'] ?? 'keep')));
     if (!in_array($dataMode, ['keep', 'clean'], true)) {
-        return ['ok' => false, 'error' => 'Choose whether to keep or clean trial data.'];
+        return ['ok' => false, 'error' => 'Choose keep or clean data.'];
     }
 
     $emailChanged = $email !== $currentEmail;
@@ -1939,16 +1939,16 @@ function sales_promote_testing_to_onboard(int $companyId, array $opts = []): arr
         }
         $wipe = company_reset_training_data($companyId, array_keys(company_reset_scopes()));
         if (empty($wipe['ok'])) {
-            return ['ok' => false, 'error' => (string) ($wipe['error'] ?? 'Could not clean trial data.')];
+            return ['ok' => false, 'error' => (string) ($wipe['error'] ?? 'Could not clean data.')];
         }
         $cleared = $wipe['cleared'] ?? [];
     }
 
-    $noteBit = $dataMode === 'clean' ? 'trial data cleaned' : 'trial data kept';
+    $noteBit = $dataMode === 'clean' ? 'data cleaned' : 'data kept';
     if ($emailChanged) {
-        $noteBit .= '; login set to ' . $email;
+        $noteBit .= '; login ' . $email;
     } else {
-        $noteBit .= '; login kept (' . $email . ')';
+        $noteBit .= '; login kept';
     }
     db_exec(
         "UPDATE companies SET testing_mode = 0, testing_owner_id = NULL, testing_expires_at = NULL, status = 'onboarding',
@@ -2061,7 +2061,7 @@ function sales_testing_desk_enter(int $companyId, array $fromUser): array
         return ['ok' => false, 'error' => 'Testing company not found.'];
     }
     if (company_testing_expired($company)) {
-        return ['ok' => false, 'error' => 'This testing desk has expired. Ask admin to extend the time or promote to onboard.'];
+        return ['ok' => false, 'error' => 'This testing desk has ended.'];
     }
     $admin = db_one("SELECT * FROM users WHERE company_id = ? AND role = 'admin' ORDER BY id ASC LIMIT 1", 'i', [$companyId]);
     if (!$admin) {

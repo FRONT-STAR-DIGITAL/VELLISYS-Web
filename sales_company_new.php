@@ -4,13 +4,9 @@ require __DIR__ . '/includes/bootstrap.php';
 $user = require_sales_agent();
 sales_require_clock_in();
 
-/**
- * Test desks start from an interested lead (same flow), not a separate orphan create.
- * Keep this URL as a bridge for old bookmarks / ?lead= links.
- */
 $leadId = (int) ($_GET['lead'] ?? post('lead_id'));
 if ($leadId < 1) {
-    flash('Open an interested lead, then start the 2-week test from that lead.');
+    flash('Open an interested lead to start a test desk.');
     redirect('sales_leads.php?status=interested');
 }
 
@@ -47,9 +43,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'password' => (string) $made['password'],
         'expires_at' => (string) $made['expires_at'],
     ];
-    flash($made['name'] . ' is on a 2-week test. Hand the login on the lead page to the client.');
+    flash($made['name'] . ' test desk is ready. Login is on the lead page.');
     redirect('sales_lead_edit.php?id=' . $leadId . '#lead-testing');
 }
 
-// GET with ?lead= → send agent to the lead flow card (one place to generate the test).
 redirect('sales_lead_edit.php?id=' . $leadId . '#lead-testing');

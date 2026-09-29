@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'password' => (string) $made['password'],
             'expires_at' => (string) $made['expires_at'],
         ];
-        flash($made['name'] . ' is on a 2-week test. Hand the login below to the client.');
+        flash($made['name'] . ' test desk is ready. Login is below.');
         redirect('sales_lead_edit.php?id=' . (int) $lead['id'] . '#lead-testing');
     }
     if ($locked) {
@@ -82,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'password' => (string) $made['password'],
                     'expires_at' => (string) $made['expires_at'],
                 ];
-                flash($made['name'] . ' saved as interested and put on a 2-week test. Hand the login below to the client.');
+                flash($made['name'] . ' saved. Test desk login is below.');
             } elseif (empty($made['company_id'])) {
                 flash('Lead saved, but test desk was not opened: ' . (string) ($made['error'] ?? 'unknown error'), 'err');
             }
@@ -125,7 +125,7 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
 <div class="page-head">
   <div>
     <h1><?= icon($id ? 'pencil' : 'plus') ?><?= $id ? 'Edit lead' : 'New lead' ?></h1>
-    <p class="lede">One flow: mark interest, open a 2-week test from this lead when they want to try, then ask admin to promote when they are ready to onboard.</p>
+    <p class="lede">Pick the status first. Rejected needs why they rejected Vellisys, an explanation, and nature of business. Follow-up needs an interest rating.</p>
   </div>
   <div class="actions page-actions">
     <a class="btn ghost" href="<?= h(url('sales_leads.php')) ?>">Back</a>
@@ -138,24 +138,18 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
     <h2 style="margin-top:0"><?= ($lead['status'] ?? '') === 'onboarding' ? 'In onboarding' : 'Onboarded' ?></h2>
     <p class="lede" style="margin-top:0">
       <?php if (($lead['status'] ?? '') === 'onboarding'): ?>
-        Super admin is finishing paid term, mailbox and settings. You can still message admin from Chat if the client needs something.
+        Message admin from Chat if the client needs help while onboarding finishes.
       <?php else: ?>
-        This client is live. Ask admin if you need changes.
+        This client is live. Message admin if you need a change.
       <?php endif; ?>
     </p>
-    <?php if (!empty($lead['company_id'])): ?>
-      <p class="hint">Company #<?= (int) $lead['company_id'] ?> is linked to this lead.</p>
-    <?php endif; ?>
   </div>
 <?php elseif ($lead && ($lead['status'] ?? '') === 'interested'): ?>
   <div class="card pad-form lead-flow-card" id="lead-testing" style="margin-bottom:16px">
-    <h2 style="margin-top:0">Interested · testing</h2>
+    <h2 style="margin-top:0">Testing</h2>
     <?php if ($testCompany && !empty($testCompany['testing_mode'])): ?>
       <p class="lede" style="margin-top:0">
-        This client is on a 2-week test desk
-        <?php if (!empty($testCompany['testing_expires_at'])): ?>
-          · ends <?= h(format_date((string) $testCompany['testing_expires_at'])) ?>
-        <?php endif; ?>
+        Ends <?= !empty($testCompany['testing_expires_at']) ? h(format_date((string) $testCompany['testing_expires_at'])) : '-' ?>
         · <?= h(company_testing_remaining_label($testCompany)) ?>.
       </p>
       <?php if ($testCreds): ?>
@@ -163,9 +157,7 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
         <p><strong>Password:</strong> <code data-copy><?= h((string) (($testCreds['password'] !== '' ? $testCreds['password'] : sales_testing_default_password()))) ?></code></p>
       <?php endif; ?>
       <?php if ($testExpired): ?>
-        <p class="flash flash-err" style="margin:12px 0 0">Test ended. Ask super admin to extend time or promote to onboard (they can keep or clean trial data).</p>
-      <?php else: ?>
-        <p class="hint">Walk them through the desk. When they are serious about full onboard, tell super admin - they set the lasting email and choose keep or clean data.</p>
+        <p class="flash flash-err" style="margin:12px 0 0">Test ended. Message admin to extend or promote.</p>
       <?php endif; ?>
       <div class="actions wrap-actions" style="margin-top:12px">
         <?php if (!$testExpired): ?>
@@ -175,15 +167,15 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
         <a class="btn ghost" href="<?= h(url('sales_messages.php')) ?>"><?= icon('mail', 14) ?>Message admin</a>
       </div>
     <?php elseif ($testCompany && empty($testCompany['testing_mode'])): ?>
-      <p class="lede" style="margin-top:0">This lead already has a company desk that is no longer in testing (onboarding or live). Super admin owns the next steps.</p>
+      <p class="lede" style="margin-top:0">This lead’s company is past testing. Message admin if you need help.</p>
     <?php else: ?>
-      <p class="lede" style="margin-top:0">Interested and wants to try first? Open a 2-week test desk from this lead. Login defaults to FirstWord@vellisys.com · Folio2026.</p>
+      <p class="lede" style="margin-top:0">Open a test desk for this client. Login: first word of the business name @vellisys.com · Folio2026.</p>
       <form method="post" class="actions" style="margin-top:12px">
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="start_testing">
-        <button class="btn" type="submit"><?= icon('plus', 14) ?>Open 2-week test desk</button>
+        <button class="btn" type="submit"><?= icon('plus', 14) ?>Open test desk</button>
       </form>
-      <p class="hint" style="margin-top:10px">Uses the business name, contact and phone saved on this lead. Save those fields first if they are empty.</p>
+      <p class="hint" style="margin-top:10px">Needs business name, contact person and phone saved above.</p>
     <?php endif; ?>
   </div>
 <?php endif; ?>
@@ -263,9 +255,9 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
       <?php if (!$lead || empty($testCompany) || empty($testCompany['testing_mode'])): ?>
         <label class="check lead-wants-testing" style="margin-top:14px">
           <input type="checkbox" name="wants_testing" value="1" data-wants-testing <?= post('wants_testing') !== '' ? 'checked' : '' ?>>
-          Interested and wants testing - also open a 2-week test desk when I save
+          Also open a test desk when I save
         </label>
-        <p class="hint">Same flow, one save. Needs business name, contact person and phone above.</p>
+        <p class="hint">Needs business name, contact person and phone above.</p>
       <?php endif; ?>
     </div>
 

@@ -62,7 +62,7 @@ $creds = sales_testing_credentials($id);
 <div class="page-head">
   <div>
     <h1><?= icon('desk') ?><?= h((string) $company['name']) ?></h1>
-    <p class="lede">Open this client's testing desk for a walkthrough. <?= h(company_testing_remaining_label($company)) ?>.</p>
+    <p class="lede"><?= h(company_testing_remaining_label($company)) ?>.</p>
   </div>
 </div>
 <div class="card pad-form">

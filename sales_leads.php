@@ -28,7 +28,7 @@ sales_layout_start('Leads', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('clients') ?>Leads</h1>
-    <p class="lede">Interest, follow-up and rejection live here. Open an interested lead to start a 2-week test in the same place.</p>
+    <p class="lede">Status first. Rejected needs why they rejected Vellisys, an explanation, and nature of business.</p>
   </div>
   <div class="actions page-actions">
     <a class="btn" href="<?= h(url('sales_lead_edit.php')) ?>"><?= icon('plus', 16) ?>New lead</a>

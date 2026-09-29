@@ -73,12 +73,12 @@ sales_layout_start((string) $company['name'], $user);
 
 <?php if ($error): ?><p class="flash flash-err"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
 <?php if ($expired): ?>
-  <p class="flash flash-err">This testing desk has ended. Ask super admin to extend the time or promote to onboard (lasting email + keep or clean data).</p>
+  <p class="flash flash-err">This testing desk has ended. Message admin to extend or promote.</p>
 <?php endif; ?>
 
 <div class="card pad-form sales-creds-card" style="margin-bottom:16px">
   <h2 style="margin-top:0">Client login</h2>
-  <p class="lede" style="margin-top:0">Hand these credentials to the client so they can sign in at the portal.</p>
+  <p class="lede" style="margin-top:0">Give these to the client to sign in.</p>
   <p><strong>Username:</strong> <code><?= h((string) ($creds['email'] ?: '-')) ?></code></p>
   <p><strong>Password:</strong> <code><?= h((string) ($creds['password'] !== '' ? $creds['password'] : '(not stored - ask admin)')) ?></code></p>
 </div>

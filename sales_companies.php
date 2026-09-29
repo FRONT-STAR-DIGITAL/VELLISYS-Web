@@ -31,7 +31,7 @@ sales_layout_start('My companies', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('building') ?>My companies</h1>
-    <p class="lede">Testing desks tied to your interested leads. Open a lead and start the test there - this list is the quick view.</p>
+    <p class="lede">Your testing desks. Open a lead to start a new test.</p>
   </div>
   <div class="actions page-actions">
     <a class="btn" href="<?= h(url('sales_leads.php?status=interested')) ?>"><?= icon('clients', 14) ?>Interested leads</a>
@@ -40,8 +40,8 @@ sales_layout_start('My companies', $user);
 
 <?php if (is_array($credsFlash) && !empty($credsFlash['email'])): ?>
 <div class="card pad-form sales-creds-card" style="margin-bottom:16px">
-  <h2 style="margin-top:0">Hand these to the client</h2>
-  <p class="lede" style="margin-top:0"><?= h((string) ($credsFlash['name'] ?? 'Testing desk')) ?> - testing until <?= h(format_date((string) ($credsFlash['expires_at'] ?? ''))) ?>.</p>
+  <h2 style="margin-top:0">Client login</h2>
+  <p class="lede" style="margin-top:0"><?= h((string) ($credsFlash['name'] ?? 'Testing desk')) ?> · ends <?= h(format_date((string) ($credsFlash['expires_at'] ?? ''))) ?>.</p>
   <p><strong>Username:</strong> <code data-copy><?= h((string) $credsFlash['email']) ?></code></p>
   <p><strong>Password:</strong> <code data-copy><?= h((string) $credsFlash['password']) ?></code></p>
   <div class="actions">
@@ -59,7 +59,7 @@ sales_layout_start('My companies', $user);
 
 <div class="card">
   <?php if (!$companies): ?>
-    <p class="empty">No testing desks yet. Open an <a href="<?= h(url('sales_leads.php?status=interested')) ?>">interested lead</a> and start the 2-week test from that lead.</p>
+    <p class="empty">No testing desks yet. Open an <a href="<?= h(url('sales_leads.php?status=interested')) ?>">interested lead</a> to start one.</p>
   <?php else: ?>
     <div class="table-scroll">
     <table class="grid">
@@ -109,7 +109,6 @@ sales_layout_start('My companies', $user);
       </tbody>
     </table>
     </div>
-    <p class="hint">When the client is ready for full onboard, ask super admin - they set the lasting email and choose whether to keep or clean trial data.</p>
   <?php endif; ?>
 </div>
 <?php sales_layout_end(); ?>

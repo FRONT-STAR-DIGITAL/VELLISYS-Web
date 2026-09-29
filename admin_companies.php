@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = (string) ($made['error'] ?? 'Could not create testing company.');
         } else {
             flash(
-                $made['name'] . ' is in testing mode. Desk login '
+                $made['name'] . ' created. Desk login '
                 . $made['email'] . ' - password ' . $made['password'] . '.'
             );
             redirect('admin_company.php?id=' . (int) $made['company_id']);
@@ -94,7 +94,7 @@ layout_admin_start('Companies', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('building') ?>Companies</h1>
-    <p class="lede">Who is online, who signed in last, how heavily they use the desk, and when their term renews. Testing desks sit in their own table below.</p>
+    <p class="lede">Who is online, who signed in last, how heavily they use the desk, and when their term renews.</p>
   </div>
   <a class="btn" href="<?= h(url('admin_company_new.php')) ?>"><?= icon('plus') ?>New company</a>
 </div>
@@ -173,7 +173,7 @@ layout_admin_start('Companies', $user);
   <div class="company-table-head">
     <div>
       <h2 style="margin:0">Testing mode</h2>
-      <p class="lede" style="margin:6px 0 0">Sales-agent trial desks. Default 2 weeks. Extend, shorten, promote to onboard, or delete.</p>
+      <p class="lede" style="margin:6px 0 0">Trial desks. Default 2 weeks.</p>
     </div>
     <?php if ($testing): ?>
       <label class="company-table-search">
@@ -259,7 +259,7 @@ layout_admin_start('Companies', $user);
       </tbody>
     </table>
     </div>
-    <p class="hint">Scroll sideways on a phone to see every action. Desk login defaults to FirstWord@vellisys.com · password Folio2026. Edit the login on the company page.</p>
+    <p class="hint">On a phone, scroll sideways for every action. Default login: first word of the business @vellisys.com · Folio2026.</p>
   <?php endif; ?>
 
   <details class="sales-test-create" style="margin-top:20px">
@@ -292,7 +292,7 @@ layout_admin_start('Companies', $user);
         <div>
           <label for="t_email">Desk login email</label>
           <input id="t_email" name="user_email" type="email" value="<?= h(post('user_email')) ?>" placeholder="FirstWord@vellisys.com">
-          <p class="hint" style="margin:4px 0 0">Leave blank to use the first word of the business name @vellisys.com. Password is always Folio2026.</p>
+          <p class="hint" style="margin:4px 0 0">Leave blank for firstword@vellisys.com. Password: Folio2026.</p>
         </div>
         <div>
           <label for="t_city">City</label>
