@@ -57,13 +57,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash(empty($done['ok']) ? ($done['error'] ?? 'Failed') : ('Desk login updated to ' . ($done['email'] ?? '') . (post('reset_password') !== '' ? ' · password Folio2026' : '')), empty($done['ok']) ? 'err' : 'ok');
         redirect('admin_companies.php#testing');
     } elseif ($action === 'testing_promote') {
-        $done = sales_promote_testing_to_onboard($tid);
-        if (empty($done['ok'])) {
-            flash((string) ($done['error'] ?? 'Could not promote.'), 'err');
-            redirect('admin_companies.php#testing');
-        }
-        flash('Promoted to onboard. Finish emails and advanced settings on the company page.');
-        redirect('admin_company.php?id=' . $tid);
+        // Promote needs email + keep/clean choices on the company page.
+        redirect('admin_company.php?id=' . $tid . '#promote-onboard');
     } elseif ($action === 'testing_delete') {
         $confirm = trim(post('delete_confirm'));
         $co = db_one('SELECT name FROM companies WHERE id = ? AND testing_mode = 1', 'i', [$tid]);
@@ -249,12 +244,7 @@ layout_admin_start('Companies', $user);
                   <input type="date" name="testing_expires_at" value="<?= h($expVal) ?>" required aria-label="End date">
                   <button class="btn ghost sm" type="submit">Set end</button>
                 </form>
-                <form method="post" class="inline-form" onsubmit="return confirm('Promote to full onboard? Testing limits will clear.');">
-                  <?= csrf_field() ?>
-                  <input type="hidden" name="action" value="testing_promote">
-                  <input type="hidden" name="company_id" value="<?= $cid ?>">
-                  <button class="btn sm" type="submit">Onboard</button>
-                </form>
+                <a class="btn sm" href="<?= h(url('admin_company.php?id=' . $cid . '#promote-onboard')) ?>">Onboard</a>
                 <form method="post" class="inline-form testing-delete-form">
                   <?= csrf_field() ?>
                   <input type="hidden" name="action" value="testing_delete">

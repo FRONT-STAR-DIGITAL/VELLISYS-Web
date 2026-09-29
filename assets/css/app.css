@@ -7058,6 +7058,26 @@ a.cdash-metric:hover {
   width: 132px;
   max-width: none;
 }
+.testing-promote {
+  border-top: 1px solid var(--line);
+  margin-top: 16px;
+  padding-top: 4px;
+}
+.testing-promote-choices {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+.testing-promote-form input.is-readonly,
+.testing-promote-form input[readonly] {
+  background: #f3f5f7;
+  color: #445;
+}
+.testing-promote-form .label-text {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
 .sales-creds-card code {
   word-break: break-all;
 }

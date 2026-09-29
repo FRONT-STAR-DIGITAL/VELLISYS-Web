@@ -1812,26 +1812,127 @@ function sales_set_testing_expiry(int $companyId, string $when): array
     return ['ok' => true, 'expires_at' => $stamp];
 }
 
-/** Clear testing flags so the desk can be finished as a normal onboard. */
-function sales_promote_testing_to_onboard(int $companyId): array
+/**
+ * Promote a testing desk to normal onboard.
+ *
+ * Options:
+ * - desk_email: lasting login (blank = keep current)
+ * - keep_email: when true, ignore desk_email and keep current login
+ * - data_mode: "keep" (default) or "clean" (wipe practice books via training reset)
+ */
+function sales_promote_testing_to_onboard(int $companyId, array $opts = []): array
 {
     $company = db_one('SELECT * FROM companies WHERE id = ? AND testing_mode = 1', 'i', [$companyId]);
     if (!$company) {
         return ['ok' => false, 'error' => 'Testing company not found.'];
     }
-    db_exec(
-        "UPDATE companies SET testing_mode = 0, testing_owner_id = NULL, testing_expires_at = NULL, status = 'onboarding',
-         notes = CONCAT(COALESCE(notes,''), '\nPromoted from testing mode on ', DATE_FORMAT(NOW(), '%Y-%m-%d'))
-         WHERE id = ?",
+
+    $admin = db_one(
+        "SELECT id, email FROM users WHERE company_id = ? AND role = 'admin' ORDER BY id ASC LIMIT 1",
         'i',
         [$companyId]
     );
+    if (!$admin) {
+        return ['ok' => false, 'error' => 'No desk login on this testing company.'];
+    }
+
+    $currentEmail = strtolower(trim((string) ($admin['email'] ?? '')));
+    $keepEmail = !empty($opts['keep_email']);
+    $email = $keepEmail
+        ? $currentEmail
+        : strtolower(trim((string) ($opts['desk_email'] ?? $currentEmail)));
+    if ($email === '') {
+        $email = $currentEmail;
+    }
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return ['ok' => false, 'error' => 'Enter a valid lasting desk login email.'];
+    }
+
+    $dataMode = strtolower(trim((string) ($opts['data_mode'] ?? 'keep')));
+    if (!in_array($dataMode, ['keep', 'clean'], true)) {
+        return ['ok' => false, 'error' => 'Choose whether to keep or clean trial data.'];
+    }
+
+    $emailChanged = $email !== $currentEmail;
+    $password = '';
+    if ($emailChanged) {
+        $taken = db_one('SELECT id FROM users WHERE email = ? AND id <> ?', 'si', [$email, (int) $admin['id']]);
+        if ($taken) {
+            return ['ok' => false, 'error' => 'That email already has a Vellisys login.'];
+        }
+        $login = sales_testing_set_login($companyId, $email, true);
+        if (empty($login['ok'])) {
+            return ['ok' => false, 'error' => (string) ($login['error'] ?? 'Could not update desk login.')];
+        }
+        $password = (string) ($login['password'] ?? sales_testing_default_password());
+        $email = (string) ($login['email'] ?? $email);
+    } else {
+        $creds = sales_testing_credentials($companyId);
+        $password = (string) ($creds['password'] ?? '');
+        if ($password === '') {
+            $password = sales_testing_default_password();
+        }
+    }
+
+    $cleared = [];
+    if ($dataMode === 'clean') {
+        if (!function_exists('company_reset_training_data') || !function_exists('company_reset_scopes')) {
+            return ['ok' => false, 'error' => 'Data clean is unavailable right now. Try again after refresh.'];
+        }
+        $wipe = company_reset_training_data($companyId, array_keys(company_reset_scopes()));
+        if (empty($wipe['ok'])) {
+            return ['ok' => false, 'error' => (string) ($wipe['error'] ?? 'Could not clean trial data.')];
+        }
+        $cleared = $wipe['cleared'] ?? [];
+    }
+
+    $noteBit = $dataMode === 'clean' ? 'trial data cleaned' : 'trial data kept';
+    if ($emailChanged) {
+        $noteBit .= '; login set to ' . $email;
+    } else {
+        $noteBit .= '; login kept (' . $email . ')';
+    }
+    db_exec(
+        "UPDATE companies SET testing_mode = 0, testing_owner_id = NULL, testing_expires_at = NULL, status = 'onboarding',
+         notes = CONCAT(COALESCE(notes,''), '\nPromoted from testing on ', DATE_FORMAT(NOW(), '%Y-%m-%d'), ' · ', ?)
+         WHERE id = ?",
+        'si',
+        [$noteBit, $companyId]
+    );
+
+    $vaultRow = db_one('SELECT id FROM sales_vault WHERE company_id = ? ORDER BY id DESC LIMIT 1', 'i', [$companyId]);
+    if ($vaultRow && function_exists('sales_vault_save')) {
+        sales_vault_save([
+            'company_id' => $companyId,
+            'company_name' => (string) $company['name'],
+            'email' => $email,
+            'password' => $password,
+            'notes' => 'Promoted from testing · ' . $noteBit,
+        ], (int) $vaultRow['id']);
+    }
+
     $lead = db_one('SELECT id, status FROM sales_leads WHERE company_id = ? ORDER BY id DESC LIMIT 1', 'i', [$companyId]);
     if ($lead && (string) $lead['status'] === 'interested') {
         db_exec("UPDATE sales_leads SET status='onboarding', updated_at=NOW() WHERE id=?", 'i', [(int) $lead['id']]);
-        sales_lead_event((int) $lead['id'], (int) (current_user()['id'] ?? 0), 'onboarding', 'interested', 'onboarding', 'Promoted testing company #' . $companyId);
+        sales_lead_event(
+            (int) $lead['id'],
+            (int) (current_user()['id'] ?? 0),
+            'onboarding',
+            'interested',
+            'onboarding',
+            'Promoted testing company #' . $companyId . ' · ' . $noteBit
+        );
     }
-    return ['ok' => true, 'company_id' => $companyId];
+
+    return [
+        'ok' => true,
+        'company_id' => $companyId,
+        'email' => $email,
+        'password' => $password,
+        'email_changed' => $emailChanged,
+        'data_mode' => $dataMode,
+        'cleared' => $cleared,
+    ];
 }
 
 function sales_update_testing_company(int $companyId, array $fields, ?int $agentId = null): array

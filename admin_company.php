@@ -33,8 +33,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('admin_company.php?id=' . $id);
     }
     if ($action === 'testing_promote') {
-        $done = sales_promote_testing_to_onboard($id);
-        flash(empty($done['ok']) ? ($done['error'] ?? 'Could not promote.') : 'Promoted from testing to onboard. Finish emails and advanced settings below.', empty($done['ok']) ? 'err' : 'ok');
+        $keepEmail = post('keep_email') !== '';
+        $done = sales_promote_testing_to_onboard($id, [
+            'desk_email' => post('promote_email'),
+            'keep_email' => $keepEmail,
+            'data_mode' => post('data_mode') ?: 'keep',
+        ]);
+        if (empty($done['ok'])) {
+            flash((string) ($done['error'] ?? 'Could not promote.'), 'err');
+            redirect('admin_company.php?id=' . $id . '#promote-onboard');
+        }
+        $msg = 'Promoted to onboard.';
+        if (!empty($done['email_changed'])) {
+            $msg .= ' Login is now ' . ($done['email'] ?? '') . ' · password Folio2026.';
+        } else {
+            $msg .= ' Login kept as ' . ($done['email'] ?? '') . '.';
+        }
+        if (($done['data_mode'] ?? '') === 'clean') {
+            $msg .= ' Trial data cleaned.';
+        } else {
+            $msg .= ' Trial data kept.';
+        }
+        $msg .= ' Finish paid term, mailbox and advanced settings below.';
+        flash($msg);
         redirect('admin_company.php?id=' . $id);
     }
     if ($action === 'testing_set_login') {
@@ -587,14 +608,61 @@ layout_admin_start($company['name'], $user);
       <input type="date" name="testing_expires_at" value="<?= h(!empty($company['testing_expires_at']) ? substr((string) $company['testing_expires_at'], 0, 10) : '') ?>" required>
       <button class="btn ghost sm" type="submit">Set end date</button>
     </form>
-    <form method="post" class="inline-form" onsubmit="return confirm('Promote to full onboard?');">
+  </div>
+
+  <div class="testing-promote" id="promote-onboard">
+    <h3 style="margin:18px 0 6px">Promote to onboard</h3>
+    <p class="lede" style="margin:0 0 12px">When the client is serious, set their lasting desk login and choose whether to keep the trial books.</p>
+    <form method="post" class="pad-form testing-promote-form">
       <?= csrf_field() ?>
       <input type="hidden" name="id" value="<?= $id ?>">
       <input type="hidden" name="action" value="testing_promote">
-      <button class="btn sm" type="submit"><?= icon('check', 14) ?>Promote to onboard</button>
+      <div class="form-grid">
+        <div class="full">
+          <label for="promote_email">Lasting desk login email</label>
+          <input id="promote_email" name="promote_email" type="email" required value="<?= h((string) ($testingCreds['email'] ?? '')) ?>" placeholder="accounts@theircompany.com" data-promote-email>
+          <p class="hint" style="margin:4px 0 0">Give them a better production email, or keep the trial login if they want it.</p>
+        </div>
+        <div class="full">
+          <label class="check"><input type="checkbox" name="keep_email" value="1" data-keep-email> Keep the current email (client wants the same login)</label>
+        </div>
+        <div class="full">
+          <span class="label-text">Trial data</span>
+          <div class="testing-promote-choices">
+            <label class="check"><input type="radio" name="data_mode" value="keep" checked> Keep existing data - clients, sheets and stock stay</label>
+            <label class="check"><input type="radio" name="data_mode" value="clean"> Clean data - wipe practice books for a fresh start</label>
+          </div>
+          <p class="hint" style="margin:6px 0 0">Cleaning removes documents, stock, clients, mail log, activities, planner and P&amp;L. Logins, branding and mailbox settings stay.</p>
+        </div>
+      </div>
+      <div class="actions" style="margin-top:14px">
+        <button class="btn" type="submit" onclick="return confirm('Promote this testing desk to full onboard with the choices above?');"><?= icon('check') ?>Promote to onboard</button>
+      </div>
     </form>
   </div>
 </div>
+<script>
+(function () {
+  var form = document.querySelector('.testing-promote-form');
+  if (!form) return;
+  var email = form.querySelector('[data-promote-email]');
+  var keep = form.querySelector('[data-keep-email]');
+  if (!email || !keep) return;
+  var original = email.value;
+  function sync() {
+    if (keep.checked) {
+      email.value = original;
+      email.readOnly = true;
+      email.classList.add('is-readonly');
+    } else {
+      email.readOnly = false;
+      email.classList.remove('is-readonly');
+    }
+  }
+  keep.addEventListener('change', sync);
+  sync();
+})();
+</script>
 <?php endif; ?>
 
 <div class="stats">
