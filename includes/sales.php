@@ -1663,10 +1663,13 @@ function sales_create_testing_company(array $fields, int $actorId, bool $asPlatf
         return ['ok' => false, 'error' => 'Select at least one document type for this test desk.'];
     }
     $preferredEmail = strtolower(trim((string) ($fields['user_email'] ?? $fields['desk_email'] ?? '')));
-    $userEmail = sales_testing_generate_login($name, $preferredEmail);
-    if ($userEmail === '') {
-        return ['ok' => false, 'error' => 'That desk login email is already in use. Pick another.'];
+    if ($preferredEmail === '' || !filter_var($preferredEmail, FILTER_VALIDATE_EMAIL)) {
+        return ['ok' => false, 'error' => 'Enter the client\'s preferred login email.'];
     }
+    if (db_one('SELECT id FROM users WHERE email = ?', 's', [$preferredEmail])) {
+        return ['ok' => false, 'error' => 'That email already has a Vellisys login. Pick another.'];
+    }
+    $userEmail = $preferredEmail;
     $password = sales_testing_default_password();
     // Prefer explicit field kinds (lead flow); fall back to the posted desk-kinds form.
     if (!empty($_POST['enabled_kinds']) && is_array($_POST['enabled_kinds']) && function_exists('posted_enabled_kinds')) {
