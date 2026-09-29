@@ -152,6 +152,17 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
 </div>
 <?php if ($error): ?><p class="flash flash-err"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
 
+<?php if ($lead && !$locked && ($lead['status'] ?? '') === 'follow_up'): ?>
+  <div class="card pad-form lead-flow-card" id="lead-followup" style="margin-bottom:16px">
+    <div class="card-head" style="padding:0;margin-bottom:8px;border:0">
+      <h2 style="margin:0"><?= icon('calendar', 16) ?>Open follow-up</h2>
+      <span class="pill warn">Due <?= h(sales_format_follow_up($lead)) ?></span>
+    </div>
+    <p class="lede" style="margin-top:0">Call or message the contact, then change status below to Interested, another Follow up date, or Rejected.</p>
+    <?php sales_render_lead_contact($lead); ?>
+  </div>
+<?php endif; ?>
+
 <?php if ($lead && in_array(($lead['status'] ?? ''), ['onboarded', 'onboarding'], true)): ?>
   <div class="card pad-form lead-flow-card" style="margin-bottom:16px">
     <h2 style="margin-top:0"><?= ($lead['status'] ?? '') === 'onboarding' ? 'In onboarding' : 'Onboarded' ?></h2>

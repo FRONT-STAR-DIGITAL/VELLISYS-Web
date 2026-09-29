@@ -62,6 +62,7 @@ sales_layout_start('Leads', $user);
             <th>Business</th>
             <th>Status</th>
             <th>Contact</th>
+            <th>Phone</th>
             <th>City</th>
             <th>Follow-up</th>
             <th></th>
@@ -70,6 +71,10 @@ sales_layout_start('Leads', $user);
         <tbody>
           <?php foreach ($leads as $lead):
               $testLabel = sales_lead_testing_label($lead);
+              $phone = trim((string) ($lead['contact_phone'] ?? ''));
+              $tel = $phone !== '' ? phone_tel_href($phone) : '';
+              $wa = $phone !== '' ? phone_whatsapp_href($phone, 'Hi, following up about ' . trim((string) ($lead['business_name'] ?? 'your business'))) : '';
+              $isOpenFu = (string) ($lead['status'] ?? '') === 'follow_up' && empty($lead['follow_up_done_at']);
               ?>
             <tr>
               <td>
@@ -79,10 +84,25 @@ sales_layout_start('Leads', $user);
                 <?php endif; ?>
               </td>
               <td><span class="<?= h(sales_status_pill_class((string) $lead['status'])) ?>"><?= h(sales_status_label((string) $lead['status'])) ?></span></td>
-              <td><?= h(trim((string) $lead['contact_name'] . ' ' . $lead['contact_phone'])) ?></td>
+              <td><?= h(trim((string) ($lead['contact_name'] ?? '')) ?: '-') ?></td>
+              <td>
+                <?php if ($tel !== ''): ?>
+                  <a href="<?= h($tel) ?>"><?= h($phone) ?></a>
+                <?php else: ?>
+                  <?= h($phone !== '' ? $phone : '-') ?>
+                <?php endif; ?>
+              </td>
               <td><?= h((string) $lead['city']) ?></td>
               <td class="date-cell"><?= !empty($lead['follow_up_date']) ? h(sales_format_follow_up($lead)) : '-' ?></td>
-              <td class="row-actions"><a class="btn ghost sm" href="<?= h(url('sales_lead_edit.php?id=' . (int) $lead['id'])) ?>">Open</a></td>
+              <td class="row-actions">
+                <a class="btn<?= $isOpenFu ? '' : ' ghost' ?> sm" href="<?= h(url('sales_lead_edit.php?id=' . (int) $lead['id'])) ?>"><?= $isOpenFu ? 'Open / edit' : 'Open' ?></a>
+                <?php if ($tel !== ''): ?>
+                  <a class="btn icon-only" href="<?= h($tel) ?>" title="Call" aria-label="Call"><?= icon('phone', 15) ?></a>
+                <?php endif; ?>
+                <?php if ($wa !== ''): ?>
+                  <a class="btn icon-only" href="<?= h($wa) ?>" target="_blank" rel="noopener" title="WhatsApp" aria-label="WhatsApp"><?= icon('whatsapp', 15) ?></a>
+                <?php endif; ?>
+              </td>
             </tr>
           <?php endforeach; ?>
         </tbody>

@@ -39,6 +39,7 @@ $weekly = sales_progress($uid, 'weekly');
 $monthly = sales_progress($uid, 'monthly');
 $todayStats = $daily['stats'];
 $due = sales_followups_due($uid, 1);
+$openFollowups = sales_followups_open($uid, 40);
 $recent = sales_leads_query(['agent_id' => $uid, 'limit' => 6]);
 $daySeries = sales_series($uid, today(), today());
 $todayMins = $clock ? sales_clock_minutes($clock) : 0;
@@ -134,7 +135,12 @@ sales_layout_start('Home', $user);
     <strong><?= (int) ($todayStats['on_test'] ?? 0) ?></strong>
     <em class="muted"><?= (int) ($todayStats['testing_active'] ?? 0) ?> active now</em>
   </div>
-  <div class="card stat"><?= icon('calendar', 20) ?><span>Follow-ups due</span><strong><?= count($due) ?></strong></div>
+  <a class="card stat" href="<?= h(url('sales_leads.php?bucket=pending')) ?>" style="text-decoration:none;color:inherit">
+    <?= icon('calendar', 20) ?>
+    <span>Open follow-ups</span>
+    <strong><?= count($openFollowups) ?></strong>
+    <em class="muted"><?= count($due) ?> due today / tomorrow</em>
+  </a>
   <div class="card stat">
     <?= icon('reports', 20) ?>
     <span>Week interested</span>
@@ -169,18 +175,44 @@ sales_layout_start('Home', $user);
 </div>
 <?php endif; ?>
 
-<?php if ($due): ?>
+<?php if ($openFollowups): ?>
 <div class="card" style="margin-bottom:16px">
-  <div class="card-head"><h2><?= icon('bell', 16) ?>Follow up soon</h2></div>
+  <div class="card-head">
+    <h2><?= icon('bell', 16) ?>Open follow-ups</h2>
+    <a class="btn ghost sm" href="<?= h(url('sales_leads.php?bucket=pending')) ?>">All open</a>
+  </div>
   <div class="work-list">
-    <?php foreach ($due as $lead): ?>
-      <a class="work-row" href="<?= h(url('sales_lead_edit.php?id=' . (int) $lead['id'])) ?>">
-        <div>
-          <strong><?= h(trim((string) $lead['business_name']) ?: 'Business') ?></strong>
-          <span>Due <?= h(sales_format_follow_up($lead)) ?><?= $lead['city'] ? ' · ' . h($lead['city']) : '' ?></span>
+    <?php foreach ($openFollowups as $lead):
+        $phone = trim((string) ($lead['contact_phone'] ?? ''));
+        $contact = trim((string) ($lead['contact_name'] ?? ''));
+        $dueOn = (string) ($lead['follow_up_date'] ?? '');
+        $overdue = $dueOn !== '' && $dueOn < today();
+        $tel = $phone !== '' ? phone_tel_href($phone) : '';
+        $wa = $phone !== '' ? phone_whatsapp_href($phone, 'Hi, following up about ' . trim((string) ($lead['business_name'] ?? 'your business'))) : '';
+        ?>
+      <div class="work-row sales-follow-row<?= $overdue ? ' is-overdue' : '' ?>">
+        <div class="sales-follow-main">
+          <a href="<?= h(url('sales_lead_edit.php?id=' . (int) $lead['id'])) ?>">
+            <strong><?= h(trim((string) $lead['business_name']) ?: 'Business') ?></strong>
+            <span>
+              Due <?= h(sales_format_follow_up($lead)) ?><?= $overdue ? ' · overdue' : '' ?>
+              <?php if ($contact !== '' || $phone !== ''): ?>
+                · <?= h(trim($contact . ($contact && $phone ? ' · ' : '') . $phone)) ?>
+              <?php endif; ?>
+              <?= !empty($lead['city']) ? ' · ' . h((string) $lead['city']) : '' ?>
+            </span>
+          </a>
+          <div class="actions wrap-actions" style="margin-top:8px">
+            <a class="btn sm" href="<?= h(url('sales_lead_edit.php?id=' . (int) $lead['id'])) ?>"><?= icon('pencil', 14) ?>Open / edit status</a>
+            <?php if ($tel !== ''): ?>
+              <a class="btn ghost sm" href="<?= h($tel) ?>"><?= icon('phone', 14) ?>Call</a>
+            <?php endif; ?>
+            <?php if ($wa !== ''): ?>
+              <a class="btn ghost sm" href="<?= h($wa) ?>" target="_blank" rel="noopener"><?= icon('whatsapp', 14) ?>WhatsApp</a>
+            <?php endif; ?>
+          </div>
         </div>
-        <b><?= icon('arrow-right', 16) ?></b>
-      </a>
+      </div>
     <?php endforeach; ?>
   </div>
 </div>

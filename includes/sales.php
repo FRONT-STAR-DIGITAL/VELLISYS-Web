@@ -3047,10 +3047,83 @@ function sales_followups_due(?int $agentId = null, int $withinDays = 1): array
         $params[] = $agentId;
     }
     return db_all(
-        "SELECT l.*, u.name AS agent_name FROM sales_leads l LEFT JOIN users u ON u.id = l.agent_id WHERE {$where} ORDER BY l.follow_up_date, l.id",
+        "SELECT l.*, u.name AS agent_name FROM sales_leads l LEFT JOIN users u ON u.id = l.agent_id WHERE {$where} ORDER BY l.follow_up_date, l.follow_up_time IS NULL, l.follow_up_time, l.id",
         $types,
         $params
     );
+}
+
+/** All open follow-ups for an agent (or everyone), soonest first. */
+function sales_followups_open(?int $agentId = null, int $limit = 80): array
+{
+    $where = "l.status = 'follow_up' AND l.deleted_at IS NULL AND l.follow_up_done_at IS NULL AND l.follow_up_date IS NOT NULL";
+    $types = '';
+    $params = [];
+    if ($agentId) {
+        $where .= ' AND l.agent_id = ?';
+        $types .= 'i';
+        $params[] = $agentId;
+    }
+    $sql = "SELECT l.*, u.name AS agent_name
+            FROM sales_leads l
+            LEFT JOIN users u ON u.id = l.agent_id
+            WHERE {$where}
+            ORDER BY l.follow_up_date ASC, l.follow_up_time IS NULL, l.follow_up_time ASC, l.id ASC";
+    if ($limit > 0) {
+        $sql .= ' LIMIT ' . max(1, min(200, $limit));
+    }
+    return $types !== '' ? db_all($sql, $types, $params) : db_all($sql);
+}
+
+/** Contact block for a sales lead (call / WhatsApp). */
+function sales_render_lead_contact(array $lead, array $opts = []): void
+{
+    $name = trim((string) ($lead['contact_name'] ?? ''));
+    $phone = trim((string) ($lead['contact_phone'] ?? ''));
+    $city = trim((string) ($lead['city'] ?? ''));
+    $address = trim((string) ($lead['address'] ?? ''));
+    $business = trim((string) ($lead['business_name'] ?? ''));
+    $compact = !empty($opts['compact']);
+    $tel = $phone !== '' && function_exists('phone_tel_href') ? phone_tel_href($phone) : '';
+    $wa = $phone !== '' && function_exists('phone_whatsapp_href')
+        ? phone_whatsapp_href($phone, $business !== '' ? ('Hi, following up about ' . $business) : 'Hi')
+        : '';
+    ?>
+  <div class="lead-contact<?= $compact ? ' is-compact' : '' ?>">
+    <?php if (!$compact): ?>
+      <h2 style="margin-top:0"><?= icon('user', 16) ?>Contact</h2>
+    <?php endif; ?>
+    <dl class="party-brief">
+      <?php if ($name !== ''): ?><div><dt>Person</dt><dd><?= h($name) ?></dd></div><?php endif; ?>
+      <?php if ($phone !== ''): ?>
+        <div>
+          <dt>Phone</dt>
+          <dd>
+            <?php if ($tel !== ''): ?>
+              <a href="<?= h($tel) ?>"><?= h($phone) ?></a>
+            <?php else: ?>
+              <?= h($phone) ?>
+            <?php endif; ?>
+          </dd>
+        </div>
+      <?php endif; ?>
+      <?php if ($city !== ''): ?><div><dt>City</dt><dd><?= h($city) ?></dd></div><?php endif; ?>
+      <?php if ($address !== '' && !$compact): ?><div class="party-brief-wide"><dt>Address</dt><dd><?= h($address) ?></dd></div><?php endif; ?>
+    </dl>
+    <?php if ($phone !== ''): ?>
+      <div class="actions wrap-actions" style="margin-top:10px">
+        <?php if ($tel !== ''): ?>
+          <a class="btn" href="<?= h($tel) ?>"><?= icon('phone', 14) ?>Call</a>
+        <?php endif; ?>
+        <?php if ($wa !== ''): ?>
+          <a class="btn ghost" href="<?= h($wa) ?>" target="_blank" rel="noopener"><?= icon('whatsapp', 14) ?>WhatsApp</a>
+        <?php endif; ?>
+      </div>
+    <?php elseif (!$compact): ?>
+      <p class="hint" style="margin:8px 0 0">Add a phone number below so you can call this follow-up.</p>
+    <?php endif; ?>
+  </div>
+    <?php
 }
 
 function sales_vault_key(): string
