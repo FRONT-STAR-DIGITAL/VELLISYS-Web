@@ -1563,6 +1563,53 @@ function sales_testing_set_login(int $companyId, string $email, bool $resetPassw
 }
 
 /**
+ * Start a 2-week testing desk from an interested lead (same sales flow).
+ * Uses the lead's business/contact fields and default document kinds.
+ */
+function sales_start_testing_from_lead(int $leadId, int $agentId): array
+{
+    $lead = sales_lead($leadId);
+    if (!$lead || !empty($lead['deleted_at']) || (int) ($lead['agent_id'] ?? 0) !== $agentId) {
+        return ['ok' => false, 'error' => 'Lead not found.'];
+    }
+    $status = (string) ($lead['status'] ?? '');
+    if ($status !== 'interested') {
+        return ['ok' => false, 'error' => 'Mark the lead as Interested before opening a test desk.'];
+    }
+    if (!empty($lead['company_id'])) {
+        $existing = db_one(
+            'SELECT id, testing_mode FROM companies WHERE id = ?',
+            'i',
+            [(int) $lead['company_id']]
+        );
+        if ($existing && !empty($existing['testing_mode'])) {
+            return [
+                'ok' => false,
+                'error' => 'This lead already has a testing desk.',
+                'company_id' => (int) $existing['id'],
+            ];
+        }
+    }
+    $name = trim((string) ($lead['business_name'] ?? ''));
+    $contact = trim((string) ($lead['contact_name'] ?? ''));
+    $phone = trim((string) ($lead['contact_phone'] ?? ''));
+    if ($name === '' || $contact === '' || $phone === '') {
+        return ['ok' => false, 'error' => 'Save business name, contact person and phone on this lead first.'];
+    }
+    return sales_create_testing_company([
+        'name' => $name,
+        'contact_name' => $contact,
+        'phone' => $phone,
+        'city' => (string) ($lead['city'] ?? ''),
+        'address' => (string) ($lead['address'] ?? ''),
+        'nature_of_business' => (string) ($lead['nature_of_business'] ?? ''),
+        'lead_id' => $leadId,
+        'enabled_kinds' => function_exists('default_enabled_kinds') ? default_enabled_kinds() : ['quotation', 'invoice', 'receipt', 'letter'],
+        'plan' => (string) ($lead['package_chosen'] ?? 'sme') ?: 'sme',
+    ], $agentId, false);
+}
+
+/**
  * Create a 2-week testing desk for a sales agent (or platform admin).
  * Expects POST fields: name, contact_name, phone, city, address, nature_of_business,
  * enabled_kinds[], client fields, line_columns[], optional lead_id / testing_owner_id / days.
@@ -1600,6 +1647,9 @@ function sales_create_testing_company(array $fields, int $actorId, bool $asPlatf
     }
 
     $kindsPosted = $fields['enabled_kinds'] ?? ($_POST['enabled_kinds'] ?? []);
+    if ((!is_array($kindsPosted) || $kindsPosted === []) && function_exists('default_enabled_kinds')) {
+        $kindsPosted = default_enabled_kinds();
+    }
     if (!is_array($kindsPosted) || $kindsPosted === []) {
         return ['ok' => false, 'error' => 'Select at least one document type for this test desk.'];
     }
@@ -1609,9 +1659,17 @@ function sales_create_testing_company(array $fields, int $actorId, bool $asPlatf
         return ['ok' => false, 'error' => 'That desk login email is already in use. Pick another.'];
     }
     $password = sales_testing_default_password();
-    $kinds = function_exists('posted_enabled_kinds') ? posted_enabled_kinds() : implode(',', array_map('strval', $kindsPosted));
-    $customDoc = function_exists('posted_custom_doc') ? posted_custom_doc() : null;
-    $lineCols = function_exists('posted_document_line_columns') ? posted_document_line_columns() : null;
+    // Prefer explicit field kinds (lead flow); fall back to the posted desk-kinds form.
+    if (!empty($_POST['enabled_kinds']) && is_array($_POST['enabled_kinds']) && function_exists('posted_enabled_kinds')) {
+        $kinds = posted_enabled_kinds();
+        $customDoc = function_exists('posted_custom_doc') ? posted_custom_doc() : null;
+        $lineCols = function_exists('posted_document_line_columns') ? posted_document_line_columns() : null;
+    } else {
+        $kindsList = function_exists('parse_enabled_kinds') ? parse_enabled_kinds($kindsPosted) : array_map('strval', $kindsPosted);
+        $kinds = json_encode(array_values($kindsList), JSON_UNESCAPED_UNICODE) ?: '[]';
+        $customDoc = null;
+        $lineCols = null;
+    }
     $plan = normalize_company_plan((string) ($fields['plan'] ?? 'sme'));
     $limit = plan_user_limit_max($plan);
     $notes = trim('Testing mode · agent #' . $ownerId
@@ -2079,12 +2137,37 @@ function sales_leads_query(array $opts = []): array
         $types .= 'sssss';
         array_push($params, $like, $like, $like, $like, $like);
     }
-    $sql = 'SELECT l.*, u.name AS agent_name FROM sales_leads l LEFT JOIN users u ON u.id = l.agent_id WHERE '
+    if (!empty($opts['on_test'])) {
+        $where[] = 'c.testing_mode = 1';
+    }
+    $sql = 'SELECT l.*, u.name AS agent_name,
+                   c.testing_mode AS company_testing_mode,
+                   c.testing_expires_at AS company_testing_expires_at,
+                   c.status AS company_status
+            FROM sales_leads l
+            LEFT JOIN users u ON u.id = l.agent_id
+            LEFT JOIN companies c ON c.id = l.company_id
+            WHERE '
         . implode(' AND ', $where) . ' ORDER BY l.updated_at DESC, l.id DESC';
     if (!empty($opts['limit'])) {
         $sql .= ' LIMIT ' . (int) $opts['limit'];
     }
     return db_all($sql, $types, $params);
+}
+
+/** Lead badge when a testing desk is linked. */
+function sales_lead_testing_label(?array $lead): string
+{
+    if (!$lead || empty($lead['company_id']) || empty($lead['company_testing_mode'])) {
+        return '';
+    }
+    if (function_exists('company_testing_expired') && company_testing_expired([
+        'testing_mode' => 1,
+        'testing_expires_at' => $lead['company_testing_expires_at'] ?? null,
+    ])) {
+        return 'Test ended';
+    }
+    return 'On test';
 }
 
 function sales_period_bounds(): array
@@ -3354,7 +3437,7 @@ function sales_layout_end(string $extra = ''): void
   <a class="app-tab<?= basename($_SERVER['SCRIPT_NAME'] ?? '') === 'sales_home.php' ? ' is-on' : '' ?>" href="<?= h(url('sales_home.php')) ?>"><?= icon('home', 22) ?><span>Home</span></a>
   <a class="app-tab<?= in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['sales_leads.php', 'sales_lead_edit.php'], true) ? ' is-on' : '' ?>" href="<?= h(url('sales_leads.php')) ?>"><?= icon('clients', 22) ?><span>Leads</span></a>
   <a class="app-tab<?= in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['sales_companies.php', 'sales_company.php', 'sales_company_new.php', 'sales_desk.php'], true) ? ' is-on' : '' ?>" href="<?= h(url('sales_companies.php')) ?>"><?= icon('building', 22) ?><span>Companies</span></a>
-  <a class="app-tab app-tab-create" href="<?= h(url('sales_company_new.php')) ?>"><span class="app-tab-plus"><?= icon('plus', 26) ?></span><span>Test</span></a>
+  <a class="app-tab app-tab-create" href="<?= h(url('sales_lead_edit.php')) ?>"><span class="app-tab-plus"><?= icon('plus', 26) ?></span><span>Lead</span></a>
   <a class="app-tab<?= basename($_SERVER['SCRIPT_NAME'] ?? '') === 'sales_messages.php' ? ' is-on' : '' ?>" href="<?= h(url('sales_messages.php')) ?>"><?= icon('mail', 22) ?><span>Chat</span></a>
 </nav>
 <script src="<?= h(asset('js/app.js')) ?>" defer></script>

@@ -18,6 +18,8 @@ if ($bucket === 'followed') {
     $opts['follow_bucket'] = 'done';
 } elseif ($bucket === 'pending') {
     $opts['follow_bucket'] = 'due';
+} elseif ($bucket === 'on_test') {
+    $opts['on_test'] = true;
 }
 $leads = sales_leads_query($opts);
 
@@ -26,7 +28,7 @@ sales_layout_start('Leads', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('clients') ?>Leads</h1>
-    <p class="lede">Status first. Rejected needs why they rejected Vellisys, an explanation, and nature of business. Everything else is optional, then save.</p>
+    <p class="lede">Interest, follow-up and rejection live here. Open an interested lead to start a 2-week test in the same place.</p>
   </div>
   <div class="actions page-actions">
     <a class="btn" href="<?= h(url('sales_lead_edit.php')) ?>"><?= icon('plus', 16) ?>New lead</a>
@@ -38,6 +40,7 @@ sales_layout_start('Leads', $user);
   <?php foreach (sales_statuses() as $k => $label): ?>
     <a class="chip<?= $status === $k ? ' is-on' : '' ?>" href="<?= h(url('sales_leads.php?status=' . urlencode($k))) ?>"><?= h($label) ?></a>
   <?php endforeach; ?>
+  <a class="chip<?= $bucket === 'on_test' ? ' is-on' : '' ?>" href="<?= h(url('sales_leads.php?bucket=on_test')) ?>">On test</a>
   <a class="chip<?= $bucket === 'pending' ? ' is-on' : '' ?>" href="<?= h(url('sales_leads.php?bucket=pending')) ?>">Follow-ups open</a>
   <a class="chip<?= $bucket === 'followed' ? ' is-on' : '' ?>" href="<?= h(url('sales_leads.php?bucket=followed')) ?>">Followed up</a>
 </div>
@@ -50,7 +53,7 @@ sales_layout_start('Leads', $user);
 
 <div class="card">
   <?php if (!$leads): ?>
-    <p class="empty">No leads in this view.</p>
+    <p class="empty">No leads in this view. <a href="<?= h(url('sales_lead_edit.php')) ?>">Log a new lead</a>.</p>
   <?php else: ?>
     <div class="table-scroll">
       <table class="grid">
@@ -65,14 +68,21 @@ sales_layout_start('Leads', $user);
           </tr>
         </thead>
         <tbody>
-          <?php foreach ($leads as $lead): ?>
+          <?php foreach ($leads as $lead):
+              $testLabel = sales_lead_testing_label($lead);
+              ?>
             <tr>
-              <td><?= h(trim((string) $lead['business_name']) ?: '-') ?></td>
+              <td>
+                <a href="<?= h(url('sales_lead_edit.php?id=' . (int) $lead['id'])) ?>"><strong><?= h(trim((string) $lead['business_name']) ?: '-') ?></strong></a>
+                <?php if ($testLabel !== ''): ?>
+                  <span class="pill<?= $testLabel === 'Test ended' ? ' bad' : ' warn' ?>"><?= h($testLabel) ?></span>
+                <?php endif; ?>
+              </td>
               <td><span class="<?= h(sales_status_pill_class((string) $lead['status'])) ?>"><?= h(sales_status_label((string) $lead['status'])) ?></span></td>
               <td><?= h(trim((string) $lead['contact_name'] . ' ' . $lead['contact_phone'])) ?></td>
               <td><?= h((string) $lead['city']) ?></td>
               <td class="date-cell"><?= !empty($lead['follow_up_date']) ? h(sales_format_follow_up($lead)) : '-' ?></td>
-              <td class="row-actions"><a class="btn ghost sm" href="<?= h(url('sales_lead_edit.php?id=' . (int) $lead['id'])) ?>">Edit</a></td>
+              <td class="row-actions"><a class="btn ghost sm" href="<?= h(url('sales_lead_edit.php?id=' . (int) $lead['id'])) ?>">Open</a></td>
             </tr>
           <?php endforeach; ?>
         </tbody>

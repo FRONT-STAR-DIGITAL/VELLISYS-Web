@@ -5,6 +5,22 @@ $user = require_sales_agent();
 sales_require_clock_in();
 
 $companies = sales_testing_companies_for_agent((int) $user['id']);
+// Map company → lead for back-links.
+$leadByCompany = [];
+if ($companies) {
+    $ids = array_map(static fn ($c) => (int) $c['id'], $companies);
+    $in = implode(',', array_fill(0, count($ids), '?'));
+    $types = str_repeat('i', count($ids));
+    $rows = db_all(
+        "SELECT id, company_id, business_name FROM sales_leads
+         WHERE agent_id = ? AND deleted_at IS NULL AND company_id IN ($in)",
+        'i' . $types,
+        array_merge([(int) $user['id']], $ids)
+    );
+    foreach ($rows as $row) {
+        $leadByCompany[(int) $row['company_id']] = $row;
+    }
+}
 $credsFlash = $_SESSION['testing_creds'] ?? null;
 if (is_array($credsFlash)) {
     unset($_SESSION['testing_creds']);
@@ -15,10 +31,10 @@ sales_layout_start('My companies', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('building') ?>My companies</h1>
-    <p class="lede">Testing desks you opened for interested clients. Each runs for 2 weeks. Hand them FirstWord@vellisys.com and password Folio2026, then promote to full onboard when they are ready.</p>
+    <p class="lede">Testing desks tied to your interested leads. Open a lead and start the test there - this list is the quick view.</p>
   </div>
   <div class="actions page-actions">
-    <a class="btn" href="<?= h(url('sales_company_new.php')) ?>"><?= icon('plus') ?>New test desk</a>
+    <a class="btn" href="<?= h(url('sales_leads.php?status=interested')) ?>"><?= icon('clients', 14) ?>Interested leads</a>
   </div>
 </div>
 
@@ -28,23 +44,29 @@ sales_layout_start('My companies', $user);
   <p class="lede" style="margin-top:0"><?= h((string) ($credsFlash['name'] ?? 'Testing desk')) ?> - testing until <?= h(format_date((string) ($credsFlash['expires_at'] ?? ''))) ?>.</p>
   <p><strong>Username:</strong> <code data-copy><?= h((string) $credsFlash['email']) ?></code></p>
   <p><strong>Password:</strong> <code data-copy><?= h((string) $credsFlash['password']) ?></code></p>
-  <p class="hint">Save a screenshot or write them down. You can open them again from this company.</p>
   <div class="actions">
-    <a class="btn" href="<?= h(url('sales_company.php?id=' . (int) ($credsFlash['company_id'] ?? 0))) ?>">Open company</a>
-    <a class="btn ghost" href="<?= h(url('sales_desk.php?id=' . (int) ($credsFlash['company_id'] ?? 0))) ?>">Open desk</a>
+    <?php
+      $cid = (int) ($credsFlash['company_id'] ?? 0);
+      $lead = $leadByCompany[$cid] ?? null;
+    ?>
+    <?php if ($lead): ?>
+      <a class="btn" href="<?= h(url('sales_lead_edit.php?id=' . (int) $lead['id'] . '#lead-testing')) ?>">Back to lead</a>
+    <?php endif; ?>
+    <a class="btn ghost" href="<?= h(url('sales_desk.php?id=' . $cid)) ?>">Open desk</a>
   </div>
 </div>
 <?php endif; ?>
 
 <div class="card">
   <?php if (!$companies): ?>
-    <p class="empty">No testing companies yet. When a lead wants to try Vellisys first, <a href="<?= h(url('sales_company_new.php')) ?>">open a 2-week test desk</a>.</p>
+    <p class="empty">No testing desks yet. Open an <a href="<?= h(url('sales_leads.php?status=interested')) ?>">interested lead</a> and start the 2-week test from that lead.</p>
   <?php else: ?>
     <div class="table-scroll">
     <table class="grid">
       <thead>
         <tr>
           <th>Business</th>
+          <th>Lead</th>
           <th>Contact login</th>
           <th>Ends</th>
           <th>Time left</th>
@@ -54,20 +76,31 @@ sales_layout_start('My companies', $user);
       <tbody>
         <?php foreach ($companies as $c):
             $expired = company_testing_expired($c);
+            $cid = (int) $c['id'];
+            $lead = $leadByCompany[$cid] ?? null;
             ?>
           <tr>
             <td>
-              <a href="<?= h(url('sales_company.php?id=' . (int) $c['id'])) ?>"><strong><?= h((string) $c['name']) ?></strong></a>
+              <a href="<?= h(url('sales_company.php?id=' . $cid)) ?>"><strong><?= h((string) $c['name']) ?></strong></a>
               <?php if ($expired): ?><span class="pill bad">Expired</span><?php else: ?><span class="pill warn">Testing</span><?php endif; ?>
+            </td>
+            <td>
+              <?php if ($lead): ?>
+                <a href="<?= h(url('sales_lead_edit.php?id=' . (int) $lead['id'] . '#lead-testing')) ?>"><?= h((string) ($lead['business_name'] ?: 'Lead #' . (int) $lead['id'])) ?></a>
+              <?php else: ?>
+                <span class="muted">-</span>
+              <?php endif; ?>
             </td>
             <td class="mono"><?= h((string) ($c['desk_email'] ?? '-')) ?></td>
             <td class="mono"><?= !empty($c['testing_expires_at']) ? h(format_date((string) $c['testing_expires_at'])) : '-' ?></td>
             <td><?= h(company_testing_remaining_label($c)) ?></td>
             <td class="row-actions">
               <div class="actions">
-                <a class="btn sm" href="<?= h(url('sales_company.php?id=' . (int) $c['id'])) ?>"><?= icon('eye', 14) ?>Open</a>
+                <?php if ($lead): ?>
+                  <a class="btn sm" href="<?= h(url('sales_lead_edit.php?id=' . (int) $lead['id'] . '#lead-testing')) ?>">Lead</a>
+                <?php endif; ?>
                 <?php if (!$expired): ?>
-                  <a class="btn ghost sm" href="<?= h(url('sales_desk.php?id=' . (int) $c['id'])) ?>"><?= icon('desk', 14) ?>Desk</a>
+                  <a class="btn ghost sm" href="<?= h(url('sales_desk.php?id=' . $cid)) ?>"><?= icon('desk', 14) ?>Desk</a>
                 <?php endif; ?>
               </div>
             </td>
@@ -76,7 +109,7 @@ sales_layout_start('My companies', $user);
       </tbody>
     </table>
     </div>
-    <p class="hint">Open shows credentials and details. Desk opens their trial desk so you can walk them through it. Use Leave desk when you finish.</p>
+    <p class="hint">When the client is ready for full onboard, ask super admin - they set the lasting email and choose whether to keep or clean trial data.</p>
   <?php endif; ?>
 </div>
 <?php sales_layout_end(); ?>

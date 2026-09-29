@@ -20,6 +20,31 @@ if (!$locked && (!isset(sales_statuses()[$status]) || in_array($status, ['onboar
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
+    $action = post('action');
+    if ($action === 'start_testing') {
+        if (!$lead || $locked) {
+            flash('Save an interested lead before opening a test desk.', 'err');
+            redirect($id ? ('sales_lead_edit.php?id=' . $id) : 'sales_lead_edit.php');
+        }
+        $made = sales_start_testing_from_lead((int) $lead['id'], (int) $user['id']);
+        if (empty($made['ok'])) {
+            if (!empty($made['company_id'])) {
+                flash((string) ($made['error'] ?? 'Testing desk already exists.'));
+                redirect('sales_lead_edit.php?id=' . (int) $lead['id'] . '#lead-testing');
+            }
+            flash((string) ($made['error'] ?? 'Could not open the test desk.'), 'err');
+            redirect('sales_lead_edit.php?id=' . (int) $lead['id'] . '#lead-testing');
+        }
+        $_SESSION['testing_creds'] = [
+            'company_id' => (int) $made['company_id'],
+            'name' => (string) $made['name'],
+            'email' => (string) $made['email'],
+            'password' => (string) $made['password'],
+            'expires_at' => (string) $made['expires_at'],
+        ];
+        flash($made['name'] . ' is on a 2-week test. Hand the login below to the client.');
+        redirect('sales_lead_edit.php?id=' . (int) $lead['id'] . '#lead-testing');
+    }
     if ($locked) {
         flash('This lead is already in onboarding or onboarded.', 'err');
         redirect('sales_lead_edit.php?id=' . $id);
@@ -44,43 +69,123 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = (string) ($saved['error'] ?? 'Could not save.');
         $status = (string) post('status');
     } else {
+        $newId = (int) $saved['id'];
         flash($id ? 'Lead updated.' : 'Lead saved.');
-        redirect('sales_lead_edit.php?id=' . (int) $saved['id']);
+        $wantsTest = post('wants_testing') !== '' && (string) post('status') === 'interested';
+        if ($wantsTest) {
+            $made = sales_start_testing_from_lead($newId, (int) $user['id']);
+            if (!empty($made['ok'])) {
+                $_SESSION['testing_creds'] = [
+                    'company_id' => (int) $made['company_id'],
+                    'name' => (string) $made['name'],
+                    'email' => (string) $made['email'],
+                    'password' => (string) $made['password'],
+                    'expires_at' => (string) $made['expires_at'],
+                ];
+                flash($made['name'] . ' saved as interested and put on a 2-week test. Hand the login below to the client.');
+            } elseif (empty($made['company_id'])) {
+                flash('Lead saved, but test desk was not opened: ' . (string) ($made['error'] ?? 'unknown error'), 'err');
+            }
+        }
+        redirect('sales_lead_edit.php?id=' . $newId . ($wantsTest ? '#lead-testing' : ''));
     }
 }
 
 $clock = sales_today_clock((int) $user['id']);
 $rejectCat = (string) ($_POST['rejected_category'] ?? ($lead['rejected_category'] ?? ''));
 $interest = (int) ($_POST['interest_rating'] ?? ($lead['interest_rating'] ?? 0));
+
+$testCompany = null;
+$testCreds = null;
+$testExpired = false;
+if ($lead && !empty($lead['company_id'])) {
+    $testCompany = db_one('SELECT * FROM companies WHERE id = ?', 'i', [(int) $lead['company_id']]);
+    if ($testCompany && !empty($testCompany['testing_mode'])) {
+        $testCreds = sales_testing_credentials((int) $testCompany['id']);
+        $testExpired = company_testing_expired($testCompany);
+    } elseif ($testCompany && empty($testCompany['testing_mode'])) {
+        // Promoted / full company linked to this lead.
+    } else {
+        $testCompany = null;
+    }
+}
+$credsFlash = $_SESSION['testing_creds'] ?? null;
+if (is_array($credsFlash)) {
+    unset($_SESSION['testing_creds']);
+    if (!$testCreds && !empty($credsFlash['email'])) {
+        $testCreds = [
+            'email' => (string) $credsFlash['email'],
+            'password' => (string) $credsFlash['password'],
+        ];
+    }
+}
+
 sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
 ?>
 <div class="page-head">
   <div>
     <h1><?= icon($id ? 'pencil' : 'plus') ?><?= $id ? 'Edit lead' : 'New lead' ?></h1>
-    <p class="lede">Pick the status first. Rejected needs why they rejected Vellisys, an explanation, and nature of business. Follow-up needs an interest rating.</p>
+    <p class="lede">One flow: mark interest, open a 2-week test from this lead when they want to try, then ask admin to promote when they are ready to onboard.</p>
   </div>
   <div class="actions page-actions">
     <a class="btn ghost" href="<?= h(url('sales_leads.php')) ?>">Back</a>
   </div>
 </div>
 <?php if ($error): ?><p class="flash flash-err"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
+
 <?php if ($lead && in_array(($lead['status'] ?? ''), ['onboarded', 'onboarding'], true)): ?>
-  <p class="flash"><?= ($lead['status'] ?? '') === 'onboarding'
-    ? 'This lead is in company onboarding. Finish setup under Companies, then mark the desk live.'
-    : 'This lead is onboarded. Ask admin if you need changes.' ?></p>
-<?php elseif ($lead && ($lead['status'] ?? '') === 'interested'): ?>
-  <?php
-    $testCo = !empty($lead['company_id'])
-        ? db_one('SELECT id, testing_mode FROM companies WHERE id = ?', 'i', [(int) $lead['company_id']])
-        : null;
-  ?>
-  <?php if ($testCo && !empty($testCo['testing_mode'])): ?>
-    <p class="flash">This lead already has a <a href="<?= h(url('sales_company.php?id=' . (int) $testCo['id'])) ?>">testing desk</a>.</p>
-  <?php else: ?>
-    <p class="flash">Interested but wants to try first?
-      <a class="btn sm" href="<?= h(url('sales_company_new.php?lead=' . (int) $lead['id'])) ?>"><?= icon('plus', 14) ?>Put in testing mode</a>
+  <div class="card pad-form lead-flow-card" style="margin-bottom:16px">
+    <h2 style="margin-top:0"><?= ($lead['status'] ?? '') === 'onboarding' ? 'In onboarding' : 'Onboarded' ?></h2>
+    <p class="lede" style="margin-top:0">
+      <?php if (($lead['status'] ?? '') === 'onboarding'): ?>
+        Super admin is finishing paid term, mailbox and settings. You can still message admin from Chat if the client needs something.
+      <?php else: ?>
+        This client is live. Ask admin if you need changes.
+      <?php endif; ?>
     </p>
-  <?php endif; ?>
+    <?php if (!empty($lead['company_id'])): ?>
+      <p class="hint">Company #<?= (int) $lead['company_id'] ?> is linked to this lead.</p>
+    <?php endif; ?>
+  </div>
+<?php elseif ($lead && ($lead['status'] ?? '') === 'interested'): ?>
+  <div class="card pad-form lead-flow-card" id="lead-testing" style="margin-bottom:16px">
+    <h2 style="margin-top:0">Interested · testing</h2>
+    <?php if ($testCompany && !empty($testCompany['testing_mode'])): ?>
+      <p class="lede" style="margin-top:0">
+        This client is on a 2-week test desk
+        <?php if (!empty($testCompany['testing_expires_at'])): ?>
+          · ends <?= h(format_date((string) $testCompany['testing_expires_at'])) ?>
+        <?php endif; ?>
+        · <?= h(company_testing_remaining_label($testCompany)) ?>.
+      </p>
+      <?php if ($testCreds): ?>
+        <p><strong>Username:</strong> <code data-copy><?= h((string) ($testCreds['email'] ?: '-')) ?></code></p>
+        <p><strong>Password:</strong> <code data-copy><?= h((string) (($testCreds['password'] !== '' ? $testCreds['password'] : sales_testing_default_password()))) ?></code></p>
+      <?php endif; ?>
+      <?php if ($testExpired): ?>
+        <p class="flash flash-err" style="margin:12px 0 0">Test ended. Ask super admin to extend time or promote to onboard (they can keep or clean trial data).</p>
+      <?php else: ?>
+        <p class="hint">Walk them through the desk. When they are serious about full onboard, tell super admin - they set the lasting email and choose keep or clean data.</p>
+      <?php endif; ?>
+      <div class="actions wrap-actions" style="margin-top:12px">
+        <?php if (!$testExpired): ?>
+          <a class="btn" href="<?= h(url('sales_desk.php?id=' . (int) $testCompany['id'])) ?>"><?= icon('desk', 14) ?>Open desk</a>
+        <?php endif; ?>
+        <a class="btn ghost" href="<?= h(url('sales_company.php?id=' . (int) $testCompany['id'])) ?>"><?= icon('building', 14) ?>Desk details</a>
+        <a class="btn ghost" href="<?= h(url('sales_messages.php')) ?>"><?= icon('mail', 14) ?>Message admin</a>
+      </div>
+    <?php elseif ($testCompany && empty($testCompany['testing_mode'])): ?>
+      <p class="lede" style="margin-top:0">This lead already has a company desk that is no longer in testing (onboarding or live). Super admin owns the next steps.</p>
+    <?php else: ?>
+      <p class="lede" style="margin-top:0">Interested and wants to try first? Open a 2-week test desk from this lead. Login defaults to FirstWord@vellisys.com · Folio2026.</p>
+      <form method="post" class="actions" style="margin-top:12px">
+        <?= csrf_field() ?>
+        <input type="hidden" name="action" value="start_testing">
+        <button class="btn" type="submit"><?= icon('plus', 14) ?>Open 2-week test desk</button>
+      </form>
+      <p class="hint" style="margin-top:10px">Uses the business name, contact and phone saved on this lead. Save those fields first if they are empty.</p>
+    <?php endif; ?>
+  </div>
 <?php endif; ?>
 
 <form method="post" class="card pad-form sales-lead-form" data-sales-lead>
@@ -155,6 +260,13 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
           <input id="onboard_date" name="onboard_date" type="date" value="<?= h((string) ($_POST['onboard_date'] ?? $lead['onboard_date'] ?? '')) ?>">
         </div>
       </div>
+      <?php if (!$lead || empty($testCompany) || empty($testCompany['testing_mode'])): ?>
+        <label class="check lead-wants-testing" style="margin-top:14px">
+          <input type="checkbox" name="wants_testing" value="1" data-wants-testing <?= post('wants_testing') !== '' ? 'checked' : '' ?>>
+          Interested and wants testing - also open a 2-week test desk when I save
+        </label>
+        <p class="hint">Same flow, one save. Needs business name, contact person and phone above.</p>
+      <?php endif; ?>
     </div>
 
     <div data-panel="follow_up" <?= $status === 'follow_up' ? '' : 'hidden' ?>>
@@ -198,11 +310,12 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
       else if (name === 'rejected') p.hidden = st !== 'rejected';
       else p.hidden = st !== name;
     });
-    // Only one nature_of_business field should submit (interested vs rejected panels).
     var interestedNature = form.querySelector('#nature_of_business');
     var rejectedNature = form.querySelector('#nature_rejected');
     if (interestedNature) interestedNature.disabled = st !== 'interested';
     if (rejectedNature) rejectedNature.disabled = st !== 'rejected';
+    var wants = form.querySelector('[data-wants-testing]');
+    if (wants) wants.disabled = st !== 'interested';
   }
   form.querySelectorAll('[data-status-radio]').forEach(function(r){ r.addEventListener('change', sync); });
   sync();

@@ -40,6 +40,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $expired = company_testing_expired($company);
+$linkedLead = db_one(
+    'SELECT id, business_name FROM sales_leads WHERE company_id = ? AND agent_id = ? AND deleted_at IS NULL ORDER BY id DESC LIMIT 1',
+    'ii',
+    [$id, (int) $user['id']]
+);
 sales_layout_start((string) $company['name'], $user);
 ?>
 <div class="page-head">
@@ -50,9 +55,15 @@ sales_layout_start((string) $company['name'], $user);
       <?php if (!empty($company['testing_expires_at'])): ?>
         · ends <?= h(format_date((string) $company['testing_expires_at'])) ?>
       <?php endif; ?>
+      <?php if ($linkedLead): ?>
+        · lead <a href="<?= h(url('sales_lead_edit.php?id=' . (int) $linkedLead['id'] . '#lead-testing')) ?>"><?= h((string) ($linkedLead['business_name'] ?: '#' . (int) $linkedLead['id'])) ?></a>
+      <?php endif; ?>
     </p>
   </div>
   <div class="actions page-actions">
+    <?php if ($linkedLead): ?>
+      <a class="btn ghost" href="<?= h(url('sales_lead_edit.php?id=' . (int) $linkedLead['id'] . '#lead-testing')) ?>">Lead</a>
+    <?php endif; ?>
     <?php if (!$expired): ?>
       <a class="btn" href="<?= h(url('sales_desk.php?id=' . $id)) ?>"><?= icon('desk', 16) ?>Desk</a>
     <?php endif; ?>
@@ -62,7 +73,7 @@ sales_layout_start((string) $company['name'], $user);
 
 <?php if ($error): ?><p class="flash flash-err"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
 <?php if ($expired): ?>
-  <p class="flash flash-err">This testing desk has ended. Ask super admin to extend the time or promote to onboard.</p>
+  <p class="flash flash-err">This testing desk has ended. Ask super admin to extend the time or promote to onboard (lasting email + keep or clean data).</p>
 <?php endif; ?>
 
 <div class="card pad-form sales-creds-card" style="margin-bottom:16px">
