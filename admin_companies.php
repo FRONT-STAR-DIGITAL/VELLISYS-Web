@@ -259,7 +259,7 @@ layout_admin_start('Companies', $user);
       </tbody>
     </table>
     </div>
-    <p class="hint">On a phone, scroll sideways for every action. Default login: first word of the business @vellisys.com · Folio2026.</p>
+    <p class="hint">On a phone, scroll sideways for every action. Preferred client email · password Folio2026.</p>
   <?php endif; ?>
 
   <details class="sales-test-create" style="margin-top:20px">
@@ -290,9 +290,9 @@ layout_admin_start('Companies', $user);
           <input id="t_phone" name="phone" inputmode="tel" required value="<?= h(post('phone')) ?>">
         </div>
         <div>
-          <label for="t_email">Desk login email</label>
-          <input id="t_email" name="user_email" type="email" value="<?= h(post('user_email')) ?>" placeholder="FirstWord@vellisys.com">
-          <p class="hint" style="margin:4px 0 0">Leave blank for firstword@vellisys.com. Password: Folio2026.</p>
+          <label for="t_email">Client login email</label>
+          <input id="t_email" name="user_email" type="email" required value="<?= h(post('user_email')) ?>" placeholder="client@theircompany.com">
+          <p class="hint" style="margin:4px 0 0">Preferred email the client will sign in with. Password: Folio2026.</p>
         </div>
         <div>
           <label for="t_city">City</label>

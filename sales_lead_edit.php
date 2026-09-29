@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('Save an interested lead before opening a test desk.', 'err');
             redirect($id ? ('sales_lead_edit.php?id=' . $id) : 'sales_lead_edit.php');
         }
-        $made = sales_start_testing_from_lead((int) $lead['id'], (int) $user['id']);
+        $made = sales_start_testing_from_lead((int) $lead['id'], (int) $user['id'], post('desk_email'));
         if (empty($made['ok'])) {
             if (!empty($made['company_id'])) {
                 flash((string) ($made['error'] ?? 'Testing desk already exists.'));
@@ -43,6 +43,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'expires_at' => (string) $made['expires_at'],
         ];
         flash($made['name'] . ' test desk is ready. Login is below.');
+        redirect('sales_lead_edit.php?id=' . (int) $lead['id'] . '#lead-testing');
+    }
+    if ($action === 'set_testing_email') {
+        if (!$lead || $locked || empty($lead['company_id'])) {
+            flash('Open a test desk first.', 'err');
+            redirect($id ? ('sales_lead_edit.php?id=' . $id . '#lead-testing') : 'sales_lead_edit.php');
+        }
+        $co = db_one('SELECT id, testing_mode, testing_owner_id FROM companies WHERE id = ?', 'i', [(int) $lead['company_id']]);
+        if (!$co || empty($co['testing_mode']) || (int) ($co['testing_owner_id'] ?? 0) !== (int) $user['id']) {
+            flash('Testing desk not found.', 'err');
+            redirect('sales_lead_edit.php?id=' . (int) $lead['id'] . '#lead-testing');
+        }
+        $done = sales_testing_set_login((int) $co['id'], post('desk_email'), true);
+        flash(
+            empty($done['ok'])
+                ? (string) ($done['error'] ?? 'Could not update login.')
+                : ('Desk login set to ' . (string) ($done['email'] ?? '') . ' · password Folio2026'),
+            empty($done['ok']) ? 'err' : 'ok'
+        );
         redirect('sales_lead_edit.php?id=' . (int) $lead['id'] . '#lead-testing');
     }
     if ($locked) {
@@ -73,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash($id ? 'Lead updated.' : 'Lead saved.');
         $wantsTest = post('wants_testing') !== '' && (string) post('status') === 'interested';
         if ($wantsTest) {
-            $made = sales_start_testing_from_lead($newId, (int) $user['id']);
+            $made = sales_start_testing_from_lead($newId, (int) $user['id'], post('desk_email'));
             if (!empty($made['ok'])) {
                 $_SESSION['testing_creds'] = [
                     'company_id' => (int) $made['company_id'],
@@ -156,6 +175,18 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
         <p><strong>Username:</strong> <code data-copy><?= h((string) ($testCreds['email'] ?: '-')) ?></code></p>
         <p><strong>Password:</strong> <code data-copy><?= h((string) (($testCreds['password'] !== '' ? $testCreds['password'] : sales_testing_default_password()))) ?></code></p>
       <?php endif; ?>
+      <?php if (!$testExpired): ?>
+        <form method="post" class="pad-form" style="margin-top:12px;padding:0">
+          <?= csrf_field() ?>
+          <input type="hidden" name="action" value="set_testing_email">
+          <label for="desk_email_edit">Client login email</label>
+          <input id="desk_email_edit" name="desk_email" type="email" required value="<?= h((string) ($testCreds['email'] ?? '')) ?>" placeholder="client@theircompany.com" autocomplete="off">
+          <p class="hint" style="margin:4px 0 0">Saving sets this login and resets the password to Folio2026.</p>
+          <div class="actions" style="margin-top:10px">
+            <button class="btn ghost sm" type="submit"><?= icon('check', 14) ?>Update login</button>
+          </div>
+        </form>
+      <?php endif; ?>
       <?php if ($testExpired): ?>
         <p class="flash flash-err" style="margin:12px 0 0">Test ended. Message admin to extend or promote.</p>
       <?php endif; ?>
@@ -169,11 +200,16 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
     <?php elseif ($testCompany && empty($testCompany['testing_mode'])): ?>
       <p class="lede" style="margin-top:0">This lead's company is past testing. Message admin if you need help.</p>
     <?php else: ?>
-      <p class="lede" style="margin-top:0">Open a test desk for this client. Login: first word of the business name @vellisys.com · Folio2026.</p>
-      <form method="post" class="actions" style="margin-top:12px">
+      <p class="lede" style="margin-top:0">Open a test desk for this client. Enter their preferred login email. Password is Folio2026.</p>
+      <form method="post" class="pad-form" style="margin-top:12px;padding:0">
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="start_testing">
-        <button class="btn" type="submit"><?= icon('plus', 14) ?>Open test desk</button>
+        <label for="desk_email_open">Client login email</label>
+        <input id="desk_email_open" name="desk_email" type="email" required value="<?= h(post('desk_email')) ?>" placeholder="client@theircompany.com" autocomplete="off">
+        <p class="hint" style="margin:4px 0 0">Use the email the client wants to sign in with. Password: Folio2026.</p>
+        <div class="actions" style="margin-top:10px">
+          <button class="btn" type="submit"><?= icon('plus', 14) ?>Open test desk</button>
+        </div>
       </form>
       <p class="hint" style="margin-top:10px">Needs business name, contact person and phone saved above.</p>
     <?php endif; ?>
@@ -257,6 +293,11 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
           <input type="checkbox" name="wants_testing" value="1" data-wants-testing <?= post('wants_testing') !== '' ? 'checked' : '' ?>>
           Also open a test desk when I save
         </label>
+        <div data-wants-testing-fields style="margin-top:10px" <?= post('wants_testing') !== '' ? '' : 'hidden' ?>>
+          <label for="desk_email">Client login email</label>
+          <input id="desk_email" name="desk_email" type="email" value="<?= h(post('desk_email')) ?>" placeholder="client@theircompany.com" autocomplete="off" data-wants-testing-email>
+          <p class="hint" style="margin:4px 0 0">Required when opening a test desk. Password: Folio2026.</p>
+        </div>
         <p class="hint">Needs business name, contact person and phone above.</p>
       <?php endif; ?>
     </div>
@@ -307,9 +348,21 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
     if (interestedNature) interestedNature.disabled = st !== 'interested';
     if (rejectedNature) rejectedNature.disabled = st !== 'rejected';
     var wants = form.querySelector('[data-wants-testing]');
-    if (wants) wants.disabled = st !== 'interested';
+    var wantsFields = form.querySelector('[data-wants-testing-fields]');
+    var wantsEmail = form.querySelector('[data-wants-testing-email]');
+    if (wants) {
+      wants.disabled = st !== 'interested';
+      var show = st === 'interested' && wants.checked;
+      if (wantsFields) wantsFields.hidden = !show;
+      if (wantsEmail) {
+        wantsEmail.required = show;
+        wantsEmail.disabled = !show;
+      }
+    }
   }
   form.querySelectorAll('[data-status-radio]').forEach(function(r){ r.addEventListener('change', sync); });
+  var wantsCb = form.querySelector('[data-wants-testing]');
+  if (wantsCb) wantsCb.addEventListener('change', sync);
   sync();
 })();
 </script>

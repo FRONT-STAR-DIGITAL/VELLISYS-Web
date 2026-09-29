@@ -1565,8 +1565,9 @@ function sales_testing_set_login(int $companyId, string $email, bool $resetPassw
 /**
  * Start a 2-week testing desk from an interested lead (same sales flow).
  * Uses the lead's business/contact fields and default document kinds.
+ * Sales agents must supply the client's preferred login email; password is Folio2026.
  */
-function sales_start_testing_from_lead(int $leadId, int $agentId): array
+function sales_start_testing_from_lead(int $leadId, int $agentId, string $preferredEmail = ''): array
 {
     $lead = sales_lead($leadId);
     if (!$lead || !empty($lead['deleted_at']) || (int) ($lead['agent_id'] ?? 0) !== $agentId) {
@@ -1596,6 +1597,13 @@ function sales_start_testing_from_lead(int $leadId, int $agentId): array
     if ($name === '' || $contact === '' || $phone === '') {
         return ['ok' => false, 'error' => 'Save business name, contact person and phone on this lead first.'];
     }
+    $preferredEmail = strtolower(trim($preferredEmail));
+    if ($preferredEmail === '' || !filter_var($preferredEmail, FILTER_VALIDATE_EMAIL)) {
+        return ['ok' => false, 'error' => 'Enter the client\'s preferred login email.'];
+    }
+    if (db_one('SELECT id FROM users WHERE email = ?', 's', [$preferredEmail])) {
+        return ['ok' => false, 'error' => 'That email already has a Vellisys login. Pick another.'];
+    }
     return sales_create_testing_company([
         'name' => $name,
         'contact_name' => $contact,
@@ -1604,6 +1612,7 @@ function sales_start_testing_from_lead(int $leadId, int $agentId): array
         'address' => (string) ($lead['address'] ?? ''),
         'nature_of_business' => (string) ($lead['nature_of_business'] ?? ''),
         'lead_id' => $leadId,
+        'user_email' => $preferredEmail,
         'enabled_kinds' => function_exists('default_enabled_kinds') ? default_enabled_kinds() : ['quotation', 'invoice', 'receipt', 'letter'],
         'plan' => (string) ($lead['package_chosen'] ?? 'sme') ?: 'sme',
     ], $agentId, false);

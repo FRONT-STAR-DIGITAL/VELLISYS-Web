@@ -31,7 +31,7 @@ if ((string) ($lead['status'] ?? '') !== 'interested') {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
-    $made = sales_start_testing_from_lead($leadId, (int) $user['id']);
+    $made = sales_start_testing_from_lead($leadId, (int) $user['id'], post('desk_email'));
     if (empty($made['ok'])) {
         flash((string) ($made['error'] ?? 'Could not create the testing desk.'), 'err');
         redirect('sales_lead_edit.php?id=' . $leadId . '#lead-testing');
