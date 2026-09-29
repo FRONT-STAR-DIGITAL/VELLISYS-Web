@@ -473,6 +473,55 @@ render_filters('admin_finances.php', $filterKeep, ['live' => true, 'today_first'
 </div>
 
 <div class="card" style="margin-bottom:24px">
+  <div class="card-head">
+    <h2><?= icon('wallet', 16) ?>Banking</h2>
+    <a class="btn ghost sm" href="<?= h(url($filterQs('banking', ['new' => '1']))) ?>"><?= icon('plus', 14) ?>New bank line</a>
+  </div>
+  <?php if (!$bankMoves): ?>
+    <p class="empty">No savings or withdrawals in this date range. <a href="<?= h(url($filterQs('banking', ['new' => '1']))) ?>">Record one</a>.</p>
+  <?php else: ?>
+    <div class="table-scroll">
+      <table class="grid finance-totals-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th class="right">Amount</th>
+            <th>Note</th>
+            <th class="row-actions"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach (array_slice($bankMoves, 0, 8) as $mv): ?>
+            <?php
+              $mid = (int) $mv['id'];
+              $isOut = platform_bank_normalize_kind((string) $mv['kind']) === 'withdraw';
+            ?>
+            <tr>
+              <td class="mono"><?= h(format_date((string) $mv['occurred_on'])) ?></td>
+              <td><?= $isOut ? 'Withdrawal' : 'Savings' ?></td>
+              <td class="right mono <?= $isOut ? 'neg' : 'pos' ?>"><?= ($isOut ? '-' : '+') . h(platform_money((float) $mv['amount'], (string) $mv['currency'])) ?></td>
+              <td><?= h((string) ($mv['note'] ?? '')) ?></td>
+              <td class="row-actions">
+                <a class="btn icon-only" href="<?= h(url($filterQs('banking', ['view' => (string) $mid]))) ?>" title="View" aria-label="View"><?= icon('eye', 15) ?></a>
+                <a class="btn icon-only" href="<?= h(url($filterQs('banking', ['edit' => (string) $mid]))) ?>" title="Edit" aria-label="Edit"><?= icon('pencil', 15) ?></a>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2"><strong>Balance</strong></td>
+            <td class="right mono"><strong class="<?= $bankBalance < 0 ? 'neg' : 'pos' ?>"><?= h(money($bankBalance, $ccy)) ?></strong></td>
+            <td colspan="2"><a class="btn ghost sm" href="<?= h(url($filterQs('banking'))) ?>">Open banking</a></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  <?php endif; ?>
+</div>
+
+<div class="card" style="margin-bottom:24px">
   <div class="card-head"><h2><?= icon('building', 16) ?>Companies · paid and balance</h2></div>
   <?php if (!$companies): ?>
     <p class="empty">No companies yet.</p>
