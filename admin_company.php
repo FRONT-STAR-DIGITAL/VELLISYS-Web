@@ -1220,8 +1220,10 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
     </div>
     <label for="logo">Logo</label>
     <input id="logo" name="logo" type="file" accept="image/*">
-    <?php if (!empty($brand['logo_path'])): ?>
-      <div class="logo-preview"><img src="<?= h(logo_url($brand)) ?>" alt=""></div>
+    <?php $adminLogo = logo_url($brand); if ($adminLogo !== ''): ?>
+      <div class="logo-preview"><img src="<?= h($adminLogo) ?>" alt=""></div>
+    <?php else: ?>
+      <p class="hint" style="margin:6px 0 0">No logo - desk shows initials <?= h(brand_initials($brand)) ?>.</p>
     <?php endif; ?>
     <label for="payment_note">Payment note</label>
     <textarea id="payment_note" name="payment_note" rows="3"><?= h((string) ($brand['payment_note'] ?? '')) ?></textarea>
