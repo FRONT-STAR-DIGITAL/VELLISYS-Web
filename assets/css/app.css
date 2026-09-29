@@ -7058,6 +7058,12 @@ a.cdash-metric:hover {
   width: 132px;
   max-width: none;
 }
+.finance-totals-table tfoot td {
+  border-top: 1px solid var(--line);
+  font-weight: 700;
+  background: #f7f9fb;
+}
+.finance-totals-table tfoot .neg { font-weight: 700; }
 .lead-flow-card h2 {
   font-size: 1.15rem;
 }

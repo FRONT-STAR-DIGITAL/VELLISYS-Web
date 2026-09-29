@@ -25,7 +25,30 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '60';
+    return '61';
+}
+
+/** Super-admin platform expenses (Vellisys operating costs). */
+function folio_ensure_platform_expenses(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    @$db->query("CREATE TABLE IF NOT EXISTS platform_expenses (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      title VARCHAR(190) NOT NULL DEFAULT '',
+      amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+      currency CHAR(3) NOT NULL DEFAULT 'USD',
+      amount_usd DECIMAL(14,2) NOT NULL DEFAULT 0,
+      occurred_on DATE NOT NULL,
+      note VARCHAR(500) NOT NULL DEFAULT '',
+      created_by INT UNSIGNED NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY occurred_on (occurred_on),
+      KEY title (title)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
 /** Trial desks: FirstWord@vellisys.com + Folio2026 (once per deploy via schema_meta). */
@@ -580,6 +603,7 @@ function folio_migrate(mysqli $db): void
     folio_ensure_php_sessions($db);
     folio_ensure_doc_email_not_login($db);
     folio_migrate_testing_logins_vellisys($db);
+    folio_ensure_platform_expenses($db);
     folio_ensure_logo_bg($db);
     folio_ensure_optional_doc_party($db);
     folio_ensure_receipt_comments($db);

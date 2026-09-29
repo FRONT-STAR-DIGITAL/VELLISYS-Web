@@ -202,6 +202,219 @@ function record_platform_fee(int $companyId, float $amount, string $currency, st
     }
 }
 
+/** Saved expense names for reuse (datalist). */
+function platform_expense_titles(): array
+{
+    try {
+        $rows = db_all('SELECT DISTINCT title FROM platform_expenses WHERE title <> \'\' ORDER BY title ASC LIMIT 300');
+    } catch (Throwable $e) {
+        return [];
+    }
+    return array_values(array_filter(array_map(static fn ($r) => (string) ($r['title'] ?? ''), $rows)));
+}
+
+function platform_expense_save(array $fields, ?int $actorId = null): array
+{
+    $title = mb_substr(trim((string) ($fields['title'] ?? $fields['expense'] ?? '')), 0, 190);
+    $amount = function_exists('money_parse') ? money_parse((string) ($fields['amount'] ?? '0')) : (float) ($fields['amount'] ?? 0);
+    $currency = normalize_currency((string) ($fields['currency'] ?? platform_currency()), platform_currency());
+    $on = trim((string) ($fields['occurred_on'] ?? $fields['date'] ?? ''));
+    $note = mb_substr(trim((string) ($fields['note'] ?? '')), 0, 500);
+    if ($title === '') {
+        return ['ok' => false, 'error' => 'Enter what the expense was for.'];
+    }
+    if ($amount <= 0.009) {
+        return ['ok' => false, 'error' => 'Enter the expense amount.'];
+    }
+    if ($on === '' || !DateTime::createFromFormat('Y-m-d', $on)) {
+        return ['ok' => false, 'error' => 'Pick the expense date.'];
+    }
+    $usd = platform_convert($amount, $currency, 'USD');
+    $uid = (int) ($actorId ?? (current_user()['id'] ?? 0));
+    try {
+        $id = db_exec(
+            'INSERT INTO platform_expenses (title, amount, currency, amount_usd, occurred_on, note, created_by) VALUES (?,?,?,?,?,?,?)',
+            'sdsdssi',
+            [$title, $amount, $currency, $usd, $on, $note, $uid > 0 ? $uid : 0]
+        );
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'Could not save that expense.'];
+    }
+    return ['ok' => true, 'id' => (int) $id];
+}
+
+function platform_expense_delete(int $id): array
+{
+    if ($id < 1) {
+        return ['ok' => false, 'error' => 'Expense not found.'];
+    }
+    try {
+        db_exec('DELETE FROM platform_expenses WHERE id = ?', 'i', [$id]);
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'Could not delete that expense.'];
+    }
+    return ['ok' => true];
+}
+
+/** @return list<array<string,mixed>> */
+function platform_expenses_list(?string $fromDate = null, ?string $toDate = null, int $limit = 500): array
+{
+    $sql = 'SELECT * FROM platform_expenses';
+    $types = '';
+    $params = [];
+    if ($fromDate !== null && $toDate !== null) {
+        $sql .= ' WHERE occurred_on BETWEEN ? AND ?';
+        $types = 'ss';
+        $params = [$fromDate, $toDate];
+    }
+    $sql .= ' ORDER BY occurred_on DESC, id DESC LIMIT ' . max(1, min(2000, $limit));
+    try {
+        return $types !== '' ? db_all($sql, $types, $params) : db_all($sql);
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function platform_expense_sum(?string $fromDate = null, ?string $toDate = null): float
+{
+    $ccy = platform_currency();
+    $sql = 'SELECT currency, COALESCE(SUM(amount),0) AS t FROM platform_expenses';
+    $types = '';
+    $params = [];
+    if ($fromDate !== null && $toDate !== null) {
+        $sql .= ' WHERE occurred_on BETWEEN ? AND ?';
+        $types = 'ss';
+        $params = [$fromDate, $toDate];
+    }
+    $sql .= ' GROUP BY currency';
+    try {
+        $rows = $types !== '' ? db_all($sql, $types, $params) : db_all($sql);
+    } catch (Throwable $e) {
+        return 0.0;
+    }
+    $total = 0.0;
+    foreach ($rows as $r) {
+        $total += platform_convert((float) ($r['t'] ?? 0), (string) ($r['currency'] ?? 'USD'), $ccy);
+    }
+    return round_money($total, $ccy);
+}
+
+/**
+ * @param 'day'|'month' $grain
+ * @return array<string, float>
+ */
+function platform_expense_series(string $fromDate, string $toDate, string $grain = 'day'): array
+{
+    $ccy = platform_currency();
+    $expr = $grain === 'month' ? 'DATE_FORMAT(occurred_on, "%Y-%m")' : 'occurred_on';
+    try {
+        $rows = db_all(
+            "SELECT {$expr} AS bucket, currency, COALESCE(SUM(amount),0) AS t
+             FROM platform_expenses
+             WHERE occurred_on BETWEEN ? AND ?
+             GROUP BY bucket, currency",
+            'ss',
+            [$fromDate, $toDate]
+        );
+    } catch (Throwable $e) {
+        return [];
+    }
+    $out = [];
+    foreach ($rows as $r) {
+        $key = (string) ($r['bucket'] ?? '');
+        if ($key === '') {
+            continue;
+        }
+        if (!isset($out[$key])) {
+            $out[$key] = 0.0;
+        }
+        $out[$key] += platform_convert((float) ($r['t'] ?? 0), (string) ($r['currency'] ?? 'USD'), $ccy);
+    }
+    foreach ($out as $k => $v) {
+        $out[$k] = round_money($v, $ccy);
+    }
+    return $out;
+}
+
+/** Expense totals by title for the period (platform currency). */
+function platform_expense_breakdown(?string $fromDate = null, ?string $toDate = null, int $limit = 12): array
+{
+    $ccy = platform_currency();
+    $sql = 'SELECT title, currency, COALESCE(SUM(amount),0) AS t FROM platform_expenses';
+    $types = '';
+    $params = [];
+    if ($fromDate !== null && $toDate !== null) {
+        $sql .= ' WHERE occurred_on BETWEEN ? AND ?';
+        $types = 'ss';
+        $params = [$fromDate, $toDate];
+    }
+    $sql .= ' GROUP BY title, currency';
+    try {
+        $rows = $types !== '' ? db_all($sql, $types, $params) : db_all($sql);
+    } catch (Throwable $e) {
+        return [];
+    }
+    $byTitle = [];
+    foreach ($rows as $r) {
+        $title = trim((string) ($r['title'] ?? '')) ?: 'Other';
+        if (!isset($byTitle[$title])) {
+            $byTitle[$title] = 0.0;
+        }
+        $byTitle[$title] += platform_convert((float) ($r['t'] ?? 0), (string) ($r['currency'] ?? 'USD'), $ccy);
+    }
+    arsort($byTitle, SORT_NUMERIC);
+    $out = [];
+    $n = 0;
+    foreach ($byTitle as $title => $amt) {
+        $out[] = ['title' => $title, 'amount' => round_money((float) $amt, $ccy)];
+        $n++;
+        if ($n >= $limit) {
+            break;
+        }
+    }
+    return $out;
+}
+
+/**
+ * Fill day or month buckets between two dates with zeros.
+ *
+ * @return list<string>
+ */
+function platform_finance_axis(string $fromDate, string $toDate, string $grain = 'day'): array
+{
+    try {
+        $from = new DateTimeImmutable($fromDate);
+        $to = new DateTimeImmutable($toDate);
+    } catch (Throwable $e) {
+        return [];
+    }
+    if ($to < $from) {
+        [$from, $to] = [$to, $from];
+    }
+    $out = [];
+    if ($grain === 'month') {
+        $cursor = $from->modify('first day of this month');
+        $end = $to->modify('first day of this month');
+        while ($cursor <= $end) {
+            $out[] = $cursor->format('Y-m');
+            $cursor = $cursor->modify('+1 month');
+            if (count($out) > 60) {
+                break;
+            }
+        }
+        return $out;
+    }
+    $cursor = $from;
+    while ($cursor <= $to) {
+        $out[] = $cursor->format('Y-m-d');
+        $cursor = $cursor->modify('+1 day');
+        if (count($out) > 120) {
+            break;
+        }
+    }
+    return $out;
+}
+
 function record_platform_perf(int $ms, string $path = ''): void
 {
     if ($ms < 8 || $ms > 30000) {
