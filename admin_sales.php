@@ -182,7 +182,26 @@ if ($filterAgent) {
 if ($leadStatus !== '' && isset(sales_statuses()[$leadStatus])) {
     $leadOpts['status'] = $leadStatus;
 }
+$followBucket = (string) ($_GET['bucket'] ?? '');
+$overdueFollowN = sales_overdue_followups_count($filterAgent ?: null);
 if ($tab === 'leads') {
+    // Open / overdue / on-test views ignore the date range so nothing due slips out of sight.
+    if (in_array($followBucket, ['overdue', 'pending', 'closed', 'followed'], true) || $leadStatus === 'on_test') {
+        unset($leadOpts['from'], $leadOpts['to']);
+    }
+    if ($followBucket === 'overdue') {
+        $leadOpts['follow_bucket'] = 'overdue';
+        unset($leadOpts['status']);
+    } elseif ($followBucket === 'pending') {
+        $leadOpts['follow_bucket'] = 'due';
+        unset($leadOpts['status']);
+    } elseif ($followBucket === 'closed' || $followBucket === 'followed') {
+        $leadOpts['follow_bucket'] = 'done';
+    }
+    if ($leadStatus === 'on_test') {
+        $leadOpts['on_test'] = true;
+        unset($leadOpts['status']);
+    }
     $leads = sales_leads_query($leadOpts);
 }
 $targets = db_all('SELECT t.*, u.name AS agent_name FROM sales_targets t LEFT JOIN users u ON u.id = t.agent_id ORDER BY t.period_start DESC, t.id DESC LIMIT 50');
@@ -205,6 +224,7 @@ if ($tab === 'agent' && $agentRow) {
     $agentRejection = sales_rejection_breakdown($agentId, $agentFrom, $agentTo);
     $agentLeads = sales_leads_query(['agent_id' => $agentId, 'from' => $agentFrom, 'to' => $agentTo]);
     $agentPending = sales_leads_query(['agent_id' => $agentId, 'follow_bucket' => 'due']);
+    $agentOverdue = sales_leads_query(['agent_id' => $agentId, 'follow_bucket' => 'overdue']);
     $agentFollowed = sales_leads_query(['agent_id' => $agentId, 'follow_bucket' => 'done', 'from' => $agentFrom, 'to' => $agentTo]);
 }
 $editLead = null;
@@ -234,7 +254,7 @@ layout_admin_start('Sales', $user);
 
 <nav class="planner-tabs" aria-label="Sales sections">
   <a class="planner-tab<?= $tab === 'overview' ? ' is-on' : '' ?>" href="<?= h(url('admin_sales.php?tab=overview')) ?>"><?= icon('reports', 16) ?><span>Sales</span></a>
-  <a class="planner-tab<?= $tab === 'leads' || $tab === 'lead' ? ' is-on' : '' ?>" href="<?= h(url('admin_sales.php?tab=leads')) ?>"><?= icon('clients', 16) ?><span>Businesses</span></a>
+  <a class="planner-tab<?= $tab === 'leads' || $tab === 'lead' ? ' is-on' : '' ?>" href="<?= h(url('admin_sales.php?tab=leads')) ?>"><?= icon('clients', 16) ?><span>Businesses<?php if ($overdueFollowN > 0): ?> <span class="sales-follow-count" title="Overdue follow-ups"><?= (int) $overdueFollowN ?></span><?php endif; ?></span></a>
   <a class="planner-tab<?= $tab === 'agents' || $tab === 'agent' ? ' is-on' : '' ?>" href="<?= h(url('admin_sales.php?tab=agents')) ?>"><?= icon('user', 16) ?><span>Agents</span></a>
   <a class="planner-tab<?= $tab === 'targets' ? ' is-on' : '' ?>" href="<?= h(url('admin_sales.php?tab=targets')) ?>"><?= icon('flag', 16) ?><span>Targets</span></a>
   <a class="planner-tab<?= $tab === 'messages' ? ' is-on' : '' ?>" href="<?= h(url('admin_sales.php?tab=messages')) ?>"><?= icon('mail', 16) ?><span>Messages</span></a>
@@ -249,6 +269,12 @@ layout_admin_start('Sales', $user);
   <div class="card stat"><?= icon('check', 20) ?><span>Onboarded</span><strong><?= (int) $overall['onboarded'] ?></strong></div>
   <div class="card stat"><?= icon('flag', 20) ?><span>Sales (wins)</span><strong><?= (int) $overall['wins'] ?></strong></div>
   <div class="card stat"><?= icon('building', 20) ?><span>On test</span><strong><?= (int) ($overall['on_test'] ?? 0) ?></strong><em class="muted"><?= (int) ($overall['testing_active'] ?? 0) ?> active now</em></div>
+  <a class="card stat" href="<?= h(url('admin_sales.php?tab=leads&bucket=overdue&range=all' . ($filterAgent ? '&agent_filter=' . $filterAgent : ''))) ?>" style="text-decoration:none;color:inherit">
+    <?= icon('calendar', 20) ?>
+    <span>Overdue follow-ups</span>
+    <strong><?= (int) $overdueFollowN ?></strong>
+    <em class="muted">Not attended past due date</em>
+  </a>
 </div>
 
 <div class="card" style="margin-bottom:16px">
@@ -449,18 +475,46 @@ return;
 endif;
 
 if ($tab === 'leads'):
-    $followBucket = (string) ($_GET['bucket'] ?? '');
-    if ($followBucket === 'pending') {
-        $leadOpts['follow_bucket'] = 'due';
-        unset($leadOpts['status']);
-        $leads = sales_leads_query($leadOpts);
-    } elseif ($followBucket === 'followed') {
-        $leadOpts['follow_bucket'] = 'done';
-        $leads = sales_leads_query($leadOpts);
-    }
+    $isOverdueView = $followBucket === 'overdue';
+    $isOpenFuView = $followBucket === 'pending' || $isOverdueView;
+    $statusChoices = [
+        'interested' => 'Interested',
+        'follow_up' => 'Follow ups',
+        'on_test' => 'On testing',
+        'onboarding' => 'Onboarding',
+        'onboarded' => 'Onboarded',
+        'rejected' => 'Rejected',
+    ];
+    $filterQs = static function (array $extra) use ($filterAgent, $period): string {
+        $q = array_merge([
+            'tab' => 'leads',
+            'range' => (string) ($period['preset'] ?? 'all'),
+            'from' => (string) ($period['from'] ?? ''),
+            'to' => (string) ($period['to'] ?? ''),
+        ], $extra);
+        if ($filterAgent > 0) {
+            $q['agent_filter'] = $filterAgent;
+        }
+        if (($q['bucket'] ?? '') !== '' || ($q['status'] ?? '') === 'on_test') {
+            $q['range'] = 'all';
+            unset($q['from'], $q['to']);
+        }
+        return url('admin_sales.php?' . http_build_query(array_filter($q, static fn ($v) => $v !== '' && $v !== null)));
+    };
     ?>
-<?php render_filters('admin_sales.php', array_filter(['tab' => 'leads', 'agent_filter' => $filterAgent ?: null, 'status' => $leadStatus ?: null]), ['live' => true, 'today_first' => true]); ?>
-<p class="hint" style="margin:-8px 0 16px">Showing <?= $period['from'] ? h(format_date($from) . ' - ' . format_date($to)) : 'all dates' ?>.</p>
+<?php render_filters('admin_sales.php', array_filter([
+    'tab' => 'leads',
+    'agent_filter' => $filterAgent ?: null,
+    'status' => $leadStatus ?: null,
+    'bucket' => $followBucket ?: null,
+]), ['live' => true, 'today_first' => true]); ?>
+<p class="hint" style="margin:-8px 0 16px">
+  <?php if ($isOpenFuView || $followBucket === 'closed' || $leadStatus === 'on_test'): ?>
+    Showing all dates for this filter (not limited to the period above).
+  <?php else: ?>
+    Showing <?= $period['from'] ? h(format_date($from) . ' - ' . format_date($to)) : 'all dates' ?>.
+  <?php endif; ?>
+</p>
 <form method="get" class="filters" style="margin-bottom:12px">
   <input type="hidden" name="tab" value="leads">
   <input type="hidden" name="range" value="<?= h((string) ($period['preset'] ?? '')) ?>">
@@ -475,33 +529,53 @@ if ($tab === 'leads'):
     </select>
   </label>
   <label>Status
-    <select name="status" onchange="this.form.submit()">
+    <select name="status" onchange="var b=this.form.elements.namedItem('bucket'); if(b) b.value=''; this.form.submit()">
       <option value="">All</option>
-      <?php foreach (sales_statuses() as $k => $label): ?>
+      <?php foreach ($statusChoices as $k => $label): ?>
         <option value="<?= h($k) ?>" <?= $leadStatus === $k && $followBucket === '' ? 'selected' : '' ?>><?= h($label) ?></option>
       <?php endforeach; ?>
     </select>
   </label>
   <label>Follow-ups
-    <select name="bucket" onchange="this.form.submit()">
+    <select name="bucket" onchange="var s=this.form.elements.namedItem('status'); if(s) s.value=''; this.form.submit()">
       <option value="">Any</option>
-      <option value="pending" <?= $followBucket === 'pending' ? 'selected' : '' ?>>Not followed up</option>
-      <option value="followed" <?= $followBucket === 'followed' ? 'selected' : '' ?>>Followed up</option>
+      <option value="overdue" <?= $followBucket === 'overdue' ? 'selected' : '' ?>>Overdue</option>
+      <option value="pending" <?= $followBucket === 'pending' ? 'selected' : '' ?>>Open (not attended)</option>
+      <option value="closed" <?= in_array($followBucket, ['closed', 'followed'], true) ? 'selected' : '' ?>>Closed</option>
     </select>
   </label>
 </form>
+<div class="filter-chips" style="margin:0 0 14px">
+  <a class="chip<?= $leadStatus === '' && $followBucket === '' ? ' is-on' : '' ?>" href="<?= h($filterQs([])) ?>">All</a>
+  <a class="chip<?= $leadStatus === 'interested' && $followBucket === '' ? ' is-on' : '' ?>" href="<?= h($filterQs(['status' => 'interested'])) ?>">Interested</a>
+  <a class="chip<?= $leadStatus === 'follow_up' && $followBucket === '' ? ' is-on' : '' ?>" href="<?= h($filterQs(['status' => 'follow_up'])) ?>">Follow ups</a>
+  <a class="chip<?= $leadStatus === 'on_test' ? ' is-on' : '' ?>" href="<?= h($filterQs(['status' => 'on_test'])) ?>">On testing</a>
+  <a class="chip<?= $followBucket === 'overdue' ? ' is-on' : '' ?>" href="<?= h($filterQs(['bucket' => 'overdue'])) ?>">Overdue<?php if ($overdueFollowN > 0): ?> <span class="sales-follow-count"><?= (int) $overdueFollowN ?></span><?php endif; ?></a>
+  <a class="chip<?= in_array($followBucket, ['closed', 'followed'], true) ? ' is-on' : '' ?>" href="<?= h($filterQs(['bucket' => 'closed'])) ?>">Closed</a>
+</div>
 <div class="card">
   <div class="card-head">
-    <h2>Businesses</h2>
+    <h2><?= $isOverdueView ? 'Overdue follow-ups' : ($followBucket === 'pending' ? 'Open follow-ups' : ($followBucket === 'closed' || $followBucket === 'followed' ? 'Closed follow-ups' : 'Businesses')) ?></h2>
     <a class="btn sm" href="<?= h(url('admin_sales.php?tab=lead')) ?>"><?= icon('plus', 14) ?>Add</a>
   </div>
   <div class="table-scroll">
     <table class="grid">
-      <thead><tr><th>Business</th><th>Agent</th><th>Status</th><th>Contact</th><th>City</th><th>Follow-up</th><th>Submitted</th><th></th></tr></thead>
+      <thead><tr><th>Business</th><th>Agent</th><th>Status</th><?php if ($isOpenFuView): ?><th>Interest</th><?php endif; ?><th>Contact</th><th>City</th><th>Follow-up</th><th>Submitted</th><th></th></tr></thead>
       <tbody>
-        <?php foreach ($leads as $lead): ?>
-          <tr>
+        <?php foreach ($leads as $lead):
+            $testLabel = sales_lead_testing_label($lead);
+            $overdue = sales_lead_followup_overdue($lead);
+            $interest = (int) ($lead['interest_rating'] ?? 0);
+            $rowClass = $overdue ? 'sales-fu-overdue' : '';
+            ?>
+          <tr<?= $rowClass !== '' ? ' class="' . h($rowClass) . '"' : '' ?>>
             <td><?= h(trim((string) $lead['business_name']) ?: '-') ?>
+              <?php if ($testLabel !== ''): ?>
+                <span class="pill<?= $testLabel === 'Test ended' ? ' bad' : ' warn' ?>"><?= h($testLabel) ?></span>
+              <?php endif; ?>
+              <?php if ($overdue): ?>
+                <span class="pill bad">Overdue</span>
+              <?php endif; ?>
               <?php if (($lead['status'] ?? '') === 'rejected' && !empty($lead['rejected_reason'])): ?>
                 <div class="muted"><?= h((string) $lead['rejected_reason']) ?></div>
               <?php endif; ?>
@@ -509,17 +583,20 @@ if ($tab === 'leads'):
             <td><?= h((string) $lead['agent_name']) ?></td>
             <td><span class="<?= h(sales_status_pill_class((string) $lead['status'])) ?>"><?= h(sales_status_label((string) $lead['status'])) ?></span>
               <?php if (!empty($lead['follow_up_done_at'])): ?>
-                <div class="muted">Followed <?= h(format_date(substr((string) $lead['follow_up_done_at'], 0, 10))) ?></div>
+                <div class="muted">Closed <?= h(format_date(substr((string) $lead['follow_up_done_at'], 0, 10))) ?></div>
               <?php elseif (($lead['status'] ?? '') === 'follow_up'): ?>
-                <div class="muted">Awaiting follow-up</div>
+                <div class="muted"><?= $overdue ? 'Past due — not attended' : 'Awaiting follow-up' ?></div>
               <?php endif; ?>
             </td>
+            <?php if ($isOpenFuView): ?>
+              <td><span class="<?= h(sales_interest_pill_class($interest)) ?>"><?= h(sales_interest_label($interest)) ?></span></td>
+            <?php endif; ?>
             <td><?= h(trim($lead['contact_name'] . ' ' . $lead['contact_phone'])) ?></td>
             <td><?= h((string) $lead['city']) ?></td>
             <td class="date-cell"><?= !empty($lead['follow_up_date']) ? h(sales_format_follow_up($lead)) : '-' ?></td>
             <td class="date-cell mono"><?= h(sales_format_lead_submitted_at($lead['created_at'] ?? null)) ?></td>
             <td class="row-actions">
-              <a class="btn ghost sm" href="<?= h(url('admin_sales.php?tab=lead&id=' . (int) $lead['id'])) ?>">Edit</a>
+              <a class="btn<?= $overdue || $isOpenFuView ? '' : ' ghost' ?> sm" href="<?= h(url('admin_sales.php?tab=lead&id=' . (int) $lead['id'])) ?>"><?= $overdue ? 'Review' : 'Edit' ?></a>
               <?php if (($lead['status'] ?? '') === 'interested'): ?>
                 <form method="post" style="display:inline"><?= csrf_field() ?><input type="hidden" name="action" value="onboard_lead"><input type="hidden" name="lead_id" value="<?= (int) $lead['id'] ?>"><button class="btn sm" type="submit">Onboard</button></form>
               <?php endif; ?>
@@ -533,7 +610,7 @@ if ($tab === 'leads'):
       </tbody>
     </table>
   </div>
-  <?php if (!$leads): ?><p class="empty">No businesses in this filter.</p><?php endif; ?>
+  <?php if (!$leads): ?><p class="empty"><?= $isOverdueView ? 'No overdue follow-ups right now.' : 'No businesses in this filter.' ?></p><?php endif; ?>
 </div>
 <?php layout_end(); return; endif;
 
@@ -834,19 +911,35 @@ if ($tab === 'agent' && $agentRow):
 <?php sales_render_rejection_report($agentRejection); ?>
 <div class="desk-grid stock-split" style="margin-bottom:16px">
   <div class="card">
-    <div class="card-head"><h2>Not followed up</h2></div>
-    <?php if (!$agentPending): ?><p class="empty">None waiting.</p>
+    <div class="card-head">
+      <h2>Overdue follow-ups</h2>
+      <a class="btn ghost sm" href="<?= h(url('admin_sales.php?tab=leads&bucket=overdue&range=all&agent_filter=' . (int) $agentId)) ?>">All overdue</a>
+    </div>
+    <?php if (!$agentOverdue): ?><p class="empty">None overdue.</p>
     <?php else: ?>
       <div class="table-scroll"><table class="grid"><thead><tr><th>Business</th><th>Due</th></tr></thead><tbody>
-        <?php foreach ($agentPending as $lead): ?>
-          <tr><td><a href="<?= h(url('admin_sales.php?tab=lead&id=' . (int) $lead['id'])) ?>"><?= h(trim((string) $lead['business_name']) ?: '-') ?></a></td><td><?= h(sales_format_follow_up($lead)) ?></td></tr>
+        <?php foreach ($agentOverdue as $lead): ?>
+          <tr class="sales-fu-overdue"><td><a href="<?= h(url('admin_sales.php?tab=lead&id=' . (int) $lead['id'])) ?>"><?= h(trim((string) $lead['business_name']) ?: '-') ?></a> <span class="pill bad">Overdue</span></td><td><?= h(sales_format_follow_up($lead)) ?></td></tr>
         <?php endforeach; ?>
       </tbody></table></div>
     <?php endif; ?>
   </div>
   <div class="card">
-    <div class="card-head"><h2>Followed up</h2></div>
-    <?php if (!$agentFollowed): ?><p class="empty">No follow-up updates in this period.</p>
+    <div class="card-head"><h2>Open (not attended)</h2></div>
+    <?php if (!$agentPending): ?><p class="empty">None waiting.</p>
+    <?php else: ?>
+      <div class="table-scroll"><table class="grid"><thead><tr><th>Business</th><th>Due</th></tr></thead><tbody>
+        <?php foreach ($agentPending as $lead):
+            $rowOverdue = sales_lead_followup_overdue($lead);
+            ?>
+          <tr<?= $rowOverdue ? ' class="sales-fu-overdue"' : '' ?>><td><a href="<?= h(url('admin_sales.php?tab=lead&id=' . (int) $lead['id'])) ?>"><?= h(trim((string) $lead['business_name']) ?: '-') ?></a><?php if ($rowOverdue): ?> <span class="pill bad">Overdue</span><?php endif; ?></td><td><?= h(sales_format_follow_up($lead)) ?></td></tr>
+        <?php endforeach; ?>
+      </tbody></table></div>
+    <?php endif; ?>
+  </div>
+  <div class="card">
+    <div class="card-head"><h2>Closed</h2></div>
+    <?php if (!$agentFollowed): ?><p class="empty">No closed follow-ups in this period.</p>
     <?php else: ?>
       <div class="table-scroll"><table class="grid"><thead><tr><th>Business</th><th>Status</th></tr></thead><tbody>
         <?php foreach ($agentFollowed as $lead): ?>

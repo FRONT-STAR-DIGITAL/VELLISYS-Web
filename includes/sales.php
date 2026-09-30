@@ -130,6 +130,52 @@ function sales_open_followups_count(int $agentId): int
     return $cache[$agentId];
 }
 
+/**
+ * Open follow-ups past their due date (not attended).
+ * Pass null agentId for the whole team (super-admin).
+ */
+function sales_overdue_followups_count(?int $agentId = null): int
+{
+    static $cache = [];
+    $key = $agentId === null ? 0 : (int) $agentId;
+    if (array_key_exists($key, $cache)) {
+        return $cache[$key];
+    }
+    try {
+        $where = "status = 'follow_up' AND deleted_at IS NULL
+                  AND follow_up_done_at IS NULL AND follow_up_date IS NOT NULL
+                  AND follow_up_date < ?";
+        $types = 's';
+        $params = [today()];
+        if ($agentId !== null && $agentId > 0) {
+            $where .= ' AND agent_id = ?';
+            $types .= 'i';
+            $params[] = $agentId;
+        }
+        $row = db_one("SELECT COUNT(*) AS n FROM sales_leads WHERE {$where}", $types, $params);
+        $cache[$key] = (int) ($row['n'] ?? 0);
+    } catch (Throwable $e) {
+        $cache[$key] = 0;
+    }
+    return $cache[$key];
+}
+
+/** Whether an open follow-up lead is past its due date. */
+function sales_lead_followup_overdue(?array $lead): bool
+{
+    if (!$lead) {
+        return false;
+    }
+    if ((string) ($lead['status'] ?? '') !== 'follow_up') {
+        return false;
+    }
+    if (!empty($lead['follow_up_done_at'])) {
+        return false;
+    }
+    $due = trim((string) ($lead['follow_up_date'] ?? ''));
+    return $due !== '' && $due < today();
+}
+
 function sales_reject_reasons(): array
 {
     return [

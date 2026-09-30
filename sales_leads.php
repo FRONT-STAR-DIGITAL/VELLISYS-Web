@@ -14,27 +14,33 @@ if ($status !== '' && isset(sales_statuses()[$status])) {
 if ($q !== '') {
     $opts['q'] = $q;
 }
-if ($bucket === 'followed') {
+if ($bucket === 'followed' || $bucket === 'closed') {
     $opts['follow_bucket'] = 'done';
 } elseif ($bucket === 'pending') {
     $opts['follow_bucket'] = 'due';
+} elseif ($bucket === 'overdue') {
+    $opts['follow_bucket'] = 'overdue';
 } elseif ($bucket === 'on_test') {
     $opts['on_test'] = true;
 }
 $leads = sales_leads_query($opts);
-$isOpenFollowView = $bucket === 'pending';
+$isOverdueView = $bucket === 'overdue';
+$isOpenFollowView = $bucket === 'pending' || $isOverdueView;
 $openFollowN = sales_open_followups_count((int) $user['id']);
+$overdueFollowN = sales_overdue_followups_count((int) $user['id']);
+$pageTitle = $isOverdueView ? 'Overdue follow-ups' : ($bucket === 'pending' ? 'Open follow-ups' : 'Leads');
 
-sales_layout_start($isOpenFollowView ? 'Open follow-ups' : 'Leads', $user);
+sales_layout_start($pageTitle, $user);
 ?>
 <div class="page-head">
   <div>
-    <h1><?= icon($isOpenFollowView ? 'calendar' : 'clients') ?><?= $isOpenFollowView ? 'Open follow-ups' : 'Leads' ?><?php if ($isOpenFollowView && $openFollowN > 0): ?> <span class="sales-follow-count"><?= (int) $openFollowN ?></span><?php endif; ?></h1>
-    <p class="lede"><?= $isOpenFollowView ? 'High interest clients first. Open one to call, then change status after you follow up.' : 'Status first. Rejected needs why they rejected Vellisys, an explanation, and nature of business.' ?></p>
+    <h1><?= icon($isOpenFollowView ? 'calendar' : 'clients') ?><?= h($pageTitle) ?><?php if ($isOverdueView && $overdueFollowN > 0): ?> <span class="sales-follow-count"><?= (int) $overdueFollowN ?></span><?php elseif ($bucket === 'pending' && $openFollowN > 0): ?> <span class="sales-follow-count"><?= (int) $openFollowN ?></span><?php endif; ?></h1>
+    <p class="lede"><?= $isOverdueView ? 'Past due and not attended. Call these first, then update the status.' : ($isOpenFollowView ? 'High interest clients first. Open one to call, then change status after you follow up.' : 'Status first. Rejected needs why they rejected Vellisys, an explanation, and nature of business.') ?></p>
   </div>
   <div class="actions page-actions">
     <?php if (!$isOpenFollowView): ?>
-      <a class="btn ghost" href="<?= h(url('sales_leads.php?bucket=pending')) ?>"><?= icon('calendar', 16) ?>Open follow-ups<?php if ($openFollowN > 0): ?> <span class="sales-follow-count"><?= (int) $openFollowN ?></span><?php endif; ?></a>
+      <a class="btn ghost" href="<?= h(url('sales_leads.php?bucket=overdue')) ?>"><?= icon('calendar', 16) ?>Overdue<?php if ($overdueFollowN > 0): ?> <span class="sales-follow-count"><?= (int) $overdueFollowN ?></span><?php endif; ?></a>
+      <a class="btn ghost" href="<?= h(url('sales_leads.php?bucket=pending')) ?>">Open follow-ups<?php if ($openFollowN > 0): ?> <span class="sales-follow-count"><?= (int) $openFollowN ?></span><?php endif; ?></a>
     <?php else: ?>
       <a class="btn ghost" href="<?= h(url('sales_leads.php')) ?>"><?= icon('clients', 16) ?>All leads</a>
     <?php endif; ?>
@@ -48,8 +54,9 @@ sales_layout_start($isOpenFollowView ? 'Open follow-ups' : 'Leads', $user);
     <a class="chip<?= $status === $k ? ' is-on' : '' ?>" href="<?= h(url('sales_leads.php?status=' . urlencode($k))) ?>"><?= h($label) ?></a>
   <?php endforeach; ?>
   <a class="chip<?= $bucket === 'on_test' ? ' is-on' : '' ?>" href="<?= h(url('sales_leads.php?bucket=on_test')) ?>">On test</a>
+  <a class="chip<?= $bucket === 'overdue' ? ' is-on' : '' ?>" href="<?= h(url('sales_leads.php?bucket=overdue')) ?>">Overdue<?php if ($overdueFollowN > 0): ?> <span class="sales-follow-count"><?= (int) $overdueFollowN ?></span><?php endif; ?></a>
   <a class="chip<?= $bucket === 'pending' ? ' is-on' : '' ?>" href="<?= h(url('sales_leads.php?bucket=pending')) ?>">Open follow-ups<?php if ($openFollowN > 0): ?> <span class="sales-follow-count"><?= (int) $openFollowN ?></span><?php endif; ?></a>
-  <a class="chip<?= $bucket === 'followed' ? ' is-on' : '' ?>" href="<?= h(url('sales_leads.php?bucket=followed')) ?>">Followed up</a>
+  <a class="chip<?= in_array($bucket, ['followed', 'closed'], true) ? ' is-on' : '' ?>" href="<?= h(url('sales_leads.php?bucket=closed')) ?>">Closed</a>
 </div>
 <form class="stock-search" method="get" action="<?= h(url('sales_leads.php')) ?>" style="margin-bottom:16px">
   <?php if ($status !== ''): ?><input type="hidden" name="status" value="<?= h($status) ?>"><?php endif; ?>
@@ -60,7 +67,7 @@ sales_layout_start($isOpenFollowView ? 'Open follow-ups' : 'Leads', $user);
 
 <div class="card">
   <?php if (!$leads): ?>
-    <p class="empty"><?= $isOpenFollowView ? 'No open follow-ups right now.' : 'No leads in this view.' ?> <a href="<?= h(url('sales_lead_edit.php')) ?>">Log a new lead</a>.</p>
+    <p class="empty"><?= $isOverdueView ? 'No overdue follow-ups right now.' : ($isOpenFollowView ? 'No open follow-ups right now.' : 'No leads in this view.') ?> <a href="<?= h(url('sales_lead_edit.php')) ?>">Log a new lead</a>.</p>
   <?php else: ?>
     <div class="table-scroll">
       <table class="grid">
@@ -87,8 +94,7 @@ sales_layout_start($isOpenFollowView ? 'Open follow-ups' : 'Leads', $user);
               $wa = $phone !== '' ? phone_whatsapp_href($phone, 'Hi, following up about ' . trim((string) ($lead['business_name'] ?? 'your business'))) : '';
               $isOpenFu = (string) ($lead['status'] ?? '') === 'follow_up' && empty($lead['follow_up_done_at']);
               $interest = (int) ($lead['interest_rating'] ?? 0);
-              $dueOn = (string) ($lead['follow_up_date'] ?? '');
-              $overdue = $isOpenFollowView && $dueOn !== '' && $dueOn < today();
+              $overdue = sales_lead_followup_overdue($lead);
               $rowClass = [];
               if ($overdue) {
                   $rowClass[] = 'sales-fu-overdue';
