@@ -215,7 +215,7 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
     <?php elseif ($testCompany && empty($testCompany['testing_mode'])): ?>
       <p class="lede" style="margin-top:0">This lead's company is past testing. Message admin if you need help.</p>
     <?php else: ?>
-      <p class="lede" style="margin-top:0">Open a test desk for this client. Enter their preferred login email. Password is Folio2026.</p>
+      <p class="lede" style="margin-top:0">Open a Pro test desk (stock, Profit &amp; Loss, Planner). Enter their preferred login email. Password is Folio2026.</p>
       <form method="post" class="pad-form" style="margin-top:12px;padding:0">
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="start_testing">

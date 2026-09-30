@@ -264,6 +264,7 @@ layout_admin_start('Companies', $user);
 
   <details class="sales-test-create" style="margin-top:20px">
     <summary class="btn ghost"><?= icon('plus', 14) ?>Create testing company</summary>
+    <p class="hint" style="margin:10px 0 0">New trials open on Pro with stock, Profit &amp; Loss and Planner.</p>
     <form method="post" class="pad-form" style="margin-top:12px">
       <?= csrf_field() ?>
       <input type="hidden" name="action" value="create_testing">

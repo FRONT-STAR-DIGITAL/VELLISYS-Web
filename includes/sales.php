@@ -1667,7 +1667,8 @@ function sales_start_testing_from_lead(int $leadId, int $agentId, string $prefer
         'lead_id' => $leadId,
         'user_email' => $preferredEmail,
         'enabled_kinds' => function_exists('default_enabled_kinds') ? default_enabled_kinds() : ['quotation', 'invoice', 'receipt', 'letter'],
-        'plan' => (string) ($lead['package_chosen'] ?? 'sme') ?: 'sme',
+        // Trials always run as Pro so clients can try stock, P&L and planner.
+        'plan' => 'office',
     ], $agentId, false);
 }
 
@@ -1735,11 +1736,12 @@ function sales_create_testing_company(array $fields, int $actorId, bool $asPlatf
         $customDoc = null;
         $lineCols = null;
     }
-    $plan = normalize_company_plan((string) ($fields['plan'] ?? 'sme'));
-    $limit = plan_user_limit_max($plan);
-    $notes = trim('Testing mode · agent #' . $ownerId
+    // Test desks always get Pro (office): stock, Profit & Loss, and Planner.
+    $plan = 'office';
+    $limit = function_exists('plan_user_limit_max') ? plan_user_limit_max($plan) : 4;
+    $notes = trim('Testing mode · Pro trial · agent #' . $ownerId
         . ($leadId ? ' · lead #' . $leadId : '')
-        . "\nStrict 2-week trial. Promote to onboard when the client is ready.");
+        . "\nStrict 2-week trial with stock, P&L and planner. Promote to onboard when the client is ready.");
 
     $expires = (function_exists('desk_now') ? desk_now() : new DateTimeImmutable('now'))
         ->modify('+' . $days . ' days')
@@ -1752,6 +1754,16 @@ function sales_create_testing_company(array $fields, int $actorId, bool $asPlatf
     );
     if ($cid < 1) {
         return ['ok' => false, 'error' => 'Could not create the testing company.'];
+    }
+
+    // Flip Pro add-ons on (columns may be added by migrate ensures).
+    db_exec('UPDATE companies SET plan = ?, user_limit = ? WHERE id = ?', 'sii', [$plan, $limit, $cid]);
+    foreach (['stock_enabled', 'planner_enabled', 'pnl_enabled'] as $addonCol) {
+        try {
+            db_exec('UPDATE companies SET `' . $addonCol . '` = 1 WHERE id = ?', 'i', [$cid]);
+        } catch (Throwable $e) {
+            // ignore if column missing until migrate
+        }
     }
 
     if (function_exists('posted_client_fields')) {
@@ -1780,7 +1792,7 @@ function sales_create_testing_company(array $fields, int $actorId, bool $asPlatf
             'Make payment to ' . $name . '.',
             "1. Payment is due by the date shown above.\n2. Quote the invoice number on the transfer.",
             'Payments made are not refundable.',
-            'sme', 'UGX',
+            'office', 'UGX',
         ]
     );
 
