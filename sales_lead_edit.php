@@ -113,6 +113,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $clock = sales_today_clock((int) $user['id']);
 $rejectCat = (string) ($_POST['rejected_category'] ?? ($lead['rejected_category'] ?? ''));
 $interest = (int) ($_POST['interest_rating'] ?? ($lead['interest_rating'] ?? 0));
+$savedStatus = (string) ($lead['status'] ?? '');
+$fromFollowOrRejected = in_array($savedStatus, ['follow_up', 'rejected'], true);
 
 $testCompany = null;
 $testCreds = null;
@@ -128,6 +130,8 @@ if ($lead && !empty($lead['company_id'])) {
         $testCompany = null;
     }
 }
+$canOfferTesting = !$locked && (!$testCompany || empty($testCompany['testing_mode']));
+$wantsTestingChecked = post('wants_testing') !== '';
 $credsFlash = $_SESSION['testing_creds'] ?? null;
 if (is_array($credsFlash)) {
     unset($_SESSION['testing_creds']);
@@ -162,23 +166,23 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
         <span class="pill warn">Due <?= h(sales_format_follow_up($lead)) ?></span>
       </div>
     </div>
-    <p class="lede" style="margin-top:0">Call or message the contact, then change status below to Interested, another Follow up date, or Rejected.</p>
+    <p class="lede" style="margin-top:0">Call or message the contact, then change status below to Interested, another Follow up date, or Rejected. If they become Interested and need a trial, open a Pro test desk when you save.</p>
     <?php sales_render_lead_contact($lead); ?>
   </div>
 <?php endif; ?>
 
-<?php if ($lead && in_array(($lead['status'] ?? ''), ['onboarded', 'onboarding'], true)): ?>
+<?php if ($lead && in_array($savedStatus, ['onboarded', 'onboarding'], true)): ?>
   <div class="card pad-form lead-flow-card" style="margin-bottom:16px">
-    <h2 style="margin-top:0"><?= ($lead['status'] ?? '') === 'onboarding' ? 'In onboarding' : 'Onboarded' ?></h2>
+    <h2 style="margin-top:0"><?= $savedStatus === 'onboarding' ? 'In onboarding' : 'Onboarded' ?></h2>
     <p class="lede" style="margin-top:0">
-      <?php if (($lead['status'] ?? '') === 'onboarding'): ?>
+      <?php if ($savedStatus === 'onboarding'): ?>
         Message admin from Chat if the client needs help while onboarding finishes.
       <?php else: ?>
         This client is live. Message admin if you need a change.
       <?php endif; ?>
     </p>
   </div>
-<?php elseif ($lead && ($lead['status'] ?? '') === 'interested'): ?>
+<?php elseif ($lead && $savedStatus === 'interested'): ?>
   <div class="card pad-form lead-flow-card" id="lead-testing" style="margin-bottom:16px">
     <h2 style="margin-top:0">Testing</h2>
     <?php if ($testCompany && !empty($testCompany['testing_mode'])): ?>
@@ -231,7 +235,7 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
   </div>
 <?php endif; ?>
 
-<form method="post" class="card pad-form sales-lead-form" data-sales-lead>
+<form method="post" class="card pad-form sales-lead-form" data-sales-lead<?= $fromFollowOrRejected && $canOfferTesting ? ' data-convert-testing="1"' : '' ?>>
   <?= csrf_field() ?>
   <fieldset class="sales-status-pick">
     <legend>Status</legend>
@@ -303,17 +307,25 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
           <input id="onboard_date" name="onboard_date" type="date" value="<?= h((string) ($_POST['onboard_date'] ?? $lead['onboard_date'] ?? '')) ?>">
         </div>
       </div>
-      <?php if (!$lead || empty($testCompany) || empty($testCompany['testing_mode'])): ?>
-        <label class="check lead-wants-testing" style="margin-top:14px">
-          <input type="checkbox" name="wants_testing" value="1" data-wants-testing <?= post('wants_testing') !== '' ? 'checked' : '' ?>>
-          Also open a test desk when I save
-        </label>
-        <div data-wants-testing-fields style="margin-top:10px" <?= post('wants_testing') !== '' ? '' : 'hidden' ?>>
-          <label for="desk_email">Client login email</label>
-          <input id="desk_email" name="desk_email" type="email" value="<?= h(post('desk_email')) ?>" placeholder="client@theircompany.com" autocomplete="off" data-wants-testing-email>
-          <p class="hint" style="margin:4px 0 0">Required when opening a test desk. Password: Folio2026.</p>
+      <?php if ($canOfferTesting): ?>
+        <div class="lead-testing-on-save" style="margin-top:16px;padding:14px;border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb, var(--brand) 4%, #fff)">
+          <h3 style="margin:0 0 6px;font-size:1.05rem"><?= icon('desk', 16) ?>Pro test desk</h3>
+          <p class="hint" style="margin:0 0 10px">
+            <?= $fromFollowOrRejected
+                ? 'This lead was a follow-up or rejection. If they need a trial, open a Pro test desk (stock, Profit &amp; Loss, Planner) when you save as Interested.'
+                : 'Open a Pro test desk (stock, Profit &amp; Loss, Planner) when you save. Password: Folio2026.' ?>
+          </p>
+          <label class="check lead-wants-testing">
+            <input type="checkbox" name="wants_testing" value="1" data-wants-testing <?= $wantsTestingChecked ? 'checked' : '' ?>>
+            Open a test desk when I save
+          </label>
+          <div data-wants-testing-fields style="margin-top:10px" <?= $wantsTestingChecked ? '' : 'hidden' ?>>
+            <label for="desk_email">Client login email</label>
+            <input id="desk_email" name="desk_email" type="email" value="<?= h(post('desk_email')) ?>" placeholder="client@theircompany.com" autocomplete="off" data-wants-testing-email>
+            <p class="hint" style="margin:4px 0 0">Required when opening a test desk. Password: Folio2026.</p>
+          </div>
+          <p class="hint" style="margin:8px 0 0">Needs business name, contact person and phone above.</p>
         </div>
-        <p class="hint">Needs business name, contact person and phone above.</p>
       <?php endif; ?>
     </div>
 
@@ -347,6 +359,9 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
 (function(){
   var form = document.querySelector('[data-sales-lead]');
   if (!form) return;
+  var convertTesting = form.getAttribute('data-convert-testing') === '1';
+  var wants = form.querySelector('[data-wants-testing]');
+  var wantsTouched = false;
   function sync(){
     var st = (form.querySelector('[data-status-radio]:checked') || {}).value || 'interested';
     form.querySelectorAll('.sales-status-pick .chip').forEach(function(c){
@@ -362,7 +377,6 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
     var rejectedNature = form.querySelector('#nature_rejected');
     if (interestedNature) interestedNature.disabled = st !== 'interested';
     if (rejectedNature) rejectedNature.disabled = st !== 'rejected';
-    var wants = form.querySelector('[data-wants-testing]');
     var wantsFields = form.querySelector('[data-wants-testing-fields]');
     var wantsEmail = form.querySelector('[data-wants-testing-email]');
     if (wants) {
@@ -375,9 +389,16 @@ sales_layout_start($id ? 'Edit lead' : 'New lead', $user);
       }
     }
   }
-  form.querySelectorAll('[data-status-radio]').forEach(function(r){ r.addEventListener('change', sync); });
-  var wantsCb = form.querySelector('[data-wants-testing]');
-  if (wantsCb) wantsCb.addEventListener('change', sync);
+  form.querySelectorAll('[data-status-radio]').forEach(function(r){
+    r.addEventListener('change', function(){
+      // Follow-up / rejected → Interested: offer the same test desk creation as new interested leads.
+      if (convertTesting && !wantsTouched && wants) {
+        wants.checked = this.value === 'interested';
+      }
+      sync();
+    });
+  });
+  if (wants) wants.addEventListener('change', function(){ wantsTouched = true; sync(); });
   sync();
 })();
 </script>
