@@ -123,9 +123,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $tab = 'lead';
             $leadId = (int) ($id ?? 0);
         } else {
+            $newId = (int) $saved['id'];
+            $wantsTest = post('wants_testing') !== '' && (string) post('status') === 'interested';
+            if ($wantsTest) {
+                $leadRow = sales_lead($newId);
+                $agentForTest = (int) ($leadRow['agent_id'] ?? post('agent_id'));
+                $made = sales_start_testing_from_lead($newId, $agentForTest, post('desk_email'));
+                if (!empty($made['ok'])) {
+                    flash(
+                        ($id ? 'Business updated.' : 'Business created.')
+                        . ' Pro test desk ready: ' . (string) ($made['email'] ?? '')
+                        . ' · password ' . (string) ($made['password'] ?? sales_testing_default_password())
+                    );
+                    redirect('admin_sales.php?tab=lead&id=' . $newId . '#lead-testing');
+                }
+                if (empty($made['company_id'])) {
+                    flash(
+                        'Business saved, but test desk was not opened: ' . (string) ($made['error'] ?? 'unknown error'),
+                        'err'
+                    );
+                    redirect('admin_sales.php?tab=lead&id=' . $newId . '#lead-testing');
+                }
+            }
             flash($id ? 'Business updated.' : 'Business created.');
-            redirect('admin_sales.php?tab=lead&id=' . (int) $saved['id']);
+            redirect('admin_sales.php?tab=lead&id=' . $newId);
         }
+    } elseif ($action === 'start_testing') {
+        $lid = (int) post('lead_id');
+        $lead = sales_lead($lid);
+        if (!$lead || (string) ($lead['status'] ?? '') !== 'interested') {
+            flash('Mark the business as Interested before opening a test desk.', 'err');
+            redirect($lid ? ('admin_sales.php?tab=lead&id=' . $lid) : 'admin_sales.php?tab=leads');
+        }
+        $made = sales_start_testing_from_lead($lid, (int) ($lead['agent_id'] ?? 0), post('desk_email'));
+        if (empty($made['ok'])) {
+            flash((string) ($made['error'] ?? 'Could not open the test desk.'), empty($made['company_id']) ? 'err' : 'ok');
+            redirect('admin_sales.php?tab=lead&id=' . $lid . '#lead-testing');
+        }
+        flash(
+            $made['name'] . ' test desk is ready: ' . (string) ($made['email'] ?? '')
+            . ' · password ' . (string) ($made['password'] ?? sales_testing_default_password())
+        );
+        redirect('admin_sales.php?tab=lead&id=' . $lid . '#lead-testing');
     } elseif ($action === 'onboard_lead') {
         $lid = (int) post('lead_id');
         $lead = sales_lead($lid);
@@ -621,6 +660,24 @@ if ($tab === 'lead'):
         $status = 'interested';
     }
     $agentPick = (int) ($_POST['agent_id'] ?? ($editLead['agent_id'] ?? 0));
+    $savedLeadStatus = (string) ($editLead['status'] ?? '');
+    $fromFollowOrRejected = in_array($savedLeadStatus, ['follow_up', 'rejected'], true);
+    $adminTestCompany = null;
+    $adminTestCreds = null;
+    $adminTestExpired = false;
+    if ($editLead && !empty($editLead['company_id'])) {
+        $adminTestCompany = db_one('SELECT * FROM companies WHERE id = ?', 'i', [(int) $editLead['company_id']]);
+        if ($adminTestCompany && !empty($adminTestCompany['testing_mode'])) {
+            $adminTestCreds = sales_testing_credentials((int) $adminTestCompany['id']);
+            $adminTestExpired = company_testing_expired($adminTestCompany);
+        } elseif ($adminTestCompany && empty($adminTestCompany['testing_mode'])) {
+            // Promoted company.
+        } else {
+            $adminTestCompany = null;
+        }
+    }
+    $canOfferTesting = !$adminTestCompany || empty($adminTestCompany['testing_mode']);
+    $wantsTestingChecked = post('wants_testing') !== '';
     ?>
 <div class="page-head" style="margin-top:0">
   <div>
@@ -631,7 +688,41 @@ if ($tab === 'lead'):
     <a class="btn ghost" href="<?= h(url('admin_sales.php?tab=leads')) ?>">Back</a>
   </div>
 </div>
-<form method="post" class="card pad-form form-grid" data-admin-lead>
+<?php if ($editLead && $savedLeadStatus === 'interested' && $adminTestCompany && !empty($adminTestCompany['testing_mode'])): ?>
+  <div class="card pad-form" id="lead-testing" style="margin-bottom:16px">
+    <h2 style="margin-top:0">Testing</h2>
+    <p class="lede" style="margin-top:0">
+      Ends <?= !empty($adminTestCompany['testing_expires_at']) ? h(format_date((string) $adminTestCompany['testing_expires_at'])) : '-' ?>
+      · <?= h(company_testing_remaining_label($adminTestCompany)) ?>.
+    </p>
+    <?php if ($adminTestCreds): ?>
+      <p><strong>Username:</strong> <code data-copy><?= h((string) ($adminTestCreds['email'] ?: '-')) ?></code></p>
+      <p><strong>Password:</strong> <code data-copy><?= h((string) (($adminTestCreds['password'] !== '' ? $adminTestCreds['password'] : sales_testing_default_password()))) ?></code></p>
+    <?php endif; ?>
+    <?php if ($adminTestExpired): ?>
+      <p class="flash flash-err" style="margin:12px 0 0">Test ended. Extend from Companies or promote to onboard.</p>
+    <?php endif; ?>
+    <div class="actions wrap-actions" style="margin-top:12px">
+      <a class="btn ghost" href="<?= h(url('admin_company.php?id=' . (int) $adminTestCompany['id'])) ?>"><?= icon('building', 14) ?>Open company</a>
+    </div>
+  </div>
+<?php elseif ($editLead && $savedLeadStatus === 'interested' && $canOfferTesting): ?>
+  <div class="card pad-form" id="lead-testing" style="margin-bottom:16px">
+    <h2 style="margin-top:0">Testing</h2>
+    <p class="lede" style="margin-top:0">Open a Pro test desk (stock, Profit &amp; Loss, Planner). Password is Folio2026.</p>
+    <form method="post" class="pad-form" style="margin-top:12px;padding:0">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="start_testing">
+      <input type="hidden" name="lead_id" value="<?= (int) $editLead['id'] ?>">
+      <label for="desk_email_open">Client login email</label>
+      <input id="desk_email_open" name="desk_email" type="email" required value="<?= h(post('desk_email')) ?>" placeholder="client@theircompany.com" autocomplete="off">
+      <div class="actions" style="margin-top:10px">
+        <button class="btn" type="submit"><?= icon('plus', 14) ?>Open test desk</button>
+      </div>
+    </form>
+  </div>
+<?php endif; ?>
+<form method="post" class="card pad-form form-grid" data-admin-lead<?= $fromFollowOrRejected && $canOfferTesting ? ' data-convert-testing="1"' : '' ?>>
   <?= csrf_field() ?>
   <input type="hidden" name="action" value="save_lead">
   <input type="hidden" name="lead_id" value="<?= (int) ($editLead['id'] ?? 0) ?>">
@@ -689,6 +780,28 @@ if ($tab === 'lead'):
     <label>Preferred onboarding date</label>
     <input type="date" name="onboard_date" value="<?= h((string) ($_POST['onboard_date'] ?? $editLead['onboard_date'] ?? '')) ?>">
   </div>
+  <?php if ($canOfferTesting): ?>
+    <div class="full" data-admin-panel="interested" data-admin-testing-block>
+      <div class="lead-testing-on-save" style="padding:14px;border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb, var(--brand) 4%, #fff)">
+        <h3 style="margin:0 0 6px;font-size:1.05rem"><?= icon('desk', 16) ?>Pro test desk</h3>
+        <p class="hint" style="margin:0 0 10px">
+          <?= $fromFollowOrRejected
+              ? 'This business was a follow-up or rejection. Open a Pro test desk (stock, Profit &amp; Loss, Planner) when you save as Interested.'
+              : 'Open a Pro test desk (stock, Profit &amp; Loss, Planner) when you save. Password: Folio2026.' ?>
+        </p>
+        <label class="check lead-wants-testing">
+          <input type="checkbox" name="wants_testing" value="1" data-admin-wants-testing <?= $wantsTestingChecked ? 'checked' : '' ?>>
+          Open a test desk when I save
+        </label>
+        <div data-admin-wants-testing-fields style="margin-top:10px" <?= $wantsTestingChecked ? '' : 'hidden' ?>>
+          <label for="desk_email">Client login email</label>
+          <input id="desk_email" name="desk_email" type="email" value="<?= h(post('desk_email')) ?>" placeholder="client@theircompany.com" autocomplete="off" data-admin-wants-testing-email>
+          <p class="hint" style="margin:4px 0 0">Required when opening a test desk. Password: Folio2026.</p>
+        </div>
+        <p class="hint" style="margin:8px 0 0">Needs business name, contact person and phone above.</p>
+      </div>
+    </div>
+  <?php endif; ?>
   <div data-admin-panel="follow_up">
     <label>Follow-up date</label>
     <input type="date" name="follow_up_date" value="<?= h((string) ($_POST['follow_up_date'] ?? $editLead['follow_up_date'] ?? '')) ?>">
@@ -737,15 +850,35 @@ if ($tab === 'lead'):
 (function(){
   var form=document.querySelector('[data-admin-lead]');
   if(!form) return;
+  var convertTesting=form.getAttribute('data-convert-testing')==='1';
+  var wants=form.querySelector('[data-admin-wants-testing]');
+  var wantsTouched=false;
   function sync(){
     var st=(form.querySelector('[data-admin-status]')||{}).value||'interested';
     form.querySelectorAll('[data-admin-panel]').forEach(function(p){
       var name=p.getAttribute('data-admin-panel');
       p.hidden = !(st===name || (name==='interested' && (st==='interested'||st==='onboarding'||st==='onboarded')));
     });
+    var fields=form.querySelector('[data-admin-wants-testing-fields]');
+    var email=form.querySelector('[data-admin-wants-testing-email]');
+    if(wants){
+      wants.disabled = st!=='interested';
+      var show = st==='interested' && wants.checked;
+      if(fields) fields.hidden = !show;
+      if(email){
+        email.required = show;
+        email.disabled = !show;
+      }
+    }
   }
   var sel=form.querySelector('[data-admin-status]');
-  if(sel) sel.addEventListener('change', sync);
+  if(sel) sel.addEventListener('change', function(){
+    if(convertTesting && !wantsTouched && wants){
+      wants.checked = this.value==='interested';
+    }
+    sync();
+  });
+  if(wants) wants.addEventListener('change', function(){ wantsTouched=true; sync(); });
   sync();
 })();
 </script>
