@@ -585,7 +585,7 @@ if ($tab === 'leads'):
               <?php if (!empty($lead['follow_up_done_at'])): ?>
                 <div class="muted">Closed <?= h(format_date(substr((string) $lead['follow_up_done_at'], 0, 10))) ?></div>
               <?php elseif (($lead['status'] ?? '') === 'follow_up'): ?>
-                <div class="muted"><?= $overdue ? 'Past due — not attended' : 'Awaiting follow-up' ?></div>
+                <div class="muted"><?= $overdue ? 'Past due - not attended' : 'Awaiting follow-up' ?></div>
               <?php endif; ?>
             </td>
             <?php if ($isOpenFuView): ?>
