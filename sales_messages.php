@@ -62,7 +62,7 @@ sales_layout_start('Messages', $user);
           <div class="sales-chat-bubble<?= $mine ? ' is-mine' : '' ?>">
             <strong><?= h($mine ? 'You' : 'Vellisys admin') ?></strong>
             <p><?= nl2br(h((string) $m['body'])) ?></p>
-            <span><?= h(format_date(substr((string) $m['created_at'], 0, 10))) ?></span>
+            <span><?= h(sales_format_lead_submitted_at($m['created_at'] ?? null)) ?></span>
           </div>
         <?php endforeach; ?>
       </div>
