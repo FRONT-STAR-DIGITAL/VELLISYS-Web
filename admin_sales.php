@@ -524,6 +524,19 @@ if ($tab === 'leads'):
         'onboarded' => 'Onboarded',
         'rejected' => 'Rejected',
     ];
+    $chipBase = $filterAgent ? ['agent_id' => $filterAgent] : [];
+    $chipPeriod = array_filter([
+        'from' => $period['from'] !== '' ? $from : null,
+        'to' => $period['to'] !== '' ? $to : null,
+    ]);
+    $chipCounts = [
+        'all' => sales_leads_count($chipBase + $chipPeriod),
+        'interested' => sales_leads_count($chipBase + $chipPeriod + ['status' => 'interested']),
+        'follow_up' => sales_leads_count($chipBase + $chipPeriod + ['status' => 'follow_up']),
+        'on_test' => sales_leads_count($chipBase + ['on_test' => true]),
+        'overdue' => $overdueFollowN,
+        'closed' => sales_leads_count($chipBase + ['follow_bucket' => 'done']),
+    ];
     $filterQs = static function (array $extra) use ($filterAgent, $period): string {
         $q = array_merge([
             'tab' => 'leads',
@@ -539,6 +552,12 @@ if ($tab === 'leads'):
             unset($q['from'], $q['to']);
         }
         return url('admin_sales.php?' . http_build_query(array_filter($q, static fn ($v) => $v !== '' && $v !== null)));
+    };
+    $chipCountHtml = static function (int $n): string {
+        if ($n < 1) {
+            return '';
+        }
+        return ' <span class="sales-follow-count">' . $n . '</span>';
     };
     ?>
 <?php render_filters('admin_sales.php', array_filter([
@@ -585,12 +604,12 @@ if ($tab === 'leads'):
   </label>
 </form>
 <div class="filter-chips" style="margin:0 0 14px">
-  <a class="chip<?= $leadStatus === '' && $followBucket === '' ? ' is-on' : '' ?>" href="<?= h($filterQs([])) ?>">All</a>
-  <a class="chip<?= $leadStatus === 'interested' && $followBucket === '' ? ' is-on' : '' ?>" href="<?= h($filterQs(['status' => 'interested'])) ?>">Interested</a>
-  <a class="chip<?= $leadStatus === 'follow_up' && $followBucket === '' ? ' is-on' : '' ?>" href="<?= h($filterQs(['status' => 'follow_up'])) ?>">Follow ups</a>
-  <a class="chip<?= $leadStatus === 'on_test' ? ' is-on' : '' ?>" href="<?= h($filterQs(['status' => 'on_test'])) ?>">On testing</a>
-  <a class="chip<?= $followBucket === 'overdue' ? ' is-on' : '' ?>" href="<?= h($filterQs(['bucket' => 'overdue'])) ?>">Overdue<?php if ($overdueFollowN > 0): ?> <span class="sales-follow-count"><?= (int) $overdueFollowN ?></span><?php endif; ?></a>
-  <a class="chip<?= in_array($followBucket, ['closed', 'followed'], true) ? ' is-on' : '' ?>" href="<?= h($filterQs(['bucket' => 'closed'])) ?>">Closed</a>
+  <a class="chip<?= $leadStatus === '' && $followBucket === '' ? ' is-on' : '' ?>" href="<?= h($filterQs([])) ?>">All<?= $chipCountHtml((int) $chipCounts['all']) ?></a>
+  <a class="chip<?= $leadStatus === 'interested' && $followBucket === '' ? ' is-on' : '' ?>" href="<?= h($filterQs(['status' => 'interested'])) ?>">Interested<?= $chipCountHtml((int) $chipCounts['interested']) ?></a>
+  <a class="chip<?= $leadStatus === 'follow_up' && $followBucket === '' ? ' is-on' : '' ?>" href="<?= h($filterQs(['status' => 'follow_up'])) ?>">Follow ups<?= $chipCountHtml((int) $chipCounts['follow_up']) ?></a>
+  <a class="chip<?= $leadStatus === 'on_test' ? ' is-on' : '' ?>" href="<?= h($filterQs(['status' => 'on_test'])) ?>">On testing<?= $chipCountHtml((int) $chipCounts['on_test']) ?></a>
+  <a class="chip<?= $followBucket === 'overdue' ? ' is-on' : '' ?>" href="<?= h($filterQs(['bucket' => 'overdue'])) ?>">Overdue<?= $chipCountHtml((int) $chipCounts['overdue']) ?></a>
+  <a class="chip<?= in_array($followBucket, ['closed', 'followed'], true) ? ' is-on' : '' ?>" href="<?= h($filterQs(['bucket' => 'closed'])) ?>">Closed<?= $chipCountHtml((int) $chipCounts['closed']) ?></a>
 </div>
 <div class="card">
   <div class="card-head">
@@ -599,15 +618,17 @@ if ($tab === 'leads'):
   </div>
   <div class="table-scroll">
     <table class="grid">
-      <thead><tr><th>Business</th><th>Agent</th><th>Status</th><?php if ($isOpenFuView): ?><th>Interest</th><?php endif; ?><th>Contact</th><th>City</th><th>Follow-up</th><th>Submitted</th><th></th></tr></thead>
+      <thead><tr><th class="mono">#</th><th>Business</th><th>Agent</th><th>Status</th><?php if ($isOpenFuView): ?><th>Interest</th><?php endif; ?><th>Contact</th><th>City</th><th>Follow-up</th><th>Submitted</th><th></th></tr></thead>
       <tbody>
-        <?php foreach ($leads as $lead):
+        <?php $rowN = 0; foreach ($leads as $lead):
+            $rowN++;
             $testLabel = sales_lead_testing_label($lead);
             $overdue = sales_lead_followup_overdue($lead);
             $interest = (int) ($lead['interest_rating'] ?? 0);
             $rowClass = $overdue ? 'sales-fu-overdue' : '';
             ?>
           <tr<?= $rowClass !== '' ? ' class="' . h($rowClass) . '"' : '' ?>>
+            <td class="mono muted"><?= (int) $rowN ?></td>
             <td><?= h(trim((string) $lead['business_name']) ?: '-') ?>
               <?php if ($testLabel !== ''): ?>
                 <span class="pill<?= $testLabel === 'Test ended' ? ' bad' : ' warn' ?>"><?= h($testLabel) ?></span>

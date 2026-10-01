@@ -2215,11 +2215,16 @@ function sales_testing_desk_enter(int $companyId, array $fromUser): array
     return ['ok' => true, 'company_id' => $companyId, 'name' => (string) $company['name']];
 }
 
-function sales_leads_query(array $opts = []): array
+/**
+ * Shared WHERE builder for lead lists / chip counts.
+ * @return array{where:list<string>,types:string,params:list<mixed>,join_company:bool}
+ */
+function sales_leads_filters(array $opts = []): array
 {
     $where = ['1=1'];
     $types = '';
     $params = [];
+    $joinCompany = !empty($opts['on_test']);
     if (empty($opts['include_deleted'])) {
         $where[] = 'l.deleted_at IS NULL';
     }
@@ -2262,7 +2267,35 @@ function sales_leads_query(array $opts = []): array
     }
     if (!empty($opts['on_test'])) {
         $where[] = 'c.testing_mode = 1';
+        $joinCompany = true;
     }
+    return [
+        'where' => $where,
+        'types' => $types,
+        'params' => $params,
+        'join_company' => $joinCompany,
+    ];
+}
+
+function sales_leads_count(array $opts = []): int
+{
+    $f = sales_leads_filters($opts);
+    $sql = 'SELECT COUNT(*) AS n FROM sales_leads l';
+    if (!empty($f['join_company'])) {
+        $sql .= ' LEFT JOIN companies c ON c.id = l.company_id';
+    }
+    $sql .= ' WHERE ' . implode(' AND ', $f['where']);
+    try {
+        $row = db_one($sql, $f['types'], $f['params']);
+        return (int) ($row['n'] ?? 0);
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
+function sales_leads_query(array $opts = []): array
+{
+    $f = sales_leads_filters($opts);
     $sql = 'SELECT l.*, u.name AS agent_name,
                    c.testing_mode AS company_testing_mode,
                    c.testing_expires_at AS company_testing_expires_at,
@@ -2271,7 +2304,7 @@ function sales_leads_query(array $opts = []): array
             LEFT JOIN users u ON u.id = l.agent_id
             LEFT JOIN companies c ON c.id = l.company_id
             WHERE '
-        . implode(' AND ', $where);
+        . implode(' AND ', $f['where']);
     if (!empty($opts['follow_bucket']) && in_array((string) $opts['follow_bucket'], ['due', 'overdue'], true)) {
         // High interest first so agents prioritise warm follow-ups.
         $sql .= ' ORDER BY l.interest_rating DESC, l.follow_up_date ASC, l.follow_up_time IS NULL, l.follow_up_time ASC, l.id ASC';
@@ -2281,7 +2314,7 @@ function sales_leads_query(array $opts = []): array
     if (!empty($opts['limit'])) {
         $sql .= ' LIMIT ' . (int) $opts['limit'];
     }
-    return db_all($sql, $types, $params);
+    return db_all($sql, $f['types'], $f['params']);
 }
 
 /** Lead badge when a testing desk is linked. */
