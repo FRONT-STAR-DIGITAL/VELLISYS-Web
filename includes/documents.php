@@ -2998,18 +2998,15 @@ function render_doc_actions(array $doc, bool $labeled = false): void
             <p class="share-pop-head">Share this sheet</p>
             <a
               class="share-pop-item is-wa"
-              href="<?= h(url('document_view.php?id=' . $id . '&sharepdf=1')) ?>"
-              data-pdf-share
-              data-doc-id="<?= $id ?>"
-              data-pdf-name="<?= h(document_download_filename($doc)) ?>"
-              data-pdf-url="<?= h(url('document_pdf.php?id=' . $id)) ?>"
-              data-sheet-url="<?= h(url('document_sheet.php?id=' . $id . '&autodownload=1')) ?>"
+              href="<?= h(document_whatsapp_url($doc)) ?>"
+              target="_blank"
+              rel="noopener"
               role="menuitem"
             >
               <span class="share-pop-ico" aria-hidden="true"><?= icon('whatsapp', 18) ?></span>
               <span class="share-pop-copy">
                 <strong>WhatsApp</strong>
-                <small>Send <?= h(document_download_filename($doc)) ?> to a chat</small>
+                <small>Send the sheet link in chat</small>
               </span>
             </a>
             <a class="share-pop-item is-mail" href="<?= h(url('document_email.php?id=' . $id)) ?>" role="menuitem">
