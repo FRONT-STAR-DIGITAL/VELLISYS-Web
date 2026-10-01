@@ -422,7 +422,16 @@
 
   function canSharePdfFile(file) {
     try {
-      return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [file] }));
+      if (!navigator.share || !navigator.canShare || !file) return false;
+      var f = file;
+      if (typeof File === 'function' && !(file instanceof File)) {
+        try {
+          f = new File([file], file.name || 'document.pdf', { type: file.type || 'application/pdf' });
+        } catch (e) {
+          f = file;
+        }
+      }
+      return !!navigator.canShare({ files: [f] });
     } catch (e) {
       return false;
     }
