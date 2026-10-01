@@ -382,36 +382,155 @@
     }
   }
 
+  function supportsFileShare() {
+    try {
+      if (!navigator.share || !navigator.canShare) return false;
+      var probe = new File([new Uint8Array([37, 80, 68, 70])], 'probe.pdf', { type: 'application/pdf' });
+      return !!navigator.canShare({ files: [probe] });
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /** Share the PDF file alone — never pass url/text (those become blob links in WhatsApp). */
+  function sharePdfFile(file) {
+    if (!file || !canSharePdfFile(file)) {
+      return Promise.reject(new Error('share-unsupported'));
+    }
+    return navigator.share({ files: [file] });
+  }
+
+  function buildPdfFile(filename) {
+    var name = filename || 'document.pdf';
+    if (!/\.pdf$/i.test(name)) name += '.pdf';
+    return buildExactSheetWorker(name).then(function (built) {
+      return pdfBlobFromWorker(built).then(function (blob) {
+        return new File([blob], name, { type: 'application/pdf' });
+      });
+    });
+  }
+
+  function downloadPdfBlob(blob, name) {
+    var url = URL.createObjectURL(blob);
+    try {
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = name || 'document.pdf';
+      a.rel = 'noopener';
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } finally {
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+    }
+  }
+
   /**
    * Share the PDF file alone (document number as the filename).
    * Never pass url/text — those become the useless blob:https://… link in WhatsApp.
    */
   function shareExactSheet(filename) {
-    var name = filename || 'document.pdf';
-    if (!/\.pdf$/i.test(name)) name += '.pdf';
-    return buildExactSheetWorker(name).then(function (built) {
-      return pdfBlobFromWorker(built).then(function (blob) {
-        var file = new File([blob], name, { type: 'application/pdf' });
-        if (canSharePdfFile(file)) {
-          // files only — no url, no text, no title that some apps turn into a link
-          return navigator.share({ files: [file] });
-        }
-        // Desktop / unsupported: download the labeled PDF instead of opening a blob tab.
-        var url = URL.createObjectURL(blob);
-        try {
-          var a = document.createElement('a');
-          a.href = url;
-          a.download = name;
-          a.rel = 'noopener';
-          a.style.display = 'none';
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-        } finally {
-          setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
-        }
-      });
+    return buildPdfFile(filename).then(function (file) {
+      if (canSharePdfFile(file)) {
+        return sharePdfFile(file);
+      }
+      downloadPdfBlob(file, file.name);
+      return null;
     });
+  }
+
+  function shareItemCopy(a) {
+    return {
+      strong: a.querySelector('.share-pop-copy strong'),
+      small: a.querySelector('.share-pop-copy small'),
+    };
+  }
+
+  function rememberShareLabels(a) {
+    if (a.getAttribute('data-share-label')) return;
+    var copy = shareItemCopy(a);
+    if (copy.strong) a.setAttribute('data-share-label', copy.strong.textContent || 'WhatsApp');
+    if (copy.small) a.setAttribute('data-share-sub', copy.small.textContent || '');
+  }
+
+  function setShareItemState(a, state, filename) {
+    rememberShareLabels(a);
+    var copy = shareItemCopy(a);
+    a.classList.toggle('is-preparing', state === 'preparing');
+    a.classList.toggle('is-ready', state === 'ready');
+    a.classList.toggle('is-error', state === 'error');
+    if (state === 'preparing') {
+      if (copy.strong) copy.strong.textContent = 'Preparing…';
+      if (copy.small) copy.small.textContent = 'Building ' + (filename || 'PDF');
+      return;
+    }
+    if (state === 'ready') {
+      if (copy.strong) copy.strong.textContent = 'Send on WhatsApp';
+      if (copy.small) copy.small.textContent = 'Tap to choose a contact';
+      return;
+    }
+    if (state === 'error') {
+      if (copy.strong) copy.strong.textContent = 'Could not prepare';
+      if (copy.small) copy.small.textContent = 'Tap to try again';
+      return;
+    }
+    if (copy.strong) copy.strong.textContent = a.getAttribute('data-share-label') || 'WhatsApp';
+    if (copy.small) {
+      copy.small.textContent = a.getAttribute('data-share-sub')
+        || (filename ? ('Send ' + filename) : 'Send the PDF');
+    }
+  }
+
+  function keepSharePopOpen(a) {
+    var details = a && a.closest ? a.closest('details.share-pop') : null;
+    if (details) details.open = true;
+    return details;
+  }
+
+  function closeSharePop(a) {
+    var details = a && a.closest ? a.closest('details.share-pop') : null;
+    if (details) details.open = false;
+  }
+
+  var readyShareFiles = new WeakMap();
+
+  function showWhatsAppSendBar(file) {
+    var bar = document.getElementById('wa-share-send-bar');
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'wa-share-send-bar';
+      bar.className = 'wa-share-send-bar';
+      bar.innerHTML = '<div class="wa-share-send-bar-inner">'
+        + '<div class="wa-share-send-copy"><strong>PDF ready</strong><small></small></div>'
+        + '<button type="button" class="btn wa-share-send-btn">Send on WhatsApp</button>'
+        + '<button type="button" class="btn ghost sm wa-share-send-close" aria-label="Close">Close</button>'
+        + '</div>';
+      document.body.appendChild(bar);
+      bar.querySelector('.wa-share-send-close').addEventListener('click', function () {
+        bar.hidden = true;
+      });
+    }
+    var small = bar.querySelector('small');
+    if (small) small.textContent = file && file.name ? file.name : 'document.pdf';
+    var btn = bar.querySelector('.wa-share-send-btn');
+    btn.onclick = function () {
+      if (!file) return;
+      btn.disabled = true;
+      sharePdfFile(file).catch(function (err) {
+        if (err && err.name === 'AbortError') return;
+        if (err && err.message === 'share-unsupported') {
+          downloadPdfBlob(file, file.name);
+          return;
+        }
+        // Still offer download if the sheet was dismissed for another reason.
+        if (!err || err.name !== 'NotAllowedError') downloadPdfBlob(file, file.name);
+      }).finally(function () {
+        btn.disabled = false;
+      });
+    };
+    bar.hidden = false;
+    return bar;
   }
 
   function sheetUrlFromLink(a) {
@@ -427,10 +546,35 @@
     if (shareA) {
       e.preventDefault();
       e.stopPropagation();
-      if (busy) return;
+      keepSharePopOpen(shareA);
       var shareName = shareA.getAttribute('data-pdf-name')
         || (document.body && document.body.getAttribute('data-pdf-name'))
         || 'document.pdf';
+      if (!/\.pdf$/i.test(shareName)) shareName += '.pdf';
+
+      // Second tap: PDF is ready — share in this gesture so WhatsApp / Contacts open.
+      var readyFile = readyShareFiles.get(shareA);
+      if (readyFile && shareA.classList.contains('is-ready')) {
+        sharePdfFile(readyFile).then(function () {
+          setShareItemState(shareA, 'idle', shareName);
+          readyShareFiles.delete(shareA);
+          closeSharePop(shareA);
+        }).catch(function (err) {
+          if (err && err.name === 'AbortError') return;
+          if (err && err.message === 'share-unsupported') {
+            downloadPdfBlob(readyFile, readyFile.name);
+            setShareItemState(shareA, 'idle', shareName);
+            readyShareFiles.delete(shareA);
+            closeSharePop(shareA);
+            return;
+          }
+          setShareItemState(shareA, 'ready', shareName);
+        });
+        return;
+      }
+
+      if (busy) return;
+
       if (!exactSheetRoot()) {
         var go = shareA.getAttribute('href');
         if (!go || go === '#') {
@@ -440,10 +584,37 @@
         if (go && go !== '#') window.location.href = go;
         return;
       }
+
       busy = true;
-      shareExactSheet(shareName).catch(function (err) {
-        // User dismissed the share sheet — not an error.
-        if (err && (err.name === 'AbortError' || err.name === 'NotAllowedError')) return;
+      setShareItemState(shareA, 'preparing', shareName);
+      buildPdfFile(shareName).then(function (file) {
+        readyShareFiles.set(shareA, file);
+        if (!canSharePdfFile(file)) {
+          downloadPdfBlob(file, file.name);
+          setShareItemState(shareA, 'idle', shareName);
+          readyShareFiles.delete(shareA);
+          closeSharePop(shareA);
+          return null;
+        }
+        // Try immediately; most mobiles drop user-activation after async PDF work.
+        return sharePdfFile(file).then(function () {
+          setShareItemState(shareA, 'idle', shareName);
+          readyShareFiles.delete(shareA);
+          closeSharePop(shareA);
+        }).catch(function (err) {
+          if (err && err.name === 'AbortError') {
+            setShareItemState(shareA, 'idle', shareName);
+            readyShareFiles.delete(shareA);
+            return;
+          }
+          // Need a fresh tap so the OS / WhatsApp contact picker can open.
+          setShareItemState(shareA, 'ready', shareName);
+          keepSharePopOpen(shareA);
+          showWhatsAppSendBar(file);
+        });
+      }).catch(function () {
+        setShareItemState(shareA, 'error', shareName);
+        keepSharePopOpen(shareA);
       }).finally(function () { busy = false; });
       return;
     }
@@ -498,13 +669,42 @@
     return 'document.pdf';
   }
 
-  // document_view.php?sharepdf=1 — open system share with the PDF file only.
+  // document_view.php?sharepdf=1 — prepare the PDF, then ask for a tap (gesture required).
   if (/(?:^|[?&])sharepdf=1(?:&|$)/.test(location.search || '') && exactSheetRoot()) {
-    function runShareAuto() {
+    function runSharePrepare() {
       if (busy) return;
       busy = true;
-      shareExactSheet(pdfNameFromPage()).catch(function (err) {
-        if (err && (err.name === 'AbortError' || err.name === 'NotAllowedError')) return;
+      var fname = pdfNameFromPage();
+      var bar = showWhatsAppSendBar(null);
+      var copyStrong = bar.querySelector('strong');
+      var copySmall = bar.querySelector('small');
+      var sendBtn = bar.querySelector('.wa-share-send-btn');
+      if (copyStrong) copyStrong.textContent = 'Preparing PDF…';
+      if (copySmall) copySmall.textContent = fname;
+      if (sendBtn) {
+        sendBtn.disabled = true;
+        sendBtn.textContent = 'Preparing…';
+      }
+      buildPdfFile(fname).then(function (file) {
+        showWhatsAppSendBar(file);
+        if (copyStrong) copyStrong.textContent = 'PDF ready';
+        if (sendBtn) {
+          sendBtn.disabled = false;
+          sendBtn.textContent = supportsFileShare() ? 'Send on WhatsApp' : 'Download PDF';
+        }
+        // Also mark the in-page WhatsApp item ready if present.
+        var shareA = document.querySelector('a[data-pdf-share]');
+        if (shareA) {
+          readyShareFiles.set(shareA, file);
+          setShareItemState(shareA, 'ready', file.name);
+          keepSharePopOpen(shareA);
+        }
+      }).catch(function () {
+        if (copyStrong) copyStrong.textContent = 'Could not prepare PDF';
+        if (sendBtn) {
+          sendBtn.disabled = true;
+          sendBtn.textContent = 'Try again from Share';
+        }
       }).finally(function () {
         busy = false;
         try {
@@ -513,7 +713,7 @@
         } catch (e) {}
       });
     }
-    if (document.readyState === 'complete') setTimeout(runShareAuto, 200);
-    else window.addEventListener('load', function () { setTimeout(runShareAuto, 200); });
+    if (document.readyState === 'complete') setTimeout(runSharePrepare, 200);
+    else window.addEventListener('load', function () { setTimeout(runSharePrepare, 200); });
   }
 })();
