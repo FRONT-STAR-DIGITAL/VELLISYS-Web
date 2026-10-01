@@ -3004,10 +3004,10 @@ function render_doc_actions(array $doc, bool $labeled = false): void
               data-pdf-name="<?= h(document_download_filename($doc)) ?>"
               role="menuitem"
             >
-              <span class="share-pop-ico" aria-hidden="true"><?= icon('pdf', 18) ?></span>
+              <span class="share-pop-ico" aria-hidden="true"><?= icon('whatsapp', 18) ?></span>
               <span class="share-pop-copy">
-                <strong>Share PDF</strong>
-                <small><?= h(document_download_filename($doc)) ?> only — no link</small>
+                <strong>WhatsApp</strong>
+                <small>Send <?= h(document_download_filename($doc)) ?></small>
               </span>
             </a>
             <a class="share-pop-item is-mail" href="<?= h(url('document_email.php?id=' . $id)) ?>" role="menuitem">
