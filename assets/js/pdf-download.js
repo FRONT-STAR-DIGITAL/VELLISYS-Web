@@ -236,6 +236,28 @@
     return cloned;
   }
 
+  function withTimeout(promise, ms) {
+    return new Promise(function (resolve, reject) {
+      var done = false;
+      var timer = setTimeout(function () {
+        if (done) return;
+        done = true;
+        reject(new Error('timeout'));
+      }, ms);
+      Promise.resolve(promise).then(function (value) {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        resolve(value);
+      }, function (err) {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        reject(err);
+      });
+    });
+  }
+
   function waitAssets() {
     var imgs = Array.prototype.slice.call(document.images || []);
     var pending = imgs.filter(function (img) { return !img.complete; }).map(function (img) {
@@ -245,7 +267,29 @@
       });
     });
     var fonts = (document.fonts && document.fonts.ready) ? document.fonts.ready.catch(function () {}) : Promise.resolve();
-    return Promise.all([fonts].concat(pending));
+    // Never block WhatsApp share forever on a hung font/image.
+    return withTimeout(Promise.all([fonts].concat(pending)), 4000).catch(function () {
+      return null;
+    });
+  }
+
+  function isMobileCapture() {
+    return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '')
+      || (Math.min(screen.width || 0, screen.height || 0) > 0 && Math.min(screen.width, screen.height) < 720);
+  }
+
+  function blobToShareFile(blob, name) {
+    var fileName = name || 'document.pdf';
+    if (!/\.pdf$/i.test(fileName)) fileName += '.pdf';
+    try {
+      return new File([blob], fileName, { type: 'application/pdf' });
+    } catch (e) {
+      try {
+        return new Blob([blob], { type: 'application/pdf' });
+      } catch (e2) {
+        return blob;
+      }
+    }
   }
 
   function trimTrailingBlankPages(pdf, maxKeep) {
@@ -288,12 +332,14 @@
         var forceSingle = !thermal && !multipage && h <= A4_H * 1.45;
         var captureH = forceSingle ? Math.min(Math.max(h, 1), Math.ceil(A4_H)) : h;
 
+        var mobile = isMobileCapture();
         var worker = html2pdf().set({
           margin: 0,
           filename: filename || 'document.pdf',
-          image: { type: 'jpeg', quality: 0.98 },
+          image: { type: 'jpeg', quality: mobile ? 0.92 : 0.98 },
           html2canvas: {
-            scale: 2,
+            // Phones OOM / crash at scale 2 on tall branded sheets.
+            scale: mobile ? 1.25 : 2,
             useCORS: true,
             allowTaint: true,
             backgroundColor: '#ffffff',
@@ -394,21 +440,118 @@
 
   /** Share the PDF file alone — never pass url/text (those become blob links in WhatsApp). */
   function sharePdfFile(file) {
-    if (!file || !canSharePdfFile(file)) {
+    if (!file) {
       return Promise.reject(new Error('share-unsupported'));
     }
-    return navigator.share({ files: [file] });
+    // Prefer real File shares; some WebViews only accept Blob-as-file after wrap.
+    var shareable = file;
+    if (!(file instanceof File) && typeof File === 'function') {
+      try {
+        shareable = new File([file], file.name || 'document.pdf', {
+          type: file.type || 'application/pdf',
+        });
+      } catch (e) {
+        shareable = file;
+      }
+    }
+    if (!canSharePdfFile(shareable)) {
+      // Last try: some Android builds accept files without canShare probing.
+      if (navigator.share) {
+        return navigator.share({ files: [shareable] }).catch(function () {
+          return Promise.reject(new Error('share-unsupported'));
+        });
+      }
+      return Promise.reject(new Error('share-unsupported'));
+    }
+    return navigator.share({ files: [shareable] });
   }
 
-  function buildPdfFile(filename) {
+  function fetchServerPdfFile(docId, filename, pdfUrl) {
     var name = filename || 'document.pdf';
     if (!/\.pdf$/i.test(name)) name += '.pdf';
-    return buildExactSheetWorker(name).then(function (built) {
-      return pdfBlobFromWorker(built).then(function (blob) {
-        return new File([blob], name, { type: 'application/pdf' });
-      });
+    var href = pdfUrl || '';
+    if (!href && docId) {
+      href = 'document_pdf.php?id=' + encodeURIComponent(docId);
+    }
+    if (!href) {
+      return Promise.reject(new Error('pdf-url'));
+    }
+    return fetch(href, {
+      credentials: 'same-origin',
+      headers: {
+        Accept: 'application/pdf',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+    }).then(function (res) {
+      var ct = (res.headers.get('content-type') || '').toLowerCase();
+      if (!res.ok) {
+        throw new Error('pdf-http');
+      }
+      if (ct.indexOf('json') !== -1) {
+        throw new Error('pdf-json');
+      }
+      if (ct && ct.indexOf('pdf') === -1 && ct.indexOf('octet-stream') === -1) {
+        throw new Error('pdf-type');
+      }
+      return res.blob();
+    }).then(function (blob) {
+      if (!blob || !blob.size) {
+        throw new Error('pdf-empty');
+      }
+      var file = blobToShareFile(blob, name);
+      if (file && !file.name) {
+        try { file.name = name; } catch (e) {}
+      }
+      return file;
     });
   }
+
+  function captureSheetPdfFile(filename) {
+    var name = filename || 'document.pdf';
+    if (!/\.pdf$/i.test(name)) name += '.pdf';
+    if (!exactSheetRoot()) {
+      return Promise.reject(new Error('sheet'));
+    }
+    return withTimeout(
+      buildExactSheetWorker(name).then(function (built) {
+        return pdfBlobFromWorker(built).then(function (blob) {
+          if (!blob || !blob.size) {
+            throw new Error('pdf-empty');
+          }
+          return blobToShareFile(blob, name);
+        });
+      }),
+      isMobileCapture() ? 20000 : 45000
+    );
+  }
+
+  function buildPdfFile(filename, opts) {
+    opts = opts || {};
+    var name = filename || opts.filename || 'document.pdf';
+    if (!/\.pdf$/i.test(name)) name += '.pdf';
+    var docId = opts.docId || '';
+    var pdfUrl = opts.pdfUrl || '';
+
+    // 1) Capture the on-screen sheet (matches the preview).
+    // 2) If that fails on a phone, fetch the server PDF so WhatsApp still gets a file.
+    return captureSheetPdfFile(name).catch(function (err) {
+      if (!docId && !pdfUrl) {
+        throw err || new Error('capture');
+      }
+      return fetchServerPdfFile(docId, name, pdfUrl);
+    });
+  }
+
+  // Warm the PDF engine so the first WhatsApp tap is less likely to fail.
+  try {
+    if (document.readyState === 'complete') {
+      setTimeout(function () { loadHtml2Pdf().catch(function () {}); }, 600);
+    } else {
+      window.addEventListener('load', function () {
+        setTimeout(function () { loadHtml2Pdf().catch(function () {}); }, 600);
+      });
+    }
+  } catch (e) {}
 
   function downloadPdfBlob(blob, name) {
     var url = URL.createObjectURL(blob);
@@ -587,20 +730,19 @@
 
       busy = true;
       setShareItemState(shareA, 'preparing', shareName);
-      buildPdfFile(shareName).then(function (file) {
+      var shareOpts = {
+        docId: shareA.getAttribute('data-doc-id') || '',
+        pdfUrl: shareA.getAttribute('data-pdf-url') || '',
+      };
+      buildPdfFile(shareName, shareOpts).then(function (file) {
         readyShareFiles.set(shareA, file);
-        if (!canSharePdfFile(file)) {
-          downloadPdfBlob(file, file.name);
-          setShareItemState(shareA, 'idle', shareName);
-          readyShareFiles.delete(shareA);
-          closeSharePop(shareA);
-          return null;
-        }
         // Try immediately; most mobiles drop user-activation after async PDF work.
         return sharePdfFile(file).then(function () {
           setShareItemState(shareA, 'idle', shareName);
           readyShareFiles.delete(shareA);
           closeSharePop(shareA);
+          var bar = document.getElementById('wa-share-send-bar');
+          if (bar) bar.hidden = true;
         }).catch(function (err) {
           if (err && err.name === 'AbortError') {
             setShareItemState(shareA, 'idle', shareName);
@@ -615,6 +757,20 @@
       }).catch(function () {
         setShareItemState(shareA, 'error', shareName);
         keepSharePopOpen(shareA);
+        var bar = showWhatsAppSendBar(null);
+        var copyStrong = bar.querySelector('strong');
+        var sendBtn = bar.querySelector('.wa-share-send-btn');
+        if (copyStrong) copyStrong.textContent = 'Could not prepare PDF';
+        if (sendBtn) {
+          sendBtn.disabled = false;
+          sendBtn.textContent = 'Open PDF page';
+          sendBtn.onclick = function () {
+            var sheet = shareA.getAttribute('data-sheet-url')
+              || shareA.getAttribute('href')
+              || '';
+            if (sheet) window.location.href = sheet;
+          };
+        }
       }).finally(function () { busy = false; });
       return;
     }
@@ -670,11 +826,12 @@
   }
 
   // document_view.php?sharepdf=1 — prepare the PDF, then ask for a tap (gesture required).
-  if (/(?:^|[?&])sharepdf=1(?:&|$)/.test(location.search || '') && exactSheetRoot()) {
+  if (/(?:^|[?&])sharepdf=1(?:&|$)/.test(location.search || '')) {
     function runSharePrepare() {
       if (busy) return;
       busy = true;
       var fname = pdfNameFromPage();
+      var shareA = document.querySelector('a[data-pdf-share]');
       var bar = showWhatsAppSendBar(null);
       var copyStrong = bar.querySelector('strong');
       var copySmall = bar.querySelector('small');
@@ -685,15 +842,18 @@
         sendBtn.disabled = true;
         sendBtn.textContent = 'Preparing…';
       }
-      buildPdfFile(fname).then(function (file) {
+      var params = new URLSearchParams(location.search || '');
+      var shareOpts = {
+        docId: (shareA && shareA.getAttribute('data-doc-id')) || params.get('id') || '',
+        pdfUrl: (shareA && shareA.getAttribute('data-pdf-url')) || '',
+      };
+      buildPdfFile(fname, shareOpts).then(function (file) {
         showWhatsAppSendBar(file);
         if (copyStrong) copyStrong.textContent = 'PDF ready';
         if (sendBtn) {
           sendBtn.disabled = false;
-          sendBtn.textContent = supportsFileShare() ? 'Send on WhatsApp' : 'Download PDF';
+          sendBtn.textContent = 'Send on WhatsApp';
         }
-        // Also mark the in-page WhatsApp item ready if present.
-        var shareA = document.querySelector('a[data-pdf-share]');
         if (shareA) {
           readyShareFiles.set(shareA, file);
           setShareItemState(shareA, 'ready', file.name);
@@ -702,8 +862,15 @@
       }).catch(function () {
         if (copyStrong) copyStrong.textContent = 'Could not prepare PDF';
         if (sendBtn) {
-          sendBtn.disabled = true;
-          sendBtn.textContent = 'Try again from Share';
+          sendBtn.disabled = false;
+          sendBtn.textContent = 'Open PDF page';
+          sendBtn.onclick = function () {
+            var sheet = (shareA && (shareA.getAttribute('data-sheet-url') || shareA.getAttribute('href'))) || '';
+            if (!sheet && shareOpts.docId) {
+              sheet = 'document_sheet.php?id=' + encodeURIComponent(shareOpts.docId) + '&autodownload=1';
+            }
+            if (sheet) window.location.href = sheet;
+          };
         }
       }).finally(function () {
         busy = false;

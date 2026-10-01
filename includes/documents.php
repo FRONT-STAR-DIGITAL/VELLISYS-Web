@@ -3002,6 +3002,8 @@ function render_doc_actions(array $doc, bool $labeled = false): void
               data-pdf-share
               data-doc-id="<?= $id ?>"
               data-pdf-name="<?= h(document_download_filename($doc)) ?>"
+              data-pdf-url="<?= h(url('document_pdf.php?id=' . $id)) ?>"
+              data-sheet-url="<?= h(url('document_sheet.php?id=' . $id . '&autodownload=1')) ?>"
               role="menuitem"
             >
               <span class="share-pop-ico" aria-hidden="true"><?= icon('whatsapp', 18) ?></span>
