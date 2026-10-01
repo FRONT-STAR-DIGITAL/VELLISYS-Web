@@ -525,14 +525,13 @@ if ($tab === 'leads'):
         'rejected' => 'Rejected',
     ];
     $chipBase = $filterAgent ? ['agent_id' => $filterAgent] : [];
-    $chipPeriod = array_filter([
-        'from' => $period['from'] !== '' ? $from : null,
-        'to' => $period['to'] !== '' ? $to : null,
-    ]);
+    // Match the list: All / Interested / Follow ups use the active period.
+    $chipPeriod = ['from' => $from, 'to' => $to];
     $chipCounts = [
         'all' => sales_leads_count($chipBase + $chipPeriod),
         'interested' => sales_leads_count($chipBase + $chipPeriod + ['status' => 'interested']),
         'follow_up' => sales_leads_count($chipBase + $chipPeriod + ['status' => 'follow_up']),
+        // On testing / overdue / closed ignore the date range (same as their chip links).
         'on_test' => sales_leads_count($chipBase + ['on_test' => true]),
         'overdue' => $overdueFollowN,
         'closed' => sales_leads_count($chipBase + ['follow_bucket' => 'done']),
