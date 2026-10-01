@@ -1483,10 +1483,9 @@ function render_stock_docs_table(array $page, string $base, string $pageKey, str
       <p class="empty"><?= h($empty) ?></p>
     <?php else: ?>
       <div class="table-scroll">
-        <table class="grid">
+        <table class="grid"<?= $n > 1 ? ' style="counter-reset: grid-row ' . ($n - 1) . '"' : '' ?>>
           <thead>
             <tr>
-              <th>#</th>
               <th>Number</th>
               <th>Name</th>
               <th>Date</th>
@@ -1500,7 +1499,6 @@ function render_stock_docs_table(array $page, string $base, string $pageKey, str
           <tbody>
             <?php foreach ($rows as $doc): ?>
               <tr>
-                <td class="mono"><?= (int) $n ?></td>
                 <td class="mono"><a href="<?= h(url('document_view.php?id=' . (int) $doc['id'])) ?>"><?= h($doc['number']) ?></a></td>
                 <td><?= h((string) ($doc['party_name'] ?? '')) ?></td>
                 <td class="date-cell"><?= h(format_date($doc['date'])) ?></td>
@@ -1510,7 +1508,6 @@ function render_stock_docs_table(array $page, string $base, string $pageKey, str
                 <td><span class="pill"><?= h(invoice_status_label($doc)) ?></span></td>
                 <td class="row-actions"><?php render_doc_actions($doc); ?></td>
               </tr>
-              <?php $n++; ?>
             <?php endforeach; ?>
           </tbody>
         </table>
@@ -1528,7 +1525,6 @@ function render_stock_sold_table(array $rows): void
       <table class="grid">
         <thead>
           <tr>
-            <th>#</th>
             <th>Item</th>
             <th>Kind</th>
             <th class="right">Qty</th>
@@ -1536,12 +1532,11 @@ function render_stock_sold_table(array $rows): void
           </tr>
         </thead>
         <tbody>
-          <?php $n = 1; foreach ($rows as $row):
+          <?php foreach ($rows as $row):
               $kind = (string) ($row['kind'] ?? 'other');
               $label = $kind === 'service' ? 'Service' : ($kind === 'product' ? 'Product' : 'Other');
               ?>
             <tr>
-              <td class="mono"><?= $n++ ?></td>
               <td><?= h((string) ($row['name'] ?? '')) ?></td>
               <td><?= h($label) ?></td>
               <td class="right mono"><?= h(function_exists('format_qty') ? format_qty($row['qty'] ?? 0) : (string) ($row['qty'] ?? 0)) ?></td>

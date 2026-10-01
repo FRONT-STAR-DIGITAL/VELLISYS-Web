@@ -454,10 +454,9 @@ render_desk_metric_tabs([
 <div class="card" style="margin-top:16px">
   <div class="card-head"><h2><?= icon('clock', 16) ?>Daily</h2></div>
   <div class="table-scroll">
-    <table class="grid">
+    <table class="grid"<?= (int) $daysPage['from'] > 1 ? ' style="counter-reset: grid-row ' . ((int) $daysPage['from'] - 1) . '"' : '' ?>>
       <thead>
         <tr>
-          <th>#</th>
           <th>Date</th>
           <th class="right">Income</th>
           <th class="right">Spend</th>
@@ -466,9 +465,8 @@ render_desk_metric_tabs([
         </tr>
       </thead>
       <tbody>
-        <?php $dn = (int) $daysPage['from']; foreach ($daysPage['rows'] as $d): ?>
+        <?php foreach ($daysPage['rows'] as $d): ?>
           <tr>
-            <td class="mono"><?= $dn++ ?></td>
             <td><?= h(format_date($d['date'])) ?></td>
             <td class="right mono"><?= h(money((float) $d['income'])) ?></td>
             <td class="right mono"><?= h(money((float) $d['expense'])) ?></td>
@@ -490,7 +488,6 @@ render_desk_metric_tabs([
     <table class="grid">
       <thead>
         <tr>
-          <th>#</th>
           <th>Month</th>
           <th class="right">Income</th>
           <th class="right">Spend</th>
@@ -499,9 +496,8 @@ render_desk_metric_tabs([
         </tr>
       </thead>
       <tbody>
-        <?php $mn = 1; foreach ($monthRows as $d): ?>
+        <?php foreach ($monthRows as $d): ?>
           <tr>
-            <td class="mono"><?= $mn++ ?></td>
             <td><?= h($d['date']) ?></td>
             <td class="right mono"><?= h(money((float) $d['income'])) ?></td>
             <td class="right mono"><?= h(money((float) $d['expense'])) ?></td>
@@ -519,12 +515,11 @@ render_desk_metric_tabs([
 <div class="card" style="margin-top:16px">
   <div class="card-head"><h2><?= icon('package', 16) ?>Stock</h2></div>
   <div class="table-scroll">
-    <table class="grid">
-      <thead><tr><th>#</th><th>Item</th><th class="right">On hand</th><th class="right">At cost</th><th class="right">At sell</th><th>Actions</th></tr></thead>
+    <table class="grid"<?= (int) $stockSnap['from'] > 1 ? ' style="counter-reset: grid-row ' . ((int) $stockSnap['from'] - 1) . '"' : '' ?>>
+      <thead><tr><th>Item</th><th class="right">On hand</th><th class="right">At cost</th><th class="right">At sell</th><th>Actions</th></tr></thead>
       <tbody>
-        <?php $sn = (int) $stockSnap['from']; foreach ($stockSnap['rows'] as $row): ?>
+        <?php foreach ($stockSnap['rows'] as $row): ?>
           <tr>
-            <td class="mono"><?= $sn++ ?></td>
             <td><?= h($row['name']) ?></td>
             <td class="right mono"><?= h(stock_qty_label((float) $row['qty_on_hand'])) ?></td>
             <td class="right mono"><?= h(money((float) $row['qty_on_hand'] * (float) $row['buy_price'])) ?></td>

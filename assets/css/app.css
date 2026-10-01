@@ -1773,6 +1773,52 @@ table.grid th {
 }
 table.grid tbody tr:last-child td { border-bottom: 0; }
 table.grid tbody tr:hover { background: color-mix(in srgb, var(--brand-tint) 70%, #fff); }
+/* Auto # column on all data tables (skip line editors / opt-out). */
+table.grid:not(.lines):not(.lines-preview-table):not(.no-row-num) {
+  counter-reset: grid-row;
+}
+table.grid:not(.lines):not(.lines-preview-table):not(.no-row-num) > thead > tr::before,
+table.grid:not(.lines):not(.lines-preview-table):not(.no-row-num) > tbody > tr::before,
+table.grid:not(.lines):not(.lines-preview-table):not(.no-row-num) > tfoot > tr::before {
+  display: table-cell;
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+  width: 1%;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+table.grid:not(.lines):not(.lines-preview-table):not(.no-row-num) > thead > tr::before {
+  content: "#";
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+  font-weight: 600;
+  background: color-mix(in srgb, var(--brand-tint) 80%, #fff);
+  font-family: var(--mono);
+}
+table.grid:not(.lines):not(.lines-preview-table):not(.no-row-num) > tbody > tr::before {
+  counter-increment: grid-row;
+  content: counter(grid-row);
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+table.grid:not(.lines):not(.lines-preview-table):not(.no-row-num) > tbody > tr:last-child::before {
+  border-bottom: 0;
+}
+table.grid:not(.lines):not(.lines-preview-table):not(.no-row-num) > tbody > tr:hover::before {
+  background: color-mix(in srgb, var(--brand-tint) 70%, #fff);
+}
+table.grid:not(.lines):not(.lines-preview-table):not(.no-row-num) > tfoot > tr::before {
+  content: "";
+  font-weight: 700;
+  background: #eef0f8;
+  border-top: 2px solid var(--line);
+  border-bottom: 0;
+}
 table.grid:not(.lines):not(.lines-preview-table) td:not(.row-actions):not(.right) {
   max-width: 11rem;
   overflow: hidden;
@@ -6998,7 +7044,8 @@ a.cdash-metric:hover {
   padding-top: 12px;
   padding-bottom: 12px;
 }
-.admin-inbox-card table.grid tbody tr:hover td {
+.admin-inbox-card table.grid tbody tr:hover td,
+.admin-inbox-card table.grid:not(.no-row-num) > tbody > tr:hover::before {
   background: #fafbfd;
 }
 .admin-inbox-card .row-action-stack {

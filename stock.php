@@ -167,7 +167,6 @@ layout_start('Stock', $user);
 <?php if ($tab === 'items'):
     $filtered = stock_filter_items($items, $q);
     $page = stock_slice($filtered, stock_page_key('p'));
-    $n = (int) $page['from'];
     ?>
 <div class="stats">
   <div class="card stat"><?= icon('package', 20) ?><span>Products</span><strong><?= (int) $stats['items'] ?></strong></div>
@@ -180,11 +179,10 @@ layout_start('Stock', $user);
   <div class="card-head"><h2><?= icon('alert', 16) ?>Low stock</h2></div>
   <div class="table-scroll">
     <table class="grid">
-      <thead><tr><th>#</th><th>Item</th><th class="right">On hand</th><th class="right">Reorder at</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Item</th><th class="right">On hand</th><th class="right">Reorder at</th><th>Actions</th></tr></thead>
       <tbody>
-        <?php $ln = 1; foreach ($low as $row): ?>
+        <?php foreach ($low as $row): ?>
           <tr>
-            <td class="mono"><?= $ln++ ?></td>
             <td><?= h($row['name']) ?></td>
             <td class="right mono"><?= h(stock_qty_label((float) $row['qty_on_hand'])) ?></td>
             <td class="right mono"><?= h(stock_qty_label((float) $row['reorder_level'])) ?></td>
@@ -287,10 +285,10 @@ layout_start('Stock', $user);
     <p class="empty">No products match. Add one, or upload the Excel sheet.</p>
   <?php else: ?>
     <div class="table-scroll">
-      <table class="grid">
+      <table class="grid"<?= (int) $page['from'] > 1 ? ' style="counter-reset: grid-row ' . ((int) $page['from'] - 1) . '"' : '' ?>>
         <thead>
           <tr>
-            <th>#</th><th>Item</th><th>Kind</th><th>Code</th><th>Unit</th><th class="right">On hand</th><th class="right">Buy</th><th class="right">Sell</th><th class="right">Reorder</th><th><?= h($taxName) ?></th><th>Actions</th>
+            <th>Item</th><th>Kind</th><th>Code</th><th>Unit</th><th class="right">On hand</th><th class="right">Buy</th><th class="right">Sell</th><th class="right">Reorder</th><th><?= h($taxName) ?></th><th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -298,7 +296,6 @@ layout_start('Stock', $user);
               $svc = stock_item_is_service($row);
               $isLow = !$svc && (float) $row['reorder_level'] > 0 && (float) $row['qty_on_hand'] <= (float) $row['reorder_level']; ?>
             <tr>
-              <td class="mono"><?= $n++ ?></td>
               <td><?= h($row['name']) ?><?= empty($row['active']) ? ' <span class="pill">Hidden</span>' : '' ?><?= $isLow ? ' <span class="pill">Low</span>' : '' ?></td>
               <td><?= $svc ? 'Service' : 'Product' ?></td>
               <td class="mono"><?= h($row['sku']) ?></td>
@@ -341,7 +338,6 @@ layout_start('Stock', $user);
     $activeItems = array_values(array_filter($items, static fn ($r) => !empty($r['active']) && !stock_item_is_service($r)));
     $filtered = stock_filter_items($activeItems, $q);
     $page = stock_slice($filtered, stock_page_key('p'));
-    $n = (int) $page['from'];
     $countPage = stock_slice(stock_recent_counts(40), stock_page_key('cp'));
     ?>
 <div class="card">
@@ -355,12 +351,11 @@ layout_start('Stock', $user);
       <div class="pad-form"><?php stock_search_bar('stock.php', ['tab' => 'counts'], 'Search products'); ?></div>
       <p class="lede" style="padding:0 18px 8px">Walk the shelf. Type what you see on this page. Saving sets those products to the counted number.</p>
       <div class="table-scroll">
-        <table class="grid">
-          <thead><tr><th>#</th><th>Item</th><th class="right">System</th><th class="right">Counted</th></tr></thead>
+        <table class="grid"<?= (int) $page['from'] > 1 ? ' style="counter-reset: grid-row ' . ((int) $page['from'] - 1) . '"' : '' ?>>
+          <thead><tr><th>Item</th><th class="right">System</th><th class="right">Counted</th></tr></thead>
           <tbody>
             <?php foreach ($page['rows'] as $row): ?>
               <tr>
-                <td class="mono"><?= $n++ ?></td>
                 <td><?= h($row['name']) ?></td>
                 <td class="right mono"><?= h(stock_qty_label((float) $row['qty_on_hand'])) ?></td>
                 <td class="line-qty"><input name="count[<?= (int) $row['id'] ?>]" inputmode="decimal" value="<?= h((string) $row['qty_on_hand']) ?>"></td>
@@ -382,12 +377,11 @@ layout_start('Stock', $user);
     <p class="empty">No counts posted yet.</p>
   <?php else: ?>
     <div class="table-scroll">
-      <table class="grid">
-        <thead><tr><th>#</th><th>Date</th><th>Status</th></tr></thead>
+      <table class="grid"<?= (int) $countPage['from'] > 1 ? ' style="counter-reset: grid-row ' . ((int) $countPage['from'] - 1) . '"' : '' ?>>
+        <thead><tr><th>Date</th><th>Status</th></tr></thead>
         <tbody>
-          <?php $cn = (int) $countPage['from']; foreach ($countPage['rows'] as $c): ?>
+          <?php foreach ($countPage['rows'] as $c): ?>
             <tr>
-              <td class="mono"><?= $cn++ ?></td>
               <td><?= h(format_date($c['counted_on'])) ?></td>
               <td><?= h((string) $c['status']) ?></td>
             </tr>

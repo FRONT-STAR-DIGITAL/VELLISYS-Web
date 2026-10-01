@@ -617,17 +617,15 @@ if ($tab === 'leads'):
   </div>
   <div class="table-scroll">
     <table class="grid">
-      <thead><tr><th class="mono">#</th><th>Business</th><th>Agent</th><th>Status</th><?php if ($isOpenFuView): ?><th>Interest</th><?php endif; ?><th>Contact</th><th>City</th><th>Follow-up</th><th>Submitted</th><th></th></tr></thead>
+      <thead><tr><th>Business</th><th>Agent</th><th>Status</th><?php if ($isOpenFuView): ?><th>Interest</th><?php endif; ?><th>Contact</th><th>City</th><th>Follow-up</th><th>Submitted</th><th></th></tr></thead>
       <tbody>
-        <?php $rowN = 0; foreach ($leads as $lead):
-            $rowN++;
+        <?php foreach ($leads as $lead):
             $testLabel = sales_lead_testing_label($lead);
             $overdue = sales_lead_followup_overdue($lead);
             $interest = (int) ($lead['interest_rating'] ?? 0);
             $rowClass = $overdue ? 'sales-fu-overdue' : '';
             ?>
           <tr<?= $rowClass !== '' ? ' class="' . h($rowClass) . '"' : '' ?>>
-            <td class="mono muted"><?= (int) $rowN ?></td>
             <td><?= h(trim((string) $lead['business_name']) ?: '-') ?>
               <?php if ($testLabel !== ''): ?>
                 <span class="pill<?= $testLabel === 'Test ended' ? ' bad' : ' warn' ?>"><?= h($testLabel) ?></span>
