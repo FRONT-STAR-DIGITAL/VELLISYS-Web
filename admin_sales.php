@@ -1201,7 +1201,11 @@ if ($tab === 'messages'):
           $fromIsAgent = (int) $m['from_user_id'] === (int) $with;
           $mine = !$fromIsAgent;
           ?>
-        <div class="sales-chat-bubble<?= $mine ? ' is-mine' : '' ?>"><strong><?= h($mine ? 'Vellisys admin' : (string) $m['from_name']) ?></strong><p><?= nl2br(h((string) $m['body'])) ?></p></div>
+        <div class="sales-chat-bubble<?= $mine ? ' is-mine' : '' ?>">
+          <strong><?= h($mine ? 'Vellisys admin' : (string) $m['from_name']) ?></strong>
+          <p><?= nl2br(h((string) $m['body'])) ?></p>
+          <span><?= h(sales_format_lead_submitted_at($m['created_at'] ?? null)) ?></span>
+        </div>
       <?php endforeach; ?>
     </div>
   <?php endif; ?>
