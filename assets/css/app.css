@@ -6894,6 +6894,87 @@ a.cdash-metric:hover {
   font-size: 13.5px;
   font-weight: 600;
 }
+.day-open-form label { display: block; }
+.day-open-form input[type="date"] {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Upload progress (Excel, logos, signatures, any file form) */
+.upload-progress {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 12000;
+  pointer-events: none;
+}
+.upload-progress-card {
+  width: min(420px, 100%);
+  margin: 0 auto;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #08143a;
+  color: #fff;
+  box-shadow: 0 12px 32px rgba(8, 20, 58, .28);
+}
+.upload-progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+.upload-progress-label { font-weight: 700; letter-spacing: .01em; }
+.upload-progress-pct {
+  font-family: var(--mono);
+  font-size: 12px;
+  opacity: .9;
+  min-width: 2.5em;
+  text-align: right;
+}
+.upload-progress-track {
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .18);
+  overflow: hidden;
+}
+.upload-progress-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #1e4eff, #82b440);
+  transition: width .15s ease-out;
+}
+.upload-progress.is-indeterminate .upload-progress-fill {
+  width: 40% !important;
+  animation: upload-progress-slide 1s ease-in-out infinite;
+}
+@keyframes upload-progress-slide {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(280%); }
+}
+body.has-upload-progress .app-tabbar {
+  opacity: .35;
+  pointer-events: none;
+}
+@media (min-width: 720px) {
+  .upload-progress {
+    left: auto;
+    right: 20px;
+    bottom: 20px;
+    width: min(380px, calc(100vw - 40px));
+  }
+  .upload-progress-card { width: 100%; }
+}
+@media (max-width: 719px) {
+  .upload-progress {
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+}
 .desk-body .filters .filter-apply {
   background: color-mix(in srgb, var(--brand) 14%, #fff);
   border-color: color-mix(in srgb, var(--brand) 28%, var(--line));

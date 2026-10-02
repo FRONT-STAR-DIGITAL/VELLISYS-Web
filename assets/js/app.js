@@ -132,9 +132,147 @@ window.vellisysPiePercentPlugins = function () {
     }
     return false;
   }
+  function unlockForm(form) {
+    if (!form) return;
+    form.dataset.submitting = '';
+    form.dataset.uploadProgress = '';
+    var buttons = form.querySelectorAll('button[type="submit"], input[type="submit"]');
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].disabled = false;
+      buttons[i].removeAttribute('aria-busy');
+    }
+  }
+  function formHasFiles(form) {
+    var inputs = form.querySelectorAll('input[type="file"]');
+    for (var i = 0; i < inputs.length; i++) {
+      if (inputs[i].files && inputs[i].files.length) return true;
+    }
+    return false;
+  }
+  function ensureUploadBar() {
+    var bar = document.getElementById('vellisys-upload-progress');
+    if (bar) return bar;
+    bar = document.createElement('div');
+    bar.id = 'vellisys-upload-progress';
+    bar.className = 'upload-progress';
+    bar.hidden = true;
+    bar.setAttribute('role', 'status');
+    bar.setAttribute('aria-live', 'polite');
+    bar.innerHTML =
+      '<div class="upload-progress-card">' +
+        '<div class="upload-progress-meta">' +
+          '<strong class="upload-progress-label">Uploading…</strong>' +
+          '<span class="upload-progress-pct">0%</span>' +
+        '</div>' +
+        '<div class="upload-progress-track" aria-hidden="true">' +
+          '<span class="upload-progress-fill"></span>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(bar);
+    return bar;
+  }
+  function setUploadProgress(pct, label, indeterminate) {
+    var bar = ensureUploadBar();
+    var fill = bar.querySelector('.upload-progress-fill');
+    var pctEl = bar.querySelector('.upload-progress-pct');
+    var labelEl = bar.querySelector('.upload-progress-label');
+    bar.hidden = false;
+    bar.classList.add('is-on');
+    document.body.classList.add('has-upload-progress');
+    if (labelEl) labelEl.textContent = label || 'Uploading…';
+    if (indeterminate || pct == null || !isFinite(pct)) {
+      bar.classList.add('is-indeterminate');
+      if (fill) fill.style.width = '40%';
+      if (pctEl) pctEl.textContent = '';
+      return;
+    }
+    bar.classList.remove('is-indeterminate');
+    var n = Math.max(0, Math.min(100, Math.round(pct)));
+    if (fill) fill.style.width = n + '%';
+    if (pctEl) pctEl.textContent = n + '%';
+  }
+  function hideUploadProgress() {
+    var bar = document.getElementById('vellisys-upload-progress');
+    if (!bar) return;
+    bar.hidden = true;
+    bar.classList.remove('is-on', 'is-indeterminate');
+    document.body.classList.remove('has-upload-progress');
+  }
   document.addEventListener('submit', function (e) {
     var form = e.target;
     if (!(form instanceof HTMLFormElement)) return;
+    if (form.getAttribute('data-no-upload-progress') === '1') {
+      if (lockForm(form)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      return;
+    }
+    if (formHasFiles(form)) {
+      if (form.dataset.submitting === '1' && form.dataset.uploadProgress === '1') {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      if (form.dataset.submitting === '1') {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      lockForm(form);
+      form.dataset.uploadProgress = '1';
+      var action = form.getAttribute('action') || window.location.href;
+      var method = (form.getAttribute('method') || 'post').toUpperCase();
+      var xhr = new XMLHttpRequest();
+      xhr.open(method, action, true);
+      xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+      xhr.upload.onprogress = function (ev) {
+        if (ev.lengthComputable && ev.total > 0) {
+          setUploadProgress((ev.loaded / ev.total) * 100, 'Uploading…', false);
+        } else {
+          setUploadProgress(null, 'Uploading…', true);
+        }
+      };
+      xhr.upload.onload = function () {
+        setUploadProgress(100, 'Processing…', false);
+      };
+      xhr.onerror = function () {
+        hideUploadProgress();
+        unlockForm(form);
+        window.alert('Upload failed. Check your connection and try again.');
+      };
+      xhr.onload = function () {
+        hideUploadProgress();
+        if (xhr.status >= 200 && xhr.status < 400) {
+          var finalUrl = xhr.responseURL || '';
+          if (finalUrl && finalUrl.split('#')[0] !== window.location.href.split('#')[0]) {
+            window.location.href = finalUrl;
+            return;
+          }
+          if (xhr.responseText) {
+            document.open();
+            document.write(xhr.responseText);
+            document.close();
+            return;
+          }
+          window.location.reload();
+          return;
+        }
+        unlockForm(form);
+        window.alert('Upload could not finish (' + xhr.status + '). Try again.');
+      };
+      setUploadProgress(0, 'Uploading…', false);
+      try {
+        xhr.send(new FormData(form));
+      } catch (err) {
+        hideUploadProgress();
+        unlockForm(form);
+        window.alert('Upload could not start. Try again.');
+      }
+      return;
+    }
     if (lockForm(form)) {
       e.preventDefault();
       e.stopPropagation();

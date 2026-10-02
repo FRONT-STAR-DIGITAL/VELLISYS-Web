@@ -387,32 +387,86 @@ function stock_reverse_document(int $documentId): void
     db_exec('DELETE FROM stock_moves WHERE document_id = ? AND company_id = ?', 'ii', [$documentId, $cid]);
 }
 
+function stock_normalize_day_date(?string $raw): ?string
+{
+    $raw = trim((string) $raw);
+    if ($raw === '') {
+        return today();
+    }
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw)) {
+        return null;
+    }
+    $ts = strtotime($raw . ' 12:00:00');
+    if (!$ts || date('Y-m-d', $ts) !== $raw) {
+        return null;
+    }
+    return $raw;
+}
+
+function stock_day_for(?string $date = null): ?array
+{
+    $date = stock_normalize_day_date($date) ?? today();
+    return db_one('SELECT * FROM stock_days WHERE company_id = ? AND day_date = ?', 'is', [current_company_id(), $date]);
+}
+
 function stock_today(): ?array
 {
-    return db_one('SELECT * FROM stock_days WHERE company_id = ? AND day_date = ?', 'is', [current_company_id(), today()]);
+    return stock_day_for(today());
+}
+
+/** Any unclosed till day for this company (may be backdated). */
+function stock_current_open_day(): ?array
+{
+    return db_one(
+        'SELECT * FROM stock_days WHERE company_id = ? AND closed_at IS NULL ORDER BY day_date DESC LIMIT 1',
+        'i',
+        [current_company_id()]
+    );
 }
 
 function stock_day_is_open(): bool
 {
-    $d = stock_today();
-    return $d && $d['closed_at'] === null;
+    return stock_current_open_day() !== null;
 }
 
-function stock_day_open(float $cash): array
+function stock_day_open(float $cash, ?string $date = null): array
 {
-    $row = stock_today();
-    if ($row && $row['closed_at'] === null) {
-        return ['ok' => true, 'id' => (int) $row['id']];
+    $date = stock_normalize_day_date($date);
+    if ($date === null) {
+        return ['ok' => false, 'error' => 'Pick a valid opening date.'];
     }
+    if ($date > today()) {
+        return ['ok' => false, 'error' => 'You cannot open a future day.'];
+    }
+    if ($date !== today() && !is_desk_admin()) {
+        return ['ok' => false, 'error' => 'Only the company admin can backdate an opening day.'];
+    }
+    // Keep catch-up windows practical (about one quarter).
+    $oldest = date('Y-m-d', strtotime('-90 days'));
+    if ($date < $oldest) {
+        return ['ok' => false, 'error' => 'Opening days can be backdated up to 90 days.'];
+    }
+    $open = stock_current_open_day();
+    if ($open) {
+        if ((string) $open['day_date'] === $date) {
+            return ['ok' => true, 'id' => (int) $open['id'], 'day_date' => $date];
+        }
+        $label = function_exists('format_date') ? format_date((string) $open['day_date']) : (string) $open['day_date'];
+        return ['ok' => false, 'error' => 'Close ' . $label . ' first before opening another day.'];
+    }
+    $row = stock_day_for($date);
     if ($row && $row['closed_at'] !== null) {
-        return ['ok' => false, 'error' => 'This day is already closed.'];
+        return ['ok' => false, 'error' => 'That day is already closed.'];
+    }
+    if ($row && $row['closed_at'] === null) {
+        return ['ok' => true, 'id' => (int) $row['id'], 'day_date' => $date];
     }
     $id = db_exec(
         'INSERT INTO stock_days (company_id, day_date, open_cash, opened_by) VALUES (?,?,?,?)',
         'isdi',
-        [current_company_id(), today(), max(0, $cash), (int) ($_SESSION['user_id'] ?? 0)]
+        [current_company_id(), $date, max(0, $cash), (int) ($_SESSION['user_id'] ?? 0)]
     );
-    return ['ok' => true, 'id' => (int) $id];
+    return ['ok' => true, 'id' => (int) $id, 'day_date' => $date];
 }
 
 function stock_blank_totals(): array
@@ -474,11 +528,12 @@ function stock_range_totals(string $from, string $to): array
 
 function stock_day_close(float $cash, string $notes = ''): array
 {
-    $row = stock_today();
+    $row = stock_current_open_day();
     if (!$row || $row['closed_at'] !== null) {
         return ['ok' => false, 'error' => 'Open the day first.'];
     }
-    $tot = stock_day_totals(today());
+    $dayDate = (string) $row['day_date'];
+    $tot = stock_day_totals($dayDate);
     db_exec(
         'UPDATE stock_days SET close_cash=?, closed_by=?, closed_at=NOW(), income=?, expense=?, tax=?, notes=? WHERE id=? AND company_id=?',
         'didddsii',
@@ -1336,11 +1391,19 @@ function desk_handle_day_post(): string
 {
     $action = post('action');
     if ($action === 'open_day') {
-        $opened = stock_day_open(money_parse(post('open_cash')));
+        $dayDate = null;
+        if (is_desk_admin() && array_key_exists('open_day_date', $_POST)) {
+            $dayDate = (string) post('open_day_date');
+        }
+        $opened = stock_day_open(money_parse(post('open_cash')), $dayDate);
         if (empty($opened['ok'])) {
             return (string) ($opened['error'] ?? 'Could not open the day.');
         }
-        flash('Day opened. You can sell now.');
+        $openedOn = (string) ($opened['day_date'] ?? today());
+        $label = function_exists('format_date') ? format_date($openedOn) : $openedOn;
+        flash($openedOn === today()
+            ? 'Day opened. You can sell now.'
+            : ('Day opened for ' . $label . '. Close that day when the till is done, then open today.'));
         redirect('sale.php');
     }
     if ($action === 'close_day') {
@@ -1357,28 +1420,47 @@ function desk_handle_day_post(): string
 
 function render_sale_day_panel(string $error = ''): void
 {
+    $openDay = stock_current_open_day();
     $todayDay = stock_today();
-    $dayOpen = stock_day_is_open();
+    $dayOpen = $openDay !== null;
+    $canBackdate = is_desk_admin();
+    $openDayDate = $openDay ? (string) $openDay['day_date'] : '';
+    $openDayLabel = $openDayDate !== ''
+        ? (function_exists('format_date') ? format_date($openDayDate) : $openDayDate)
+        : '';
     ?>
 <?php if ($error): ?><p class="flash flash-err" style="margin:0 0 16px"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
 <div class="card cdash-day-panel" style="margin:0 0 16px">
   <div class="card-head"><h2><?= icon('clock', 16) ?><?= $dayOpen ? 'Close day' : 'Open day' ?></h2></div>
   <div class="pad-form">
-    <?php if (!$todayDay): ?>
-      <form method="post">
+    <?php if (!$dayOpen): ?>
+      <form method="post" class="day-open-form">
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="open_day">
+        <?php if ($canBackdate): ?>
+          <label for="open_day_date">Day date</label>
+          <input id="open_day_date" name="open_day_date" type="date" value="<?= h(today()) ?>" max="<?= h(today()) ?>" min="<?= h(date('Y-m-d', strtotime('-90 days'))) ?>" required>
+          <p class="hint" style="margin:6px 0 10px">Admins can backdate up to 90 days if a till day was missed. Close that day before opening today.</p>
+        <?php endif; ?>
         <label for="open_cash">Opening cash</label>
         <input id="open_cash" name="open_cash" inputmode="decimal" required>
         <div class="actions" style="margin-top:12px"><button class="btn" type="submit"><?= icon('check') ?>Open day</button></div>
       </form>
-    <?php elseif ($dayOpen): ?>
-      <p class="cdash-day-note">Opened at <?= h(money((float) $todayDay['open_cash'])) ?></p>
+      <?php if ($todayDay && $todayDay['closed_at'] !== null): ?>
+        <p class="cdash-day-note" style="margin-top:12px">Today already closed at <?= h(money((float) ($todayDay['close_cash'] ?? 0))) ?></p>
+      <?php endif; ?>
+    <?php else: ?>
+      <p class="cdash-day-note">
+        Opened <?= $openDayDate !== today() ? 'for ' . h($openDayLabel) . ' · ' : '' ?>at <?= h(money((float) $openDay['open_cash'])) ?>
+        <?php if ($openDayDate !== today()): ?>
+          <span class="pill warn">Backdated</span>
+        <?php endif; ?>
+      </p>
       <?php
-      $todayFloat = stock_float_vs_expenses(today(), today(), (float) (stock_day_totals(today())['expense'] ?? 0));
-      if (($todayFloat['applied'] ?? 0) > 0.009 || ($todayFloat['open_cash'] ?? 0) > 0.009):
+      $dayFloat = stock_float_vs_expenses($openDayDate, $openDayDate, (float) (stock_day_totals($openDayDate)['expense'] ?? 0));
+      if (($dayFloat['applied'] ?? 0) > 0.009 || ($dayFloat['open_cash'] ?? 0) > 0.009):
       ?>
-        <p class="cdash-day-note">Float <?= h(money((float) $todayFloat['open_cash'])) ?> · left <?= h(money((float) $todayFloat['left'])) ?></p>
+        <p class="cdash-day-note">Float <?= h(money((float) $dayFloat['open_cash'])) ?> · left <?= h(money((float) $dayFloat['left'])) ?></p>
       <?php endif; ?>
       <form method="post">
         <?= csrf_field() ?>
@@ -1387,10 +1469,8 @@ function render_sale_day_panel(string $error = ''): void
         <input id="close_cash" name="close_cash" inputmode="decimal" required>
         <label for="notes">Note</label>
         <input id="notes" name="notes">
-        <div class="actions" style="margin-top:12px"><button class="btn" type="submit"><?= icon('check') ?>Close day</button></div>
+        <div class="actions" style="margin-top:12px"><button class="btn" type="submit"><?= icon('check') ?>Close day<?= $openDayDate !== today() ? ' · ' . h($openDayLabel) : '' ?></button></div>
       </form>
-    <?php else: ?>
-      <p class="cdash-day-note">Closed at <?= h(money((float) ($todayDay['close_cash'] ?? 0))) ?></p>
     <?php endif; ?>
   </div>
 </div>
