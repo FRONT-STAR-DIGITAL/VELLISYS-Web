@@ -2405,13 +2405,14 @@ function sales_stats(?int $agentId, string $from, string $to): array
         $by[$key] = (int) $r['n'];
     }
     $reach = array_sum($by);
-    $wins = $by['onboarded'] + $by['onboarding'] + $by['interested'];
+    // Real sales = clients moved into onboarding / onboarded (not merely interested).
+    $sales = $by['onboarded'] + $by['onboarding'];
     $onTest = sales_testing_count($agentId, $from, $to);
     return [
         'by_status' => $by,
         'reach' => $reach,
-        'wins' => $wins,
-        'sales' => $wins,
+        'wins' => $sales,
+        'sales' => $sales,
         'interested' => $by['interested'],
         'follow_up' => $by['follow_up'],
         'rejected' => $by['rejected'],
@@ -2526,7 +2527,7 @@ function sales_progress(?int $agentId, string $kind, ?string $onDate = null): ar
     $statTo = $to > $today ? $today : $to;
     $stats = sales_stats($agentId, $from, $statTo);
     $goals = sales_goals_for_period($kind);
-    $wins = (int) $stats['wins'];
+    // Goal progress tracks interested clients (field targets), not closed sales.
     return [
         'kind' => $kind,
         'from' => $from,
@@ -2534,7 +2535,7 @@ function sales_progress(?int $agentId, string $kind, ?string $onDate = null): ar
         'stat_to' => $statTo,
         'reach' => (int) $stats['reach'],
         'reach_goal' => (int) $goals['reach'],
-        'sales' => $wins,
+        'sales' => (int) $stats['interested'],
         'sales_goal' => (int) $goals['sales'],
         'stats' => $stats,
     ];
@@ -2814,7 +2815,7 @@ function sales_render_goal_bars(array $progress, array $opts = []): void
         return;
     }
     $rowOpts = ['hide_remaining' => $compact];
-    $salesLabel = $compact ? 'Interested clients' : 'Interested clients (sales wins)';
+    $salesLabel = 'Interested clients';
     ?>
 <div class="sales-goal-bars<?= $compact ? ' is-compact' : '' ?>">
   <?php if ($showReach): ?>
@@ -2865,19 +2866,22 @@ function sales_series(?int $agentId, string $from, string $to): array
     if ($start && $end && ($end - $start) / 86400 <= 62) {
         for ($t = $start; $t <= $end; $t += 86400) {
             $d = date('Y-m-d', $t);
-            $out[$d] = ['date' => $d, 'reach' => 0, 'interested' => 0, 'follow_up' => 0, 'rejected' => 0, 'onboarded' => 0, 'on_test' => 0];
+            $out[$d] = ['date' => $d, 'reach' => 0, 'interested' => 0, 'follow_up' => 0, 'rejected' => 0, 'onboarding' => 0, 'onboarded' => 0, 'sales' => 0, 'on_test' => 0];
         }
     }
     foreach ($rows as $r) {
         $d = (string) $r['d'];
         if (!isset($out[$d])) {
-            $out[$d] = ['date' => $d, 'reach' => 0, 'interested' => 0, 'follow_up' => 0, 'rejected' => 0, 'onboarded' => 0, 'on_test' => 0];
+            $out[$d] = ['date' => $d, 'reach' => 0, 'interested' => 0, 'follow_up' => 0, 'rejected' => 0, 'onboarding' => 0, 'onboarded' => 0, 'sales' => 0, 'on_test' => 0];
         }
         $st = (string) $r['status'];
         $n = (int) $r['n'];
         $out[$d]['reach'] += $n;
         if (isset($out[$d][$st])) {
             $out[$d][$st] += $n;
+        }
+        if ($st === 'onboarded' || $st === 'onboarding') {
+            $out[$d]['sales'] += $n;
         }
     }
     try {
@@ -2897,7 +2901,7 @@ function sales_series(?int $agentId, string $from, string $to): array
         foreach ($tRows as $tr) {
             $d = (string) $tr['d'];
             if (!isset($out[$d])) {
-                $out[$d] = ['date' => $d, 'reach' => 0, 'interested' => 0, 'follow_up' => 0, 'rejected' => 0, 'onboarded' => 0, 'on_test' => 0];
+                $out[$d] = ['date' => $d, 'reach' => 0, 'interested' => 0, 'follow_up' => 0, 'rejected' => 0, 'onboarding' => 0, 'onboarded' => 0, 'sales' => 0, 'on_test' => 0];
             }
             $out[$d]['on_test'] = (int) $tr['n'];
         }
@@ -2913,9 +2917,10 @@ function sales_top_agents(string $from, string $to, int $limit = 8): array
     $rows = db_all(
         "SELECT u.id, u.name, u.email,
                 SUM(CASE WHEN l.id IS NOT NULL THEN 1 ELSE 0 END) AS reach,
-                SUM(CASE WHEN l.status IN ('onboarded','interested') THEN 1 ELSE 0 END) AS sales,
-                SUM(CASE WHEN l.status = 'onboarded' THEN 1 ELSE 0 END) AS onboarded,
                 SUM(CASE WHEN l.status = 'interested' THEN 1 ELSE 0 END) AS interested,
+                SUM(CASE WHEN l.status IN ('onboarded','onboarding') THEN 1 ELSE 0 END) AS sales,
+                SUM(CASE WHEN l.status = 'onboarded' THEN 1 ELSE 0 END) AS onboarded,
+                SUM(CASE WHEN l.status = 'onboarding' THEN 1 ELSE 0 END) AS onboarding,
                 SUM(CASE WHEN l.status = 'rejected' THEN 1 ELSE 0 END) AS rejected,
                 SUM(CASE WHEN l.status = 'follow_up' THEN 1 ELSE 0 END) AS follow_up,
                 (SELECT COUNT(*) FROM companies c
@@ -2926,7 +2931,7 @@ function sales_top_agents(string $from, string $to, int $limit = 8): array
               AND DATE(l.created_at) >= ? AND DATE(l.created_at) <= ?
          WHERE u.role = 'sales_agent' AND COALESCE(u.status, 'live') = 'live'
          GROUP BY u.id, u.name, u.email
-         ORDER BY sales DESC, reach DESC, u.name
+         ORDER BY interested DESC, sales DESC, reach DESC, u.name
          LIMIT " . (int) $limit,
         'ssss',
         [$from, $to, $from, $to]

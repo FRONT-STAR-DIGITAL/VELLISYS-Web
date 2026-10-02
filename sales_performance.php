@@ -69,12 +69,17 @@ sales_layout_start('Performance', $user);
     <?php sales_render_goal_chip((int) $progress['reach'], (int) $progress['reach_goal'], 'reach'); ?>
   </div>
   <div class="card stat">
-    <?= icon('flag', 20) ?>
-    <span>Interested / sales</span>
-    <strong><?= (int) $stats['wins'] ?><?= $progress['sales_goal'] ? '/' . (int) $progress['sales_goal'] : '' ?></strong>
+    <?= icon('heart', 20) ?>
+    <span>Interested</span>
+    <strong><?= (int) $stats['interested'] ?><?= $progress['sales_goal'] ? '/' . (int) $progress['sales_goal'] : '' ?></strong>
     <?php sales_render_goal_chip((int) $progress['sales'], (int) $progress['sales_goal'], 'interested'); ?>
   </div>
-  <div class="card stat"><?= icon('heart', 20) ?><span>Interested only</span><strong><?= (int) $stats['interested'] ?></strong></div>
+  <div class="card stat">
+    <?= icon('flag', 20) ?>
+    <span>Sales</span>
+    <strong><?= (int) $stats['sales'] ?></strong>
+    <em class="muted">Onboarding + onboarded</em>
+  </div>
   <div class="card stat">
     <?= icon('building', 20) ?>
     <span>On test</span>
@@ -90,7 +95,7 @@ sales_layout_start('Performance', $user);
     <div class="pad-form" style="height:220px"><canvas id="chart-pie"></canvas></div>
   </div>
   <div class="card chart-box">
-    <div class="card-head"><h2><?= $periodKind === 'daily' ? 'Today by status' : 'Reach & sales over time' ?></h2></div>
+    <div class="card-head"><h2><?= $periodKind === 'daily' ? 'Today by status' : 'Reach & interested over time' ?></h2></div>
     <div class="pad-form" style="height:220px"><canvas id="chart-line"></canvas></div>
   </div>
 </div>
@@ -141,14 +146,15 @@ sales_layout_start('Performance', $user);
 </div>
 <?php
 $payload = json_encode([
-    'pieLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded', 'On test'],
-    'pieValues' => [(int) $stats['interested'], (int) $stats['follow_up'], (int) $stats['rejected'], (int) $stats['onboarded'], (int) ($stats['on_test'] ?? 0)],
+    'pieLabels' => ['Interested', 'Follow up', 'Rejected', 'Sales', 'On test'],
+    'pieValues' => [(int) $stats['interested'], (int) $stats['follow_up'], (int) $stats['rejected'], (int) $stats['sales'], (int) ($stats['on_test'] ?? 0)],
     'labels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $series),
     'reach' => array_column($series, 'reach'),
-    'wins' => array_map(static fn ($r) => (int) $r['interested'] + (int) $r['onboarded'], $series),
+    'interested' => array_map(static fn ($r) => (int) $r['interested'], $series),
+    'sales' => array_map(static fn ($r) => (int) ($r['sales'] ?? ((int) $r['onboarded'] + (int) ($r['onboarding'] ?? 0))), $series),
     'onTest' => array_map(static fn ($r) => (int) ($r['on_test'] ?? 0), $series),
-    'barLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded', 'On test'],
-    'barValues' => [(int) $stats['interested'], (int) $stats['follow_up'], (int) $stats['rejected'], (int) $stats['onboarded'], (int) ($stats['on_test'] ?? 0)],
+    'barLabels' => ['Interested', 'Follow up', 'Rejected', 'Sales', 'On test'],
+    'barValues' => [(int) $stats['interested'], (int) $stats['follow_up'], (int) $stats['rejected'], (int) $stats['sales'], (int) ($stats['on_test'] ?? 0)],
     'hourLabels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $hoursSeries),
     'hours' => array_map(static fn ($r) => (float) $r['hours'], $hoursSeries),
     'clientTimeLabels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $clientTimeSeries),
@@ -170,7 +176,7 @@ $extra = '<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><
       if(d.daily){
         new Chart(line,{type:"bar",data:{labels:d.barLabels,datasets:[{data:d.barValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e","#7c3aed"],borderRadius:6}]},options:{plugins:{legend:{display:false},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});
       } else {
-        new Chart(line,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Sales",data:d.wins,borderColor:"#0f766e",tension:.3,fill:false},{label:"On test",data:d.onTest||[],borderColor:"#7c3aed",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});
+        new Chart(line,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Interested",data:d.interested,borderColor:"#0f766e",tension:.3,fill:false},{label:"Sales",data:d.sales||[],borderColor:"#c4a35a",tension:.3,fill:false},{label:"On test",data:d.onTest||[],borderColor:"#7c3aed",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});
       }
     }
     var hours=document.getElementById("chart-hours");

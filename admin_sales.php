@@ -305,8 +305,7 @@ layout_admin_start('Sales', $user);
 <div class="stats">
   <div class="card stat"><?= icon('clients', 20) ?><span>Reach</span><strong><?= (int) $overall['reach'] ?></strong></div>
   <div class="card stat"><?= icon('heart', 20) ?><span>Interested</span><strong><?= (int) $overall['interested'] ?></strong></div>
-  <div class="card stat"><?= icon('check', 20) ?><span>Onboarded</span><strong><?= (int) $overall['onboarded'] ?></strong></div>
-  <div class="card stat"><?= icon('flag', 20) ?><span>Sales (wins)</span><strong><?= (int) $overall['wins'] ?></strong></div>
+  <div class="card stat"><?= icon('flag', 20) ?><span>Sales</span><strong><?= (int) $overall['sales'] ?></strong><em class="muted">Onboarding + onboarded</em></div>
   <div class="card stat"><?= icon('building', 20) ?><span>On test</span><strong><?= (int) ($overall['on_test'] ?? 0) ?></strong><em class="muted"><?= (int) ($overall['testing_active'] ?? 0) ?> active now</em></div>
   <a class="card stat" href="<?= h(url('admin_sales.php?tab=leads&bucket=overdue&range=all' . ($filterAgent ? '&agent_filter=' . $filterAgent : ''))) ?>" style="text-decoration:none;color:inherit">
     <?= icon('calendar', 20) ?>
@@ -322,7 +321,7 @@ layout_admin_start('Sales', $user);
     <a class="btn ghost sm" href="<?= h(url('admin_sales.php?tab=targets')) ?>">Edit goals</a>
   </div>
   <div class="pad-form">
-    <p class="hint" style="margin:0 0 12px">Defaults: <?= (int) $goalDefaults['daily_reach'] ?> leads reached · <?= (int) $goalDefaults['daily_sales'] ?> interested clients (sales wins). Bars stay visible past the target and call out how far each agent exceeded it.</p>
+    <p class="hint" style="margin:0 0 12px">Defaults: <?= (int) $goalDefaults['daily_reach'] ?> leads reached · <?= (int) $goalDefaults['daily_sales'] ?> interested clients. Bars stay visible past the target and call out how far each agent exceeded it.</p>
     <?php if (!$dailyBoard): ?>
       <p class="empty">No live sales agents yet.</p>
     <?php else: ?>
@@ -423,16 +422,16 @@ layout_admin_start('Sales', $user);
   <div class="card-head"><h2>Top performers</h2></div>
   <div class="table-scroll">
     <table class="grid">
-      <thead><tr><th>Agent</th><th class="right">Reach</th><th class="right">Sales</th><th class="right">On test</th><th class="right">Follow up</th><th class="right">Onboarded</th><th class="right">Rejected</th><th></th></tr></thead>
+      <thead><tr><th>Agent</th><th class="right">Reach</th><th class="right">Interested</th><th class="right">On test</th><th class="right">Follow up</th><th class="right">Sales</th><th class="right">Rejected</th><th></th></tr></thead>
       <tbody>
         <?php foreach ($top as $row): ?>
           <tr>
             <td><?= h($row['name']) ?><div class="muted"><?= h($row['email']) ?></div></td>
             <td class="right mono"><?= (int) $row['reach'] ?></td>
-            <td class="right mono"><?= (int) $row['sales'] ?></td>
+            <td class="right mono"><?= (int) ($row['interested'] ?? 0) ?></td>
             <td class="right mono"><?= (int) ($row['on_test'] ?? 0) ?></td>
             <td class="right mono"><?= (int) ($row['follow_up'] ?? 0) ?></td>
-            <td class="right mono"><?= (int) ($row['onboarded'] ?? 0) ?></td>
+            <td class="right mono"><?= (int) ($row['sales'] ?? 0) ?></td>
             <td class="right mono"><?= (int) $row['rejected'] ?></td>
             <td class="row-actions"><a class="btn ghost sm" href="<?= h(url('admin_sales.php?tab=agent&agent=' . (int) $row['id'] . '&period=daily')) ?>">Open</a></td>
           </tr>
@@ -495,11 +494,12 @@ if (!$clientTimeAgentDatasets) {
     ];
 }
 $payload = json_encode([
-    'pieLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded', 'On test'],
-    'pieValues' => [(int) $overall['interested'], (int) $overall['follow_up'], (int) $overall['rejected'], (int) $overall['onboarded'], (int) ($overall['on_test'] ?? 0)],
+    'pieLabels' => ['Interested', 'Follow up', 'Rejected', 'Sales', 'On test'],
+    'pieValues' => [(int) $overall['interested'], (int) $overall['follow_up'], (int) $overall['rejected'], (int) $overall['sales'], (int) ($overall['on_test'] ?? 0)],
     'labels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $series),
     'reach' => array_column($series, 'reach'),
-    'wins' => array_map(static fn ($r) => (int) $r['interested'] + (int) $r['onboarded'], $series),
+    'interested' => array_map(static fn ($r) => (int) $r['interested'], $series),
+    'sales' => array_map(static fn ($r) => (int) ($r['sales'] ?? ((int) $r['onboarded'] + (int) ($r['onboarding'] ?? 0))), $series),
     'onTest' => array_map(static fn ($r) => (int) ($r['on_test'] ?? 0), $series),
     'hourLabels' => $hoursByAgent['labels'] ?? array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $hoursSeries),
     'hourDatasets' => $hourAgentDatasets,
@@ -508,7 +508,7 @@ $payload = json_encode([
     'color' => brand_color(),
 ], JSON_UNESCAPED_UNICODE);
 layout_end('<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script defer>
-(function(){function go(){if(!window.Chart||typeof window.vellisysChartTooltip!=="function"){setTimeout(go,40);return;}var d=' . $payload . ';var tip=window.vellisysChartTooltip();var piePlug=window.vellisysPiePercentPlugins();var p=document.getElementById("admin-pie");if(p)new Chart(p,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e","#7c3aed"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"},tooltip:tip},maintainAspectRatio:false},plugins:piePlug});var l=document.getElementById("admin-line");if(l)new Chart(l,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Sales",data:d.wins,borderColor:"#0f766e",tension:.3,fill:false},{label:"On test",data:d.onTest||[],borderColor:"#7c3aed",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});var h=document.getElementById("admin-hours");if(h)new Chart(h,{type:"line",data:{labels:d.hourLabels,datasets:d.hourDatasets||[]},options:{interaction:{mode:"nearest",axis:"x",intersect:false},plugins:{legend:{display:true,position:"bottom",labels:{boxWidth:12,usePointStyle:true,pointStyle:"circle"}},tooltip:tip},scales:{y:{beginAtZero:true,title:{display:true,text:"Hours"}}},maintainAspectRatio:false}});var ct=document.getElementById("admin-client-time");if(ct)new Chart(ct,{type:"line",data:{labels:d.clientTimeLabels,datasets:d.clientTimeDatasets||[]},options:{interaction:{mode:"nearest",axis:"x",intersect:false},plugins:{legend:{display:true,position:"bottom",labels:{boxWidth:12,usePointStyle:true,pointStyle:"circle"}},tooltip:tip},scales:{y:{beginAtZero:true,title:{display:true,text:"Minutes"}}},maintainAspectRatio:false}});}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",go);else go();})();
+(function(){function go(){if(!window.Chart||typeof window.vellisysChartTooltip!=="function"){setTimeout(go,40);return;}var d=' . $payload . ';var tip=window.vellisysChartTooltip();var piePlug=window.vellisysPiePercentPlugins();var p=document.getElementById("admin-pie");if(p)new Chart(p,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e","#7c3aed"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"},tooltip:tip},maintainAspectRatio:false},plugins:piePlug});var l=document.getElementById("admin-line");if(l)new Chart(l,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Interested",data:d.interested,borderColor:"#0f766e",tension:.3,fill:false},{label:"Sales",data:d.sales||[],borderColor:"#c4a35a",tension:.3,fill:false},{label:"On test",data:d.onTest||[],borderColor:"#7c3aed",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});var h=document.getElementById("admin-hours");if(h)new Chart(h,{type:"line",data:{labels:d.hourLabels,datasets:d.hourDatasets||[]},options:{interaction:{mode:"nearest",axis:"x",intersect:false},plugins:{legend:{display:true,position:"bottom",labels:{boxWidth:12,usePointStyle:true,pointStyle:"circle"}},tooltip:tip},scales:{y:{beginAtZero:true,title:{display:true,text:"Hours"}}},maintainAspectRatio:false}});var ct=document.getElementById("admin-client-time");if(ct)new Chart(ct,{type:"line",data:{labels:d.clientTimeLabels,datasets:d.clientTimeDatasets||[]},options:{interaction:{mode:"nearest",axis:"x",intersect:false},plugins:{legend:{display:true,position:"bottom",labels:{boxWidth:12,usePointStyle:true,pointStyle:"circle"}},tooltip:tip},scales:{y:{beginAtZero:true,title:{display:true,text:"Minutes"}}},maintainAspectRatio:false}});}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",go);else go();})();
 </script>');
 return;
 endif;
@@ -1033,17 +1033,17 @@ if ($tab === 'agent' && $agentRow):
     <?php sales_render_goal_chip((int) $agentProgress['reach'], (int) $agentProgress['reach_goal'], 'reach'); ?>
   </div>
   <div class="card stat">
-    <span>Interested / sales</span>
-    <strong><?= (int) $agentStats['wins'] ?><?= (int) $agentProgress['sales_goal'] > 0 ? '/' . (int) $agentProgress['sales_goal'] : '' ?></strong>
+    <span>Interested</span>
+    <strong><?= (int) $agentStats['interested'] ?><?= (int) $agentProgress['sales_goal'] > 0 ? '/' . (int) $agentProgress['sales_goal'] : '' ?></strong>
     <?php sales_render_goal_chip((int) $agentProgress['sales'], (int) $agentProgress['sales_goal'], 'interested'); ?>
   </div>
-  <div class="card stat"><span>Interested only</span><strong><?= (int) $agentStats['interested'] ?></strong></div>
+  <div class="card stat"><span>Sales</span><strong><?= (int) $agentStats['sales'] ?></strong><em class="muted">Onboarding + onboarded</em></div>
   <div class="card stat"><span>On test</span><strong><?= (int) ($agentStats['on_test'] ?? 0) ?></strong><em class="muted"><?= (int) ($agentStats['testing_active'] ?? 0) ?> active now</em></div>
   <div class="card stat"><span>Field hours</span><strong><?= h(sales_format_hours($agentHoursTotal)) ?></strong></div>
 </div>
 <div class="chart-grid equal" style="margin-bottom:16px">
   <div class="card chart-box"><div class="card-head"><h2>Status mix</h2></div><div class="pad-form" style="height:220px"><canvas id="agent-pie"></canvas></div></div>
-  <div class="card chart-box"><div class="card-head"><h2><?= $periodKind === 'daily' ? 'Today by status' : 'Reach & sales over time' ?></h2></div><div class="pad-form" style="height:220px"><canvas id="agent-line"></canvas></div></div>
+  <div class="card chart-box"><div class="card-head"><h2><?= $periodKind === 'daily' ? 'Today by status' : 'Reach & interested over time' ?></h2></div><div class="pad-form" style="height:220px"><canvas id="agent-line"></canvas></div></div>
 </div>
 <div class="chart-grid equal sales-hours-charts" style="margin-bottom:16px">
   <div class="card chart-box">
@@ -1118,14 +1118,15 @@ if ($tab === 'agent' && $agentRow):
 </div>
 <?php
 $payload = json_encode([
-    'pieLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded', 'On test'],
-    'pieValues' => [(int) $agentStats['interested'], (int) $agentStats['follow_up'], (int) $agentStats['rejected'], (int) $agentStats['onboarded'], (int) ($agentStats['on_test'] ?? 0)],
+    'pieLabels' => ['Interested', 'Follow up', 'Rejected', 'Sales', 'On test'],
+    'pieValues' => [(int) $agentStats['interested'], (int) $agentStats['follow_up'], (int) $agentStats['rejected'], (int) $agentStats['sales'], (int) ($agentStats['on_test'] ?? 0)],
     'labels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $agentSeries),
     'reach' => array_column($agentSeries, 'reach'),
-    'wins' => array_map(static fn ($r) => (int) $r['interested'] + (int) $r['onboarded'], $agentSeries),
+    'interested' => array_map(static fn ($r) => (int) $r['interested'], $agentSeries),
+    'sales' => array_map(static fn ($r) => (int) ($r['sales'] ?? ((int) $r['onboarded'] + (int) ($r['onboarding'] ?? 0))), $agentSeries),
     'onTest' => array_map(static fn ($r) => (int) ($r['on_test'] ?? 0), $agentSeries),
-    'barLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded', 'On test'],
-    'barValues' => [(int) $agentStats['interested'], (int) $agentStats['follow_up'], (int) $agentStats['rejected'], (int) $agentStats['onboarded'], (int) ($agentStats['on_test'] ?? 0)],
+    'barLabels' => ['Interested', 'Follow up', 'Rejected', 'Sales', 'On test'],
+    'barValues' => [(int) $agentStats['interested'], (int) $agentStats['follow_up'], (int) $agentStats['rejected'], (int) $agentStats['sales'], (int) ($agentStats['on_test'] ?? 0)],
     'hourLabels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $agentHoursSeries),
     'hours' => array_map(static fn ($r) => (float) $r['hours'], $agentHoursSeries),
     'clientTimeLabels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $agentClientTimeSeries),
@@ -1133,7 +1134,7 @@ $payload = json_encode([
     'daily' => $periodKind === 'daily',
     'color' => brand_color(),
 ], JSON_UNESCAPED_UNICODE);
-layout_end('<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script defer>(function(){function go(){if(!window.Chart||typeof window.vellisysChartTooltip!=="function"){setTimeout(go,40);return;}var d=' . $payload . ';var tip=window.vellisysChartTooltip();var piePlug=window.vellisysPiePercentPlugins();var p=document.getElementById("agent-pie");if(p)new Chart(p,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e","#7c3aed"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"},tooltip:tip},maintainAspectRatio:false},plugins:piePlug});var l=document.getElementById("agent-line");if(l){if(d.daily){new Chart(l,{type:"bar",data:{labels:d.barLabels,datasets:[{data:d.barValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e","#7c3aed"],borderRadius:6}]},options:{plugins:{legend:{display:false},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});}else{new Chart(l,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Sales",data:d.wins,borderColor:"#0f766e",tension:.3,fill:false},{label:"On test",data:d.onTest||[],borderColor:"#7c3aed",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});}}var h=document.getElementById("agent-hours");if(h)new Chart(h,{type:"line",data:{labels:d.hourLabels,datasets:[{label:"Hours in field",data:d.hours,borderColor:d.color,backgroundColor:d.color+"33",tension:.35,fill:true,pointRadius:3}]},options:{plugins:{legend:{display:false},tooltip:tip},scales:{y:{beginAtZero:true,title:{display:true,text:"Hours"}}},maintainAspectRatio:false}});var ct=document.getElementById("agent-client-time");if(ct)new Chart(ct,{type:"line",data:{labels:d.clientTimeLabels,datasets:[{label:"Avg minutes / client",data:d.clientTime,borderColor:"#0f766e",backgroundColor:"rgba(15,118,110,.18)",tension:.35,fill:true,pointRadius:3}]},options:{plugins:{legend:{display:false},tooltip:tip},scales:{y:{beginAtZero:true,title:{display:true,text:"Minutes"}}},maintainAspectRatio:false}});}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",go);else go();})();</script>');
+layout_end('<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script defer>(function(){function go(){if(!window.Chart||typeof window.vellisysChartTooltip!=="function"){setTimeout(go,40);return;}var d=' . $payload . ';var tip=window.vellisysChartTooltip();var piePlug=window.vellisysPiePercentPlugins();var p=document.getElementById("agent-pie");if(p)new Chart(p,{type:"doughnut",data:{labels:d.pieLabels,datasets:[{data:d.pieValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e","#7c3aed"],borderWidth:0}]},options:{cutout:"58%",plugins:{legend:{position:"bottom"},tooltip:tip},maintainAspectRatio:false},plugins:piePlug});var l=document.getElementById("agent-line");if(l){if(d.daily){new Chart(l,{type:"bar",data:{labels:d.barLabels,datasets:[{data:d.barValues,backgroundColor:[d.color,"#c4a35a","#b42318","#0f766e","#7c3aed"],borderRadius:6}]},options:{plugins:{legend:{display:false},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});}else{new Chart(l,{type:"line",data:{labels:d.labels,datasets:[{label:"Reach",data:d.reach,borderColor:d.color,tension:.3,fill:false},{label:"Interested",data:d.interested,borderColor:"#0f766e",tension:.3,fill:false},{label:"Sales",data:d.sales||[],borderColor:"#c4a35a",tension:.3,fill:false},{label:"On test",data:d.onTest||[],borderColor:"#7c3aed",tension:.3,fill:false}]},options:{plugins:{legend:{position:"bottom"},tooltip:tip},scales:{y:{beginAtZero:true,ticks:{precision:0}}},maintainAspectRatio:false}});}}var h=document.getElementById("agent-hours");if(h)new Chart(h,{type:"line",data:{labels:d.hourLabels,datasets:[{label:"Hours in field",data:d.hours,borderColor:d.color,backgroundColor:d.color+"33",tension:.35,fill:true,pointRadius:3}]},options:{plugins:{legend:{display:false},tooltip:tip},scales:{y:{beginAtZero:true,title:{display:true,text:"Hours"}}},maintainAspectRatio:false}});var ct=document.getElementById("agent-client-time");if(ct)new Chart(ct,{type:"line",data:{labels:d.clientTimeLabels,datasets:[{label:"Avg minutes / client",data:d.clientTime,borderColor:"#0f766e",backgroundColor:"rgba(15,118,110,.18)",tension:.35,fill:true,pointRadius:3}]},options:{plugins:{legend:{display:false},tooltip:tip},scales:{y:{beginAtZero:true,title:{display:true,text:"Minutes"}}},maintainAspectRatio:false}});}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",go);else go();})();</script>');
 return;
 endif;
 
@@ -1144,12 +1145,12 @@ if ($tab === 'targets'): ?>
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="save_goals">
     <div><label>Daily · leads reached</label><input type="number" name="daily_reach" min="0" value="<?= (int) $goalDefaults['daily_reach'] ?>"></div>
-    <div><label>Daily · interested clients (sales wins)</label><input type="number" name="daily_sales" min="0" value="<?= (int) $goalDefaults['daily_sales'] ?>"></div>
+    <div><label>Daily · interested clients</label><input type="number" name="daily_sales" min="0" value="<?= (int) $goalDefaults['daily_sales'] ?>"></div>
     <div><label>Weekly · leads reached</label><input type="number" name="weekly_reach" min="0" value="<?= (int) $goalDefaults['weekly_reach'] ?>"></div>
-    <div><label>Weekly · sales</label><input type="number" name="weekly_sales" min="0" value="<?= (int) $goalDefaults['weekly_sales'] ?>"></div>
+    <div><label>Weekly · interested</label><input type="number" name="weekly_sales" min="0" value="<?= (int) $goalDefaults['weekly_sales'] ?>"></div>
     <div><label>Monthly · leads reached</label><input type="number" name="monthly_reach" min="0" value="<?= (int) $goalDefaults['monthly_reach'] ?>"></div>
-    <div><label>Monthly · sales</label><input type="number" name="monthly_sales" min="0" value="<?= (int) $goalDefaults['monthly_sales'] ?>"></div>
-    <p class="hint" style="grid-column:1/-1;margin:0">Defaults: daily 10 leads + 2 sales, weekly 10 sales, monthly 30 sales. Agents see these after clock-in.</p>
+    <div><label>Monthly · interested</label><input type="number" name="monthly_sales" min="0" value="<?= (int) $goalDefaults['monthly_sales'] ?>"></div>
+    <p class="hint" style="grid-column:1/-1;margin:0">Defaults: daily 10 leads + 2 interested, weekly 10 interested, monthly 30 interested. Agents see these after clock-in. Sales (onboarding / onboarded) are tracked separately in reports.</p>
     <div class="actions" style="grid-column:1/-1"><button class="btn" type="submit"><?= icon('check') ?>Save goals</button></div>
   </form>
 </div>
@@ -1170,7 +1171,7 @@ if ($tab === 'targets'): ?>
     <div><label>From</label><input type="date" name="period_start" required value="<?= h(date('Y-m-01')) ?>"></div>
     <div><label>To</label><input type="date" name="period_end" required value="<?= h(date('Y-m-t')) ?>"></div>
     <div><label>Reach target</label><input type="number" name="reach_target" min="0" value="10"></div>
-    <div><label>Sales target</label><input type="number" name="sales_target" min="0" value="2"></div>
+    <div><label>Interested target</label><input type="number" name="sales_target" min="0" value="2"></div>
     <div class="full"><label>Notes</label><input name="notes"></div>
     <div class="actions" style="grid-column:1/-1"><button class="btn ghost" type="submit">Save custom target</button></div>
   </form>
@@ -1178,7 +1179,7 @@ if ($tab === 'targets'): ?>
 <?php if ($targets): ?>
 <div class="card">
   <div class="card-head"><h2>Custom period targets</h2></div>
-  <div class="table-scroll"><table class="grid"><thead><tr><th>Agent</th><th>Period</th><th class="right">Reach</th><th class="right">Sales</th><th></th></tr></thead><tbody>
+  <div class="table-scroll"><table class="grid"><thead><tr><th>Agent</th><th>Period</th><th class="right">Reach</th><th class="right">Interested</th><th></th></tr></thead><tbody>
     <?php foreach ($targets as $t): ?>
       <tr>
         <td><?= h($t['agent_name'] ?: 'Team-wide') ?></td>

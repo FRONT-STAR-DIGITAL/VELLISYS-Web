@@ -126,8 +126,14 @@ sales_layout_start('Home', $user);
   <div class="card stat">
     <?= icon('heart', 20) ?>
     <span>Interested today</span>
-    <strong><?= (int) $todayStats['wins'] ?><?= (int) $daily['sales_goal'] > 0 ? '/' . (int) $daily['sales_goal'] : '' ?></strong>
+    <strong><?= (int) $todayStats['interested'] ?><?= (int) $daily['sales_goal'] > 0 ? '/' . (int) $daily['sales_goal'] : '' ?></strong>
     <?php sales_render_goal_chip((int) $daily['sales'], (int) $daily['sales_goal'], 'interested'); ?>
+  </div>
+  <div class="card stat">
+    <?= icon('flag', 20) ?>
+    <span>Sales today</span>
+    <strong><?= (int) $todayStats['sales'] ?></strong>
+    <em class="muted">Onboarding + onboarded</em>
   </div>
   <div class="card stat">
     <?= icon('building', 20) ?>
@@ -248,10 +254,10 @@ sales_layout_start('Home', $user);
 $extra = '';
 if ($clockedIn) {
     $payload = json_encode([
-        'pieLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded', 'On test'],
-        'pieValues' => [(int) $todayStats['interested'], (int) $todayStats['follow_up'], (int) $todayStats['rejected'], (int) $todayStats['onboarded'], (int) ($todayStats['on_test'] ?? 0)],
-        'barLabels' => ['Interested', 'Follow up', 'Rejected', 'Onboarded', 'On test'],
-        'barValues' => [(int) $todayStats['interested'], (int) $todayStats['follow_up'], (int) $todayStats['rejected'], (int) $todayStats['onboarded'], (int) ($todayStats['on_test'] ?? 0)],
+        'pieLabels' => ['Interested', 'Follow up', 'Rejected', 'Sales', 'On test'],
+        'pieValues' => [(int) $todayStats['interested'], (int) $todayStats['follow_up'], (int) $todayStats['rejected'], (int) $todayStats['sales'], (int) ($todayStats['on_test'] ?? 0)],
+        'barLabels' => ['Interested', 'Follow up', 'Rejected', 'Sales', 'On test'],
+        'barValues' => [(int) $todayStats['interested'], (int) $todayStats['follow_up'], (int) $todayStats['rejected'], (int) $todayStats['sales'], (int) ($todayStats['on_test'] ?? 0)],
         'color' => brand_color(),
     ], JSON_UNESCAPED_UNICODE);
     $extra = '<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script defer>
