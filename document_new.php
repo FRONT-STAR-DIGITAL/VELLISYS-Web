@@ -530,12 +530,10 @@ layout_start($heading, $user, ['kind' => $kind]);
         $colRate = !$qtyOnly && in_array('rate', $lineKeys, true);
         $colTotal = !$qtyOnly && in_array('total', $lineKeys, true);
         $colVat = !$qtyOnly && in_array('vat', $lineKeys, true);
-        if (!$colItem && !$colDesc && !array_filter($lineCols, static fn ($e) => empty($e['builtin']))) {
-            $colItem = true;
-            if (!$lineCols) {
-                $lineCols = [['key' => 'item', 'label' => 'Item', 'builtin' => true]];
-                $lineKeys = ['item'];
-            }
+        if (!$lineCols) {
+            $lineCols = [['key' => 'total', 'label' => 'Total Amt', 'builtin' => true]];
+            $lineKeys = ['total'];
+            $colTotal = !$qtyOnly;
         }
       ?>
       <div class="lines-wrap">

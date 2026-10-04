@@ -29,41 +29,13 @@ function folio_schema_stamp(): string
 }
 
 /**
- * Sales trial desks always run as Pro with stock, Planner and P&L on
- * so clients can evaluate the full product during the 2-week test.
+ * Testing desks get Pro addons at create time (sales.php).
+ * Do not re-force plan or features here — super-admin edits must stick
+ * (e.g. moving a trial desk onto Vellisys Start).
  */
 function folio_ensure_testing_pro_addons(mysqli $db): void
 {
-    static $ready = false;
-    if ($ready) {
-        return;
-    }
-    $ready = true;
-    if (!db_has_column($db, 'companies', 'testing_mode')) {
-        return;
-    }
-    $sets = ["plan = 'office'"];
-    if (db_has_column($db, 'companies', 'user_limit')) {
-        $sets[] = 'user_limit = GREATEST(COALESCE(user_limit, 0), 4)';
-    }
-    if (db_has_column($db, 'companies', 'stock_enabled')) {
-        $sets[] = 'stock_enabled = 1';
-    }
-    if (db_has_column($db, 'companies', 'planner_enabled')) {
-        $sets[] = 'planner_enabled = 1';
-    }
-    if (db_has_column($db, 'companies', 'pnl_enabled')) {
-        $sets[] = 'pnl_enabled = 1';
-    }
-    @$db->query('UPDATE companies SET ' . implode(', ', $sets) . ' WHERE testing_mode = 1');
-    if (db_has_column($db, 'branding', 'plan')) {
-        @$db->query(
-            "UPDATE branding b
-             JOIN companies c ON c.id = b.company_id
-             SET b.plan = 'office'
-             WHERE c.testing_mode = 1"
-        );
-    }
+    // Kept as a no-op hook so existing migrate call sites stay valid.
 }
 
 /**

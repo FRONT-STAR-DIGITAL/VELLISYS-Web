@@ -82,6 +82,18 @@ layout_start('Debtors', $user);
           <td class="right mono"><?= h(ugx($c['balance'])) ?></td>
           <td class="row-actions">
             <a class="btn sm" href="<?= h(url('document_action.php?receive=' . (int) $c['pay_id'])) ?>"><?= icon('receipt', 15) ?> Make payment</a>
+            <?php
+              $remindDoc = null;
+              foreach ($rows as $openDoc) {
+                  if ((int) ($openDoc['party_id'] ?? 0) === (int) $c['id'] && ($openDoc['kind'] ?? '') === 'invoice') {
+                      $remindDoc = $openDoc;
+                      break;
+                  }
+              }
+              if ($remindDoc) {
+                  render_remind_button($remindDoc, true);
+              }
+            ?>
           </td>
         </tr>
       <?php endforeach; ?>
@@ -126,7 +138,7 @@ layout_start('Debtors', $user);
             <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>
             <td class="right mono"><?= h(money(document_due_amount($doc), doc_currency($doc))) ?></td>
             <td><span class="pill<?= in_array(invoice_status_label($doc), ['Overdue', 'Partially cleared'], true) ? ' warn' : '' ?>"><?= h(invoice_status_label($doc)) ?></span></td>
-            <td class="row-actions"><?php if (($doc['kind'] ?? '') !== 'receipt') { render_make_payment_button($doc, true); } render_doc_actions($doc); ?></td>
+            <td class="row-actions"><?php if (($doc['kind'] ?? '') !== 'receipt') { render_make_payment_button($doc, true); } render_remind_button($doc, true); render_doc_actions($doc, false, false); ?></td>
           </tr>
         <?php endforeach; ?>
       </tbody>

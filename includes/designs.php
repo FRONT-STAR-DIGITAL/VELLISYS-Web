@@ -219,12 +219,10 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
     $showVat = in_array('vat', $keys, true);
     $customCols = array_values(array_filter($cols, static fn (array $e) => empty($e['builtin'])));
     $colDetails = $colItem || $colDesc || ($compact && $customCols);
-    if (!$colDetails && !$customCols && !$colQty && !$colRate && !$colTotal) {
-        $colDetails = true;
-        $colItem = true;
-        if (!$cols) {
-            $cols = [['key' => 'item', 'label' => 'Item', 'builtin' => true]];
-        }
+    if (!$cols) {
+        $cols = [['key' => 'total', 'label' => 'Total Amt', 'builtin' => true]];
+        $colTotal = !$qtyOnly;
+        $keys = ['total'];
     }
     ?>
     <table class="d-lines <?= h($cls) ?>">

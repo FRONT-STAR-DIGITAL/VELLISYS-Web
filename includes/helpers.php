@@ -1848,11 +1848,6 @@ function parse_document_line_column_entries(mixed $raw): array
         foreach (default_document_line_columns() as $key) {
             $entries[] = ['key' => $key, 'label' => $defs[$key], 'builtin' => true];
         }
-        return $entries;
-    }
-    $keys = array_column($entries, 'key');
-    if (!in_array('item', $keys, true) && !in_array('description', $keys, true)) {
-        array_unshift($entries, ['key' => 'item', 'label' => $defs['item'], 'builtin' => true]);
     }
     return $entries;
 }
@@ -1961,13 +1956,6 @@ function posted_document_line_columns(): string
     }
     if (!$out) {
         $out = default_document_line_columns();
-    }
-    $keys = [];
-    foreach ($out as $row) {
-        $keys[] = is_array($row) ? (string) ($row['key'] ?? '') : (string) $row;
-    }
-    if (!in_array('item', $keys, true) && !in_array('description', $keys, true)) {
-        array_unshift($out, 'item');
     }
     return json_encode($out, JSON_UNESCAPED_UNICODE) ?: '[]';
 }

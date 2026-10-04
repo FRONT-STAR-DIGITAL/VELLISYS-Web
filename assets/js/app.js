@@ -1178,10 +1178,6 @@ function lineColumnEntries() {
       );
     }
   }
-  var hasText = entries.some(function (e) {
-    return e.key === 'item' || e.key === 'description' || !e.builtin;
-  });
-  if (!hasText) entries.unshift({ key: 'item', label: 'Item', builtin: true });
   return entries;
 }
 
