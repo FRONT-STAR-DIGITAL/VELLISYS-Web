@@ -218,20 +218,51 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
     $colTotal = !$qtyOnly && in_array('total', $keys, true);
     $showVat = in_array('vat', $keys, true);
     $customCols = array_values(array_filter($cols, static fn (array $e) => empty($e['builtin'])));
-    $colDetails = $colItem || $colDesc || ($compact && $customCols);
+    $detailCols = array_values(array_filter(
+        $cols,
+        static fn (array $e) => !in_array((string) ($e['key'] ?? ''), ['qty', 'rate', 'total', 'vat'], true)
+    ));
+    $colDetails = $detailCols !== [];
+    $detailsHead = '';
+    if (count($detailCols) === 1) {
+        $detailsHead = (string) ($detailCols[0]['label'] ?? 'Item');
+    } elseif (count($detailCols) > 1) {
+        $detailsHead = implode(' / ', array_map(
+            static fn (array $c) => (string) ($c['label'] ?? $c['key'] ?? ''),
+            $detailCols
+        ));
+    }
+    $amountHead = $colTotal ? 'Amount' : ($colRate ? 'Unit price' : '');
+    // Prefer configured Total Amt label when that is the money column.
+    if ($colTotal) {
+        foreach ($cols as $c) {
+            if (($c['key'] ?? '') === 'total' && trim((string) ($c['label'] ?? '')) !== '') {
+                $amountHead = (string) $c['label'];
+                break;
+            }
+        }
+    } elseif ($colRate) {
+        foreach ($cols as $c) {
+            if (($c['key'] ?? '') === 'rate' && trim((string) ($c['label'] ?? '')) !== '') {
+                $amountHead = (string) $c['label'];
+                break;
+            }
+        }
+    }
     if (!$cols) {
         $cols = [['key' => 'total', 'label' => 'Total Amt', 'builtin' => true]];
         $colTotal = !$qtyOnly;
         $keys = ['total'];
+        $amountHead = 'Total Amt';
     }
     ?>
     <table class="d-lines <?= h($cls) ?>">
       <thead>
         <tr style="background:<?= h($color) ?>;color:#fff">
           <?php if ($compact): ?>
-            <?php if ($colDetails): ?><th>Details</th><?php endif; ?>
+            <?php if ($colDetails): ?><th><?= h($detailsHead !== '' ? $detailsHead : 'Item') ?></th><?php endif; ?>
             <?php if ($colQty): ?><th class="c" style="width:12%">Qty</th><?php endif; ?>
-            <?php if ($colTotal): ?><th class="r" style="width:28%">Amount</th><?php elseif ($colRate): ?><th class="r" style="width:28%">Unit price</th><?php endif; ?>
+            <?php if ($colTotal || $colRate): ?><th class="r" style="width:28%"><?= h($amountHead) ?></th><?php endif; ?>
           <?php else: ?>
             <?php if ($serial): ?><th class="c" style="width:44px">No.</th><?php endif; ?>
             <?php foreach ($cols as $col):
@@ -267,11 +298,10 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
                     echo '&nbsp;';
                 } else {
                     $parts = [];
-                    foreach ($cols as $col) {
+                    $singleDetail = count($detailCols) === 1;
+                    foreach ($detailCols as $col) {
                         $key = (string) $col['key'];
-                        if (in_array($key, ['qty', 'rate', 'total', 'vat'], true)) {
-                            continue;
-                        }
+                        $label = (string) ($col['label'] ?? $key);
                         if ($key === 'item') {
                             $name = line_item_name($item);
                             if ($name !== '') {
@@ -288,7 +318,10 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
                         }
                         $val = function_exists('line_item_extra') ? line_item_extra($item, $key) : '';
                         if ($val !== '') {
-                            $parts[] = '<span class="twin-desc">' . h((string) ($col['label'] ?? $key)) . ': ' . h($val) . '</span>';
+                            // One named column (e.g. Service): value only — title is already the header.
+                            $parts[] = $singleDetail
+                                ? '<span class="twin-desc">' . h($val) . '</span>'
+                                : '<span class="twin-desc">' . h($label) . ': ' . h($val) . '</span>';
                         }
                     }
                     echo $parts ? implode(' ', $parts) : '&nbsp;';
