@@ -2984,19 +2984,29 @@ function render_make_payment_button(array $doc, bool $labeled = false): void
     <?php
 }
 
+function document_is_open_debtor(array $doc): bool
+{
+    if (($doc['status'] ?? '') === 'void') {
+        return false;
+    }
+    $kind = (string) ($doc['kind'] ?? '');
+    if ($kind === 'invoice') {
+        return (function_exists('document_due_amount') ? document_due_amount($doc) : (float) ($doc['balance'] ?? 0)) > 0.009;
+    }
+    if ($kind === 'receipt') {
+        // Part-paid till/sale receipts on Debtors (not invoice allocation receipts).
+        if (function_exists('receipt_is_sale') && !receipt_is_sale($doc)) {
+            return false;
+        }
+        return (function_exists('document_due_amount') ? document_due_amount($doc) : (float) ($doc['balance'] ?? 0)) > 0.009;
+    }
+    return false;
+}
+
 function document_remind_href(array $doc): string
 {
     $id = (int) ($doc['id'] ?? 0);
-    if ($id < 1 || ($doc['status'] ?? '') === 'void') {
-        return '';
-    }
-    if (($doc['kind'] ?? '') !== 'invoice') {
-        return '';
-    }
-    $due = function_exists('document_due_amount')
-        ? document_due_amount($doc)
-        : (float) ($doc['balance'] ?? 0);
-    if ($due <= 0.009) {
+    if ($id < 1 || !document_is_open_debtor($doc)) {
         return '';
     }
     return url('desk_mail.php?type=reminder&id=' . $id);
@@ -3096,10 +3106,10 @@ function render_doc_actions(array $doc, bool $labeled = false, bool $includeRemi
             <button class="<?= $pri ?>" type="submit" title="Make invoice" aria-label="Make invoice"><?= icon('convert', 15) ?><?php if ($labeled): ?> Invoice<?php endif; ?></button>
           </form>
         <?php endif; ?>
-        <?php if ($doc['kind'] === 'invoice' && (function_exists('document_due_amount') ? document_due_amount($doc) : (float) ($doc['balance'] ?? 0)) > 0.009): ?>
+        <?php if ($doc['kind'] === 'invoice' && document_is_open_debtor($doc)): ?>
           <a class="<?= $pri ?>" href="<?= h(url('document_action.php?receive=' . $id)) ?>" title="Receipt" aria-label="Receipt"><?= icon('receipt', 15) ?><?php if ($labeled): ?> Receipt<?php endif; ?></a>
-          <?php if ($includeRemind) { render_remind_button($doc, $labeled); } ?>
         <?php endif; ?>
+        <?php if ($includeRemind) { render_remind_button($doc, $labeled); } ?>
         <?php if ($doc['kind'] === 'receipt'): ?>
           <?php render_make_payment_button($doc, $labeled); ?>
         <?php endif; ?>

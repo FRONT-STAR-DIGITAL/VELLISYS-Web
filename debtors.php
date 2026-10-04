@@ -85,7 +85,10 @@ layout_start('Debtors', $user);
             <?php
               $remindDoc = null;
               foreach ($rows as $openDoc) {
-                  if ((int) ($openDoc['party_id'] ?? 0) === (int) $c['id'] && ($openDoc['kind'] ?? '') === 'invoice') {
+                  if ((int) ($openDoc['party_id'] ?? 0) !== (int) $c['id']) {
+                      continue;
+                  }
+                  if (function_exists('document_remind_href') && document_remind_href($openDoc) !== '') {
                       $remindDoc = $openDoc;
                       break;
                   }

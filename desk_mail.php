@@ -24,8 +24,8 @@ if ($docId && !$doc) {
 }
 
 if ($type === 'reminder') {
-    if (!$doc || ($doc['kind'] ?? '') !== 'invoice') {
-        flash('Pick an open invoice to remind the debtor.', 'err');
+    if (!$doc || !function_exists('document_is_open_debtor') || !document_is_open_debtor($doc)) {
+        flash('Pick an open invoice or part-paid sale to remind the debtor.', 'err');
         redirect('debtors.php');
     }
 } elseif ($type === 'creditor') {
@@ -79,11 +79,15 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
     if ($type === 'reminder' && $doc) {
         $due = !empty($doc['due_date']) ? ' due on ' . format_date($doc['due_date']) : '';
-        $balance = money((float) ($doc['balance'] ?? 0), doc_currency($doc));
-        $subjectPrefill = $subjectPrefill !== '' ? $subjectPrefill : ('Reminder: invoice ' . $doc['number'] . ' from ' . $brand['name']);
+        $balanceAmt = function_exists('document_due_amount')
+            ? document_due_amount($doc)
+            : (float) ($doc['balance'] ?? 0);
+        $balance = money($balanceAmt, doc_currency($doc));
+        $kindWord = ($doc['kind'] ?? '') === 'receipt' ? 'sale' : 'invoice';
+        $subjectPrefill = $subjectPrefill !== '' ? $subjectPrefill : ('Reminder: ' . $kindWord . ' ' . $doc['number'] . ' from ' . $brand['name']);
         $messagePrefill = $messagePrefill !== '' ? $messagePrefill : (
             "Dear {$who},\n\n"
-            . 'This is a reminder that invoice ' . $doc['number'] . ' still has a balance of ' . $balance . $due . ".\n\n"
+            . 'This is a reminder that ' . $kindWord . ' ' . $doc['number'] . ' still has a balance of ' . $balance . $due . ".\n\n"
             . "Please settle the amount so we can keep your account current.\n\n"
             . document_share_url($doc) . "\n\n"
             . "Kind regards,\n" . $signOff
