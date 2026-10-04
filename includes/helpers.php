@@ -1789,32 +1789,111 @@ function default_document_line_columns(): array
     return ['item', 'description', 'qty', 'rate', 'total', 'vat'];
 }
 
-function parse_document_line_columns(mixed $raw): array
+function line_custom_column_key(string $label, array $used = []): string
 {
-    $allowed = array_keys(document_line_column_defs());
+    $base = strtolower(trim($label));
+    $base = preg_replace('/[^a-z0-9]+/', '_', $base) ?? '';
+    $base = trim($base, '_');
+    if ($base === '') {
+        $base = 'field';
+    }
+    if (isset(document_line_column_defs()[$base])) {
+        $base = 'c_' . $base;
+    }
+    $base = substr($base, 0, 40);
+    $key = $base;
+    $n = 2;
+    while (in_array($key, $used, true)) {
+        $key = substr($base, 0, 36) . '_' . $n;
+        $n++;
+    }
+    return $key;
+}
+
+/** @return list<array{key:string,label:string,builtin:bool}> */
+function parse_document_line_column_entries(mixed $raw): array
+{
+    $defs = document_line_column_defs();
+    $allowed = array_keys($defs);
     $data = is_array($raw) ? $raw : json_decode((string) $raw, true);
-    $cols = [];
+    $entries = [];
+    $seen = [];
     if (is_array($data)) {
-        foreach ($data as $key) {
-            $key = (string) $key;
-            if (in_array($key, $allowed, true) && !in_array($key, $cols, true)) {
-                $cols[] = $key;
+        foreach ($data as $row) {
+            if (is_array($row)) {
+                $label = trim((string) ($row['label'] ?? $row['l'] ?? ''));
+                $key = trim((string) ($row['key'] ?? $row['k'] ?? ''));
+                if ($label === '') {
+                    continue;
+                }
+                if ($key === '' || isset($defs[$key]) || in_array($key, $seen, true)) {
+                    $key = line_custom_column_key($label, $seen);
+                }
+                $key = substr(preg_replace('/[^a-z0-9_]/', '', strtolower($key)) ?? '', 0, 40);
+                if ($key === '' || in_array($key, $seen, true)) {
+                    continue;
+                }
+                $seen[] = $key;
+                $entries[] = ['key' => $key, 'label' => mb_substr($label, 0, 40), 'builtin' => false];
+                continue;
+            }
+            $key = (string) $row;
+            if (in_array($key, $allowed, true) && !in_array($key, $seen, true)) {
+                $seen[] = $key;
+                $entries[] = ['key' => $key, 'label' => $defs[$key], 'builtin' => true];
             }
         }
     }
-    if (!$cols) {
-        return default_document_line_columns();
+    if (!$entries) {
+        foreach (default_document_line_columns() as $key) {
+            $entries[] = ['key' => $key, 'label' => $defs[$key], 'builtin' => true];
+        }
+        return $entries;
     }
-    if (!in_array('item', $cols, true) && !in_array('description', $cols, true)) {
-        array_unshift($cols, 'item');
+    $keys = array_column($entries, 'key');
+    if (!in_array('item', $keys, true) && !in_array('description', $keys, true)) {
+        array_unshift($entries, ['key' => 'item', 'label' => $defs['item'], 'builtin' => true]);
     }
-    return $cols;
+    return $entries;
+}
+
+function parse_document_line_columns(mixed $raw): array
+{
+    return array_values(array_map(
+        static fn (array $e) => (string) $e['key'],
+        parse_document_line_column_entries($raw)
+    ));
+}
+
+/** @return list<array{key:string,label:string,builtin:bool}> */
+function company_line_column_entries(?array $company = null): array
+{
+    $company = $company ?? (function_exists('current_company') ? current_company() : null);
+    return parse_document_line_column_entries($company['line_columns'] ?? '');
 }
 
 function company_document_line_columns(?array $company = null): array
 {
-    $company = $company ?? (function_exists('current_company') ? current_company() : null);
-    return parse_document_line_columns($company['line_columns'] ?? '');
+    return array_column(company_line_column_entries($company), 'key');
+}
+
+/** Custom (non-builtin) text columns configured for document tables. */
+function company_custom_line_columns(?array $company = null): array
+{
+    return array_values(array_filter(
+        company_line_column_entries($company),
+        static fn (array $e) => empty($e['builtin'])
+    ));
+}
+
+function company_line_column_label(string $key, ?array $company = null): string
+{
+    foreach (company_line_column_entries($company) as $e) {
+        if (($e['key'] ?? '') === $key) {
+            return (string) $e['label'];
+        }
+    }
+    return document_line_column_defs()[$key] ?? $key;
 }
 
 function company_shows_line_col(string $key, ?array $company = null): bool
@@ -1824,11 +1903,39 @@ function company_shows_line_col(string $key, ?array $company = null): bool
 
 function posted_document_line_columns(): string
 {
+    $defs = document_line_column_defs();
     $posted = $_POST['line_columns'] ?? null;
-    if (!is_array($posted)) {
-        return json_encode(default_document_line_columns(), JSON_UNESCAPED_UNICODE) ?: '[]';
+    $out = [];
+    $seen = [];
+    if (is_array($posted)) {
+        foreach ($posted as $key) {
+            $key = (string) $key;
+            if (isset($defs[$key]) && !in_array($key, $seen, true)) {
+                $seen[] = $key;
+                $out[] = $key;
+            }
+        }
     }
-    return json_encode(parse_document_line_columns($posted), JSON_UNESCAPED_UNICODE) ?: '[]';
+    foreach ((array) ($_POST['line_custom_label'] ?? []) as $label) {
+        $label = trim((string) $label);
+        if ($label === '') {
+            continue;
+        }
+        $key = line_custom_column_key($label, $seen);
+        $seen[] = $key;
+        $out[] = ['key' => $key, 'label' => mb_substr($label, 0, 40)];
+    }
+    if (!$out) {
+        $out = default_document_line_columns();
+    }
+    $keys = [];
+    foreach ($out as $row) {
+        $keys[] = is_array($row) ? (string) ($row['key'] ?? '') : (string) $row;
+    }
+    if (!in_array('item', $keys, true) && !in_array('description', $keys, true)) {
+        array_unshift($out, 'item');
+    }
+    return json_encode($out, JSON_UNESCAPED_UNICODE) ?: '[]';
 }
 
 function render_desk_kinds_fields(?array $company = null): void
@@ -1880,7 +1987,7 @@ function render_desk_kinds_fields(?array $company = null): void
       ?>
       <div class="client-fields-box" style="margin-top:16px">
         <h3>Columns on document tables</h3>
-        <p class="hint">Tick what prints on quotations, invoices, receipts and delivery notes. Sale and Stock keep their own tables.</p>
+        <p class="hint">Tick what prints on quotations, invoices, receipts and delivery notes. Add your own text columns (for example Service). Sale and Stock keep their own tables.</p>
         <div class="kinds-grid">
           <?php foreach (document_line_column_defs() as $key => $label): ?>
             <label class="kinds-opt">
@@ -1888,6 +1995,33 @@ function render_desk_kinds_fields(?array $company = null): void
               <span><?= h($label) ?></span>
             </label>
           <?php endforeach; ?>
+        </div>
+        <?php
+          $customLineCols = [];
+          if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['line_custom_label'])) {
+              foreach ((array) $_POST['line_custom_label'] as $lab) {
+                  $lab = trim((string) $lab);
+                  if ($lab !== '') {
+                      $customLineCols[] = ['label' => $lab];
+                  }
+              }
+          } else {
+              $customLineCols = company_custom_line_columns($company);
+          }
+          if (!$customLineCols) {
+              $customLineCols = [['label' => '']];
+          }
+        ?>
+        <div style="margin-top:12px">
+          <p class="hint" style="margin:0 0 8px">Custom columns (text on each line)</p>
+          <div class="custom-fields" data-line-custom-fields>
+            <?php foreach ($customLineCols as $field): ?>
+              <div class="custom-field-row">
+                <input name="line_custom_label[]" value="<?= h((string) ($field['label'] ?? '')) ?>" placeholder="e.g. Service">
+              </div>
+            <?php endforeach; ?>
+          </div>
+          <button class="btn ghost sm" type="button" data-add-line-custom-field><?= icon('plus', 14) ?>Add column</button>
         </div>
       </div>
     </fieldset>

@@ -48,7 +48,7 @@ layout_start('Debtors', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('clients') ?>Debtors</h1>
-    <p class="lede">Clients who still owe you - open invoices and quick receipts that were only part paid. Mixed currencies convert at your <?= h(default_currency()) ?> / USD rate. Take a receipt, email a reminder from the company mailbox, or print the document.</p>
+    <p class="lede">Clients who still owe you - open invoices and quick receipts that were only part paid. Mixed currencies convert at your <?= h(default_currency()) ?> / USD rate. Take a receipt, send a reminder by email or WhatsApp, or print the document.</p>
   </div>
   <div class="actions">
     <a class="btn" href="<?= h(url('debtors.php?add=1#ledger-add')) ?>"><?= icon('plus', 16) ?>Add new</a>

@@ -201,8 +201,9 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
     $colQty = company_shows_line_col('qty');
     $colRate = !$qtyOnly && company_shows_line_col('rate');
     $colTotal = !$qtyOnly && company_shows_line_col('total');
-    $colDetails = $colItem || $colDesc;
-    if (!$colDetails) {
+    $customCols = function_exists('company_custom_line_columns') ? company_custom_line_columns() : [];
+    $colDetails = $colItem || $colDesc || ($compact && $customCols);
+    if (!$colDetails && !$customCols) {
         $colDetails = true;
         $colItem = true;
     }
@@ -218,6 +219,9 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
             <?php if ($serial): ?><th class="c" style="width:44px">No.</th><?php endif; ?>
             <?php if ($colItem): ?><th style="width:22%">Item</th><?php endif; ?>
             <?php if ($colDesc): ?><th>Description</th><?php endif; ?>
+            <?php foreach ($customCols as $cc): ?>
+              <th><?= h((string) $cc['label']) ?></th>
+            <?php endforeach; ?>
             <?php if ($colQty): ?><th class="c" style="width:64px">Qty</th><?php endif; ?>
             <?php if ($colRate): ?><th class="r" style="width:110px">Unit price</th><?php endif; ?>
             <?php if ($colTotal): ?><th class="r" style="width:120px">Total Amt</th><?php endif; ?>
@@ -243,6 +247,12 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
                     if ($desc !== '') {
                         $parts[] = '<span class="twin-desc">' . nl2br(h($desc), false) . '</span>';
                     }
+                    foreach ($customCols as $cc) {
+                        $val = function_exists('line_item_extra') ? line_item_extra($item, (string) $cc['key']) : '';
+                        if ($val !== '') {
+                            $parts[] = '<span class="twin-desc">' . h((string) $cc['label']) . ': ' . h($val) . '</span>';
+                        }
+                    }
                     echo $parts ? implode(' ', $parts) : '&nbsp;';
                     if ($showVat && !empty($item['taxed'])) {
                         echo '<span class="twin-vat"> ' . h($taxName) . '</span>';
@@ -256,6 +266,16 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
               <?php if ($serial): ?><td class="c"><?= $item ? (string) ($i + 1) : '' ?></td><?php endif; ?>
               <?php if ($colItem): ?><td class="item"><?= $item && line_item_name($item) !== '' ? h(line_item_name($item)) : ($item ? '&nbsp;' : '&nbsp;') ?></td><?php endif; ?>
               <?php if ($colDesc): ?><td class="desc"><?= $item && line_item_description($item) !== '' ? nl2br(h(line_item_description($item))) : '&nbsp;' ?></td><?php endif; ?>
+              <?php foreach ($customCols as $cc): ?>
+                <td><?php
+                  if (!$item) {
+                      echo '&nbsp;';
+                  } else {
+                      $val = function_exists('line_item_extra') ? line_item_extra($item, (string) $cc['key']) : '';
+                      echo $val !== '' ? h($val) : '&nbsp;';
+                  }
+                ?></td>
+              <?php endforeach; ?>
               <?php if ($colQty): ?><td class="c"><?= $item ? h(format_qty($item['qty'])) : '' ?></td><?php endif; ?>
               <?php if ($colRate): ?><td class="r"><?= $item ? h(money($item['rate'], $cur)) : '' ?></td><?php endif; ?>
               <?php if ($colTotal): ?><td class="r"><?= $item ? h(money(line_amount($item), $cur)) : '' ?></td><?php endif; ?>

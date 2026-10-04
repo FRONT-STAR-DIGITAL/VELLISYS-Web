@@ -1126,7 +1126,19 @@
   font-variant-numeric: tabular-nums;
 }
 .thermal-head { text-align: center; }
-.thermal-head .d-logo { margin: 0 auto 6px; }
+.thermal-head .d-logo,
+.thermal-head .d-logo.xs {
+  display: block;
+  margin: 0 auto 8px;
+  height: 56px;
+  max-width: 176px;
+  max-height: 56px;
+  width: auto;
+  object-fit: contain;
+  background: #fff;
+  padding: 3px;
+  border-radius: 4px;
+}
 .thermal-head strong { display: block; font-size: 13px; line-height: 1.25; }
 .thermal-head p { margin: 2px 0; font-size: 10px; line-height: 1.35; }
 .thermal-kind {

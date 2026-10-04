@@ -56,13 +56,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $rates = $_POST['item_rate'] ?? [];
     $taxed = $_POST['item_taxed'] ?? [];
     $stockIds = $_POST['item_stock_id'] ?? [];
+    $extrasPosted = $_POST['item_extra'] ?? [];
+    $customLineCols = function_exists('company_custom_line_columns') ? company_custom_line_columns() : [];
     $anyTaxed = false;
     $keys = array_unique(array_merge(array_keys((array) $names), array_keys((array) $descs)));
+    if (is_array($extrasPosted)) {
+        foreach ($extrasPosted as $ek => $ev) {
+            if (is_array($ev)) {
+                $keys = array_unique(array_merge($keys, array_keys($ev)));
+            }
+        }
+    }
     sort($keys, SORT_NUMERIC);
     foreach ($keys as $i) {
         $name = trim((string) ($names[$i] ?? ''));
         $desc = trim((string) ($descs[$i] ?? ''));
-        if ($name === '' && $desc === '') {
+        $extra = [];
+        foreach ($customLineCols as $cc) {
+            $ck = (string) $cc['key'];
+            $val = trim((string) ($extrasPosted[$ck][$i] ?? ''));
+            if ($val !== '') {
+                $extra[$ck] = mb_substr($val, 0, 190);
+            }
+        }
+        if ($name === '' && $desc === '' && !$extra) {
             continue;
         }
         $isTaxed = !empty($taxed[$i]) ? 1 : 0;
@@ -77,6 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'rate' => money_parse((string) ($rates[$i] ?? '0')),
             'taxed' => $isTaxed,
             'stock_item_id' => (int) ($stockIds[$i] ?? 0),
+            'extra' => $extra,
         ];
     }
     $allocPosted = in_array($kind, ['receipt', 'refund'], true) ? money_parse(post('allocated_amount')) : 0.0;
@@ -490,7 +508,7 @@ layout_start($heading, $user, ['kind' => $kind]);
     <textarea id="notes" name="notes" rows="3"><?= h((string) ($existing['notes'] ?? '')) ?></textarea>
     <?php render_add_signature_checkbox($existing); ?>
   <?php else: ?>
-    <div class="lines-panel" data-lines-panel data-delivery="<?= in_array($kind, ['delivery', 'return_note'], true) ? '1' : '0' ?>" data-line-cols="<?= h(json_encode(company_document_line_columns(), JSON_UNESCAPED_UNICODE) ?: '[]') ?>">
+    <div class="lines-panel" data-lines-panel data-delivery="<?= in_array($kind, ['delivery', 'return_note'], true) ? '1' : '0' ?>" data-line-cols="<?= h(json_encode(company_line_column_entries(), JSON_UNESCAPED_UNICODE) ?: '[]') ?>">
       <?php
         $qtyOnly = in_array($kind, ['delivery', 'return_note'], true);
         $colItem = company_shows_line_col('item');
@@ -499,7 +517,8 @@ layout_start($heading, $user, ['kind' => $kind]);
         $colRate = !$qtyOnly && company_shows_line_col('rate');
         $colTotal = !$qtyOnly && company_shows_line_col('total');
         $colVat = !$qtyOnly && company_shows_line_col('vat');
-        if (!$colItem && !$colDesc) {
+        $customLineCols = company_custom_line_columns();
+        if (!$colItem && !$colDesc && !$customLineCols) {
             $colItem = true;
         }
       ?>
@@ -509,6 +528,9 @@ layout_start($heading, $user, ['kind' => $kind]);
           <tr>
             <?php if ($colItem): ?><th>Item</th><?php endif; ?>
             <?php if ($colDesc): ?><th>Description</th><?php endif; ?>
+            <?php foreach ($customLineCols as $cc): ?>
+              <th><?= h((string) $cc['label']) ?></th>
+            <?php endforeach; ?>
             <?php if ($colQty): ?><th>Qty</th><?php endif; ?>
             <?php if ($colRate): ?><th class="right">Unit price</th><?php endif; ?>
             <?php if ($colTotal): ?><th class="right">Total Amt</th><?php endif; ?>
@@ -521,6 +543,7 @@ layout_start($heading, $user, ['kind' => $kind]);
               $qty = (float) ($line['qty'] ?? 1);
               $rate = (float) ($line['rate'] ?? 0);
               $lineTotal = $qty * $rate;
+              $lineExtra = function_exists('line_item_extra_map') ? line_item_extra_map($line) : [];
               ?>
             <tr>
               <?php if ($colItem): ?>
@@ -537,6 +560,11 @@ layout_start($heading, $user, ['kind' => $kind]);
               <?php else: ?>
                 <input type="hidden" name="item_desc[<?= $i ?>]" value="<?= h((string) ($line['description'] ?? '')) ?>">
               <?php endif; ?>
+              <?php foreach ($customLineCols as $cc): ?>
+                <td class="line-extra">
+                  <input name="item_extra[<?= h((string) $cc['key']) ?>][<?= $i ?>]" value="<?= h((string) ($lineExtra[$cc['key']] ?? '')) ?>" placeholder="<?= h((string) $cc['label']) ?>" autocomplete="off" data-line-extra="<?= h((string) $cc['key']) ?>">
+                </td>
+              <?php endforeach; ?>
               <?php if ($colQty): ?>
               <td class="line-qty">
                 <div class="qty-wrap">
@@ -611,6 +639,9 @@ layout_start($heading, $user, ['kind' => $kind]);
               <tr>
                 <?php if ($colItem): ?><th>Item</th><?php endif; ?>
                 <?php if ($colDesc): ?><th>Description</th><?php endif; ?>
+                <?php foreach ($customLineCols as $cc): ?>
+                  <th><?= h((string) $cc['label']) ?></th>
+                <?php endforeach; ?>
                 <?php if ($colQty): ?><th class="center">Qty</th><?php endif; ?>
                 <?php if ($colRate): ?><th class="right">Unit price</th><?php endif; ?>
                 <?php if ($colTotal): ?><th class="right">Total Amt</th><?php endif; ?>

@@ -25,7 +25,7 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '64';
+    return '65';
 }
 
 /**
@@ -1501,6 +1501,10 @@ function folio_migrate_client_profile(mysqli $db): void
     if (!db_has_column($db, 'companies', 'line_columns')) {
         @$db->query('ALTER TABLE companies ADD COLUMN line_columns TEXT NULL');
         db_has_column($db, 'companies', 'line_columns', true);
+    }
+    if (!db_has_column($db, 'document_items', 'extra')) {
+        @$db->query('ALTER TABLE document_items ADD COLUMN extra TEXT NULL');
+        db_has_column($db, 'document_items', 'extra', true);
     }
     if (!db_has_column($db, 'parties', 'entity')) {
         @$db->query("ALTER TABLE parties ADD COLUMN entity VARCHAR(20) NOT NULL DEFAULT 'person'");

@@ -934,6 +934,19 @@ document.addEventListener('click', function (e) {
     if (inp) inp.focus();
     return;
   }
+  var addLineCol = e.target.closest('[data-add-line-custom-field]');
+  if (addLineCol) {
+    e.preventDefault();
+    var colBox = document.querySelector('[data-line-custom-fields]');
+    if (!colBox) return;
+    var colRow = document.createElement('div');
+    colRow.className = 'custom-field-row';
+    colRow.innerHTML = '<input name="line_custom_label[]" placeholder="e.g. Service">';
+    colBox.appendChild(colRow);
+    var colInp = colRow.querySelector('input');
+    if (colInp) colInp.focus();
+    return;
+  }
   var addClientField = e.target.closest('[data-add-client-field]');
   if (addClientField) {
     e.preventDefault();
@@ -1118,21 +1131,46 @@ function updateDocRunningTotals() {
 function lineColumnFlags() {
   var panel = document.querySelector('[data-lines-panel]');
   var delivery = panel && panel.getAttribute('data-delivery') === '1';
-  var cols = { item: true, description: true, qty: true, rate: !delivery, total: !delivery, vat: !delivery };
+  var cols = {
+    item: true,
+    description: true,
+    qty: true,
+    rate: !delivery,
+    total: !delivery,
+    vat: !delivery,
+    custom: []
+  };
   if (panel) {
     try {
       var parsed = JSON.parse(panel.getAttribute('data-line-cols') || '[]');
       if (Array.isArray(parsed) && parsed.length) {
-        cols.item = parsed.indexOf('item') !== -1;
-        cols.description = parsed.indexOf('description') !== -1;
-        cols.qty = parsed.indexOf('qty') !== -1;
-        cols.rate = !delivery && parsed.indexOf('rate') !== -1;
-        cols.total = !delivery && parsed.indexOf('total') !== -1;
-        cols.vat = !delivery && parsed.indexOf('vat') !== -1;
+        var keys = [];
+        var custom = [];
+        parsed.forEach(function (row) {
+          if (row && typeof row === 'object') {
+            var key = String(row.key || '');
+            var label = String(row.label || key);
+            if (key) {
+              keys.push(key);
+              if (row.builtin === false || (row.builtin == null && ['item','description','qty','rate','total','vat'].indexOf(key) === -1)) {
+                custom.push({ key: key, label: label });
+              }
+            }
+          } else {
+            keys.push(String(row));
+          }
+        });
+        cols.item = keys.indexOf('item') !== -1;
+        cols.description = keys.indexOf('description') !== -1;
+        cols.qty = keys.indexOf('qty') !== -1;
+        cols.rate = !delivery && keys.indexOf('rate') !== -1;
+        cols.total = !delivery && keys.indexOf('total') !== -1;
+        cols.vat = !delivery && keys.indexOf('vat') !== -1;
+        cols.custom = custom;
       }
     } catch (err) {}
   }
-  if (!cols.item && !cols.description) cols.item = true;
+  if (!cols.item && !cols.description && !(cols.custom && cols.custom.length)) cols.item = true;
   return cols;
 }
 
@@ -1140,6 +1178,7 @@ function previewColCount(cols) {
   var n = 0;
   if (cols.item) n++;
   if (cols.description) n++;
+  if (cols.custom && cols.custom.length) n += cols.custom.length;
   if (cols.qty) n++;
   if (cols.rate) n++;
   if (cols.total) n++;
@@ -1168,7 +1207,12 @@ function refreshLinesPreview() {
     var name = ((row.querySelector('input[name^="item_name"]') || {}).value || '').trim();
     var descEl = row.querySelector('textarea[name^="item_desc"]') || row.querySelector('input[name^="item_desc"]');
     var desc = ((descEl || {}).value || '').trim();
-    if (!name && !desc) return;
+    var hasExtra = false;
+    (cols.custom || []).forEach(function (cc) {
+      var ex = row.querySelector('[data-line-extra="' + cc.key + '"]');
+      if (ex && String(ex.value || '').trim()) hasExtra = true;
+    });
+    if (!name && !desc && !hasExtra) return;
     shown += 1;
     var qty = parseFloat(String((row.querySelector('[data-line-qty]') || {}).value || '0').replace(/,/g, ''));
     var rate = parseFloat(String((row.querySelector('[data-line-rate]') || {}).value || '0').replace(/,/g, ''));
@@ -1178,6 +1222,11 @@ function refreshLinesPreview() {
     html += '<tr>';
     if (cols.item) html += '<td data-label="Item">' + escapeHtml(name || '-') + '</td>';
     if (cols.description) html += '<td data-label="Description">' + escapeHtml(desc).replace(/\n/g, '<br>') + '</td>';
+    (cols.custom || []).forEach(function (cc) {
+      var ex = row.querySelector('[data-line-extra="' + cc.key + '"]');
+      var val = ex ? String(ex.value || '').trim() : '';
+      html += '<td data-label="' + escapeHtml(cc.label) + '">' + escapeHtml(val || '-') + '</td>';
+    });
     if (cols.qty) html += '<td class="center mono" data-label="Qty">' + escapeHtml(String(qty || '')) + '</td>';
     if (cols.rate) html += '<td class="right mono" data-label="Unit price">' + escapeHtml(formatDeskMoney(rate, cur)) + '</td>';
     if (cols.total) html += '<td class="right mono" data-label="Total Amt">' + escapeHtml(formatDeskMoney(Math.round(qty * rate * 100) / 100, cur)) + '</td>';

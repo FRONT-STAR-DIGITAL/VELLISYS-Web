@@ -21,6 +21,32 @@ function line_item_description(array $item): string
     return trim((string) ($item['description'] ?? ''));
 }
 
+function line_item_extra_map(array $item): array
+{
+    $extra = $item['extra'] ?? [];
+    if (is_string($extra)) {
+        $extra = json_decode($extra, true) ?: [];
+    }
+    if (!is_array($extra)) {
+        return [];
+    }
+    $out = [];
+    foreach ($extra as $k => $v) {
+        $key = preg_replace('/[^a-z0-9_]/', '', strtolower((string) $k)) ?? '';
+        if ($key === '') {
+            continue;
+        }
+        $out[$key] = trim((string) $v);
+    }
+    return $out;
+}
+
+function line_item_extra(array $item, string $key): string
+{
+    $map = line_item_extra_map($item);
+    return trim((string) ($map[$key] ?? ''));
+}
+
 function doc_subtotal(array $items): float
 {
     $sum = 0.0;
@@ -795,10 +821,15 @@ function create_document(array $data): int
 
 function insert_document_items(int $id, array $items): void
 {
+    $hasExtra = function_exists('db_has_column')
+        ? db_has_column(db(), 'document_items', 'extra')
+        : true;
     foreach ($items as $item) {
         $name = trim((string) ($item['item_name'] ?? ''));
         $desc = trim((string) ($item['description'] ?? ''));
-        if ($name === '' && $desc === '') {
+        $extraMap = line_item_extra_map($item);
+        $extraMap = array_filter($extraMap, static fn ($v) => trim((string) $v) !== '');
+        if ($name === '' && $desc === '' && !$extraMap) {
             continue;
         }
         $qty = (float) ($item['qty'] ?? 1);
@@ -809,11 +840,20 @@ function insert_document_items(int $id, array $items): void
         if ($stockId < 1) {
             $stockId = 0;
         }
-        db_exec(
-            'INSERT INTO document_items (document_id, stock_item_id, item_name, description, qty, unit, rate, taxed) VALUES (?,?,?,?,?,?,?,?)',
-            'iissdsdi',
-            [$id, $stockId > 0 ? $stockId : 0, $name, $desc, $qty, $unit, $itemRate, $taxed]
-        );
+        $extraJson = $extraMap ? (string) (json_encode($extraMap, JSON_UNESCAPED_UNICODE) ?: '') : '';
+        if ($hasExtra) {
+            db_exec(
+                'INSERT INTO document_items (document_id, stock_item_id, item_name, description, qty, unit, rate, taxed, extra) VALUES (?,?,?,?,?,?,?,?,?)',
+                'iissdsdis',
+                [$id, $stockId > 0 ? $stockId : 0, $name, $desc, $qty, $unit, $itemRate, $taxed, $extraJson !== '' ? $extraJson : null]
+            );
+        } else {
+            db_exec(
+                'INSERT INTO document_items (document_id, stock_item_id, item_name, description, qty, unit, rate, taxed) VALUES (?,?,?,?,?,?,?,?)',
+                'iissdsdi',
+                [$id, $stockId > 0 ? $stockId : 0, $name, $desc, $qty, $unit, $itemRate, $taxed]
+            );
+        }
     }
 }
 
