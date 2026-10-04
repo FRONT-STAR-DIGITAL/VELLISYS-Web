@@ -2142,7 +2142,7 @@ function sales_update_testing_company(int $companyId, array $fields, ?int $agent
     $customDoc = function_exists('posted_custom_doc') && is_array($kindsPosted)
         ? posted_custom_doc()
         : (string) ($company['custom_doc'] ?? '');
-    $lineCols = function_exists('posted_document_line_columns') && isset($_POST['line_columns'])
+    $lineCols = function_exists('posted_document_line_columns') && (isset($_POST['line_columns_present']) || isset($_POST['line_col_kind']) || isset($_POST['line_columns']))
         ? posted_document_line_columns()
         : (string) ($company['line_columns'] ?? '');
 

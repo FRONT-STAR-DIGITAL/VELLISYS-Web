@@ -190,22 +190,41 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
     $serial = !empty($opts['serial']);
     $cls = $opts['class'] ?? '';
     $qtyOnly = in_array(($doc['kind'] ?? ''), ['delivery', 'return_note'], true);
-    $showVat = !$qtyOnly && doc_shows_vat($doc) && company_shows_line_col('vat');
     $taxName = trim((string) ($opts['tax_name'] ?? ''));
     if ($taxName === '') {
         $taxName = company_tax_name();
     }
     $compact = !empty($opts['compact']);
-    $colItem = company_shows_line_col('item');
-    $colDesc = company_shows_line_col('description');
-    $colQty = company_shows_line_col('qty');
-    $colRate = !$qtyOnly && company_shows_line_col('rate');
-    $colTotal = !$qtyOnly && company_shows_line_col('total');
-    $customCols = function_exists('company_custom_line_columns') ? company_custom_line_columns() : [];
+    $entries = function_exists('company_line_column_entries') ? company_line_column_entries() : [];
+    $cols = [];
+    foreach ($entries as $e) {
+        $key = (string) ($e['key'] ?? '');
+        if ($key === '') {
+            continue;
+        }
+        if ($qtyOnly && in_array($key, ['rate', 'total', 'vat'], true)) {
+            continue;
+        }
+        if ($key === 'vat' && (!doc_shows_vat($doc) || $qtyOnly)) {
+            continue;
+        }
+        $cols[] = $e;
+    }
+    $keys = array_column($cols, 'key');
+    $colItem = in_array('item', $keys, true);
+    $colDesc = in_array('description', $keys, true);
+    $colQty = in_array('qty', $keys, true);
+    $colRate = !$qtyOnly && in_array('rate', $keys, true);
+    $colTotal = !$qtyOnly && in_array('total', $keys, true);
+    $showVat = in_array('vat', $keys, true);
+    $customCols = array_values(array_filter($cols, static fn (array $e) => empty($e['builtin'])));
     $colDetails = $colItem || $colDesc || ($compact && $customCols);
-    if (!$colDetails && !$customCols) {
+    if (!$colDetails && !$customCols && !$colQty && !$colRate && !$colTotal) {
         $colDetails = true;
         $colItem = true;
+        if (!$cols) {
+            $cols = [['key' => 'item', 'label' => 'Item', 'builtin' => true]];
+        }
     }
     ?>
     <table class="d-lines <?= h($cls) ?>">
@@ -217,15 +236,26 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
             <?php if ($colTotal): ?><th class="r" style="width:28%">Amount</th><?php elseif ($colRate): ?><th class="r" style="width:28%">Unit price</th><?php endif; ?>
           <?php else: ?>
             <?php if ($serial): ?><th class="c" style="width:44px">No.</th><?php endif; ?>
-            <?php if ($colItem): ?><th style="width:22%">Item</th><?php endif; ?>
-            <?php if ($colDesc): ?><th>Description</th><?php endif; ?>
-            <?php foreach ($customCols as $cc): ?>
-              <th><?= h((string) $cc['label']) ?></th>
+            <?php foreach ($cols as $col):
+                $key = (string) $col['key'];
+                $label = (string) ($col['label'] ?? $key);
+                $clsTh = match ($key) {
+                    'qty', 'vat' => 'c',
+                    'rate', 'total' => 'r',
+                    default => '',
+                };
+                $width = match ($key) {
+                    'item' => 'width:22%',
+                    'qty' => 'width:64px',
+                    'rate' => 'width:110px',
+                    'total' => 'width:120px',
+                    'vat' => 'width:44px',
+                    default => '',
+                };
+                $head = $key === 'vat' ? $taxName : $label;
+                ?>
+              <th<?= $clsTh !== '' ? ' class="' . h($clsTh) . '"' : '' ?><?= $width !== '' ? ' style="' . h($width) . '"' : '' ?>><?= h($head) ?></th>
             <?php endforeach; ?>
-            <?php if ($colQty): ?><th class="c" style="width:64px">Qty</th><?php endif; ?>
-            <?php if ($colRate): ?><th class="r" style="width:110px">Unit price</th><?php endif; ?>
-            <?php if ($colTotal): ?><th class="r" style="width:120px">Total Amt</th><?php endif; ?>
-            <?php if ($showVat): ?><th class="c" style="width:44px"><?= h($taxName) ?></th><?php endif; ?>
           <?php endif; ?>
         </tr>
       </thead>
@@ -238,19 +268,29 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
                 if (!$item) {
                     echo '&nbsp;';
                 } else {
-                    $name = $colItem ? line_item_name($item) : '';
-                    $desc = $colDesc ? line_item_description($item) : '';
                     $parts = [];
-                    if ($name !== '') {
-                        $parts[] = '<span class="item">' . h($name) . '</span>';
-                    }
-                    if ($desc !== '') {
-                        $parts[] = '<span class="twin-desc">' . nl2br(h($desc), false) . '</span>';
-                    }
-                    foreach ($customCols as $cc) {
-                        $val = function_exists('line_item_extra') ? line_item_extra($item, (string) $cc['key']) : '';
+                    foreach ($cols as $col) {
+                        $key = (string) $col['key'];
+                        if (in_array($key, ['qty', 'rate', 'total', 'vat'], true)) {
+                            continue;
+                        }
+                        if ($key === 'item') {
+                            $name = line_item_name($item);
+                            if ($name !== '') {
+                                $parts[] = '<span class="item">' . h($name) . '</span>';
+                            }
+                            continue;
+                        }
+                        if ($key === 'description') {
+                            $desc = line_item_description($item);
+                            if ($desc !== '') {
+                                $parts[] = '<span class="twin-desc">' . nl2br(h($desc), false) . '</span>';
+                            }
+                            continue;
+                        }
+                        $val = function_exists('line_item_extra') ? line_item_extra($item, $key) : '';
                         if ($val !== '') {
-                            $parts[] = '<span class="twin-desc">' . h((string) $cc['label']) . ': ' . h($val) . '</span>';
+                            $parts[] = '<span class="twin-desc">' . h((string) ($col['label'] ?? $key)) . ': ' . h($val) . '</span>';
                         }
                     }
                     echo $parts ? implode(' ', $parts) : '&nbsp;';
@@ -264,22 +304,31 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
               <?php if ($colTotal): ?><td class="r"><?= $item ? h(money(line_amount($item), $cur)) : '' ?></td><?php elseif ($colRate): ?><td class="r"><?= $item ? h(money($item['rate'], $cur)) : '' ?></td><?php endif; ?>
             <?php else: ?>
               <?php if ($serial): ?><td class="c"><?= $item ? (string) ($i + 1) : '' ?></td><?php endif; ?>
-              <?php if ($colItem): ?><td class="item"><?= $item && line_item_name($item) !== '' ? h(line_item_name($item)) : ($item ? '&nbsp;' : '&nbsp;') ?></td><?php endif; ?>
-              <?php if ($colDesc): ?><td class="desc"><?= $item && line_item_description($item) !== '' ? nl2br(h(line_item_description($item))) : '&nbsp;' ?></td><?php endif; ?>
-              <?php foreach ($customCols as $cc): ?>
+              <?php foreach ($cols as $col):
+                  $key = (string) $col['key'];
+                  if ($key === 'item'): ?>
+                <td class="item"><?= $item && line_item_name($item) !== '' ? h(line_item_name($item)) : '&nbsp;' ?></td>
+                  <?php elseif ($key === 'description'): ?>
+                <td class="desc"><?= $item && line_item_description($item) !== '' ? nl2br(h(line_item_description($item))) : '&nbsp;' ?></td>
+                  <?php elseif ($key === 'qty'): ?>
+                <td class="c"><?= $item ? h(format_qty($item['qty'])) : '' ?></td>
+                  <?php elseif ($key === 'rate'): ?>
+                <td class="r"><?= $item ? h(money($item['rate'], $cur)) : '' ?></td>
+                  <?php elseif ($key === 'total'): ?>
+                <td class="r"><?= $item ? h(money(line_amount($item), $cur)) : '' ?></td>
+                  <?php elseif ($key === 'vat'): ?>
+                <td class="c"><?= $item ? (!empty($item['taxed']) ? 'Y' : 'N') : '' ?></td>
+                  <?php else: ?>
                 <td><?php
                   if (!$item) {
                       echo '&nbsp;';
                   } else {
-                      $val = function_exists('line_item_extra') ? line_item_extra($item, (string) $cc['key']) : '';
+                      $val = function_exists('line_item_extra') ? line_item_extra($item, $key) : '';
                       echo $val !== '' ? h($val) : '&nbsp;';
                   }
                 ?></td>
-              <?php endforeach; ?>
-              <?php if ($colQty): ?><td class="c"><?= $item ? h(format_qty($item['qty'])) : '' ?></td><?php endif; ?>
-              <?php if ($colRate): ?><td class="r"><?= $item ? h(money($item['rate'], $cur)) : '' ?></td><?php endif; ?>
-              <?php if ($colTotal): ?><td class="r"><?= $item ? h(money(line_amount($item), $cur)) : '' ?></td><?php endif; ?>
-              <?php if ($showVat): ?><td class="c"><?= $item ? (!empty($item['taxed']) ? 'Y' : 'N') : '' ?></td><?php endif; ?>
+                  <?php endif;
+              endforeach; ?>
             <?php endif; ?>
           </tr>
         <?php endforeach; ?>
@@ -758,7 +807,6 @@ function render_sheet_folio(array $d): void
       <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
       <div class="d-totals">
         <div class="d-sums">
-          <div class="d-sum"><span>Subtotal</span><span><?= h(money($d['net'], $d['cur'])) ?></span></div>
           <?php if (!empty($d['show_vat'])): ?>
             <div class="d-sum"><span><?= h($d['tax_label']) ?></span><span><?= h(money($d['vat'], $d['cur'])) ?></span></div>
           <?php endif; ?>
@@ -909,7 +957,6 @@ function render_sheet_bill(array $d, string $variant): void
     <div class="bill-foot">
       <div class="bill-words"><span>In words</span><b><?= h(amount_in_words(sheet_words_amount($d), $d['cur'])) ?></b></div>
       <div class="bill-sums">
-        <div><span>Sub total</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
         <?php if (!empty($d['show_vat'])): ?><div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
         <?php render_sums_close($d, 'due', '', 'b'); ?>
       </div>
@@ -1040,7 +1087,6 @@ function render_sheet_stripe(array $d): void
           <em><?= h($d['methods'][$d['method']] ?? ($d['method'] ?: 'On account')) ?></em>
         </div>
         <div class="stripe-fare">
-          <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
           <?php if (!empty($d['show_vat'])): ?><div><span><?= h($d['tax_name']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
           <?php render_sums_close($d, 'stripe-total', '', 'b'); ?>
         </div>
@@ -1204,7 +1250,6 @@ function render_sheet_atelier(array $d): void
       <?php if (sheet_shows_money($d)): ?>
       <div class="atelier-totals">
         <div class="atelier-sums">
-          <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
           <?php if (!empty($d['show_vat'])): ?><div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
           <?php render_sums_close($d, 'atelier-total', '', 'b'); ?>
         </div>
@@ -1267,7 +1312,6 @@ function render_sheet_seal(array $d): void
       <?php if (sheet_shows_money($d)): ?>
       <div class="seal-totals">
         <aside>
-          <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
           <?php if (!empty($d['show_vat'])): ?><div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
           <?php render_sums_close($d, 'seal-due', '', 'b'); ?>
         </aside>
@@ -1331,7 +1375,6 @@ function render_sheet_mark(array $d): void
       <?php if (sheet_shows_money($d)): ?>
       <div class="d-totals">
         <div class="d-sums">
-          <div class="d-sum"><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
           <?php if (!empty($d['show_vat'])): ?><div class="d-sum"><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
           <?php render_sums_close($d, 'd-total', 'd-sum', 'b'); ?>
         </div>
@@ -1381,7 +1424,6 @@ function render_sheet_bond(array $d): void
       <?php if (sheet_shows_money($d)): ?>
       <div class="bond-totals">
         <aside>
-          <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
           <?php if (!empty($d['show_vat'])): ?><div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div><?php endif; ?>
           <?php render_sums_close($d, 'bond-due', '', 'b'); ?>
         </aside>
@@ -1446,8 +1488,7 @@ function render_sheet_frame(array $d): void
           <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
           <div class="d-totals">
             <div class="d-sums">
-              <div class="d-sum"><span>Subtotal</span><span><?= h(money($d['net'], $d['cur'])) ?></span></div>
-              <?php if (!empty($d['show_vat'])): ?>
+                  <?php if (!empty($d['show_vat'])): ?>
                 <div class="d-sum"><span><?= h($d['tax_label']) ?></span><span><?= h(money($d['vat'], $d['cur'])) ?></span></div>
               <?php endif; ?>
               <?php render_sums_close($d); ?>
@@ -1513,8 +1554,7 @@ function render_sheet_inset(array $d): void
         <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
         <div class="d-totals">
           <div class="d-sums">
-            <div class="d-sum"><span>Subtotal</span><span><?= h(money($d['net'], $d['cur'])) ?></span></div>
-            <?php if (!empty($d['show_vat'])): ?>
+              <?php if (!empty($d['show_vat'])): ?>
               <div class="d-sum"><span><?= h($d['tax_label']) ?></span><span><?= h(money($d['vat'], $d['cur'])) ?></span></div>
             <?php endif; ?>
             <?php render_sums_close($d); ?>
@@ -1787,7 +1827,6 @@ function render_sheet_thermal(array $d): void
     <?php render_line_table($slip, '#111', '#f4f4f4', ['compact' => true, 'min' => 1, 'class' => 'thermal-lines']); ?>
     <?php if (kind_shows_money($slip['kind'] ?? $kind) && !$qtyOnly): ?>
     <div class="thermal-sums">
-      <div><span>Subtotal</span><b><?= h(money($d['net'], $d['cur'])) ?></b></div>
       <?php if (!empty($d['show_vat'])): ?>
         <div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div>
       <?php endif; ?>

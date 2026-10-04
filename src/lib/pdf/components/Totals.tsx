@@ -17,10 +17,6 @@ export function Totals({ doc, styles }: Props) {
   return (
     <View style={styles.totalsWrap} wrap={false}>
       <View style={styles.totalsBox}>
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Subtotal</Text>
-          <Text style={styles.totalValue}>{formatMoney(doc.subtotal, doc.currency)}</Text>
-        </View>
         {showTax ? (
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>

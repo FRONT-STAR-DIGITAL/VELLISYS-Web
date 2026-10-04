@@ -937,13 +937,19 @@ document.addEventListener('click', function (e) {
   var addLineCol = e.target.closest('[data-add-line-custom-field]');
   if (addLineCol) {
     e.preventDefault();
-    var colBox = document.querySelector('[data-line-custom-fields]');
+    var colBox = document.querySelector('[data-line-col-order]');
     if (!colBox) return;
     var colRow = document.createElement('div');
-    colRow.className = 'custom-field-row';
-    colRow.innerHTML = '<input name="line_custom_label[]" placeholder="e.g. Service">';
+    colRow.className = 'to-order-row';
+    colRow.setAttribute('data-to-order-row', '');
+    colRow.setAttribute('data-to-kind', 'extra');
+    colRow.innerHTML = toOrderMoveBtns() +
+      '<input type="hidden" name="line_col_kind[]" value="custom">' +
+      '<input type="hidden" name="line_col_key[]" value="">' +
+      '<input name="line_col_label[]" value="" placeholder="e.g. Service" aria-label="Column label">' +
+      toOrderRemoveBtn();
     colBox.appendChild(colRow);
-    var colInp = colRow.querySelector('input');
+    var colInp = colRow.querySelector('input[name="line_col_label[]"]');
     if (colInp) colInp.focus();
     return;
   }
@@ -978,8 +984,10 @@ document.addEventListener('click', function (e) {
     e.preventDefault();
     var gone = removeTo.closest('[data-to-order-row]');
     var host = gone && gone.closest('[data-to-tab-panel]');
+    var lineHost = gone && gone.closest('[data-line-col-order]');
     if (gone) gone.remove();
     syncToCoreSelect(host);
+    if (lineHost || document.querySelector('[data-line-col-order]')) syncLineBuiltinSelect();
     return;
   }
   var qtyBtn = e.target.closest('[data-qty-delta]');
@@ -1091,7 +1099,6 @@ function updateDocRunningTotals() {
     var el = box.querySelector(sel);
     if (el) el.textContent = formatDeskMoney(v, cur);
   };
-  set('[data-doc-sub]', t.sub);
   set('[data-doc-tax]', t.tax);
   set('[data-doc-grand]', t.grand);
   var dueEl = box.querySelector('[data-doc-due]');
@@ -1114,67 +1121,87 @@ function updateDocRunningTotals() {
   if (foot) {
     var taxName = form.getAttribute('data-tax-name') || 'Tax';
     var cols = lineColumnFlags();
-    var lead = previewLeadSpan(cols);
-    var after = cols.vat ? '<td></td>' : '';
+    var n = previewColCount(cols);
+    var lead = Math.max(n - 1, 1);
     foot.hidden = false;
     var rows =
-      '<tr><td colspan="' + lead + '">Subtotal</td><td class="right mono">' + escapeHtml(formatDeskMoney(t.sub, cur)) + '</td>' + after + '</tr>' +
-      '<tr><td colspan="' + lead + '">' + escapeHtml(taxName) + '</td><td class="right mono">' + escapeHtml(formatDeskMoney(t.tax, cur)) + '</td>' + after + '</tr>' +
-      '<tr><td colspan="' + lead + '">Total</td><td class="right mono">' + escapeHtml(formatDeskMoney(t.grand, cur)) + '</td>' + after + '</tr>';
+      '<tr><td colspan="' + lead + '">' + escapeHtml(taxName) + '</td><td class="right mono">' + escapeHtml(formatDeskMoney(t.tax, cur)) + '</td></tr>' +
+      '<tr><td colspan="' + lead + '">Total</td><td class="right mono">' + escapeHtml(formatDeskMoney(t.grand, cur)) + '</td></tr>';
     if (dueEl) {
-      rows += '<tr><td colspan="' + lead + '">Due</td><td class="right mono">' + escapeHtml(formatDeskMoney(due, cur)) + '</td>' + after + '</tr>';
+      rows += '<tr><td colspan="' + lead + '">Due</td><td class="right mono">' + escapeHtml(formatDeskMoney(due, cur)) + '</td></tr>';
     }
     foot.innerHTML = rows;
   }
 }
 
-function lineColumnFlags() {
+function lineColumnEntries() {
   var panel = document.querySelector('[data-lines-panel]');
   var delivery = panel && panel.getAttribute('data-delivery') === '1';
-  var cols = {
-    item: true,
-    description: true,
-    qty: true,
-    rate: !delivery,
-    total: !delivery,
-    vat: !delivery,
-    custom: []
-  };
+  var builtins = { item: 'Item', description: 'Description', qty: 'Qty', rate: 'Unit price', total: 'Total Amt', vat: 'Tax (Y/N)' };
+  var entries = [];
   if (panel) {
     try {
       var parsed = JSON.parse(panel.getAttribute('data-line-cols') || '[]');
       if (Array.isArray(parsed) && parsed.length) {
-        var keys = [];
-        var custom = [];
         parsed.forEach(function (row) {
           if (row && typeof row === 'object') {
             var key = String(row.key || '');
             var label = String(row.label || key);
-            if (key) {
-              keys.push(key);
-              if (row.builtin === false || (row.builtin == null && ['item','description','qty','rate','total','vat'].indexOf(key) === -1)) {
-                custom.push({ key: key, label: label });
-              }
-            }
+            if (!key) return;
+            if (delivery && (key === 'rate' || key === 'total' || key === 'vat')) return;
+            entries.push({
+              key: key,
+              label: label || builtins[key] || key,
+              builtin: row.builtin !== false && !!builtins[key]
+            });
           } else {
-            keys.push(String(row));
+            var k = String(row);
+            if (!k) return;
+            if (delivery && (k === 'rate' || k === 'total' || k === 'vat')) return;
+            entries.push({ key: k, label: builtins[k] || k, builtin: !!builtins[k] });
           }
         });
-        cols.item = keys.indexOf('item') !== -1;
-        cols.description = keys.indexOf('description') !== -1;
-        cols.qty = keys.indexOf('qty') !== -1;
-        cols.rate = !delivery && keys.indexOf('rate') !== -1;
-        cols.total = !delivery && keys.indexOf('total') !== -1;
-        cols.vat = !delivery && keys.indexOf('vat') !== -1;
-        cols.custom = custom;
       }
     } catch (err) {}
   }
-  if (!cols.item && !cols.description && !(cols.custom && cols.custom.length)) cols.item = true;
-  return cols;
+  if (!entries.length) {
+    entries = [
+      { key: 'item', label: 'Item', builtin: true },
+      { key: 'description', label: 'Description', builtin: true },
+      { key: 'qty', label: 'Qty', builtin: true }
+    ];
+    if (!delivery) {
+      entries.push(
+        { key: 'rate', label: 'Unit price', builtin: true },
+        { key: 'total', label: 'Total Amt', builtin: true },
+        { key: 'vat', label: 'Tax (Y/N)', builtin: true }
+      );
+    }
+  }
+  var hasText = entries.some(function (e) {
+    return e.key === 'item' || e.key === 'description' || !e.builtin;
+  });
+  if (!hasText) entries.unshift({ key: 'item', label: 'Item', builtin: true });
+  return entries;
+}
+
+function lineColumnFlags() {
+  var entries = lineColumnEntries();
+  var keys = entries.map(function (e) { return e.key; });
+  return {
+    item: keys.indexOf('item') !== -1,
+    description: keys.indexOf('description') !== -1,
+    qty: keys.indexOf('qty') !== -1,
+    rate: keys.indexOf('rate') !== -1,
+    total: keys.indexOf('total') !== -1,
+    vat: keys.indexOf('vat') !== -1,
+    custom: entries.filter(function (e) { return !e.builtin; }),
+    entries: entries
+  };
 }
 
 function previewColCount(cols) {
+  if (cols.entries && cols.entries.length) return cols.entries.length;
   var n = 0;
   if (cols.item) n++;
   if (cols.description) n++;
@@ -1186,29 +1213,25 @@ function previewColCount(cols) {
   return Math.max(n, 1);
 }
 
-function previewLeadSpan(cols) {
-  var n = previewColCount(cols);
-  if (cols.vat) n -= 1;
-  if (cols.total || cols.rate) n -= 1;
-  return Math.max(n, 1);
-}
-
 function refreshLinesPreview() {
   var body = document.querySelector('[data-lines-preview-body]');
   var panel = document.querySelector('[data-lines-panel]');
   if (body && panel) {
-  var delivery = panel.getAttribute('data-delivery') === '1';
   var cols = lineColumnFlags();
+  var entries = cols.entries || lineColumnEntries();
   var rows = document.querySelectorAll('#lines tbody tr');
   var html = '';
   var shown = 0;
   var cur = docCurrencyCode();
+  var form = document.querySelector('.document-form');
+  var taxName = (form && form.getAttribute('data-tax-name')) || 'Tax';
   rows.forEach(function (row) {
     var name = ((row.querySelector('input[name^="item_name"]') || {}).value || '').trim();
     var descEl = row.querySelector('textarea[name^="item_desc"]') || row.querySelector('input[name^="item_desc"]');
     var desc = ((descEl || {}).value || '').trim();
     var hasExtra = false;
-    (cols.custom || []).forEach(function (cc) {
+    entries.forEach(function (cc) {
+      if (cc.builtin) return;
       var ex = row.querySelector('[data-line-extra="' + cc.key + '"]');
       if (ex && String(ex.value || '').trim()) hasExtra = true;
     });
@@ -1220,17 +1243,21 @@ function refreshLinesPreview() {
     if (isNaN(rate)) rate = 0;
     var taxed = !!(row.querySelector('[data-vat-box]') || {}).checked;
     html += '<tr>';
-    if (cols.item) html += '<td data-label="Item">' + escapeHtml(name || '-') + '</td>';
-    if (cols.description) html += '<td data-label="Description">' + escapeHtml(desc).replace(/\n/g, '<br>') + '</td>';
-    (cols.custom || []).forEach(function (cc) {
-      var ex = row.querySelector('[data-line-extra="' + cc.key + '"]');
-      var val = ex ? String(ex.value || '').trim() : '';
-      html += '<td data-label="' + escapeHtml(cc.label) + '">' + escapeHtml(val || '-') + '</td>';
+    entries.forEach(function (col) {
+      var key = col.key;
+      var label = col.label || key;
+      if (key === 'item') html += '<td data-label="' + escapeHtml(label) + '">' + escapeHtml(name || '-') + '</td>';
+      else if (key === 'description') html += '<td data-label="' + escapeHtml(label) + '">' + escapeHtml(desc).replace(/\n/g, '<br>') + '</td>';
+      else if (key === 'qty') html += '<td class="center mono" data-label="' + escapeHtml(label) + '">' + escapeHtml(String(qty || '')) + '</td>';
+      else if (key === 'rate') html += '<td class="right mono" data-label="' + escapeHtml(label) + '">' + escapeHtml(formatDeskMoney(rate, cur)) + '</td>';
+      else if (key === 'total') html += '<td class="right mono" data-label="' + escapeHtml(label) + '">' + escapeHtml(formatDeskMoney(Math.round(qty * rate * 100) / 100, cur)) + '</td>';
+      else if (key === 'vat') html += '<td class="center" data-label="' + escapeHtml(taxName) + '">' + (taxed ? 'Y' : 'N') + '</td>';
+      else {
+        var ex = row.querySelector('[data-line-extra="' + key + '"]');
+        var val = ex ? String(ex.value || '').trim() : '';
+        html += '<td data-label="' + escapeHtml(label) + '">' + escapeHtml(val || '-') + '</td>';
+      }
     });
-    if (cols.qty) html += '<td class="center mono" data-label="Qty">' + escapeHtml(String(qty || '')) + '</td>';
-    if (cols.rate) html += '<td class="right mono" data-label="Unit price">' + escapeHtml(formatDeskMoney(rate, cur)) + '</td>';
-    if (cols.total) html += '<td class="right mono" data-label="Total Amt">' + escapeHtml(formatDeskMoney(Math.round(qty * rate * 100) / 100, cur)) + '</td>';
-    if (cols.vat) html += '<td class="center" data-label="VAT">' + (taxed ? 'Y' : 'N') + '</td>';
     html += '</tr>';
   });
   if (!shown) {
@@ -1254,7 +1281,7 @@ document.addEventListener('input', function (e) {
   if (!row) return;
   if (e.target.matches('[data-line-qty], [data-line-rate]')) updateLineTotal(row);
   if (e.target.matches('[data-line-total]')) updateLineTotal(row, true);
-  if (e.target.matches('input[name^="item_name"], textarea[name^="item_desc"], [data-line-qty], [data-line-rate], [data-line-total]')) {
+  if (e.target.matches('input[name^="item_name"], textarea[name^="item_desc"], [data-line-qty], [data-line-rate], [data-line-total], [data-line-extra]')) {
     refreshLinesPreview();
   }
 });
@@ -2423,6 +2450,50 @@ document.querySelectorAll('[data-to-add-core]').forEach(function (sel) {
     syncToCoreSelect(panel);
   });
 });
+
+function syncLineBuiltinSelect() {
+  var sel = document.querySelector('[data-line-add-builtin]');
+  var box = document.querySelector('[data-line-col-order]');
+  if (!sel || !box) return;
+  var used = {};
+  box.querySelectorAll('[data-line-col-key]').forEach(function (row) {
+    var key = row.getAttribute('data-line-col-key');
+    if (key) used[key] = true;
+  });
+  Array.prototype.forEach.call(sel.options, function (opt) {
+    if (!opt.value) return;
+    opt.disabled = !!used[opt.value];
+  });
+}
+
+function buildLineColBuiltinRow(key, label) {
+  var row = document.createElement('div');
+  row.className = 'to-order-row';
+  row.setAttribute('data-to-order-row', '');
+  row.setAttribute('data-to-kind', 'core');
+  row.setAttribute('data-line-col-key', key);
+  row.innerHTML = toOrderMoveBtns() +
+    '<input type="hidden" name="line_col_kind[]" value="builtin">' +
+    '<input type="hidden" name="line_col_key[]" value="' + escapeHtml(key) + '">' +
+    '<input type="hidden" name="line_col_label[]" value="' + escapeHtml(label) + '">' +
+    '<span class="to-order-label">' + escapeHtml(label) + '</span>' +
+    '<span class="to-order-kind">Column</span>' +
+    toOrderRemoveBtn();
+  return row;
+}
+
+document.querySelectorAll('[data-line-add-builtin]').forEach(function (sel) {
+  sel.addEventListener('change', function () {
+    var key = sel.value;
+    if (!key) return;
+    var opt = sel.options[sel.selectedIndex];
+    var box = document.querySelector('[data-line-col-order]');
+    if (box) box.appendChild(buildLineColBuiltinRow(key, opt.textContent || key));
+    sel.value = '';
+    syncLineBuiltinSelect();
+  });
+});
+if (document.querySelector('[data-line-col-order]')) syncLineBuiltinSelect();
 
 (function () {
   var tabs = document.querySelector('[data-to-field-tabs]');

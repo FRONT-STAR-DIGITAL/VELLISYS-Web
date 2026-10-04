@@ -1904,26 +1904,60 @@ function company_shows_line_col(string $key, ?array $company = null): bool
 function posted_document_line_columns(): string
 {
     $defs = document_line_column_defs();
-    $posted = $_POST['line_columns'] ?? null;
     $out = [];
     $seen = [];
-    if (is_array($posted)) {
-        foreach ($posted as $key) {
-            $key = (string) $key;
-            if (isset($defs[$key]) && !in_array($key, $seen, true)) {
+    $kinds = $_POST['line_col_kind'] ?? null;
+    $keysIn = $_POST['line_col_key'] ?? null;
+    $labelsIn = $_POST['line_col_label'] ?? null;
+    if (is_array($kinds) && is_array($keysIn) && is_array($labelsIn)) {
+        $n = max(count($kinds), count($keysIn), count($labelsIn));
+        for ($i = 0; $i < $n; $i++) {
+            $kind = (string) ($kinds[$i] ?? 'custom');
+            $key = trim((string) ($keysIn[$i] ?? ''));
+            $label = trim((string) ($labelsIn[$i] ?? ''));
+            if ($kind === 'builtin') {
+                if ($key === '' || !isset($defs[$key]) || in_array($key, $seen, true)) {
+                    continue;
+                }
                 $seen[] = $key;
                 $out[] = $key;
+                continue;
+            }
+            if ($label === '') {
+                continue;
+            }
+            if ($key === '' || isset($defs[$key]) || in_array($key, $seen, true)) {
+                $key = line_custom_column_key($label, $seen);
+            } else {
+                $key = substr(preg_replace('/[^a-z0-9_]/', '', strtolower($key)) ?? '', 0, 40);
+                if ($key === '' || in_array($key, $seen, true) || isset($defs[$key])) {
+                    $key = line_custom_column_key($label, $seen);
+                }
+            }
+            $seen[] = $key;
+            $out[] = ['key' => $key, 'label' => mb_substr($label, 0, 40)];
+        }
+    } else {
+        // Legacy checkbox + trailing custom labels.
+        $posted = $_POST['line_columns'] ?? null;
+        if (is_array($posted)) {
+            foreach ($posted as $key) {
+                $key = (string) $key;
+                if (isset($defs[$key]) && !in_array($key, $seen, true)) {
+                    $seen[] = $key;
+                    $out[] = $key;
+                }
             }
         }
-    }
-    foreach ((array) ($_POST['line_custom_label'] ?? []) as $label) {
-        $label = trim((string) $label);
-        if ($label === '') {
-            continue;
+        foreach ((array) ($_POST['line_custom_label'] ?? []) as $label) {
+            $label = trim((string) $label);
+            if ($label === '') {
+                continue;
+            }
+            $key = line_custom_column_key($label, $seen);
+            $seen[] = $key;
+            $out[] = ['key' => $key, 'label' => mb_substr($label, 0, 40)];
         }
-        $key = line_custom_column_key($label, $seen);
-        $seen[] = $key;
-        $out[] = ['key' => $key, 'label' => mb_substr($label, 0, 40)];
     }
     if (!$out) {
         $out = default_document_line_columns();
@@ -1936,6 +1970,32 @@ function posted_document_line_columns(): string
         array_unshift($out, 'item');
     }
     return json_encode($out, JSON_UNESCAPED_UNICODE) ?: '[]';
+}
+
+function render_line_col_order_row(array $entry): void
+{
+    $builtin = !empty($entry['builtin']);
+    $key = (string) ($entry['key'] ?? '');
+    $label = (string) ($entry['label'] ?? $key);
+    ?>
+    <div class="to-order-row" data-to-order-row data-to-kind="<?= $builtin ? 'core' : 'extra' ?>"<?= $builtin ? ' data-line-col-key="' . h($key) . '"' : '' ?>>
+      <div class="to-order-move">
+        <button class="btn ghost sm to-order-btn" type="button" data-to-move="-1" aria-label="Move up"><?= icon('chevron-up', 16) ?></button>
+        <button class="btn ghost sm to-order-btn" type="button" data-to-move="1" aria-label="Move down"><?= icon('chevron-down', 16) ?></button>
+      </div>
+      <input type="hidden" name="line_col_kind[]" value="<?= $builtin ? 'builtin' : 'custom' ?>">
+      <?php if ($builtin): ?>
+        <input type="hidden" name="line_col_key[]" value="<?= h($key) ?>">
+        <input type="hidden" name="line_col_label[]" value="<?= h($label) ?>">
+        <span class="to-order-label"><?= h($label) ?></span>
+        <span class="to-order-kind">Column</span>
+      <?php else: ?>
+        <input type="hidden" name="line_col_key[]" value="<?= h($key) ?>">
+        <input name="line_col_label[]" value="<?= h($label) ?>" placeholder="e.g. Service" aria-label="Column label">
+      <?php endif; ?>
+      <button class="btn ghost sm to-order-remove" type="button" data-to-remove aria-label="Remove"><?= icon('x', 14) ?></button>
+    </div>
+    <?php
 }
 
 function render_desk_kinds_fields(?array $company = null): void
@@ -1980,48 +2040,38 @@ function render_desk_kinds_fields(?array $company = null): void
         <button class="btn ghost sm" type="button" data-add-custom-field><?= icon('plus', 14) ?>Add field</button>
       </div>
       <?php
-        $lineCols = $company ? company_document_line_columns($company) : parse_document_line_columns($_POST['line_columns'] ?? null);
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !$company) {
-            $lineCols = default_document_line_columns();
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['line_col_kind']) || isset($_POST['line_columns']))) {
+            $lineEntries = parse_document_line_column_entries(json_decode(posted_document_line_columns(), true));
+        } elseif ($company) {
+            $lineEntries = company_line_column_entries($company);
+        } else {
+            $lineEntries = parse_document_line_column_entries(default_document_line_columns());
+        }
+        $usedBuiltin = [];
+        foreach ($lineEntries as $le) {
+            if (!empty($le['builtin'])) {
+                $usedBuiltin[] = (string) $le['key'];
+            }
         }
       ?>
       <div class="client-fields-box" style="margin-top:16px">
         <h3>Columns on document tables</h3>
-        <p class="hint">Tick what prints on quotations, invoices, receipts and delivery notes. Add your own text columns (for example Service). Sale and Stock keep their own tables.</p>
-        <div class="kinds-grid">
-          <?php foreach (document_line_column_defs() as $key => $label): ?>
-            <label class="kinds-opt">
-              <input type="checkbox" name="line_columns[]" value="<?= h($key) ?>" <?= in_array($key, $lineCols, true) ? 'checked' : '' ?>>
-              <span><?= h($label) ?></span>
-            </label>
+        <p class="hint">Choose and reorder what prints on quotations, invoices, receipts and delivery notes. Drag with the arrows — for example put Service before Amount. Sale and Stock keep their own tables.</p>
+        <input type="hidden" name="line_columns_present" value="1">
+        <div class="to-order-list" data-line-col-order data-to-order="line-cols">
+          <?php foreach ($lineEntries as $entry): ?>
+            <?php render_line_col_order_row($entry); ?>
           <?php endforeach; ?>
         </div>
-        <?php
-          $customLineCols = [];
-          if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['line_custom_label'])) {
-              foreach ((array) $_POST['line_custom_label'] as $lab) {
-                  $lab = trim((string) $lab);
-                  if ($lab !== '') {
-                      $customLineCols[] = ['label' => $lab];
-                  }
-              }
-          } else {
-              $customLineCols = company_custom_line_columns($company);
-          }
-          if (!$customLineCols) {
-              $customLineCols = [['label' => '']];
-          }
-        ?>
-        <div style="margin-top:12px">
-          <p class="hint" style="margin:0 0 8px">Custom columns (text on each line)</p>
-          <div class="custom-fields" data-line-custom-fields>
-            <?php foreach ($customLineCols as $field): ?>
-              <div class="custom-field-row">
-                <input name="line_custom_label[]" value="<?= h((string) ($field['label'] ?? '')) ?>" placeholder="e.g. Service">
-              </div>
+        <div class="to-order-add" style="margin-top:10px">
+          <label class="sr-only" for="line_add_builtin">Add a usual column</label>
+          <select id="line_add_builtin" data-line-add-builtin>
+            <option value="">Add usual column…</option>
+            <?php foreach (document_line_column_defs() as $key => $label): ?>
+              <option value="<?= h($key) ?>" <?= in_array($key, $usedBuiltin, true) ? 'disabled' : '' ?>><?= h($label) ?></option>
             <?php endforeach; ?>
-          </div>
-          <button class="btn ghost sm" type="button" data-add-line-custom-field><?= icon('plus', 14) ?>Add column</button>
+          </select>
+          <button class="btn ghost sm" type="button" data-add-line-custom-field><?= icon('plus', 14) ?>Add custom column</button>
         </div>
       </div>
     </fieldset>
