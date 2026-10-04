@@ -140,16 +140,15 @@ summary {
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  background-color: #1e4eff;
-  -webkit-mask-image: url("../img/vellisys-watermark.png");
-  mask-image: url("../img/vellisys-watermark.png");
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  -webkit-mask-position: center 42%;
-  mask-position: center 42%;
-  -webkit-mask-size: min(46vw, 460px);
-  mask-size: min(46vw, 460px);
-  opacity: 0.08;
+  /* Soft V mark only — no blue mask fill (mask+blue was painting checker artefacts). */
+  background-color: transparent;
+  background-image: url("../img/vellisys-watermark.png");
+  background-repeat: no-repeat;
+  background-position: center 42%;
+  background-size: min(46vw, 460px);
+  opacity: 0.045;
+  -webkit-mask-image: none;
+  mask-image: none;
 }
 .desk-body .app {
   position: relative;
