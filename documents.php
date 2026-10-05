@@ -164,7 +164,7 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
               <td class="right mono"><?= h(money(documents_sum($rows, 'balance'))) ?></td>
             <?php elseif ($kind === 'receipt'): ?>
               <td class="right mono"><?= h(money(documents_sum($rows, 'paid'))) ?></td>
-              <td class="right mono"><?= h(money(array_sum(array_map(static fn ($d) => convert_money(document_due_amount($d), doc_currency($d), default_currency()), $rows)))) ?></td>
+              <td class="right mono"><?= h(money(receipts_due_total_by_latest($rows))) ?></td>
             <?php else: ?>
               <td class="right mono"><?= h(money(documents_sum($rows))) ?></td>
             <?php endif; ?>

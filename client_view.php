@@ -41,15 +41,12 @@ foreach ($byKind['invoice'] as $inv) {
         }
     }
 }
-foreach ($byKind['receipt'] as $rcpt) {
-    if (($rcpt['status'] ?? '') === 'void' || !receipt_is_sale($rcpt)) {
-        continue;
-    }
-    $bal = document_due_amount($rcpt);
-    $owed += $bal;
-    if ($bal > 0.009 && ($payInvoice === null || $bal > document_due_amount($payInvoice))) {
-        $payInvoice = $rcpt;
-    }
+// Receipt running balance: only the newest receipt's Due is this client's live debt.
+$latestRcptDue = latest_receipt_due_among($byKind['receipt'] ?? []);
+$owed += $latestRcptDue;
+$newestRcpt = newest_receipt_among($byKind['receipt'] ?? []);
+if ($newestRcpt && $latestRcptDue > 0.009 && ($payInvoice === null || $latestRcptDue > document_due_amount($payInvoice))) {
+    $payInvoice = $newestRcpt;
 }
 
 $clientKinds = array_values(array_filter(
@@ -188,7 +185,7 @@ layout_start($party['name'], $user);
                 <td class="right mono"><?= h(money(documents_sum($byKind[$kind], 'balance'))) ?></td>
               <?php endif; ?>
               <?php if ($kind === 'receipt'): ?>
-                <td class="right mono"><?= h(money(array_sum(array_map(static fn ($d) => (float) document_due_amount($d), $byKind[$kind])))) ?></td>
+                <td class="right mono"><?= h(money(latest_receipt_due_among($byKind[$kind]))) ?></td>
               <?php endif; ?>
               <td colspan="2"></td>
             </tr>

@@ -61,13 +61,13 @@ $invoices = attach_document_totals(db_all(
 ));
 $open = array_values(array_filter($invoices, static fn ($d) => $d['balance'] > 0));
 $saleOpen = array_values(array_filter(
-    attach_document_totals(db_all(
+    latest_sale_receipts_by_party(attach_document_totals(db_all(
         "SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id
          WHERE d.company_id = ? AND d.kind = 'receipt' AND d.status = 'issued' AND COALESCE(d.related_id, 0) = 0
          ORDER BY d.date DESC, d.id DESC",
         'i',
         [$cid]
-    )),
+    ))),
     static fn ($d) => document_due_amount($d) > 0.009
 ));
 $overdue = array_values(array_filter($open, static fn ($d) => !empty($d['due_date']) && $d['due_date'] < today()));

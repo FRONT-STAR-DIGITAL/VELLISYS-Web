@@ -2617,6 +2617,45 @@ function receipt_sale_due(array $doc): float
     return max(0, round($charge - $received - $later, 2));
 }
 
+/**
+ * Newest standalone sale receipt id for a client (running balance tip).
+ * Cached per request to keep list/footer work cheap.
+ */
+function party_latest_sale_receipt_id(int $partyId): int
+{
+    static $cache = [];
+    if ($partyId < 1) {
+        return 0;
+    }
+    if (array_key_exists($partyId, $cache)) {
+        return $cache[$partyId];
+    }
+    $row = db_one(
+        "SELECT id FROM documents
+         WHERE company_id = ? AND party_id = ? AND kind = 'receipt' AND status = 'issued'
+           AND COALESCE(related_id, 0) = 0
+         ORDER BY date DESC, id DESC
+         LIMIT 1",
+        'ii',
+        [current_company_id(), $partyId]
+    );
+    $cache[$partyId] = $row ? (int) $row['id'] : 0;
+    return $cache[$partyId];
+}
+
+function receipt_is_party_latest_sale(array $doc): bool
+{
+    if (!receipt_is_sale($doc)) {
+        return false;
+    }
+    $pid = (int) ($doc['party_id'] ?? 0);
+    if ($pid < 1) {
+        return true;
+    }
+    $latest = party_latest_sale_receipt_id($pid);
+    return $latest < 1 || $latest === (int) ($doc['id'] ?? 0);
+}
+
 function receipt_due_amount(array $doc): float
 {
     if (($doc['kind'] ?? '') !== 'receipt') {
@@ -2629,6 +2668,12 @@ function receipt_due_amount(array $doc): float
         return 0.0;
     }
     if (receipt_is_sale($doc)) {
+        // Per-client running balance: only the newest sale receipt carries Due.
+        // Older sale receipts are prior states — summing them invented fake debt
+        // (e.g. Fatima Due total 1,060,000 instead of the latest tip).
+        if (!receipt_is_party_latest_sale($doc)) {
+            return 0.0;
+        }
         return receipt_sale_due($doc);
     }
     return max(0, (float) ($doc['balance'] ?? 0));
@@ -2644,6 +2689,87 @@ function document_due_amount(array $doc): float
         return receipt_due_amount($doc);
     }
     return 0.0;
+}
+
+/**
+ * Newest receipt in a set (date desc, then id desc). Void rows skipped.
+ */
+function newest_receipt_among(array $receipts): ?array
+{
+    $best = null;
+    foreach ($receipts as $doc) {
+        if (($doc['kind'] ?? '') !== 'receipt' || ($doc['status'] ?? '') === 'void') {
+            continue;
+        }
+        if ($best === null) {
+            $best = $doc;
+            continue;
+        }
+        $da = (string) ($doc['date'] ?? '');
+        $db = (string) ($best['date'] ?? '');
+        if ($da > $db || ($da === $db && (int) ($doc['id'] ?? 0) > (int) ($best['id'] ?? 0))) {
+            $best = $doc;
+        }
+    }
+    return $best;
+}
+
+/**
+ * Live receipt due for one client: only the most recent receipt's due counts.
+ * Older sale receipts are prior running-balance states and must not be summed
+ * (that inflated Fatima-style totals like 1,060,000 from stacked Dues).
+ */
+function latest_receipt_due_among(array $receipts): float
+{
+    $best = newest_receipt_among($receipts);
+    return $best ? document_due_amount($best) : 0.0;
+}
+
+/**
+ * Sum of per-client latest receipt dues (home currency). Used for receipt list footers.
+ */
+function receipts_due_total_by_latest(array $receipts, ?string $toCurrency = null): float
+{
+    $toCurrency = $toCurrency ?: default_currency();
+    $byParty = [];
+    foreach ($receipts as $doc) {
+        if (($doc['kind'] ?? '') !== 'receipt' || ($doc['status'] ?? '') === 'void') {
+            continue;
+        }
+        $pid = (int) ($doc['party_id'] ?? 0);
+        $byParty[$pid][] = $doc;
+    }
+    $sum = 0.0;
+    foreach ($byParty as $group) {
+        $due = latest_receipt_due_among($group);
+        if ($due <= 0.009) {
+            continue;
+        }
+        $newest = newest_receipt_among($group);
+        $sum += convert_money($due, $newest ? doc_currency($newest) : $toCurrency, $toCurrency);
+    }
+    return round_money($sum, $toCurrency);
+}
+
+/**
+ * Keep only the newest sale receipt per client (list_documents is date/id desc).
+ */
+function latest_sale_receipts_by_party(array $receipts): array
+{
+    $out = [];
+    $seen = [];
+    foreach ($receipts as $doc) {
+        if (($doc['status'] ?? '') === 'void' || !receipt_is_sale($doc)) {
+            continue;
+        }
+        $pid = (int) ($doc['party_id'] ?? 0);
+        if (isset($seen[$pid])) {
+            continue;
+        }
+        $seen[$pid] = true;
+        $out[] = $doc;
+    }
+    return $out;
 }
 
 function receipt_collect_target(array $doc): int
@@ -2673,9 +2799,10 @@ function list_open_debtors(): array
         list_documents('invoice'),
         static fn ($d) => ($d['status'] ?? '') !== 'void' && document_due_amount($d) > 0.009
     ));
+    // One live receipt debt per client — the newest sale receipt only.
     $sales = array_values(array_filter(
-        list_documents('receipt'),
-        static fn ($d) => ($d['status'] ?? '') !== 'void' && receipt_is_sale($d) && document_due_amount($d) > 0.009
+        latest_sale_receipts_by_party(list_documents('receipt')),
+        static fn ($d) => document_due_amount($d) > 0.009
     ));
     $rows = array_merge($invoices, $sales);
     usort($rows, static function ($a, $b) {
