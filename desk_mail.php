@@ -71,6 +71,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $phonePrefill = (string) ($doc['party_phone2'] ?? '');
         }
     }
+    // Always show / send with country code so WhatsApp does not treat 07… as a username.
+    if ($phonePrefill !== '' && function_exists('phone_format_international')) {
+        $phonePrefill = phone_format_international($phonePrefill);
+    }
     $who = (string) ($doc['party_name'] ?? ($party['name'] ?? ''));
     if ($who === '') {
         $who = 'the team';
@@ -145,7 +149,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($channel === 'whatsapp') {
         $plain = html_to_plain($message);
-        $href = function_exists('phone_whatsapp_href') ? phone_whatsapp_href($phone, $plain) : '';
+        $digits = function_exists('phone_whatsapp_digits') ? phone_whatsapp_digits($phone) : preg_replace('/\D+/', '', $phone);
+        if ($digits === '' || strlen($digits) < 10) {
+            flash('Enter a WhatsApp number with country code (e.g. +256 7XX XXX XXX). Local 07… numbers are converted automatically.', 'err');
+            redirect('desk_mail.php' . desk_mail_query($type, $docId, $partyId) . '&channel=whatsapp');
+        }
+        $href = function_exists('phone_whatsapp_href') ? phone_whatsapp_href($phone, $plain) : ('https://wa.me/' . $digits . '?text=' . rawurlencode($plain));
         if ($href === '') {
             flash('Add the customer’s WhatsApp number (on the client, or in the phone field) to send this reminder.', 'err');
             redirect('desk_mail.php' . desk_mail_query($type, $docId, $partyId) . '&channel=whatsapp');
@@ -192,56 +201,74 @@ $pageTitle = match ($type) {
     'creditor' => 'Message supplier',
     default => 'Email',
 };
+$dialCode = function_exists('phone_default_dial_code') ? phone_default_dial_code() : '256';
 $lede = match ($type) {
-    'reminder' => 'Send a payment reminder by email from the company mailbox, or open WhatsApp using the customer’s number on file.',
-    'creditor' => 'Write to a supplier by email or WhatsApp. Email leaves from the company mailbox; WhatsApp uses their phone number.',
+    'reminder' => 'Send a payment reminder by email from the company mailbox, or open WhatsApp with the customer’s number (country code required).',
+    'creditor' => 'Write to a supplier by email or WhatsApp. WhatsApp needs a number with country code (e.g. +' . $dialCode . '…).',
     default => 'Quotations, invoices, receipts and headed letters still go from Share → Email on the sheet. Use this page for reminders, notes to creditors, and any other letter from your assigned mailbox.',
 };
+$docDue = 0.0;
+if ($doc) {
+    $docDue = function_exists('document_due_amount')
+        ? document_due_amount($doc)
+        : (float) ($doc['balance'] ?? 0);
+}
 
 layout_start($pageTitle, $user);
 ?>
 <div class="page-head">
   <div>
     <h1><?= icon('send') ?><?= h($pageTitle) ?></h1>
-    <p class="lede"><?= $lede ?></p>
+    <p class="lede"><?= h($lede) ?></p>
   </div>
   <?php if ($type === 'reminder' && $doc): ?>
     <a class="btn ghost" href="<?= h(url('document_new.php?kind=letter&party=' . (int) $doc['party_id'] . '&template=demand&related=' . (int) $doc['id'])) ?>"><?= icon('letter', 16) ?>Demand letter</a>
   <?php endif; ?>
 </div>
 
-<form class="card form-wide" method="post" data-desk-mail>
+<form class="card form-wide desk-mail-form" method="post" data-desk-mail data-dial-code="<?= h($dialCode) ?>">
   <?= csrf_field() ?>
   <input type="hidden" name="type" value="<?= h($type) ?>">
   <input type="hidden" name="document_id" value="<?= $doc ? (int) $doc['id'] : 0 ?>">
   <?php if ($allowWhatsapp): ?>
-    <fieldset class="desk-mail-channel" style="margin:0 0 14px;border:0;padding:0">
-      <legend class="label" style="margin:0 0 8px">Send by</legend>
-      <div class="radio-row" style="display:flex;flex-wrap:wrap;gap:12px 18px">
-        <label class="check"><input type="radio" name="channel" value="email" <?= $channel === 'email' ? 'checked' : '' ?> data-mail-channel> Email</label>
-        <label class="check"><input type="radio" name="channel" value="whatsapp" <?= $channel === 'whatsapp' ? 'checked' : '' ?> data-mail-channel> WhatsApp</label>
+    <fieldset class="desk-mail-channel">
+      <legend class="label">Send by</legend>
+      <div class="desk-mail-channel-toggle" role="group" aria-label="Send by">
+        <label class="desk-mail-channel-opt">
+          <input type="radio" name="channel" value="email" <?= $channel === 'email' ? 'checked' : '' ?> data-mail-channel>
+          <span><?= icon('send', 15) ?> Email</span>
+        </label>
+        <label class="desk-mail-channel-opt desk-mail-channel-wa">
+          <input type="radio" name="channel" value="whatsapp" <?= $channel === 'whatsapp' ? 'checked' : '' ?> data-mail-channel>
+          <span><?= icon('whatsapp', 15) ?> WhatsApp</span>
+        </label>
       </div>
     </fieldset>
   <?php else: ?>
     <input type="hidden" name="channel" value="email">
   <?php endif; ?>
   <p class="from-line" data-mail-from-line <?= $channel === 'whatsapp' ? 'hidden' : '' ?>><?= icon('send', 16) ?>From <?= $sendAcct ? h($fromName . ' <' . $fromEmail . '>') : 'mailbox not assigned' ?></p>
-  <p class="hint" data-wa-from-line <?= $channel === 'whatsapp' ? '' : 'hidden' ?> style="margin-top:0"><?= icon('whatsapp', 16) ?> WhatsApp opens with the customer’s number and your message ready to send.</p>
+  <p class="hint desk-mail-wa-banner" data-wa-from-line <?= $channel === 'whatsapp' ? '' : 'hidden' ?>><?= icon('whatsapp', 16) ?> Opens WhatsApp with this number and message ready — you tap Send there. Numbers must include a country code.</p>
   <?php if ($doc): ?>
-    <p class="hint" style="margin-top:10px"><?= h(kind_meta($doc['kind'])['singular']) ?> <?= h($doc['number']) ?> · <?= h($doc['party_name']) ?><?php if (isset($doc['balance'])): ?> · Balance <?= h(money((float) $doc['balance'], doc_currency($doc))) ?><?php endif; ?></p>
+    <p class="hint desk-mail-doc-meta"><?= h(kind_meta($doc['kind'])['singular']) ?> <?= h($doc['number']) ?> · <?= h($doc['party_name']) ?><?php if ($docDue > 0.009): ?> · Balance <?= h(money($docDue, doc_currency($doc))) ?><?php endif; ?></p>
   <?php endif; ?>
   <div class="form-grid">
     <div>
       <label for="party_id">Client or supplier</label>
       <select id="party_id" name="party_id" data-party-pick>
         <option value="">Choose a name…</option>
-        <?php foreach ($parties as $p): ?>
+        <?php foreach ($parties as $p):
+            $pPhone = trim((string) (($p['phone'] ?? '') !== '' ? $p['phone'] : ($p['phone2'] ?? '')));
+            $pPhoneIntl = $pPhone !== '' && function_exists('phone_format_international')
+                ? phone_format_international($pPhone)
+                : $pPhone;
+            ?>
           <option
             value="<?= (int) $p['id'] ?>"
             <?= $partyId === (int) $p['id'] ? 'selected' : '' ?>
             data-email="<?= h((string) ($p['email'] ?? '')) ?>"
-            data-phone="<?= h(trim((string) (($p['phone'] ?? '') !== '' ? $p['phone'] : ($p['phone2'] ?? '')))) ?>"
-          ><?= h($p['name']) ?><?= !empty($p['email']) ? ' · ' . h($p['email']) : '' ?><?= !empty($p['phone']) ? ' · ' . h($p['phone']) : '' ?></option>
+            data-phone="<?= h($pPhoneIntl) ?>"
+          ><?= h($p['name']) ?><?= !empty($p['email']) ? ' · ' . h($p['email']) : '' ?><?= $pPhoneIntl !== '' ? ' · ' . h($pPhoneIntl) : '' ?></option>
         <?php endforeach; ?>
       </select>
     </div>
@@ -251,8 +278,8 @@ layout_start($pageTitle, $user);
     </div>
     <div data-mail-phone-field <?= $channel === 'whatsapp' ? '' : 'hidden' ?>>
       <label for="phone">WhatsApp number</label>
-      <input id="phone" name="phone" value="<?= h($phonePrefill) ?>" placeholder="e.g. 0748602769" inputmode="tel" data-mail-phone>
-      <p class="hint" style="margin:6px 0 0">Uses the number saved on the client. You can edit it for this send.</p>
+      <input id="phone" name="phone" class="desk-mail-phone" value="<?= h($phonePrefill) ?>" placeholder="+<?= h($dialCode) ?> 7XX XXX XXX" inputmode="tel" autocomplete="tel" data-mail-phone>
+      <p class="hint" style="margin:6px 0 0">Include country code (<?= h('+' . $dialCode) ?> for this desk). A local 07… number is converted automatically before WhatsApp opens.</p>
     </div>
     <div style="grid-column:1 / -1" data-mail-subject-field <?= $channel === 'whatsapp' ? 'hidden' : '' ?>>
       <label for="subject">Subject</label>
@@ -262,10 +289,10 @@ layout_start($pageTitle, $user);
   <label for="message">Message</label>
   <?php render_rich_editor('message', 'message', $messagePrefill, ['rows' => 12, 'required' => true, 'placeholder' => 'Write the message.']); ?>
   <p class="hint" data-mail-email-hint <?= $channel === 'whatsapp' ? 'hidden' : '' ?>>The letter uses your logo on a white background. A copy also goes to <?= h(product_email()) ?> so Vellisys can follow up with the client.</p>
-  <p class="hint" data-mail-wa-hint <?= $channel === 'whatsapp' ? '' : 'hidden' ?>>WhatsApp opens in a new chat with this text. Vellisys does not send WhatsApp automatically - you tap Send in WhatsApp.</p>
-  <div class="actions" style="margin-top:12px">
+  <p class="hint" data-mail-wa-hint <?= $channel === 'whatsapp' ? '' : 'hidden' ?>>WhatsApp opens in a new chat with this text. Vellisys does not send the message for you — tap Send in WhatsApp.</p>
+  <div class="actions desk-mail-actions" style="margin-top:12px">
     <button class="btn" type="submit" data-mail-submit-email <?= $channel === 'whatsapp' ? 'hidden' : '' ?> <?= $sendAcct ? '' : 'disabled' ?>><?= icon('send') ?>Send from company mailbox</button>
-    <button class="btn" type="submit" data-mail-submit-wa <?= $channel === 'whatsapp' ? '' : 'hidden' ?>><?= icon('whatsapp') ?>Open in WhatsApp</button>
+    <button class="btn desk-mail-wa-btn" type="submit" data-mail-submit-wa <?= $channel === 'whatsapp' ? '' : 'hidden' ?>><?= icon('whatsapp') ?>Open in WhatsApp</button>
     <?php if ($doc): ?>
       <a class="btn ghost" href="<?= h(url('document_view.php?id=' . (int) $doc['id'])) ?>">Cancel</a>
     <?php endif; ?>
@@ -305,20 +332,53 @@ layout_start($pageTitle, $user);
 (function () {
   var form = document.querySelector('[data-desk-mail]');
   if (!form) return;
+  var dial = String(form.getAttribute('data-dial-code') || '256').replace(/\D+/g, '') || '256';
+  var sentCard = document.querySelector('[data-mail-sent-card]');
+
+  function digitsOnly(v) {
+    return String(v || '').replace(/\D+/g, '');
+  }
+  function toIntlPhone(raw) {
+    var d = digitsOnly(raw);
+    if (!d) return '';
+    if (d.indexOf('00') === 0) d = d.slice(2);
+    var known = ['256','254','255','250','257','211','243','251','234','233','27','971','44','1'];
+    for (var i = 0; i < known.length; i++) {
+      if (d.indexOf(known[i]) === 0 && d.length >= known[i].length + 7) {
+        return '+' + d;
+      }
+    }
+    if (d.charAt(0) === '0' && d.length >= 9 && d.length <= 11) {
+      return '+' + dial + d.replace(/^0+/, '');
+    }
+    if (d.length >= 8 && d.length <= 10) {
+      return '+' + dial + d.replace(/^0+/, '');
+    }
+    return '+' + d;
+  }
+  function normalizePhoneField() {
+    var ph = form.querySelector('[data-mail-phone]');
+    if (!ph || !ph.value.trim()) return;
+    ph.value = toIntlPhone(ph.value);
+  }
+
   function sync() {
     var ch = (form.querySelector('input[name="channel"]:checked') || {}).value || 'email';
     var wa = ch === 'whatsapp';
-    form.querySelectorAll('[data-mail-from-line], [data-mail-email-field], [data-mail-subject-field], [data-mail-email-hint], [data-mail-submit-email], [data-mail-sent-card]').forEach(function (el) {
+    form.querySelectorAll('[data-mail-from-line], [data-mail-email-field], [data-mail-subject-field], [data-mail-email-hint], [data-mail-submit-email]').forEach(function (el) {
       el.hidden = wa;
     });
     form.querySelectorAll('[data-wa-from-line], [data-mail-phone-field], [data-mail-wa-hint], [data-mail-submit-wa]').forEach(function (el) {
       el.hidden = !wa;
     });
+    if (sentCard) sentCard.hidden = wa;
+    form.classList.toggle('is-whatsapp', wa);
     var subject = form.querySelector('#subject');
     if (subject) {
       if (wa) subject.removeAttribute('required');
       else subject.setAttribute('required', 'required');
     }
+    if (wa) normalizePhoneField();
   }
   form.querySelectorAll('[data-mail-channel]').forEach(function (el) {
     el.addEventListener('change', sync);
@@ -333,9 +393,17 @@ layout_start($pageTitle, $user);
       var to = form.querySelector('[data-mail-to]');
       var ph = form.querySelector('[data-mail-phone]');
       if (to && email) to.value = email;
-      if (ph && phone) ph.value = phone;
+      if (ph && phone) ph.value = toIntlPhone(phone);
     });
   }
+  var phoneInput = form.querySelector('[data-mail-phone]');
+  if (phoneInput) {
+    phoneInput.addEventListener('blur', normalizePhoneField);
+  }
+  form.addEventListener('submit', function () {
+    var ch = (form.querySelector('input[name="channel"]:checked') || {}).value || 'email';
+    if (ch === 'whatsapp') normalizePhoneField();
+  });
   sync();
 })();
 </script>

@@ -91,6 +91,18 @@ function money($amount, ?string $currency = null): string
     return $currency . ' ' . number_format($n, $dec, '.', ',');
 }
 
+/** Amount for money inputs — thousands commas, no currency code. */
+function money_input_value($amount, ?string $currency = null): string
+{
+    $currency = normalize_currency((string) ($currency ?: default_currency()), default_currency());
+    $n = (float) $amount;
+    if (abs($n) < 0.0000001) {
+        return '';
+    }
+    $dec = money_display_decimals($n, $currency);
+    return number_format($n, $dec, '.', ',');
+}
+
 function money_behind($amount, ?string $currency = null): string
 {
     $currency = normalize_currency((string) ($currency ?: default_currency()), default_currency());
@@ -3318,21 +3330,114 @@ function phone_digits(string $phone): string
     return preg_replace('/\D+/', '', $phone) ?? '';
 }
 
-function phone_tel_href(string $phone): string
+/** Default WhatsApp/SMS country dial code for this desk (no +). */
+function phone_default_dial_code(): string
 {
-    $digits = phone_digits($phone);
+    static $cached = null;
+    if ($cached !== null) {
+        return $cached;
+    }
+    $byCountry = [
+        'Uganda' => '256',
+        'Kenya' => '254',
+        'Tanzania' => '255',
+        'Rwanda' => '250',
+        'Burundi' => '257',
+        'South Sudan' => '211',
+        'Democratic Republic of the Congo' => '243',
+        'Ethiopia' => '251',
+        'Nigeria' => '234',
+        'Ghana' => '233',
+        'South Africa' => '27',
+        'United Arab Emirates' => '971',
+        'United Kingdom' => '44',
+        'United States' => '1',
+    ];
+    $byCurrency = [
+        'UGX' => '256',
+        'KES' => '254',
+        'TZS' => '255',
+        'RWF' => '250',
+        'BIF' => '257',
+        'NGN' => '234',
+        'GHS' => '233',
+        'ZAR' => '27',
+        'AED' => '971',
+        'GBP' => '44',
+        'USD' => '1',
+    ];
+    $country = '';
+    if (function_exists('current_company') && function_exists('company_loc')) {
+        $company = current_company();
+        if (is_array($company)) {
+            $country = company_loc($company, 'country');
+        }
+    }
+    if ($country !== '' && isset($byCountry[$country])) {
+        return $cached = $byCountry[$country];
+    }
+    $ccy = function_exists('default_currency') ? default_currency() : 'UGX';
+    return $cached = ($byCurrency[$ccy] ?? '256');
+}
+
+/**
+ * Digits for WhatsApp / tel with country code.
+ * Converts local 07… / 7… numbers using the desk dial code so wa.me does not
+ * treat "0752454100" as a username.
+ */
+function phone_whatsapp_digits(string $phone): string
+{
+    $trimmed = trim($phone);
+    if ($trimmed === '') {
+        return '';
+    }
+    $digits = phone_digits($trimmed);
     if ($digits === '') {
         return '';
     }
-    if (!str_starts_with($digits, '0') && strlen($digits) >= 9) {
-        return 'tel:+' . $digits;
+    if (str_starts_with($digits, '00')) {
+        $digits = substr($digits, 2);
     }
-    return 'tel:' . $digits;
+    $dial = phone_default_dial_code();
+    $known = ['256', '254', '255', '250', '257', '211', '243', '251', '234', '233', '27', '971', '44', '1'];
+    foreach ($known as $code) {
+        if (str_starts_with($digits, $code) && strlen($digits) >= strlen($code) + 7) {
+            return $digits;
+        }
+    }
+    // Local trunk prefix 0…
+    if (str_starts_with($digits, '0') && strlen($digits) >= 9 && strlen($digits) <= 11) {
+        return $dial . ltrim($digits, '0');
+    }
+    // Bare national number (common East Africa mobile length).
+    if (strlen($digits) >= 8 && strlen($digits) <= 10) {
+        return $dial . ltrim($digits, '0');
+    }
+    return $digits;
+}
+
+/** Display form +2567… for inputs / hints. */
+function phone_format_international(string $phone): string
+{
+    $digits = phone_whatsapp_digits($phone);
+    if ($digits === '') {
+        return trim($phone);
+    }
+    return '+' . $digits;
+}
+
+function phone_tel_href(string $phone): string
+{
+    $digits = phone_whatsapp_digits($phone);
+    if ($digits === '') {
+        return '';
+    }
+    return 'tel:+' . $digits;
 }
 
 function phone_whatsapp_href(string $phone, string $text = ''): string
 {
-    $digits = phone_digits($phone);
+    $digits = phone_whatsapp_digits($phone);
     if ($digits === '') {
         return '';
     }

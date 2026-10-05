@@ -442,7 +442,7 @@ function render_ledger_add_form(string $side, array $parties, bool $open = false
       </div>
       <div>
         <label for="ledger-amount">Amount</label>
-        <input id="ledger-amount" name="amount" inputmode="decimal" required placeholder="0.00">
+        <input id="ledger-amount" name="amount" inputmode="decimal" required placeholder="0" data-money-commas autocomplete="off">
       </div>
       <div>
         <label for="ledger-due">Due date</label>

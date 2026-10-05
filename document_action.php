@@ -24,7 +24,7 @@ if ($payId && $_SERVER['REQUEST_METHOD'] !== 'POST') {
       <input type="hidden" name="action" value="pay">
       <input type="hidden" name="id" value="<?= $payId ?>">
       <label for="amount">Amount (<?= h(doc_currency($doc)) ?>)</label>
-      <input id="amount" name="amount" inputmode="decimal" required value="<?= h((string) $balance) ?>">
+      <input id="amount" name="amount" inputmode="decimal" required value="<?= h(money_input_value($balance, doc_currency($doc))) ?>" data-money-commas autocomplete="off">
       <label for="payment_method">Paid how</label>
       <select id="payment_method" name="payment_method">
         <?php foreach (payment_methods() as $k => $label): ?>
@@ -69,7 +69,7 @@ if ($receiveId && $_SERVER['REQUEST_METHOD'] !== 'POST') {
       <input type="hidden" name="action" value="receive">
       <input type="hidden" name="id" value="<?= $receiveId ?>">
       <label for="amount">Amount received (<?= h(doc_currency($doc)) ?>)</label>
-      <input id="amount" name="amount" inputmode="decimal" required value="<?= h((string) $balance) ?>">
+      <input id="amount" name="amount" inputmode="decimal" required value="<?= h(money_input_value($balance, doc_currency($doc))) ?>" data-money-commas autocomplete="off">
       <p class="hint">Leave the full balance to clear this sale, or type a smaller figure for a part payment.</p>
       <label for="payment_method">Paid how</label>
       <select id="payment_method" name="payment_method">
@@ -106,7 +106,7 @@ if ($receiveId && $_SERVER['REQUEST_METHOD'] !== 'POST') {
       <input type="hidden" name="action" value="receive">
       <input type="hidden" name="id" value="<?= $receiveId ?>">
       <label for="amount">Amount received (<?= h(doc_currency($doc)) ?>)</label>
-      <input id="amount" name="amount" inputmode="decimal" required value="<?= h((string) $balance) ?>">
+      <input id="amount" name="amount" inputmode="decimal" required value="<?= h(money_input_value($balance, doc_currency($doc))) ?>" data-money-commas autocomplete="off">
       <p class="hint">Leave the full balance for a complete receipt, or type a smaller figure for a part payment.</p>
       <label for="payment_method">Paid how</label>
       <select id="payment_method" name="payment_method">

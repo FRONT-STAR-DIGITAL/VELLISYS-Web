@@ -211,7 +211,13 @@ while (kind_uses_lines($kind) && count($lines) < $minLines) {
 $heading = $existing ? 'Edit ' . strtolower($meta['singular']) : $meta['verb'];
 $docCurrency = $existing ? doc_currency($existing) : default_currency();
 $docTpl = $existing ? doc_template_key($existing) : doc_template_key();
-$allocValue = $existing ? (string) ($existing['allocated_amount'] ?: ($existing['totals']['total'] ?? '')) : '';
+$allocValue = '';
+if ($existing) {
+    $allocRaw = $existing['allocated_amount'] ?: ($existing['totals']['total'] ?? '');
+    if ($allocRaw !== '' && $allocRaw !== null) {
+        $allocValue = money_input_value((float) $allocRaw, $docCurrency);
+    }
+}
 $toParty = $prefillParty ? db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$prefillParty, current_company_id()]) : null;
 if ($toParty && party_status($toParty) !== 'active') {
     $found = false;
@@ -429,7 +435,7 @@ layout_start($heading, $user, ['kind' => $kind]);
       </div>
       <div>
         <label for="allocated_amount">Refund amount</label>
-        <input id="allocated_amount" name="allocated_amount" inputmode="decimal" value="<?= h($allocValue) ?>" placeholder="Leave blank to use the line total">
+        <input id="allocated_amount" name="allocated_amount" inputmode="decimal" value="<?= h($allocValue) ?>" placeholder="Leave blank to use the line total" data-money-commas autocomplete="off">
       </div>
     <?php endif; ?>
     <?php if ($kind === 'return_note'): ?>
@@ -446,7 +452,7 @@ layout_start($heading, $user, ['kind' => $kind]);
       <?php if ($kind === 'receipt'): ?>
         <div>
           <label for="allocated_amount">Amount received</label>
-          <input id="allocated_amount" name="allocated_amount" inputmode="decimal" value="<?= h($allocValue) ?>" placeholder="Leave blank to use the line total">
+          <input id="allocated_amount" name="allocated_amount" inputmode="decimal" value="<?= h($allocValue) ?>" placeholder="Leave blank to use the line total" data-money-commas autocomplete="off">
         </div>
       <?php endif; ?>
       <div>
@@ -595,9 +601,9 @@ layout_start($heading, $user, ['kind' => $kind]);
                 </div>
               </td>
                   <?php elseif ($key === 'rate'): ?>
-              <td class="line-rate"><input name="item_rate[<?= $i ?>]" type="number" min="0" step="any" inputmode="decimal" placeholder="0" value="<?= h((string) ($line['rate'] ?? '')) ?>" data-line-rate></td>
+              <td class="line-rate"><input name="item_rate[<?= $i ?>]" inputmode="decimal" placeholder="0" value="<?= ($line['rate'] ?? '') !== '' && ($line['rate'] ?? '') !== null ? h(money_input_value((float) $line['rate'], $docCurrency ?? null)) : '' ?>" data-line-rate data-money-commas autocomplete="off"></td>
                   <?php elseif ($key === 'total'): ?>
-              <td class="line-total right"><input name="item_total[<?= $i ?>]" inputmode="decimal" placeholder="0" value="<?= $lineTotal ? h(rtrim(rtrim(number_format($lineTotal, 2, '.', ''), '0'), '.')) : '' ?>" data-line-total autocomplete="off"></td>
+              <td class="line-total right"><input name="item_total[<?= $i ?>]" inputmode="decimal" placeholder="0" value="<?= $lineTotal ? h(money_input_value((float) $lineTotal, $docCurrency ?? null)) : '' ?>" data-line-total data-money-commas autocomplete="off"></td>
                   <?php elseif ($key === 'vat'): ?>
               <td class="line-vat center">
                 <label class="vat-yn">

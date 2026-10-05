@@ -2270,6 +2270,71 @@ td.row-actions {
   }
 }
 
+.desk-mail-channel {
+  margin: 0 0 16px;
+  border: 0;
+  padding: 0;
+}
+.desk-mail-channel-toggle {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--line) 55%, #fff);
+  border: 1px solid var(--line);
+}
+.desk-mail-channel-opt {
+  position: relative;
+  margin: 0;
+  cursor: pointer;
+}
+.desk-mail-channel-opt input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.desk-mail-channel-opt span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.desk-mail-channel-opt input:checked + span {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, .1);
+}
+.desk-mail-channel-wa input:checked + span {
+  background: #25d366;
+  color: #fff;
+}
+.desk-mail-wa-banner {
+  margin-top: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, #25d366 12%, #fff);
+  border: 1px solid color-mix(in srgb, #25d366 28%, var(--line));
+  color: #0f5c43;
+}
+.desk-mail-doc-meta { margin-top: 10px; }
+.desk-mail-phone {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .02em;
+}
+.desk-mail-wa-btn {
+  background: #25d366 !important;
+  border-color: #1dae57 !important;
+  color: #fff !important;
+}
+.desk-mail-form.is-whatsapp .desk-mail-actions [data-mail-submit-email] {
+  display: none !important;
+}
+
 label { display: block; font-size: 12px; font-weight: 600; margin: 14px 0 6px; }
 input, select, textarea {
   width: 100%;

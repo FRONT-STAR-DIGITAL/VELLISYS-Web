@@ -1021,11 +1021,34 @@ function parseLineNumber(v) {
   return isNaN(n) ? 0 : n;
 }
 
+function formatMoneyCommas(raw, allowDecimals) {
+  var s = String(raw == null ? '' : raw).replace(/,/g, '').trim();
+  if (s === '') return '';
+  var neg = s.charAt(0) === '-';
+  if (neg) s = s.slice(1);
+  s = s.replace(/[^\d.]/g, '');
+  if (s === '') return neg ? '-' : '';
+  var parts = s.split('.');
+  var intPart = parts[0] || '0';
+  intPart = intPart.replace(/^0+(?=\d)/, '');
+  intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  var out = (neg ? '-' : '') + intPart;
+  if (allowDecimals && parts.length > 1) {
+    out += '.' + parts.slice(1).join('').replace(/\D/g, '').slice(0, 2);
+  }
+  return out;
+}
+
 function setLineTotalDisplay(el, n) {
   if (!el) return;
-  var text = n ? String(Math.round(n * 100) / 100) : '';
+  if (!n) {
+    if (el.tagName === 'INPUT') el.value = '';
+    else el.textContent = '0';
+    return;
+  }
+  var text = formatMoneyCommas(String(Math.round(n * 100) / 100), true);
   if (el.tagName === 'INPUT') el.value = text;
-  else el.textContent = n ? n.toLocaleString('en-US', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }) : '0';
+  else el.textContent = text || '0';
 }
 
 function updateLineTotal(row, fromTotal) {
@@ -1039,7 +1062,7 @@ function updateLineTotal(row, fromTotal) {
       qty = 1;
       if (qtyEl) qtyEl.value = '1';
     }
-    if (rateEl) rateEl.value = String(Math.round((total / qty) * 100) / 100);
+    if (rateEl) rateEl.value = formatMoneyCommas(String(Math.round((total / qty) * 100) / 100), true);
     return;
   }
   var qty = parseLineNumber(qtyEl && qtyEl.value);
@@ -2643,4 +2666,48 @@ document.addEventListener('click', function (e) {
     a.remove();
   });
 });
+
+/** Auto thousands-commas on money amount fields while typing. */
+(function moneyCommaInputs() {
+  function isMoneyField(el) {
+    if (!el || el.disabled || el.readOnly) return false;
+    if (el.matches('[data-money-commas], #allocated_amount, #ledger-amount, [data-line-rate], [data-line-total], [data-pos-paid], [data-pos-discount]')) {
+      return true;
+    }
+    if (el.matches('input[name="amount"], input[name="paid"], input[name="fee_amount"], input[name="fee_paid"], input[name="pay_amount"]')) {
+      return true;
+    }
+    return false;
+  }
+  function allowDecimals(el) {
+    var ccy = '';
+    try {
+      ccy = (typeof docCurrencyCode === 'function' ? docCurrencyCode() : '') || '';
+    } catch (e1) {}
+    if (ccy === 'UGX' || ccy === 'RWF' || ccy === 'JPY') return false;
+    return true;
+  }
+  function apply(el) {
+    if (!isMoneyField(el)) return;
+    var start = el.selectionStart;
+    var before = el.value;
+    var next = formatMoneyCommas(before, allowDecimals(el));
+    if (next === before) return;
+    el.value = next;
+    if (typeof start === 'number' && el === document.activeElement) {
+      var diff = next.length - before.length;
+      var pos = Math.max(0, start + diff);
+      try { el.setSelectionRange(pos, pos); } catch (e2) {}
+    }
+  }
+  document.addEventListener('input', function (e) {
+    if (e.target && e.target.tagName === 'INPUT') apply(e.target);
+  });
+  document.addEventListener('blur', function (e) {
+    if (e.target && e.target.tagName === 'INPUT') apply(e.target);
+  }, true);
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('input[data-money-commas], #allocated_amount, #ledger-amount, [data-line-rate], [data-line-total]').forEach(apply);
+  });
+})();
 
