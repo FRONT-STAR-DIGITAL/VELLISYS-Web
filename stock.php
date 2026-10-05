@@ -148,6 +148,9 @@ $catalog = stock_catalog_payload();
 $suppliers = db_all("SELECT id, name FROM parties WHERE company_id = ? AND kind = 'supplier' ORDER BY name LIMIT 250", 'i', [current_company_id()]);
 $q = stock_q();
 $extraJs = '';
+$postedAction = (string) ($_POST['action'] ?? '');
+$showStockAdd = (bool) $edit || isset($_GET['add']) || ($error !== '' && $postedAction === 'save_item');
+$showStockImport = isset($_GET['import']) || ($error !== '' && $postedAction === 'import');
 
 layout_start('Stock', $user);
 ?>
@@ -157,7 +160,11 @@ layout_start('Stock', $user);
     <p class="lede">Products and services. Counts, purchases and stock value cover goods only. Sales and invoices can pick either.</p>
   </div>
   <div class="actions page-actions">
-    <a class="btn" href="<?= h(url('sale.php')) ?>"><?= icon('cart', 16) ?>Sale</a>
+    <?php if ($tab === 'items'): ?>
+      <a class="btn" href="<?= h(url('stock.php?tab=items&add=1#stock-add')) ?>"><?= icon('plus', 16) ?>Add item</a>
+      <a class="btn ghost" href="<?= h(url('stock.php?tab=items&import=1#stock-import')) ?>"><?= icon('download', 16) ?>Import stock</a>
+    <?php endif; ?>
+    <a class="btn ghost" href="<?= h(url('sale.php')) ?>"><?= icon('cart', 16) ?>Sale</a>
   </div>
 </div>
 <?php render_stock_subnav($tab); ?>
@@ -168,121 +175,24 @@ layout_start('Stock', $user);
     $filtered = stock_filter_items($items, $q);
     $page = stock_slice($filtered, stock_page_key('p'));
     ?>
-<div class="stats">
+<div class="stats stock-stats">
   <div class="card stat"><?= icon('package', 20) ?><span>Products</span><strong><?= (int) $stats['items'] ?></strong></div>
   <div class="card stat"><?= icon('bank', 20) ?><span>Stock at cost</span><strong><?= h(money($stats['cost'])) ?></strong></div>
   <div class="card stat"><?= icon('invoice', 20) ?><span>Stock at sell</span><strong><?= h(money($stats['sell'])) ?></strong></div>
   <div class="card stat"><?= icon('alert', 20) ?><span>Low stock</span><strong><?= (int) $stats['low'] ?></strong></div>
 </div>
-<?php if ($low): ?>
-<div class="card" style="margin-bottom:16px">
-  <div class="card-head"><h2><?= icon('alert', 16) ?>Low stock</h2></div>
-  <div class="table-scroll">
-    <table class="grid">
-      <thead><tr><th>Item</th><th class="right">On hand</th><th class="right">Reorder at</th><th>Actions</th></tr></thead>
-      <tbody>
-        <?php foreach ($low as $row): ?>
-          <tr>
-            <td><?= h($row['name']) ?></td>
-            <td class="right mono"><?= h(stock_qty_label((float) $row['qty_on_hand'])) ?></td>
-            <td class="right mono"><?= h(stock_qty_label((float) $row['reorder_level'])) ?></td>
-            <td class="row-actions">
-              <a class="btn ghost sm" href="<?= h(url('stock.php?tab=items&edit=' . (int) $row['id'])) ?>"><?= icon('pencil', 14) ?>Edit</a>
-              <?php stock_delete_button((int) $row['id']); ?>
-            </td>
-          </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
-  </div>
-</div>
-<?php endif; ?>
-<div class="desk-grid stock-split">
-  <div class="card">
-    <div class="card-head"><h2><?= icon($edit ? 'pencil' : 'plus', 16) ?><?= $edit ? (stock_item_is_service($edit) ? 'Edit service' : 'Edit product') : 'Add item' ?></h2></div>
-    <form method="post" class="pad-form" data-stock-item-form>
-      <?= csrf_field() ?>
-      <input type="hidden" name="action" value="save_item">
-      <input type="hidden" name="item_id" value="<?= $edit ? (int) $edit['id'] : 0 ?>">
-      <div class="form-grid">
-        <div style="grid-column:1 / -1">
-          <span class="label">Kind</span>
-          <div class="radio-row" style="display:flex;gap:16px;flex-wrap:wrap;margin:6px 0 4px">
-            <label class="check"><input type="radio" name="item_kind" value="product" <?= !$edit || !stock_item_is_service($edit) ? 'checked' : '' ?>> Product (stock)</label>
-            <label class="check"><input type="radio" name="item_kind" value="service" <?= $edit && stock_item_is_service($edit) ? 'checked' : '' ?>> Service</label>
-          </div>
-          <p class="hint">Services have a selling price only. They do not use opening quantity, buying price or stock counts.</p>
-        </div>
-        <div>
-          <label for="name">Item name</label>
-          <input id="name" name="name" required value="<?= h((string) ($edit['name'] ?? '')) ?>" placeholder="Rice 25kg">
-        </div>
-        <div>
-          <label for="sku">Code (SKU)</label>
-          <input id="sku" name="sku" value="<?= h((string) ($edit['sku'] ?? '')) ?>" placeholder="RICE25">
-        </div>
-        <div style="grid-column:1 / -1">
-          <label for="description">Description</label>
-          <input id="description" name="description" value="<?= h((string) ($edit['description'] ?? '')) ?>">
-        </div>
-        <div>
-          <label for="unit">Unit</label>
-          <input id="unit" name="unit" value="<?= h((string) ($edit['unit'] ?? 'pc')) ?>">
-        </div>
-        <div data-stock-goods>
-          <label for="buy_price">Buying price</label>
-          <input id="buy_price" name="buy_price" inputmode="decimal" value="<?= h($edit && !stock_item_is_service($edit) ? (string) $edit['buy_price'] : '') ?>">
-        </div>
-        <div>
-          <label for="sell_price">Selling price</label>
-          <input id="sell_price" name="sell_price" inputmode="decimal" value="<?= h($edit ? (string) $edit['sell_price'] : '') ?>">
-        </div>
-        <div data-stock-goods>
-          <label for="reorder_level">Reorder level</label>
-          <input id="reorder_level" name="reorder_level" inputmode="decimal" value="<?= h($edit && !stock_item_is_service($edit) ? (string) $edit['reorder_level'] : '') ?>">
-        </div>
-        <?php if (!$edit): ?>
-        <div data-stock-goods>
-          <label for="qty_on_hand">Opening quantity</label>
-          <input id="qty_on_hand" name="qty_on_hand" inputmode="decimal" value="0">
-        </div>
-        <?php endif; ?>
-      </div>
-      <label class="check"><input type="checkbox" name="taxed" value="1" <?= $edit ? (!empty($edit['taxed']) ? 'checked' : '') : (company_tax_default() ? 'checked' : '') ?>> <?= h($taxName) ?> on this item</label>
-      <?php if ($edit): ?>
-        <label class="check"><input type="checkbox" name="active" value="0" <?= empty($edit['active']) ? 'checked' : '' ?>> Hide from sales</label>
-      <?php endif; ?>
-      <div class="actions" style="margin-top:12px">
-        <button class="btn" type="submit"><?= icon('check') ?>Save item</button>
-        <?php if ($edit): ?><a class="btn ghost" href="<?= h(url('stock.php?tab=items')) ?>">Cancel</a><?php endif; ?>
-        <?php if ($edit && user_can_delete_stock()): ?>
-          <button class="btn danger" type="submit" name="action" value="delete_item" formnovalidate onclick="return confirm('Delete this item? Sheets already issued keep the name. This cannot be undone.');"><?= icon('trash') ?>Delete</button>
-        <?php endif; ?>
-      </div>
-    </form>
-  </div>
-  <div class="card">
-    <div class="card-head"><h2><?= icon('download', 16) ?>Excel in / out</h2></div>
-    <div class="pad-form">
-      <p class="lede">Download the sheet, fill products and services, upload it. Type is <code>product</code> or <code>service</code>.</p>
-      <p><a class="btn ghost" href="<?= h(url('stock.php?template=1')) ?>"><?= icon('download', 16) ?>Download Excel template</a></p>
-      <form method="post" enctype="multipart/form-data">
-        <?= csrf_field() ?>
-        <input type="hidden" name="action" value="import">
-        <label for="file">Upload filled sheet</label>
-        <input id="file" name="file" type="file" accept=".xlsx,.csv,.txt" required>
-        <div class="actions" style="margin-top:12px">
-          <button class="btn" type="submit"><?= icon('plus') ?>Upload items</button>
-        </div>
-      </form>
+
+<div class="card stock-items-card" id="stock-items">
+  <div class="card-head stock-items-head">
+    <h2><?= icon('package', 16) ?>All items</h2>
+    <div class="actions">
+      <a class="btn sm" href="<?= h(url('stock.php?tab=items&add=1#stock-add')) ?>"><?= icon('plus', 14) ?>Add item</a>
+      <a class="btn ghost sm" href="<?= h(url('stock.php?tab=items&import=1#stock-import')) ?>"><?= icon('download', 14) ?>Import stock</a>
     </div>
   </div>
-</div>
-<div class="card" style="margin-top:16px">
-  <div class="card-head"><h2><?= icon('package', 16) ?>All items</h2></div>
   <div class="pad-form"><?php stock_search_bar('stock.php', ['tab' => 'items'], 'Search products and services'); ?></div>
   <?php if (!$page['rows']): ?>
-    <p class="empty">No products match. Add one, or upload the Excel sheet.</p>
+    <p class="empty">No products match. Use Add item or Import stock.</p>
   <?php else: ?>
     <div class="table-scroll">
       <table class="grid"<?= (int) $page['from'] > 1 ? ' style="counter-reset: grid-row ' . ((int) $page['from'] - 1) . '"' : '' ?>>
@@ -306,7 +216,7 @@ layout_start('Stock', $user);
               <td class="right mono"><?= $svc ? '-' : h(stock_qty_label((float) $row['reorder_level'])) ?></td>
               <td><?= !empty($row['taxed']) ? 'Y' : 'N' ?></td>
               <td class="row-actions">
-                <a class="btn ghost sm" href="<?= h(url('stock.php?tab=items&edit=' . (int) $row['id'])) ?>"><?= icon('pencil', 14) ?>Edit</a>
+                <a class="btn ghost sm" href="<?= h(url('stock.php?tab=items&edit=' . (int) $row['id'] . '#stock-add')) ?>"><?= icon('pencil', 14) ?>Edit</a>
                 <?php stock_delete_button((int) $row['id']); ?>
                 <a class="btn ghost sm" href="<?= h(url('sale.php')) ?>"><?= icon('cart', 14) ?>Sell</a>
               </td>
@@ -317,6 +227,95 @@ layout_start('Stock', $user);
     </div>
     <?php stock_pager('stock.php?tab=items', (int) $page['page'], (int) $page['pages'], 'p'); ?>
   <?php endif; ?>
+</div>
+
+<?php if ($low): ?>
+<div class="card" style="margin-top:16px">
+  <div class="card-head"><h2><?= icon('alert', 16) ?>Low stock</h2></div>
+  <div class="table-scroll">
+    <table class="grid">
+      <thead><tr><th>Item</th><th class="right">On hand</th><th class="right">Reorder at</th><th>Actions</th></tr></thead>
+      <tbody>
+        <?php foreach ($low as $row): ?>
+          <tr>
+            <td><?= h($row['name']) ?></td>
+            <td class="right mono"><?= h(stock_qty_label((float) $row['qty_on_hand'])) ?></td>
+            <td class="right mono"><?= h(stock_qty_label((float) $row['reorder_level'])) ?></td>
+            <td class="row-actions">
+              <a class="btn ghost sm" href="<?= h(url('stock.php?tab=items&edit=' . (int) $row['id'] . '#stock-add')) ?>"><?= icon('pencil', 14) ?>Edit</a>
+              <?php stock_delete_button((int) $row['id']); ?>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+</div>
+<?php endif; ?>
+
+<?php if ($showStockAdd): ?>
+<div class="card" style="margin-top:16px" id="stock-add">
+  <div class="card-head"><h2><?= icon($edit ? 'pencil' : 'plus', 16) ?><?= $edit ? (stock_item_is_service($edit) ? 'Edit service' : 'Edit product') : 'Add item' ?></h2></div>
+  <form method="post" class="pad-form" data-stock-item-form>
+    <?= csrf_field() ?>
+    <input type="hidden" name="action" value="save_item">
+    <input type="hidden" name="item_id" value="<?= $edit ? (int) $edit['id'] : 0 ?>">
+    <div class="form-grid">
+      <div style="grid-column:1 / -1">
+        <span class="label">Kind</span>
+        <div class="radio-row" style="display:flex;gap:16px;flex-wrap:wrap;margin:6px 0 4px">
+          <label class="check"><input type="radio" name="item_kind" value="product" <?= !$edit || !stock_item_is_service($edit) ? 'checked' : '' ?>> Product (stock)</label>
+          <label class="check"><input type="radio" name="item_kind" value="service" <?= $edit && stock_item_is_service($edit) ? 'checked' : '' ?>> Service</label>
+        </div>
+        <p class="hint">Services have a selling price only. They do not use opening quantity, buying price or stock counts.</p>
+      </div>
+      <div>
+        <label for="name">Item name</label>
+        <input id="name" name="name" required value="<?= h((string) ($edit['name'] ?? '')) ?>" placeholder="Rice 25kg">
+      </div>
+      <div>
+        <label for="sku">Code (SKU)</label>
+        <input id="sku" name="sku" value="<?= h((string) ($edit['sku'] ?? '')) ?>" placeholder="RICE25">
+      </div>
+      <div style="grid-column:1 / -1">
+        <label for="description">Description</label>
+        <input id="description" name="description" value="<?= h((string) ($edit['description'] ?? '')) ?>">
+      </div>
+      <div>
+        <label for="unit">Unit</label>
+        <input id="unit" name="unit" value="<?= h((string) ($edit['unit'] ?? 'pc')) ?>">
+      </div>
+      <div data-stock-goods>
+        <label for="buy_price">Buying price</label>
+        <input id="buy_price" name="buy_price" inputmode="decimal" value="<?= h($edit && !stock_item_is_service($edit) ? (string) $edit['buy_price'] : '') ?>">
+      </div>
+      <div>
+        <label for="sell_price">Selling price</label>
+        <input id="sell_price" name="sell_price" inputmode="decimal" value="<?= h($edit ? (string) $edit['sell_price'] : '') ?>">
+      </div>
+      <div data-stock-goods>
+        <label for="reorder_level">Reorder level</label>
+        <input id="reorder_level" name="reorder_level" inputmode="decimal" value="<?= h($edit && !stock_item_is_service($edit) ? (string) $edit['reorder_level'] : '') ?>">
+      </div>
+      <?php if (!$edit): ?>
+      <div data-stock-goods>
+        <label for="qty_on_hand">Opening quantity</label>
+        <input id="qty_on_hand" name="qty_on_hand" inputmode="decimal" value="0">
+      </div>
+      <?php endif; ?>
+    </div>
+    <label class="check"><input type="checkbox" name="taxed" value="1" <?= $edit ? (!empty($edit['taxed']) ? 'checked' : '') : (company_tax_default() ? 'checked' : '') ?>> <?= h($taxName) ?> on this item</label>
+    <?php if ($edit): ?>
+      <label class="check"><input type="checkbox" name="active" value="0" <?= empty($edit['active']) ? 'checked' : '' ?>> Hide from sales</label>
+    <?php endif; ?>
+    <div class="actions" style="margin-top:12px">
+      <button class="btn" type="submit"><?= icon('check') ?>Save item</button>
+      <a class="btn ghost" href="<?= h(url('stock.php?tab=items')) ?>">Cancel</a>
+      <?php if ($edit && user_can_delete_stock()): ?>
+        <button class="btn danger" type="submit" name="action" value="delete_item" formnovalidate onclick="return confirm('Delete this item? Sheets already issued keep the name. This cannot be undone.');"><?= icon('trash') ?>Delete</button>
+      <?php endif; ?>
+    </div>
+  </form>
 </div>
 <script>
 (function () {
@@ -333,6 +332,27 @@ layout_start('Stock', $user);
   sync();
 })();
 </script>
+<?php endif; ?>
+
+<?php if ($showStockImport): ?>
+<div class="card" style="margin-top:16px" id="stock-import">
+  <div class="card-head"><h2><?= icon('download', 16) ?>Import stock</h2></div>
+  <div class="pad-form">
+    <p class="lede">Download the sheet, fill products and services, upload it. Type is <code>product</code> or <code>service</code>.</p>
+    <p><a class="btn ghost" href="<?= h(url('stock.php?template=1')) ?>"><?= icon('download', 16) ?>Download Excel template</a></p>
+    <form method="post" enctype="multipart/form-data">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="import">
+      <label for="file">Upload filled sheet</label>
+      <input id="file" name="file" type="file" accept=".xlsx,.csv,.txt" required>
+      <div class="actions" style="margin-top:12px">
+        <button class="btn" type="submit"><?= icon('plus') ?>Upload items</button>
+        <a class="btn ghost" href="<?= h(url('stock.php?tab=items')) ?>">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+<?php endif; ?>
 
 <?php elseif ($tab === 'counts'):
     $activeItems = array_values(array_filter($items, static fn ($r) => !empty($r['active']) && !stock_item_is_service($r)));
