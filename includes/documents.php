@@ -2417,7 +2417,33 @@ function document_share_message(array $doc): string
 
 function document_whatsapp_url(array $doc): string
 {
-    return 'https://wa.me/?text=' . rawurlencode(document_share_message($doc));
+    $text = document_share_message($doc);
+    // Prefer the client's number on the document (same as desk_mail WhatsApp reminders).
+    $phone = trim((string) ($doc['party_phone'] ?? ''));
+    if ($phone === '') {
+        $phone = trim((string) ($doc['party_phone2'] ?? ''));
+    }
+    if ($phone === '' && !empty($doc['party_id']) && function_exists('db_one')) {
+        $party = db_one(
+            'SELECT phone, phone2 FROM parties WHERE id = ? AND company_id = ?',
+            'ii',
+            [(int) $doc['party_id'], current_company_id()]
+        );
+        if ($party) {
+            $phone = trim((string) ($party['phone'] ?? ''));
+            if ($phone === '') {
+                $phone = trim((string) ($party['phone2'] ?? ''));
+            }
+        }
+    }
+    if ($phone !== '' && function_exists('phone_whatsapp_href')) {
+        $href = phone_whatsapp_href($phone, $text);
+        if ($href !== '') {
+            return $href;
+        }
+    }
+    // No client number on file — open WhatsApp with the message only.
+    return 'https://wa.me/?text=' . rawurlencode($text);
 }
 
 function document_mailto_url(array $doc): string
@@ -2582,8 +2608,11 @@ function receipt_due_amount(array $doc): float
     if (($doc['kind'] ?? '') !== 'receipt') {
         return 0.0;
     }
-    if (isset($doc['invoice_balance'])) {
-        return max(0, (float) $doc['invoice_balance']);
+    // Follow-up / allocation receipts already applied cash — remaining balance
+    // lives on the parent invoice, expense or sale. Never copy parent remain
+    // onto every payment row (that made Due footers sum the same debt N times).
+    if ((int) ($doc['related_id'] ?? 0) > 0) {
+        return 0.0;
     }
     if (receipt_is_sale($doc)) {
         return receipt_sale_due($doc);
@@ -2619,7 +2648,9 @@ function receipt_collect_target(array $doc): int
     if ($rid <= 0) {
         return receipt_sale_due($doc) > 0.009 ? (int) $doc['id'] : 0;
     }
-    return receipt_due_amount($doc) > 0.009 ? $rid : 0;
+    // Follow-up receipt: collect more against parent sale/invoice when it still owes.
+    $parentRemain = isset($doc['invoice_balance']) ? (float) $doc['invoice_balance'] : 0.0;
+    return $parentRemain > 0.009 ? $rid : 0;
 }
 
 function list_open_debtors(): array
@@ -2965,6 +2996,15 @@ function attach_document_totals(array $rows): array
 
 function document_make_payment_href(array $doc): string
 {
+    if (($doc['status'] ?? '') === 'void') {
+        return '';
+    }
+    $kind = (string) ($doc['kind'] ?? '');
+    // Creditor bills: pay against the expense.
+    if ($kind === 'expense') {
+        $due = function_exists('document_due_amount') ? document_due_amount($doc) : (float) ($doc['balance'] ?? 0);
+        return $due > 0.009 ? url('document_action.php?pay=' . (int) $doc['id']) : '';
+    }
     $target = receipt_collect_target($doc);
     if ($target <= 0) {
         return '';
@@ -2978,9 +3018,11 @@ function render_make_payment_button(array $doc, bool $labeled = false): void
     if ($href === '') {
         return;
     }
+    $kind = (string) ($doc['kind'] ?? '');
+    $iconName = $kind === 'expense' ? 'bank' : 'receipt';
     unset($labeled);
     ?>
-      <a class="btn sm" href="<?= h($href) ?>" title="Make payment" aria-label="Make payment"><?= icon('receipt', 15) ?> Make payment</a>
+      <a class="btn sm" href="<?= h($href) ?>" title="Make payment" aria-label="Make payment"><?= icon($iconName, 15) ?> Make payment</a>
     <?php
 }
 
@@ -3113,8 +3155,12 @@ function render_doc_actions(array $doc, bool $labeled = false, bool $includeRemi
         <?php if ($doc['kind'] === 'receipt'): ?>
           <?php render_make_payment_button($doc, $labeled); ?>
         <?php endif; ?>
-        <?php if ($doc['kind'] === 'expense' && ($doc['balance'] ?? 1) > 0): ?>
-          <a class="<?= $pri ?>" href="<?= h(url('document_action.php?pay=' . $id)) ?>" title="Pay" aria-label="Pay"><?= icon('bank', 15) ?><?php if ($labeled): ?> Pay<?php endif; ?></a>
+        <?php if ($doc['kind'] === 'expense' && (function_exists('document_due_amount') ? document_due_amount($doc) : (float) ($doc['balance'] ?? 0)) > 0.009): ?>
+          <?php if ($labeled): ?>
+            <?php render_make_payment_button($doc, true); ?>
+          <?php else: ?>
+            <a class="<?= $pri ?>" href="<?= h(url('document_action.php?pay=' . $id)) ?>" title="Make payment" aria-label="Make payment"><?= icon('bank', 15) ?></a>
+          <?php endif; ?>
           <a class="<?= $cls ?>" href="<?= h(url('desk_mail.php?type=creditor&id=' . $id)) ?>" title="Message supplier" aria-label="Message supplier"><?= icon('letter', 15) ?><?php if ($labeled): ?> Message<?php endif; ?></a>
         <?php endif; ?>
         <?php if (user_can_delete_documents()): ?>
