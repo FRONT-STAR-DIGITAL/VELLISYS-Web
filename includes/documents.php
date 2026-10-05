@@ -3128,7 +3128,7 @@ function render_doc_actions(array $doc, bool $labeled = false, bool $includeRemi
               <span class="share-pop-ico" aria-hidden="true"><?= icon('whatsapp', 18) ?></span>
               <span class="share-pop-copy">
                 <strong>WhatsApp</strong>
-                <small>Send the sheet link in chat</small>
+                <small>Opens a chat with the client’s number</small>
               </span>
             </a>
             <a class="share-pop-item is-mail" href="<?= h(url('document_email.php?id=' . $id)) ?>" role="menuitem">

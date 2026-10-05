@@ -83,7 +83,7 @@ layout_start('Creditors', $user);
             <td class="right mono"><?= h(money($doc['paid'], doc_currency($doc))) ?></td>
             <td class="right mono"><?= h(money($doc['balance'], doc_currency($doc))) ?></td>
             <td><span class="pill"><?= h(invoice_status_label($doc)) ?></span></td>
-            <td class="row-actions"><?php render_doc_actions($doc); ?></td>
+            <td class="row-actions"><?php render_make_payment_button($doc, true); render_doc_actions($doc, false, false); ?></td>
           </tr>
         <?php endforeach; ?>
       </tbody>
