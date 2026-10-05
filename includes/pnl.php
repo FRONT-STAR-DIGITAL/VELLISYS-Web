@@ -387,10 +387,13 @@ function pnl_summary(): array
         $bind,
         $args
     ));
-    $expenses = attach_document_totals(db_all(
-        "SELECT d.*, p.name AS party_name FROM documents d LEFT JOIN parties p ON p.id = d.party_id WHERE {$scope} AND d.kind = 'expense'",
-        $bind,
-        $args
+    $expenses = array_values(array_filter(
+        attach_document_totals(db_all(
+            "SELECT d.*, p.name AS party_name FROM documents d LEFT JOIN parties p ON p.id = d.party_id WHERE {$scope} AND d.kind = 'expense'",
+            $bind,
+            $args
+        )),
+        static fn ($d) => !function_exists('is_personal_creditor') || !is_personal_creditor($d)
     ));
     $receipts = attach_document_totals(db_all(
         "SELECT d.*, p.name AS party_name, r.kind AS related_kind
