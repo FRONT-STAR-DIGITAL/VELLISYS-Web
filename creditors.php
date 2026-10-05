@@ -27,7 +27,7 @@ layout_start('Creditors', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('bank') ?>Creditors</h1>
-    <p class="lede">Suppliers you still need to pay. Record a payment against the bill, or email them from the company mailbox. Totals sit at the foot of the table.</p>
+    <p class="lede">Suppliers you still need to pay. Recording a payment clears the bill only — no receipt is created and sales cash is not touched. Totals sit at the foot of the table.</p>
   </div>
   <div class="actions">
     <a class="btn" href="<?= h(url('creditors.php?add=1#ledger-add')) ?>"><?= icon('plus', 16) ?>Add new</a>

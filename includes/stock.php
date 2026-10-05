@@ -997,25 +997,25 @@ function stock_complete_purchase(array $input): array
         'expense_category' => 'Stock',
         'payment_method' => $method,
         'notes' => 'Stock purchase',
+        // Leave open; clear only what was paid — unpaid remainder stays a creditor bill.
+        'leave_unpaid' => true,
         'items' => $clean,
     ]);
     $exp = load_document($expenseId);
     $grand = (float) ($exp['totals']['total'] ?? 0);
-    $receiptId = 0;
+    $paymentId = 0;
     if ($paid > 0) {
         $give = min($paid, $grand);
-        $receiptId = create_document([
-            'kind' => 'receipt',
-            'party_id' => $partyId,
-            'date' => today(),
-            'related_id' => $expenseId,
-            'allocated_amount' => $give,
-            'payment_method' => $method,
-            'notes' => $paid + 0.009 < $grand ? 'Part payment on stock purchase' : 'Stock purchase paid',
-            'items' => [],
-        ]);
+        $paymentId = record_document_payment(
+            $expenseId,
+            $give,
+            $method,
+            '',
+            today(),
+            $paid + 0.009 < $grand ? 'Part payment on stock purchase' : 'Stock purchase paid'
+        );
     }
-    return ['ok' => true, 'expense_id' => $expenseId, 'receipt_id' => $receiptId, 'balance' => max(0, round($grand - min($paid, $grand), 2))];
+    return ['ok' => true, 'expense_id' => $expenseId, 'receipt_id' => 0, 'payment_id' => $paymentId, 'balance' => max(0, round($grand - min($paid, $grand), 2))];
 }
 
 function stock_payment_key(string $raw): string

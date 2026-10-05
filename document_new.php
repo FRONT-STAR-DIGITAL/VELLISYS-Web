@@ -259,7 +259,7 @@ layout_start($heading, $user, ['kind' => $kind]);
       } elseif ($kind === 'receipt') {
           echo 'Link an open invoice to record a part payment. Anything still unpaid stays on Debtors.';
       } elseif ($kind === 'expense') {
-          echo 'Record what the company spent. This is an expense for your books - not a bill sent to a client.';
+          echo 'Record what the company spent. Cleared on save by default — it is spend, not a sales receipt, and does not touch sales cash. Use Creditors for bills you still owe.';
       } elseif ($kind === 'refund') {
           echo 'Record money refunded to a customer or received back from a supplier. Link an invoice or expense when you can.';
       } elseif ($kind === 'return_note') {

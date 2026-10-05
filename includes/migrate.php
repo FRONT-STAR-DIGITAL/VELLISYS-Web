@@ -25,7 +25,33 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '65';
+    return '66';
+}
+
+/** Supplier / expense payments — clears bills without creating receipts. */
+function folio_ensure_document_payments(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    @$db->query("CREATE TABLE IF NOT EXISTS document_payments (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      company_id INT UNSIGNED NOT NULL,
+      document_id INT UNSIGNED NOT NULL,
+      amount DECIMAL(16,2) NOT NULL DEFAULT 0,
+      currency CHAR(3) NOT NULL DEFAULT 'UGX',
+      payment_method VARCHAR(40) NULL,
+      payment_ref VARCHAR(120) NULL,
+      paid_on DATE NOT NULL,
+      notes VARCHAR(500) NULL,
+      created_by INT UNSIGNED NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY company_document (company_id, document_id),
+      KEY document_id (document_id),
+      KEY paid_on (paid_on)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
 /**
@@ -687,6 +713,7 @@ function folio_migrate(mysqli $db): void
     folio_migrate_client_profile($db);
     folio_ensure_banking($db);
     folio_ensure_pnl_branch_books($db);
+    folio_ensure_document_payments($db);
     folio_migrate_sales_field($db);
     folio_ensure_purge_ofagros_fees($db);
 

@@ -4263,6 +4263,28 @@ function platform_issued_documents(): array
         $to = isset($byId[$rid]) ? doc_currency($byId[$rid]) : doc_currency($row);
         $paidBy[$rid] = ($paidBy[$rid] ?? 0) + convert_money($amt, doc_currency($row), $to);
     }
+    // Expense payments (document_payments) — platform rollups without inventing receipts.
+    try {
+        $payRes = @db()->query("SHOW TABLES LIKE 'document_payments'");
+        if ($payRes && $payRes->num_rows > 0 && $ids) {
+            $ph = implode(',', array_fill(0, count($ids), '?'));
+            $extraPays = db_all(
+                "SELECT document_id, amount, currency FROM document_payments WHERE document_id IN ($ph)",
+                str_repeat('i', count($ids)),
+                $ids
+            );
+            foreach ($extraPays as $p) {
+                $rid = (int) $p['document_id'];
+                if (!isset($byId[$rid])) {
+                    continue;
+                }
+                $to = doc_currency($byId[$rid]);
+                $paidBy[$rid] = ($paidBy[$rid] ?? 0) + convert_money((float) ($p['amount'] ?? 0), doc_currency($p), $to);
+            }
+        }
+    } catch (Throwable $e) {
+        // ignore if payments table not migrated yet
+    }
     foreach ($rows as &$row) {
         $agg = $byDoc[(int) $row['id']] ?? ['net' => 0, 'taxed_net' => 0];
         $net = round((float) $agg['net'], 2);

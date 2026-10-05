@@ -155,6 +155,23 @@ CREATE TABLE IF NOT EXISTS document_items (
   CONSTRAINT fk_item_doc FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS document_payments (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  company_id INT UNSIGNED NOT NULL,
+  document_id INT UNSIGNED NOT NULL,
+  amount DECIMAL(16,2) NOT NULL DEFAULT 0,
+  currency CHAR(3) NOT NULL DEFAULT 'UGX',
+  payment_method VARCHAR(40) NULL,
+  payment_ref VARCHAR(120) NULL,
+  paid_on DATE NOT NULL,
+  notes VARCHAR(500) NULL,
+  created_by INT UNSIGNED NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY company_document (company_id, document_id),
+  KEY document_id (document_id),
+  KEY paid_on (paid_on)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS signups (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(160) NOT NULL,

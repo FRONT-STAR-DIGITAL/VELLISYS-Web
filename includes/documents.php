@@ -348,6 +348,8 @@ function create_quick_ledger_entry(string $side): int
         'currency' => default_currency(),
         'notes' => $reason,
         'expense_category' => $kind === 'expense' ? 'Other' : null,
+        // Creditor bills stay open until paid; ordinary expenses clear on create.
+        'leave_unpaid' => $kind === 'expense',
         'items' => [[
             'item_name' => $label,
             'description' => $reason,
@@ -786,6 +788,16 @@ function create_document(array $data): int
     insert_document_items($id, $items);
     if (function_exists('stock_apply_document')) {
         stock_apply_document($id, $kind, $items);
+    }
+
+    // Ordinary expenses are business spend already paid — clear the bill by default.
+    // Creditor quick-add and stock purchases pass leave_unpaid and record payments separately.
+    if ($kind === 'expense' && empty($data['leave_unpaid']) && document_payments_available()) {
+        $tmp = ['items' => $items, 'vat_rate' => $rate, 'currency' => $currency];
+        $total = (float) (document_totals($tmp)['total'] ?? 0);
+        if ($total > 0.009) {
+            record_document_payment($id, $total, (string) ($method ?: 'cash'), (string) ($ref ?: ''), $date, 'Expense cleared on create');
+        }
     }
 
     if (function_exists('record_company_activity')) {
@@ -2504,7 +2516,9 @@ function receipt_settlement(array $doc): ?array
         return $out;
     }
     $total = document_totals($rel)['total'];
-    $paid = payments_on_document((int) $rel['id'], doc_currency($rel));
+    $paid = $rel['kind'] === 'expense'
+        ? expense_paid((int) $rel['id'])
+        : payments_on_document((int) $rel['id'], doc_currency($rel));
     $remain = max(0, round($total - $paid, 2));
     $out['invoice_id'] = (int) $rel['id'];
     $out['invoice_number'] = $rel['number'];
@@ -2675,10 +2689,97 @@ function list_open_debtors(): array
     return $rows;
 }
 
+function document_payments_available(): bool
+{
+    static $ok = null;
+    if ($ok !== null) {
+        return $ok;
+    }
+    try {
+        $res = @db()->query("SHOW TABLES LIKE 'document_payments'");
+        $ok = $res && $res->num_rows > 0;
+    } catch (Throwable $e) {
+        $ok = false;
+    }
+    return $ok;
+}
+
+/** Sum of supplier/expense payment rows on a document (home currency of the bill). */
+function sum_document_payments(int $documentId, string $toCurrency): float
+{
+    if ($documentId < 1 || !document_payments_available()) {
+        return 0.0;
+    }
+    $rows = db_all(
+        'SELECT amount, currency FROM document_payments WHERE document_id = ? AND company_id = ?',
+        'ii',
+        [$documentId, current_company_id()]
+    );
+    $sum = 0.0;
+    foreach ($rows as $row) {
+        $sum += convert_money((float) ($row['amount'] ?? 0), doc_currency($row), $toCurrency);
+    }
+    return round_money($sum, $toCurrency);
+}
+
+/**
+ * Record a payment against an expense/creditor bill.
+ * This is spend clearing — not a receipt and not sales cash-in.
+ */
+function record_document_payment(
+    int $documentId,
+    float $amount,
+    string $method = 'cash',
+    string $ref = '',
+    ?string $paidOn = null,
+    string $notes = ''
+): int {
+    if ($amount <= 0.009) {
+        throw new RuntimeException('Enter an amount greater than zero.');
+    }
+    if (!document_payments_available()) {
+        throw new RuntimeException('Payments table is not ready. Refresh and try again.');
+    }
+    $cid = current_company_id();
+    $doc = db_one(
+        'SELECT id, kind, status, currency, number FROM documents WHERE id = ? AND company_id = ?',
+        'ii',
+        [$documentId, $cid]
+    );
+    if (!$doc || ($doc['kind'] ?? '') !== 'expense' || ($doc['status'] ?? '') === 'void') {
+        throw new RuntimeException('This bill cannot take a payment.');
+    }
+    $currency = doc_currency($doc);
+    $paidOn = $paidOn ?: today();
+    $userId = (int) ($_SESSION['user_id'] ?? 0);
+    $method = trim($method) !== '' ? trim($method) : 'cash';
+    $ref = trim($ref);
+    $notes = trim($notes);
+    return db_exec(
+        'INSERT INTO document_payments (company_id, document_id, amount, currency, payment_method, payment_ref, paid_on, notes, created_by)
+         VALUES (?,?,?,?,?,?,?,?,?)',
+        'iidsssssi',
+        [
+            $cid,
+            $documentId,
+            round($amount, 2),
+            $currency,
+            $method,
+            $ref !== '' ? $ref : null,
+            $paidOn,
+            $notes !== '' ? $notes : null,
+            $userId > 0 ? $userId : null,
+        ]
+    );
+}
+
 function expense_paid(int $expenseId): float
 {
     $exp = db_one('SELECT currency FROM documents WHERE id = ? AND company_id = ?', 'ii', [$expenseId, current_company_id()]);
-    return payments_on_document($expenseId, $exp ? doc_currency($exp) : default_currency());
+    $ccy = $exp ? doc_currency($exp) : default_currency();
+    // New payments live on document_payments; keep summing legacy expense-related receipts.
+    $paid = sum_document_payments($expenseId, $ccy) + payments_on_document($expenseId, $ccy);
+    return round_money($paid, $ccy);
 }
 
 function expense_balance(array $doc): float
@@ -2698,27 +2799,16 @@ function pay_creditor(int $expenseId, float $amount, string $method, string $ref
     if ($amount <= 0) {
         throw new RuntimeException('Nothing remains on this bill.');
     }
-    return create_document([
-        'kind' => 'receipt',
-        'party_id' => $doc['party_id'],
-        'date' => today(),
-        'vat_rate' => 0,
-        'currency' => doc_currency($doc),
-        'doc_template' => doc_template_key($doc),
-        'notes' => 'Payment to supplier against ' . $doc['number'] . '.',
-        'related_id' => $doc['id'],
-        'payment_method' => $method,
-        'payment_ref' => $ref ?: null,
-        'allocated_amount' => $amount,
-        'items' => [[
-            'item_name' => 'Payment',
-            'description' => 'Payment on ' . $doc['number'],
-            'qty' => 1,
-            'unit' => 'lot',
-            'rate' => $amount,
-            'taxed' => 0,
-        ]],
-    ]);
+    record_document_payment(
+        $expenseId,
+        $amount,
+        $method,
+        $ref,
+        today(),
+        'Payment to supplier against ' . $doc['number'] . '.'
+    );
+    // Return the expense id — no receipt is created and sales/cash-in are untouched.
+    return $expenseId;
 }
 
 function void_document(int $id, string $reason): void
@@ -2903,6 +2993,20 @@ function attach_document_totals(array $rows): array
         $to = $curById[$rid] ?? default_currency();
         $paidBy[$rid] = ($paidBy[$rid] ?? 0) + convert_money((float) ($p['allocated_amount'] ?? 0), doc_currency($p), $to);
     }
+    // Expense/creditor payments (not receipts) — clear bills without touching sales cash.
+    if (document_payments_available()) {
+        $extraPays = db_all(
+            "SELECT document_id, amount, currency FROM document_payments
+             WHERE company_id = ? AND document_id IN ($placeholders)",
+            'i' . $types,
+            array_merge([current_company_id()], $ids)
+        );
+        foreach ($extraPays as $p) {
+            $rid = (int) $p['document_id'];
+            $to = $curById[$rid] ?? default_currency();
+            $paidBy[$rid] = ($paidBy[$rid] ?? 0) + convert_money((float) ($p['amount'] ?? 0), doc_currency($p), $to);
+        }
+    }
     foreach ($paidBy as $rid => $amt) {
         $paidBy[$rid] = round_money($amt, $curById[$rid] ?? default_currency());
     }
@@ -2945,8 +3049,11 @@ function attach_document_totals(array $rows): array
             $vat = round((float) $agg['taxed_net'] * (float) ($inv['vat_rate'] ?? 0), 2);
             $relTotals[(int) $inv['id']] = round($net + $vat, 2);
             $relCur[(int) $inv['id']] = doc_currency($inv);
-            $relPaid[(int) $inv['id']] = payments_on_document((int) $inv['id'], doc_currency($inv));
-            $relKindById[(int) $inv['id']] = (string) ($inv['kind'] ?? '');
+            $relKind = (string) ($inv['kind'] ?? '');
+            $relPaid[(int) $inv['id']] = $relKind === 'expense'
+                ? expense_paid((int) $inv['id'])
+                : payments_on_document((int) $inv['id'], doc_currency($inv));
+            $relKindById[(int) $inv['id']] = $relKind;
             $relAlloc[(int) $inv['id']] = (float) ($inv['allocated_amount'] ?? 0);
         }
     }
