@@ -5949,6 +5949,26 @@ a.branch-activity-row:hover { text-decoration: none; }
 
 .pad-form { padding: 4px 18px 18px; }
 .stock-split { align-items: start; }
+.stock-items-card { margin-top: 12px; }
+.stock-items-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.stock-items-head h2 { margin: 0; }
+.stock-items-head .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+}
+.stock-stats { margin-bottom: 4px; }
+@media (max-width: 640px) {
+  .stock-items-head .actions { width: 100%; }
+  .stock-items-head .actions .btn { flex: 1 1 auto; justify-content: center; }
+}
 .pos-sale .pos-q {
   width: 100%;
   min-height: 48px;

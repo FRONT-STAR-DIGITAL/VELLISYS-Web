@@ -233,18 +233,24 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
         ));
     }
     $amountHead = $colTotal ? 'Amount' : ($colRate ? 'Unit price' : '');
-    // Prefer configured Total Amt label when that is the money column.
+    // Keep short thermal defaults unless the company renamed the money column.
     if ($colTotal) {
         foreach ($cols as $c) {
-            if (($c['key'] ?? '') === 'total' && trim((string) ($c['label'] ?? '')) !== '') {
-                $amountHead = (string) $c['label'];
+            if (($c['key'] ?? '') === 'total') {
+                $lab = trim((string) ($c['label'] ?? ''));
+                if ($lab !== '' && strcasecmp($lab, 'Total Amt') !== 0) {
+                    $amountHead = $lab;
+                }
                 break;
             }
         }
     } elseif ($colRate) {
         foreach ($cols as $c) {
-            if (($c['key'] ?? '') === 'rate' && trim((string) ($c['label'] ?? '')) !== '') {
-                $amountHead = (string) $c['label'];
+            if (($c['key'] ?? '') === 'rate') {
+                $lab = trim((string) ($c['label'] ?? ''));
+                if ($lab !== '' && strcasecmp($lab, 'Unit price') !== 0) {
+                    $amountHead = $lab;
+                }
                 break;
             }
         }
