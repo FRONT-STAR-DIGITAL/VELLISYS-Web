@@ -502,10 +502,16 @@ function stock_is_stock_expense(array $doc): bool
     return str_starts_with($notes, 'stock purchase');
 }
 
-/** Operating expenses only (excludes stock purchases which sit on creditors / inventory). */
+/** Operating expenses only (excludes stock purchases and personal Creditors-ledger entries). */
 function stock_is_operating_expense(array $doc): bool
 {
-    return (($doc['kind'] ?? '') === 'expense') && !stock_is_stock_expense($doc);
+    if (($doc['kind'] ?? '') !== 'expense' || stock_is_stock_expense($doc)) {
+        return false;
+    }
+    if (function_exists('is_personal_creditor') && is_personal_creditor($doc)) {
+        return false;
+    }
+    return true;
 }
 
 function stock_day_totals(string $date): array
@@ -1203,7 +1209,7 @@ function stock_search_docs(string $kind, string $q, int $page, int $per = 20, ?s
         $params[] = $category;
     } elseif ($kind === 'expense') {
         // Operating expenses only - stock purchases stay on Creditors / inventory.
-        $where .= " AND LOWER(TRIM(COALESCE(d.expense_category, ''))) NOT IN ('stock', 'stock purchase', 'purchases')";
+        $where .= " AND LOWER(TRIM(COALESCE(d.expense_category, ''))) NOT IN ('stock', 'stock purchase', 'purchases', 'personal creditor')";
     }
     if ($q !== '') {
         $like = '%' . $q . '%';

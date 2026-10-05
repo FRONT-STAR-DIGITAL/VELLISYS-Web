@@ -98,21 +98,21 @@ $sumInWindow = static function (array $docs, string $a, string $b) use ($base): 
 $incomePeriod = $sumInRange($invoices);
 $incomePrev = $sumInWindow($invoices, $prevFrom, $prevTo);
 
-$expAll = attach_document_totals(db_all(
-    "SELECT d.*, p.name AS party_name FROM documents d LEFT JOIN parties p ON p.id = d.party_id
-     WHERE d.company_id = ? AND d.kind = 'expense' AND d.status = 'issued'",
-    'i',
-    [$cid]
+$expAll = array_values(array_filter(
+    attach_document_totals(db_all(
+        "SELECT d.*, p.name AS party_name FROM documents d LEFT JOIN parties p ON p.id = d.party_id
+         WHERE d.company_id = ? AND d.kind = 'expense' AND d.status = 'issued'",
+        'i',
+        [$cid]
+    )),
+    // Personal Creditors ledger stays off the desk — not business spend.
+    static fn ($d) => !is_personal_creditor($d)
 ));
 $expensePeriod = $sumInRange($expAll);
 $expensePrev = $sumInWindow($expAll, $prevFrom, $prevTo);
-$creditorOpen = 0.0;
 $byCat = [];
 foreach ($expAll as $d) {
     $total = convert_money($d['totals']['total'], doc_currency($d), $base);
-    if ((float) ($d['balance'] ?? 0) > 0.009) {
-        $creditorOpen += convert_money((float) $d['balance'], doc_currency($d), $base);
-    }
     if ($d['date'] >= $since) {
         $cat = trim((string) ($d['expense_category'] ?? '')) ?: 'Other';
         $byCat[$cat] = ($byCat[$cat] ?? 0) + $total;
@@ -162,12 +162,16 @@ foreach ($invoices as $d) {
     }
 }
 
-$recent = attach_document_totals(db_all(
-    "SELECT d.*, p.name AS party_name FROM documents d LEFT JOIN parties p ON p.id = d.party_id
-     WHERE d.company_id = ? ORDER BY d.id DESC LIMIT 8",
-    'i',
-    [$cid]
+$recent = array_values(array_filter(
+    attach_document_totals(db_all(
+        "SELECT d.*, p.name AS party_name FROM documents d LEFT JOIN parties p ON p.id = d.party_id
+         WHERE d.company_id = ? ORDER BY d.id DESC LIMIT 16",
+        'i',
+        [$cid]
+    )),
+    static fn ($d) => !is_personal_creditor($d)
 ));
+$recent = array_slice($recent, 0, 8);
 $queue = $overdue ?: array_merge($open, $saleOpen);
 
 $openAmt = documents_sum($open, 'balance') + array_sum(array_map(static fn ($d) => convert_money(document_due_amount($d), doc_currency($d), $base), $saleOpen));
@@ -315,7 +319,6 @@ render_desk_metric_tabs([
       <li><span>Open quotations</span><b><?= $quotesOpen ?></b></li>
       <li><span>Open invoices</span><b><?= count($open) ?></b></li>
       <li><span>Overdue</span><b><?= count($overdue) ?></b></li>
-      <li><span>Creditors</span><b><?= h(money($creditorOpen)) ?></b></li>
     </ul>
   </article>
   <article class="card desk-tile desk-tile-mid">

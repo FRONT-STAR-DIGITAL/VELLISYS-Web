@@ -10,6 +10,10 @@ if (!in_array($kind, desk_kind_list(), true)) {
 require_desk_kind($kind);
 $meta = kind_meta($kind);
 $rows = list_documents($kind);
+// Personal Creditors ledger is standalone — keep it off the Expenses list.
+if ($kind === 'expense') {
+    $rows = array_values(array_filter($rows, static fn ($d) => !is_personal_creditor($d)));
+}
 $clearFilter = $_GET['clear'] ?? 'all';
 $clearedRows = [];
 $partialRows = [];

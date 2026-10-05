@@ -376,6 +376,9 @@ function branch_performance_for_range(string $from, string $to): array
                 $rows[$bid]['outstanding'] += convert_money((float) $d['balance'], $cur, $base);
             }
         } elseif ($kind === 'expense') {
+            if (function_exists('is_personal_creditor') && is_personal_creditor($d)) {
+                continue;
+            }
             $rows[$bid]['expenses_n']++;
             if (!function_exists('stock_is_stock_expense') || !stock_is_stock_expense($d)) {
                 $rows[$bid]['expenses'] += convert_money((float) ($d['totals']['net'] ?? 0), $cur, $base);

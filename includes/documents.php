@@ -347,7 +347,10 @@ function create_quick_ledger_entry(string $side): int
         'vat_rate' => 0,
         'currency' => default_currency(),
         'notes' => $reason,
-        'expense_category' => $kind === 'expense' ? 'Other' : null,
+        // Personal/standalone creditor — not a business expense (PnL / dashboard).
+        'expense_category' => $kind === 'expense'
+            ? (function_exists('personal_creditor_category') ? personal_creditor_category() : 'Personal creditor')
+            : null,
         // Creditor bills stay open until paid; ordinary expenses clear on create.
         'leave_unpaid' => $kind === 'expense',
         'items' => [[
@@ -378,7 +381,7 @@ function render_ledger_add_form(string $side, array $parties, bool $open = false
     $side = $side === 'creditor' ? 'creditor' : 'debtor';
     $title = $side === 'creditor' ? 'Add creditor' : 'Add debtor';
     $hint = $side === 'creditor'
-        ? 'Choose a saved client or type a new one. New names are saved as a supplier.'
+        ? 'Personal amounts you owe — not a business expense. Choose a saved name or type a new one.'
         : 'Choose a saved client or type a new one. New names are saved as a customer.';
     $action = $side === 'creditor' ? 'creditors.php' : 'debtors.php';
     $partyBook = [];
@@ -515,6 +518,10 @@ function ledger_due_reminder_notifications(int $limit = 20): array
         $kind = (string) ($doc['kind'] ?? '');
         $due = (string) ($doc['due_date'] ?? '');
         if ($due === '') {
+            continue;
+        }
+        // Expense due reminders are only for the standalone Creditors ledger.
+        if ($kind === 'expense' && function_exists('is_personal_creditor') && !is_personal_creditor($doc)) {
             continue;
         }
         $balance = $kind === 'expense'
@@ -3840,6 +3847,9 @@ function report_performance_statement(?int $companyId = null): array
     }
     $expenses = [];
     foreach ($spent as $row) {
+        if (function_exists('is_personal_creditor') && is_personal_creditor($row)) {
+            continue;
+        }
         if (function_exists('stock_is_stock_expense') && stock_is_stock_expense($row)) {
             continue;
         }

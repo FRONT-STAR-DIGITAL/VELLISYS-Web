@@ -25,7 +25,29 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '66';
+    return '67';
+}
+
+/**
+ * Creditors quick-add entries are a personal ledger — retag older "Amount owed"
+ * bills so they stop counting as business expenses.
+ */
+function folio_ensure_personal_creditors(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    $cat = 'Personal creditor';
+    @$db->query(
+        "UPDATE documents d
+         INNER JOIN document_items i ON i.document_id = d.id
+         SET d.expense_category = '" . $db->real_escape_string($cat) . "'
+         WHERE d.kind = 'expense'
+           AND i.item_name = 'Amount owed'
+           AND (d.expense_category IS NULL OR d.expense_category = '' OR d.expense_category = 'Other')"
+    );
 }
 
 /** Supplier / expense payments — clears bills without creating receipts. */
@@ -714,6 +736,7 @@ function folio_migrate(mysqli $db): void
     folio_ensure_banking($db);
     folio_ensure_pnl_branch_books($db);
     folio_ensure_document_payments($db);
+    folio_ensure_personal_creditors($db);
     folio_migrate_sales_field($db);
     folio_ensure_purge_ofagros_fees($db);
 

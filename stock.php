@@ -126,7 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $msg = 'Purchase saved.';
                 if (($done['balance'] ?? 0) > 0.009) {
-                    $msg .= ' Balance ' . money($done['balance']) . ' sits on Creditors (not day performance).';
+                    $msg .= ' Balance ' . money($done['balance']) . ' remains unpaid on the stock bill (not day performance).';
                 } else {
                     $msg .= ' Paid in full.';
                 }
@@ -466,7 +466,7 @@ layout_start('Stock', $user);
       <div>
         <label for="paid">Amount paid now</label>
         <input id="paid" name="paid" inputmode="decimal" data-pos-paid placeholder="0 = full credit">
-        <p class="hint">Type 0 for credit. Unpaid sits on Creditors - it does not reduce day profit.</p>
+        <p class="hint">Type 0 for credit. Unpaid stays on the stock bill — it does not reduce day profit.</p>
       </div>
       <div class="pos-sum">
         <span>Subtotal <strong data-pos-sub><?= h(money_behind(0)) ?></strong></span>

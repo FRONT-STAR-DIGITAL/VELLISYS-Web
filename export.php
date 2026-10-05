@@ -128,12 +128,15 @@ if ($type === 'debtors') {
 }
 
 if ($type === 'creditors') {
-    $docs = array_values(array_filter(list_documents('expense'), static fn ($d) => $d['status'] !== 'void' && ($d['balance'] ?? 0) > 0));
+    $docs = array_values(array_filter(
+        list_documents('expense'),
+        static fn ($d) => $d['status'] !== 'void' && ($d['balance'] ?? 0) > 0 && is_personal_creditor($d)
+    ));
     $rows = [];
     foreach ($docs as $d) {
-        $rows[] = [$d['number'], $d['party_name'], format_date($d['date']), $d['expense_category'], $d['totals']['total'], $d['paid'], $d['balance'], invoice_status_label($d), doc_currency($d)];
+        $rows[] = [$d['number'], $d['party_name'], format_date($d['date']), trim((string) ($d['notes'] ?? '')), $d['totals']['total'], $d['paid'], $d['balance'], invoice_status_label($d), doc_currency($d)];
     }
-    csv_download('creditors.csv', ['Bill', 'Supplier', 'Date', 'Category', 'Amount', 'Paid', 'Balance', 'Status', 'Currency'], $rows);
+    csv_download('creditors.csv', ['Bill', 'Name', 'Date', 'Reason', 'Amount', 'Paid', 'Balance', 'Status', 'Currency'], $rows);
 }
 
 if ($type === 'reports') {
@@ -143,6 +146,9 @@ if ($type === 'reports') {
         $rows[] = ['Invoice', $d['number'], $d['party_name'], format_date($d['date']), $d['totals']['net'], $d['totals']['vat'], $d['totals']['total'], $d['balance'], invoice_status_label($d), doc_currency($d)];
     }
     foreach (list_documents('expense') as $d) {
+        if (is_personal_creditor($d)) {
+            continue;
+        }
         $rows[] = ['Expense', $d['number'], $d['party_name'], format_date($d['date']), $d['totals']['net'], $d['totals']['vat'], $d['totals']['total'], $d['balance'], invoice_status_label($d), doc_currency($d)];
     }
     foreach (list_documents('receipt') as $d) {

@@ -418,6 +418,9 @@ function pnl_summary(): array
     $costs = 0.0;
     $byExpenseCat = [];
     foreach ($expenses as $d) {
+        if (function_exists('is_personal_creditor') && is_personal_creditor($d)) {
+            continue;
+        }
         $amt = convert_money((float) $d['totals']['net'], doc_currency($d), $base);
         $costs += $amt;
         $cat = (string) ($d['expense_category'] ?: 'Other');
@@ -555,6 +558,9 @@ function pnl_chart_data(?array $summary = null): array
         if ($kind === 'invoice') {
             $income[$key] += $amt;
         } elseif ($kind === 'expense') {
+            if (function_exists('is_personal_creditor') && is_personal_creditor($d)) {
+                continue;
+            }
             $expense[$key] += $amt;
         } elseif ($kind === 'refund') {
             if (pnl_refund_direction($d) === 'in') {

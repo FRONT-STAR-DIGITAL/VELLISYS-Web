@@ -355,15 +355,20 @@ function planner_budget_actuals(string $monthKey): array
         'iss',
         [$cid, $from, $to]
     ));
+    $expenseCount = 0;
     foreach ($expenses as $doc) {
+        if (function_exists('is_personal_creditor') && is_personal_creditor($doc)) {
+            continue;
+        }
         $expense += convert_money((float) ($doc['totals']['total'] ?? 0), doc_currency($doc), $currency);
+        $expenseCount++;
     }
     return [
         'income' => round($income, 2),
         'expense' => round($expense, 2),
         'currency' => $currency,
         'invoice_count' => count($invoices),
-        'expense_count' => count($expenses),
+        'expense_count' => $expenseCount,
     ];
 }
 

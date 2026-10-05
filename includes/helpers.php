@@ -1368,6 +1368,26 @@ function expense_categories(): array
     return ['Farm inputs', 'Fuel', 'Rent', 'Salaries', 'Transport', 'Utilities', 'Professional fees', 'Other'];
 }
 
+/** Category marker for Creditors-page entries — personal ledger, not business spend. */
+function personal_creditor_category(): string
+{
+    return 'Personal creditor';
+}
+
+function is_personal_creditor(array $doc): bool
+{
+    if (($doc['kind'] ?? '') !== 'expense') {
+        return false;
+    }
+    return strcasecmp(trim((string) ($doc['expense_category'] ?? '')), personal_creditor_category()) === 0;
+}
+
+/** Business expense documents (excludes personal creditors from the Creditors ledger). */
+function is_business_expense(array $doc): bool
+{
+    return (($doc['kind'] ?? '') === 'expense') && !is_personal_creditor($doc);
+}
+
 function payment_methods(): array
 {
     return [
@@ -1998,7 +2018,7 @@ function render_desk_kinds_fields(?array $company = null): void
     ?>
     <fieldset class="kinds-pick" data-kinds-form>
       <legend>Documents this desk uses</legend>
-      <p class="hint">Tick only what this company needs. Expenses stay on for creditors. Custom documents are not letters - they get their own fields.</p>
+      <p class="hint">Tick only what this company needs. Creditors is a personal ledger (separate from Expenses). Custom documents are not letters - they get their own fields.</p>
       <div class="kinds-grid">
         <?php foreach (selectable_document_kinds() as $key => $label): ?>
           <label class="kinds-opt">

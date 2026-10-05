@@ -77,8 +77,11 @@ foreach ($receipts as $d) {
 $costs = 0;
 $byCat = [];
 foreach ($expenses as $d) {
+    if (function_exists('is_personal_creditor') && is_personal_creditor($d)) {
+        continue; // Personal Creditors ledger — not business spend
+    }
     if (function_exists('stock_is_stock_expense') && stock_is_stock_expense($d)) {
-        continue; // Stock purchases sit on creditors / inventory - not operating spend
+        continue; // Stock purchases sit on inventory - not operating spend
     }
     $costs += convert_money($d['totals']['net'], doc_currency($d), $base);
     $cat = $d['expense_category'] ?: 'Other';

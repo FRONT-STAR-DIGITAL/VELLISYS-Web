@@ -18,7 +18,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'add_ledger') {
     }
 }
 
-$rows = array_values(array_filter(list_documents('expense'), static fn ($d) => $d['status'] !== 'void' && ($d['balance'] ?? 0) > 0));
+// Standalone personal ledger — not business expenses.
+$rows = array_values(array_filter(
+    list_documents('expense'),
+    static fn ($d) => $d['status'] !== 'void'
+        && ($d['balance'] ?? 0) > 0
+        && is_personal_creditor($d)
+));
 $total = documents_sum($rows, 'balance');
 $parties = ledger_parties_for_picker();
 
@@ -27,12 +33,11 @@ layout_start('Creditors', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('bank') ?>Creditors</h1>
-    <p class="lede">Suppliers you still need to pay. Recording a payment clears the bill only — no receipt is created and sales cash is not touched. Totals sit at the foot of the table.</p>
+    <p class="lede">People or places you owe — personal or private amounts. This ledger stays on its own: it does not post to business expenses, sales, or the desk dashboard. Recording a payment clears the bill only.</p>
   </div>
   <div class="actions">
     <a class="btn" href="<?= h(url('creditors.php?add=1#ledger-add')) ?>"><?= icon('plus', 16) ?>Add new</a>
     <a class="btn ghost" href="<?= h(export_query('creditors')) ?>"><?= icon('download', 16) ?>Export CSV</a>
-    <a class="btn ghost" href="<?= h(url('document_new.php?kind=expense')) ?>"><?= icon('expense') ?>Record expense</a>
   </div>
 </div>
 
@@ -49,17 +54,17 @@ layout_start('Creditors', $user);
 
 <div class="card">
   <?php if (!$rows): ?>
-    <p class="empty">No unpaid bills in this period.</p>
+    <p class="empty">No unpaid creditors in this period.</p>
   <?php else: ?>
     <div class="table-scroll">
     <table class="grid">
       <thead>
         <tr>
           <th>Bill</th>
-          <th>Supplier</th>
+          <th>Name</th>
           <th>Date</th>
           <th>Due</th>
-          <th>Category</th>
+          <th>Reason</th>
           <th class="right">Amount</th>
           <th class="right">Paid</th>
           <th class="right">Balance</th>
@@ -78,7 +83,7 @@ layout_start('Creditors', $user);
             <?php endif; ?></td>
             <td class="date-cell"><?= h(format_date($doc['date'])) ?></td>
             <td class="date-cell"><?= h(!empty($doc['due_date']) ? format_date($doc['due_date']) : '—') ?></td>
-            <td><?= h($doc['expense_category'] ?: 'Other') ?></td>
+            <td><?= h(trim((string) ($doc['notes'] ?? '')) ?: '—') ?></td>
             <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>
             <td class="right mono"><?= h(money($doc['paid'], doc_currency($doc))) ?></td>
             <td class="right mono"><?= h(money($doc['balance'], doc_currency($doc))) ?></td>
