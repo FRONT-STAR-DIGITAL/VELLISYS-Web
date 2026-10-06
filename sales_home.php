@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = (string) ($done['error'] ?? 'Could not clock in.');
         } else {
             flash(empty($done['already'])
-                ? (!empty($done['resumed']) ? 'Clocked back in. You can log visits again.' : 'Clocked in. You can log visits now.')
+                ? (!empty($done['resumed']) ? 'Clocked back in. You can add a new lead.' : 'Clocked in. You can add a new lead.')
                 : 'Already clocked in today.');
             redirect(sales_home());
         }
