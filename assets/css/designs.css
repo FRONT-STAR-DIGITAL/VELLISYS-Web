@@ -1467,8 +1467,8 @@
 
 /* Trade quotation — dealers sheet (coloured title pill, qty table, Prepared by) */
 .invoice-sheet.sheet-trade {
-  /* Tight page margins so the real PDF fills the A4 (≈¾+ content). */
-  padding: 4mm 4mm 5mm;
+  /* Tight page margins so print/PDF fills the A4. */
+  padding: 2mm 2mm 2.5mm;
   font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   color: #111;
   box-sizing: border-box;
@@ -2099,13 +2099,13 @@
     break-after: auto;
   }
   .invoice-sheet:not(.sheet-thermal) {
-    padding: 5mm 5mm 6mm !important;
+    padding: 2.5mm 2.5mm 3mm !important;
   }
   .invoice-sheet.sheet-trade {
-    padding: 4mm 4mm 5mm !important;
+    padding: 2mm 2mm 2.5mm !important;
   }
   .invoice-sheet.sheet-frame {
-    padding: 3mm !important;
+    padding: 1.5mm !important;
   }
   .invoice-sheet.sheet-inset,
   .invoice-sheet.sheet-booklet,
@@ -2117,25 +2117,25 @@
   .booklet-page,
   .chit-page,
   .night-body {
-    padding: 5mm 5mm 6mm !important;
+    padding: 2.5mm 2.5mm 3mm !important;
   }
   .estate-gold {
-    margin-left: -5mm !important;
-    margin-right: -5mm !important;
+    margin-left: -2.5mm !important;
+    margin-right: -2.5mm !important;
   }
   .estate-band {
-    margin: -5mm -5mm 0 !important;
-    padding-left: 5mm !important;
-    padding-right: 5mm !important;
+    margin: -2.5mm -2.5mm 0 !important;
+    padding-left: 2.5mm !important;
+    padding-right: 2.5mm !important;
   }
   .night-sky {
-    padding-left: 5mm !important;
-    padding-right: 5mm !important;
+    padding-left: 2.5mm !important;
+    padding-right: 2.5mm !important;
   }
   .invoice-sheet.sheet-twin {
     width: 210mm !important;
     max-width: 210mm !important;
-    padding: 4mm 4mm 5mm !important;
+    padding: 2mm 2mm 2.5mm !important;
   }
   .twin-wrap {
     grid-template-columns: minmax(0, 1fr) 10px minmax(0, 1fr) !important;

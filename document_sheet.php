@@ -60,11 +60,11 @@ $auto = isset($_GET['autodownload']);
     .invoice-sheet:not(.sheet-thermal) {
       width: 210mm !important;
       max-width: 210mm !important;
-      padding: 5mm 5mm 6mm !important;
+      padding: 2.5mm 2.5mm 3mm !important;
     }
-    .invoice-sheet.sheet-trade { padding: 4mm 4mm 5mm !important; }
-    .invoice-sheet.sheet-twin { padding: 4mm 4mm 5mm !important; }
-    .invoice-sheet.sheet-frame { padding: 3mm !important; }
+    .invoice-sheet.sheet-trade { padding: 2mm 2mm 2.5mm !important; }
+    .invoice-sheet.sheet-twin { padding: 2mm 2mm 2.5mm !important; }
+    .invoice-sheet.sheet-frame { padding: 1.5mm !important; }
     .invoice-sheet.sheet-inset,
     .invoice-sheet.sheet-booklet,
     .invoice-sheet.sheet-chit { padding: 0 !important; }
@@ -72,7 +72,7 @@ $auto = isset($_GET['autodownload']);
     .sheet-inset .page-inset,
     .booklet-page,
     .chit-page,
-    .night-body { padding: 5mm 5mm 6mm !important; }
+    .night-body { padding: 2.5mm 2.5mm 3mm !important; }
     .sheet-frame .page-frame,
     .sheet-inset .page-inset,
     .booklet-page,

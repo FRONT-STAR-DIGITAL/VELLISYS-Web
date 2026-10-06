@@ -184,18 +184,18 @@
       n.style.setProperty('overflow', 'visible', 'important');
       n.style.setProperty('page-break-after', 'avoid', 'important');
       n.style.setProperty('break-after', 'avoid', 'important');
-      // Real PDF: tight page margins so content fills ~¾+ of A4 (thermal unchanged).
+      // Real PDF / Print: half the prior tight margins (thermal unchanged).
       if (!thermalSheet) {
         if (n.classList.contains('sheet-trade')) {
-          n.style.setProperty('padding', '4mm 4mm 5mm', 'important');
+          n.style.setProperty('padding', '2mm 2mm 2.5mm', 'important');
         } else if (n.classList.contains('sheet-twin')) {
-          n.style.setProperty('padding', '4mm 4mm 5mm', 'important');
+          n.style.setProperty('padding', '2mm 2mm 2.5mm', 'important');
         } else if (n.classList.contains('sheet-frame')) {
-          n.style.setProperty('padding', '3mm', 'important');
+          n.style.setProperty('padding', '1.5mm', 'important');
         } else if (n.classList.contains('sheet-inset') || n.classList.contains('sheet-booklet') || n.classList.contains('sheet-chit')) {
           n.style.setProperty('padding', '0', 'important');
         } else {
-          n.style.setProperty('padding', '5mm 5mm 6mm', 'important');
+          n.style.setProperty('padding', '2.5mm 2.5mm 3mm', 'important');
         }
       }
     }
@@ -204,21 +204,21 @@
       '.sheet-frame .page-frame-inner, .sheet-inset .page-inset, .booklet-page, .chit-page, .night-body'
     );
     for (var ii = 0; ii < inners.length; ii++) {
-      inners[ii].style.setProperty('padding', '5mm 5mm 6mm', 'important');
+      inners[ii].style.setProperty('padding', '2.5mm 2.5mm 3mm', 'important');
     }
     var bands = clonedDoc.querySelectorAll('.estate-band, .estate-gold, .night-sky');
     for (var bi = 0; bi < bands.length; bi++) {
       var band = bands[bi];
       if (band.classList.contains('estate-gold')) {
-        band.style.setProperty('margin-left', '-5mm', 'important');
-        band.style.setProperty('margin-right', '-5mm', 'important');
+        band.style.setProperty('margin-left', '-2.5mm', 'important');
+        band.style.setProperty('margin-right', '-2.5mm', 'important');
       } else if (band.classList.contains('estate-band')) {
-        band.style.setProperty('margin', '-5mm -5mm 0', 'important');
-        band.style.setProperty('padding-left', '5mm', 'important');
-        band.style.setProperty('padding-right', '5mm', 'important');
+        band.style.setProperty('margin', '-2.5mm -2.5mm 0', 'important');
+        band.style.setProperty('padding-left', '2.5mm', 'important');
+        band.style.setProperty('padding-right', '2.5mm', 'important');
       } else if (band.classList.contains('night-sky')) {
-        band.style.setProperty('padding-left', '5mm', 'important');
-        band.style.setProperty('padding-right', '5mm', 'important');
+        band.style.setProperty('padding-left', '2.5mm', 'important');
+        band.style.setProperty('padding-right', '2.5mm', 'important');
       }
     }
 

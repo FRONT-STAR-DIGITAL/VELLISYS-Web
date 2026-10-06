@@ -348,10 +348,10 @@ layout_start('Stock', $user);
   <?php if (!$activeItems): ?>
     <p class="empty">Add products first. Services are not counted on the shelf.</p>
   <?php else: ?>
+    <div class="pad-form"><?php stock_search_bar('stock.php', array_merge(['tab' => 'counts'], function_exists('desk_branch_keep') ? desk_branch_keep() : []), 'Search products'); ?></div>
     <form method="post">
       <?= csrf_field() ?>
       <input type="hidden" name="action" value="count">
-      <div class="pad-form"><?php stock_search_bar('stock.php', array_merge(['tab' => 'counts'], function_exists('desk_branch_keep') ? desk_branch_keep() : []), 'Search products'); ?></div>
       <p class="lede" style="padding:0 18px 8px">Walk the shelf at <?= h(function_exists('company_branch_label') ? company_branch_label(stock_write_branch_id()) : 'this location') ?>. Type what you see on this page. Saving sets those products to the counted number for this branch only.</p>
       <div class="table-scroll">
         <table class="grid"<?= (int) $page['from'] > 1 ? ' style="counter-reset: grid-row ' . ((int) $page['from'] - 1) . '"' : '' ?>>
