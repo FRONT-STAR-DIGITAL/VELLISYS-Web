@@ -357,7 +357,7 @@ $lessons = [
         'alt' => 'Document layouts including page borders, thermal roll, corner bill and watermarks',
         'lead' => 'Layouts live under Settings, Templates. Pick one and every quotation, invoice, receipt, expense and headed note reprints in that paper.',
         'points' => [
-            'Corner bill and Accent bill put primary and accent triangles on the paper corners. Page frame and Inset border draw a rule around the A4 sheet. Thermal roll is 80mm for a receipt printer.',
+            'Corner bill and Accent bill put primary and accent triangles on the paper corners. Page frame and Inset border draw a rule around the A4 sheet. Thermal roll is 80mm for a receipt printer. Trade quotation is the dealers sheet with a coloured title pill, qty table and Prepared by.',
             'Estate panel and Harbour block use solid colour bands - no fades, no washes - so they print cleanly. On a phone you see the same A4 sheet as print, scaled to fit.',
             'Changing the design here reprints the whole books, including letters. Letter text stays editable; only the paper around it changes.',
         ],

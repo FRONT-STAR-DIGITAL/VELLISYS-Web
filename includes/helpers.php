@@ -471,6 +471,10 @@ function doc_templates(): array
             'name' => 'Pad chit',
             'blurb' => 'Single-sheet pad receipt with a boxed amount. Dotted lines, no item table. Prints your To fields.',
         ],
+        'trade' => [
+            'name' => 'Trade quotation',
+            'blurb' => 'Dealers sheet: logo and name, coloured title pill, qty table, amount in words and Prepared by.',
+        ],
     ];
 }
 
@@ -4798,7 +4802,7 @@ function desk_manage_items(): array
         ['icon' => 'bank', 'title' => 'Creditors', 'body' => 'Track suppliers you still need to pay. Note a payment or write to them from the desk.'],
         ['icon' => 'letter', 'title' => 'Letters', 'body' => 'Headed letters on the same document design as the books. Print, email, or download a Word letterhead and type your own content.'],
         ['icon' => 'send', 'title' => 'Send emails', 'body' => 'Quotations, invoices, receipts, letters and reminders leave from your assigned mailbox.'],
-        ['icon' => 'palette', 'title' => '17 layouts', 'body' => 'Pick Folio, a counter slip, a pad chit, page borders, an 80mm thermal roll, Twin copy, watermarks and more. The whole books follow that layout.'],
+        ['icon' => 'palette', 'title' => '18 layouts', 'body' => 'Pick Folio, Trade quotation, a counter slip, a pad chit, page borders, an 80mm thermal roll, Twin copy, watermarks and more. The whole books follow that layout.'],
         ['icon' => 'image', 'title' => 'Your company branding', 'body' => 'Logo, three colours, letterhead. Business allows up to 2 branches and Pro up to 3; several people can share a shop, and documents print that address.'],
     ];
 }

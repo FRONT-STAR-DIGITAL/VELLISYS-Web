@@ -1892,6 +1892,187 @@ function render_sheet_thermal(array $d): void
 <?php
 }
 
+/**
+ * Trade / dealers quotation sheet — logo + name, coloured title pill,
+ * QTY | PARTICULARS | UNIT COST | AMOUNT, amount in words, Prepared by.
+ */
+function render_sheet_trade(array $d): void
+{
+    $brand = $d['brand'];
+    $doc = $d['doc'];
+    $kind = (string) ($doc['kind'] ?? '');
+    $money = sheet_shows_money($d);
+    $qtyOnly = in_array($kind, ['delivery', 'return_note'], true);
+    $name = trim((string) ($brand['name'] ?? ''));
+    $nameTop = $name;
+    $nameSub = '';
+    if (preg_match('/^(.+?)\s+by\s+(.+)$/iu', $name, $m)) {
+        $nameTop = trim($m[1]);
+        $nameSub = 'BY ' . trim($m[2]);
+    }
+    $tagline = trim((string) ($brand['tagline'] ?? ''));
+    $phones = preg_split('/\s*[,;\/|]\s*/', trim((string) ($brand['phone'] ?? '')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    $location = trim(implode(', ', array_filter([
+        trim((string) ($brand['address'] ?? '')),
+        trim((string) ($brand['city'] ?? '')),
+    ])));
+    $email = trim((string) ($brand['email'] ?? ''));
+    $party = trim((string) ($doc['party_name'] ?? ''));
+    $prepared = '';
+    $uid = (int) ($doc['created_by'] ?? 0);
+    if ($uid > 0) {
+        $u = db_one('SELECT name FROM users WHERE id = ? AND company_id = ?', 'ii', [$uid, current_company_id()]);
+        $prepared = trim((string) ($u['name'] ?? ''));
+    }
+    if ($prepared === '') {
+        $prepared = trim((string) (current_user()['name'] ?? ''));
+    }
+    $signLabel = function_exists('document_signoff_label') ? document_signoff_label($doc) : (($kind === 'quotation') ? 'Prepared by' : 'Authorized Signature');
+    if (strcasecmp($signLabel, 'Authorized Signature') === 0) {
+        $signLabel = 'Prepared by';
+    }
+    $items = $doc['items'] ?? [];
+    $minRows = max(8, count($items));
+    $rows = $items;
+    while (count($rows) < $minRows) {
+        $rows[] = null;
+    }
+    $cur = (string) ($d['cur'] ?? '');
+    $unitHead = $cur !== '' ? 'UNIT COST (' . $cur . ')' : 'UNIT COST';
+    $amtHead = $cur !== '' ? 'AMOUNT (' . $cur . ')' : 'AMOUNT';
+    $words = $money && function_exists('amount_in_words')
+        ? trim((string) amount_in_words(sheet_words_amount($d), $cur))
+        : '';
+    $heading = (string) ($d['heading'] ?? 'DOCUMENT');
+    ?>
+<article class="invoice-sheet sheet-trade" style="<?= h($d['vars']) ?>">
+  <header class="trade-head">
+    <div class="trade-brand">
+      <div class="trade-logo"><?php render_sheet_logo($d); ?></div>
+      <div class="trade-titles">
+        <h1><?= h($nameTop !== '' ? $nameTop : 'Company') ?></h1>
+        <?php if ($nameSub !== ''): ?><h2><?= h($nameSub) ?></h2><?php endif; ?>
+      </div>
+    </div>
+    <?php if ($tagline !== ''): ?>
+      <p class="trade-tag"><?= h($tagline) ?></p>
+    <?php endif; ?>
+    <div class="trade-contact">
+      <div class="trade-contact-left">
+        <?php if ($phones): ?>
+          <div><span>Tel:</span> <?= h(implode(', ', $phones)) ?></div>
+        <?php endif; ?>
+        <?php if ($email !== ''): ?>
+          <div><span>Email:</span> <?= h($email) ?></div>
+        <?php endif; ?>
+      </div>
+      <?php if ($location !== ''): ?>
+        <div class="trade-contact-right">
+          <span class="trade-pin" aria-hidden="true"></span>
+          <span><?= h($location) ?></span>
+        </div>
+      <?php endif; ?>
+    </div>
+  </header>
+
+  <div class="trade-meta">
+    <div class="trade-no">No. <?= h((string) ($doc['number'] ?? '')) ?></div>
+    <div class="trade-pill"><?= h($heading) ?></div>
+    <div class="trade-date">DATE: <?= h(format_date($doc['date'] ?? null)) ?></div>
+  </div>
+
+  <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID<?= !empty($doc['void_reason']) ? ' - ' . h((string) $doc['void_reason']) : '' ?></p><?php endif; ?>
+
+  <?php if ($kind === 'letter'): ?>
+    <div class="trade-ms"><span>M/S / MR.</span><b><?= h($party) ?></b></div>
+    <?php render_letter_subject($doc); ?>
+    <?php render_letter_body($doc); ?>
+  <?php else: ?>
+    <div class="trade-ms"><span>M/S / MR.</span><b class="trade-ms-line"><?= h($party) ?></b></div>
+
+    <table class="trade-lines">
+      <thead>
+        <tr>
+          <th class="c">QTY</th>
+          <th>PARTICULARS</th>
+          <?php if ($money && !$qtyOnly): ?>
+            <th class="r"><?= h($unitHead) ?></th>
+            <th class="r"><?= h($amtHead) ?></th>
+          <?php endif; ?>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($rows as $i => $item):
+            $qtyLabel = '';
+            $particular = '';
+            $rate = '';
+            $lineAmt = '';
+            if (is_array($item)) {
+                $q = format_qty($item['qty'] ?? 0);
+                $unit = trim((string) ($item['unit'] ?? ''));
+                $qtyLabel = $q . ($unit !== '' ? $unit : '');
+                $particular = function_exists('line_item_name') ? line_item_name($item) : (string) ($item['item_name'] ?? '');
+                $desc = function_exists('line_item_description') ? line_item_description($item) : (string) ($item['description'] ?? '');
+                if ($desc !== '' && strcasecmp($desc, $particular) !== 0) {
+                    $particular = trim($particular . ($particular !== '' ? ' — ' : '') . $desc);
+                }
+                if ($money && !$qtyOnly) {
+                    $rate = money_input_value((float) ($item['rate'] ?? 0), $cur);
+                    $lineAmt = money_input_value(round((float) ($item['qty'] ?? 0) * (float) ($item['rate'] ?? 0), 2), $cur);
+                }
+            }
+            ?>
+          <tr class="<?= $i % 2 ? 'is-alt' : '' ?>">
+            <td class="c"><?= $qtyLabel !== '' ? h($qtyLabel) : '&nbsp;' ?></td>
+            <td><?= $particular !== '' ? h($particular) : '&nbsp;' ?></td>
+            <?php if ($money && !$qtyOnly): ?>
+              <td class="r mono"><?= $rate !== '' ? h($rate) : '' ?></td>
+              <td class="r mono"><?= $lineAmt !== '' ? h($lineAmt) : '' ?></td>
+            <?php endif; ?>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+      <?php if ($money && !$qtyOnly): ?>
+      <tfoot>
+        <tr>
+          <td class="trade-eoe" colspan="2">E&amp;OE</td>
+          <td class="r trade-total-lab">TOTAL</td>
+          <td class="r mono trade-total-amt"><?= h(money_input_value((float) ($d['total'] ?? 0), $cur)) ?></td>
+        </tr>
+      </tfoot>
+      <?php endif; ?>
+    </table>
+
+    <?php if (!empty($d['show_vat'])): ?>
+      <p class="trade-vat">The amounts are VAT inclusive</p>
+    <?php endif; ?>
+
+    <?php if ($words !== ''): ?>
+      <p class="trade-words"><span>Amount in words</span><b><?= h($words) ?></b></p>
+    <?php endif; ?>
+
+    <?php
+    $notes = trim((string) ($d['comments'] ?? ''));
+    if ($notes !== ''):
+    ?>
+      <p class="trade-notes"><?= nl2br(h($notes), false) ?></p>
+    <?php endif; ?>
+  <?php endif; ?>
+
+  <footer class="trade-sign">
+    <div class="trade-prepared">
+      <span><?= h($signLabel) ?></span>
+      <b class="trade-dotline"><?= h($prepared) ?></b>
+    </div>
+    <div class="trade-signoff<?= document_has_e_signature($doc) ? ' has-stamp' : '' ?>">
+      <span>Sign :</span>
+      <div class="trade-sign-mark"><?php render_company_signature($doc); ?></div>
+    </div>
+  </footer>
+</article>
+<?php
+}
+
 function render_expense_card(array $brand, array $doc): void
 {
     $d = sheet_data($brand, $doc);
@@ -1993,6 +2174,7 @@ function render_sheet(array $brand, array $doc): void
             'thermal' => render_sheet_thermal($d),
             'booklet' => render_sheet_booklet($d),
             'chit' => render_sheet_chit($d),
+            'trade' => render_sheet_trade($d),
             default => render_sheet_folio($d),
         };
     }
