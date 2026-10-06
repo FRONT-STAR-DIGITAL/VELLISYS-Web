@@ -2017,8 +2017,15 @@ function render_sheet_trade(array $d): void
                     $particular = trim($particular . ($particular !== '' ? ' — ' : '') . $desc);
                 }
                 if ($money && !$qtyOnly) {
-                    $rate = money_input_value((float) ($item['rate'] ?? 0), $cur);
-                    $lineAmt = money_input_value(round((float) ($item['qty'] ?? 0) * (float) ($item['rate'] ?? 0), 2), $cur);
+                    $decRate = function_exists('money_display_decimals')
+                        ? money_display_decimals((float) ($item['rate'] ?? 0), $cur)
+                        : 0;
+                    $lineVal = round((float) ($item['qty'] ?? 0) * (float) ($item['rate'] ?? 0), 2);
+                    $decAmt = function_exists('money_display_decimals')
+                        ? money_display_decimals($lineVal, $cur)
+                        : 0;
+                    $rate = number_format((float) ($item['rate'] ?? 0), $decRate, '.', ',');
+                    $lineAmt = number_format($lineVal, $decAmt, '.', ',');
                 }
             }
             ?>
@@ -2037,7 +2044,11 @@ function render_sheet_trade(array $d): void
         <tr>
           <td class="trade-eoe" colspan="2">E&amp;OE</td>
           <td class="r trade-total-lab">TOTAL</td>
-          <td class="r mono trade-total-amt"><?= h(money_input_value((float) ($d['total'] ?? 0), $cur)) ?></td>
+          <td class="r mono trade-total-amt"><?php
+            $tot = (float) ($d['total'] ?? 0);
+            $decTot = function_exists('money_display_decimals') ? money_display_decimals($tot, $cur) : 0;
+            echo h(number_format($tot, $decTot, '.', ','));
+          ?></td>
         </tr>
       </tfoot>
       <?php endif; ?>
