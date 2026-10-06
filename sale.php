@@ -62,7 +62,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $catalog = stock_catalog_payload();
-$customers = db_all("SELECT id, name FROM parties WHERE company_id = ? AND kind = 'customer' ORDER BY name LIMIT 250", 'i', [current_company_id()]);
+$custHome = function_exists('party_write_branch_id') ? party_write_branch_id() : 0;
+[$custSql, $custTypes, $custArgs] = function_exists('party_branch_where')
+    ? party_branch_where('', $custHome, true)
+    : ['', '', []];
+$customers = db_all(
+    "SELECT id, name FROM parties WHERE company_id = ? AND kind = 'customer' AND (status IS NULL OR status = 'active')" . $custSql . ' ORDER BY name LIMIT 250',
+    'i' . $custTypes,
+    array_merge([current_company_id()], $custArgs)
+);
 $taxName = company_tax_name();
 $lastPrint = stock_last_print_id();
 $salesPage = stock_search_docs('invoice', stock_q(), stock_page_key('p'), 20);

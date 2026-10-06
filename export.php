@@ -8,6 +8,7 @@ $kind = $_GET['kind'] ?? 'invoice';
 
 if ($type === 'clients') {
     $cid = current_company_id();
+    [$bSql, $bTypes, $bArgs] = function_exists('party_branch_where') ? party_branch_where('p') : ['', '', []];
     $parties = db_all(
         "SELECT p.*,
             COALESCE(c.invoices,0) AS invoices,
@@ -21,9 +22,9 @@ if ($type === 'clients') {
              SUM(kind='receipt' AND status='issued') AS receipts
            FROM documents WHERE company_id = ? GROUP BY party_id
          ) c ON c.party_id = p.id
-         WHERE p.company_id = ? ORDER BY p.name",
-        'ii',
-        [$cid, $cid]
+         WHERE p.company_id = ?" . $bSql . ' ORDER BY p.name',
+        'ii' . $bTypes,
+        array_merge([$cid, $cid], $bArgs)
     );
     $rows = [];
     foreach ($parties as $p) {
@@ -34,9 +35,11 @@ if ($type === 'clients') {
 
 if ($type === 'party') {
     $partyId = (int) ($_GET['id'] ?? 0);
-    $party = db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$partyId, current_company_id()]);
+    $party = function_exists('party_get')
+        ? party_get($partyId)
+        : db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$partyId, current_company_id()]);
     if (!$party) {
-        flash('Client not found.', 'err');
+        flash('Client not found on this location.', 'err');
         redirect('clients.php');
     }
     [$extra, $types, $params] = period_sql('d.date');

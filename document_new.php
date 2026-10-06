@@ -218,7 +218,9 @@ if ($existing) {
         $allocValue = money_input_value((float) $allocRaw, $docCurrency);
     }
 }
-$toParty = $prefillParty ? db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$prefillParty, current_company_id()]) : null;
+$toParty = $prefillParty
+    ? (function_exists('party_get') ? party_get($prefillParty) : db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$prefillParty, current_company_id()]))
+    : null;
 if ($toParty && party_status($toParty) !== 'active') {
     $found = false;
     foreach ($parties as $p) {

@@ -40,9 +40,16 @@ if ($doc && $partyId === 0) {
 }
 
 $party = $partyId
-    ? db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$partyId, $cid])
+    ? (function_exists('party_get') ? party_get($partyId) : db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$partyId, $cid]))
     : null;
-$parties = db_all("SELECT id, name, email, phone, phone2, kind FROM parties WHERE company_id = ? AND (status IS NULL OR status <> 'deleted') ORDER BY name", 'i', [$cid]);
+[$mailPartySql, $mailPartyTypes, $mailPartyArgs] = function_exists('party_branch_where')
+    ? party_branch_where()
+    : ['', '', []];
+$parties = db_all(
+    "SELECT id, name, email, phone, phone2, kind FROM parties WHERE company_id = ? AND (status IS NULL OR status <> 'deleted')" . $mailPartySql . ' ORDER BY name',
+    'i' . $mailPartyTypes,
+    array_merge([$cid], $mailPartyArgs)
+);
 
 $toPrefill = post('to');
 $phonePrefill = post('phone');

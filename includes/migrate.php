@@ -25,7 +25,7 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '70';
+    return '71';
 }
 
 /**
@@ -866,6 +866,103 @@ function folio_ensure_party_status(mysqli $db): void
     }
 }
 
+function folio_ensure_party_branches(mysqli $db): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    if (!db_has_column($db, 'parties', 'branch_id')) {
+        @$db->query('ALTER TABLE parties ADD COLUMN branch_id INT UNSIGNED NOT NULL DEFAULT 0 AFTER company_id');
+        db_has_column($db, 'parties', 'branch_id', true);
+    }
+    $idx = @$db->query("SHOW INDEX FROM parties WHERE Key_name = 'parties_branch'");
+    if (!$idx || $idx->num_rows === 0) {
+        @$db->query('ALTER TABLE parties ADD KEY parties_branch (company_id, branch_id)');
+    }
+    folio_split_party_catalogs($db);
+}
+
+/**
+ * Shared client list → one party row per location that used them.
+ * Unused Head office names stay off a branch portal until that shop adds its own.
+ */
+function folio_split_party_catalogs(mysqli $db): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    if (!db_has_column($db, 'parties', 'branch_id') || !db_has_column($db, 'documents', 'branch_id')) {
+        return;
+    }
+    $hasEntity = db_has_column($db, 'parties', 'entity');
+    $hasProfile = db_has_column($db, 'parties', 'profile');
+    $hasStatus = db_has_column($db, 'parties', 'status');
+    $parties = @$db->query('SELECT id, company_id FROM parties');
+    if (!$parties) {
+        return;
+    }
+    while ($party = $parties->fetch_assoc()) {
+        $id = (int) ($party['id'] ?? 0);
+        $cid = (int) ($party['company_id'] ?? 0);
+        if ($id < 1 || $cid < 1) {
+            continue;
+        }
+        $used = [];
+        $q = @$db->query(
+            "SELECT DISTINCT COALESCE(branch_id, 0) AS branch_id
+             FROM documents WHERE company_id = {$cid} AND party_id = {$id}"
+        );
+        if ($q) {
+            while ($row = $q->fetch_assoc()) {
+                $used[(int) ($row['branch_id'] ?? 0)] = true;
+            }
+        }
+        if (!$used) {
+            continue;
+        }
+        $homes = array_keys($used);
+        sort($homes, SORT_NUMERIC);
+        $keep = in_array(0, $homes, true) ? 0 : (int) $homes[0];
+        @$db->query("UPDATE parties SET branch_id = {$keep} WHERE id = {$id} AND company_id = {$cid}");
+        foreach ($homes as $bid) {
+            $bid = (int) $bid;
+            if ($bid === $keep) {
+                continue;
+            }
+            $cols = 'company_id, branch_id, name, kind, tin, phone, phone2, email, address, city, country, contact_person, notes';
+            $sel = "company_id, {$bid}, name, kind, tin, phone, phone2, email, address, city, country, contact_person, notes";
+            if ($hasStatus) {
+                $cols .= ', status';
+                $sel .= ', COALESCE(status, \'active\')';
+            }
+            if ($hasEntity) {
+                $cols .= ', entity';
+                $sel .= ', COALESCE(entity, \'person\')';
+            }
+            if ($hasProfile) {
+                $cols .= ', profile';
+                $sel .= ', profile';
+            }
+            $ok = @$db->query(
+                "INSERT INTO parties ({$cols})
+                 SELECT {$sel} FROM parties WHERE id = {$id} AND company_id = {$cid}"
+            );
+            $newId = (int) $db->insert_id;
+            if (!$ok || $newId < 1) {
+                continue;
+            }
+            @$db->query(
+                "UPDATE documents SET party_id = {$newId}
+                 WHERE company_id = {$cid} AND party_id = {$id} AND COALESCE(branch_id, 0) = {$bid}"
+            );
+        }
+    }
+}
+
 function folio_migrate(mysqli $db): void
 {
     static $done = false;
@@ -908,6 +1005,7 @@ function folio_migrate(mysqli $db): void
     folio_ensure_clear_ofagros_logo_leak($db);
     folio_ensure_stock($db);
     folio_ensure_stock_branches($db);
+    folio_ensure_party_branches($db);
     folio_ensure_access_addons($db);
     folio_ensure_testing_pro_addons($db);
     folio_migrate_client_profile($db);

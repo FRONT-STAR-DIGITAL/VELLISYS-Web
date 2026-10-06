@@ -58,16 +58,20 @@ function search_desk(string $q, int $limit = 8): array
     }
     $like = search_like($q);
 
+    [$docBranch, $docTypes, $docArgs] = function_exists('desk_branch_sql')
+        ? desk_branch_sql('d.branch_id')
+        : ['', '', []];
     $docs = db_all(
         "SELECT d.id, d.number, d.kind, d.date, d.status, p.name AS party_name
          FROM documents d
          LEFT JOIN parties p ON p.id = d.party_id
          WHERE d.company_id = ?
-           AND (d.number LIKE ? OR IFNULL(p.name,'') LIKE ? OR IFNULL(d.subject,'') LIKE ? OR IFNULL(d.notes,'') LIKE ?)
+           AND (d.number LIKE ? OR IFNULL(p.name,'') LIKE ? OR IFNULL(d.subject,'') LIKE ? OR IFNULL(d.notes,'') LIKE ?)"
+        . $docBranch . "
          ORDER BY d.date DESC, d.id DESC
          LIMIT 40",
-        'issss',
-        [$cid, $like, $like, $like, $like]
+        'issss' . $docTypes,
+        array_merge([$cid, $like, $like, $like, $like], $docArgs)
     );
     $ranked = [];
     foreach ($docs as $d) {
@@ -98,13 +102,15 @@ function search_desk(string $q, int $limit = 8): array
     $out['documents'] = array_slice($ranked, 0, $limit);
 
     if (!function_exists('user_can_open') || user_can_open('clients.php')) {
+        $partyHome = function_exists('party_branch_where') ? party_branch_where() : ['', '', []];
         $parties = db_all(
             "SELECT id, name, phone, email, tin FROM parties
              WHERE company_id = ? AND (status IS NULL OR status <> 'deleted')
-               AND (name LIKE ? OR IFNULL(phone,'') LIKE ? OR IFNULL(email,'') LIKE ? OR IFNULL(tin,'') LIKE ?)
+               AND (name LIKE ? OR IFNULL(phone,'') LIKE ? OR IFNULL(email,'') LIKE ? OR IFNULL(tin,'') LIKE ?)"
+            . $partyHome[0] . "
              ORDER BY name LIMIT 20",
-            'issss',
-            [$cid, $like, $like, $like, $like]
+            'issss' . $partyHome[1],
+            array_merge([$cid, $like, $like, $like, $like], $partyHome[2])
         );
         $clients = [];
         foreach ($parties as $p) {

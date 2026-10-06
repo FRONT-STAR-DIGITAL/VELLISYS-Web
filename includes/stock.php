@@ -955,9 +955,21 @@ function stock_recent_days(int $limit = 14): array
 function stock_walkin_party(): int
 {
     $cid = current_company_id();
-    $row = db_one("SELECT id FROM parties WHERE company_id = ? AND name = 'Walk-in' ORDER BY id LIMIT 1", 'i', [$cid]);
+    $home = function_exists('party_write_branch_id') ? party_write_branch_id() : 0;
+    $branchOn = function_exists('parties_branch_ready') && parties_branch_ready()
+        && function_exists('company_branches_enabled') && company_branches_enabled();
+    $row = $branchOn
+        ? db_one("SELECT id FROM parties WHERE company_id = ? AND branch_id = ? AND name = 'Walk-in' ORDER BY id LIMIT 1", 'ii', [$cid, $home])
+        : db_one("SELECT id FROM parties WHERE company_id = ? AND name = 'Walk-in' ORDER BY id LIMIT 1", 'i', [$cid]);
     if ($row) {
         return (int) $row['id'];
+    }
+    if ($branchOn) {
+        return db_exec(
+            'INSERT INTO parties (company_id, branch_id, name, kind) VALUES (?, ?, ?, ?)',
+            'iiss',
+            [$cid, $home, 'Walk-in', 'customer']
+        );
     }
     return db_exec(
         'INSERT INTO parties (company_id, name, kind) VALUES (?, ?, ?)',
@@ -973,9 +985,17 @@ function stock_find_or_create_party(string $name, string $kind = 'customer'): in
     if ($name === '') {
         return stock_walkin_party();
     }
-    $found = db_one('SELECT id FROM parties WHERE company_id = ? AND name = ? ORDER BY id DESC LIMIT 1', 'is', [$cid, $name]);
+    $home = function_exists('party_write_branch_id') ? party_write_branch_id() : 0;
+    $branchOn = function_exists('parties_branch_ready') && parties_branch_ready()
+        && function_exists('company_branches_enabled') && company_branches_enabled();
+    $found = $branchOn
+        ? db_one('SELECT id FROM parties WHERE company_id = ? AND branch_id = ? AND name = ? ORDER BY id DESC LIMIT 1', 'iis', [$cid, $home, $name])
+        : db_one('SELECT id FROM parties WHERE company_id = ? AND name = ? ORDER BY id DESC LIMIT 1', 'is', [$cid, $name]);
     if ($found) {
         return (int) $found['id'];
+    }
+    if ($branchOn) {
+        return db_exec('INSERT INTO parties (company_id, branch_id, name, kind) VALUES (?,?,?,?)', 'iiss', [$cid, $home, $name, $kind]);
     }
     return db_exec('INSERT INTO parties (company_id, name, kind) VALUES (?,?,?)', 'iss', [$cid, $name, $kind]);
 }

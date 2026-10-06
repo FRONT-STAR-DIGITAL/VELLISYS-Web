@@ -17,7 +17,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $taxName = company_tax_name();
 $catalog = stock_catalog_payload();
-$suppliers = db_all("SELECT id, name FROM parties WHERE company_id = ? AND kind = 'supplier' ORDER BY name LIMIT 250", 'i', [current_company_id()]);
+$supHome = function_exists('party_write_branch_id') ? party_write_branch_id() : 0;
+[$supSql, $supTypes, $supArgs] = function_exists('party_branch_where')
+    ? party_branch_where('', $supHome, true)
+    : ['', '', []];
+$suppliers = db_all(
+    "SELECT id, name FROM parties WHERE company_id = ? AND kind = 'supplier' AND (status IS NULL OR status = 'active')" . $supSql . ' ORDER BY name LIMIT 250',
+    'i' . $supTypes,
+    array_merge([current_company_id()], $supArgs)
+);
 $q = stock_q();
 $buyPage = stock_search_docs('expense', $q, stock_page_key('p'), 20, null, 'Stock');
 

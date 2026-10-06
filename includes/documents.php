@@ -229,16 +229,28 @@ function find_or_create_ledger_party(string $name, string $contact, string $enti
         throw new RuntimeException('Name is required.');
     }
 
+    $home = function_exists('party_write_branch_id') ? party_write_branch_id() : 0;
+    $branchOn = function_exists('parties_branch_ready') && parties_branch_ready()
+        && function_exists('company_branches_enabled') && company_branches_enabled();
     $row = null;
     if ($partyId > 0) {
         $row = db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$partyId, $cid]);
+        if ($row && $branchOn && (int) ($row['branch_id'] ?? 0) !== $home) {
+            $row = null;
+        }
     }
     if (!$row) {
-        $row = db_one(
-            'SELECT * FROM parties WHERE company_id = ? AND LOWER(name) = LOWER(?) ORDER BY id DESC LIMIT 1',
-            'is',
-            [$cid, $name]
-        );
+        $row = $branchOn
+            ? db_one(
+                'SELECT * FROM parties WHERE company_id = ? AND branch_id = ? AND LOWER(name) = LOWER(?) ORDER BY id DESC LIMIT 1',
+                'iis',
+                [$cid, $home, $name]
+            )
+            : db_one(
+                'SELECT * FROM parties WHERE company_id = ? AND LOWER(name) = LOWER(?) ORDER BY id DESC LIMIT 1',
+                'is',
+                [$cid, $name]
+            );
     }
 
     $phone = null;
@@ -273,11 +285,19 @@ function find_or_create_ledger_party(string $name, string $contact, string $enti
         return $id;
     }
 
-    $id = (int) db_exec(
-        'INSERT INTO parties (company_id, name, kind, status, contact_person, phone, email) VALUES (?,?,?,?,?,?,?)',
-        'issssss',
-        [$cid, $name, $partyKind, 'active', null, $phone, $email]
-    );
+    if ($branchOn) {
+        $id = (int) db_exec(
+            'INSERT INTO parties (company_id, branch_id, name, kind, status, contact_person, phone, email) VALUES (?,?,?,?,?,?,?,?)',
+            'iissssss',
+            [$cid, $home, $name, $partyKind, 'active', null, $phone, $email]
+        );
+    } else {
+        $id = (int) db_exec(
+            'INSERT INTO parties (company_id, name, kind, status, contact_person, phone, email) VALUES (?,?,?,?,?,?,?)',
+            'issssss',
+            [$cid, $name, $partyKind, 'active', null, $phone, $email]
+        );
+    }
     if (function_exists('persist_party_client_fields')) {
         persist_party_client_fields($id, ['entity' => $entity]);
     }
@@ -353,6 +373,7 @@ function create_quick_ledger_entry(string $side): int
             : null,
         // Creditor bills stay open until paid; ordinary expenses clear on create.
         'leave_unpaid' => $kind === 'expense',
+        'branch_id' => function_exists('desk_write_branch_id') ? desk_write_branch_id() : 0,
         'items' => [[
             'item_name' => $label,
             'description' => $reason,
@@ -366,12 +387,17 @@ function create_quick_ledger_entry(string $side): int
 
 function ledger_parties_for_picker(): array
 {
+    $cid = current_company_id();
+    $home = function_exists('party_write_branch_id') ? party_write_branch_id() : 0;
+    [$extra, $types, $args] = function_exists('party_branch_where')
+        ? party_branch_where('', $home, true)
+        : ['', '', []];
     return db_all(
         "SELECT * FROM parties
-         WHERE company_id = ? AND (status IS NULL OR status = 'active')
-         ORDER BY name",
-        'i',
-        [current_company_id()]
+         WHERE company_id = ? AND (status IS NULL OR status = 'active')" . $extra . '
+         ORDER BY name',
+        'i' . $types,
+        array_merge([$cid], $args)
     );
 }
 
@@ -583,11 +609,14 @@ function ledger_due_reminder_notifications(int $limit = 20): array
 function ensure_document_party(string $kind): int
 {
     $cid = current_company_id();
+    $home = function_exists('party_write_branch_id') ? party_write_branch_id() : 0;
+    $branchOn = function_exists('parties_branch_ready') && parties_branch_ready()
+        && function_exists('company_branches_enabled') && company_branches_enabled();
     $partyId = (int) post('party_id');
     $name = trim((string) ($_POST['to_name'] ?? ''));
     if ($partyId > 0) {
-        $row = db_one('SELECT id FROM parties WHERE id = ? AND company_id = ?', 'ii', [$partyId, $cid]);
-        if ($row) {
+        $row = db_one('SELECT id, branch_id FROM parties WHERE id = ? AND company_id = ?', 'ii', [$partyId, $cid]);
+        if ($row && (!$branchOn || (int) ($row['branch_id'] ?? 0) === $home)) {
             return (int) $row['id'];
         }
     }
@@ -597,7 +626,9 @@ function ensure_document_party(string $kind): int
         }
         throw new RuntimeException('Choose an existing client or type a new name.');
     }
-    $found = db_one('SELECT id FROM parties WHERE company_id = ? AND name = ? ORDER BY id DESC LIMIT 1', 'is', [$cid, $name]);
+    $found = $branchOn
+        ? db_one('SELECT id FROM parties WHERE company_id = ? AND branch_id = ? AND name = ? ORDER BY id DESC LIMIT 1', 'iis', [$cid, $home, $name])
+        : db_one('SELECT id FROM parties WHERE company_id = ? AND name = ? ORDER BY id DESC LIMIT 1', 'is', [$cid, $name]);
     if ($found) {
         return (int) $found['id'];
     }
@@ -615,11 +646,19 @@ function ensure_document_party(string $kind): int
     $country = trim((string) ($_POST['to_country'] ?? '')) ?: null;
     $entity = function_exists('normalize_party_entity') ? normalize_party_entity((string) ($_POST['to_entity'] ?? '')) : 'person';
     $profile = function_exists('posted_to_extras') ? json_encode(posted_to_extras(), JSON_UNESCAPED_UNICODE) : null;
-    $id = db_exec(
-        'INSERT INTO parties (company_id, name, kind, tin, contact_person, phone, phone2, email, address, city, country, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
-        'isssssssssss',
-        [$cid, $name, $partyKind, $tin, $contact, $phone, $phone2, $email, $address, $city, $country, null]
-    );
+    if ($branchOn) {
+        $id = db_exec(
+            'INSERT INTO parties (company_id, branch_id, name, kind, tin, contact_person, phone, phone2, email, address, city, country, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            'iisssssssssss',
+            [$cid, $home, $name, $partyKind, $tin, $contact, $phone, $phone2, $email, $address, $city, $country, null]
+        );
+    } else {
+        $id = db_exec(
+            'INSERT INTO parties (company_id, name, kind, tin, contact_person, phone, phone2, email, address, city, country, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+            'isssssssssss',
+            [$cid, $name, $partyKind, $tin, $contact, $phone, $phone2, $email, $address, $city, $country, null]
+        );
+    }
     persist_party_client_fields((int) $id, [
         'entity' => $entity,
         'profile' => $profile,
@@ -2546,6 +2585,11 @@ function outstanding_invoices(?int $partyId = null, ?int $keepId = null): array
         $sql .= ' AND d.party_id = ?';
         $types .= 'i';
         $params[] = $partyId;
+    } elseif (function_exists('desk_branch_sql')) {
+        [$bSql, $bTypes, $bArgs] = desk_branch_sql('d.branch_id');
+        $sql .= $bSql;
+        $types .= $bTypes;
+        $params = array_merge($params, $bArgs);
     }
     $sql .= ' ORDER BY d.date DESC, d.id DESC';
     $rows = attach_document_totals(db_all($sql, $types, $params));

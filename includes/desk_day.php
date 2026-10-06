@@ -238,10 +238,11 @@ function desk_docs_issued_count(string $from, string $to): int
 function desk_active_clients_count(): int
 {
     $cid = current_company_id();
+    [$extra, $types, $args] = function_exists('party_branch_where') ? party_branch_where() : ['', '', []];
     return (int) (db_one(
-        "SELECT COUNT(*) c FROM parties WHERE company_id = ? AND kind IN ('customer','both') AND (status IS NULL OR status = 'active')",
-        'i',
-        [$cid]
+        "SELECT COUNT(*) c FROM parties WHERE company_id = ? AND kind IN ('customer','both') AND (status IS NULL OR status = 'active')" . $extra,
+        'i' . $types,
+        array_merge([$cid], $args)
     )['c'] ?? 0);
 }
 

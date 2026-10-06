@@ -5,9 +5,9 @@ $user = require_member();
 
 $id = (int) ($_GET['id'] ?? 0);
 $cid = current_company_id();
-$party = db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$id, $cid]);
+$party = function_exists('party_get') ? party_get($id) : db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$id, $cid]);
 if (!$party) {
-    flash('Client not found.', 'err');
+    flash('Client not found on this location.', 'err');
     redirect('clients.php');
 }
 

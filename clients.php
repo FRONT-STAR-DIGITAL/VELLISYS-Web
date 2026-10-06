@@ -17,6 +17,7 @@ if ($filter === 'active') {
     $statusSql = '';
 }
 
+[$bSql, $bTypes, $bArgs] = function_exists('party_branch_where') ? party_branch_where('p') : ['', '', []];
 $parties = db_all(
     "SELECT p.*,
         COALESCE(c.invoices,0) AS invoices,
@@ -30,18 +31,20 @@ $parties = db_all(
          SUM(kind='receipt' AND status='issued') AS receipts
        FROM documents WHERE company_id = ? GROUP BY party_id
      ) c ON c.party_id = p.id
-     WHERE p.company_id = ?{$statusSql}
+     WHERE p.company_id = ?{$statusSql}" . $bSql . "
      ORDER BY FIELD(p.status,'active','inactive','deleted'), p.name",
-    'ii',
-    [$cid, $cid]
+    'ii' . $bTypes,
+    array_merge([$cid, $cid], $bArgs)
 );
+$clientScope = function_exists('desk_view_branch') ? desk_view_branch() : [];
+$showClientLocation = !empty($clientScope['enabled']) && !empty($clientScope['all']);
 
 layout_start('Clients', $user);
 ?>
 <div class="page-head">
   <div>
     <h1><?= icon('clients') ?>Clients</h1>
-    <p class="lede">Open a name to invoice, quote, receipt, write a letter, or see their documents. Mark a client inactive when you still need the history, or delete them from the list.</p>
+    <p class="lede">Open a name to invoice, quote, receipt, write a letter, or see their documents. Mark a client inactive when you still need the history, or delete them from the list.<?= function_exists('desk_branch_lede') ? h(desk_branch_lede('clients')) : '' ?></p>
   </div>
   <div class="actions">
     <a class="btn ghost" href="<?= h(export_query('clients')) ?>"><?= icon('download', 16) ?>Export CSV</a>
@@ -49,22 +52,28 @@ layout_start('Clients', $user);
     <a class="btn" href="<?= h(url('client_edit.php')) ?>"><?= icon('plus') ?>New client</a>
   </div>
 </div>
+<?php if (function_exists('render_desk_branch_chips')) { render_desk_branch_chips('clients.php', ['status' => $filter]); } ?>
 
 <div class="filter-chips" style="margin:0 0 16px">
-  <?php foreach (['open' => 'On the books', 'active' => 'Active', 'inactive' => 'Inactive', 'all' => 'Including removed'] as $key => $label): ?>
-    <a class="chip<?= $filter === $key ? ' is-on' : '' ?>" href="<?= h(url('clients.php?status=' . $key)) ?>"><?= h($label) ?></a>
+  <?php
+  $chipBase = function_exists('desk_branch_keep') ? desk_branch_keep() : [];
+  foreach (['open' => 'On the books', 'active' => 'Active', 'inactive' => 'Inactive', 'all' => 'Including removed'] as $key => $label):
+      $href = url('clients.php?' . http_build_query(array_merge($chipBase, ['status' => $key])));
+  ?>
+    <a class="chip<?= $filter === $key ? ' is-on' : '' ?>" href="<?= h($href) ?>"><?= h($label) ?></a>
   <?php endforeach; ?>
 </div>
 
 <div class="card">
   <?php if (!$parties): ?>
-    <p class="empty">No clients<?= $filter === 'inactive' ? ' marked inactive' : '' ?>. <a href="<?= h(url('client_edit.php')) ?>">Add one</a>.</p>
+    <p class="empty">No clients<?= $filter === 'inactive' ? ' marked inactive' : '' ?> on this location. <a href="<?= h(url('client_edit.php')) ?>">Add one</a>. Other branches keep their own lists.</p>
   <?php else: ?>
     <div class="table-scroll clients-table">
     <table class="grid">
       <thead>
         <tr>
           <th>Name</th>
+          <?php if ($showClientLocation): ?><th>Location</th><?php endif; ?>
           <th>Kind</th>
           <th>Status</th>
           <th>Email</th>
@@ -80,6 +89,7 @@ layout_start('Clients', $user);
             ?>
           <tr class="<?= $st !== 'active' ? 'is-muted' : '' ?>">
             <td><a href="<?= h(url('client_view.php?id=' . $p['id'])) ?>"><strong><?= h($p['name']) ?></strong></a></td>
+            <?php if ($showClientLocation): ?><td><?= h(party_location_label($p)) ?></td><?php endif; ?>
             <td><?= h($p['kind']) ?></td>
             <td><span class="pill<?= $st === 'inactive' ? ' warn' : '' ?>"><?= h(party_status_label($p)) ?></span></td>
             <td><?= h($p['email']) ?></td>

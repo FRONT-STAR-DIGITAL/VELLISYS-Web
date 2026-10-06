@@ -33,17 +33,18 @@ layout_start('Creditors', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('bank') ?>Creditors</h1>
-    <p class="lede">People or places you owe — personal or private amounts. This ledger stays on its own: it does not post to business expenses, sales, or the desk dashboard. Recording a payment clears the bill only.</p>
+    <p class="lede">People or places you owe — personal or private amounts. This ledger stays on its own: it does not post to business expenses, sales, or the desk dashboard. Recording a payment clears the bill only.<?= function_exists('desk_branch_lede') ? h(desk_branch_lede('creditors')) : '' ?></p>
   </div>
   <div class="actions">
     <a class="btn" href="<?= h(url('creditors.php?add=1#ledger-add')) ?>"><?= icon('plus', 16) ?>Add new</a>
     <a class="btn ghost" href="<?= h(export_query('creditors')) ?>"><?= icon('download', 16) ?>Export CSV</a>
   </div>
 </div>
+<?php if (function_exists('render_desk_branch_chips')) { render_desk_branch_chips('creditors.php'); } ?>
 
 <?php render_ledger_add_form('creditor', $parties, $showAdd || $addError !== '', $addError); ?>
 
-<?php render_filters('creditors.php'); ?>
+<?php render_filters('creditors.php', function_exists('desk_branch_keep') ? desk_branch_keep() : []); ?>
 
 <div class="stats">
   <div class="card stat"><?= icon('expense', 20) ?><span>Open bills</span><strong><?= count($rows) ?></strong></div>

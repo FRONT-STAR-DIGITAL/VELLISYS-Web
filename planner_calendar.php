@@ -72,7 +72,14 @@ if ($editId && !$editing) {
         $date = (string) $editing['event_date'];
     }
 }
-$parties = db_all('SELECT id, name FROM parties WHERE company_id = ? ORDER BY name LIMIT 400', 'i', [current_company_id()]);
+[$calPartySql, $calPartyTypes, $calPartyArgs] = function_exists('party_branch_where')
+    ? party_branch_where()
+    : ['', '', []];
+$parties = db_all(
+    'SELECT id, name FROM parties WHERE company_id = ?' . $calPartySql . ' ORDER BY name LIMIT 400',
+    'i' . $calPartyTypes,
+    array_merge([current_company_id()], $calPartyArgs)
+);
 $cells = planner_month_matrix($year, $month);
 $prevMonth = date('Y-m-d', strtotime($monthStart . ' -1 month'));
 $nextMonth = date('Y-m-d', strtotime($monthStart . ' +1 month'));

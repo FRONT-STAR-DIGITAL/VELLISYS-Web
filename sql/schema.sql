@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS branding (
 CREATE TABLE IF NOT EXISTS parties (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   company_id INT UNSIGNED NOT NULL,
+  branch_id INT UNSIGNED NOT NULL DEFAULT 0,
   name VARCHAR(190) NOT NULL,
   kind ENUM('customer','supplier','both') NOT NULL DEFAULT 'customer',
   tin VARCHAR(40) DEFAULT NULL,
@@ -103,7 +104,8 @@ CREATE TABLE IF NOT EXISTS parties (
   status VARCHAR(20) NOT NULL DEFAULT 'active',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY company_id (company_id),
-  KEY party_status (company_id, status)
+  KEY party_status (company_id, status),
+  KEY parties_branch (company_id, branch_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS documents (

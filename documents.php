@@ -55,17 +55,17 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
     <h1><?= icon(document_kind_icon($kind)) ?><?= h($meta['title']) ?></h1>
     <p class="lede">
       <?php if ($kind === 'expense'): ?>
-        Company spending - open a row to see the expense details. Not a bill sent to a client.
+        Company spending - open a row to see the expense details. Not a bill sent to a client.<?= function_exists('desk_branch_lede') ? h(desk_branch_lede('expenses')) : '' ?>
       <?php elseif ($kind === 'letter'): ?>
-        Headed letters with a subject and body, on the same document design as the rest of the books. Download a Word letterhead when you need to type the rest in Microsoft Word.
+        Headed letters with a subject and body, on the same document design as the rest of the books. Download a Word letterhead when you need to type the rest in Microsoft Word.<?= function_exists('desk_branch_lede') ? h(desk_branch_lede('letters')) : '' ?>
       <?php elseif ($kind === 'custom'): ?>
-        <?= h($meta['singular']) ?> using the fields set when this company was onboarded.
+        <?= h($meta['singular']) ?> using the fields set when this company was onboarded.<?= function_exists('desk_branch_lede') ? h(desk_branch_lede(strtolower($meta['title']))) : '' ?>
       <?php elseif ($kind === 'delivery'): ?>
-        Goods out: item, description and quantity. No prices.
+        Goods out: item, description and quantity. No prices.<?= function_exists('desk_branch_lede') ? h(desk_branch_lede('delivery notes')) : '' ?>
       <?php elseif ($kind === 'receipt'): ?>
-        Cleared receipts are paid in full. Partially cleared receipts still have an amount due on Debtors.
+        Cleared receipts are paid in full. Partially cleared receipts still have an amount due on Debtors.<?= function_exists('desk_branch_lede') ? h(desk_branch_lede('receipts')) : '' ?>
       <?php else: ?>
-        Every row has actions - view, edit, print, email<?= $kind === 'quotation' ? ', convert to invoice' : '' ?><?= $kind === 'invoice' ? ', take a receipt (full or part)' : '' ?>, or delete.
+        Every row has actions - view, edit, print, email<?= $kind === 'quotation' ? ', convert to invoice' : '' ?><?= $kind === 'invoice' ? ', take a receipt (full or part)' : '' ?>, or delete.<?= function_exists('desk_branch_lede') ? h(desk_branch_lede(strtolower($meta['title']))) : '' ?>
       <?php endif; ?>
     </p>
   </div>
@@ -77,8 +77,9 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
     <a class="btn" href="<?= h(url('document_new.php?kind=' . $kind)) ?>"><?= icon(document_kind_icon($kind)) ?><?= h($meta['verb']) ?></a>
   </div>
 </div>
+<?php if (function_exists('render_desk_branch_chips')) { render_desk_branch_chips('documents.php', ['kind' => $kind]); } ?>
 
-<?php render_filters('documents.php', ['kind' => $kind]); ?>
+<?php render_filters('documents.php', array_merge(['kind' => $kind], function_exists('desk_branch_keep') ? desk_branch_keep() : [])); ?>
 
 <?php if ($kind === 'receipt'): ?>
   <div class="docs-extra">

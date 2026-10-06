@@ -48,7 +48,7 @@ layout_start('Debtors', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('clients') ?>Debtors</h1>
-    <p class="lede">Clients who still owe you - open invoices and quick receipts that were only part paid. Mixed currencies convert at your <?= h(default_currency()) ?> / USD rate. Take a receipt, send a reminder by email or WhatsApp, or print the document.</p>
+    <p class="lede">Clients who still owe you - open invoices and quick receipts that were only part paid. Mixed currencies convert at your <?= h(default_currency()) ?> / USD rate. Take a receipt, send a reminder by email or WhatsApp, or print the document.<?= function_exists('desk_branch_lede') ? h(desk_branch_lede('debtors')) : '' ?></p>
   </div>
   <div class="actions">
     <a class="btn" href="<?= h(url('debtors.php?add=1#ledger-add')) ?>"><?= icon('plus', 16) ?>Add new</a>
@@ -56,10 +56,11 @@ layout_start('Debtors', $user);
     <a class="btn ghost" href="<?= h(export_query('debtors')) ?>"><?= icon('download', 16) ?>Export CSV</a>
   </div>
 </div>
+<?php if (function_exists('render_desk_branch_chips')) { render_desk_branch_chips('debtors.php'); } ?>
 
 <?php render_ledger_add_form('debtor', $parties, $showAdd || $addError !== '', $addError); ?>
 
-<?php render_filters('debtors.php'); ?>
+<?php render_filters('debtors.php', function_exists('desk_branch_keep') ? desk_branch_keep() : []); ?>
 
 <?php if ($byClient): ?>
 <div class="card" style="margin-bottom:16px">

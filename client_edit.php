@@ -5,7 +5,11 @@ $user = require_member();
 
 $id = (int) ($_GET['id'] ?? post('id'));
 $cid = current_company_id();
-$party = $id ? db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$id, $cid]) : null;
+$party = $id ? (function_exists('party_get') ? party_get($id) : db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$id, $cid])) : null;
+if ($id && !$party) {
+    flash('Client not found on this location.', 'err');
+    redirect('clients.php');
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
@@ -51,11 +55,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         redirect('client_view.php?id=' . $id);
     }
-    $newId = db_exec(
-        'INSERT INTO parties (company_id, name, kind, status, tin, contact_person, phone, phone2, email, address, city, country, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        'issssssssssss',
-        [$cid, $name, $kind, $status, $tin, $contact, $phone, $phone2, $email, $address, $city, $country, $notes]
-    );
+    $home = function_exists('party_write_branch_id') ? party_write_branch_id() : 0;
+    $branchOn = function_exists('parties_branch_ready') && parties_branch_ready()
+        && function_exists('company_branches_enabled') && company_branches_enabled();
+    if ($branchOn) {
+        $newId = db_exec(
+            'INSERT INTO parties (company_id, branch_id, name, kind, status, tin, contact_person, phone, phone2, email, address, city, country, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            'iissssssssssss',
+            [$cid, $home, $name, $kind, $status, $tin, $contact, $phone, $phone2, $email, $address, $city, $country, $notes]
+        );
+    } else {
+        $newId = db_exec(
+            'INSERT INTO parties (company_id, name, kind, status, tin, contact_person, phone, phone2, email, address, city, country, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            'issssssssssss',
+            [$cid, $name, $kind, $status, $tin, $contact, $phone, $phone2, $email, $address, $city, $country, $notes]
+        );
+    }
     if (function_exists('persist_party_client_fields')) {
         persist_party_client_fields((int) $newId, ['entity' => $entity, 'profile' => $profileJson]);
     }

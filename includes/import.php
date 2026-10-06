@@ -668,12 +668,17 @@ function import_party_kind(string $raw, string $fallback = 'customer'): string
 function import_find_or_create_party(array $fields, string $fallbackKind = 'customer'): int
 {
     $cid = current_company_id();
+    $home = function_exists('party_write_branch_id') ? party_write_branch_id() : 0;
+    $branchOn = function_exists('parties_branch_ready') && parties_branch_ready()
+        && function_exists('company_branches_enabled') && company_branches_enabled();
     $name = mb_substr(trim((string) ($fields['name'] ?? $fields['client'] ?? '')), 0, 190);
     if ($name === '') {
         $name = 'Walk-in';
     }
     $kind = import_party_kind((string) ($fields['kind'] ?? ''), $fallbackKind);
-    $found = db_one('SELECT * FROM parties WHERE company_id = ? AND name = ? ORDER BY id DESC LIMIT 1', 'is', [$cid, $name]);
+    $found = $branchOn
+        ? db_one('SELECT * FROM parties WHERE company_id = ? AND branch_id = ? AND name = ? ORDER BY id DESC LIMIT 1', 'iis', [$cid, $home, $name])
+        : db_one('SELECT * FROM parties WHERE company_id = ? AND name = ? ORDER BY id DESC LIMIT 1', 'is', [$cid, $name]);
     $tin = trim((string) ($fields['tin'] ?? '')) ?: null;
     $contact = trim((string) ($fields['contact_person'] ?? '')) ?: null;
     $phone = trim((string) ($fields['phone'] ?? '')) ?: null;
@@ -697,6 +702,13 @@ function import_find_or_create_party(array $fields, string $fallbackKind = 'cust
             [$nextKind, $tin ?? '', $contact ?? '', $phone ?? '', $phone2 ?? '', $email ?? '', $address ?? '', $city ?? '', $country ?? '', $notes ?? '', $id, $cid]
         );
         return $id;
+    }
+    if ($branchOn) {
+        return db_exec(
+            'INSERT INTO parties (company_id, branch_id, name, kind, status, tin, contact_person, phone, phone2, email, address, city, country, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            'iissssssssssss',
+            [$cid, $home, $name, $kind, 'active', $tin, $contact, $phone, $phone2, $email, $address, $city, $country, $notes]
+        );
     }
     return db_exec(
         'INSERT INTO parties (company_id, name, kind, status, tin, contact_person, phone, phone2, email, address, city, country, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
@@ -855,7 +867,12 @@ function import_clients(array $assoc): array
             continue;
         }
         $cid = current_company_id();
-        $exists = db_one('SELECT id FROM parties WHERE company_id = ? AND name = ?', 'is', [$cid, $name]);
+        $home = function_exists('party_write_branch_id') ? party_write_branch_id() : 0;
+        $branchOn = function_exists('parties_branch_ready') && parties_branch_ready()
+            && function_exists('company_branches_enabled') && company_branches_enabled();
+        $exists = $branchOn
+            ? db_one('SELECT id FROM parties WHERE company_id = ? AND branch_id = ? AND name = ?', 'iis', [$cid, $home, $name])
+            : db_one('SELECT id FROM parties WHERE company_id = ? AND name = ?', 'is', [$cid, $name]);
         import_find_or_create_party($row, 'customer');
         if ($exists) {
             $updated++;

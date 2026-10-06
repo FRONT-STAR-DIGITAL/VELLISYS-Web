@@ -223,8 +223,8 @@ $lessons = [
             'Open Branches on the rail. Add a shop or city name and its address, up to the branch cap on the package. A branch login sees only that location.',
             'Sheets issued from a branch print that address. Head office keeps using the Settings address.',
             'Assign staff so their work is recorded there. Several logins can sit on one branch.',
-            'Stock quantities, product lists, Sale till and the Desk dashboard are per branch. A branch portal cannot see Head office stock, products or sales. Deleting a product at Head office leaves branch copies in place.',
-            'Only the company admin sees overall — chip Every branch on Desk or Stock, or open Branches → Performance.',
+            'Stock, clients, debtors, creditors, expenses, Sale till and the Desk dashboard are per branch. A branch portal cannot see Head office lists or sales. Deleting a client or product at Head office leaves branch copies in place.',
+            'Only the company admin sees overall — chip Every branch on Desk, Stock, Clients or ledgers, or open Branches → Performance.',
         ],
     ],
     [

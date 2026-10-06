@@ -1254,17 +1254,93 @@ function logo_url(?array $brand = null): string
     return '';
 }
 
+function parties_branch_ready(): bool
+{
+    static $ok = null;
+    if ($ok !== null) {
+        return $ok;
+    }
+    try {
+        $ok = function_exists('db_has_column') && db_has_column(db(), 'parties', 'branch_id');
+    } catch (Throwable $e) {
+        $ok = false;
+    }
+    return $ok;
+}
+
+/** Extra WHERE so a location only sees its own clients. */
+function party_branch_where(string $alias = '', ?int $forcedBranch = null, bool $forceBranch = false): array
+{
+    if (!parties_branch_ready()) {
+        return ['', '', []];
+    }
+    if (!function_exists('company_branches_enabled') || !company_branches_enabled()) {
+        return ['', '', []];
+    }
+    $col = ($alias !== '' ? $alias . '.' : '') . 'branch_id';
+    if ($forceBranch) {
+        return [" AND {$col} = ?", 'i', [max(0, (int) $forcedBranch)]];
+    }
+    if (!function_exists('desk_view_branch')) {
+        return ['', '', []];
+    }
+    $scope = desk_view_branch();
+    if (empty($scope['enabled']) || !empty($scope['all'])) {
+        return ['', '', []];
+    }
+    return [" AND {$col} = ?", 'i', [(int) $scope['id']]];
+}
+
+function party_write_branch_id(): int
+{
+    return function_exists('desk_write_branch_id') ? desk_write_branch_id() : 0;
+}
+
+function party_get(int $id, bool $anyLocation = false): ?array
+{
+    $row = db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$id, current_company_id()]);
+    if (!$row) {
+        return null;
+    }
+    if (
+        !$anyLocation
+        && parties_branch_ready()
+        && function_exists('company_branches_enabled')
+        && company_branches_enabled()
+        && function_exists('desk_view_branch')
+    ) {
+        $scope = desk_view_branch();
+        if (!empty($scope['enabled']) && empty($scope['all']) && (int) ($row['branch_id'] ?? 0) !== (int) $scope['id']) {
+            return null;
+        }
+    }
+    return $row;
+}
+
+function party_location_label(array $row): string
+{
+    if (!function_exists('company_branch_label')) {
+        return 'Head office';
+    }
+    return company_branch_label((int) ($row['branch_id'] ?? 0));
+}
+
 function parties_for(string $kind = 'customer'): array
 {
     $cid = current_company_id();
     $status = " AND (status IS NULL OR status = 'active')";
+    $kindSql = " AND kind IN ('customer','both')";
     if ($kind === 'expense') {
-        return db_all("SELECT * FROM parties WHERE company_id = ? AND kind IN ('supplier','both'){$status} ORDER BY name", 'i', [$cid]);
+        $kindSql = " AND kind IN ('supplier','both')";
+    } elseif ($kind === 'refund' || $kind === 'return_note') {
+        $kindSql = " AND kind IN ('customer','supplier','both')";
     }
-    if ($kind === 'refund' || $kind === 'return_note') {
-        return db_all("SELECT * FROM parties WHERE company_id = ? AND kind IN ('customer','supplier','both'){$status} ORDER BY name", 'i', [$cid]);
-    }
-    return db_all("SELECT * FROM parties WHERE company_id = ? AND kind IN ('customer','both'){$status} ORDER BY name", 'i', [$cid]);
+    [$extra, $types, $args] = party_branch_where('', party_write_branch_id(), true);
+    return db_all(
+        "SELECT * FROM parties WHERE company_id = ?{$kindSql}{$status}" . $extra . ' ORDER BY name',
+        'i' . $types,
+        array_merge([$cid], $args)
+    );
 }
 
 function party_statuses(): array
@@ -1311,7 +1387,7 @@ function party_document_count(int $partyId): int
 
 function set_party_status(int $partyId, string $status): void
 {
-    $party = db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$partyId, current_company_id()]);
+    $party = party_get($partyId);
     if (!$party) {
         throw new RuntimeException('Client not found.');
     }
@@ -1329,7 +1405,7 @@ function set_party_status(int $partyId, string $status): void
 function delete_party(int $partyId): string
 {
     $cid = current_company_id();
-    $party = db_one('SELECT * FROM parties WHERE id = ? AND company_id = ?', 'ii', [$partyId, $cid]);
+    $party = party_get($partyId);
     if (!$party) {
         throw new RuntimeException('Client not found.');
     }
@@ -1366,7 +1442,7 @@ function render_party_delete_button(int $id, bool $labeled = false): void
 {
     $cls = $labeled ? 'btn danger sm' : 'btn danger sm icon-only';
     ?>
-    <form method="post" action="<?= h(url('client_action.php')) ?>" onsubmit="return confirm('Delete this client? Documents already issued stay in the books.');">
+    <form method="post" action="<?= h(url('client_action.php')) ?>" onsubmit="return confirm('Delete this client from this location? Other branches keep their own copy. Documents already issued stay in the books.');">
       <?= csrf_field() ?>
       <input type="hidden" name="action" value="delete">
       <input type="hidden" name="id" value="<?= $id ?>">
