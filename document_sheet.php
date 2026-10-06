@@ -57,7 +57,22 @@ $auto = isset($_GET['autodownload']);
       break-after: avoid !important;
     }
     .invoice-sheet.sheet-thermal { width: 80mm !important; max-width: 80mm !important; }
-    .invoice-sheet:not(.sheet-thermal) { width: 210mm !important; max-width: 210mm !important; }
+    .invoice-sheet:not(.sheet-thermal) {
+      width: 210mm !important;
+      max-width: 210mm !important;
+      padding: 5mm 5mm 6mm !important;
+    }
+    .invoice-sheet.sheet-trade { padding: 4mm 4mm 5mm !important; }
+    .invoice-sheet.sheet-twin { padding: 4mm 4mm 5mm !important; }
+    .invoice-sheet.sheet-frame { padding: 3mm !important; }
+    .invoice-sheet.sheet-inset,
+    .invoice-sheet.sheet-booklet,
+    .invoice-sheet.sheet-chit { padding: 0 !important; }
+    .sheet-frame .page-frame-inner,
+    .sheet-inset .page-inset,
+    .booklet-page,
+    .chit-page,
+    .night-body { padding: 5mm 5mm 6mm !important; }
     .sheet-frame .page-frame,
     .sheet-inset .page-inset,
     .booklet-page,
