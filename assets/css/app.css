@@ -2418,7 +2418,7 @@ input:focus, select:focus, textarea:focus {
     box-shadow: 0 4px 16px rgba(8, 20, 58, .1);
   }
   .invoice-sheet.sheet-trade:not(.sheet-thermal) {
-    padding: 6mm 7mm 8mm;
+    padding: 4mm 4mm 5mm;
   }
 }
 .invoice-sheet.sheet-ledger,
@@ -4805,6 +4805,13 @@ body.tut-lightbox-open { overflow: hidden; }
   .invoice-sheet:not(.sheet-thermal):not(.sheet-twin) {
     width: 210mm !important;
     max-width: 210mm !important;
+    padding: 5mm 5mm 6mm !important;
+  }
+  .invoice-sheet.sheet-trade {
+    padding: 4mm 4mm 5mm !important;
+  }
+  .invoice-sheet.sheet-twin {
+    padding: 4mm 4mm 5mm !important;
   }
   .invoice-sheet:not(.is-multipage) {
     page-break-after: avoid;

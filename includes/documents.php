@@ -1792,8 +1792,8 @@ function document_pdf_cache_path(array $doc): string
         @mkdir($dir, 0755, true);
     }
     $id = (int) ($doc['id'] ?? 0);
-    // pdf-v5: capture matches on-view seal/folio sheet (invalidate older clipped caches).
-    $fp = hash('sha256', $id . '|pdf-v5|' . document_content_fingerprint($doc) . '|' . document_brand_fingerprint($doc));
+    // pdf-v6: tighter A4 page margins for mobile-readable PDFs (thermal unchanged).
+    $fp = hash('sha256', $id . '|pdf-v6|' . document_content_fingerprint($doc) . '|' . document_brand_fingerprint($doc));
     return $dir . '/doc-' . $id . '-' . substr($fp, 0, 16) . '.pdf';
 }
 
@@ -1939,7 +1939,26 @@ function document_sheet_print_html(array $doc): string
     .invoice-sheet:not(.sheet-thermal) {
       width: 210mm !important;
       max-width: 210mm !important;
+      padding: 5mm 5mm 6mm !important;
     }
+    .invoice-sheet.sheet-trade {
+      padding: 4mm 4mm 5mm !important;
+    }
+    .invoice-sheet.sheet-twin {
+      padding: 4mm 4mm 5mm !important;
+    }
+    .invoice-sheet.sheet-frame { padding: 3mm !important; }
+    .invoice-sheet.sheet-inset,
+    .invoice-sheet.sheet-booklet,
+    .invoice-sheet.sheet-chit { padding: 0 !important; }
+    .sheet-frame .page-frame-inner,
+    .sheet-inset .page-inset,
+    .booklet-page,
+    .chit-page,
+    .night-body { padding: 5mm 5mm 6mm !important; }
+    .estate-gold { margin-left: -5mm !important; margin-right: -5mm !important; }
+    .estate-band { margin: -5mm -5mm 0 !important; padding-left: 5mm !important; padding-right: 5mm !important; }
+    .night-sky { padding-left: 5mm !important; padding-right: 5mm !important; }
     .sheet-frame .page-frame,
     .sheet-inset .page-inset,
     .booklet-page,

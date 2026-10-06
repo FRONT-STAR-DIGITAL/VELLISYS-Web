@@ -166,6 +166,7 @@
     var sheets = clonedDoc.querySelectorAll('.invoice-sheet');
     for (var i = 0; i < sheets.length; i++) {
       var n = sheets[i];
+      var thermalSheet = n.classList.contains('sheet-thermal');
       n.style.setProperty('transform', 'none', 'important');
       n.style.setProperty('zoom', '1', 'important');
       n.style.setProperty('margin', '0', 'important');
@@ -173,20 +174,51 @@
       n.style.setProperty('box-shadow', 'none', 'important');
       n.style.setProperty('height', 'auto', 'important');
       n.style.setProperty('min-height', '0', 'important');
-      n.style.setProperty('width', '210mm', 'important');
-      n.style.setProperty('max-width', '210mm', 'important');
+      if (thermalSheet) {
+        n.style.setProperty('width', '80mm', 'important');
+        n.style.setProperty('max-width', '80mm', 'important');
+      } else {
+        n.style.setProperty('width', '210mm', 'important');
+        n.style.setProperty('max-width', '210mm', 'important');
+      }
       n.style.setProperty('overflow', 'visible', 'important');
       n.style.setProperty('page-break-after', 'avoid', 'important');
       n.style.setProperty('break-after', 'avoid', 'important');
-      // Phone preview tightens screen padding; PDF capture must keep print margins.
-      if (!n.classList.contains('sheet-thermal')) {
+      // Real PDF: tight page margins so content fills ~¾+ of A4 (thermal unchanged).
+      if (!thermalSheet) {
         if (n.classList.contains('sheet-trade')) {
-          n.style.setProperty('padding', '10mm 12mm 12mm', 'important');
+          n.style.setProperty('padding', '4mm 4mm 5mm', 'important');
         } else if (n.classList.contains('sheet-twin')) {
-          n.style.setProperty('padding', '8mm 8mm 10mm', 'important');
+          n.style.setProperty('padding', '4mm 4mm 5mm', 'important');
+        } else if (n.classList.contains('sheet-frame')) {
+          n.style.setProperty('padding', '3mm', 'important');
+        } else if (n.classList.contains('sheet-inset') || n.classList.contains('sheet-booklet') || n.classList.contains('sheet-chit')) {
+          n.style.setProperty('padding', '0', 'important');
         } else {
-          n.style.setProperty('padding', '14mm 16mm', 'important');
+          n.style.setProperty('padding', '5mm 5mm 6mm', 'important');
         }
+      }
+    }
+
+    var inners = clonedDoc.querySelectorAll(
+      '.sheet-frame .page-frame-inner, .sheet-inset .page-inset, .booklet-page, .chit-page, .night-body'
+    );
+    for (var ii = 0; ii < inners.length; ii++) {
+      inners[ii].style.setProperty('padding', '5mm 5mm 6mm', 'important');
+    }
+    var bands = clonedDoc.querySelectorAll('.estate-band, .estate-gold, .night-sky');
+    for (var bi = 0; bi < bands.length; bi++) {
+      var band = bands[bi];
+      if (band.classList.contains('estate-gold')) {
+        band.style.setProperty('margin-left', '-5mm', 'important');
+        band.style.setProperty('margin-right', '-5mm', 'important');
+      } else if (band.classList.contains('estate-band')) {
+        band.style.setProperty('margin', '-5mm -5mm 0', 'important');
+        band.style.setProperty('padding-left', '5mm', 'important');
+        band.style.setProperty('padding-right', '5mm', 'important');
+      } else if (band.classList.contains('night-sky')) {
+        band.style.setProperty('padding-left', '5mm', 'important');
+        band.style.setProperty('padding-right', '5mm', 'important');
       }
     }
 
