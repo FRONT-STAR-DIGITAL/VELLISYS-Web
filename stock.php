@@ -305,7 +305,7 @@ layout_start('Stock', $user);
 <div class="card" style="margin-top:16px" id="stock-import">
   <div class="card-head"><h2><?= icon('download', 16) ?>Import stock</h2></div>
   <div class="pad-form">
-    <p class="lede">Download the sheet, fill products and services, upload it. Keep the header row. Opening qty is not the buying price. Type is <code>product</code> or <code>service</code>.</p>
+    <p class="lede">Download the sheet, fill products and services, upload it. Keep every column, including <code>Type</code> (<code>product</code> or <code>service</code>). Blank Type is a product. Opening qty is not the buying price.</p>
     <p><a class="btn ghost" href="<?= h(url('stock.php?template=1')) ?>"><?= icon('download', 16) ?>Download Excel template</a></p>
     <form method="post" enctype="multipart/form-data">
       <?= csrf_field() ?>

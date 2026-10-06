@@ -2672,6 +2672,9 @@ document.addEventListener('click', function (e) {
   function isMoneyField(el) {
     if (!el || el.disabled || el.readOnly) return false;
     if (el.type === 'number') return false;
+    if (el.closest && el.closest('[data-pos-till]') && el.matches('[data-line-qty]')) {
+      return false;
+    }
     if (el.matches('[data-money-commas], #allocated_amount, #ledger-amount, [data-line-rate], [data-line-total], [data-pos-paid], [data-pos-discount]')) {
       return true;
     }
@@ -2694,6 +2697,9 @@ document.addEventListener('click', function (e) {
     var before = el.value;
     var next = formatMoneyCommas(before, allowDecimals(el));
     if (next === before) return;
+    var beforeDigits = String(before).replace(/[^\d]/g, '');
+    var nextDigits = String(next).replace(/[^\d]/g, '');
+    if (beforeDigits !== '' && nextDigits === '') return;
     el.value = next;
     if (typeof start === 'number' && el === document.activeElement) {
       var diff = next.length - before.length;

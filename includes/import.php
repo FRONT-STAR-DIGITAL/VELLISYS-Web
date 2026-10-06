@@ -32,7 +32,7 @@ function import_kinds(): array
     if (company_stock_enabled()) {
         $kinds['stock'] = [
             'title' => 'Stock',
-            'lead' => 'Products and services. Type is product or service. Services skip buying price and opening quantity.',
+            'lead' => 'Products and services. Type is product or service — leave Type blank for a product, and keep the Type column. Opening qty is not the buying price. Services skip buying price and opening quantity.',
             'icon' => 'package',
             'file' => 'stock-template',
         ];
@@ -408,6 +408,9 @@ function import_header_key(string $raw): string
         'code' => 'sku',
         'item_code' => 'sku',
         'item_kind' => 'kind',
+        'item_type' => 'kind',
+        'type_product_service' => 'kind',
+        'product_service' => 'kind',
         'tax_yn' => 'tax',
     ];
     return $aliases[$k] ?? $k;

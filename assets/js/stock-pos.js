@@ -74,6 +74,10 @@
     }
     var i = n++;
     var price = mode === 'buy' ? (p.buy || p.sell || 0) : (p.sell || 0);
+    var priceShown = String(price);
+    if (typeof formatMoneyCommas === 'function') {
+      priceShown = formatMoneyCommas(String(price), true) || priceShown;
+    }
     var tr = document.createElement('tr');
     tr.setAttribute('data-pos-line', '1');
     tr.innerHTML = '<td>' +
@@ -81,8 +85,8 @@
       '<input type="hidden" name="' + prefix + '_name[' + i + ']" value="' + esc(p.name) + '">' +
       '<strong>' + esc(p.name) + '</strong>' +
       '<div class="muted">' + esc(p.sku || (isNew ? 'New product' : '')) + (p.service ? ' · Service' : (p.qty != null && !isNew ? ' · ' + p.qty + ' left' : '')) + '</div></td>' +
-      '<td class="line-qty"><input name="' + prefix + '_qty[' + i + ']" inputmode="decimal" min="0" value="1" data-line-qty autocomplete="off"></td>' +
-      '<td class="line-rate"><input name="' + prefix + '_price[' + i + ']" inputmode="decimal" min="0" value="' + price + '" data-line-rate data-money-commas autocomplete="off"></td>' +
+      '<td class="line-qty"><input name="' + prefix + '_qty[' + i + ']" type="text" inputmode="decimal" value="1" data-line-qty autocomplete="off"></td>' +
+      '<td class="line-rate"><input name="' + prefix + '_price[' + i + ']" type="text" inputmode="decimal" value="' + esc(priceShown) + '" data-line-rate data-money-commas autocomplete="off"></td>' +
       '<td class="right mono"><span data-line-total>' + money(price) + '</span></td>' +
       '<td class="center"><label class="vat-yn"><input type="checkbox" name="' + prefix + '_taxed[' + i + ']" value="1" data-vat-box ' + (p.taxed ? 'checked' : '') + '><span>' + (p.taxed ? 'Y' : 'N') + '</span></label></td>' +
       '<td class="center"><button type="button" class="btn ghost sm icon-only" data-pos-remove aria-label="Remove">' +
