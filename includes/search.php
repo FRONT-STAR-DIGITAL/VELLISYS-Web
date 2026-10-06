@@ -124,13 +124,17 @@ function search_desk(string $q, int $limit = 8): array
 
     if (function_exists('company_stock_enabled') && company_stock_enabled() && user_can_open('stock.php')) {
         try {
+            $stockHome = function_exists('stock_item_branch_where')
+                ? stock_item_branch_where()
+                : ['', '', []];
             $items = db_all(
                 "SELECT id, name, sku, sell_price FROM stock_items
                  WHERE company_id = ? AND active = 1
-                   AND (name LIKE ? OR IFNULL(sku,'') LIKE ? OR IFNULL(description,'') LIKE ?)
+                   AND (name LIKE ? OR IFNULL(sku,'') LIKE ? OR IFNULL(description,'') LIKE ?)"
+                . $stockHome[0] . "
                  ORDER BY name LIMIT 20",
-                'isss',
-                [$cid, $like, $like, $like]
+                'isss' . $stockHome[1],
+                array_merge([$cid, $like, $like, $like], $stockHome[2])
             );
             $products = [];
             foreach ($items as $it) {

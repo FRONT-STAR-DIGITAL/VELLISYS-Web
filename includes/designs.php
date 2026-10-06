@@ -1879,7 +1879,6 @@ function render_sheet_thermal(array $d): void
         <?php endif; ?>
       <?php endif; ?>
     </div>
-    <?php render_amount_words($d); ?>
     <?php endif; ?>
     <?php if (trim($comment) !== ''): ?>
       <p class="thermal-note"><?= h($comment) ?></p>

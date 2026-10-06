@@ -223,7 +223,7 @@ $lessons = [
             'Open Branches on the rail. Add a shop or city name and its address, up to the branch cap on the package. A branch login sees only that location.',
             'Sheets issued from a branch print that address. Head office keeps using the Settings address.',
             'Assign staff so their work is recorded there. Several logins can sit on one branch.',
-            'Stock quantities, Sale till and the Desk dashboard are per branch. A branch portal cannot see Head office stock or sales.',
+            'Stock quantities, product lists, Sale till and the Desk dashboard are per branch. A branch portal cannot see Head office stock, products or sales. Deleting a product at Head office leaves branch copies in place.',
             'Only the company admin sees overall — chip Every branch on Desk or Stock, or open Branches → Performance.',
         ],
     ],
@@ -237,7 +237,7 @@ $lessons = [
         'points' => [
             'Open / close day is off unless Vellisys ticks it on the company. When it is on, Sale asks for opening cash before till sales. Invoices, receipts and expenses never need the till open.',
             'Filter Day with today, this week, this month or this year. Charts follow the dates you pick. Products and services sold sit on the Day report.',
-            'Add products and services, or download the Excel, fill it and upload. Type blank is a product. Empty buying price, selling price, reorder and opening qty become 0 — those rows still import. Every product on the sheet is kept. Low stock shows when quantity hits the reorder level. Services have no quantity.',
+            'Add products and services, or download the Excel, fill it and upload. Type blank is a product. Empty buying price, selling price, reorder and opening qty become 0 — those rows still import. Every product on the sheet is kept. Low stock shows when quantity hits the reorder level. Services have no quantity. On a branched desk each location has its own list — a product at one shop does not appear at another or at Head office.',
             'Purchases restock the business. Unpaid purchases sit on Creditors. Sale and Documents share the same products when both are on; each can also be used on its own.',
         ],
     ],

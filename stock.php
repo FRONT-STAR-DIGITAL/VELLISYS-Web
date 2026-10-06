@@ -120,6 +120,8 @@ $extraJs = '';
 $postedAction = (string) ($_POST['action'] ?? '');
 $showStockAdd = (bool) $edit || isset($_GET['add']) || ($error !== '' && $postedAction === 'save_item');
 $showStockImport = isset($_GET['import']) || ($error !== '' && $postedAction === 'import');
+$stockScope = function_exists('desk_view_branch') ? desk_view_branch() : [];
+$showStockLocation = !empty($stockScope['enabled']) && !empty($stockScope['all']);
 
 layout_start('Stock', $user);
 ?>
@@ -165,13 +167,15 @@ layout_start('Stock', $user);
   </div>
   <div class="pad-form"><?php stock_search_bar('stock.php', array_merge(['tab' => 'items'], function_exists('desk_branch_keep') ? desk_branch_keep() : []), 'Search products and services'); ?></div>
   <?php if (!$page['rows']): ?>
-    <p class="empty">No products match. Use Add item or Import stock.</p>
+    <p class="empty"><?= !$items
+        ? 'No products on this location yet. Use Add item or Import stock. Other branches keep their own lists.'
+        : 'No products match. Clear the search or add an item for this location.' ?></p>
   <?php else: ?>
     <div class="table-scroll">
       <table class="grid"<?= (int) $page['from'] > 1 ? ' style="counter-reset: grid-row ' . ((int) $page['from'] - 1) . '"' : '' ?>>
         <thead>
           <tr>
-            <th>Item</th><th>Kind</th><th>Code</th><th>Unit</th><th class="right">On hand</th><th class="right">Buy</th><th class="right">Sell</th><th class="right">Reorder</th><th><?= h($taxName) ?></th><th>Actions</th>
+            <th>Item</th><?php if ($showStockLocation): ?><th>Location</th><?php endif; ?><th>Kind</th><th>Code</th><th>Unit</th><th class="right">On hand</th><th class="right">Buy</th><th class="right">Sell</th><th class="right">Reorder</th><th><?= h($taxName) ?></th><th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -180,6 +184,7 @@ layout_start('Stock', $user);
               $isLow = !$svc && (float) $row['reorder_level'] > 0 && (float) $row['qty_on_hand'] <= (float) $row['reorder_level']; ?>
             <tr>
               <td><?= h($row['name']) ?><?= empty($row['active']) ? ' <span class="pill">Hidden</span>' : '' ?><?= $isLow ? ' <span class="pill">Low</span>' : '' ?></td>
+              <?php if ($showStockLocation): ?><td><?= h(stock_item_location_label($row)) ?></td><?php endif; ?>
               <td><?= $svc ? 'Service' : 'Product' ?></td>
               <td class="mono"><?= h($row['sku']) ?></td>
               <td><?= h($row['unit']) ?></td>
@@ -207,11 +212,12 @@ layout_start('Stock', $user);
   <div class="card-head"><h2><?= icon('alert', 16) ?>Low stock</h2></div>
   <div class="table-scroll">
     <table class="grid">
-      <thead><tr><th>Item</th><th class="right">On hand</th><th class="right">Reorder at</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Item</th><?php if ($showStockLocation): ?><th>Location</th><?php endif; ?><th class="right">On hand</th><th class="right">Reorder at</th><th>Actions</th></tr></thead>
       <tbody>
         <?php foreach ($low as $row): ?>
           <tr>
             <td><?= h($row['name']) ?></td>
+            <?php if ($showStockLocation): ?><td><?= h(stock_item_location_label($row)) ?></td><?php endif; ?>
             <td class="right mono"><?= h(stock_qty_label((float) $row['qty_on_hand'])) ?></td>
             <td class="right mono"><?= h(stock_qty_label((float) $row['reorder_level'])) ?></td>
             <td class="row-actions">
@@ -328,8 +334,11 @@ layout_start('Stock', $user);
 <?php endif; ?>
 
 <?php elseif ($tab === 'counts'):
-    $activeItems = array_values(array_filter($items, static fn ($r) => !empty($r['active']) && !stock_item_is_service($r)));
-    $activeItems = stock_overlay_qty($activeItems, stock_write_branch_id(), true);
+    $countHome = stock_write_branch_id();
+    $activeItems = array_values(array_filter(
+        stock_items(false, $countHome, true),
+        static fn ($r) => !empty($r['active']) && !stock_item_is_service($r)
+    ));
     $filtered = stock_filter_items($activeItems, $q);
     $page = stock_slice($filtered, stock_page_key('p'));
     $countPage = stock_slice(stock_recent_counts(40), stock_page_key('cp'));

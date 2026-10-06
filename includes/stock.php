@@ -146,6 +146,48 @@ function stock_write_branch_id(): int
     return function_exists('desk_write_branch_id') ? desk_write_branch_id() : 0;
 }
 
+function stock_items_branch_ready(): bool
+{
+    static $ok = null;
+    if ($ok !== null) {
+        return $ok;
+    }
+    try {
+        $ok = function_exists('db_has_column') && db_has_column(db(), 'stock_items', 'branch_id');
+    } catch (Throwable $e) {
+        $ok = false;
+    }
+    return $ok;
+}
+
+/** Extra WHERE so a location only sees its own product rows. */
+function stock_item_branch_where(string $alias = '', ?int $forcedBranch = null, bool $forceBranch = false): array
+{
+    if (!stock_items_branch_ready()) {
+        return ['', '', []];
+    }
+    if (!function_exists('company_branches_enabled') || !company_branches_enabled()) {
+        return ['', '', []];
+    }
+    $col = ($alias !== '' ? $alias . '.' : '') . 'branch_id';
+    if ($forceBranch) {
+        return [" AND {$col} = ?", 'i', [max(0, (int) $forcedBranch)]];
+    }
+    $scopeId = stock_view_branch_id();
+    if ($scopeId === null) {
+        return ['', '', []];
+    }
+    return [" AND {$col} = ?", 'i', [(int) $scopeId]];
+}
+
+function stock_item_location_label(array $row): string
+{
+    if (!function_exists('company_branch_label')) {
+        return 'Head office';
+    }
+    return company_branch_label((int) ($row['branch_id'] ?? 0));
+}
+
 function stock_overlay_qty(array $rows, ?int $forcedBranch = null, bool $forceBranch = false): array
 {
     if (!$rows || !stock_branch_qty_ready()) {
@@ -222,21 +264,35 @@ function stock_goods_only(array $items): array
     return array_values(array_filter($items, static fn ($row) => !stock_item_is_service($row)));
 }
 
-function stock_items(bool $activeOnly = false): array
+function stock_items(bool $activeOnly = false, ?int $forcedBranch = null, bool $forceBranch = false): array
 {
     $sql = 'SELECT * FROM stock_items WHERE company_id = ?';
+    $types = 'i';
+    $args = [current_company_id()];
     if ($activeOnly) {
         $sql .= ' AND active = 1';
     }
-    $sql .= ' ORDER BY name';
-    return stock_overlay_qty(db_all($sql, 'i', [current_company_id()]));
+    [$extra, $bTypes, $bArgs] = stock_item_branch_where('', $forcedBranch, $forceBranch);
+    $sql .= $extra . ' ORDER BY name';
+    return stock_overlay_qty(db_all($sql, $types . $bTypes, array_merge($args, $bArgs)), $forceBranch ? $forcedBranch : null, $forceBranch);
 }
 
-function stock_item(int $id): ?array
+function stock_item(int $id, bool $anyLocation = false): ?array
 {
     $row = db_one('SELECT * FROM stock_items WHERE id = ? AND company_id = ?', 'ii', [$id, current_company_id()]);
     if (!$row) {
         return null;
+    }
+    if (
+        !$anyLocation
+        && stock_items_branch_ready()
+        && function_exists('company_branches_enabled')
+        && company_branches_enabled()
+    ) {
+        $scopeId = stock_view_branch_id();
+        if ($scopeId !== null && (int) ($row['branch_id'] ?? 0) !== (int) $scopeId) {
+            return null;
+        }
     }
     $out = stock_overlay_qty([$row]);
     return $out[0] ?? $row;
@@ -251,7 +307,12 @@ function stock_items_by_ids(array $ids): array
     $cid = current_company_id();
     $in = implode(',', array_fill(0, count($ids), '?'));
     $types = 'i' . str_repeat('i', count($ids));
-    $rows = stock_overlay_qty(db_all('SELECT * FROM stock_items WHERE company_id = ? AND id IN (' . $in . ')', $types, array_merge([$cid], $ids)), stock_write_branch_id(), true);
+    $write = stock_write_branch_id();
+    $rows = db_all('SELECT * FROM stock_items WHERE company_id = ? AND id IN (' . $in . ')', $types, array_merge([$cid], $ids));
+    if (stock_items_branch_ready() && function_exists('company_branches_enabled') && company_branches_enabled()) {
+        $rows = array_values(array_filter($rows, static fn ($row) => (int) ($row['branch_id'] ?? 0) === $write));
+    }
+    $rows = stock_overlay_qty($rows, $write, true);
     $map = [];
     foreach ($rows as $row) {
         $map[(int) $row['id']] = $row;
@@ -263,15 +324,24 @@ function stock_search(string $q, int $limit = 12): array
 {
     $q = trim($q);
     $cid = current_company_id();
+    $sql = 'SELECT * FROM stock_items WHERE company_id = ? AND active = 1';
+    $types = 'i';
+    $args = [$cid];
+    [$extra, $bTypes, $bArgs] = stock_item_branch_where('', stock_write_branch_id(), true);
+    $sql .= $extra;
+    $args = array_merge($args, $bArgs);
+    $types .= $bTypes;
     if ($q === '') {
-        return db_all('SELECT * FROM stock_items WHERE company_id = ? AND active = 1 ORDER BY name LIMIT ?', 'ii', [$cid, $limit]);
+        $sql .= ' ORDER BY name LIMIT ?';
+        $types .= 'i';
+        $args[] = $limit;
+    } else {
+        $sql .= ' AND (name LIKE ? OR sku LIKE ? OR description LIKE ?) ORDER BY name LIMIT ?';
+        $like = '%' . $q . '%';
+        $types .= 'sssi';
+        $args = array_merge($args, [$like, $like, $like, $limit]);
     }
-    $like = '%' . $q . '%';
-    return db_all(
-        'SELECT * FROM stock_items WHERE company_id = ? AND active = 1 AND (name LIKE ? OR sku LIKE ? OR description LIKE ?) ORDER BY name LIMIT ?',
-        'isssi',
-        [$cid, $like, $like, $like, $limit]
-    );
+    return stock_overlay_qty(db_all($sql, $types, $args), stock_write_branch_id(), true);
 }
 
 function stock_stats(): array
@@ -373,17 +443,33 @@ function stock_save_item(array $fields, ?int $id = null): array
     $taxed = empty($fields['taxed']) ? 0 : 1;
     $active = isset($fields['active']) && (int) $fields['active'] === 0 ? 0 : 1;
     $svc = $isService ? 1 : 0;
-    if ($sku !== '') {
-        $dup = db_one('SELECT id FROM stock_items WHERE company_id = ? AND sku = ? AND id <> ?', 'isi', [$cid, $sku, (int) ($id ?? 0)]);
-        if ($dup) {
-            return ['ok' => false, 'error' => 'That code is already on another product.'];
-        }
-    }
+    $home = stock_write_branch_id();
+    $branchOn = stock_items_branch_ready() && function_exists('company_branches_enabled') && company_branches_enabled();
+    $row = null;
     if ($id) {
         $row = stock_item($id);
         if (!$row) {
             return ['ok' => false, 'error' => 'That product is not on this desk.'];
         }
+        if ($branchOn) {
+            $home = (int) ($row['branch_id'] ?? 0);
+        }
+    }
+    if ($sku !== '') {
+        if ($branchOn) {
+            $dup = db_one(
+                'SELECT id FROM stock_items WHERE company_id = ? AND branch_id = ? AND sku = ? AND id <> ?',
+                'iisi',
+                [$cid, $home, $sku, (int) ($id ?? 0)]
+            );
+        } else {
+            $dup = db_one('SELECT id FROM stock_items WHERE company_id = ? AND sku = ? AND id <> ?', 'isi', [$cid, $sku, (int) ($id ?? 0)]);
+        }
+        if ($dup) {
+            return ['ok' => false, 'error' => 'That code is already on another product.'];
+        }
+    }
+    if ($id) {
         if ($isService && !stock_item_is_service($row) && (float) ($row['qty_on_hand'] ?? 0) != 0.0) {
             stock_move($id, 'adjust', -(float) $row['qty_on_hand'], 0, null, 'Converted to service');
         }
@@ -395,11 +481,19 @@ function stock_save_item(array $fields, ?int $id = null): array
         return ['ok' => true, 'id' => $id];
     }
     $qty = $isService ? 0.0 : round((float) ($fields['qty_on_hand'] ?? 0), 2);
-    $newId = db_exec(
-        'INSERT INTO stock_items (company_id, sku, name, description, unit, buy_price, sell_price, reorder_level, qty_on_hand, taxed, active, is_service) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
-        'issssddddiii',
-        [$cid, $sku, $name, $desc, $unit, $buy, $sell, $reorder, 0, $taxed, $active, $svc]
-    );
+    if ($branchOn) {
+        $newId = db_exec(
+            'INSERT INTO stock_items (company_id, branch_id, sku, name, description, unit, buy_price, sell_price, reorder_level, qty_on_hand, taxed, active, is_service) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            'iissssddddiii',
+            [$cid, $home, $sku, $name, $desc, $unit, $buy, $sell, $reorder, 0, $taxed, $active, $svc]
+        );
+    } else {
+        $newId = db_exec(
+            'INSERT INTO stock_items (company_id, sku, name, description, unit, buy_price, sell_price, reorder_level, qty_on_hand, taxed, active, is_service) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+            'issssddddiii',
+            [$cid, $sku, $name, $desc, $unit, $buy, $sell, $reorder, 0, $taxed, $active, $svc]
+        );
+    }
     if ($qty > 0) {
         stock_move((int) $newId, 'in', $qty, $buy, null, 'Opening quantity');
     }
@@ -446,7 +540,7 @@ function stock_delete_button(int $id, string $class = 'btn danger sm'): void
         return;
     }
     ?>
-    <form method="post" onsubmit="return confirm('Delete this product from the list? Sheets already issued keep the name. This cannot be undone.');">
+    <form method="post" onsubmit="return confirm('Delete this product from this location? Other branches keep their own copy. Sheets already issued keep the name. This cannot be undone.');">
       <?= csrf_field() ?>
       <input type="hidden" name="action" value="delete_item">
       <input type="hidden" name="item_id" value="<?= $id ?>">
@@ -461,7 +555,7 @@ function stock_move(int $itemId, string $kind, float $qty, float $unitCost = 0, 
         return;
     }
     $cid = current_company_id();
-    $item = stock_item($itemId);
+    $item = stock_item($itemId, true);
     if (!$item || stock_item_is_service($item)) {
         return;
     }
@@ -522,7 +616,7 @@ function stock_apply_document(int $documentId, string $kind, array $items): void
         if ($qty == 0.0) {
             continue;
         }
-        $row = stock_item($sid) ?: [];
+        $row = stock_item($sid, true) ?: [];
         if (stock_item_is_service($row)) {
             continue;
         }
@@ -888,10 +982,7 @@ function stock_find_or_create_party(string $name, string $kind = 'customer'): in
 
 function stock_catalog_payload(): array
 {
-    $rows = stock_items(true);
-    if (function_exists('company_branches_enabled') && company_branches_enabled()) {
-        $rows = stock_overlay_qty($rows, stock_write_branch_id(), true);
-    }
+    $rows = stock_items(true, stock_write_branch_id(), true);
     $out = [];
     foreach ($rows as $row) {
         $out[] = [
@@ -1010,10 +1101,17 @@ function stock_import_apply_item(array $fields): string
     $opening = round((float) ($fields['qty_on_hand'] ?? 0), 2);
     unset($fields['apply_opening']);
     $existing = null;
+    $cid = current_company_id();
+    $home = stock_write_branch_id();
+    $branchOn = stock_items_branch_ready() && function_exists('company_branches_enabled') && company_branches_enabled();
     if ($sku !== '') {
-        $existing = db_one('SELECT id FROM stock_items WHERE company_id = ? AND sku = ?', 'is', [current_company_id(), $sku]);
+        $existing = $branchOn
+            ? db_one('SELECT id FROM stock_items WHERE company_id = ? AND branch_id = ? AND sku = ?', 'iis', [$cid, $home, $sku])
+            : db_one('SELECT id FROM stock_items WHERE company_id = ? AND sku = ?', 'is', [$cid, $sku]);
     } else {
-        $existing = db_one('SELECT id FROM stock_items WHERE company_id = ? AND name = ? AND (sku IS NULL OR sku = \'\')', 'is', [current_company_id(), $name]);
+        $existing = $branchOn
+            ? db_one('SELECT id FROM stock_items WHERE company_id = ? AND branch_id = ? AND name = ? AND (sku IS NULL OR sku = \'\')', 'iis', [$cid, $home, $name])
+            : db_one('SELECT id FROM stock_items WHERE company_id = ? AND name = ? AND (sku IS NULL OR sku = \'\')', 'is', [$cid, $name]);
     }
     if ($existing) {
         unset($fields['qty_on_hand']);
@@ -1483,14 +1581,26 @@ function stock_qty_label(float $n): string
 function stock_ensure_item_id(array $line, float $price): int
 {
     $sid = (int) ($line['stock_item_id'] ?? 0);
-    if ($sid > 0 && stock_item($sid)) {
-        return $sid;
+    if ($sid > 0) {
+        $got = stock_item($sid, true);
+        $home = stock_write_branch_id();
+        $sameHome = !stock_items_branch_ready()
+            || !function_exists('company_branches_enabled')
+            || !company_branches_enabled()
+            || (int) ($got['branch_id'] ?? 0) === $home;
+        if ($got && $sameHome) {
+            return $sid;
+        }
     }
     $name = trim((string) ($line['name'] ?? ''));
     if ($name === '') {
         return 0;
     }
-    $found = db_one('SELECT id FROM stock_items WHERE company_id = ? AND name = ? ORDER BY id DESC LIMIT 1', 'is', [current_company_id(), $name]);
+    $cid = current_company_id();
+    $home = stock_write_branch_id();
+    $found = (stock_items_branch_ready() && function_exists('company_branches_enabled') && company_branches_enabled())
+        ? db_one('SELECT id FROM stock_items WHERE company_id = ? AND branch_id = ? AND name = ? ORDER BY id DESC LIMIT 1', 'iis', [$cid, $home, $name])
+        : db_one('SELECT id FROM stock_items WHERE company_id = ? AND name = ? ORDER BY id DESC LIMIT 1', 'is', [$cid, $name]);
     if ($found) {
         return (int) $found['id'];
     }

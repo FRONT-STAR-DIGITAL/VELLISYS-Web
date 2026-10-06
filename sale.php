@@ -76,8 +76,8 @@ layout_start('Sale', $user);
         $saleScope = desk_view_branch();
         if (!empty($saleScope['enabled'])): ?>
       <p class="lede"><?= !empty($saleScope['all']) && !empty($saleScope['admin'])
-          ? 'Overall is on the dashboard for the admin. This till sells from ' . h(company_branch_label(stock_write_branch_id())) . ' stock only.'
-          : ('Till for ' . h((string) $saleScope['label']) . '. Head office stock stays off this portal.') ?></p>
+          ? 'Overall is on the dashboard for the admin. This till sells from ' . h(company_branch_label(stock_write_branch_id())) . ' products only.'
+          : ('Till for ' . h((string) $saleScope['label']) . '. Head office and other branches keep their own products.') ?></p>
     <?php endif; endif; ?>
   </div>
   <?php if ($lastPrint): ?>

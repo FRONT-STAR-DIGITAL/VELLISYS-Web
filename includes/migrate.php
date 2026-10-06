@@ -25,7 +25,7 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '69';
+    return '70';
 }
 
 /**
@@ -411,6 +411,7 @@ function folio_ensure_stock(mysqli $db): void
     $db->query("CREATE TABLE IF NOT EXISTS stock_items (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       company_id INT UNSIGNED NOT NULL,
+      branch_id INT UNSIGNED NOT NULL DEFAULT 0,
       sku VARCHAR(80) NOT NULL DEFAULT '',
       name VARCHAR(190) NOT NULL,
       description VARCHAR(500) NOT NULL DEFAULT '',
@@ -424,7 +425,8 @@ function folio_ensure_stock(mysqli $db): void
       active TINYINT(1) NOT NULL DEFAULT 1,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       KEY company_name (company_id, name),
-      KEY company_sku (company_id, sku)
+      KEY company_sku (company_id, sku),
+      KEY stock_items_branch (company_id, branch_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     if (!db_has_column($db, 'stock_items', 'is_service')) {
         @$db->query('ALTER TABLE stock_items ADD COLUMN is_service TINYINT(1) NOT NULL DEFAULT 0 AFTER qty_on_hand');
@@ -522,10 +524,141 @@ function folio_ensure_stock_branches(mysqli $db): void
     if (!$uniq || $uniq->num_rows === 0) {
         @$db->query('ALTER TABLE stock_days ADD UNIQUE KEY company_branch_day (company_id, branch_id, day_date)');
     }
+    if (!db_has_column($db, 'stock_items', 'branch_id')) {
+        @$db->query('ALTER TABLE stock_items ADD COLUMN branch_id INT UNSIGNED NOT NULL DEFAULT 0 AFTER company_id');
+        db_has_column($db, 'stock_items', 'branch_id', true);
+    }
+    $idx = @$db->query("SHOW INDEX FROM stock_items WHERE Key_name = 'stock_items_branch'");
+    if (!$idx || $idx->num_rows === 0) {
+        @$db->query('ALTER TABLE stock_items ADD KEY stock_items_branch (company_id, branch_id)');
+    }
     @$db->query(
         'INSERT IGNORE INTO stock_branch_qty (company_id, item_id, branch_id, qty_on_hand)
          SELECT company_id, id, 0, qty_on_hand FROM stock_items WHERE COALESCE(is_service, 0) = 0'
     );
+    folio_split_stock_item_catalogs($db);
+}
+
+/**
+ * Shared catalog → one product row per location. A shop that already used an
+ * item keeps its own copy; unused Head office products stay off that shop.
+ */
+function folio_split_stock_item_catalogs(mysqli $db): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    if (!db_has_column($db, 'stock_items', 'branch_id')) {
+        return;
+    }
+    $hasMovesBranch = db_has_column($db, 'stock_moves', 'branch_id');
+    $hasQty = db_has_column($db, 'stock_branch_qty', 'qty_on_hand');
+    $hasCountsBranch = db_has_column($db, 'stock_counts', 'branch_id');
+    $hasDocsBranch = db_has_column($db, 'documents', 'branch_id');
+    $hasService = db_has_column($db, 'stock_items', 'is_service');
+    $items = @$db->query('SELECT id, company_id FROM stock_items');
+    if (!$items) {
+        return;
+    }
+    while ($item = $items->fetch_assoc()) {
+        $id = (int) ($item['id'] ?? 0);
+        $cid = (int) ($item['company_id'] ?? 0);
+        if ($id < 1 || $cid < 1) {
+            continue;
+        }
+        $used = [];
+        if ($hasQty) {
+            $q = @$db->query("SELECT DISTINCT branch_id FROM stock_branch_qty WHERE item_id = {$id} AND company_id = {$cid} AND ABS(qty_on_hand) > 0.0001");
+            if ($q) {
+                while ($row = $q->fetch_assoc()) {
+                    $used[(int) ($row['branch_id'] ?? 0)] = true;
+                }
+            }
+        }
+        if ($hasMovesBranch) {
+            $q = @$db->query("SELECT DISTINCT branch_id FROM stock_moves WHERE item_id = {$id} AND company_id = {$cid}");
+            if ($q) {
+                while ($row = $q->fetch_assoc()) {
+                    $used[(int) ($row['branch_id'] ?? 0)] = true;
+                }
+            }
+        }
+        if ($hasDocsBranch) {
+            $q = @$db->query(
+                "SELECT DISTINCT COALESCE(d.branch_id, 0) AS branch_id
+                 FROM document_items i
+                 INNER JOIN documents d ON d.id = i.document_id
+                 WHERE i.stock_item_id = {$id} AND d.company_id = {$cid}"
+            );
+            if ($q) {
+                while ($row = $q->fetch_assoc()) {
+                    $used[(int) ($row['branch_id'] ?? 0)] = true;
+                }
+            }
+        }
+        if (!$used) {
+            continue;
+        }
+        $homes = array_keys($used);
+        sort($homes, SORT_NUMERIC);
+        $keep = in_array(0, $homes, true) ? 0 : (int) $homes[0];
+        @$db->query("UPDATE stock_items SET branch_id = {$keep} WHERE id = {$id} AND company_id = {$cid}");
+        foreach ($homes as $bid) {
+            $bid = (int) $bid;
+            if ($bid === $keep) {
+                continue;
+            }
+            $qty = 0.0;
+            if ($hasQty) {
+                $qr = @$db->query("SELECT qty_on_hand FROM stock_branch_qty WHERE item_id = {$id} AND company_id = {$cid} AND branch_id = {$bid} LIMIT 1");
+                if ($qr && ($qrow = $qr->fetch_assoc())) {
+                    $qty = (float) ($qrow['qty_on_hand'] ?? 0);
+                }
+            }
+            $qtySql = number_format($qty, 2, '.', '');
+            $svcCol = $hasService ? 'is_service' : '0';
+            $ok = @$db->query(
+                "INSERT INTO stock_items (company_id, branch_id, sku, name, description, unit, buy_price, sell_price, reorder_level, qty_on_hand, taxed, active, is_service)
+                 SELECT company_id, {$bid}, sku, name, description, unit, buy_price, sell_price, reorder_level, {$qtySql}, taxed, active, {$svcCol}
+                 FROM stock_items WHERE id = {$id} AND company_id = {$cid}"
+            );
+            if ($ok === false) {
+                $ok = @$db->query(
+                    "INSERT INTO stock_items (company_id, branch_id, sku, name, description, unit, buy_price, sell_price, reorder_level, qty_on_hand, taxed, active)
+                     SELECT company_id, {$bid}, sku, name, description, unit, buy_price, sell_price, reorder_level, {$qtySql}, taxed, active
+                     FROM stock_items WHERE id = {$id} AND company_id = {$cid}"
+                );
+            }
+            $newId = (int) $db->insert_id;
+            if ($newId < 1) {
+                continue;
+            }
+            if ($hasMovesBranch) {
+                @$db->query("UPDATE stock_moves SET item_id = {$newId} WHERE item_id = {$id} AND company_id = {$cid} AND branch_id = {$bid}");
+            }
+            if ($hasQty) {
+                @$db->query("UPDATE stock_branch_qty SET item_id = {$newId} WHERE item_id = {$id} AND company_id = {$cid} AND branch_id = {$bid}");
+            }
+            if ($hasDocsBranch) {
+                @$db->query(
+                    "UPDATE document_items i
+                     INNER JOIN documents d ON d.id = i.document_id
+                     SET i.stock_item_id = {$newId}
+                     WHERE i.stock_item_id = {$id} AND d.company_id = {$cid} AND COALESCE(d.branch_id, 0) = {$bid}"
+                );
+            }
+            if ($hasCountsBranch) {
+                @$db->query(
+                    "UPDATE stock_count_lines cl
+                     INNER JOIN stock_counts c ON c.id = cl.count_id
+                     SET cl.item_id = {$newId}
+                     WHERE cl.item_id = {$id} AND c.company_id = {$cid} AND c.branch_id = {$bid}"
+                );
+            }
+        }
+    }
 }
 
 function folio_ensure_access_addons(mysqli $db): void
@@ -774,6 +907,7 @@ function folio_migrate(mysqli $db): void
     folio_ensure_ofagros_pro_plan($db);
     folio_ensure_clear_ofagros_logo_leak($db);
     folio_ensure_stock($db);
+    folio_ensure_stock_branches($db);
     folio_ensure_access_addons($db);
     folio_ensure_testing_pro_addons($db);
     folio_migrate_client_profile($db);
