@@ -52,21 +52,27 @@ $from = $period['from'] !== '' ? $period['from'] : date('Y-m-01');
 $to = $period['to'] !== '' ? $period['to'] : today();
 [$prevFrom, $prevTo] = desk_period_shift($from, $to);
 $since = date('Y-m-01', strtotime('-5 months'));
+$bSql = '';
+$bTypes = '';
+$bArgs = [];
+if (function_exists('desk_branch_sql')) {
+    [$bSql, $bTypes, $bArgs] = desk_branch_sql('d.branch_id');
+}
 
 $invoices = attach_document_totals(db_all(
     "SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id
-     WHERE d.company_id = ? AND d.kind = 'invoice' AND d.status = 'issued' ORDER BY d.due_date IS NULL, d.due_date, d.id DESC",
-    'i',
-    [$cid]
+     WHERE d.company_id = ? AND d.kind = 'invoice' AND d.status = 'issued'" . $bSql . " ORDER BY d.due_date IS NULL, d.due_date, d.id DESC",
+    'i' . $bTypes,
+    array_merge([$cid], $bArgs)
 ));
 $open = array_values(array_filter($invoices, static fn ($d) => $d['balance'] > 0));
 $saleOpen = array_values(array_filter(
     latest_sale_receipts_by_party(attach_document_totals(db_all(
         "SELECT d.*, p.name AS party_name FROM documents d JOIN parties p ON p.id = d.party_id
-         WHERE d.company_id = ? AND d.kind = 'receipt' AND d.status = 'issued' AND COALESCE(d.related_id, 0) = 0
+         WHERE d.company_id = ? AND d.kind = 'receipt' AND d.status = 'issued' AND COALESCE(d.related_id, 0) = 0" . $bSql . "
          ORDER BY d.date DESC, d.id DESC",
-        'i',
-        [$cid]
+        'i' . $bTypes,
+        array_merge([$cid], $bArgs)
     ))),
     static fn ($d) => document_due_amount($d) > 0.009
 ));
@@ -101,9 +107,9 @@ $incomePrev = $sumInWindow($invoices, $prevFrom, $prevTo);
 $expAll = array_values(array_filter(
     attach_document_totals(db_all(
         "SELECT d.*, p.name AS party_name FROM documents d LEFT JOIN parties p ON p.id = d.party_id
-         WHERE d.company_id = ? AND d.kind = 'expense' AND d.status = 'issued'",
-        'i',
-        [$cid]
+         WHERE d.company_id = ? AND d.kind = 'expense' AND d.status = 'issued'" . $bSql,
+        'i' . $bTypes,
+        array_merge([$cid], $bArgs)
     )),
     // Personal Creditors ledger stays off the desk — not business spend.
     static fn ($d) => !is_personal_creditor($d)
@@ -123,9 +129,9 @@ $byCat = array_slice($byCat, 0, 6, true);
 
 $receipts = attach_document_totals(db_all(
     "SELECT d.*, r.kind AS related_kind FROM documents d LEFT JOIN documents r ON r.id = d.related_id
-     WHERE d.company_id = ? AND d.kind = 'receipt' AND d.status = 'issued' AND d.date >= ?",
-    'is',
-    [$cid, $since]
+     WHERE d.company_id = ? AND d.kind = 'receipt' AND d.status = 'issued' AND d.date >= ?" . $bSql,
+    'is' . $bTypes,
+    array_merge([$cid, $since], $bArgs)
 ));
 $cashPeriod = 0.0;
 $cashPrev = 0.0;
@@ -145,12 +151,12 @@ foreach ($receipts as $d) {
     }
 }
 
-$quotesOpen = (int) (db_one("SELECT COUNT(*) c FROM documents WHERE company_id = ? AND kind='quotation' AND status='issued'", 'i', [$cid])['c'] ?? 0);
-$quotesAll = (int) (db_one("SELECT COUNT(*) c FROM documents WHERE company_id = ? AND kind='quotation' AND status='issued' AND date >= ?", 'is', [$cid, $since])['c'] ?? 0);
+$quotesOpen = (int) (db_one("SELECT COUNT(*) c FROM documents d WHERE d.company_id = ? AND d.kind='quotation' AND d.status='issued'" . $bSql, 'i' . $bTypes, array_merge([$cid], $bArgs))['c'] ?? 0);
+$quotesAll = (int) (db_one("SELECT COUNT(*) c FROM documents d WHERE d.company_id = ? AND d.kind='quotation' AND d.status='issued' AND d.date >= ?" . $bSql, 'is' . $bTypes, array_merge([$cid, $since], $bArgs))['c'] ?? 0);
 $quotesConverted = (int) (db_one(
-    "SELECT COUNT(*) c FROM documents q INNER JOIN documents i ON i.related_id = q.id AND i.kind = 'invoice' AND i.status = 'issued' AND i.company_id = q.company_id WHERE q.company_id = ? AND q.kind = 'quotation' AND q.status = 'issued' AND q.date >= ?",
-    'is',
-    [$cid, $since]
+    "SELECT COUNT(*) c FROM documents q INNER JOIN documents i ON i.related_id = q.id AND i.kind = 'invoice' AND i.status = 'issued' AND i.company_id = q.company_id WHERE q.company_id = ? AND q.kind = 'quotation' AND q.status = 'issued' AND q.date >= ?" . str_replace('d.branch_id', 'q.branch_id', $bSql),
+    'is' . $bTypes,
+    array_merge([$cid, $since], $bArgs)
 )['c'] ?? 0);
 $quoteRate = $quotesAll > 0 ? (int) round(100 * $quotesConverted / $quotesAll) : 0;
 
@@ -165,9 +171,9 @@ foreach ($invoices as $d) {
 $recent = array_values(array_filter(
     attach_document_totals(db_all(
         "SELECT d.*, p.name AS party_name FROM documents d LEFT JOIN parties p ON p.id = d.party_id
-         WHERE d.company_id = ? ORDER BY d.id DESC LIMIT 16",
-        'i',
-        [$cid]
+         WHERE d.company_id = ?" . $bSql . " ORDER BY d.id DESC LIMIT 16",
+        'i' . $bTypes,
+        array_merge([$cid], $bArgs)
     )),
     static fn ($d) => !is_personal_creditor($d)
 ));
@@ -276,7 +282,16 @@ render_desk_company_card($deskCompany, [
     'reports' => is_desk_admin($user),
     'user_name' => (string) ($user['name'] ?? ''),
 ]);
-render_filters('dashboard.php', [], ['no_all' => true]);
+render_filters('dashboard.php', function_exists('desk_branch_keep') ? desk_branch_keep() : [], ['no_all' => true]);
+if (function_exists('render_desk_branch_chips')) {
+    render_desk_branch_chips('dashboard.php');
+}
+$scope = function_exists('desk_view_branch') ? desk_view_branch() : ['enabled' => false, 'all' => true, 'label' => ''];
+if (!empty($scope['enabled'])) {
+    echo '<p class="hint" style="margin:-4px 0 16px">' . (!empty($scope['all'])
+        ? 'Overall desk — every branch together. Chip a location to see that shop only. Branch logins cannot open Head office figures.'
+        : ('Showing ' . h((string) $scope['label']) . ' only. Head office stays off this portal.')) . '</p>';
+}
 render_desk_metric_tabs([
     'income' => $cashPeriod,
     'expense' => $opExpense > 0.009 ? $opExpense : $expensePeriod,

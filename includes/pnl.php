@@ -40,59 +40,25 @@ function require_pnl(): array
 
 function pnl_view_branch(): array
 {
+    if (function_exists('desk_view_branch')) {
+        return desk_view_branch();
+    }
     $user = current_user() ?: [];
     $admin = is_desk_admin($user);
-    $enabled = function_exists('company_branches_enabled') && company_branches_enabled();
-    if (!$enabled) {
-        return ['enabled' => false, 'all' => true, 'id' => 0, 'label' => '', 'admin' => $admin];
-    }
-    if (!$admin) {
-        $id = (int) ($user['branch_id'] ?? 0);
-        return [
-            'enabled' => true,
-            'all' => false,
-            'id' => $id,
-            'label' => company_branch_label($id),
-            'admin' => false,
-        ];
-    }
-    $raw = (string) ($_GET['branch'] ?? 'all');
-    if ($raw === '' || $raw === 'all') {
-        return ['enabled' => true, 'all' => true, 'id' => 0, 'label' => 'Every branch', 'admin' => true];
-    }
-    $id = (int) $raw;
-    if ($id > 0 && function_exists('normalize_branch_id') && !normalize_branch_id($id)) {
-        $id = 0;
-    }
-    return [
-        'enabled' => true,
-        'all' => false,
-        'id' => $id,
-        'label' => company_branch_label($id),
-        'admin' => true,
-    ];
+    return ['enabled' => false, 'all' => true, 'id' => 0, 'label' => '', 'admin' => $admin];
 }
 
 function pnl_branch_keep(): array
 {
-    $scope = pnl_view_branch();
-    if (!$scope['enabled']) {
-        return [];
-    }
-    return ['branch' => $scope['all'] ? 'all' : (string) $scope['id']];
+    return function_exists('desk_branch_keep') ? desk_branch_keep() : [];
 }
 
 function pnl_branch_sql(string $column): array
 {
-    $scope = pnl_view_branch();
-    if (!$scope['enabled'] || $scope['all']) {
-        return ['', '', []];
+    if (function_exists('desk_branch_sql')) {
+        return desk_branch_sql($column);
     }
-    $id = (int) $scope['id'];
-    if ($id < 1) {
-        return [" AND ({$column} IS NULL OR {$column} = 0)", '', []];
-    }
-    return [" AND {$column} = ?", 'i', [$id]];
+    return ['', '', []];
 }
 
 function pnl_posted_branch_id(): int

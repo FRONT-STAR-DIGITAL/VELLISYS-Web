@@ -72,6 +72,13 @@ layout_start('Sale', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('cart') ?>Sale</h1>
+    <?php if (function_exists('desk_view_branch')):
+        $saleScope = desk_view_branch();
+        if (!empty($saleScope['enabled'])): ?>
+      <p class="lede"><?= !empty($saleScope['all']) && !empty($saleScope['admin'])
+          ? 'Overall is on the dashboard for the admin. This till sells from ' . h(company_branch_label(stock_write_branch_id())) . ' stock only.'
+          : ('Till for ' . h((string) $saleScope['label']) . '. Head office stock stays off this portal.') ?></p>
+    <?php endif; endif; ?>
   </div>
   <?php if ($lastPrint): ?>
     <div class="actions page-actions">

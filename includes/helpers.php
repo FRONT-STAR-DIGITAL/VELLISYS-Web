@@ -3235,6 +3235,12 @@ function render_filters(string $action, array $keep = [], array $opts = []): voi
 function list_documents(string $kind): array
 {
     [$extra, $types, $params] = period_sql('d.date');
+    if (function_exists('desk_branch_sql')) {
+        [$bSql, $bTypes, $bArgs] = desk_branch_sql('d.branch_id');
+        $extra .= $bSql;
+        $types .= $bTypes;
+        $params = array_merge($params, $bArgs);
+    }
     $sql = 'SELECT d.*, p.name AS party_name, p.email AS party_email, p.phone AS party_phone, p.phone2 AS party_phone2,
                    p.tin AS party_tin, p.address AS party_address, p.city AS party_city, p.country AS party_country, p.contact_person AS party_contact
             FROM documents d LEFT JOIN parties p ON p.id = d.party_id

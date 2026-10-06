@@ -220,10 +220,18 @@ function desk_debtors_owed(): float
 function desk_docs_issued_count(string $from, string $to): int
 {
     $cid = current_company_id();
+    $types = 'iss';
+    $params = [$cid, $from, $to];
+    $extra = '';
+    if (function_exists('desk_branch_sql')) {
+        [$extra, $bTypes, $bArgs] = desk_branch_sql('branch_id');
+        $types .= $bTypes;
+        $params = array_merge($params, $bArgs);
+    }
     return (int) (db_one(
-        "SELECT COUNT(*) c FROM documents WHERE company_id = ? AND status = 'issued' AND date >= ? AND date <= ?",
-        'iss',
-        [$cid, $from, $to]
+        "SELECT COUNT(*) c FROM documents WHERE company_id = ? AND status = 'issued' AND date >= ? AND date <= ?" . $extra,
+        $types,
+        $params
     )['c'] ?? 0);
 }
 
@@ -406,7 +414,15 @@ function render_desk_day(string $error = ''): string
         : '#desk-charts';
     ?>
 <?php if ($error): ?><p class="flash flash-err" style="margin:0 0 16px"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
-<?php render_filters('dashboard.php', [], ['no_all' => true, 'live' => true]); ?>
+<?php render_filters('dashboard.php', function_exists('desk_branch_keep') ? desk_branch_keep() : [], ['no_all' => true, 'live' => true]); ?>
+<?php if (function_exists('render_desk_branch_chips')) { render_desk_branch_chips('dashboard.php'); } ?>
+<?php
+$scope = function_exists('desk_view_branch') ? desk_view_branch() : ['enabled' => false, 'all' => true, 'label' => ''];
+if (!empty($scope['enabled'])): ?>
+  <p class="hint" style="margin:-4px 0 16px"><?= !empty($scope['all'])
+      ? 'Overall desk — every branch together. Chip a location to see that shop only. Branch logins cannot open Head office stock or sales.'
+      : ('Showing ' . h((string) $scope['label']) . ' only. Head office stock and sales stay off this portal.') ?></p>
+<?php endif; ?>
 
 <?php
 render_desk_metric_tabs([
@@ -441,7 +457,7 @@ render_desk_metric_tabs([
 </div>
 <div class="card" id="day-income" style="margin-top:16px">
   <div class="card-head"><h2><?= icon('invoice', 16) ?>Sales</h2></div>
-  <div class="pad-form"><?php stock_search_bar('dashboard.php', ['range' => $period['preset'], 'from' => $from, 'to' => $to], 'Search sales'); ?></div>
+  <div class="pad-form"><?php stock_search_bar('dashboard.php', array_merge(['range' => $period['preset'], 'from' => $from, 'to' => $to], function_exists('desk_branch_keep') ? desk_branch_keep() : []), 'Search sales'); ?></div>
   <?php render_stock_docs_table($daySales, $base, 'sp', 'No sales in this period.'); ?>
 </div>
 <div class="card" style="margin-top:16px">

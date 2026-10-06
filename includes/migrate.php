@@ -25,7 +25,7 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '68';
+    return '69';
 }
 
 /**
@@ -478,12 +478,53 @@ function folio_ensure_stock(mysqli $db): void
       notes VARCHAR(500) NOT NULL DEFAULT '',
       UNIQUE KEY company_day (company_id, day_date)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    folio_ensure_stock_branches($db);
     $email = $db->real_escape_string('accounts@ofagros.org');
     @$db->query(
         "UPDATE companies c
          JOIN users u ON u.company_id = c.id
          SET c.stock_enabled = 1
          WHERE u.email = '{$email}'"
+    );
+}
+
+function folio_ensure_stock_branches(mysqli $db): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    $db->query("CREATE TABLE IF NOT EXISTS stock_branch_qty (
+      company_id INT UNSIGNED NOT NULL,
+      item_id INT UNSIGNED NOT NULL,
+      branch_id INT UNSIGNED NOT NULL DEFAULT 0,
+      qty_on_hand DECIMAL(14,2) NOT NULL DEFAULT 0,
+      PRIMARY KEY (item_id, branch_id),
+      KEY company_branch (company_id, branch_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    if (!db_has_column($db, 'stock_moves', 'branch_id')) {
+        @$db->query('ALTER TABLE stock_moves ADD COLUMN branch_id INT UNSIGNED NOT NULL DEFAULT 0 AFTER company_id');
+        @$db->query('ALTER TABLE stock_moves ADD KEY stock_moves_branch (company_id, branch_id)');
+    }
+    if (!db_has_column($db, 'stock_counts', 'branch_id')) {
+        @$db->query('ALTER TABLE stock_counts ADD COLUMN branch_id INT UNSIGNED NOT NULL DEFAULT 0 AFTER company_id');
+        @$db->query('ALTER TABLE stock_counts ADD KEY stock_counts_branch (company_id, branch_id)');
+    }
+    if (!db_has_column($db, 'stock_days', 'branch_id')) {
+        @$db->query('ALTER TABLE stock_days ADD COLUMN branch_id INT UNSIGNED NOT NULL DEFAULT 0 AFTER company_id');
+    }
+    $idx = @$db->query("SHOW INDEX FROM stock_days WHERE Key_name = 'company_day'");
+    if ($idx && $idx->num_rows > 0) {
+        @$db->query('ALTER TABLE stock_days DROP INDEX company_day');
+    }
+    $uniq = @$db->query("SHOW INDEX FROM stock_days WHERE Key_name = 'company_branch_day'");
+    if (!$uniq || $uniq->num_rows === 0) {
+        @$db->query('ALTER TABLE stock_days ADD UNIQUE KEY company_branch_day (company_id, branch_id, day_date)');
+    }
+    @$db->query(
+        'INSERT IGNORE INTO stock_branch_qty (company_id, item_id, branch_id, qty_on_hand)
+         SELECT company_id, id, 0, qty_on_hand FROM stock_items WHERE COALESCE(is_service, 0) = 0'
     );
 }
 

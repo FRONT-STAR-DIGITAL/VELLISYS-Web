@@ -111,6 +111,123 @@ function normalize_branch_id(mixed $raw, ?int $companyId = null): ?int
     return $row ? $id : null;
 }
 
+function desk_view_branch(): array
+{
+    $user = current_user() ?: [];
+    $admin = function_exists('is_desk_admin') && is_desk_admin($user);
+    $enabled = company_branches_enabled();
+    if (!$enabled) {
+        return ['enabled' => false, 'all' => true, 'id' => 0, 'label' => '', 'admin' => $admin];
+    }
+    if (!$admin) {
+        $id = (int) ($user['branch_id'] ?? 0);
+        return [
+            'enabled' => true,
+            'all' => false,
+            'id' => $id,
+            'label' => company_branch_label($id),
+            'admin' => false,
+        ];
+    }
+    $raw = (string) ($_GET['branch'] ?? 'all');
+    if ($raw === '' || $raw === 'all') {
+        return ['enabled' => true, 'all' => true, 'id' => 0, 'label' => 'Every branch', 'admin' => true];
+    }
+    $id = (int) $raw;
+    if ($id > 0 && !normalize_branch_id($id)) {
+        $id = 0;
+    }
+    return [
+        'enabled' => true,
+        'all' => false,
+        'id' => $id,
+        'label' => company_branch_label($id),
+        'admin' => true,
+    ];
+}
+
+function desk_branch_keep(): array
+{
+    $scope = desk_view_branch();
+    if (!$scope['enabled']) {
+        return [];
+    }
+    return ['branch' => $scope['all'] ? 'all' : (string) $scope['id']];
+}
+
+function desk_branch_sql(string $column): array
+{
+    $scope = desk_view_branch();
+    if (!$scope['enabled'] || $scope['all']) {
+        return ['', '', []];
+    }
+    $id = (int) $scope['id'];
+    if ($id < 1) {
+        return [" AND ({$column} IS NULL OR {$column} = 0)", '', []];
+    }
+    return [" AND {$column} = ?", 'i', [$id]];
+}
+
+function desk_merge_branch_sql(string $column, string $types = '', array $params = []): array
+{
+    [$sql, $bTypes, $bArgs] = desk_branch_sql($column);
+    return [$sql, $types . $bTypes, array_merge($params, $bArgs)];
+}
+
+function desk_write_branch_id(): int
+{
+    if (!company_branches_enabled()) {
+        return 0;
+    }
+    $user = current_user() ?: [];
+    if (!function_exists('is_desk_admin') || !is_desk_admin($user)) {
+        return (int) ($user['branch_id'] ?? 0);
+    }
+    $scope = desk_view_branch();
+    if (empty($scope['all'])) {
+        return (int) $scope['id'];
+    }
+    return (int) ($user['branch_id'] ?? 0);
+}
+
+function desk_branch_lede(string $kind = 'books'): string
+{
+    $scope = desk_view_branch();
+    if (empty($scope['enabled'])) {
+        return '';
+    }
+    if (!empty($scope['all'])) {
+        return ' Combined across every branch. Chip a location to see that shop only — overall is for the company admin.';
+    }
+    return ' ' . ucfirst($kind) . ' for ' . (string) $scope['label'] . ' only. Head office and other branches stay off this portal.';
+}
+
+function render_desk_branch_chips(string $action, array $keep = []): void
+{
+    $scope = desk_view_branch();
+    if (!$scope['enabled'] || !$scope['admin']) {
+        return;
+    }
+    $p = function_exists('period_range') ? period_range() : ['preset' => '', 'from' => '', 'to' => ''];
+    $base = array_merge($keep, [
+        'range' => $p['preset'] ?? '',
+        'from' => $p['from'] ?? '',
+        'to' => $p['to'] ?? '',
+        'q' => function_exists('stock_q') ? stock_q() : trim((string) ($_GET['q'] ?? '')),
+    ]);
+    ?>
+  <div class="filter-chips" style="margin:0 0 12px">
+    <a class="chip<?= $scope['all'] ? ' is-on' : '' ?>" href="<?= h(url($action . '?' . http_build_query(array_merge($base, ['branch' => 'all'])))) ?>">Every branch</a>
+    <?php foreach (company_all_branches() as $b):
+        $bid = (int) ($b['id'] ?? 0);
+        $on = !$scope['all'] && (int) $scope['id'] === $bid;
+        ?>
+      <a class="chip<?= $on ? ' is-on' : '' ?>" href="<?= h(url($action . '?' . http_build_query(array_merge($base, ['branch' => (string) $bid])))) ?>"><?= h((string) $b['name']) ?></a>
+    <?php endforeach; ?>
+  </div>
+    <?php
+}
+
 function resolve_document_branch_id(mixed $posted = null, ?array $user = null): ?int
 {
     if (!company_branches_enabled()) {

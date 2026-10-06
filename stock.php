@@ -126,7 +126,7 @@ layout_start('Stock', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('package') ?>Stock</h1>
-    <p class="lede">Products and services. Counts and stock value cover goods only. Restock on Purchases. Sales and invoices can pick either.</p>
+    <p class="lede">Products and services. Counts and stock value cover goods only. Restock on Purchases. Sales and invoices can pick either.<?= function_exists('desk_branch_lede') ? h(desk_branch_lede('stock')) : '' ?></p>
   </div>
   <div class="actions page-actions">
     <?php if ($tab === 'items'): ?>
@@ -140,6 +140,7 @@ layout_start('Stock', $user);
   </div>
 </div>
 <?php render_stock_subnav($tab); ?>
+<?php if (function_exists('render_desk_branch_chips')) { render_desk_branch_chips('stock.php', ['tab' => $tab]); } ?>
 
 <?php if ($error): ?><p class="flash flash-err" style="margin:0 0 16px"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
 
@@ -162,7 +163,7 @@ layout_start('Stock', $user);
       <a class="btn ghost sm" href="<?= h(url('stock.php?tab=items&import=1#stock-import')) ?>"><?= icon('download', 14) ?>Import stock</a>
     </div>
   </div>
-  <div class="pad-form"><?php stock_search_bar('stock.php', ['tab' => 'items'], 'Search products and services'); ?></div>
+  <div class="pad-form"><?php stock_search_bar('stock.php', array_merge(['tab' => 'items'], function_exists('desk_branch_keep') ? desk_branch_keep() : []), 'Search products and services'); ?></div>
   <?php if (!$page['rows']): ?>
     <p class="empty">No products match. Use Add item or Import stock.</p>
   <?php else: ?>
@@ -328,6 +329,7 @@ layout_start('Stock', $user);
 
 <?php elseif ($tab === 'counts'):
     $activeItems = array_values(array_filter($items, static fn ($r) => !empty($r['active']) && !stock_item_is_service($r)));
+    $activeItems = stock_overlay_qty($activeItems, stock_write_branch_id(), true);
     $filtered = stock_filter_items($activeItems, $q);
     $page = stock_slice($filtered, stock_page_key('p'));
     $countPage = stock_slice(stock_recent_counts(40), stock_page_key('cp'));
@@ -340,8 +342,8 @@ layout_start('Stock', $user);
     <form method="post">
       <?= csrf_field() ?>
       <input type="hidden" name="action" value="count">
-      <div class="pad-form"><?php stock_search_bar('stock.php', ['tab' => 'counts'], 'Search products'); ?></div>
-      <p class="lede" style="padding:0 18px 8px">Walk the shelf. Type what you see on this page. Saving sets those products to the counted number.</p>
+      <div class="pad-form"><?php stock_search_bar('stock.php', array_merge(['tab' => 'counts'], function_exists('desk_branch_keep') ? desk_branch_keep() : []), 'Search products'); ?></div>
+      <p class="lede" style="padding:0 18px 8px">Walk the shelf at <?= h(function_exists('company_branch_label') ? company_branch_label(stock_write_branch_id()) : 'this location') ?>. Type what you see on this page. Saving sets those products to the counted number for this branch only.</p>
       <div class="table-scroll">
         <table class="grid"<?= (int) $page['from'] > 1 ? ' style="counter-reset: grid-row ' . ((int) $page['from'] - 1) . '"' : '' ?>>
           <thead><tr><th>Item</th><th class="right">System</th><th class="right">Counted</th></tr></thead>

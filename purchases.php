@@ -26,7 +26,7 @@ layout_start('Purchases', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('expense') ?>Purchases</h1>
-    <p class="lede">Restock goods for the business. Paid bills clear now; unpaid balances sit on Creditors, not on day profit.</p>
+    <p class="lede">Restock goods for <?= h(function_exists('company_branch_label') ? company_branch_label(stock_write_branch_id()) : 'the business') ?>. Paid bills clear now; unpaid balances sit on Creditors, not on day profit.<?= function_exists('desk_branch_lede') ? h(desk_branch_lede('purchases')) : '' ?></p>
   </div>
   <div class="actions page-actions">
     <a class="btn ghost" href="<?= h(url('stock.php?tab=items')) ?>"><?= icon('package', 16) ?>Stock</a>
@@ -34,6 +34,7 @@ layout_start('Purchases', $user);
   </div>
 </div>
 <?php render_stock_subnav('purchases'); ?>
+<?php if (function_exists('render_desk_branch_chips')) { render_desk_branch_chips('purchases.php'); } ?>
 
 <?php if ($error): ?><p class="flash flash-err" style="margin:0 0 16px"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
 
@@ -104,7 +105,7 @@ layout_start('Purchases', $user);
 </div>
 <div class="card" style="margin-top:16px">
   <div class="card-head"><h2><?= icon('expense', 16) ?>Purchase bills</h2></div>
-  <div class="pad-form"><?php stock_search_bar('purchases.php', [], 'Search bill or supplier'); ?></div>
+  <div class="pad-form"><?php stock_search_bar('purchases.php', function_exists('desk_branch_keep') ? desk_branch_keep() : [], 'Search bill or supplier'); ?></div>
   <?php render_stock_docs_table($buyPage, 'purchases.php', 'p', 'No stock purchases yet.'); ?>
 </div>
 <?php

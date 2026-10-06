@@ -94,6 +94,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $tab = (($_GET['tab'] ?? '') === 'performance') ? 'performance' : 'list';
 $branches = company_all_branches();
+if (!$admin) {
+    $own = (int) ($user['branch_id'] ?? 0);
+    $branches = array_values(array_filter($branches, static fn ($b) => (int) ($b['id'] ?? 0) === $own));
+}
 $members = db_all("SELECT id, name, job_title, email, role, access, branch_id FROM users WHERE company_id = ? AND role <> 'platform' ORDER BY role = 'admin' DESC, name", 'i', [$cid]);
 $seats = company_user_limit();
 $branchCap = company_location_limit();
@@ -107,6 +111,14 @@ if ($tab === 'performance') {
     $from = $period['from'] !== '' ? $period['from'] : '1970-01-01';
     $to = $period['to'] !== '' ? $period['to'] : today();
     $perf = branch_performance_for_range($from, $to);
+    if (!$admin) {
+        $own = (int) ($user['branch_id'] ?? 0);
+        $perf['branches'] = array_values(array_filter(
+            $perf['branches'],
+            static fn ($row) => (int) ($row['id'] ?? 0) === $own
+        ));
+        $perf['overall'] = $perf['branches'][0] ?? branch_performance_blank();
+    }
 } elseif ($admin) {
     foreach ($branches as $b) {
         $bid = (int) ($b['id'] ?? 0);
@@ -135,7 +147,11 @@ layout_start('Branches', $user);
   <div>
     <h1><?= icon('pin') ?>Branches</h1>
     <p class="lede"><?php if ($tab === 'performance'): ?>
-      Income, spend and collections for each branch, plus overall. Income share is that branch's contribution to invoiced net.
+      <?php if ($admin): ?>
+      Income, spend and collections for each branch, plus overall. Income share is that branch's contribution to invoiced net. Only the company admin sees overall.
+      <?php else: ?>
+      Performance for <?= h(company_branch_label((int) ($user['branch_id'] ?? 0))) ?> only. Head office and other branches stay off this portal. Overall is for the company admin.
+      <?php endif; ?>
     <?php else: ?>
       Head office uses the company address in Settings. Named branches print their own address. This package allows up to <?= (int) $branchCap ?> branch<?= $branchCap === 1 ? '' : 'es' ?>, including Head office. Several people can share a branch. Vellisys sets how many users this desk has (<?= (int) $seats ?> of <?= (int) plan_user_limit_max() ?> on <?= h(company_plan_label()) ?>).
     <?php endif; ?></p>
@@ -167,6 +183,7 @@ layout_start('Branches', $user);
 <p class="hint" style="margin:-8px 0 16px">
   Showing <?= $period['from'] ? h(format_date($period['from']) . ' - ' . format_date($period['to'])) : 'all dates' ?>.
 </p>
+<?php if ($admin): ?>
 <div class="stats">
   <div class="card stat"><?= icon('invoice', 20) ?><span>Overall income</span><strong><?= h(ugx($overall['income'])) ?></strong></div>
   <div class="card stat"><?= icon('receipt', 20) ?><span>Overall collected</span><strong><?= h(ugx($overall['cash_in'])) ?></strong></div>
@@ -252,11 +269,12 @@ layout_start('Branches', $user);
   </table>
   </div>
 </div>
+<?php endif; ?>
 <?php foreach ($perfRows as $row): ?>
   <div class="card" style="margin-bottom:16px">
     <div class="card-head"><h2><?= icon(!empty($row['is_head']) ? 'building' : 'pin', 16) ?><?= h((string) $row['name']) ?></h2></div>
     <div class="stats" style="margin:0">
-      <div class="card stat"><?= icon('invoice', 20) ?><span>Income</span><strong><?= h(ugx($row['income'])) ?></strong><em><?= h(rtrim(rtrim(number_format((float) $row['income_share'], 1, '.', ''), '0'), '.')) ?>% of overall</em></div>
+      <div class="card stat"><?= icon('invoice', 20) ?><span>Income</span><strong><?= h(ugx($row['income'])) ?></strong><?php if ($admin): ?><em><?= h(rtrim(rtrim(number_format((float) $row['income_share'], 1, '.', ''), '0'), '.')) ?>% of overall</em><?php endif; ?></div>
       <div class="card stat"><?= icon('receipt', 20) ?><span>Collected</span><strong><?= h(ugx($row['cash_in'])) ?></strong></div>
       <div class="card stat"><?= icon('expense', 20) ?><span>Expenses</span><strong><?= h(ugx($row['expenses'])) ?></strong><em><?= h(rtrim(rtrim(number_format((float) $row['expense_share'], 1, '.', ''), '0'), '.')) ?>% of spend</em></div>
       <?php if ($showProfit): ?>

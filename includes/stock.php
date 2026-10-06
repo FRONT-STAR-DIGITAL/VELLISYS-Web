@@ -115,6 +115,108 @@ function stock_item_is_service(array $row): bool
     return (int) ($row['is_service'] ?? 0) === 1;
 }
 
+function stock_branch_qty_ready(): bool
+{
+    static $ok = null;
+    if ($ok !== null) {
+        return $ok;
+    }
+    try {
+        $ok = function_exists('db_has_column') && db_has_column(db(), 'stock_branch_qty', 'qty_on_hand');
+    } catch (Throwable $e) {
+        $ok = false;
+    }
+    return $ok;
+}
+
+function stock_view_branch_id(): ?int
+{
+    if (!function_exists('desk_view_branch')) {
+        return null;
+    }
+    $scope = desk_view_branch();
+    if (empty($scope['enabled']) || !empty($scope['all'])) {
+        return null;
+    }
+    return (int) $scope['id'];
+}
+
+function stock_write_branch_id(): int
+{
+    return function_exists('desk_write_branch_id') ? desk_write_branch_id() : 0;
+}
+
+function stock_overlay_qty(array $rows, ?int $forcedBranch = null, bool $forceBranch = false): array
+{
+    if (!$rows || !stock_branch_qty_ready()) {
+        return $rows;
+    }
+    if (!function_exists('company_branches_enabled') || !company_branches_enabled()) {
+        return $rows;
+    }
+    $cid = current_company_id();
+    $ids = [];
+    foreach ($rows as $row) {
+        $id = (int) ($row['id'] ?? 0);
+        if ($id > 0) {
+            $ids[] = $id;
+        }
+    }
+    $ids = array_values(array_unique($ids));
+    if (!$ids) {
+        return $rows;
+    }
+    $in = implode(',', array_fill(0, count($ids), '?'));
+    $scopeId = $forceBranch ? $forcedBranch : stock_view_branch_id();
+    $map = [];
+    if ($scopeId === null) {
+        $got = db_all(
+            'SELECT item_id, SUM(qty_on_hand) AS q FROM stock_branch_qty WHERE company_id = ? AND item_id IN (' . $in . ') GROUP BY item_id',
+            'i' . str_repeat('i', count($ids)),
+            array_merge([$cid], $ids)
+        );
+        foreach ($got as $g) {
+            $map[(int) $g['item_id']] = (float) $g['q'];
+        }
+        foreach ($rows as &$row) {
+            $id = (int) ($row['id'] ?? 0);
+            if ($id > 0 && isset($map[$id]) && !stock_item_is_service($row)) {
+                $row['qty_on_hand'] = $map[$id];
+            }
+        }
+        unset($row);
+        return $rows;
+    }
+    $got = db_all(
+        'SELECT item_id, qty_on_hand FROM stock_branch_qty WHERE company_id = ? AND branch_id = ? AND item_id IN (' . $in . ')',
+        'ii' . str_repeat('i', count($ids)),
+        array_merge([$cid, (int) $scopeId], $ids)
+    );
+    foreach ($got as $g) {
+        $map[(int) $g['item_id']] = (float) $g['qty_on_hand'];
+    }
+    foreach ($rows as &$row) {
+        if (!stock_item_is_service($row)) {
+            $row['qty_on_hand'] = $map[(int) ($row['id'] ?? 0)] ?? 0.0;
+        }
+    }
+    unset($row);
+    return $rows;
+}
+
+function stock_set_branch_qty(int $itemId, int $branchId, float $delta): void
+{
+    if ($itemId < 1 || abs($delta) < 0.0001 || !stock_branch_qty_ready()) {
+        return;
+    }
+    $cid = current_company_id();
+    db_exec(
+        'INSERT INTO stock_branch_qty (company_id, item_id, branch_id, qty_on_hand) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE qty_on_hand = qty_on_hand + ?',
+        'iiidd',
+        [$cid, $itemId, max(0, $branchId), $delta, $delta]
+    );
+}
+
 function stock_goods_only(array $items): array
 {
     return array_values(array_filter($items, static fn ($row) => !stock_item_is_service($row)));
@@ -127,12 +229,17 @@ function stock_items(bool $activeOnly = false): array
         $sql .= ' AND active = 1';
     }
     $sql .= ' ORDER BY name';
-    return db_all($sql, 'i', [current_company_id()]);
+    return stock_overlay_qty(db_all($sql, 'i', [current_company_id()]));
 }
 
 function stock_item(int $id): ?array
 {
-    return db_one('SELECT * FROM stock_items WHERE id = ? AND company_id = ?', 'ii', [$id, current_company_id()]);
+    $row = db_one('SELECT * FROM stock_items WHERE id = ? AND company_id = ?', 'ii', [$id, current_company_id()]);
+    if (!$row) {
+        return null;
+    }
+    $out = stock_overlay_qty([$row]);
+    return $out[0] ?? $row;
 }
 
 function stock_items_by_ids(array $ids): array
@@ -144,7 +251,7 @@ function stock_items_by_ids(array $ids): array
     $cid = current_company_id();
     $in = implode(',', array_fill(0, count($ids), '?'));
     $types = 'i' . str_repeat('i', count($ids));
-    $rows = db_all('SELECT * FROM stock_items WHERE company_id = ? AND id IN (' . $in . ')', $types, array_merge([$cid], $ids));
+    $rows = stock_overlay_qty(db_all('SELECT * FROM stock_items WHERE company_id = ? AND id IN (' . $in . ')', $types, array_merge([$cid], $ids)), stock_write_branch_id(), true);
     $map = [];
     foreach ($rows as $row) {
         $map[(int) $row['id']] = $row;
@@ -169,31 +276,53 @@ function stock_search(string $q, int $limit = 12): array
 
 function stock_stats(): array
 {
-    $cid = current_company_id();
-    $row = db_one(
-        'SELECT COALESCE(SUM(CASE WHEN COALESCE(is_service, 0) = 0 THEN 1 ELSE 0 END), 0) AS n,
-                COALESCE(SUM(CASE WHEN COALESCE(is_service, 0) = 0 THEN qty_on_hand * buy_price ELSE 0 END), 0) AS cost,
-                COALESCE(SUM(CASE WHEN COALESCE(is_service, 0) = 0 THEN qty_on_hand * sell_price ELSE 0 END), 0) AS sell,
-                COALESCE(SUM(CASE WHEN COALESCE(is_service, 0) = 0 AND reorder_level > 0 AND qty_on_hand <= reorder_level THEN 1 ELSE 0 END), 0) AS low
-         FROM stock_items WHERE company_id = ? AND active = 1',
-        'i',
-        [$cid]
-    );
+    $n = 0;
+    $cost = 0.0;
+    $sell = 0.0;
+    $low = 0;
+    foreach (stock_items(true) as $row) {
+        if (stock_item_is_service($row)) {
+            continue;
+        }
+        $n++;
+        $qty = (float) ($row['qty_on_hand'] ?? 0);
+        $cost += $qty * (float) ($row['buy_price'] ?? 0);
+        $sell += $qty * (float) ($row['sell_price'] ?? 0);
+        $reorder = (float) ($row['reorder_level'] ?? 0);
+        if ($reorder > 0 && $qty <= $reorder) {
+            $low++;
+        }
+    }
     return [
-        'items' => (int) ($row['n'] ?? 0),
-        'cost' => (float) ($row['cost'] ?? 0),
-        'sell' => (float) ($row['sell'] ?? 0),
-        'low' => (int) ($row['low'] ?? 0),
+        'items' => $n,
+        'cost' => $cost,
+        'sell' => $sell,
+        'low' => $low,
     ];
 }
 
 function stock_low_items(): array
 {
-    return db_all(
-        'SELECT * FROM stock_items WHERE company_id = ? AND active = 1 AND COALESCE(is_service, 0) = 0 AND reorder_level > 0 AND qty_on_hand <= reorder_level ORDER BY qty_on_hand, name',
-        'i',
-        [current_company_id()]
-    );
+    $out = [];
+    foreach (stock_items(true) as $row) {
+        if (stock_item_is_service($row)) {
+            continue;
+        }
+        $reorder = (float) ($row['reorder_level'] ?? 0);
+        $qty = (float) ($row['qty_on_hand'] ?? 0);
+        if ($reorder > 0 && $qty <= $reorder) {
+            $out[] = $row;
+        }
+    }
+    usort($out, static function (array $a, array $b): int {
+        $qa = (float) ($a['qty_on_hand'] ?? 0);
+        $qb = (float) ($b['qty_on_hand'] ?? 0);
+        if ($qa === $qb) {
+            return strcasecmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? ''));
+        }
+        return $qa <=> $qb;
+    });
+    return $out;
 }
 
 /** Bell / push items for products at or below reorder level. */
@@ -298,6 +427,9 @@ function stock_delete_item(int $id): array
         [$id, $cid]
     );
     db_exec('DELETE FROM stock_moves WHERE item_id = ? AND company_id = ?', 'ii', [$id, $cid]);
+    if (stock_branch_qty_ready()) {
+        db_exec('DELETE FROM stock_branch_qty WHERE item_id = ? AND company_id = ?', 'ii', [$id, $cid]);
+    }
     db_exec('DELETE FROM stock_items WHERE id = ? AND company_id = ?', 'ii', [$id, $cid]);
     if (function_exists('record_company_activity')) {
         record_company_activity('stock', 'Product deleted', [
@@ -323,7 +455,7 @@ function stock_delete_button(int $id, string $class = 'btn danger sm'): void
     <?php
 }
 
-function stock_move(int $itemId, string $kind, float $qty, float $unitCost = 0, ?int $documentId = null, string $note = ''): void
+function stock_move(int $itemId, string $kind, float $qty, float $unitCost = 0, ?int $documentId = null, string $note = '', ?int $branchId = null): void
 {
     if ($qty == 0.0) {
         return;
@@ -337,11 +469,22 @@ function stock_move(int $itemId, string $kind, float $qty, float $unitCost = 0, 
     if ($kind === 'adjust') {
         $delta = $qty;
     }
-    db_exec(
-        'INSERT INTO stock_moves (company_id, item_id, kind, qty, unit_cost, document_id, note, user_id) VALUES (?,?,?,?,?,?,?,?)',
-        'iisddisi',
-        [$cid, $itemId, $kind, $delta, $unitCost, $documentId, $note !== '' ? mb_substr($note, 0, 190) : null, (int) ($_SESSION['user_id'] ?? 0)]
-    );
+    $branchId = $branchId !== null ? max(0, $branchId) : stock_write_branch_id();
+    $hasBranch = stock_branch_qty_ready() && function_exists('db_has_column') && db_has_column(db(), 'stock_moves', 'branch_id');
+    if ($hasBranch) {
+        db_exec(
+            'INSERT INTO stock_moves (company_id, branch_id, item_id, kind, qty, unit_cost, document_id, note, user_id) VALUES (?,?,?,?,?,?,?,?,?)',
+            'iiisddisi',
+            [$cid, $branchId, $itemId, $kind, $delta, $unitCost, $documentId, $note !== '' ? mb_substr($note, 0, 190) : null, (int) ($_SESSION['user_id'] ?? 0)]
+        );
+        stock_set_branch_qty($itemId, $branchId, $delta);
+    } else {
+        db_exec(
+            'INSERT INTO stock_moves (company_id, item_id, kind, qty, unit_cost, document_id, note, user_id) VALUES (?,?,?,?,?,?,?,?)',
+            'iisddisi',
+            [$cid, $itemId, $kind, $delta, $unitCost, $documentId, $note !== '' ? mb_substr($note, 0, 190) : null, (int) ($_SESSION['user_id'] ?? 0)]
+        );
+    }
     db_exec('UPDATE stock_items SET qty_on_hand = qty_on_hand + ? WHERE id = ? AND company_id = ?', 'dii', [$delta, $itemId, $cid]);
 }
 
@@ -365,6 +508,11 @@ function stock_apply_document(int $documentId, string $kind, array $items): void
     if ($kind === 'receipt') {
         return;
     }
+    $docBranch = 0;
+    $doc = db_one('SELECT branch_id FROM documents WHERE id = ? AND company_id = ?', 'ii', [$documentId, current_company_id()]);
+    if ($doc) {
+        $docBranch = (int) ($doc['branch_id'] ?? 0);
+    }
     foreach ($items as $item) {
         $sid = (int) ($item['stock_item_id'] ?? 0);
         if ($sid < 1) {
@@ -381,7 +529,7 @@ function stock_apply_document(int $documentId, string $kind, array $items): void
         $cost = $moveKind === 'sale'
             ? (float) ($row['buy_price'] ?? 0)
             : (float) ($item['rate'] ?? ($row['buy_price'] ?? 0));
-        stock_move($sid, $moveKind, $qty, $cost, $documentId, $kind);
+        stock_move($sid, $moveKind, $qty, $cost, $documentId, $kind, $docBranch);
     }
 }
 
@@ -394,6 +542,9 @@ function stock_reverse_document(int $documentId): void
     $moves = db_all('SELECT * FROM stock_moves WHERE document_id = ? AND company_id = ?', 'ii', [$documentId, $cid]);
     foreach ($moves as $m) {
         db_exec('UPDATE stock_items SET qty_on_hand = qty_on_hand - ? WHERE id = ? AND company_id = ?', 'dii', [(float) $m['qty'], (int) $m['item_id'], $cid]);
+        if (stock_branch_qty_ready()) {
+            stock_set_branch_qty((int) $m['item_id'], (int) ($m['branch_id'] ?? stock_write_branch_id()), -(float) $m['qty']);
+        }
     }
     db_exec('DELETE FROM stock_moves WHERE document_id = ? AND company_id = ?', 'ii', [$documentId, $cid]);
 }
@@ -417,7 +568,11 @@ function stock_normalize_day_date(?string $raw): ?string
 function stock_day_for(?string $date = null): ?array
 {
     $date = stock_normalize_day_date($date) ?? today();
-    return db_one('SELECT * FROM stock_days WHERE company_id = ? AND day_date = ?', 'is', [current_company_id(), $date]);
+    $cid = current_company_id();
+    if (function_exists('db_has_column') && db_has_column(db(), 'stock_days', 'branch_id')) {
+        return db_one('SELECT * FROM stock_days WHERE company_id = ? AND branch_id = ? AND day_date = ?', 'iis', [$cid, stock_write_branch_id(), $date]);
+    }
+    return db_one('SELECT * FROM stock_days WHERE company_id = ? AND day_date = ?', 'is', [$cid, $date]);
 }
 
 function stock_today(): ?array
@@ -428,10 +583,18 @@ function stock_today(): ?array
 /** Any unclosed till day for this company (may be backdated). */
 function stock_current_open_day(): ?array
 {
+    $cid = current_company_id();
+    if (function_exists('db_has_column') && db_has_column(db(), 'stock_days', 'branch_id')) {
+        return db_one(
+            'SELECT * FROM stock_days WHERE company_id = ? AND branch_id = ? AND closed_at IS NULL ORDER BY day_date DESC LIMIT 1',
+            'ii',
+            [$cid, stock_write_branch_id()]
+        );
+    }
     return db_one(
         'SELECT * FROM stock_days WHERE company_id = ? AND closed_at IS NULL ORDER BY day_date DESC LIMIT 1',
         'i',
-        [current_company_id()]
+        [$cid]
     );
 }
 
@@ -473,9 +636,13 @@ function stock_day_open(float $cash, ?string $date = null): array
         return ['ok' => true, 'id' => (int) $row['id'], 'day_date' => $date];
     }
     $id = db_exec(
-        'INSERT INTO stock_days (company_id, day_date, open_cash, opened_by) VALUES (?,?,?,?)',
-        'isdi',
-        [current_company_id(), $date, max(0, $cash), (int) ($_SESSION['user_id'] ?? 0)]
+        function_exists('db_has_column') && db_has_column(db(), 'stock_days', 'branch_id')
+            ? 'INSERT INTO stock_days (company_id, branch_id, day_date, open_cash, opened_by) VALUES (?,?,?,?,?)'
+            : 'INSERT INTO stock_days (company_id, day_date, open_cash, opened_by) VALUES (?,?,?,?)',
+        function_exists('db_has_column') && db_has_column(db(), 'stock_days', 'branch_id') ? 'iisdi' : 'isdi',
+        function_exists('db_has_column') && db_has_column(db(), 'stock_days', 'branch_id')
+            ? [current_company_id(), stock_write_branch_id(), $date, max(0, $cash), (int) ($_SESSION['user_id'] ?? 0)]
+            : [current_company_id(), $date, max(0, $cash), (int) ($_SESSION['user_id'] ?? 0)]
     );
     return ['ok' => true, 'id' => (int) $id, 'day_date' => $date];
 }
@@ -673,12 +840,22 @@ function stock_send_template(): void
 
 function stock_recent_counts(int $limit = 8): array
 {
-    return db_all('SELECT * FROM stock_counts WHERE company_id = ? ORDER BY id DESC LIMIT ?', 'ii', [current_company_id(), $limit]);
+    $cid = current_company_id();
+    if (function_exists('db_has_column') && db_has_column(db(), 'stock_counts', 'branch_id') && function_exists('desk_merge_branch_sql')) {
+        [$extra, $types, $params] = desk_merge_branch_sql('branch_id', 'i', [$cid]);
+        return db_all('SELECT * FROM stock_counts WHERE company_id = ?' . $extra . ' ORDER BY id DESC LIMIT ' . (int) $limit, $types, $params);
+    }
+    return db_all('SELECT * FROM stock_counts WHERE company_id = ? ORDER BY id DESC LIMIT ?', 'ii', [$cid, $limit]);
 }
 
 function stock_recent_days(int $limit = 14): array
 {
-    return db_all('SELECT * FROM stock_days WHERE company_id = ? ORDER BY day_date DESC LIMIT ?', 'ii', [current_company_id(), $limit]);
+    $cid = current_company_id();
+    if (function_exists('db_has_column') && db_has_column(db(), 'stock_days', 'branch_id') && function_exists('desk_merge_branch_sql')) {
+        [$extra, $types, $params] = desk_merge_branch_sql('branch_id', 'i', [$cid]);
+        return db_all('SELECT * FROM stock_days WHERE company_id = ?' . $extra . ' ORDER BY day_date DESC LIMIT ' . (int) $limit, $types, $params);
+    }
+    return db_all('SELECT * FROM stock_days WHERE company_id = ? ORDER BY day_date DESC LIMIT ?', 'ii', [$cid, $limit]);
 }
 
 function stock_walkin_party(): int
@@ -711,8 +888,12 @@ function stock_find_or_create_party(string $name, string $kind = 'customer'): in
 
 function stock_catalog_payload(): array
 {
+    $rows = stock_items(true);
+    if (function_exists('company_branches_enabled') && company_branches_enabled()) {
+        $rows = stock_overlay_qty($rows, stock_write_branch_id(), true);
+    }
     $out = [];
-    foreach (stock_items(true) as $row) {
+    foreach ($rows as $row) {
         $out[] = [
             'id' => (int) $row['id'],
             'sku' => (string) $row['sku'],
@@ -1060,11 +1241,18 @@ function stock_post_purchase_from_request(): array
 function stock_post_count(array $counted): array
 {
     $cid = current_company_id();
-    $countId = db_exec(
-        'INSERT INTO stock_counts (company_id, counted_on, status, user_id) VALUES (?,?,?,?)',
-        'issi',
-        [$cid, today(), 'posted', (int) ($_SESSION['user_id'] ?? 0)]
-    );
+    $hasBranch = function_exists('db_has_column') && db_has_column(db(), 'stock_counts', 'branch_id');
+    $countId = $hasBranch
+        ? db_exec(
+            'INSERT INTO stock_counts (company_id, branch_id, counted_on, status, user_id) VALUES (?,?,?,?,?)',
+            'iissi',
+            [$cid, stock_write_branch_id(), today(), 'posted', (int) ($_SESSION['user_id'] ?? 0)]
+        )
+        : db_exec(
+            'INSERT INTO stock_counts (company_id, counted_on, status, user_id) VALUES (?,?,?,?)',
+            'issi',
+            [$cid, today(), 'posted', (int) ($_SESSION['user_id'] ?? 0)]
+        );
     foreach ($counted as $itemId => $qty) {
         $itemId = (int) $itemId;
         $item = stock_item($itemId);
@@ -1152,6 +1340,7 @@ function stock_complete_sale(array $input): array
     }
     $method = stock_payment_key((string) ($input['method'] ?? 'cash'));
     $vatRate = $anyTaxed ? company_tax_rate() : 0.0;
+    $branchId = stock_write_branch_id();
     $invoiceId = create_document([
         'kind' => 'invoice',
         'party_id' => $partyId,
@@ -1161,6 +1350,7 @@ function stock_complete_sale(array $input): array
         'notes' => $discount > 0 ? 'Sale. Discount ' . money($discount) : 'Sale',
         'payment_method' => $method,
         'items' => $clean,
+        'branch_id' => $branchId,
     ]);
     $grand = doc_total($clean, $vatRate);
     $receiptId = 0;
@@ -1180,6 +1370,7 @@ function stock_complete_sale(array $input): array
             'payment_method' => $method,
             'notes' => $paid + 0.009 < $grand ? 'Part payment on sale' : 'Sale paid',
             'items' => [],
+            'branch_id' => $branchId,
         ]);
     }
     return [
@@ -1250,6 +1441,7 @@ function stock_complete_purchase(array $input): array
         // Leave open; clear only what was paid — unpaid remainder stays a creditor bill.
         'leave_unpaid' => true,
         'items' => $clean,
+        'branch_id' => stock_write_branch_id(),
     ]);
     $exp = load_document($expenseId);
     $grand = (float) ($exp['totals']['total'] ?? 0);
@@ -1325,10 +1517,18 @@ function stock_last_print_id(): int
             return $sid;
         }
     }
+    $extra = '';
+    $types = 'i';
+    $params = [$cid];
+    if (function_exists('desk_branch_sql')) {
+        [$extra, $bTypes, $bArgs] = desk_branch_sql('branch_id');
+        $types .= $bTypes;
+        $params = array_merge($params, $bArgs);
+    }
     $inv = db_one(
-        "SELECT id FROM documents WHERE company_id = ? AND kind = 'invoice' AND status = 'issued' ORDER BY id DESC LIMIT 1",
-        'i',
-        [$cid]
+        "SELECT id FROM documents WHERE company_id = ? AND kind = 'invoice' AND status = 'issued'" . $extra . " ORDER BY id DESC LIMIT 1",
+        $types,
+        $params
     );
     if (!$inv) {
         return 0;
@@ -1363,7 +1563,7 @@ function stock_pager(string $base, int $page, int $pages, string $pageKey = 'p')
         if ($q !== '') {
             $url .= '&q=' . rawurlencode($q);
         }
-        foreach (['range', 'from', 'to'] as $k) {
+        foreach (['range', 'from', 'to', 'branch'] as $k) {
             $v = trim((string) ($_GET[$k] ?? ''));
             if ($v !== '' && !str_contains($url, $k . '=')) {
                 $url .= '&' . $k . '=' . rawurlencode($v);
@@ -1455,6 +1655,12 @@ function stock_search_docs(string $kind, string $q, int $page, int $per = 20, ?s
         // Operating expenses only - stock purchases stay on Creditors / inventory.
         $where .= " AND LOWER(TRIM(COALESCE(d.expense_category, ''))) NOT IN ('stock', 'stock purchase', 'purchases', 'personal creditor')";
     }
+    if (function_exists('desk_branch_sql')) {
+        [$bSql, $bTypes, $bArgs] = desk_branch_sql('d.branch_id');
+        $where .= $bSql;
+        $types .= $bTypes;
+        $params = array_merge($params, $bArgs);
+    }
     if ($q !== '') {
         $like = '%' . $q . '%';
         $where .= ' AND (d.number LIKE ? OR IFNULL(p.name,\'\') LIKE ? OR EXISTS (SELECT 1 FROM document_items i WHERE i.document_id = d.id AND (i.item_name LIKE ? OR i.description LIKE ?)))';
@@ -1484,14 +1690,22 @@ function stock_search_docs(string $kind, string $q, int $page, int $per = 20, ?s
 function stock_performance_range(string $from, string $to): array
 {
     $cid = current_company_id();
+    $types = 'iss';
+    $params = [$cid, $from, $to];
+    $bSql = '';
+    if (function_exists('desk_branch_sql')) {
+        [$bSql, $bTypes, $bArgs] = desk_branch_sql('d.branch_id');
+        $types .= $bTypes;
+        $params = array_merge($params, $bArgs);
+    }
     $docs = db_all(
         "SELECT d.id, d.date, d.kind, d.vat_rate, d.currency, d.expense_category, d.related_id, d.allocated_amount,
                 (SELECT COALESCE(SUM(ROUND(qty * rate, 2)), 0) FROM document_items i WHERE i.document_id = d.id) AS net,
                 (SELECT COALESCE(SUM(CASE WHEN taxed = 1 THEN ROUND(qty * rate, 2) ELSE 0 END), 0) FROM document_items i WHERE i.document_id = d.id) AS taxed_net
          FROM documents d
-         WHERE d.company_id = ? AND d.status = 'issued' AND d.kind IN ('invoice','expense','receipt') AND d.date >= ? AND d.date <= ?",
-        'iss',
-        [$cid, $from, $to]
+         WHERE d.company_id = ? AND d.status = 'issued' AND d.kind IN ('invoice','expense','receipt') AND d.date >= ? AND d.date <= ?" . $bSql,
+        $types,
+        $params
     );
     $cogsRows = db_all(
         "SELECT d.id, d.date, d.currency,
@@ -1503,10 +1717,10 @@ function stock_performance_range(string $from, string $to): array
                 d.kind = 'invoice' OR (d.kind = 'receipt' AND COALESCE(d.related_id, 0) = 0)
               )
            AND d.date >= ? AND d.date <= ? AND i.stock_item_id IS NOT NULL AND i.stock_item_id > 0
-           AND COALESCE(s.is_service, 0) = 0
+           AND COALESCE(s.is_service, 0) = 0" . $bSql . "
          GROUP BY d.id, d.date, d.currency",
-        'iss',
-        [$cid, $from, $to]
+        $types,
+        $params
     );
     $by = [];
     $base = default_currency();
@@ -1614,10 +1828,18 @@ function stock_day_dashboard(string $from, string $to): array
 function stock_float_vs_expenses(string $from, string $to, float $expense): array
 {
     $cid = current_company_id();
+    $types = 'iss';
+    $params = [$cid, $from, $to];
+    $extra = '';
+    if (function_exists('db_has_column') && db_has_column(db(), 'stock_days', 'branch_id') && function_exists('desk_branch_sql')) {
+        [$extra, $bTypes, $bArgs] = desk_branch_sql('branch_id');
+        $types .= $bTypes;
+        $params = array_merge($params, $bArgs);
+    }
     $rows = db_all(
-        'SELECT day_date, open_cash, close_cash, closed_at FROM stock_days WHERE company_id = ? AND day_date >= ? AND day_date <= ? ORDER BY day_date',
-        'iss',
-        [$cid, $from, $to]
+        'SELECT day_date, open_cash, close_cash, closed_at FROM stock_days WHERE company_id = ? AND day_date >= ? AND day_date <= ?' . $extra . ' ORDER BY day_date',
+        $types,
+        $params
     );
     $open = 0.0;
     foreach ($rows as $row) {

@@ -220,11 +220,11 @@ $lessons = [
         'alt' => 'Branches with Head office, a named shop and a Performance tab',
         'lead' => 'Vellisys Business allows up to 2 branches and Pro up to 3, including Head office. Several people can share a branch. Vellisys Start is Head office only.',
         'points' => [
-            'Open Branches on the rail. Add a shop or city name and its address, up to the branch cap on the package.',
+            'Open Branches on the rail. Add a shop or city name and its address, up to the branch cap on the package. A branch login sees only that location.',
             'Sheets issued from a branch print that address. Head office keeps using the Settings address.',
             'Assign staff so their work is recorded there. Several logins can sit on one branch.',
-            'Performance breaks down income, collections, expenses and profit for every branch, including overall. Income share is each branch\'s contribution.',
-            'The company admin opens Activities and chips for every branch, Head office, or the whole desk.',
+            'Stock quantities, Sale till and the Desk dashboard are per branch. A branch portal cannot see Head office stock or sales.',
+            'Only the company admin sees overall — chip Every branch on Desk or Stock, or open Branches → Performance.',
         ],
     ],
     [

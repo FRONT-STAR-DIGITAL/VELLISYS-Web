@@ -3464,6 +3464,12 @@ function document_sold_lines(?string $from = null, ?string $to = null): array
         $types .= $pTypes;
         $params = array_merge($params, $pArgs);
     }
+    if (function_exists('desk_branch_sql')) {
+        [$bSql, $bTypes, $bArgs] = desk_branch_sql('d.branch_id');
+        $extra .= $bSql;
+        $types .= $bTypes;
+        $params = array_merge($params, $bArgs);
+    }
     $hasService = function_exists('db_has_column') && db_has_column(db(), 'stock_items', 'is_service');
     $svcSelect = $hasService ? 'COALESCE(s.is_service, 0)' : '0';
     $joinStock = $hasService
