@@ -192,6 +192,8 @@ layout_admin_start('Companies', $user);
         <tr>
           <th>Company</th>
           <th>Agent</th>
+          <th>Active</th>
+          <th>Last login</th>
           <th>Desk login</th>
           <th>Ends</th>
           <th>Time left</th>
@@ -206,6 +208,12 @@ layout_admin_start('Companies', $user);
                 $expVal = substr((string) $c['testing_expires_at'], 0, 10);
             }
             $cid = (int) $c['id'];
+            $act = function_exists('sales_testing_activity') ? sales_testing_activity($c) : [
+                'online' => false,
+                'last_login_label' => format_when($c['last_login_at'] ?? null),
+                'status_key' => 'slow',
+                'status_label' => 'No sign-in yet',
+            ];
             $searchBlob = strtolower(trim(
                 (string) $c['name'] . ' ' . (string) ($c['owner_name'] ?? '') . ' ' . (string) ($c['desk_email'] ?? '')
             ));
@@ -216,6 +224,14 @@ layout_admin_start('Companies', $user);
               <?php if ($expired): ?><span class="pill bad">Expired</span><?php else: ?><span class="pill warn">Testing</span><?php endif; ?>
             </td>
             <td><?= h((string) ($c['owner_name'] ?: '-')) ?></td>
+            <td>
+              <?php if (!empty($act['online'])): ?>
+                <span class="pill">Active now</span>
+              <?php else: ?>
+                <span class="pill<?= ($act['status_key'] ?? '') === 'slow' ? ' warn' : '' ?>"><?= h((string) ($act['status_label'] ?? 'No sign-in yet')) ?></span>
+              <?php endif; ?>
+            </td>
+            <td class="mono"><?= h((string) ($act['last_login_label'] ?? format_when($c['last_login_at'] ?? null))) ?></td>
             <td class="mono"><?= h((string) ($c['desk_email'] ?? '-')) ?></td>
             <td class="mono"><?= $expVal !== '' ? h(format_date($expVal)) : '-' ?></td>
             <td><?= h(company_testing_remaining_label($c)) ?></td>
@@ -259,7 +275,7 @@ layout_admin_start('Companies', $user);
       </tbody>
     </table>
     </div>
-    <p class="hint">On a phone, scroll sideways for every action. Preferred client email · password Folio2026.</p>
+    <p class="hint">Sorted by most recent login so you can focus on desks that are actually testing. Active now = seen in the last <?= (int) platform_online_window_minutes() ?> minutes. Preferred client email · password Folio2026.</p>
   <?php endif; ?>
 
   <details class="sales-test-create" style="margin-top:20px">

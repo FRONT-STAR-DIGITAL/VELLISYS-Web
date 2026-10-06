@@ -8,7 +8,7 @@ $id = (int) ($_GET['id'] ?? 0);
 $company = sales_testing_company($id, (int) $user['id']);
 if (!$company) {
     flash('Testing company not found.', 'err');
-    redirect('sales_companies.php');
+    redirect('sales_testing.php');
 }
 
 $error = '';
@@ -45,6 +45,18 @@ $linkedLead = db_one(
     'ii',
     [$id, (int) $user['id']]
 );
+// Enrich with last login / active for this desk.
+$presenceRow = db_one(
+    "SELECT
+        (SELECT MAX(u.last_login_at) FROM users u WHERE u.company_id = ? AND u.role <> 'platform') AS last_login_at,
+        (SELECT MAX(u.last_seen_at) FROM users u WHERE u.company_id = ? AND u.role <> 'platform') AS last_seen_at,
+        (SELECT COUNT(*) FROM users u WHERE u.company_id = ? AND u.role <> 'platform'
+           AND u.last_seen_at > DATE_SUB(NOW(), INTERVAL " . (int) (function_exists('platform_online_window_minutes') ? platform_online_window_minutes() : 5) . " MINUTE)) AS online_users",
+    'iii',
+    [$id, $id, $id]
+) ?: [];
+$company = array_merge($company, $presenceRow);
+$activity = sales_testing_activity($company);
 sales_layout_start((string) $company['name'], $user);
 ?>
 <div class="page-head">
@@ -52,6 +64,8 @@ sales_layout_start((string) $company['name'], $user);
     <h1><?= icon('building') ?><?= h((string) $company['name']) ?></h1>
     <p class="lede">
       Testing mode · <?= h(company_testing_remaining_label($company)) ?>
+      · <?= $activity['online'] ? 'Active now' : h($activity['status_label']) ?>
+      · Last login <?= h($activity['last_login_label']) ?>
       <?php if (!empty($company['testing_expires_at'])): ?>
         · ends <?= h(format_date((string) $company['testing_expires_at'])) ?>
       <?php endif; ?>
@@ -67,7 +81,7 @@ sales_layout_start((string) $company['name'], $user);
     <?php if (!$expired): ?>
       <a class="btn" href="<?= h(url('sales_desk.php?id=' . $id)) ?>"><?= icon('desk', 16) ?>Desk</a>
     <?php endif; ?>
-    <a class="btn ghost" href="<?= h(url('sales_companies.php')) ?>">Back</a>
+    <a class="btn ghost" href="<?= h(url('sales_testing.php')) ?>">Back</a>
   </div>
 </div>
 

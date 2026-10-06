@@ -1892,36 +1892,95 @@ function sales_create_testing_company(array $fields, int $actorId, bool $asPlatf
     ];
 }
 
+/** Presence subselects for testing desks (last login / active now). */
+function sales_testing_presence_select(): string
+{
+    $mins = function_exists('platform_online_window_minutes') ? (int) platform_online_window_minutes() : 5;
+    return "(SELECT MAX(u.last_login_at) FROM users u WHERE u.company_id = c.id AND u.role <> 'platform') AS last_login_at,
+            (SELECT MAX(u.last_seen_at) FROM users u WHERE u.company_id = c.id AND u.role <> 'platform') AS last_seen_at,
+            (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id AND u.role <> 'platform'
+               AND u.last_seen_at > DATE_SUB(NOW(), INTERVAL {$mins} MINUTE)) AS online_users";
+}
+
 function sales_testing_companies_for_agent(int $agentId): array
 {
     if ($agentId < 1) {
         return [];
     }
-    return db_all(
-        "SELECT c.*,
-                (SELECT u.email FROM users u WHERE u.company_id = c.id AND u.role = 'admin' ORDER BY u.id ASC LIMIT 1) AS desk_email,
-                (SELECT COUNT(*) FROM users u2 WHERE u2.company_id = c.id) AS users
-         FROM companies c
-         WHERE c.testing_mode = 1 AND c.testing_owner_id = ?
-         ORDER BY c.testing_expires_at ASC, c.id DESC",
-        'i',
-        [$agentId]
-    );
+    $presence = sales_testing_presence_select();
+    try {
+        return db_all(
+            "SELECT c.*,
+                    (SELECT u.email FROM users u WHERE u.company_id = c.id AND u.role = 'admin' ORDER BY u.id ASC LIMIT 1) AS desk_email,
+                    (SELECT COUNT(*) FROM users u2 WHERE u2.company_id = c.id) AS users,
+                    {$presence}
+             FROM companies c
+             WHERE c.testing_mode = 1 AND c.testing_owner_id = ?
+             ORDER BY last_login_at IS NULL, last_login_at DESC, c.testing_expires_at ASC, c.id DESC",
+            'i',
+            [$agentId]
+        );
+    } catch (Throwable $e) {
+        return db_all(
+            "SELECT c.*,
+                    (SELECT u.email FROM users u WHERE u.company_id = c.id AND u.role = 'admin' ORDER BY u.id ASC LIMIT 1) AS desk_email,
+                    (SELECT COUNT(*) FROM users u2 WHERE u2.company_id = c.id) AS users
+             FROM companies c
+             WHERE c.testing_mode = 1 AND c.testing_owner_id = ?
+             ORDER BY c.testing_expires_at ASC, c.id DESC",
+            'i',
+            [$agentId]
+        );
+    }
 }
 
 function admin_testing_companies(): array
 {
-    return db_all(
-        "SELECT c.*,
-                u.name AS owner_name,
-                u.email AS owner_email,
-                (SELECT du.email FROM users du WHERE du.company_id = c.id AND du.role = 'admin' ORDER BY du.id ASC LIMIT 1) AS desk_email,
-                (SELECT COUNT(*) FROM users u2 WHERE u2.company_id = c.id) AS users
-         FROM companies c
-         LEFT JOIN users u ON u.id = c.testing_owner_id
-         WHERE c.testing_mode = 1
-         ORDER BY c.testing_expires_at ASC, c.id DESC"
-    );
+    $presence = sales_testing_presence_select();
+    try {
+        return db_all(
+            "SELECT c.*,
+                    u.name AS owner_name,
+                    u.email AS owner_email,
+                    (SELECT du.email FROM users du WHERE du.company_id = c.id AND du.role = 'admin' ORDER BY du.id ASC LIMIT 1) AS desk_email,
+                    (SELECT COUNT(*) FROM users u2 WHERE u2.company_id = c.id) AS users,
+                    {$presence}
+             FROM companies c
+             LEFT JOIN users u ON u.id = c.testing_owner_id
+             WHERE c.testing_mode = 1
+             ORDER BY last_login_at IS NULL, last_login_at DESC, c.testing_expires_at ASC, c.id DESC"
+        );
+    } catch (Throwable $e) {
+        return db_all(
+            "SELECT c.*,
+                    u.name AS owner_name,
+                    u.email AS owner_email,
+                    (SELECT du.email FROM users du WHERE du.company_id = c.id AND du.role = 'admin' ORDER BY du.id ASC LIMIT 1) AS desk_email,
+                    (SELECT COUNT(*) FROM users u2 WHERE u2.company_id = c.id) AS users
+             FROM companies c
+             LEFT JOIN users u ON u.id = c.testing_owner_id
+             WHERE c.testing_mode = 1
+             ORDER BY c.testing_expires_at ASC, c.id DESC"
+        );
+    }
+}
+
+/** Active / last-login pills for a testing company row. */
+function sales_testing_activity(array $company): array
+{
+    $online = (int) ($company['online_users'] ?? 0) > 0
+        || (function_exists('user_is_online') && user_is_online((string) ($company['last_seen_at'] ?? '')));
+    $login = (string) ($company['last_login_at'] ?? '');
+    $health = function_exists('platform_desk_health')
+        ? platform_desk_health($company)
+        : ['key' => $login !== '' ? 'healthy' : 'slow', 'label' => $login !== '' ? 'Signed in' : 'No sign-in yet'];
+    return [
+        'online' => $online,
+        'last_login' => $login,
+        'last_login_label' => function_exists('format_when') ? format_when($login !== '' ? $login : null) : ($login !== '' ? $login : 'Never'),
+        'status_key' => $online ? 'fast' : (string) ($health['key'] ?? 'slow'),
+        'status_label' => $online ? 'Active now' : (string) ($health['label'] ?? 'No sign-in yet'),
+    ];
 }
 
 function sales_testing_company(int $companyId, ?int $agentId = null): ?array
@@ -3550,7 +3609,7 @@ function sales_layout_start(string $title, array $user): void
             ['sales_home.php', 'Home', 'home'],
             ['sales_leads.php', 'Leads', 'clients'],
             ['sales_leads.php?bucket=pending', 'Open follow-ups', 'calendar', false, 'followups'],
-            ['sales_companies.php', 'My companies', 'building'],
+            ['sales_testing.php', 'On Testing', 'building'],
         ]],
         ['label' => 'Chat', 'items' => [
             ['sales_messages.php', 'Messages', 'mail'],
@@ -3611,7 +3670,7 @@ function sales_layout_start(string $title, array $user): void
                           || $here === 'sales_lead_edit.php';
                   } else {
                       $active = $file === $here
-                          || (in_array($here, ['sales_company.php', 'sales_company_new.php', 'sales_desk.php'], true) && $file === 'sales_companies.php');
+                          || (in_array($here, ['sales_company.php', 'sales_company_new.php', 'sales_desk.php', 'sales_companies.php'], true) && $file === 'sales_testing.php');
                   }
               }
               $badge = 0;
@@ -3695,7 +3754,7 @@ function sales_layout_end(string $extra = ''): void
 <nav class="app-tabbar sales-tabbar" aria-label="Sales" data-app-tabbar style="position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;z-index:9999;margin:0">
   <a class="app-tab<?= basename($_SERVER['SCRIPT_NAME'] ?? '') === 'sales_home.php' ? ' is-on' : '' ?>" href="<?= h(url('sales_home.php')) ?>"><?= icon('home', 22) ?><span>Home</span></a>
   <a class="app-tab<?= in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['sales_leads.php', 'sales_lead_edit.php'], true) ? ' is-on' : '' ?>" href="<?= h(url('sales_leads.php')) ?>"><?= icon('clients', 22) ?><span>Leads</span></a>
-  <a class="app-tab<?= in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['sales_companies.php', 'sales_company.php', 'sales_company_new.php', 'sales_desk.php'], true) ? ' is-on' : '' ?>" href="<?= h(url('sales_companies.php')) ?>"><?= icon('building', 22) ?><span>Companies</span></a>
+  <a class="app-tab<?= in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['sales_testing.php', 'sales_companies.php', 'sales_company.php', 'sales_company_new.php', 'sales_desk.php'], true) ? ' is-on' : '' ?>" href="<?= h(url('sales_testing.php')) ?>"><?= icon('building', 22) ?><span>Testing</span></a>
   <a class="app-tab app-tab-create" href="<?= h(url('sales_lead_edit.php')) ?>"><span class="app-tab-plus"><?= icon('plus', 26) ?></span><span>Lead</span></a>
   <a class="app-tab<?= basename($_SERVER['SCRIPT_NAME'] ?? '') === 'sales_messages.php' ? ' is-on' : '' ?>" href="<?= h(url('sales_messages.php')) ?>"><?= icon('mail', 22) ?><span>Chat</span></a>
 </nav>

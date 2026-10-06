@@ -10,7 +10,7 @@ if (isset($_GET['leave'])) {
     if (!empty($left['ok'])) {
         flash('Left the testing desk.');
         $r = (string) ($left['role'] ?? '');
-        redirect($r === 'platform' ? 'admin_companies.php' : ($r === 'sales_agent' ? 'sales_companies.php' : 'dashboard.php'));
+        redirect($r === 'platform' ? 'admin_companies.php' : ($r === 'sales_agent' ? 'sales_testing.php' : 'dashboard.php'));
     }
     flash($left['error'] ?? 'Could not leave desk.', 'err');
     redirect('dashboard.php');
@@ -28,7 +28,7 @@ if ($role === 'sales_agent') {
 $id = (int) ($_GET['id'] ?? post('id'));
 if ($id < 1) {
     flash('Pick a testing company.', 'err');
-    redirect($role === 'platform' ? 'admin_companies.php' : 'sales_companies.php');
+    redirect($role === 'platform' ? 'admin_companies.php' : 'sales_testing.php');
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['go'])) {
@@ -49,7 +49,7 @@ $company = $role === 'platform'
     : sales_testing_company($id, (int) $user['id']);
 if (!$company) {
     flash('Testing company not found.', 'err');
-    redirect($role === 'platform' ? 'admin_companies.php' : 'sales_companies.php');
+    redirect($role === 'platform' ? 'admin_companies.php' : 'sales_testing.php');
 }
 
 if ($role === 'platform') {
