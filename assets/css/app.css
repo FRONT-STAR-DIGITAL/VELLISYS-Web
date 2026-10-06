@@ -2397,6 +2397,30 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 12px 36px rgba(8, 20, 58, .12);
   transform-origin: top left;
 }
+/* Phones: pull A4 sheets edge-to-edge (thermal roll keeps its own tight layout). */
+@media screen and (max-width: 900px) {
+  .content:has(.sheet-stage) {
+    padding-left: 4px;
+    padding-right: 4px;
+    padding-top: 10px;
+  }
+  .sheet-wrap {
+    padding: 4px 2px 20px;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .print-body .sheet-wrap {
+    padding: 4px 2px 56px;
+  }
+  .invoice-sheet:not(.sheet-thermal) {
+    min-height: 0;
+    padding: 8mm 8mm 10mm;
+    box-shadow: 0 4px 16px rgba(8, 20, 58, .1);
+  }
+  .invoice-sheet.sheet-trade:not(.sheet-thermal) {
+    padding: 6mm 7mm 8mm;
+  }
+}
 .invoice-sheet.sheet-ledger,
 .invoice-sheet.sheet-estate,
 .invoice-sheet.sheet-twin,
@@ -4375,7 +4399,7 @@ input, select, textarea { font-weight: 400; }
   .row-actions .actions {
     flex-wrap: nowrap;
   }
-  .sheet-wrap { padding: 8px; border-radius: 0; }
+  .sheet-wrap { padding: 4px 2px 20px; border-radius: 0; }
   .share-toolbar {
     max-width: none;
     padding: 12px;

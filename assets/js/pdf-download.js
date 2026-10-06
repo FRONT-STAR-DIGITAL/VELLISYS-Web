@@ -178,6 +178,16 @@
       n.style.setProperty('overflow', 'visible', 'important');
       n.style.setProperty('page-break-after', 'avoid', 'important');
       n.style.setProperty('break-after', 'avoid', 'important');
+      // Phone preview tightens screen padding; PDF capture must keep print margins.
+      if (!n.classList.contains('sheet-thermal')) {
+        if (n.classList.contains('sheet-trade')) {
+          n.style.setProperty('padding', '10mm 12mm 12mm', 'important');
+        } else if (n.classList.contains('sheet-twin')) {
+          n.style.setProperty('padding', '8mm 8mm 10mm', 'important');
+        } else {
+          n.style.setProperty('padding', '14mm 16mm', 'important');
+        }
+      }
     }
 
     var stretch = clonedDoc.querySelectorAll(

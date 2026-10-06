@@ -113,10 +113,10 @@ $fitOff = $asSheet || $auto;
     .doc-authenticity { margin-top: 14px !important; }
     .share-toolbar { display: none !important; }
     <?php endif; ?>
-    @media (max-width: 720px) {
-      .share-toolbar { max-width: none; padding: 12px; }
+    @media (max-width: 900px) {
+      .share-toolbar { max-width: none; padding: 10px 8px; }
       .share-toolbar .btn { flex: 1; min-height: 44px; }
-      .sheet-wrap { padding: 8px; }
+      .sheet-wrap { padding: 4px 2px 56px; }
     }
     @media print {
       .share-toolbar { display: none !important; }
