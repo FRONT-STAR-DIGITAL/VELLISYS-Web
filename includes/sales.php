@@ -933,7 +933,7 @@ function sales_clock_out(int $userId): array
 function sales_require_clock_in(): void
 {
     if (!sales_is_clocked_in()) {
-        flash('Clock in first. Enter where you are today.', 'err');
+        flash('Clock in first to add a lead. Enter where you are today.', 'err');
         redirect(sales_home());
     }
 }
@@ -3460,8 +3460,8 @@ function sales_notifications_for_agent(int $userId): array
         $notes[] = [
             'type' => 'clock',
             'key' => 'sales-clock-' . today(),
-            'title' => 'Clock in for today',
-            'meta' => 'Enter your city before logging visits',
+            'title' => 'Clock in to add a lead',
+            'meta' => 'Only needed when logging a new visit',
             'href' => url(sales_home()),
             'tone' => 'info',
         ];

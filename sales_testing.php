@@ -2,7 +2,6 @@
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
 $user = require_sales_agent();
-sales_require_clock_in();
 
 $companies = sales_testing_companies_for_agent((int) $user['id']);
 // Map company → lead for back-links.

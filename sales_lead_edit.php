@@ -2,9 +2,12 @@
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
 $user = require_sales_agent();
-sales_require_clock_in();
 
 $id = (int) ($_GET['id'] ?? 0);
+// Clock-in is only required when adding a new lead — nowhere else on sales.
+if ($id < 1) {
+    sales_require_clock_in();
+}
 $lead = $id ? sales_lead($id) : null;
 if ($id && (!$lead || (int) $lead['agent_id'] !== (int) $user['id'] || !empty($lead['deleted_at']))) {
     flash('Lead not found.', 'err');

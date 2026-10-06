@@ -49,7 +49,7 @@ sales_layout_start('Home', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('home') ?>Field home</h1>
-    <p class="lede">Clock in once a day, then log businesses you reach. Goals stay visible after you hit them - and show clearly when you exceed them.</p>
+    <p class="lede">Clock in only when you add a new lead. Everything else on sales stays open. Goals stay visible after you hit them - and show clearly when you exceed them.</p>
   </div>
   <div class="actions page-actions">
     <a class="btn ghost" href="<?= h(url('sales_testing.php')) ?>"><?= icon('building', 16) ?>On Testing</a>
@@ -231,7 +231,7 @@ sales_layout_start('Home', $user);
     <a class="btn ghost sm" href="<?= h(url('sales_leads.php')) ?>">All</a>
   </div>
   <?php if (!$recent): ?>
-    <p class="empty">No visits logged yet.<?= $clockedIn ? ' Add your first lead.' : ' Clock in first.' ?></p>
+    <p class="empty">No visits logged yet.<?= $clockedIn ? ' Add your first lead.' : ' Clock in when you are ready to add a lead.' ?></p>
   <?php else: ?>
     <div class="table-scroll">
       <table class="grid">

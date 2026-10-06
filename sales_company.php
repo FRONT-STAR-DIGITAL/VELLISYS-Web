@@ -2,7 +2,6 @@
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
 $user = require_sales_agent();
-sales_require_clock_in();
 
 $id = (int) ($_GET['id'] ?? 0);
 $company = sales_testing_company($id, (int) $user['id']);
