@@ -1774,6 +1774,19 @@ function kind_meta(string $kind): array
     };
 }
 
+function document_shows_due_date(array $doc): bool
+{
+    if (($doc['kind'] ?? '') === 'quotation') {
+        return false;
+    }
+    return trim((string) ($doc['due_date'] ?? '')) !== '';
+}
+
+function document_signoff_label(array $doc): string
+{
+    return (($doc['kind'] ?? '') === 'quotation') ? 'Prepared by' : 'Authorized Signature';
+}
+
 function document_kind_icon(string $kind): string
 {
     return match ($kind) {
@@ -3092,7 +3105,7 @@ function render_add_signature_checkbox(?array $existing = null, bool $preferOn =
       <span>Add signature</span>
     </label>
     <?php if ($hasSig): ?>
-      <p class="hint" data-sign-hint>Stamps the approved signature from Settings on Authorized Signature and company sign-off lines.</p>
+      <p class="hint" data-sign-hint>Stamps the approved signature from Settings on Prepared by (quotations) or Authorized Signature.</p>
     <?php else: ?>
       <p class="hint" data-sign-need>Approve a signature in Settings first. It will stamp here when you tick Add signature.</p>
     <?php endif; ?>

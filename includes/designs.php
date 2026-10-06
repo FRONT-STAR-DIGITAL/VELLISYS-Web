@@ -659,11 +659,12 @@ function render_letter_signature(array $doc): void
     render_company_signature($doc);
 }
 
-function render_authorized_signoff(array $doc, string $label = 'Authorized Signature'): void
+function render_authorized_signoff(array $doc, ?string $label = null): void
 {
     if (($doc['kind'] ?? '') === 'letter') {
         return;
     }
+    $label = $label ?? (function_exists('document_signoff_label') ? document_signoff_label($doc) : 'Authorized Signature');
     ?>
     <div class="auth-sign<?= document_has_e_signature($doc) ? ' has-stamp' : '' ?>">
       <?php render_company_signature($doc); ?>
@@ -815,7 +816,7 @@ function render_sheet_folio(array $d): void
         <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
         <tr><td class="k">CURRENCY</td><td><?= h($d['cur']) ?></td></tr>
         <?php endif; ?>
-        <?php if (!empty($doc['due_date'])): ?>
+        <?php if (document_shows_due_date($doc)): ?>
           <tr><td class="k">DUE DATE</td><td><strong><?= h(format_date($doc['due_date'])) ?></strong></td></tr>
         <?php endif; ?>
       </table>
@@ -882,7 +883,7 @@ function render_sheet_ledger(array $d): void
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
   <div class="ledger-grid">
     <label>Date <b><?= h(format_date($doc['date'])) ?></b></label>
-    <label><?= !empty($doc['due_date']) ? 'Due' : 'Date' ?> <b><?= h(format_date(!empty($doc['due_date']) ? $doc['due_date'] : $doc['date'])) ?></b></label>
+    <label><?= document_shows_due_date($doc) ? 'Due' : 'Date' ?> <b><?= h(format_date(document_shows_due_date($doc) ? $doc['due_date'] : $doc['date'])) ?></b></label>
     <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
     <div class="ledger-amt"><span><?= h($d['cur']) ?></span><strong><?= h(number_format(sheet_is_receipt($d) ? sheet_received_amount($d) : (float) $d['total'], currency_decimals($d['cur']))) ?></strong></div>
     <?php endif; ?>
@@ -980,7 +981,7 @@ function render_sheet_bill(array $d, string $variant): void
     </div>
     <div>
       <div class="dot">Date <b><?= h(format_date($doc['date'])) ?></b></div>
-      <?php if (!empty($doc['due_date'])): ?><div class="dot">Due <b><?= h(format_date($doc['due_date'])) ?></b></div><?php endif; ?>
+      <?php if (document_shows_due_date($doc)): ?><div class="dot">Due <b><?= h(format_date($doc['due_date'])) ?></b></div><?php endif; ?>
       <?php if (sheet_shows_money($d)): ?><div class="dot">Currency <b><?= h($d['cur']) ?></b></div><?php endif; ?>
     </div>
     <?php render_party_contact($doc); ?>
@@ -1001,7 +1002,7 @@ function render_sheet_bill(array $d, string $variant): void
     <?php endif; ?>
     <div class="bill-signs">
       <div>Received by</div>
-      <div<?= document_has_e_signature($doc) ? ' class="has-stamp"' : '' ?>><?php render_company_signature($doc); ?>Authorized Signature</div>
+      <div<?= document_has_e_signature($doc) ? ' class="has-stamp"' : '' ?>><?php render_company_signature($doc); ?><?= h(document_signoff_label($doc)) ?></div>
     </div>
   <?php endif; ?>
   </div>
@@ -1048,7 +1049,7 @@ function render_twin_half(array $d, string $label): void
         <?php endforeach; ?>
       </div>
       <?php endif; ?>
-      <div class="twin-sign<?= (($doc['kind'] ?? '') !== 'letter' && document_has_e_signature($doc)) ? ' has-stamp' : '' ?>"><?php if (($doc['kind'] ?? '') !== 'letter') { render_company_signature($doc); } ?>Authorized signature</div>
+      <div class="twin-sign<?= (($doc['kind'] ?? '') !== 'letter' && document_has_e_signature($doc)) ? ' has-stamp' : '' ?>"><?php if (($doc['kind'] ?? '') !== 'letter') { render_company_signature($doc); } ?><?= h(document_signoff_label($doc)) ?></div>
       <?php
       if (($doc['kind'] ?? '') !== 'letter' && function_exists('render_document_authenticity')) {
           render_document_authenticity($brand, $doc);
@@ -1108,7 +1109,7 @@ function render_sheet_stripe(array $d): void
     <div class="stripe-meta">
       <div><span>Number</span><b><?= h($doc['number']) ?></b></div>
       <div><span>Date</span><b><?= h(format_date($doc['date'])) ?></b></div>
-      <?php if (!empty($doc['due_date'])): ?><div><span>Due</span><b><?= h(format_date($doc['due_date'])) ?></b></div><?php endif; ?>
+      <?php if (document_shows_due_date($doc)): ?><div><span>Due</span><b><?= h(format_date($doc['due_date'])) ?></b></div><?php endif; ?>
       <?php if (sheet_shows_money($d)): ?><div><span>Currency</span><b><?= h($d['cur']) ?></b></div><?php endif; ?>
     </div>
     <?php if ($doc['kind'] === 'letter'): ?>
@@ -1162,7 +1163,7 @@ function render_sheet_estate(array $d): void
       <span>Prepared for</span>
       <div class="estate-who-meta">
         <div><span>Date</span><b><?= h(format_date($doc['date'])) ?></b></div>
-        <?php if (!empty($doc['due_date'])): ?><div><span>Due</span><b><?= h(format_date($doc['due_date'])) ?></b></div><?php endif; ?>
+        <?php if (document_shows_due_date($doc)): ?><div><span>Due</span><b><?= h(format_date($doc['due_date'])) ?></b></div><?php endif; ?>
         <?php if (sheet_shows_money($d)): ?><div><span>Currency</span><b><?= h($d['cur']) ?></b></div><?php endif; ?>
       </div>
     </div>
@@ -1216,7 +1217,7 @@ function render_sheet_night(array $d): void
           <span>Reference</span>
           <strong><?= h($doc['number']) ?></strong>
           <p><?= h(format_date($doc['date'])) ?><?php if (sheet_shows_money($d)): ?> · <?= h($d['cur']) ?><?php endif; ?>
-            <?php if (!empty($doc['due_date'])): ?><br>Due <?= h(format_date($doc['due_date'])) ?><?php endif; ?>
+            <?php if (document_shows_due_date($doc)): ?><br>Due <?= h(format_date($doc['due_date'])) ?><?php endif; ?>
           </p>
         </div>
       </div>
@@ -1264,7 +1265,7 @@ function render_sheet_atelier(array $d): void
       <em><?= h($d['heading']) ?></em>
       <strong><?= h($doc['number']) ?></strong>
       <span>Issued <?= h(format_date($doc['date'])) ?></span>
-      <?php if (!empty($doc['due_date'])): ?><span>Due <?= h(format_date($doc['due_date'])) ?></span><?php endif; ?>
+      <?php if (document_shows_due_date($doc)): ?><span>Due <?= h(format_date($doc['due_date'])) ?></span><?php endif; ?>
       <?php if (sheet_shows_money($d)): ?><span><?= h($d['cur']) ?></span><?php endif; ?>
     </div>
   </header>
@@ -1322,7 +1323,7 @@ function render_sheet_seal(array $d): void
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID - <?= h($doc['void_reason']) ?></p><?php endif; ?>
   <?php
     $sealMetaCount = 2; // date + reference
-    if (!empty($doc['due_date'])) {
+    if (document_shows_due_date($doc)) {
         $sealMetaCount++;
     }
     if (sheet_shows_money($d)) {
@@ -1332,7 +1333,7 @@ function render_sheet_seal(array $d): void
   <div class="seal-meta" style="grid-template-columns:repeat(<?= (int) $sealMetaCount ?>,minmax(0,1fr))">
     <div><span>Reference</span><b><?= h($doc['number']) ?></b></div>
     <div><span>Date</span><b><?= h(format_date($doc['date'])) ?></b></div>
-    <?php if (!empty($doc['due_date'])): ?><div><span>Due</span><b><?= h(format_date($doc['due_date'])) ?></b></div><?php endif; ?>
+    <?php if (document_shows_due_date($doc)): ?><div><span>Due</span><b><?= h(format_date($doc['due_date'])) ?></b></div><?php endif; ?>
     <?php if (sheet_shows_money($d)): ?><div><span>Currency</span><b><?= h($d['cur']) ?></b></div><?php endif; ?>
   </div>
   <div class="seal-for">
@@ -1364,7 +1365,7 @@ function render_sheet_seal(array $d): void
     </div>
     <div class="seal-sign-col<?= (($doc['kind'] ?? '') !== 'letter' && document_has_e_signature($doc)) ? ' has-stamp' : '' ?>">
       <div class="seal-sign-mark"><?php if (($doc['kind'] ?? '') !== 'letter') { render_company_signature($doc); } ?></div>
-      <div class="seal-sign-label">Authorised</div>
+      <div class="seal-sign-label"><?= ($doc['kind'] ?? '') === 'quotation' ? 'Prepared by' : 'Authorised' ?></div>
     </div>
   </footer>
 </article>
@@ -1501,7 +1502,7 @@ function render_sheet_frame(array $d): void
             <?php if (kind_shows_money($doc['kind'] ?? '')): ?>
             <tr><td class="k">CURRENCY</td><td><?= h($d['cur']) ?></td></tr>
             <?php endif; ?>
-            <?php if (!empty($doc['due_date'])): ?>
+            <?php if (document_shows_due_date($doc)): ?>
               <tr><td class="k">DUE DATE</td><td><strong><?= h(format_date($doc['due_date'])) ?></strong></td></tr>
             <?php endif; ?>
           </table>
@@ -1568,7 +1569,7 @@ function render_sheet_inset(array $d): void
         <table class="meta">
           <tr><td class="k">No.</td><td><?= h($doc['number']) ?></td></tr>
           <tr><td class="k">DATE</td><td><?= h(format_date($doc['date'])) ?></td></tr>
-          <?php if (!empty($doc['due_date'])): ?>
+          <?php if (document_shows_due_date($doc)): ?>
             <tr><td class="k">DUE</td><td><?= h(format_date($doc['due_date'])) ?></td></tr>
           <?php endif; ?>
         </table>
@@ -1646,7 +1647,7 @@ function render_sheet_booklet(array $d): void
     <div class="booklet-meta">
       <p class="slip-no"><span>No.</span> <b><?= h((string) $doc['number']) ?></b></p>
       <?php render_slip_dot('Date', format_date($doc['date'])); ?>
-      <?php if (!empty($doc['due_date'])): ?>
+      <?php if (document_shows_due_date($doc)): ?>
         <?php render_slip_dot('Due', format_date($doc['due_date'])); ?>
       <?php endif; ?>
     </div>

@@ -916,6 +916,9 @@ function import_documents(array $assoc): array
         ], $partyKind);
         $date = import_parse_date((string) ($head['date'] ?? '')) ?: today();
         $due = import_parse_date((string) ($head['due_date'] ?? ''));
+        if ($kind === 'quotation') {
+            $due = null;
+        }
         $number = trim((string) ($head['number'] ?? ''));
         $items = [];
         foreach ($rows as $line) {

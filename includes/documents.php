@@ -761,6 +761,9 @@ function create_document(array $data): int
     $date = (string) ($data['date'] ?? today());
     $due = $data['due_date'] ?? null;
     $due = $due === '' ? null : $due;
+    if ($kind === 'quotation') {
+        $due = null;
+    }
     $party = (int) ($data['party_id'] ?? 0);
     if ($party < 1) {
         if ($kind !== 'expense') {
@@ -956,6 +959,9 @@ function update_document(int $id, array $data): void
     $date = (string) ($data['date'] ?? $doc['date']);
     $due = $data['due_date'] ?? $doc['due_date'];
     $due = $due === '' ? null : $due;
+    if (($doc['kind'] ?? '') === 'quotation') {
+        $due = null;
+    }
     $rate = (float) ($data['vat_rate'] ?? $doc['vat_rate']);
     $notes = $data['notes'] ?? $doc['notes'];
     $subject = $data['subject'] ?? $doc['subject'];
@@ -1157,7 +1163,7 @@ function document_full_payload(array $doc): array
         'statusLabel' => invoice_status_label($doc),
         'canExport' => $canExport,
         'issueDate' => (string) ($doc['date'] ?? ''),
-        'dueDate' => (string) ($doc['due_date'] ?? ''),
+        'dueDate' => function_exists('document_shows_due_date') && document_shows_due_date($doc) ? (string) ($doc['due_date'] ?? '') : '',
         'currency' => $currency,
         'subtotal' => (float) ($totals['net'] ?? 0),
         'taxTotal' => (float) ($totals['vat'] ?? 0),
@@ -1203,7 +1209,7 @@ function document_full_payload(array $doc): array
         ],
         'createdBy' => [
             'fullName' => (string) ($brand['name'] ?? ''),
-            'title' => 'Authorized Signature',
+            'title' => function_exists('document_signoff_label') ? document_signoff_label($doc) : 'Authorized Signature',
             'signaturePath' => $signature,
         ],
         'approvedBy' => null,

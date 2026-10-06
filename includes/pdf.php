@@ -133,7 +133,7 @@ function document_pdf_bytes(array $brand, array $doc): string
     $put($m, $y, (string) $doc['number'], 12, 'F2');
     $rgb('#000000');
     $put($m, $y, 'Date ' . format_date((string) ($doc['date'] ?? '')), 12);
-    if (!empty($doc['due_date'])) {
+    if (function_exists('document_shows_due_date') ? document_shows_due_date($doc) : !empty($doc['due_date'])) {
         $put($m, $y, 'Due ' . format_date((string) $doc['due_date']), 12);
     }
     $y -= 4;

@@ -117,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'kind' => $kind,
         'party_id' => $partyId,
         'date' => post('date') ?: today(),
-        'due_date' => post('due_date') ?: null,
+        'due_date' => $kind === 'quotation' ? null : (post('due_date') ?: null),
         'vat_rate' => $anyTaxed ? $vatDefault : 0.0,
         'currency' => post('currency') ?: default_currency(),
         'notes' => post('notes') ?: null,
@@ -326,7 +326,7 @@ layout_start($heading, $user, ['kind' => $kind]);
         <p class="hint">Enter less than the remaining balance to record a part payment. The rest stays on the client in Debtors.</p>
       </div>
     <?php endif; ?>
-    <div<?= in_array($kind, ['invoice', 'quotation'], true) ? '' : ' class="doc-span"' ?>>
+    <div<?= $kind === 'invoice' ? '' : ' class="doc-span"' ?>>
       <label for="date">Date</label>
       <?php
         $canBackdate = user_can_backdate_documents();
@@ -343,7 +343,7 @@ layout_start($heading, $user, ['kind' => $kind]);
       </div>
       <p class="hint"><?= $canBackdate ? 'Type or pick any date, including a past date if you need to backdate the sheet.' : 'This login can date new sheets today or later. Ask the company admin for backdating.' ?></p>
     </div>
-    <?php if (in_array($kind, ['invoice', 'quotation'], true)): ?>
+    <?php if ($kind === 'invoice'): ?>
       <div>
         <label for="due_date">Due date</label>
         <div class="doc-date-control">

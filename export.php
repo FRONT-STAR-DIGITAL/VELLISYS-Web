@@ -55,7 +55,7 @@ if ($type === 'party') {
             $d['kind'],
             $d['number'],
             format_date($d['date']),
-            format_date($d['due_date'] ?? ''),
+            format_date((function_exists('document_shows_due_date') && document_shows_due_date($d)) ? (string) ($d['due_date'] ?? '') : ''),
             $d['subject'] ?? '',
             $d['notes'] ?? '',
             $d['payment_method'] ?? '',
@@ -84,7 +84,9 @@ if ($type === 'document') {
         ['Document', $doc['number']],
         ['Kind', kind_meta($doc['kind'])['singular'] ?? $doc['kind']],
         ['Date', format_date($doc['date'])],
-        ['Due', format_date($doc['due_date'] ?? '')],
+        ...(function_exists('document_shows_due_date') && document_shows_due_date($doc)
+            ? [['Due', format_date((string) ($doc['due_date'] ?? ''))]]
+            : []),
         ['Status', invoice_status_label($doc)],
         ['Currency', $cur],
         ['From', (string) branding()['name']],
@@ -294,7 +296,7 @@ foreach ($docs as $d) {
         (string) ($d['party_phone'] ?? ''),
         (string) ($d['party_tin'] ?? ''),
         format_date($d['date']),
-        format_date($d['due_date'] ?? ''),
+        format_date((function_exists('document_shows_due_date') && document_shows_due_date($d)) ? (string) ($d['due_date'] ?? '') : ''),
         $d['expense_category'] ?? '',
         $d['subject'] ?? '',
         $d['notes'] ?? '',
