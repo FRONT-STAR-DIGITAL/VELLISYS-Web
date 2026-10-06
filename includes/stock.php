@@ -786,6 +786,21 @@ function stock_import_assoc_field(array $row, array $keys, string $default = '')
     return $default;
 }
 
+function stock_set_on_hand(int $id, float $qty, string $note = 'Imported opening quantity'): void
+{
+    $item = stock_item($id);
+    if (!$item || stock_item_is_service($item)) {
+        return;
+    }
+    $qty = max(0.0, round($qty, 2));
+    $have = round((float) ($item['qty_on_hand'] ?? 0), 2);
+    $diff = round($qty - $have, 2);
+    if (abs($diff) < 0.0001) {
+        return;
+    }
+    stock_move($id, 'adjust', $diff, (float) ($item['buy_price'] ?? 0), null, $note);
+}
+
 function stock_import_apply_item(array $fields): string
 {
     $sku = trim((string) ($fields['sku'] ?? ''));
@@ -793,6 +808,9 @@ function stock_import_apply_item(array $fields): string
     if ($name === '' || strcasecmp($name, 'name') === 0 || strcasecmp($name, 'item') === 0) {
         return 'skipped';
     }
+    $applyOpening = !empty($fields['apply_opening']) && empty($fields['is_service']);
+    $opening = round((float) ($fields['qty_on_hand'] ?? 0), 2);
+    unset($fields['apply_opening']);
     $existing = null;
     if ($sku !== '') {
         $existing = db_one('SELECT id FROM stock_items WHERE company_id = ? AND sku = ?', 'is', [current_company_id(), $sku]);
@@ -803,7 +821,13 @@ function stock_import_apply_item(array $fields): string
     if ($existing) {
         unset($fields['qty_on_hand']);
         $saved = stock_save_item($fields, (int) $existing['id']);
+        if (!empty($saved['ok']) && $applyOpening) {
+            stock_set_on_hand((int) $existing['id'], $opening, 'Imported opening quantity');
+        }
         return !empty($saved['ok']) ? 'updated' : 'skipped';
+    }
+    if (!$applyOpening) {
+        $fields['qty_on_hand'] = 0;
     }
     $saved = stock_save_item($fields, null);
     return !empty($saved['ok']) ? 'added' : 'skipped';
@@ -818,6 +842,7 @@ function stock_import_from_assoc(array $row): string
     }
     $kind = stock_import_kind(stock_import_assoc_field($row, ['kind', 'type', 'item_kind', 'item_type']));
     $isService = $kind === 'service';
+    $qtyRaw = $isService ? '' : stock_import_assoc_field($row, ['qty_on_hand', 'opening_qty', 'opening_quantity', 'opening_stock', 'opening']);
     return stock_import_apply_item([
         'sku' => $sku,
         'name' => $name,
@@ -827,7 +852,8 @@ function stock_import_from_assoc(array $row): string
         'buy_price' => $isService ? 0.0 : stock_import_num(stock_import_assoc_field($row, ['buy_price', 'buy', 'cost', 'cost_price'])),
         'sell_price' => stock_import_num(stock_import_assoc_field($row, ['sell_price', 'sell', 'selling', 'selling_price'])),
         'reorder_level' => $isService ? 0.0 : stock_import_num(stock_import_assoc_field($row, ['reorder_level', 'reorder', 'reorder_qty'])),
-        'qty_on_hand' => $isService ? 0.0 : stock_import_num(stock_import_assoc_field($row, ['qty_on_hand', 'opening_qty', 'opening_quantity', 'opening_stock', 'opening'])),
+        'qty_on_hand' => $qtyRaw === '' ? 0.0 : stock_import_num($qtyRaw),
+        'apply_opening' => $qtyRaw !== '',
         'taxed' => stock_import_taxed_flag(stock_import_assoc_field($row, ['tax', 'tax_y_n', 'vat'])),
     ]);
 }

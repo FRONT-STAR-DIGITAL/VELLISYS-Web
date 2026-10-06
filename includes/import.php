@@ -204,8 +204,14 @@ function import_parse_xlsx_cells(string $rowXml, array $shared): array
                 $n = (int) $vm[1];
             }
             $val = (string) ($shared[$n] ?? '');
+            if ($val === '' && preg_match('/<v>([^<]*)<\/v>/', $inner, $vm)) {
+                $val = $vm[1];
+            }
         } elseif (preg_match('/<v>([^<]*)<\/v>/', $inner, $vm)) {
             $val = $vm[1];
+        }
+        if ($val === '' && preg_match_all('/<t\b[^>]*>([^<]*)<\/t>/', $inner, $tt)) {
+            $val = implode('', $tt[1]);
         }
         $cells[$idx] = html_entity_decode((string) $val, ENT_QUOTES | ENT_XML1, 'UTF-8');
     }
