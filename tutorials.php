@@ -237,7 +237,7 @@ $lessons = [
         'points' => [
             'Open / close day is off unless Vellisys ticks it on the company. When it is on, Sale asks for opening cash before till sales. Invoices, receipts and expenses never need the till open.',
             'Filter Day with today, this week, this month or this year. Charts follow the dates you pick. Products and services sold sit on the Day report.',
-            'Add products and services, or download the Excel, fill it and upload. Type is product or service; leave Type blank for a product and keep that column. Opening qty stays on Opening qty. Low stock shows when quantity hits the reorder level. Services have no quantity.',
+            'Add products and services, or download the Excel, fill it and upload. Type blank is a product. Empty buying price, selling price, reorder and opening qty become 0 — those rows still import. Every product on the sheet is kept. Low stock shows when quantity hits the reorder level. Services have no quantity.',
             'Purchases restock the business. Unpaid purchases sit on Creditors. Sale and Documents share the same products when both are on; each can also be used on its own.',
         ],
     ],

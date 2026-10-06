@@ -236,8 +236,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 . (company_stock_enabled() ? ' or stock.' : '.');
         } elseif (empty($file['tmp_name']) || !is_uploaded_file((string) $file['tmp_name'])) {
             $error = 'Choose the filled Excel or CSV file to upload.';
-        } elseif ((int) ($file['size'] ?? 0) > 4 * 1024 * 1024) {
-            $error = 'That file is larger than 4 MB. Split the sheet and upload again.';
+        } elseif ((int) ($file['size'] ?? 0) > 20 * 1024 * 1024) {
+            $error = 'That file is larger than 20 MB. Split the sheet and upload again.';
         } else {
             $res = import_run($kind, (string) $file['tmp_name'], (string) ($file['name'] ?? 'upload.xlsx'));
             if (empty($res['ok'])) {
@@ -848,7 +848,7 @@ layout_start('Settings', $user);
             <input id="import_file" name="import_file" type="file" accept=".xlsx,.csv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" required>
           </div>
         </div>
-        <p class="hint">Excel (.xlsx) or CSV. Maximum 4 MB and about 2,500 rows. Matching client names are reused, not duplicated. Stock opening quantities only apply to new products.</p>
+        <p class="hint">Excel (.xlsx) or CSV. Maximum 20 MB. Stock keeps every product row, including 1,000 or more. Blank prices and quantities save as 0. Matching client names are reused, not duplicated.</p>
         <div class="actions" style="margin-top:12px">
           <button class="btn" type="submit"><?= icon('upload') ?>Upload and add to this desk</button>
         </div>

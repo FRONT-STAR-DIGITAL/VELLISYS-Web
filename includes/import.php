@@ -32,7 +32,7 @@ function import_kinds(): array
     if (company_stock_enabled()) {
         $kinds['stock'] = [
             'title' => 'Stock',
-            'lead' => 'Products and services. Type is product or service — leave Type blank for a product, and keep the Type column. Opening qty is not the buying price. Services skip buying price and opening quantity.',
+            'lead' => 'Products and services. Type blank is a product. Empty buying price, selling price, reorder and opening qty become 0 — those rows still import. Every product row is kept, including 1,000 or more.',
             'icon' => 'package',
             'file' => 'stock-template',
         ];
@@ -226,9 +226,72 @@ function import_parse_xlsx_cells(string $rowXml, array $shared): array
     return $out;
 }
 
+function import_raise_limits(): void
+{
+    @ignore_user_abort(true);
+    @set_time_limit(0);
+    @ini_set('max_execution_time', '0');
+    @ini_set('max_input_time', '0');
+    @ini_set('memory_limit', '512M');
+    @ini_set('pcre.backtrack_limit', '10000000');
+    @ini_set('pcre.recursion_limit', '10000000');
+}
+
+function import_row_pad(array $row, int $width): array
+{
+    $row = array_values($row);
+    while (count($row) < $width) {
+        $row[] = '';
+    }
+    return $row;
+}
+
+function import_xlsx_header_text(array $rows): string
+{
+    foreach ($rows as $row) {
+        $first = trim((string) ($row[0] ?? ''));
+        if ($first === '' && count(array_filter($row, static fn ($v) => trim((string) $v) !== '')) === 0) {
+            continue;
+        }
+        if (str_starts_with($first, '#')) {
+            continue;
+        }
+        return strtolower(implode(' ', array_map(static fn ($v) => (string) $v, $row)));
+    }
+    return '';
+}
+
+function import_xlsx_is_stock_header(string $header): bool
+{
+    $h = strtolower($header);
+    $hasId = str_contains($h, 'sku')
+        || str_contains($h, 'name')
+        || str_contains($h, 'item')
+        || str_contains($h, 'product')
+        || str_contains($h, 'code');
+    $hasNum = str_contains($h, 'buy')
+        || str_contains($h, 'sell')
+        || str_contains($h, 'price')
+        || str_contains($h, 'cost')
+        || str_contains($h, 'qty')
+        || str_contains($h, 'opening')
+        || str_contains($h, 'reorder');
+    return $hasId && ($hasNum || str_contains($h, 'type') || str_contains($h, 'unit'));
+}
+
+function import_xlsx_sheet_width(string $sheet): int
+{
+    $width = 0;
+    if (preg_match('/<dimension[^>]*ref="[A-Z]+\d+:([A-Z]+)\d+"/i', $sheet, $dm)) {
+        $width = import_col_index($dm[1]) + 1;
+    }
+    return $width;
+}
+
 function import_parse_xlsx_sheet(string $sheet, array $shared): array
 {
     $sheet = import_xlsx_strip_ns($sheet);
+    $width = import_xlsx_sheet_width($sheet);
     $rows = [];
     $offset = 0;
     while (preg_match('/<row\b([^>]*)(?:\/>|>)/', $sheet, $rm, PREG_OFFSET_CAPTURE, $offset)) {
@@ -244,15 +307,40 @@ function import_parse_xlsx_sheet(string $sheet, array $shared): array
         }
         $rowXml = substr($sheet, $tagEnd, $end - $tagEnd);
         $offset = $end + 6;
+        $spanWidth = 0;
+        if (preg_match('/spans="\d+:(\d+)"/', $tag, $sm)) {
+            $spanWidth = (int) $sm[1];
+        }
         $cells = import_parse_xlsx_cells($rowXml, $shared);
+        $cells = import_row_pad($cells, max($width, $spanWidth, count($cells)));
         if ($cells && implode('', array_map(static fn ($v) => trim((string) $v), $cells)) !== '') {
             $rows[] = $cells;
+            $width = max($width, count($cells));
         }
-        if (count($rows) >= 10000) {
+        if (count($rows) >= 50000) {
             break;
         }
     }
+    foreach ($rows as $i => $row) {
+        $rows[$i] = import_row_pad($row, $width);
+    }
     return $rows;
+}
+
+function import_xlsx_strip_header_rows(array $rows): array
+{
+    $start = 0;
+    if (import_xlsx_is_stock_header(import_xlsx_header_text($rows))) {
+        foreach ($rows as $ri => $row) {
+            $first = trim((string) ($row[0] ?? ''));
+            if (str_starts_with($first, '#')) {
+                continue;
+            }
+            $start = $ri + 1;
+            break;
+        }
+    }
+    return array_slice($rows, $start);
 }
 
 function import_parse_xlsx(string $path): array
@@ -260,14 +348,14 @@ function import_parse_xlsx(string $path): array
     if (!class_exists('ZipArchive')) {
         return [];
     }
+    import_raise_limits();
     $zip = new ZipArchive();
     if ($zip->open($path) !== true) {
         return [];
     }
-    @ini_set('pcre.backtrack_limit', '10000000');
     $shared = import_xlsx_shared_strings($zip);
-    $best = [];
-    $bestScore = -1;
+    $stockSheets = [];
+    $fallback = [];
     foreach (import_xlsx_worksheet_paths($zip) as $sheetPath) {
         $xml = $zip->getFromName($sheetPath);
         if (!is_string($xml) || $xml === '') {
@@ -277,17 +365,32 @@ function import_parse_xlsx(string $path): array
         if (!$rows) {
             continue;
         }
-        $header = strtolower(implode(' ', array_map(static fn ($v) => (string) $v, $rows[0] ?? [])));
-        $score = count($rows);
-        if (str_contains($header, 'sku') || str_contains($header, 'buying') || str_contains($header, 'opening') || str_contains($header, 'name')) {
-            $score += 100000;
-        }
-        if ($score > $bestScore) {
-            $bestScore = $score;
-            $best = $rows;
+        $header = import_xlsx_header_text($rows);
+        if (import_xlsx_is_stock_header($header)) {
+            $stockSheets[] = $rows;
+        } elseif (count($rows) > count($fallback)) {
+            $fallback = $rows;
         }
     }
     $zip->close();
+    if (!$stockSheets) {
+        return $fallback;
+    }
+    usort($stockSheets, static fn (array $a, array $b) => count($b) <=> count($a));
+    if ($fallback && count($fallback) > count($stockSheets[0])) {
+        $stockSheets[] = $fallback;
+        usort($stockSheets, static fn (array $a, array $b) => count($b) <=> count($a));
+    }
+    $best = $stockSheets[0];
+    $width = 0;
+    foreach ($best as $row) {
+        $width = max($width, count($row));
+    }
+    for ($i = 1; $i < count($stockSheets); $i++) {
+        foreach (import_xlsx_strip_header_rows($stockSheets[$i]) as $row) {
+            $best[] = import_row_pad($row, $width);
+        }
+    }
     return $best;
 }
 
@@ -301,11 +404,17 @@ function import_parse_csv(string $path): array
         $text = substr($text, 3);
     }
     $rows = [];
+    $width = 0;
     foreach (preg_split("/\r\n|\n|\r/", $text) ?: [] as $line) {
         if (trim($line) === '') {
             continue;
         }
-        $rows[] = str_getcsv($line);
+        $row = str_getcsv($line);
+        $width = max($width, count($row));
+        $rows[] = $row;
+    }
+    foreach ($rows as $i => $row) {
+        $rows[$i] = import_row_pad($row, $width);
     }
     return $rows;
 }
@@ -444,9 +553,10 @@ function import_assoc_rows(array $rows): array
     if (!$header) {
         return [];
     }
+    $width = count($header);
     $out = [];
     for ($i = $start; $i < count($rows); $i++) {
-        $row = $rows[$i];
+        $row = import_row_pad($rows[$i], $width);
         $first = trim((string) ($row[0] ?? ''));
         if (str_starts_with($first, '#')) {
             continue;
@@ -948,6 +1058,7 @@ function import_sales(array $assoc): array
 
 function import_run(string $kind, string $tmp, string $filename): array
 {
+    import_raise_limits();
     $kinds = import_kinds();
     if (!isset($kinds[$kind])) {
         return ['ok' => false, 'error' => 'Choose which template you are uploading.'];
@@ -956,8 +1067,8 @@ function import_run(string $kind, string $tmp, string $filename): array
     if (!$rows) {
         return ['ok' => false, 'error' => 'Could not read that file. Download the template, fill it in Excel, and upload the .xlsx or .csv.'];
     }
-    if (count($rows) > 10000) {
-        return ['ok' => false, 'error' => 'That file has too many rows. Split it under 10,000 rows and upload again.'];
+    if (count($rows) > 50000) {
+        return ['ok' => false, 'error' => 'That file has too many rows. Split it under 50,000 rows and upload again.'];
     }
     $assoc = import_assoc_rows($rows);
     if (!$assoc && $kind !== 'stock') {
@@ -1014,10 +1125,14 @@ function import_flash_message(array $res): string
             $parts[] = $updated . ' already on the desk (details filled where blank)';
         }
     } elseif ($kind === 'stock') {
+        $read = (int) ($res['read'] ?? ($added + $updated + $skipped));
+        $kept = (int) ($res['kept'] ?? ($added + $updated));
+        $parts[] = $kept . ' of ' . $read . ' product row' . ($read === 1 ? '' : 's') . ' kept';
         $parts[] = $added . ' new item' . ($added === 1 ? '' : 's');
         if ($updated) {
             $parts[] = $updated . ' updated';
         }
+        $parts[] = 'blank prices and quantities saved as 0';
     } elseif ($kind === 'sales') {
         $parts[] = $added . ' sale' . ($added === 1 ? '' : 's') . ' as invoices';
         if ($receipts) {
