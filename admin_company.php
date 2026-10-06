@@ -80,7 +80,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $plannerOn = planner_resolve_enabled($plan, !empty($_POST['planner_enabled']), $company);
             $pnlOn = pnl_resolve_enabled($plan, !empty($_POST['pnl_enabled']), $company);
             try {
-                db_exec('UPDATE companies SET name=?, status=?, plan=?, notes=?, enabled_kinds=?, custom_doc=?, nature_of_business=?, client_audience=?, client_fields=?, line_columns=?, user_limit=?, planner_enabled=?, pnl_enabled=?, stock_enabled=? WHERE id=?', 'ssssssssssiiiii', [$name, $status, $plan, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), sanitize_nature_of_business(post('nature_of_business')), posted_client_fields()['audience'], posted_client_fields_json(), posted_document_line_columns(), $limit, $plannerOn, $pnlOn, !empty($_POST['stock_enabled']) ? 1 : 0, $id]);
+                try {
+                    db_exec('UPDATE companies SET name=?, status=?, plan=?, notes=?, enabled_kinds=?, custom_doc=?, nature_of_business=?, client_audience=?, client_fields=?, line_columns=?, user_limit=?, planner_enabled=?, pnl_enabled=?, stock_enabled=?, till_day_enabled=? WHERE id=?', 'ssssssssssiiiiii', [$name, $status, $plan, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), sanitize_nature_of_business(post('nature_of_business')), posted_client_fields()['audience'], posted_client_fields_json(), posted_document_line_columns(), $limit, $plannerOn, $pnlOn, !empty($_POST['stock_enabled']) ? 1 : 0, !empty($_POST['stock_enabled']) && !empty($_POST['till_day_enabled']) ? 1 : 0, $id]);
+                } catch (Throwable $eTill) {
+                    db_exec('UPDATE companies SET name=?, status=?, plan=?, notes=?, enabled_kinds=?, custom_doc=?, nature_of_business=?, client_audience=?, client_fields=?, line_columns=?, user_limit=?, planner_enabled=?, pnl_enabled=?, stock_enabled=? WHERE id=?', 'ssssssssssiiiii', [$name, $status, $plan, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), sanitize_nature_of_business(post('nature_of_business')), posted_client_fields()['audience'], posted_client_fields_json(), posted_document_line_columns(), $limit, $plannerOn, $pnlOn, !empty($_POST['stock_enabled']) ? 1 : 0, $id]);
+                }
                 try {
                     db_exec('UPDATE branding SET name=?, plan=? WHERE company_id=?', 'ssi', [$name, $plan, $id]);
                 } catch (Throwable $e) {
@@ -1130,7 +1134,11 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
     </div>
     <div>
       <label class="check" for="stock_enabled"><input id="stock_enabled" name="stock_enabled" type="checkbox" value="1" <?= !empty($company['stock_enabled']) ? 'checked' : '' ?>> Stock management on for this desk</label>
-      <p class="hint">Adds Stock and Sale. Purchases sit under Stock. Works on any package.</p>
+      <p class="hint">Adds Stock, Sale and Purchases (restock). Works on any package.</p>
+    </div>
+    <div>
+      <label class="check" for="till_day_enabled"><input id="till_day_enabled" name="till_day_enabled" type="checkbox" value="1" <?= !empty($company['till_day_enabled']) ? 'checked' : '' ?>> Open / close day on Sale</label>
+      <p class="hint">Optional. Leave off unless this desk needs a till float. When on, Sale asks for opening cash before selling.</p>
     </div>
   </div>
   <div style="padding:0 22px 22px">

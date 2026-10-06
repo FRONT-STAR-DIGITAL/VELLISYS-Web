@@ -9,6 +9,11 @@ if ($tab === 'day') {
     unset($qs['tab']);
     redirect($qs ? ('dashboard.php?' . http_build_query($qs)) : 'dashboard.php');
 }
+if ($tab === 'purchases' && ($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+    $qs = $_GET;
+    unset($qs['tab']);
+    redirect($qs ? ('purchases.php?' . http_build_query($qs)) : 'purchases.php');
+}
 if (!isset(stock_tabs()[$tab])) {
     $tab = 'items';
 }
@@ -93,46 +98,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('stock.php?tab=counts');
         }
     } elseif ($action === 'purchase') {
-        if (!stock_can_buy()) {
-            $error = 'Your login cannot record purchases.';
-            $tab = 'items';
-        } else {
-            $ids = $_POST['p_item'] ?? [];
-            $names = $_POST['p_name'] ?? [];
-            $qtys = $_POST['p_qty'] ?? [];
-            $prices = $_POST['p_price'] ?? [];
-            $taxed = $_POST['p_taxed'] ?? [];
-            $lines = [];
-            foreach (array_keys((array) $ids + (array) $names) as $i) {
-                $lines[] = [
-                    'stock_item_id' => (int) ($ids[$i] ?? 0),
-                    'name' => (string) ($names[$i] ?? ''),
-                    'qty' => money_parse((string) ($qtys[$i] ?? 0)),
-                    'price' => money_parse((string) ($prices[$i] ?? 0)),
-                    'taxed' => !empty($taxed[$i]),
-                ];
-            }
-            $paidRaw = post('paid');
-            $done = stock_complete_purchase([
-                'supplier' => post('supplier'),
-                'party_id' => (int) post('party_id'),
-                'paid' => $paidRaw === '' ? 0 : money_parse($paidRaw),
-                'method' => post('method') ?: 'cash',
-                'lines' => $lines,
-            ]);
-            if (empty($done['ok'])) {
-                $error = (string) ($done['error'] ?? 'Could not save that purchase.');
-                $tab = 'purchases';
-            } else {
-                $msg = 'Purchase saved.';
-                if (($done['balance'] ?? 0) > 0.009) {
-                    $msg .= ' Balance ' . money($done['balance']) . ' remains unpaid on the stock bill (not day performance).';
-                } else {
-                    $msg .= ' Paid in full.';
-                }
-                flash($msg);
-                redirect('stock.php?tab=purchases');
-            }
+        $done = stock_post_purchase_from_request();
+        if (empty($done['ok'])) {
+            flash((string) ($done['error'] ?? 'Could not save that purchase.'), 'err');
+            redirect('purchases.php');
         }
     }
 }
@@ -140,12 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $items = stock_items(false);
 $stats = stock_stats();
 $low = stock_low_items();
-$todayDay = stock_today();
-$dayOpen = stock_day_is_open();
-$dayLive = stock_day_totals(today());
 $taxName = company_tax_name();
-$catalog = stock_catalog_payload();
-$suppliers = db_all("SELECT id, name FROM parties WHERE company_id = ? AND kind = 'supplier' ORDER BY name LIMIT 250", 'i', [current_company_id()]);
 $q = stock_q();
 $extraJs = '';
 $postedAction = (string) ($_POST['action'] ?? '');
@@ -157,12 +121,15 @@ layout_start('Stock', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('package') ?>Stock</h1>
-    <p class="lede">Products and services. Counts, purchases and stock value cover goods only. Sales and invoices can pick either.</p>
+    <p class="lede">Products and services. Counts and stock value cover goods only. Restock on Purchases. Sales and invoices can pick either.</p>
   </div>
   <div class="actions page-actions">
     <?php if ($tab === 'items'): ?>
       <a class="btn" href="<?= h(url('stock.php?tab=items&add=1#stock-add')) ?>"><?= icon('plus', 16) ?>Add item</a>
       <a class="btn ghost" href="<?= h(url('stock.php?tab=items&import=1#stock-import')) ?>"><?= icon('download', 16) ?>Import stock</a>
+    <?php endif; ?>
+    <?php if (stock_can_buy()): ?>
+    <a class="btn ghost" href="<?= h(url('purchases.php')) ?>"><?= icon('expense', 16) ?>Purchases</a>
     <?php endif; ?>
     <a class="btn ghost" href="<?= h(url('sale.php')) ?>"><?= icon('cart', 16) ?>Sale</a>
   </div>
@@ -338,7 +305,7 @@ layout_start('Stock', $user);
 <div class="card" style="margin-top:16px" id="stock-import">
   <div class="card-head"><h2><?= icon('download', 16) ?>Import stock</h2></div>
   <div class="pad-form">
-    <p class="lede">Download the sheet, fill products and services, upload it. Type is <code>product</code> or <code>service</code>.</p>
+    <p class="lede">Download the sheet, fill products and services, upload it. Keep the header row. Opening qty is not the buying price. Type is <code>product</code> or <code>service</code>.</p>
     <p><a class="btn ghost" href="<?= h(url('stock.php?template=1')) ?>"><?= icon('download', 16) ?>Download Excel template</a></p>
     <form method="post" enctype="multipart/form-data">
       <?= csrf_field() ?>
@@ -412,81 +379,6 @@ layout_start('Stock', $user);
     <?php stock_pager('stock.php?tab=counts', (int) $countPage['page'], (int) $countPage['pages'], 'cp'); ?>
   <?php endif; ?>
 </div>
-
-<?php elseif ($tab === 'purchases'):
-    $buyPage = stock_search_docs('expense', $q, stock_page_key('p'), 20, null, 'Stock');
-    ?>
-<div class="card">
-  <div class="card-head"><h2><?= icon('expense', 16) ?>Buy stock</h2></div>
-  <form method="post" class="pad-form pos-sale" data-pos-till data-pos-prefix="p" data-pos-mode="buy" data-pos-currency="<?= h(default_currency()) ?>">
-    <?= csrf_field() ?>
-    <input type="hidden" name="action" value="purchase">
-    <div class="form-grid">
-      <div>
-        <label for="supplier">Supplier name</label>
-        <input id="supplier" name="supplier" list="supplier-list" placeholder="Type or pick" autocomplete="off" required>
-        <datalist id="supplier-list">
-          <?php foreach ($suppliers as $s): ?>
-            <option value="<?= h($s['name']) ?>"></option>
-          <?php endforeach; ?>
-        </datalist>
-      </div>
-      <div>
-        <label for="method">Paid how</label>
-        <?php render_stock_payment_select('method', false, 'cash'); ?>
-      </div>
-    </div>
-    <div class="pos-find">
-      <label for="pos-q">Find product</label>
-      <input id="pos-q" class="pos-q" autocomplete="off" placeholder="Type name or code. New names can be added." data-pos-q>
-      <div class="pos-suggest" hidden data-pos-suggest></div>
-    </div>
-    <div class="table-scroll">
-      <table class="grid lines">
-        <thead>
-          <tr>
-            <th>Item</th>
-            <th>Qty</th>
-            <th class="right">Unit price</th>
-            <th class="right">Total</th>
-            <th class="center"><?= h($taxName) ?></th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody data-pos-body>
-          <tr data-pos-empty>
-            <td colspan="6" class="empty">Type a product. If it is new, tap Add new.</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <script type="application/json" id="pos-catalog"><?= json_encode($catalog, JSON_UNESCAPED_UNICODE) ?></script>
-    <script type="application/json" id="pos-tax"><?= json_encode(['rate' => company_tax_rate(), 'default' => company_tax_default()]) ?></script>
-    <div class="pos-totals">
-      <div>
-        <label for="paid">Amount paid now</label>
-        <input id="paid" name="paid" inputmode="decimal" data-pos-paid placeholder="0 = full credit">
-        <p class="hint">Type 0 for credit. Unpaid stays on the stock bill — it does not reduce day profit.</p>
-      </div>
-      <div class="pos-sum">
-        <span>Subtotal <strong data-pos-sub><?= h(money_behind(0)) ?></strong></span>
-        <span><?= h($taxName) ?> <strong data-pos-tax><?= h(money_behind(0)) ?></strong></span>
-        <span>Total <strong data-pos-grand><?= h(money_behind(0)) ?></strong></span>
-        <span>Due <strong data-pos-due><?= h(money_behind(0)) ?></strong></span>
-      </div>
-    </div>
-    <div class="actions">
-      <button class="btn pos-save" type="submit"><?= icon('check') ?>Save purchase</button>
-    </div>
-  </form>
-  <span hidden data-pos-x><?= icon('x', 14) ?></span>
-</div>
-<div class="card" style="margin-top:16px">
-  <div class="card-head"><h2><?= icon('expense', 16) ?>Purchases</h2></div>
-  <div class="pad-form"><?php stock_search_bar('stock.php', ['tab' => 'purchases'], 'Search bill or supplier'); ?></div>
-  <?php render_stock_docs_table($buyPage, 'stock.php?tab=purchases', 'p', 'No stock purchases yet.'); ?>
-</div>
-<?php $extraJs = '<script src="' . h(asset('js/stock-pos.js')) . '"></script>'; ?>
 
 <?php endif; ?>
 

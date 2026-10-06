@@ -14,8 +14,12 @@
   var body = form.querySelector('[data-pos-body]');
   var n = 0;
   function currency() { return String(form.getAttribute('data-pos-currency') || '').toUpperCase(); }
+  function num(v) {
+    var n = parseFloat(String(v == null ? '' : v).replace(/,/g, '').replace(/\s/g, ''));
+    return isNaN(n) ? 0 : n;
+  }
   function money(v) {
-    v = Math.round((Number(v) || 0) * 100) / 100;
+    v = Math.round((num(v) || 0) * 100) / 100;
     var formatted = v.toLocaleString('en-US', { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 });
     var cur = currency();
     return cur ? (formatted + ' ' + cur) : formatted;
@@ -25,8 +29,8 @@
   function totals() {
     var sub = 0, taxedNet = 0;
     lines().forEach(function (row) {
-      var qty = parseFloat(row.querySelector('[data-line-qty]').value || '0') || 0;
-      var rate = parseFloat(row.querySelector('[data-line-rate]').value || '0') || 0;
+      var qty = num(row.querySelector('[data-line-qty]').value || '0');
+      var rate = num(row.querySelector('[data-line-rate]').value || '0');
       var tot = qty * rate;
       var totEl = row.querySelector('[data-line-total]');
       if (totEl) totEl.textContent = money(tot);
@@ -35,14 +39,14 @@
       if (taxBox && taxBox.checked) taxedNet += tot;
     });
     var discEl = form.querySelector('[data-pos-discount]');
-    var disc = discEl ? (parseFloat(discEl.value || '0') || 0) : 0;
+    var disc = discEl ? num(discEl.value || '0') : 0;
     if (disc > sub) disc = sub;
     var after = sub - disc;
     var factor = sub > 0 ? after / sub : 1;
     var taxAmt = taxedNet * factor * (Number(tax.rate) || 0);
     var grand = after + taxAmt;
     var paidInp = form.querySelector('[data-pos-paid]');
-    var paid = paidInp ? parseFloat(paidInp.value || '') : grand;
+    var paid = paidInp ? num(paidInp.value || '') : grand;
     if (!paidInp || paidInp.value === '' || isNaN(paid)) paid = grand;
     var set = function (sel, v) {
       var el = form.querySelector(sel);
@@ -62,7 +66,7 @@
       });
       if (exist) {
         var qty = exist.querySelector('[data-line-qty]');
-        qty.value = String((parseFloat(qty.value || '0') || 0) + 1);
+        qty.value = String((num(qty.value || '0') || 0) + 1);
         totals();
         qty.focus();
         return;
@@ -77,8 +81,8 @@
       '<input type="hidden" name="' + prefix + '_name[' + i + ']" value="' + esc(p.name) + '">' +
       '<strong>' + esc(p.name) + '</strong>' +
       '<div class="muted">' + esc(p.sku || (isNew ? 'New product' : '')) + (p.service ? ' · Service' : (p.qty != null && !isNew ? ' · ' + p.qty + ' left' : '')) + '</div></td>' +
-      '<td class="line-qty"><input name="' + prefix + '_qty[' + i + ']" type="number" min="0" step="any" value="1" data-line-qty></td>' +
-      '<td class="line-rate"><input name="' + prefix + '_price[' + i + ']" type="number" min="0" step="any" value="' + price + '" data-line-rate></td>' +
+      '<td class="line-qty"><input name="' + prefix + '_qty[' + i + ']" inputmode="decimal" min="0" value="1" data-line-qty autocomplete="off"></td>' +
+      '<td class="line-rate"><input name="' + prefix + '_price[' + i + ']" inputmode="decimal" min="0" value="' + price + '" data-line-rate data-money-commas autocomplete="off"></td>' +
       '<td class="right mono"><span data-line-total>' + money(price) + '</span></td>' +
       '<td class="center"><label class="vat-yn"><input type="checkbox" name="' + prefix + '_taxed[' + i + ']" value="1" data-vat-box ' + (p.taxed ? 'checked' : '') + '><span>' + (p.taxed ? 'Y' : 'N') + '</span></label></td>' +
       '<td class="center"><button type="button" class="btn ghost sm icon-only" data-pos-remove aria-label="Remove">' +

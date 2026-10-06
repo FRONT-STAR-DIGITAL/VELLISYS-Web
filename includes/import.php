@@ -99,6 +99,156 @@ function import_xlsx_bytes(array $rows, string $sheetName = 'Sheet1'): string
     return $bytes;
 }
 
+function import_xlsx_strip_ns(string $xml): string
+{
+    return (string) preg_replace('/(<\/?)[\w.-]+:/', '$1', $xml);
+}
+
+function import_xlsx_shared_strings(ZipArchive $zip): array
+{
+    $ss = $zip->getFromName('xl/sharedStrings.xml');
+    if (!is_string($ss) || $ss === '') {
+        return [];
+    }
+    $ss = import_xlsx_strip_ns($ss);
+    $shared = [];
+    if (preg_match_all('/<si\b[^>]*>(.*?)<\/si>/s', $ss, $sis)) {
+        foreach ($sis[1] as $si) {
+            $si = preg_replace('/<rPh\b.*?<\/rPh>/s', '', $si) ?? $si;
+            $text = '';
+            if (preg_match_all('/<t\b[^>]*>([^<]*)<\/t>/', $si, $tm)) {
+                $text = implode('', $tm[1]);
+            }
+            $shared[] = html_entity_decode($text, ENT_QUOTES | ENT_XML1, 'UTF-8');
+        }
+    }
+    return $shared;
+}
+
+function import_xlsx_worksheet_paths(ZipArchive $zip): array
+{
+    $paths = [];
+    $relMap = [];
+    $rels = $zip->getFromName('xl/_rels/workbook.xml.rels');
+    if (is_string($rels) && $rels !== '') {
+        if (preg_match_all('/Id="([^"]+)"[^>]*Target="([^"]+)"|Target="([^"]+)"[^>]*Id="([^"]+)"/', $rels, $rm, PREG_SET_ORDER)) {
+            foreach ($rm as $m) {
+                $id = ($m[1] ?? '') !== '' ? $m[1] : (string) ($m[4] ?? '');
+                $target = ($m[2] ?? '') !== '' ? $m[2] : (string) ($m[3] ?? '');
+                if ($id === '' || $target === '') {
+                    continue;
+                }
+                $target = str_replace('\\', '/', $target);
+                if (str_starts_with($target, '/')) {
+                    $target = ltrim($target, '/');
+                } elseif (!str_starts_with($target, 'xl/')) {
+                    $target = 'xl/' . ltrim($target, '/');
+                }
+                $relMap[$id] = $target;
+            }
+        }
+    }
+    $wb = $zip->getFromName('xl/workbook.xml');
+    if (is_string($wb) && $wb !== '') {
+        if (preg_match_all('/<sheet\b[^>]*>/i', $wb, $sm)) {
+            foreach ($sm[0] as $tag) {
+                $rid = '';
+                if (preg_match('/(?:r:)?id="([^"]+)"/i', $tag, $im)) {
+                    $rid = $im[1];
+                }
+                if ($rid !== '' && isset($relMap[$rid])) {
+                    $paths[] = $relMap[$rid];
+                }
+            }
+        }
+    }
+    if (!$paths) {
+        for ($i = 1; $i <= 12; $i++) {
+            $candidate = 'xl/worksheets/sheet' . $i . '.xml';
+            if ($zip->locateName($candidate) !== false) {
+                $paths[] = $candidate;
+            }
+        }
+    }
+    return array_values(array_unique($paths));
+}
+
+function import_parse_xlsx_cells(string $rowXml, array $shared): array
+{
+    $cells = [];
+    if (!preg_match_all('/<c\b([^>]*)(?:\/>|>(.*?)<\/c>)/s', $rowXml, $cMatch, PREG_SET_ORDER)) {
+        return [];
+    }
+    foreach ($cMatch as $c) {
+        $attrs = $c[1];
+        $inner = $c[2] ?? '';
+        $ref = '';
+        if (preg_match('/\br="([A-Z]+\d+)"/i', $attrs, $rm)) {
+            $ref = strtoupper($rm[1]);
+        }
+        $idx = $ref !== '' ? import_col_index($ref) : count($cells);
+        $val = '';
+        $type = '';
+        if (preg_match('/\bt="([^"]+)"/', $attrs, $tm)) {
+            $type = $tm[1];
+        }
+        if ($type === 'inlineStr' || $type === 'str') {
+            if (preg_match_all('/<t\b[^>]*>([^<]*)<\/t>/', $inner, $tt)) {
+                $val = implode('', $tt[1]);
+            } elseif (preg_match('/<v>([^<]*)<\/v>/', $inner, $vm)) {
+                $val = $vm[1];
+            }
+        } elseif ($type === 's') {
+            $n = 0;
+            if (preg_match('/<v>([^<]*)<\/v>/', $inner, $vm)) {
+                $n = (int) $vm[1];
+            }
+            $val = (string) ($shared[$n] ?? '');
+        } elseif (preg_match('/<v>([^<]*)<\/v>/', $inner, $vm)) {
+            $val = $vm[1];
+        }
+        $cells[$idx] = html_entity_decode((string) $val, ENT_QUOTES | ENT_XML1, 'UTF-8');
+    }
+    if (!$cells) {
+        return [];
+    }
+    $max = max(array_keys($cells));
+    $out = [];
+    for ($i = 0; $i <= $max; $i++) {
+        $out[] = $cells[$i] ?? '';
+    }
+    return $out;
+}
+
+function import_parse_xlsx_sheet(string $sheet, array $shared): array
+{
+    $sheet = import_xlsx_strip_ns($sheet);
+    $rows = [];
+    $offset = 0;
+    while (preg_match('/<row\b([^>]*)(?:\/>|>)/', $sheet, $rm, PREG_OFFSET_CAPTURE, $offset)) {
+        $tag = $rm[0][0];
+        $tagEnd = $rm[0][1] + strlen($tag);
+        if (str_ends_with($tag, '/>')) {
+            $offset = $tagEnd;
+            continue;
+        }
+        $end = strpos($sheet, '</row>', $tagEnd);
+        if ($end === false) {
+            break;
+        }
+        $rowXml = substr($sheet, $tagEnd, $end - $tagEnd);
+        $offset = $end + 6;
+        $cells = import_parse_xlsx_cells($rowXml, $shared);
+        if ($cells && implode('', array_map(static fn ($v) => trim((string) $v), $cells)) !== '') {
+            $rows[] = $cells;
+        }
+        if (count($rows) >= 10000) {
+            break;
+        }
+    }
+    return $rows;
+}
+
 function import_parse_xlsx(string $path): array
 {
     if (!class_exists('ZipArchive')) {
@@ -108,75 +258,31 @@ function import_parse_xlsx(string $path): array
     if ($zip->open($path) !== true) {
         return [];
     }
-    $shared = [];
-    $ss = $zip->getFromName('xl/sharedStrings.xml');
-    if (is_string($ss) && $ss !== '') {
-        if (preg_match_all('/<si\b[^>]*>(.*?)<\/si>/s', $ss, $sis)) {
-            foreach ($sis[1] as $si) {
-                $text = '';
-                if (preg_match_all('/<t\b[^>]*>([^<]*)<\/t>/', $si, $tm)) {
-                    $text = implode('', $tm[1]);
-                }
-                $shared[] = html_entity_decode($text, ENT_QUOTES | ENT_XML1, 'UTF-8');
-            }
+    @ini_set('pcre.backtrack_limit', '10000000');
+    $shared = import_xlsx_shared_strings($zip);
+    $best = [];
+    $bestScore = -1;
+    foreach (import_xlsx_worksheet_paths($zip) as $sheetPath) {
+        $xml = $zip->getFromName($sheetPath);
+        if (!is_string($xml) || $xml === '') {
+            continue;
+        }
+        $rows = import_parse_xlsx_sheet($xml, $shared);
+        if (!$rows) {
+            continue;
+        }
+        $header = strtolower(implode(' ', array_map(static fn ($v) => (string) $v, $rows[0] ?? [])));
+        $score = count($rows);
+        if (str_contains($header, 'sku') || str_contains($header, 'buying') || str_contains($header, 'opening') || str_contains($header, 'name')) {
+            $score += 100000;
+        }
+        if ($score > $bestScore) {
+            $bestScore = $score;
+            $best = $rows;
         }
     }
-    $sheet = $zip->getFromName('xl/worksheets/sheet1.xml');
     $zip->close();
-    if (!is_string($sheet) || $sheet === '') {
-        return [];
-    }
-    $rows = [];
-    if (!preg_match_all('/<row\b[^>]*>(.*?)<\/row>/s', $sheet, $rowMatch)) {
-        return [];
-    }
-    foreach ($rowMatch[1] as $rowXml) {
-        $cells = [];
-        if (!preg_match_all('/<c\b([^>]*)>(.*?)<\/c>/s', $rowXml, $cMatch, PREG_SET_ORDER)) {
-            continue;
-        }
-        foreach ($cMatch as $c) {
-            $attrs = $c[1];
-            $inner = $c[2];
-            $ref = '';
-            if (preg_match('/\br="([A-Z]+\d+)"/', $attrs, $rm)) {
-                $ref = $rm[1];
-            }
-            $idx = $ref !== '' ? import_col_index($ref) : count($cells);
-            $val = '';
-            $type = '';
-            if (preg_match('/\bt="([^"]+)"/', $attrs, $tm)) {
-                $type = $tm[1];
-            }
-            if ($type === 'inlineStr' || $type === 'str') {
-                if (preg_match_all('/<t\b[^>]*>([^<]*)<\/t>/', $inner, $tt)) {
-                    $val = implode('', $tt[1]);
-                } elseif (preg_match('/<v>([^<]*)<\/v>/', $inner, $vm)) {
-                    $val = $vm[1];
-                }
-            } elseif ($type === 's') {
-                $n = 0;
-                if (preg_match('/<v>([^<]*)<\/v>/', $inner, $vm)) {
-                    $n = (int) $vm[1];
-                }
-                $val = (string) ($shared[$n] ?? '');
-            } elseif (preg_match('/<v>([^<]*)<\/v>/', $inner, $vm)) {
-                $val = $vm[1];
-            }
-            $val = html_entity_decode((string) $val, ENT_QUOTES | ENT_XML1, 'UTF-8');
-            $cells[$idx] = $val;
-        }
-        if (!$cells) {
-            continue;
-        }
-        $max = max(array_keys($cells));
-        $out = [];
-        for ($i = 0; $i <= $max; $i++) {
-            $out[] = $cells[$i] ?? '';
-        }
-        $rows[] = $out;
-    }
-    return $rows;
+    return $best;
 }
 
 function import_parse_csv(string $path): array
@@ -290,6 +396,19 @@ function import_header_key(string $raw): string
         'opening_qty' => 'qty_on_hand',
         'opening_quantity' => 'qty_on_hand',
         'qty_on_hand' => 'qty_on_hand',
+        'opening_stock' => 'qty_on_hand',
+        'opening' => 'qty_on_hand',
+        'buy' => 'buy_price',
+        'cost' => 'buy_price',
+        'cost_price' => 'buy_price',
+        'selling' => 'sell_price',
+        'sell' => 'sell_price',
+        'reorder' => 'reorder_level',
+        'reorder_qty' => 'reorder_level',
+        'code' => 'sku',
+        'item_code' => 'sku',
+        'item_kind' => 'kind',
+        'tax_yn' => 'tax',
     ];
     return $aliases[$k] ?? $k;
 }
@@ -828,8 +947,8 @@ function import_run(string $kind, string $tmp, string $filename): array
     if (!$rows) {
         return ['ok' => false, 'error' => 'Could not read that file. Download the template, fill it in Excel, and upload the .xlsx or .csv.'];
     }
-    if (count($rows) > 2500) {
-        return ['ok' => false, 'error' => 'That file has too many rows. Split it under 2,500 rows and upload again.'];
+    if (count($rows) > 10000) {
+        return ['ok' => false, 'error' => 'That file has too many rows. Split it under 10,000 rows and upload again.'];
     }
     $assoc = import_assoc_rows($rows);
     if (!$assoc && $kind !== 'stock') {

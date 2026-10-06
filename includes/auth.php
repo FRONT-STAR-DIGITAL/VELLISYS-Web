@@ -145,7 +145,7 @@ function desk_feature_catalog(): array
     return [
         'sale' => 'Sale till',
         'stock' => 'Stock',
-        'purchases' => 'Purchases',
+        'purchases' => 'Purchases / restock',
         'quotation' => 'Quotations',
         'invoice' => 'Invoices',
         'receipt' => 'Receipts',
@@ -344,12 +344,15 @@ function user_can_open(string $script, string $kind = ''): bool
     if (in_array($script, ['search.php', 'search_api.php'], true)) {
         return true;
     }
-    if (in_array($script, ['stock.php', 'sale.php', 'stock_search.php'], true)) {
+    if (in_array($script, ['stock.php', 'sale.php', 'stock_search.php', 'purchases.php'], true)) {
         if (!company_stock_enabled()) {
             return false;
         }
         if ($script === 'sale.php') {
             return user_can_feature('sale') && user_can_kind('invoice');
+        }
+        if ($script === 'purchases.php') {
+            return user_can_feature('purchases');
         }
         return user_can_feature('stock');
     }

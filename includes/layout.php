@@ -213,6 +213,9 @@ function layout_start(string $title, array $user, array $opts = []): void
     $work = [['dashboard.php', 'Desk', 'desk']];
     if (function_exists('company_stock_enabled') && company_stock_enabled()) {
         $work[] = ['sale.php', 'Sale', 'cart'];
+        if (!function_exists('stock_can_buy') || stock_can_buy()) {
+            $work[] = ['purchases.php', 'Purchases', 'expense'];
+        }
     }
     $books = desk_kind_nav_items();
     if (function_exists('company_stock_enabled') && company_stock_enabled()) {
@@ -331,7 +334,7 @@ function layout_start(string $title, array $user, array $opts = []): void
               if (str_starts_with($here, 'pnl')) {
                   $active = $file === 'pnl.php' || str_starts_with((string) $file, 'pnl');
               }
-              if (in_array($here, ['stock.php', 'sale.php'], true)) {
+              if (in_array($here, ['stock.php', 'sale.php', 'purchases.php'], true)) {
                   $active = $file === $here;
               }
               // Refunds and returns live under P&L, not the main kind nav.
@@ -813,10 +816,17 @@ function layout_end(string $extra = ''): void
     <a href="<?= h(url('document_new.php?kind=' . $qKind)) ?>"><?= icon($iconName) ?><?= h($qKind === 'expense' ? 'Expense' : kind_meta($qKind)['singular']) ?></a>
   <?php endforeach; ?>
   <?php endif; ?>
-  <?php if (function_exists('company_stock_enabled') && company_stock_enabled() && user_can_open('sale.php')): ?>
+  <?php
+  $stockOn = function_exists('company_stock_enabled') && company_stock_enabled();
+  $showSale = $stockOn && user_can_open('sale.php');
+  $showPurch = $stockOn && user_can_open('purchases.php');
+  $showStock = $stockOn && user_can_open('stock.php');
+  if ($showSale || $showPurch || $showStock):
+  ?>
   <p>Stock</p>
-  <a href="<?= h(url('sale.php')) ?>"><?= icon('cart') ?>Sale</a>
-  <a href="<?= h(url('stock.php')) ?>"><?= icon('package') ?>Stock</a>
+  <?php if ($showSale): ?><a href="<?= h(url('sale.php')) ?>"><?= icon('cart') ?>Sale</a><?php endif; ?>
+  <?php if ($showPurch): ?><a href="<?= h(url('purchases.php')) ?>"><?= icon('expense') ?>Purchases</a><?php endif; ?>
+  <?php if ($showStock): ?><a href="<?= h(url('stock.php')) ?>"><?= icon('package') ?>Stock</a><?php endif; ?>
   <?php endif; ?>
   <p>Workspace</p>
   <a href="<?= h(url('desk_mail.php')) ?>"><?= icon('send') ?>Email</a>
@@ -868,7 +878,7 @@ function layout_end(string $extra = ''): void
 <?php
 $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
 $sheetJs = in_array($here, ['document_view.php', 'document_new.php', 'document_action.php', 'share.php', 'document_download.php', 'document_pdf.php', 'document_sheet.php', 'documents.php'], true);
-$pdfJs = $sheetJs || in_array($here, ['dashboard.php', 'debtors.php', 'creditors.php', 'client_view.php', 'reports.php', 'stock.php', 'sale.php', 'planner.php', 'document_email.php', 'document_new.php'], true);
+$pdfJs = $sheetJs || in_array($here, ['dashboard.php', 'debtors.php', 'creditors.php', 'client_view.php', 'reports.php', 'stock.php', 'sale.php', 'purchases.php', 'planner.php', 'document_email.php', 'document_new.php'], true);
 if ($sheetJs): ?>
 <script src="<?= h(asset('js/sheet-fit.js')) ?>"></script>
 <?php endif; ?>

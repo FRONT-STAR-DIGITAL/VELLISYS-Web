@@ -42,7 +42,7 @@ function pricing_package_defaults(): array
             'lead' => '',
             'points' => [
                 'Head office only (no extra branches)',
-                'Stock management: items, counts, Sale till, day open and close',
+                'Stock management: items, counts, Sale till, purchases / restock',
                 'Branded quotations, invoices and receipts with authenticity QR codes to stop duplicates',
                 'Clients, debtors and creditors with due dates and day-before reminders',
                 'Share branded PDFs by email or WhatsApp; print matches the on-screen sheet',

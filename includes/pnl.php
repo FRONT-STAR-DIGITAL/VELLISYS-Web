@@ -1349,7 +1349,7 @@ function enrich_planner_notifications(array $items): array
                 $n['key'] = notification_dismiss_key($n);
             }
             $n['actions'] = [
-                ['label' => 'Restock', 'href' => $n['href'] ?? url('stock.php?tab=items'), 'class' => 'btn sm'],
+                ['label' => 'Restock', 'href' => url('purchases.php'), 'class' => 'btn sm'],
                 ['label' => 'Stock', 'href' => url('stock.php?tab=items'), 'class' => 'btn ghost sm'],
             ];
         } else {

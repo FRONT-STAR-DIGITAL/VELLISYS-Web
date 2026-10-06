@@ -2717,6 +2717,11 @@ function platform_create_company(?int $signupId = null): array
         );
     }
     db_exec('UPDATE companies SET stock_enabled = ? WHERE id = ?', 'ii', [!empty($_POST['stock_enabled']) ? 1 : 0, $cid]);
+    try {
+        db_exec('UPDATE companies SET till_day_enabled = ? WHERE id = ?', 'ii', [!empty($_POST['stock_enabled']) && !empty($_POST['till_day_enabled']) ? 1 : 0, $cid]);
+    } catch (Throwable $e) {
+        // till_day_enabled is added by migrate
+    }
 
     $hasPaidTerm = false;
     $term = parse_paid_term(post('paid_term'));

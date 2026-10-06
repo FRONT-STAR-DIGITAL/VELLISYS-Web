@@ -233,12 +233,12 @@ $lessons = [
         'title' => 'Stock',
         'file' => 'stock.png',
         'alt' => 'Stock Day with This year filter, income, profit and line charts',
-        'lead' => 'When Vellisys switches stock on, the rail gets Stock and Sale. Purchases sit as a tab inside Stock. The Ofagros demo already has this on.',
+        'lead' => 'When Vellisys switches stock on, the rail gets Sale, Purchases and Stock. The Ofagros demo already has this on.',
         'points' => [
-            'Open the day on Sale: type the cash in the till. That open day applies to Sale till sales only. Invoices, receipts and expenses do not need the till open. Close with the cash at the end of Sale.',
+            'Open / close day is off unless Vellisys ticks it on the company. When it is on, Sale asks for opening cash before till sales. Invoices, receipts and expenses never need the till open.',
             'Filter Day with today, this week, this month or this year. Charts follow the dates you pick. Products and services sold sit on the Day report.',
-            'Add products and services, or download the Excel, fill it and upload. Low stock shows when quantity hits the reorder level. Services have no quantity.',
-            'Purchases become expenses. Unpaid purchases sit on Creditors. Sale and Documents share the same products when both are on; each can also be used on its own.',
+            'Add products and services, or download the Excel, fill it and upload. Keep the header row so Opening qty stays on Opening qty. Low stock shows when quantity hits the reorder level. Services have no quantity.',
+            'Purchases restock the business. Unpaid purchases sit on Creditors. Sale and Documents share the same products when both are on; each can also be used on its own.',
         ],
     ],
     [
@@ -247,7 +247,7 @@ $lessons = [
         'title' => 'Sale',
         'file' => 'sale.png',
         'alt' => 'Sale till with a product list, totals and Save and print',
-        'lead' => 'Sale is the till. Type a product or service, it drops onto the list, then save. The day must be open first. You can use Sale without opening the invoice form; invoices from Documents still count as sales.',
+        'lead' => 'Sale is the till. Type a product or service, it drops onto the list, then save. You can use Sale without opening the invoice form; invoices from Documents still count as sales.',
         'points' => [
             'Find a product or service by name or code. It fills qty, unit price and tax. Tap X on a row to take it off.',
             'Discount and part pay sit under the list. Leave paid blank to take the full amount. Unpaid sits on Debtors.',

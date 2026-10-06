@@ -5,14 +5,15 @@ $user = require_stock();
 
 $error = '';
 $dayError = '';
-$dayOpen = stock_day_is_open();
+$tillDay = desk_uses_till_day();
+$dayOpen = !$tillDay || stock_day_is_open();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
     $action = post('action');
     if ($action === 'open_day' || $action === 'close_day') {
-        $dayError = desk_handle_day_post();
-        $dayOpen = stock_day_is_open();
+        $dayError = $tillDay ? desk_handle_day_post() : '';
+        $dayOpen = !$tillDay || stock_day_is_open();
     } else {
         stock_require_open_day();
         $ids = $_POST['s_item'] ?? [];
@@ -84,7 +85,7 @@ layout_start('Sale', $user);
 <?php render_sale_day_panel($dayError); ?>
 
 <?php if ($error): ?><p class="flash flash-err" style="margin:0 0 16px"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
-<?php if (!$dayOpen): ?>
+<?php if ($tillDay && !$dayOpen): ?>
   <p class="flash flash-err">Open the day above before recording till sales.</p>
 <?php endif; ?>
 
@@ -133,11 +134,11 @@ layout_start('Sale', $user);
     <div class="pos-totals">
       <div>
         <label for="discount">Discount</label>
-        <input id="discount" name="discount" inputmode="decimal" value="0" data-pos-discount <?= $dayOpen ? '' : 'disabled' ?>>
+        <input id="discount" name="discount" inputmode="decimal" value="0" data-pos-discount data-money-commas autocomplete="off" <?= $dayOpen ? '' : 'disabled' ?>>
       </div>
       <div>
         <label for="paid">Paid now</label>
-        <input id="paid" name="paid" inputmode="decimal" value="" placeholder="Leave blank to pay all" data-pos-paid <?= $dayOpen ? '' : 'disabled' ?>>
+        <input id="paid" name="paid" inputmode="decimal" value="" placeholder="Leave blank to pay all" data-pos-paid data-money-commas autocomplete="off" <?= $dayOpen ? '' : 'disabled' ?>>
         <p class="hint">Unpaid balance sits on Debtors and links to the sale document.</p>
       </div>
       <div class="pos-sum">

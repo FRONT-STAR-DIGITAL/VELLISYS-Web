@@ -25,7 +25,7 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '67';
+    return '68';
 }
 
 /**
@@ -400,6 +400,9 @@ function folio_ensure_stock(mysqli $db): void
     $ready = true;
     if (!db_has_column($db, 'companies', 'stock_enabled')) {
         @$db->query('ALTER TABLE companies ADD COLUMN stock_enabled TINYINT(1) NOT NULL DEFAULT 0');
+    }
+    if (!db_has_column($db, 'companies', 'till_day_enabled')) {
+        @$db->query('ALTER TABLE companies ADD COLUMN till_day_enabled TINYINT(1) NOT NULL DEFAULT 0');
     }
     if (!db_has_column($db, 'document_items', 'stock_item_id')) {
         @$db->query('ALTER TABLE document_items ADD COLUMN stock_item_id INT UNSIGNED NULL AFTER document_id');

@@ -163,6 +163,7 @@ function render_desk_company_card(?array $company, array $opts = []): void
         <a href="<?= h(url('activities.php')) ?>"><?= icon('clock', 16) ?>Activities</a>
         <a href="<?= h(url('clients.php')) ?>"><?= icon('clients', 16) ?>Clients</a>
         <?php if ($stockOn): ?><a href="<?= h(url('stock.php')) ?>"><?= icon('package', 16) ?>Stock</a><?php endif; ?>
+        <?php if ($stockOn && (!function_exists('stock_can_buy') || stock_can_buy())): ?><a href="<?= h(url('purchases.php')) ?>"><?= icon('expense', 16) ?>Purchases</a><?php endif; ?>
         <?php if (!empty($opts['reports'])): ?><a href="<?= h(url('reports.php')) ?>"><?= icon('reports', 16) ?>Reports</a><?php endif; ?>
         <a href="<?= h(url('documents.php')) ?>"><?= icon('file', 16) ?>Documents</a>
       </div>

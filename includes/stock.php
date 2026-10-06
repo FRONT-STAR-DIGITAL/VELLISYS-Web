@@ -7,6 +7,12 @@ function company_stock_enabled(?array $company = null): bool
     return $company ? (int) ($company['stock_enabled'] ?? 0) === 1 : false;
 }
 
+function company_till_day_enabled(?array $company = null): bool
+{
+    $company = $company ?? current_company();
+    return $company ? (int) ($company['till_day_enabled'] ?? 0) === 1 : false;
+}
+
 function require_stock(): array
 {
     $user = require_member();
@@ -20,6 +26,11 @@ function require_stock(): array
             flash('Your login cannot open sales.', 'err');
             redirect('dashboard.php');
         }
+    } elseif ($script === 'purchases.php') {
+        if (!stock_can_buy()) {
+            flash('Your login cannot open purchases.', 'err');
+            redirect('stock.php');
+        }
     } elseif (function_exists('user_can_feature') && !user_can_feature('stock')) {
         flash('Your login cannot open stock.', 'err');
         redirect('dashboard.php');
@@ -29,7 +40,7 @@ function require_stock(): array
 
 function desk_uses_till_day(): bool
 {
-    return function_exists('company_stock_enabled') && company_stock_enabled();
+    return company_stock_enabled() && company_till_day_enabled();
 }
 
 function desk_day_is_open(): bool
@@ -80,9 +91,9 @@ function stock_can_buy(): bool
 function stock_tabs(): array
 {
     return [
-        'items' => ['Items', 'package'],
-        'counts' => ['Counts', 'hash'],
-        'purchases' => ['Purchases', 'expense'],
+        'items' => ['Items', 'package', 'stock.php?tab=items'],
+        'counts' => ['Counts', 'hash', 'stock.php?tab=counts'],
+        'purchases' => ['Purchases', 'expense', 'purchases.php'],
     ];
 }
 
@@ -90,9 +101,9 @@ function render_stock_subnav(string $active): void
 {
     ?>
   <nav class="planner-tabs" aria-label="Stock sections">
-    <?php foreach (stock_tabs() as $key => [$label, $iconName]): ?>
+    <?php foreach (stock_tabs() as $key => [$label, $iconName, $href]): ?>
       <?php if ($key === 'purchases' && !stock_can_buy()) { continue; } ?>
-      <a class="planner-tab<?= $active === $key ? ' is-on' : '' ?>" href="<?= h(url('stock.php?tab=' . $key)) ?>"><?= icon($iconName, 16) ?><span><?= h($label) ?></span></a>
+      <a class="planner-tab<?= $active === $key ? ' is-on' : '' ?>" href="<?= h(url($href)) ?>"><?= icon($iconName, 16) ?><span><?= h($label) ?></span></a>
     <?php endforeach; ?>
     <a class="planner-tab<?= $active === 'sale' ? ' is-on' : '' ?>" href="<?= h(url('sale.php')) ?>"><?= icon('cart', 16) ?><span>Sale</span></a>
   </nav>
@@ -207,7 +218,7 @@ function stock_low_notifications(int $limit = 20): array
             'tone' => 'warn',
             'title' => $name,
             'meta' => 'Low stock · ' . $qtyLabel . ' on hand (reorder at ' . $reorderLabel . ')',
-            'href' => url('stock.php?tab=items&edit=' . $id),
+            'href' => url('purchases.php'),
             'key' => 'stock-low:' . $id . ':' . $qtyLabel,
             'sort' => '0-stock-' . sprintf('%010.3f', $qty) . '-' . $name,
             'item_id' => $id,
@@ -682,57 +693,77 @@ function stock_import_template_rows(): array
 
 function stock_parse_upload(string $tmp, string $name): array
 {
+    if (function_exists('import_parse_upload')) {
+        return import_parse_upload($tmp, $name);
+    }
     $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-    $text = '';
-    if ($ext === 'csv' || $ext === 'txt') {
+    if (in_array($ext, ['csv', 'txt'], true) || $ext === '') {
         $text = (string) file_get_contents($tmp);
-    } elseif ($ext === 'xlsx' && class_exists('ZipArchive')) {
-        $zip = new ZipArchive();
-        if ($zip->open($tmp) === true) {
-            $shared = [];
-            $ss = $zip->getFromName('xl/sharedStrings.xml');
-            if (is_string($ss) && $ss !== '') {
-                if (preg_match_all('/<t[^>]*>([^<]*)<\/t>/', $ss, $m)) {
-                    $shared = $m[1];
-                }
+        if (str_starts_with($text, "\xEF\xBB\xBF")) {
+            $text = substr($text, 3);
+        }
+        $rows = [];
+        foreach (preg_split("/\r\n|\n|\r/", $text) ?: [] as $line) {
+            if (trim($line) === '') {
+                continue;
             }
-            $sheet = $zip->getFromName('xl/worksheets/sheet1.xml');
-            $zip->close();
-            $rows = [];
-            if (is_string($sheet) && preg_match_all('/<row[^>]*>(.*?)<\/row>/s', $sheet, $rowMatch)) {
-                foreach ($rowMatch[1] as $rowXml) {
-                    $cells = [];
-                    if (preg_match_all('/<c[^>]*r="([A-Z]+)\d+"[^>]*>(?:<v>([^<]*)<\/v>)?/s', $rowXml, $cMatch, PREG_SET_ORDER)) {
-                        foreach ($cMatch as $c) {
-                            $val = $c[2] ?? '';
-                            if (str_contains($c[0], 't="s"') && isset($shared[(int) $val])) {
-                                $val = html_entity_decode((string) $shared[(int) $val], ENT_QUOTES | ENT_XML1, 'UTF-8');
-                            }
-                            $cells[] = $val;
-                        }
-                    }
-                    if ($cells) {
-                        $rows[] = $cells;
-                    }
-                }
-            }
-            return $rows;
+            $rows[] = str_getcsv($line);
+        }
+        return $rows;
+    }
+    return [];
+}
+
+function stock_import_num(mixed $raw): float
+{
+    return function_exists('money_parse') ? money_parse((string) $raw) : (float) str_replace([',', ' '], '', (string) $raw);
+}
+
+function stock_import_is_service(string $kind): bool
+{
+    return (bool) preg_match('/^serv/i', trim($kind));
+}
+
+function stock_import_taxed_flag(string $raw): int
+{
+    $raw = strtoupper(trim($raw));
+    if ($raw === '') {
+        return company_tax_default();
+    }
+    return in_array($raw, ['N', 'NO', '0', 'FALSE', 'F', 'OFF'], true) ? 0 : 1;
+}
+
+function stock_import_assoc_field(array $row, array $keys, string $default = ''): string
+{
+    foreach ($keys as $key) {
+        if (isset($row[$key]) && trim((string) $row[$key]) !== '') {
+            return trim((string) $row[$key]);
         }
     }
-    if ($text === '') {
-        return [];
+    return $default;
+}
+
+function stock_import_apply_item(array $fields): string
+{
+    $sku = trim((string) ($fields['sku'] ?? ''));
+    $name = trim((string) ($fields['name'] ?? ''));
+    if ($name === '' || strcasecmp($name, 'name') === 0 || strcasecmp($name, 'item') === 0) {
+        return 'skipped';
     }
-    if (str_starts_with($text, "\xEF\xBB\xBF")) {
-        $text = substr($text, 3);
+    $existing = null;
+    if ($sku !== '') {
+        $existing = db_one('SELECT id FROM stock_items WHERE company_id = ? AND sku = ?', 'is', [current_company_id(), $sku]);
     }
-    $rows = [];
-    foreach (preg_split("/\r\n|\n|\r/", $text) ?: [] as $line) {
-        if (trim($line) === '') {
-            continue;
-        }
-        $rows[] = str_getcsv($line);
+    if (!$existing) {
+        $existing = db_one('SELECT id FROM stock_items WHERE company_id = ? AND name = ?', 'is', [current_company_id(), $name]);
     }
-    return $rows;
+    if ($existing) {
+        unset($fields['qty_on_hand']);
+        $saved = stock_save_item($fields, (int) $existing['id']);
+        return !empty($saved['ok']) ? 'updated' : 'skipped';
+    }
+    $saved = stock_save_item($fields, null);
+    return !empty($saved['ok']) ? 'added' : 'skipped';
 }
 
 function stock_import_rows(array $rows): array
@@ -740,48 +771,83 @@ function stock_import_rows(array $rows): array
     $added = 0;
     $updated = 0;
     $skipped = 0;
+    $bump = static function (string $status) use (&$added, &$updated, &$skipped): void {
+        if ($status === 'added') {
+            $added++;
+        } elseif ($status === 'updated') {
+            $updated++;
+        } else {
+            $skipped++;
+        }
+    };
+    $mapped = function_exists('import_assoc_rows') ? import_assoc_rows($rows) : [];
+    $useAssoc = false;
+    foreach ($mapped as $row) {
+        $name = stock_import_assoc_field($row, ['name', 'item', 'item_name', 'product', 'product_name']);
+        $sku = stock_import_assoc_field($row, ['sku', 'code', 'item_code']);
+        if ($name !== '' || $sku !== '') {
+            $useAssoc = true;
+            break;
+        }
+    }
+    if ($useAssoc) {
+        foreach ($mapped as $row) {
+            $sku = stock_import_assoc_field($row, ['sku', 'code', 'item_code']);
+            $name = stock_import_assoc_field($row, ['name', 'item', 'item_name', 'product', 'product_name']);
+            if ($name === '' && $sku !== '') {
+                $name = $sku;
+            }
+            $kind = stock_import_assoc_field($row, ['kind', 'type', 'item_kind']);
+            $bump(stock_import_apply_item([
+                'sku' => $sku,
+                'name' => $name,
+                'description' => stock_import_assoc_field($row, ['description', 'notes', 'note']),
+                'unit' => stock_import_assoc_field($row, ['unit'], 'pc') ?: 'pc',
+                'is_service' => stock_import_is_service($kind) ? 1 : 0,
+                'buy_price' => stock_import_num(stock_import_assoc_field($row, ['buy_price', 'buy', 'cost', 'cost_price'])),
+                'sell_price' => stock_import_num(stock_import_assoc_field($row, ['sell_price', 'sell', 'selling', 'rate', 'price', 'unit_price'])),
+                'reorder_level' => stock_import_num(stock_import_assoc_field($row, ['reorder_level', 'reorder', 'reorder_qty'])),
+                'qty_on_hand' => stock_import_num(stock_import_assoc_field($row, ['qty_on_hand', 'opening_qty', 'opening_quantity', 'opening_stock', 'opening'])),
+                'taxed' => stock_import_taxed_flag(stock_import_assoc_field($row, ['tax', 'tax_y_n', 'vat'])),
+            ]));
+        }
+        return ['added' => $added, 'updated' => $updated, 'skipped' => $skipped];
+    }
     $header = array_map(static fn ($v) => strtolower(trim((string) $v)), $rows[0] ?? []);
     $start = 0;
-    if ($header && (str_contains($header[0] ?? '', 'sku') || str_contains($header[1] ?? '', 'name'))) {
+    if ($header && (str_contains($header[0] ?? '', 'sku') || str_contains($header[1] ?? '', 'name') || in_array('type', $header, true))) {
         $start = 1;
     }
+    $headerHasType = in_array('type', $header, true) || in_array('kind', $header, true);
     for ($i = $start; $i < count($rows); $i++) {
         $r = $rows[$i];
         $sku = trim((string) ($r[0] ?? ''));
         $name = trim((string) ($r[1] ?? ''));
+        if ($name === '' && $sku !== '') {
+            $name = $sku;
+        }
         if ($name === '') {
             $skipped++;
             continue;
         }
-        $existing = null;
-        if ($sku !== '') {
-            $existing = db_one('SELECT id FROM stock_items WHERE company_id = ? AND sku = ?', 'is', [current_company_id(), $sku]);
-        }
-        if (!$existing) {
-            $existing = db_one('SELECT id FROM stock_items WHERE company_id = ? AND name = ?', 'is', [current_company_id(), $name]);
-        }
-        $taxRaw = strtoupper(trim((string) ($r[8] ?? '')));
         $col4 = trim((string) ($r[4] ?? ''));
         $typed = (bool) preg_match('/^(product|products|good|goods|item|service|services|svc)$/i', $col4);
-        $isService = $typed && (bool) preg_match('/^serv/i', $col4);
-        if ($typed) {
-            $buy = (float) str_replace(',', '', (string) ($r[5] ?? 0));
-            $sell = (float) str_replace(',', '', (string) ($r[6] ?? 0));
-            $reorder = (float) str_replace(',', '', (string) ($r[7] ?? 0));
-            $qty = (float) str_replace(',', '', (string) ($r[8] ?? 0));
-            $taxRaw = strtoupper(trim((string) ($r[9] ?? '')));
+        $newLayout = $typed || $headerHasType || count($r) >= 10;
+        $isService = $newLayout && stock_import_is_service($col4);
+        if ($newLayout) {
+            $buy = stock_import_num($r[5] ?? 0);
+            $sell = stock_import_num($r[6] ?? 0);
+            $reorder = stock_import_num($r[7] ?? 0);
+            $qty = stock_import_num($r[8] ?? 0);
+            $taxRaw = (string) ($r[9] ?? '');
         } else {
-            $buy = (float) str_replace(',', '', $col4);
-            $sell = (float) str_replace(',', '', (string) ($r[5] ?? 0));
-            $reorder = (float) str_replace(',', '', (string) ($r[6] ?? 0));
-            $qty = (float) str_replace(',', '', (string) ($r[7] ?? 0));
+            $buy = stock_import_num($col4);
+            $sell = stock_import_num($r[5] ?? 0);
+            $reorder = stock_import_num($r[6] ?? 0);
+            $qty = stock_import_num($r[7] ?? 0);
+            $taxRaw = (string) ($r[8] ?? '');
         }
-        if ($taxRaw === '') {
-            $taxed = company_tax_default();
-        } else {
-            $taxed = in_array($taxRaw, ['N', 'NO', '0'], true) ? 0 : 1;
-        }
-        $fields = [
+        $bump(stock_import_apply_item([
             'sku' => $sku,
             'name' => $name,
             'description' => (string) ($r[2] ?? ''),
@@ -791,26 +857,52 @@ function stock_import_rows(array $rows): array
             'sell_price' => $sell,
             'reorder_level' => $reorder,
             'qty_on_hand' => $qty,
-            'taxed' => $taxed,
-        ];
-        if ($existing) {
-            unset($fields['qty_on_hand']);
-            $saved = stock_save_item($fields, (int) $existing['id']);
-            if (!empty($saved['ok'])) {
-                $updated++;
-            } else {
-                $skipped++;
-            }
-        } else {
-            $saved = stock_save_item($fields, null);
-            if (!empty($saved['ok'])) {
-                $added++;
-            } else {
-                $skipped++;
-            }
-        }
+            'taxed' => stock_import_taxed_flag($taxRaw),
+        ]));
     }
     return ['added' => $added, 'updated' => $updated, 'skipped' => $skipped];
+}
+
+function stock_post_purchase_from_request(): array
+{
+    if (!stock_can_buy()) {
+        return ['ok' => false, 'error' => 'Your login cannot record purchases.'];
+    }
+    $ids = $_POST['p_item'] ?? [];
+    $names = $_POST['p_name'] ?? [];
+    $qtys = $_POST['p_qty'] ?? [];
+    $prices = $_POST['p_price'] ?? [];
+    $taxed = $_POST['p_taxed'] ?? [];
+    $lines = [];
+    foreach (array_keys((array) $ids + (array) $names) as $i) {
+        $lines[] = [
+            'stock_item_id' => (int) ($ids[$i] ?? 0),
+            'name' => (string) ($names[$i] ?? ''),
+            'qty' => money_parse((string) ($qtys[$i] ?? 0)),
+            'price' => money_parse((string) ($prices[$i] ?? 0)),
+            'taxed' => !empty($taxed[$i]),
+        ];
+    }
+    $paidRaw = post('paid');
+    $done = stock_complete_purchase([
+        'supplier' => post('supplier'),
+        'party_id' => (int) post('party_id'),
+        'paid' => $paidRaw === '' ? 0 : money_parse($paidRaw),
+        'method' => post('method') ?: 'cash',
+        'lines' => $lines,
+    ]);
+    if (empty($done['ok'])) {
+        return ['ok' => false, 'error' => (string) ($done['error'] ?? 'Could not save that purchase.')];
+    }
+    $msg = 'Restock saved.';
+    if (($done['balance'] ?? 0) > 0.009) {
+        $msg .= ' Balance ' . money($done['balance']) . ' remains unpaid on the stock bill (not day performance).';
+    } else {
+        $msg .= ' Paid in full.';
+    }
+    flash($msg);
+    redirect('purchases.php');
+    return ['ok' => true];
 }
 
 function stock_post_count(array $counted): array
@@ -1426,6 +1518,9 @@ function desk_handle_day_post(): string
 
 function render_sale_day_panel(string $error = ''): void
 {
+    if (!desk_uses_till_day()) {
+        return;
+    }
     $openDay = stock_current_open_day();
     $todayDay = stock_today();
     $dayOpen = $openDay !== null;

@@ -176,7 +176,11 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
     </div>
     <div>
       <label class="check" for="stock_enabled"><input id="stock_enabled" name="stock_enabled" type="checkbox" value="1" <?= !empty($_POST['stock_enabled']) ? 'checked' : '' ?>> Stock management on for this desk</label>
-      <p class="hint">Stock, Sale and purchases. You can switch this on for any package.</p>
+      <p class="hint">Stock, Sale and Purchases (restock). You can switch this on for any package.</p>
+    </div>
+    <div>
+      <label class="check" for="till_day_enabled"><input id="till_day_enabled" name="till_day_enabled" type="checkbox" value="1" <?= !empty($_POST['till_day_enabled']) ? 'checked' : '' ?>> Open / close day on Sale</label>
+      <p class="hint">Optional till float. Leave off for most desks.</p>
     </div>
     <div>
       <label for="currency-pick">Currency</label>

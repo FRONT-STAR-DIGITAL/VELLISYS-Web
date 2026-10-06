@@ -2671,6 +2671,7 @@ document.addEventListener('click', function (e) {
 (function moneyCommaInputs() {
   function isMoneyField(el) {
     if (!el || el.disabled || el.readOnly) return false;
+    if (el.type === 'number') return false;
     if (el.matches('[data-money-commas], #allocated_amount, #ledger-amount, [data-line-rate], [data-line-total], [data-pos-paid], [data-pos-discount]')) {
       return true;
     }
