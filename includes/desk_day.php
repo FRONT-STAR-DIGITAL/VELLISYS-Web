@@ -355,8 +355,10 @@ function render_desk_metric_tabs(array $data): void
 
 function render_desk_day(string $error = ''): string
 {
-    $period = period_range();
-    $from = $period['from'] !== '' ? $period['from'] : today();
+    $period = function_exists('period_range_for_charts')
+        ? period_range_for_charts('this_month')
+        : period_range();
+    $from = $period['from'] !== '' ? $period['from'] : date('Y-m-01');
     $to = $period['to'] !== '' ? $period['to'] : today();
     $dash = stock_day_dashboard($from, $to);
     $rangeLive = $dash['totals'];
@@ -561,5 +563,7 @@ render_desk_metric_tabs([
         'color' => branding()['brand_color'] ?? '#82B440',
         'showProfit' => $showProfit,
     ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG);
-    return '<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script>window.vellisysDayCharts=' . $payload . ';</script><script src="' . h(asset('js/stock-day.js')) . '" defer></script>';
+    return '<script>window.vellisysDayCharts=' . $payload . ';</script>'
+        . '<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script>'
+        . '<script src="' . h(asset('js/stock-day.js')) . '" defer></script>';
 }

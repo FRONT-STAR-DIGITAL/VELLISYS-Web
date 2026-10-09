@@ -1932,7 +1932,8 @@ function stock_day_dashboard(string $from, string $to): array
     $start = strtotime($from);
     $end = strtotime($to);
     $span = ($start && $end) ? (int) round(($end - $start) / 86400) : 0;
-    if ($start && $end && $span >= 0 && $span <= 62) {
+    // Fill every day in the range (up to ~4 months) so line charts look continuous.
+    if ($start && $end && $span >= 0 && $span <= 120) {
         for ($t = $start; $t <= $end; $t += 86400) {
             $d = date('Y-m-d', $t);
             $days[$d] = $byDay[$d] ?? stock_finish_totals(stock_blank_totals());

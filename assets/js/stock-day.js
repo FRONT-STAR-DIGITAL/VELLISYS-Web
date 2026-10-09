@@ -2,26 +2,39 @@
   function money(boot, v) {
     return window.vellisysChartMoney ? window.vellisysChartMoney(boot.currency)(v) : String(v);
   }
+  function softFill(hex, alpha) {
+    hex = String(hex || '#1E4EFF').replace('#', '');
+    if (hex.length === 3) {
+      hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+    }
+    if (hex.length !== 6) return 'rgba(30,78,255,' + alpha + ')';
+    var r = parseInt(hex.slice(0, 2), 16);
+    var g = parseInt(hex.slice(2, 4), 16);
+    var b = parseInt(hex.slice(4, 6), 16);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+  }
   function setsFrom(boot, block) {
-    var color = boot.color || '#82B440';
+    var color = boot.color || '#1E4EFF';
+    if (String(color).charAt(0) !== '#') color = '#' + color;
+    if (!/^#[0-9A-Fa-f]{6}$/.test(color)) color = '#1E4EFF';
     return [
       {
         label: 'Income',
         data: block.income || [],
         borderColor: color,
-        backgroundColor: color + '33',
+        backgroundColor: softFill(color, 0.22),
         tension: 0.35,
-        fill: true,
+        fill: 'origin',
         borderWidth: 2,
         pointRadius: 3
       },
       {
         label: 'Expenditure',
         data: block.expense || [],
-        borderColor: '#3b82f6',
-        backgroundColor: 'transparent',
+        borderColor: '#64748b',
+        backgroundColor: softFill('#64748b', 0.12),
         tension: 0.35,
-        fill: false,
+        fill: 'origin',
         borderWidth: 2,
         pointRadius: 3
       }

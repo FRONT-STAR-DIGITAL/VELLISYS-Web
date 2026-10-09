@@ -1951,6 +1951,13 @@ function parse_document_line_column_entries(mixed $raw): array
                 if ($label === '') {
                     continue;
                 }
+                // Keep built-in keys (item, qty, rate…) even when the label was renamed
+                // (e.g. Service). Remapping them to c_* emptied every printed sheet.
+                if ($key !== '' && isset($defs[$key]) && !in_array($key, $seen, true)) {
+                    $seen[] = $key;
+                    $entries[] = ['key' => $key, 'label' => mb_substr($label, 0, 40), 'builtin' => true];
+                    continue;
+                }
                 if ($key === '' || isset($defs[$key]) || in_array($key, $seen, true)) {
                     $key = line_custom_column_key($label, $seen);
                 }
@@ -3519,6 +3526,20 @@ function period_range(): array
         return ['preset' => 'custom', 'from' => $from, 'to' => $to];
     }
     return ['preset' => 'all', 'from' => '', 'to' => ''];
+}
+
+/**
+ * Period for charts / stock dashboards. When no dates are chosen (and "All"
+ * is not a real range), fall back so graphs are filled instead of empty.
+ */
+function period_range_for_charts(string $fallback = 'this_month'): array
+{
+    $p = period_range();
+    if ($p['from'] !== '' && $p['to'] !== '') {
+        return $p;
+    }
+    $_GET['range'] = $fallback;
+    return period_range();
 }
 
 /** Super-admin reports: open on Today unless a range or custom dates are already chosen. */

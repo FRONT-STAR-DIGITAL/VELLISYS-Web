@@ -404,7 +404,7 @@ layout_start('Stock', $user);
 </div>
 
 <?php elseif ($tab === 'reports'):
-    $period = period_range();
+    $period = period_range_for_charts('this_month');
     $from = (string) $period['from'];
     $to = (string) $period['to'];
     $analytics = stock_reports_analytics($from, $to);
@@ -412,8 +412,9 @@ layout_start('Stock', $user);
     render_filters('stock.php', $keep, ['no_all' => true, 'live' => true]);
     render_stock_reports_tab($analytics);
     $payload = json_encode($analytics, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP);
-    $extraJs = '<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script>'
-        . '<script>window.vellisysStockReports=' . $payload . ';</script>'
+    // Inline payload first (no defer), then Chart.js + boot — keeps series available when charts paint.
+    $extraJs = '<script>window.vellisysStockReports=' . $payload . ';</script>'
+        . '<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script>'
         . '<script src="' . h(asset('js/stock-reports.js')) . '" defer></script>';
 endif; ?>
 

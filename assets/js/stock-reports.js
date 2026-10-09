@@ -23,7 +23,20 @@
     }
   }
   function brand(boot) {
-    return boot.color || '#1E4EFF';
+    var c = String((boot && boot.color) || '#1E4EFF').trim();
+    if (c.charAt(0) !== '#') c = '#' + c;
+    return /^#[0-9A-Fa-f]{6}$/.test(c) ? c : '#1E4EFF';
+  }
+  function softFill(hex, alpha) {
+    hex = String(hex || '#1E4EFF').replace('#', '');
+    if (hex.length === 3) {
+      hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+    }
+    if (hex.length !== 6) return 'rgba(30,78,255,' + alpha + ')';
+    var r = parseInt(hex.slice(0, 2), 16);
+    var g = parseInt(hex.slice(2, 4), 16);
+    var b = parseInt(hex.slice(4, 6), 16);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
   }
   function line(boot, id, labels, datasets, moneyAxis) {
     var el = document.getElementById(id);
@@ -186,9 +199,9 @@
         label: 'Sales',
         data: days.income || [],
         borderColor: color,
-        backgroundColor: color + '33',
+        backgroundColor: softFill(color, 0.22),
         tension: 0.35,
-        fill: true,
+        fill: 'origin',
         borderWidth: 2,
         pointRadius: 2
       },
@@ -196,9 +209,9 @@
         label: 'Spend',
         data: days.expense || [],
         borderColor: '#64748b',
-        backgroundColor: 'transparent',
+        backgroundColor: softFill('#64748b', 0.12),
         tension: 0.35,
-        fill: false,
+        fill: 'origin',
         borderWidth: 2,
         pointRadius: 2
       }
@@ -219,9 +232,9 @@
         label: 'Units',
         data: days.units || [],
         borderColor: color,
-        backgroundColor: color + '22',
+        backgroundColor: softFill(color, 0.2),
         tension: 0.3,
-        fill: true,
+        fill: 'origin',
         borderWidth: 2,
         pointRadius: 2
       },
@@ -229,9 +242,9 @@
         label: 'Tickets',
         data: days.tickets || [],
         borderColor: '#08143A',
-        backgroundColor: 'transparent',
+        backgroundColor: softFill('#08143A', 0.1),
         tension: 0.3,
-        fill: false,
+        fill: 'origin',
         borderWidth: 2,
         pointRadius: 2
       }
@@ -260,9 +273,9 @@
         label: 'Sales',
         data: months.income || [],
         borderColor: color,
-        backgroundColor: color + '33',
+        backgroundColor: softFill(color, 0.22),
         tension: 0.35,
-        fill: true,
+        fill: 'origin',
         borderWidth: 2,
         pointRadius: 3
       },
@@ -270,9 +283,9 @@
         label: 'Spend',
         data: months.expense || [],
         borderColor: '#64748b',
-        backgroundColor: 'transparent',
+        backgroundColor: softFill('#64748b', 0.12),
         tension: 0.35,
-        fill: false,
+        fill: 'origin',
         borderWidth: 2,
         pointRadius: 3
       }
