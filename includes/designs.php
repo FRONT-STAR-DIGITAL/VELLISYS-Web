@@ -1874,7 +1874,7 @@ function render_sheet_thermal(array $d): void
       <div><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
       <div class="thermal-total"><span><?= $isTill ? 'Received' : 'Total' ?></span><b><?= h(money($isTill ? $paid : $d['total'], $d['cur'])) ?></b></div>
       <?php if ($isTill): ?>
-        <div><span>Due</span><b><?= h(money($due, $d['cur'])) ?></b></div>
+        <div><span>Balance</span><b><?= h(money($due, $d['cur'])) ?></b></div>
         <?php
         $payHow = trim((string) (($d['methods'][$d['method']] ?? '') ?: $d['method']));
         if ($payHow !== ''):
