@@ -116,7 +116,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $wantsJson = str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json')
             || post('ajax') === '1';
         try {
-            save_company_signature_png(post('signature_data', '', 900000));
+            // No truncate: retina canvas PNGs exceed 900k chars and used to corrupt on cut.
+            save_company_signature_png((string) ($_POST['signature_data'] ?? ''));
             if ($wantsJson) {
                 header('Content-Type: application/json; charset=utf-8');
                 echo json_encode(['ok' => true, 'url' => company_signature_url()], JSON_UNESCAPED_SLASHES);
@@ -569,7 +570,7 @@ layout_start('Settings', $user);
       </div>
       <div class="sig-block" data-signature-pad data-sig-url="<?= h(url('settings.php')) ?>">
         <h3>Signature</h3>
-        <p class="hint">Write with a finger or mouse, or upload a small signature image (PNG, JPG, GIF or WebP, under 400 KB). Cancel clears the pad only. Retake lets you draw again without dropping the stored mark until you approve the new one. Remove deletes the saved signature.</p>
+        <p class="hint">Write with a finger or mouse, or upload a signature image (PNG, JPG, GIF or WebP — phone photos are resized automatically). Cancel clears the pad only. Retake lets you draw again without dropping the stored mark until you approve the new one. Remove deletes the saved signature.</p>
         <?php $sigUrl = company_signature_url($b); ?>
         <div class="sig-preview" data-sig-preview <?= $sigUrl === '' ? 'hidden' : '' ?>>
           <?php if ($sigUrl !== ''): ?>
@@ -588,8 +589,8 @@ layout_start('Settings', $user);
       </div>
       <div class="sig-upload">
         <label for="signature_file">Upload a signature image</label>
-        <input id="signature_file" name="signature_file" type="file" accept="image/png,image/jpeg,image/gif,image/webp">
-        <p class="hint">A small scan or photo of the sign-off. PNG, JPG, GIF or WebP, under 400 KB.</p>
+        <input id="signature_file" name="signature_file" type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/*">
+        <p class="hint">Scan or photo of the sign-off. PNG, JPG, GIF or WebP up to 8 MB — large photos are resized to fit. iPhone HEIC must be shared as JPG first.</p>
         <button class="btn ghost sm" type="submit" name="action" value="upload_signature"><?= icon('check', 14) ?>Save image</button>
       </div>
       <div class="palette-swatches" aria-hidden="true">

@@ -3116,74 +3116,21 @@ function render_add_signature_checkbox(?array $existing = null, bool $preferOn =
     <?php
 }
 
-function save_company_signature_png(string $dataUrl): string
+/**
+ * Persist an approved signature file path on branding (+ branding_assets blob).
+ * @return string Relative path under the web root.
+ */
+function store_company_signature_file(string $bin, string $ext): string
 {
-    if (!preg_match('#^data:image/png;base64,([A-Za-z0-9+/=\s]+)$#', trim($dataUrl), $m)) {
-        throw new RuntimeException('Draw the signature on the pad first.');
-    }
-    $bin = base64_decode(preg_replace('/\s+/', '', $m[1]), true);
-    if ($bin === false || strlen($bin) < 80 || strlen($bin) > 800000) {
-        throw new RuntimeException('That signature could not be saved.');
-    }
-    if (!str_starts_with($bin, "\x89PNG")) {
-        throw new RuntimeException('That signature could not be saved.');
-    }
-    $dir = ROOT_PATH . '/uploads/signatures';
-    if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
+    $ext = strtolower($ext);
+    if (!in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'webp'], true)) {
         throw new RuntimeException('Could not save the signature.');
     }
-    $cid = current_company_id();
-    $rel = 'uploads/signatures/sig-' . $cid . '-' . date('YmdHis') . '.png';
-    if (file_put_contents(ROOT_PATH . '/' . $rel, $bin) === false) {
+    if ($ext === 'jpeg') {
+        $ext = 'jpg';
+    }
+    if ($bin === '' || strlen($bin) < 40) {
         throw new RuntimeException('Could not save the signature.');
-    }
-    $old = ltrim((string) (branding()['signature_path'] ?? ''), '/');
-    db_exec('UPDATE branding SET signature_path=? WHERE company_id=?', 'si', [$rel, $cid]);
-    persist_branding_asset($cid, 'signature', $rel);
-    if ($old !== '' && $old !== $rel && str_contains($old, 'uploads/signatures/')) {
-        $full = ROOT_PATH . '/' . $old;
-        if (is_file($full)) {
-            @unlink($full);
-        }
-    }
-    branding(true);
-    if (function_exists('document_pdf_cache_clear_company')) {
-        document_pdf_cache_clear_company($cid);
-    }
-    return $rel;
-}
-
-function save_company_signature_upload(array $file): string
-{
-    if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
-        throw new RuntimeException('Choose a signature image to upload.');
-    }
-    if ((int) ($file['size'] ?? 0) > 400_000) {
-        throw new RuntimeException('Signature image must be under 400 KB.');
-    }
-    $bin = (string) file_get_contents($file['tmp_name']);
-    if (strlen($bin) < 40) {
-        throw new RuntimeException('That signature file is empty.');
-    }
-    $info = @getimagesizefromstring($bin);
-    if (!$info || empty($info['mime'])) {
-        throw new RuntimeException('Upload a PNG, JPG, GIF or WebP signature.');
-    }
-    $mime = (string) $info['mime'];
-    $ext = match ($mime) {
-        'image/png' => 'png',
-        'image/jpeg' => 'jpg',
-        'image/gif' => 'gif',
-        'image/webp' => 'webp',
-        default => '',
-    };
-    if ($ext === '') {
-        throw new RuntimeException('Upload a PNG, JPG, GIF or WebP signature.');
-    }
-    $w = (int) ($info[0] ?? 0);
-    $h = (int) ($info[1] ?? 0);
-    if ($w > 1600 || $h > 800) {
-        throw new RuntimeException('Signature image is too large. Use a small scan, under 1600×800 pixels.');
     }
     $dir = ROOT_PATH . '/uploads/signatures';
     if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
@@ -3208,6 +3155,164 @@ function save_company_signature_upload(array $file): string
         document_pdf_cache_clear_company($cid);
     }
     return $rel;
+}
+
+/**
+ * Downscale / recompress a signature bitmap so phone photos are accepted.
+ * Returns [binary, ext] where ext is png or jpg.
+ *
+ * @return array{0:string,1:string}
+ */
+function normalize_signature_image_bin(string $bin): array
+{
+    $info = @getimagesizefromstring($bin);
+    if (!$info || empty($info['mime'])) {
+        // HEIC/HEIF from iPhones is the usual silent refusal case.
+        $head = substr($bin, 0, 64);
+        if (
+            str_contains($head, 'ftypheic')
+            || str_contains($head, 'ftypheif')
+            || str_contains($head, 'ftypmif1')
+            || str_contains($head, 'ftypmsf1')
+        ) {
+            throw new RuntimeException('iPhone HEIC photos are not supported. In Photos, share the signature as JPG, then upload again.');
+        }
+        throw new RuntimeException('Upload a PNG, JPG, GIF or WebP signature.');
+    }
+    $mime = (string) $info['mime'];
+    if (!in_array($mime, ['image/png', 'image/jpeg', 'image/gif', 'image/webp'], true)) {
+        throw new RuntimeException('Upload a PNG, JPG, GIF or WebP signature.');
+    }
+
+    $w = (int) ($info[0] ?? 0);
+    $h = (int) ($info[1] ?? 0);
+    $maxW = 1200;
+    $maxH = 480;
+    $maxBytes = 700_000;
+    $needsResize = ($w > $maxW || $h > $maxH);
+    $needsShrink = strlen($bin) > $maxBytes;
+    $ext = match ($mime) {
+        'image/png' => 'png',
+        'image/jpeg' => 'jpg',
+        'image/gif' => 'gif',
+        'image/webp' => 'webp',
+        default => '',
+    };
+    if ($ext === '') {
+        throw new RuntimeException('Upload a PNG, JPG, GIF or WebP signature.');
+    }
+
+    // Small, already-valid files can be stored as-is.
+    if (!$needsResize && !$needsShrink) {
+        return [$bin, $ext];
+    }
+
+    if (!function_exists('imagecreatefromstring') || !function_exists('imagepng')) {
+        if ($needsResize) {
+            throw new RuntimeException('Signature image is too large. Use a small scan, under 1200×480 pixels.');
+        }
+        throw new RuntimeException('Signature image must be under 700 KB.');
+    }
+
+    $src = @imagecreatefromstring($bin);
+    if (!$src) {
+        throw new RuntimeException('Upload a PNG, JPG, GIF or WebP signature. If this is an iPhone photo, share it as JPG first.');
+    }
+    $sw = imagesx($src);
+    $sh = imagesy($src);
+    $scale = min(1.0, $maxW / max(1, $sw), $maxH / max(1, $sh));
+    $nw = max(1, (int) round($sw * $scale));
+    $nh = max(1, (int) round($sh * $scale));
+
+    $dst = imagecreatetruecolor($nw, $nh);
+    if ($dst === false) {
+        imagedestroy($src);
+        throw new RuntimeException('Could not process that signature image.');
+    }
+    imagealphablending($dst, false);
+    imagesavealpha($dst, true);
+    $clear = imagecolorallocatealpha($dst, 0, 0, 0, 127);
+    imagefilledrectangle($dst, 0, 0, $nw, $nh, $clear);
+    imagealphablending($dst, true);
+    imagecopyresampled($dst, $src, 0, 0, 0, 0, $nw, $nh, $sw, $sh);
+    imagedestroy($src);
+
+    ob_start();
+    imagepng($dst, null, 6);
+    $png = (string) ob_get_clean();
+    if ($png !== '' && strlen($png) <= $maxBytes) {
+        imagedestroy($dst);
+        return [$png, 'png'];
+    }
+
+    // Dense photos stay smaller as JPEG on a white ground.
+    $jpgCanvas = imagecreatetruecolor($nw, $nh);
+    if ($jpgCanvas === false) {
+        imagedestroy($dst);
+        throw new RuntimeException('Could not process that signature image.');
+    }
+    $white = imagecolorallocate($jpgCanvas, 255, 255, 255);
+    imagefilledrectangle($jpgCanvas, 0, 0, $nw, $nh, $white);
+    imagecopy($jpgCanvas, $dst, 0, 0, 0, 0, $nw, $nh);
+    imagedestroy($dst);
+    $out = '';
+    foreach ([85, 75, 65, 55] as $quality) {
+        ob_start();
+        imagejpeg($jpgCanvas, null, $quality);
+        $out = (string) ob_get_clean();
+        if ($out !== '' && strlen($out) <= $maxBytes) {
+            break;
+        }
+    }
+    imagedestroy($jpgCanvas);
+    if ($out === '' || strlen($out) < 40) {
+        throw new RuntimeException('Could not process that signature image.');
+    }
+    if (strlen($out) > $maxBytes) {
+        throw new RuntimeException('That signature photo is still too heavy after resize. Crop closer to the signature and try again.');
+    }
+    return [$out, 'jpg'];
+}
+
+function save_company_signature_png(string $dataUrl): string
+{
+    $dataUrl = trim($dataUrl);
+    // Do not truncate — cutting base64 mid-stream made Approve fail on retina pads.
+    if (strlen($dataUrl) > 2_500_000) {
+        throw new RuntimeException('That signature drawing is too large. Clear the pad and draw it again.');
+    }
+    if (!preg_match('#^data:image/png;base64,([A-Za-z0-9+/=\s]+)$#', $dataUrl, $m)) {
+        throw new RuntimeException('Draw the signature on the pad first.');
+    }
+    $bin = base64_decode(preg_replace('/\s+/', '', $m[1]), true);
+    if ($bin === false || strlen($bin) < 80 || strlen($bin) > 1_500_000) {
+        throw new RuntimeException('That signature could not be saved.');
+    }
+    if (!str_starts_with($bin, "\x89PNG")) {
+        throw new RuntimeException('That signature could not be saved.');
+    }
+    return store_company_signature_file($bin, 'png');
+}
+
+function save_company_signature_upload(array $file): string
+{
+    $err = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
+    if ($err === UPLOAD_ERR_NO_FILE || empty($file['tmp_name'])) {
+        throw new RuntimeException('Choose a signature image to upload.');
+    }
+    if ($err !== UPLOAD_ERR_OK || !is_uploaded_file((string) $file['tmp_name'])) {
+        throw new RuntimeException('That upload did not finish. Try the image again.');
+    }
+    // Phone camera photos are often 2–6 MB; we resize server-side.
+    if ((int) ($file['size'] ?? 0) > 8_000_000) {
+        throw new RuntimeException('Signature image must be under 8 MB.');
+    }
+    $bin = (string) file_get_contents((string) $file['tmp_name']);
+    if (strlen($bin) < 40) {
+        throw new RuntimeException('That signature file is empty.');
+    }
+    [$out, $ext] = normalize_signature_image_bin($bin);
+    return store_company_signature_file($out, $ext);
 }
 
 function clear_company_signature(): void
