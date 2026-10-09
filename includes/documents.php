@@ -1089,6 +1089,30 @@ function document_share_token(array $doc): string
     return hash_hmac('sha256', (int) ($doc['id'] ?? 0) . ':' . (int) ($doc['company_id'] ?? 0) . ':' . (string) ($doc['number'] ?? ''), document_share_secret());
 }
 
+/** Short token for QR payloads — fewer modules ⇒ thicker printed dots on thermal. */
+function document_share_token_short(array $doc): string
+{
+    return substr(document_share_token($doc), 0, 16);
+}
+
+/** Accept full HMAC or a 16–63 char prefix (QR / short links). */
+function document_share_token_matches(array $doc, string $token): bool
+{
+    $expect = document_share_token($doc);
+    $token = trim($token);
+    if ($expect === '' || $token === '') {
+        return false;
+    }
+    if (hash_equals($expect, $token)) {
+        return true;
+    }
+    $n = strlen($token);
+    if ($n >= 16 && $n < strlen($expect)) {
+        return hash_equals(substr($expect, 0, $n), $token);
+    }
+    return false;
+}
+
 function document_share_url(array $doc): string
 {
     return absolute_url('share.php?id=' . (int) $doc['id'] . '&t=' . document_share_token($doc));
@@ -1466,20 +1490,20 @@ function document_share_og_meta(array $doc, array $brand): void
     echo '<meta name="twitter:image" content="' . h($img) . '">' . "\n";
 }
 
-/** Public authenticity check URL (QR target). Uses the same HMAC as share. */
+/** Public authenticity check URL (QR target). Short token keeps QR modules thick. */
 function document_verify_url(array $doc): string
 {
     if ((int) ($doc['company_id'] ?? 0) < 1 && function_exists('current_company_id')) {
         $doc['company_id'] = current_company_id();
     }
-    return absolute_url('verify.php?id=' . (int) $doc['id'] . '&t=' . document_share_token($doc));
+    return absolute_url('verify.php?id=' . (int) $doc['id'] . '&t=' . document_share_token_short($doc));
 }
 
 /**
- * Threshold a QR PNG to pure black modules on white (no gray anti-alias).
- * Does not dilate — expanding modules would break scanning.
+ * Threshold a QR PNG to pure black modules on white, then nearest-neighbor
+ * upscale so each module is a chunky block (thermal printers lose thin dots).
  */
-function qr_thermal_ink_bin(string $bin): string
+function qr_thermal_ink_bin(string $bin, int $minSide = 360): string
 {
     if ($bin === '' || !function_exists('imagecreatefromstring') || !function_exists('imagepng')) {
         return '';
@@ -1516,6 +1540,24 @@ function qr_thermal_ink_bin(string $bin): string
             imagesetpixel($out, $x, $y, $luma < 160 ? $black : $white);
         }
     }
+    // Integer nearest-neighbor upscale → larger solid modules in the PNG itself.
+    $minSide = max(240, min(640, $minSide));
+    $scale = max(1, (int) ceil($minSide / max($w, $h)));
+    if ($scale > 1 && function_exists('imagecopyresized')) {
+        $nw = $w * $scale;
+        $nh = $h * $scale;
+        $big = imagecreatetruecolor($nw, $nh);
+        if ($big !== false) {
+            $bw = imagecolorallocate($big, 255, 255, 255);
+            imagefilledrectangle($big, 0, 0, $nw, $nh, $bw);
+            imagealphablending($big, false);
+            imagesavealpha($big, false);
+            // imagecopyresized (not resampled) keeps hard module edges.
+            imagecopyresized($big, $out, 0, 0, 0, 0, $nw, $nh, $w, $h);
+            imagedestroy($out);
+            $out = $big;
+        }
+    }
     ob_start();
     imagepng($out, null, 6);
     $png = (string) ob_get_clean();
@@ -1533,19 +1575,22 @@ function document_qr_img_src(string $text, int $size = 120): string
     if ($text === '') {
         return '';
     }
-    $size = max(96, min(320, $size));
+    $size = max(96, min(480, $size));
+    // Generate larger than display so each QR module spans many ink pixels.
+    $genSize = max($size, 360);
     $dir = ROOT_PATH . '/uploads/qr';
     if (!is_dir($dir)) {
         @mkdir($dir, 0755, true);
     }
-    // ink2: pure black modules after local threshold (API anti-alias prints faint on thermal).
-    $key = substr(hash('sha256', $size . '|ink2|H|' . $text), 0, 40);
+    // ink3: short payload + ecc=M + chunky nearest-neighbor modules for thermal.
+    $key = substr(hash('sha256', $genSize . '|ink3|M|' . $text), 0, 40);
     $file = $dir . '/' . $key . '.png';
     $rel = 'uploads/qr/' . $key . '.png';
     if (!is_file($file) || filesize($file) < 40) {
-        // ecc=H + quiet zone help scanners on speckled thermal paper.
-        $api = 'https://api.qrserver.com/v1/create-qr-code/?size=' . $size . 'x' . $size
-            . '&margin=2&ecc=H&color=000000&bgcolor=FFFFFF&format=png&qzone=2&data='
+        // ecc=M needs fewer modules than H → thicker dots at the same print size.
+        // Quiet zone keeps scanners happy on speckled thermal paper.
+        $api = 'https://api.qrserver.com/v1/create-qr-code/?size=' . $genSize . 'x' . $genSize
+            . '&margin=0&ecc=M&color=000000&bgcolor=FFFFFF&format=png&qzone=4&data='
             . rawurlencode($text);
         $bin = '';
         if (function_exists('curl_init')) {
@@ -1571,7 +1616,7 @@ function document_qr_img_src(string $text, int $size = 120): string
             $bin = (string) @file_get_contents($api, false, $ctx);
         }
         if ($bin !== '' && strlen($bin) >= 40 && strncmp($bin, "\x89PNG", 4) === 0) {
-            $ink = qr_thermal_ink_bin($bin);
+            $ink = qr_thermal_ink_bin($bin, $genSize);
             if ($ink !== '') {
                 $bin = $ink;
             }
@@ -1582,8 +1627,8 @@ function document_qr_img_src(string $text, int $size = 120): string
         // Root-relative URL: works in the browser and rewrites to file:// for Chrome PDF.
         return url($rel);
     }
-    return 'https://api.qrserver.com/v1/create-qr-code/?size=' . $size . 'x' . $size
-        . '&margin=2&ecc=H&color=000000&bgcolor=FFFFFF&format=png&qzone=2&data='
+    return 'https://api.qrserver.com/v1/create-qr-code/?size=' . $genSize . 'x' . $genSize
+        . '&margin=0&ecc=M&color=000000&bgcolor=FFFFFF&format=png&qzone=4&data='
         . rawurlencode($text);
 }
 
@@ -1610,8 +1655,10 @@ function document_authenticity_html(array $brand, array $doc): string
         return '';
     }
     $verifyUrl = document_verify_url($doc);
-    // Large hard-ink bitmap: thermal printers need big solid modules to scan.
-    $qr = document_qr_img_src($verifyUrl, 240);
+    $isThermal = function_exists('doc_template_key') && doc_template_key($doc) === 'thermal';
+    // Oversized hard-ink bitmap + short URL → thick modules that survive thermal print.
+    $qr = document_qr_img_src($verifyUrl, $isThermal ? 400 : 280);
+    $imgPx = $isThermal ? 104 : 96;
     $site = product_site_url();
     $host = preg_replace('#^https?://#', '', $site) ?: 'www.vellisys.com';
     ob_start();
@@ -1619,7 +1666,7 @@ function document_authenticity_html(array $brand, array $doc): string
 <div class="doc-authenticity" aria-label="Document authenticity">
   <div class="doc-auth-qr">
     <?php if ($qr !== ''): ?>
-      <img src="<?= h($qr) ?>" width="96" height="96" alt="Scan to verify this document">
+      <img src="<?= h($qr) ?>" width="<?= (int) $imgPx ?>" height="<?= (int) $imgPx ?>" alt="Scan to verify this document">
     <?php endif; ?>
   </div>
   <div class="doc-auth-meta">

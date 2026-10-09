@@ -9,7 +9,7 @@ $probe = $id > 0
     ? db_one('SELECT id, company_id, number, status, kind, date, created_at, party_id FROM documents WHERE id = ?', 'i', [$id])
     : null;
 
-$validToken = $probe && hash_equals(document_share_token($probe), $token);
+$validToken = $probe && document_share_token_matches($probe, $token);
 $valid = false;
 $voided = false;
 $doc = null;
