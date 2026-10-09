@@ -1248,6 +1248,21 @@
 }
 .thermal-to .d-party-k { font-weight: 700 !important; }
 .thermal-to .d-party-v { font-weight: 600 !important; }
+/* Name on its own row; Residence / Tel (etc.) share the two columns below. */
+.sheet-thermal .d-party-block.has-name-full,
+.print-thermal .d-party-block.has-name-full {
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: 3px;
+}
+.sheet-thermal .d-party-block.has-name-full.d-party-cols,
+.print-thermal .d-party-block.has-name-full.d-party-cols {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+}
+.sheet-thermal .d-party-block.has-name-full > .d-party-name-row,
+.print-thermal .d-party-block.has-name-full > .d-party-name-row {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
 .d-lines.thermal-lines {
   table-layout: fixed;
   width: 100%;

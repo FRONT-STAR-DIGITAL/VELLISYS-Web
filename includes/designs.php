@@ -374,9 +374,31 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
     <?php
 }
 
-function render_party_contact(array $doc, bool $singleColumn = false): void
+function render_party_contact(array $doc, bool $singleColumn = false, bool $nameFullRow = false): void
 {
     $lines = function_exists('document_party_to_lines') ? document_party_to_lines($doc) : [];
+    $nameLine = null;
+    if ($nameFullRow && $lines !== []) {
+        foreach ($lines as $i => $line) {
+            $lab = mb_strtolower(trim((string) ($line['label'] ?? '')));
+            if ($lab === 'name') {
+                $nameLine = $line;
+                array_splice($lines, $i, 1);
+                break;
+            }
+        }
+    }
+    $renderRow = static function (array $line, string $extraClass = ''): void {
+        $label = trim((string) ($line['label'] ?? ''));
+        $text = (string) ($line['value'] ?? '');
+        $cls = 'd-party-row' . (!empty($line['nl']) ? ' d-party-addr' : '') . ($extraClass !== '' ? ' ' . $extraClass : '');
+        echo '<div class="' . $cls . '">';
+        if ($label !== '') {
+            echo '<b class="d-party-k">' . h($label) . ':</b>';
+        }
+        echo '<span class="d-party-v">' . (!empty($line['nl']) ? nl2br(h($text)) : h($text)) . '</span>';
+        echo '</div>';
+    };
     $n = count($lines);
     if ($singleColumn || $n <= 1) {
         $cols = [$lines];
@@ -384,19 +406,24 @@ function render_party_contact(array $doc, bool $singleColumn = false): void
         $split = (int) ceil($n / 2);
         $cols = [array_slice($lines, 0, $split), array_slice($lines, $split)];
     }
-    echo '<div class="d-party-block' . (count($cols) > 1 ? ' d-party-cols' : '') . '">';
+    $blockClass = 'd-party-block';
+    if (count($cols) > 1) {
+        $blockClass .= ' d-party-cols';
+    }
+    if ($nameLine !== null) {
+        $blockClass .= ' has-name-full';
+    }
+    echo '<div class="' . $blockClass . '">';
+    if ($nameLine !== null) {
+        $renderRow($nameLine, 'd-party-name-row');
+    }
     foreach ($cols as $col) {
+        if ($col === []) {
+            continue;
+        }
         echo '<div class="d-party-col">';
         foreach ($col as $line) {
-            $label = trim((string) ($line['label'] ?? ''));
-            $text = (string) ($line['value'] ?? '');
-            $cls = 'd-party-row' . (!empty($line['nl']) ? ' d-party-addr' : '');
-            echo '<div class="' . $cls . '">';
-            if ($label !== '') {
-                echo '<b class="d-party-k">' . h($label) . ':</b>';
-            }
-            echo '<span class="d-party-v">' . (!empty($line['nl']) ? nl2br(h($text)) : h($text)) . '</span>';
-            echo '</div>';
+            $renderRow($line);
         }
         echo '</div>';
     }
@@ -1866,7 +1893,7 @@ function render_sheet_thermal(array $d): void
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID</p><?php endif; ?>
   <div class="thermal-to">
     <span>To</span>
-    <?php render_party_contact($doc); ?>
+    <?php render_party_contact($doc, false, true); ?>
   </div>
   <?php if ($kind === 'letter'): ?>
     <?php render_letter_subject($doc); ?>
