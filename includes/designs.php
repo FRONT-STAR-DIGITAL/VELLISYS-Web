@@ -1862,7 +1862,10 @@ function render_sheet_thermal(array $d): void
     <?php render_letter_subject($doc); ?>
     <?php render_letter_body($doc); ?>
   <?php else: ?>
-    <?php render_line_table($slip, '#111', '#f4f4f4', ['compact' => true, 'min' => 1, 'class' => 'thermal-lines']); ?>
+    <?php
+    // Pure black header + white rows: gray fills dither and read faint on thermal printers.
+    render_line_table($slip, '#000', '#fff', ['compact' => true, 'min' => 1, 'class' => 'thermal-lines']);
+    ?>
     <?php if (kind_shows_money($slip['kind'] ?? $kind) && !$qtyOnly): ?>
     <div class="thermal-sums">
       <?php if (!empty($d['show_vat'])): ?>

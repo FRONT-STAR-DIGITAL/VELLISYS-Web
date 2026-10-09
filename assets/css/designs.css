@@ -1147,16 +1147,25 @@
   margin-bottom: 6px;
 }
 
-/* Thermal roll — 80mm receipt */
+/* Thermal roll — 80mm receipt (heavy ink for thermal printers) */
 .invoice-sheet.sheet-thermal {
   width: 80mm;
   max-width: 80mm;
   min-height: 0;
   padding: 5mm 4mm 7mm;
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #000;
   font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  /* Slight stroke so thin glyphs still lay solid black on thermal paper */
+  -webkit-text-stroke: 0.25px #000;
+  text-shadow: 0.2px 0 0 #000, -0.2px 0 0 #000;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
-.thermal-head { text-align: center; }
+.thermal-head { text-align: center; color: #000; }
 .thermal-head .d-logo,
 .thermal-head .d-logo.xs {
   display: block;
@@ -1168,37 +1177,88 @@
   object-fit: contain;
   background: #fff;
   padding: 3px;
-  border-radius: 4px;
+  border-radius: 0;
+  /* Push faint / light logos toward hard black for thermal ink */
+  filter: contrast(1.45) saturate(0.85);
 }
-.thermal-head strong { display: block; font-size: 13px; line-height: 1.25; }
-.thermal-head p { margin: 2px 0; font-size: 10px; line-height: 1.35; }
+.thermal-head strong {
+  display: block;
+  font-size: 14px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: #000;
+  letter-spacing: .01em;
+}
+.thermal-head p {
+  margin: 2px 0;
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 600;
+  color: #000;
+}
 .thermal-kind {
+  display: block;
   text-align: center;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: .14em;
   text-transform: uppercase;
-  font-size: 11px;
-  border-top: 1px dashed #111;
-  border-bottom: 1px dashed #111;
-  padding: 7px 0;
+  font-size: 13px;
+  color: #fff;
+  background: #000;
+  border: 0;
+  border-radius: 2px;
+  padding: 7px 8px;
   margin: 10px 0 8px;
+  -webkit-text-stroke: 0;
+  text-shadow: none;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
-.thermal-meta { text-align: center; font-size: 11px; line-height: 1.45; margin: 0 0 8px; }
-.thermal-to { font-size: 11px; margin: 0 0 10px; line-height: 1.4; }
+.thermal-meta {
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0 0 8px;
+  font-weight: 700;
+  color: #000;
+}
+.thermal-to {
+  font-size: 12px;
+  margin: 0 0 10px;
+  line-height: 1.4;
+  color: #000;
+  font-weight: 600;
+}
 .thermal-to > span {
   display: block;
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: .1em;
   text-transform: uppercase;
-  color: #555;
+  color: #000;
   font-weight: 700;
 }
 .thermal-to .d-party-k,
-.thermal-to .d-party-v { display: inline !important; letter-spacing: 0; text-transform: none; font-weight: inherit; color: inherit; }
+.thermal-to .d-party-v {
+  display: inline !important;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #000 !important;
+}
+.thermal-to .d-party-k { font-weight: 700 !important; }
+.thermal-to .d-party-v { font-weight: 600 !important; }
 .d-lines.thermal-lines {
   table-layout: fixed;
   width: 100%;
-  font-size: 10px;
+  font-size: 11px;
+  color: #000;
+  border-top: 2px solid #000;
+  border-bottom: 2px solid #000;
+}
+.d-lines.thermal-lines thead tr {
+  background: #000 !important;
+  color: #fff !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 .d-lines.thermal-lines th:nth-child(1),
 .d-lines.thermal-lines td:nth-child(1) { width: auto; }
@@ -1214,42 +1274,111 @@
 .d-lines.thermal-lines .item,
 .d-lines.thermal-lines .twin-desc {
   display: inline;
+  font-weight: 700;
+  color: #000;
 }
 .d-lines.thermal-lines .twin-desc {
-  font-weight: 500;
-  color: #333;
+  font-weight: 600;
+  color: #000;
 }
 .d-lines.thermal-lines .twin-vat {
   display: block;
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: .06em;
   text-transform: uppercase;
-  color: #555;
+  color: #000;
+  font-weight: 700;
   margin-top: 1px;
 }
 .d-lines.thermal-lines th,
 .d-lines.thermal-lines td {
-  padding: 4px 3px;
-  border-bottom: 1px dashed #ccc;
+  padding: 5px 3px;
+  border-bottom: 1px solid #000;
   vertical-align: top;
+  color: #000;
+}
+.d-lines.thermal-lines th {
+  font-weight: 700;
+  color: #fff !important;
+  background: #000 !important;
+  -webkit-text-stroke: 0;
+  text-shadow: none;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.d-lines.thermal-lines tbody tr {
+  background: #fff !important;
+}
+.d-lines.thermal-lines td {
+  font-weight: 600;
+}
+.d-lines.thermal-lines td.r,
+.d-lines.thermal-lines th.r {
+  font-weight: 700;
 }
 .thermal-sums {
-  border-top: 1px dashed #111;
+  border-top: 2px solid #000;
   margin-top: 8px;
   padding-top: 8px;
   display: grid;
-  gap: 4px;
+  gap: 5px;
+  color: #000;
 }
 .thermal-sums > div {
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  font-size: 11px;
+  font-size: 12px;
+  color: #000;
 }
-.thermal-total { font-size: 13px; font-weight: 800; border-top: 1px solid #111; padding-top: 6px; margin-top: 4px; }
-.thermal-note { font-size: 10px; white-space: pre-wrap; margin: 10px 0 0; }
-.thermal-thanks { text-align: center; font-weight: 700; margin: 14px 0 4px; font-size: 12px; }
-.thermal-foot { text-align: center; font-size: 9px; color: #444; margin: 0; }
+.thermal-sums > div > span {
+  font-weight: 700;
+  color: #000;
+}
+.thermal-sums > div > b {
+  font-weight: 700;
+  color: #000;
+}
+.thermal-total {
+  font-size: 14px;
+  font-weight: 700;
+  border-top: 2px solid #000;
+  padding-top: 6px;
+  margin-top: 4px;
+}
+.thermal-note {
+  font-size: 11px;
+  white-space: pre-wrap;
+  margin: 10px 0 0;
+  font-weight: 600;
+  color: #000;
+}
+.thermal-thanks {
+  text-align: center;
+  font-weight: 700;
+  margin: 14px 0 4px;
+  font-size: 13px;
+  color: #000;
+}
+.thermal-foot {
+  text-align: center;
+  font-size: 10px;
+  color: #000;
+  font-weight: 600;
+  margin: 0;
+}
+.invoice-sheet.sheet-thermal .auth-sign p,
+.print-thermal .auth-sign p {
+  font-weight: 700;
+  color: #000;
+  border-top-color: #000;
+  border-top-width: 2px;
+}
+.invoice-sheet.sheet-thermal .doc-auth-meta,
+.print-thermal .doc-auth-meta {
+  color: #000;
+  font-weight: 600;
+}
 
 /* Counter booklet - one-sheet receipt book, no item table */
 .invoice-sheet.sheet-booklet {
@@ -2228,7 +2357,6 @@
 .invoice-sheet .ledger-top h1,
 .invoice-sheet .night-sky h1,
 .invoice-sheet .mark-kind,
-.invoice-sheet .thermal-kind,
 .invoice-sheet .atelier-meta em,
 .invoice-sheet .seal-title strong,
 .invoice-sheet .estate-no > span,
@@ -2245,6 +2373,78 @@
   font-weight: 700;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+}
+/* Thermal title stays compact inside the solid black bar (not A4 display size). */
+.invoice-sheet.sheet-thermal .thermal-kind {
+  font-size: 13px !important;
+  line-height: 1.2 !important;
+  font-weight: 700 !important;
+  color: #fff !important;
+  background: #000 !important;
+}
+.invoice-sheet.sheet-thermal,
+.invoice-sheet.sheet-thermal .thermal-head,
+.invoice-sheet.sheet-thermal .thermal-head p,
+.invoice-sheet.sheet-thermal .thermal-meta,
+.invoice-sheet.sheet-thermal .thermal-to,
+.invoice-sheet.sheet-thermal .thermal-to > span,
+.invoice-sheet.sheet-thermal .thermal-to .d-party-k,
+.invoice-sheet.sheet-thermal .thermal-to .d-party-v,
+.invoice-sheet.sheet-thermal .d-lines.thermal-lines,
+.invoice-sheet.sheet-thermal .d-lines.thermal-lines th,
+.invoice-sheet.sheet-thermal .d-lines.thermal-lines td,
+.invoice-sheet.sheet-thermal .d-lines.thermal-lines .item,
+.invoice-sheet.sheet-thermal .d-lines.thermal-lines .twin-desc,
+.invoice-sheet.sheet-thermal .thermal-sums,
+.invoice-sheet.sheet-thermal .thermal-sums > div,
+.invoice-sheet.sheet-thermal .thermal-sums > div > span,
+.invoice-sheet.sheet-thermal .thermal-sums > div > b,
+.invoice-sheet.sheet-thermal .thermal-note,
+.invoice-sheet.sheet-thermal .thermal-thanks,
+.invoice-sheet.sheet-thermal .thermal-foot,
+.invoice-sheet.sheet-thermal .auth-sign p,
+.invoice-sheet.sheet-thermal .doc-auth-meta {
+  color: #000 !important;
+}
+.invoice-sheet.sheet-thermal .thermal-head strong {
+  font-size: 15px !important;
+  line-height: 1.2 !important;
+  font-weight: 700 !important;
+}
+.invoice-sheet.sheet-thermal .thermal-head p {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+}
+.invoice-sheet.sheet-thermal .thermal-meta {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+}
+.invoice-sheet.sheet-thermal .thermal-to,
+.invoice-sheet.sheet-thermal .thermal-sums > div {
+  font-size: 12px !important;
+}
+.invoice-sheet.sheet-thermal .d-lines.thermal-lines,
+.invoice-sheet.sheet-thermal .d-lines.thermal-lines th,
+.invoice-sheet.sheet-thermal .d-lines.thermal-lines td {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+}
+.invoice-sheet.sheet-thermal .d-lines.thermal-lines th {
+  color: #fff !important;
+  background: #000 !important;
+}
+.invoice-sheet.sheet-thermal .thermal-total {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+}
+.invoice-sheet.sheet-thermal .thermal-thanks {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+}
+.invoice-sheet.sheet-thermal .thermal-foot,
+.invoice-sheet.sheet-thermal .thermal-note {
+  font-size: 11px !important;
+  font-weight: 600 !important;
 }
 .invoice-sheet .trade-titles h1 {
   font-size: 28px !important;
