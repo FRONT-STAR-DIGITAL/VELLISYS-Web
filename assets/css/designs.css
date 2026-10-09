@@ -2736,11 +2736,28 @@
   margin-left: auto;
   margin-right: auto;
   text-align: center;
+  margin-top: 12px;
+  max-width: 100%;
 }
 .invoice-sheet.sheet-thermal .auth-sign .d-sign,
 .print-thermal .auth-sign .d-sign {
   margin-left: auto;
   margin-right: auto;
+  display: block;
+  max-width: 70mm;
+}
+.invoice-sheet.sheet-thermal .auth-sign .d-sign img,
+.print-thermal .auth-sign .d-sign img {
+  display: block;
+  margin: 0 auto 4px;
+  height: 36px;
+  max-width: 60mm;
+  width: auto;
+  object-fit: contain;
+  /* Keep inked marks solid on thermal (light / grey scans print faint otherwise) */
+  filter: grayscale(1) contrast(2.4) brightness(0.78);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 @media print {
   .invoice-sheet .doc-authenticity,

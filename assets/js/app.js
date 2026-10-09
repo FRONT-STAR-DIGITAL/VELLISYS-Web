@@ -1459,10 +1459,23 @@ document.querySelectorAll('[data-rich-editor]').forEach(function (wrap) {
 });
 
 document.querySelectorAll('form[data-brand-form]').forEach(function (form) {
-  form.addEventListener('submit', function () {
+  form.addEventListener('submit', function (ev) {
     var logo = form.querySelector('input[name="logo"]');
     if (logo && (!logo.files || !logo.files.length)) {
       logo.disabled = true;
+    }
+    var sig = form.querySelector('input[name="signature_file"]');
+    if (sig && (!sig.files || !sig.files.length)) {
+      sig.disabled = true;
+    }
+    // If Save image was clicked with no file, say so instead of falling through to save_brand.
+    var submitter = ev.submitter || document.activeElement;
+    if (submitter && submitter.getAttribute('name') === 'action' && submitter.value === 'upload_signature') {
+      if (!sig || !sig.files || !sig.files.length) {
+        ev.preventDefault();
+        var status = form.querySelector('[data-sig-status]');
+        if (status) status.textContent = 'Choose a signature image first.';
+      }
     }
   });
 });

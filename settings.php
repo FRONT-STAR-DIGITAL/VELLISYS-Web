@@ -164,6 +164,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (!empty($taken['path'])) {
         $logoPath = $taken['path'];
     }
+    // Same form as logo — honour a chosen signature file when Save settings is used.
+    $sigErr = (int) ($_FILES['signature_file']['error'] ?? UPLOAD_ERR_NO_FILE);
+    if ($error === '' && $sigErr !== UPLOAD_ERR_NO_FILE && !empty($_FILES['signature_file']['tmp_name'])) {
+        try {
+            save_company_signature_upload($_FILES['signature_file']);
+        } catch (Throwable $e) {
+            $error = $e->getMessage();
+        }
+    }
     if ($error === '') {
         db_exec(
             'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, receipt_comments=?, currency=?, fx_ugx_per_usd=?, letter_templates=?, doc_template=?, number_format=?, logo_bg=?, tax_name=?, tax_rate=?, tax_default=? WHERE company_id=?',
@@ -545,7 +554,6 @@ layout_start('Settings', $user);
 
     <form method="post" enctype="multipart/form-data" data-brand-form>
     <?= csrf_field() ?>
-    <input type="hidden" name="action" value="save_brand">
     <section class="card settings-card" id="appearance">
       <h2><?= icon('palette') ?>Appearance</h2>
       <p class="lede">Logo and two brand colours. Tap a colour square to open the colour picker and choose any colour. Use Eyedrop to sample a colour from this page. Hex and R G B show the exact code.</p>
@@ -590,7 +598,7 @@ layout_start('Settings', $user);
       <div class="sig-upload">
         <label for="signature_file">Upload a signature image</label>
         <input id="signature_file" name="signature_file" type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/*">
-        <p class="hint">Scan or photo of the sign-off. PNG, JPG, GIF or WebP up to 8 MB — large photos are resized to fit. iPhone HEIC must be shared as JPG first.</p>
+        <p class="hint">Scan or photo of the sign-off. PNG, JPG, GIF or WebP up to 8 MB — large photos are resized to fit. iPhone HEIC must be shared as JPG first. Use <strong>Save image</strong> here, or <strong>Save settings</strong> with the file chosen — both keep the mark.</p>
         <button class="btn ghost sm" type="submit" name="action" value="upload_signature"><?= icon('check', 14) ?>Save image</button>
       </div>
       <div class="palette-swatches" aria-hidden="true">

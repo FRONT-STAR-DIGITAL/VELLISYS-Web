@@ -638,7 +638,14 @@ function render_letter_to_label(string $label = 'To'): void
 
 function document_has_e_signature(array $doc): bool
 {
-    return !empty($doc['add_signature']) && company_signature_url() !== '';
+    if (company_signature_url() === '') {
+        return false;
+    }
+    // Thermal till sheets always stamp the approved company mark once it is saved.
+    if (function_exists('doc_template_key') && doc_template_key($doc) === 'thermal') {
+        return true;
+    }
+    return !empty($doc['add_signature']);
 }
 
 function render_company_signature(array $doc): void

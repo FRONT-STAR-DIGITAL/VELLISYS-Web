@@ -1459,6 +1459,7 @@ function stock_complete_sale(array $input): array
     $method = stock_payment_key((string) ($input['method'] ?? 'cash'));
     $vatRate = $anyTaxed ? company_tax_rate() : 0.0;
     $branchId = stock_write_branch_id();
+    $stampSig = function_exists('company_signature_path') && company_signature_path() !== '';
     $invoiceId = create_document([
         'kind' => 'invoice',
         'party_id' => $partyId,
@@ -1469,6 +1470,7 @@ function stock_complete_sale(array $input): array
         'payment_method' => $method,
         'items' => $clean,
         'branch_id' => $branchId,
+        'add_signature' => $stampSig ? 1 : 0,
     ]);
     $grand = doc_total($clean, $vatRate);
     $receiptId = 0;
@@ -1489,6 +1491,7 @@ function stock_complete_sale(array $input): array
             'notes' => $paid + 0.009 < $grand ? 'Part payment on sale' : 'Sale paid',
             'items' => [],
             'branch_id' => $branchId,
+            'add_signature' => $stampSig ? 1 : 0,
         ]);
     }
     return [
