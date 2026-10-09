@@ -47,7 +47,7 @@ function render_nav_boot_script(): void
 {
     ?>
 <style id="vellisys-tabbar-pin">
-/* Host is the only fixed layer — keeps the bar on the screen bottom even when
+/* Host is the only fixed layer - keeps the bar on the screen bottom even when
    ancestors use transform/overflow (common on admin + sheet preview pages). */
 @media (max-width: 1024px) {
   html, body.desk-body, body.admin-body, body.sales-body {
@@ -723,7 +723,7 @@ function render_desk_calculator(): void
       <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="7">7</button>
       <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="8">8</button>
       <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="9">9</button>
-      <button type="button" class="desk-calc-key op" data-calc="op" data-op="-">−</button>
+      <button type="button" class="desk-calc-key op" data-calc="op" data-op="-">-</button>
       <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="4">4</button>
       <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="5">5</button>
       <button type="button" class="desk-calc-key num" data-calc="digit" data-digit="6">6</button>
@@ -908,7 +908,7 @@ function layout_end(string $extra = ''): void
     try {
       var nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
       if (nav && nav.duration) {
-        // Full navigation (TTFB + download + parse + load) — not footer-script delta.
+        // Full navigation (TTFB + download + parse + load) - not footer-script delta.
         ms = Math.round(nav.duration);
       } else if (performance.timing) {
         var t = performance.timing;

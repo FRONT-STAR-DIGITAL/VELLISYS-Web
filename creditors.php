@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'add_ledger') {
     }
 }
 
-// Standalone personal ledger — not business expenses.
+// Standalone personal ledger - not business expenses.
 $rows = array_values(array_filter(
     list_documents('expense'),
     static fn ($d) => $d['status'] !== 'void'
@@ -33,7 +33,7 @@ layout_start('Creditors', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('bank') ?>Creditors</h1>
-    <p class="lede">People or places you owe — personal or private amounts. This ledger stays on its own: it does not post to business expenses, sales, or the desk dashboard. Recording a payment clears the bill only.<?= function_exists('desk_branch_lede') ? h(desk_branch_lede('creditors')) : '' ?></p>
+    <p class="lede">People or places you owe - personal or private amounts. This ledger stays on its own: it does not post to business expenses, sales, or the desk dashboard. Recording a payment clears the bill only.<?= function_exists('desk_branch_lede') ? h(desk_branch_lede('creditors')) : '' ?></p>
   </div>
   <div class="actions">
     <a class="btn" href="<?= h(url('creditors.php?add=1#ledger-add')) ?>"><?= icon('plus', 16) ?>Add new</a>
@@ -83,8 +83,8 @@ layout_start('Creditors', $user);
               No payee
             <?php endif; ?></td>
             <td class="date-cell"><?= h(format_date($doc['date'])) ?></td>
-            <td class="date-cell"><?= h(!empty($doc['due_date']) ? format_date($doc['due_date']) : '—') ?></td>
-            <td><?= h(trim((string) ($doc['notes'] ?? '')) ?: '—') ?></td>
+            <td class="date-cell"><?= h(!empty($doc['due_date']) ? format_date($doc['due_date']) : '-') ?></td>
+            <td><?= h(trim((string) ($doc['notes'] ?? '')) ?: '-') ?></td>
             <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>
             <td class="right mono"><?= h(money($doc['paid'], doc_currency($doc))) ?></td>
             <td class="right mono"><?= h(money($doc['balance'], doc_currency($doc))) ?></td>

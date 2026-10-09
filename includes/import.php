@@ -32,7 +32,7 @@ function import_kinds(): array
     if (company_stock_enabled()) {
         $kinds['stock'] = [
             'title' => 'Stock',
-            'lead' => 'Products and services. Type blank is a product. Empty buying price, selling price, reorder and opening qty become 0 — those rows still import. Every product row is kept, including 1,000 or more.',
+            'lead' => 'Products and services. Type blank is a product. Empty buying price, selling price, reorder and opening qty become 0 - those rows still import. Every product row is kept, including 1,000 or more.',
             'icon' => 'package',
             'file' => 'stock-template',
         ];

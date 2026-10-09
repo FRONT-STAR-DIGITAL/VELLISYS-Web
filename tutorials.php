@@ -63,7 +63,7 @@ $lessons = [
         'alt' => 'New quotation with client, branch and document lines',
         'lead' => 'A quotation is the offer. Write it in your logo and colours, send it, then convert it when they say yes.',
         'points' => [
-            'New quotation, pick the client, add lines: item, description, qty, unit price, tax Y or N. There is no due date — the sheet is dated and signed Prepared by. On a phone, swipe the whole line sideways. Type an item to pick from stock, or keep a name that is not in stock.',
+            'New quotation, pick the client, add lines: item, description, qty, unit price, tax Y or N. There is no due date - the sheet is dated and signed Prepared by. On a phone, swipe the whole line sideways. Type an item to pick from stock, or keep a name that is not in stock.',
             'Share the branded sheet, or Email it in one click. Mail leaves from the company mailbox Vellisys assigned, not your personal inbox.',
             'When they accept, convert the quotation to an invoice. The lines copy across so you do not retype them.',
         ],
@@ -129,7 +129,7 @@ $lessons = [
         'alt' => 'Expense list with suppliers, categories and amounts',
         'lead' => 'Money out is an expense. The payee is optional. Log the category, the tax and the date so Reports can tot it up.',
         'points' => [
-            'Record expense from the menu or Quick add. A supplier is optional — leave Party blank if there is none.',
+            'Record expense from the menu or Quick add. A supplier is optional - leave Party blank if there is none.',
             'Category is what the pie chart uses. Keep personal spend off this desk - Vellisys is the company books.',
             'Unpaid bills stay on Creditors until you mark them paid. Pay from the expense, or from that list.',
         ],
@@ -224,7 +224,7 @@ $lessons = [
             'Sheets issued from a branch print that address. Head office keeps using the Settings address.',
             'Assign staff so their work is recorded there. Several logins can sit on one branch.',
             'Stock, clients, debtors, creditors, expenses, Sale till and the Desk dashboard are per branch. A branch portal cannot see Head office lists or sales. Deleting a client or product at Head office leaves branch copies in place.',
-            'Only the company admin sees overall — chip Every branch on Desk, Stock, Clients or ledgers, or open Branches → Performance.',
+            'Only the company admin sees overall - chip Every branch on Desk, Stock, Clients or ledgers, or open Branches → Performance.',
         ],
     ],
     [
@@ -237,7 +237,7 @@ $lessons = [
         'points' => [
             'Open / close day is off unless Vellisys ticks it on the company. When it is on, Sale asks for opening cash before till sales. Invoices, receipts and expenses never need the till open.',
             'Filter Day with today, this week, this month or this year. Charts follow the dates you pick. Products and services sold sit on the Day report.',
-            'Add products and services, or download the Excel, fill it and upload. Type blank is a product. Empty buying price, selling price, reorder and opening qty become 0 — those rows still import. Every product on the sheet is kept. Low stock shows when quantity hits the reorder level. Services have no quantity. On a branched desk each location has its own list — a product at one shop does not appear at another or at Head office.',
+            'Add products and services, or download the Excel, fill it and upload. Type blank is a product. Empty buying price, selling price, reorder and opening qty become 0 - those rows still import. Every product on the sheet is kept. Low stock shows when quantity hits the reorder level. Services have no quantity. On a branched desk each location has its own list - a product at one shop does not appear at another or at Head office.',
             'Purchases restock the business. Unpaid purchases sit on Creditors. Sale and Documents share the same products when both are on; each can also be used on its own.',
         ],
     ],

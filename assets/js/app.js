@@ -326,7 +326,7 @@ function pinAppTabbar() {
     bar.style.removeProperty('transform');
     return;
   }
-  // Fixed host on <body> — bar stays at the real screen bottom even when a
+  // Fixed host on <body> - bar stays at the real screen bottom even when a
   // sheet/preview ancestor uses transform (which breaks position:fixed).
   if (bar.parentElement !== host) host.appendChild(bar);
   if (host.parentElement !== document.body) document.body.appendChild(host);
@@ -2031,7 +2031,7 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
     var id = matchExact(search.value);
     party.value = id;
     if (!id) {
-      // typing a new name — don't wipe address until they pick someone
+      // typing a new name - don't wipe address until they pick someone
     }
     renderList(search.value);
   });
@@ -2451,7 +2451,7 @@ function buildToOrderExtraRow(profile) {
     '<option value="date">Date</option>' +
     '<option value="number">Number</option>' +
     '<option value="textarea">Long text</option>' +
-    '<option value="period">Period (from–to)</option>' +
+    '<option value="period">Period (from-to)</option>' +
     '</select>' +
     toOrderRemoveBtn();
   return row;

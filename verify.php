@@ -264,12 +264,12 @@ http_response_code(($validToken && $doc) ? 200 : 404);
           </div>
           <div class="verify-row">
             <span>Generated</span>
-            <strong><?= h($generated !== '' ? $generated : '—') ?></strong>
+            <strong><?= h($generated !== '' ? $generated : '-') ?></strong>
           </div>
           <div class="verify-row">
             <span>Sent by</span>
             <strong>
-              <?= h($companyName !== '' ? $companyName : '—') ?>
+              <?= h($companyName !== '' ? $companyName : '-') ?>
               <?php if ($companyPhone !== '' || $companyEmail !== '' || $companyWebsite !== ''): ?>
                 <em>
                   <?= h(implode(' · ', array_values(array_filter([$companyPhone, $companyEmail, $companyWebsite])))) ?>
@@ -279,7 +279,7 @@ http_response_code(($validToken && $doc) ? 200 : 404);
           </div>
           <div class="verify-row">
             <span>Sent to</span>
-            <strong><?= h($partyName !== '' ? $partyName : '—') ?></strong>
+            <strong><?= h($partyName !== '' ? $partyName : '-') ?></strong>
           </div>
         </div>
         <p class="verify-note">This page confirms that the document was issued on the sender’s Vellisys desk and that the reference above matches their records.</p>

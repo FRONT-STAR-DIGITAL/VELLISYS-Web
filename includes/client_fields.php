@@ -71,7 +71,7 @@ function client_extra_field_types(): array
         'date' => 'Date',
         'number' => 'Number',
         'textarea' => 'Long text',
-        'period' => 'Period (from–to)',
+        'period' => 'Period (from-to)',
     ];
 }
 

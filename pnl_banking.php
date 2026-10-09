@@ -87,7 +87,7 @@ $totals = bank_period_totals($txns);
 $bucket = pnl_report_bucket();
 $report = bank_report_series($txns, $bucket);
 $period = period_range();
-$rangeLabel = $period['from'] ? format_date($period['from']) . ' – ' . format_date($period['to']) : 'all dates';
+$rangeLabel = $period['from'] ? format_date($period['from']) . ' - ' . format_date($period['to']) : 'all dates';
 $cashOnHand = 0.0;
 foreach ($accounts as $a) {
     if ((int) ($a['is_active'] ?? 1) === 1) {

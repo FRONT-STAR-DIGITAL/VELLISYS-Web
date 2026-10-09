@@ -16,7 +16,7 @@
     var content = stage.closest('.content');
     var narrow = view > 0 && view <= 900;
 
-    // Thermal roll already fills phones well — keep a gentle padded measure.
+    // Thermal roll already fills phones well - keep a gentle padded measure.
     if (isThermal) {
       var tw = stage.clientWidth || view;
       if (wrap && wrap.clientWidth > 8) {

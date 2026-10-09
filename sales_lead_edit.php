@@ -4,7 +4,7 @@ require __DIR__ . '/includes/bootstrap.php';
 $user = require_sales_agent();
 
 $id = (int) ($_GET['id'] ?? 0);
-// Clock-in is only required when adding a new lead — nowhere else on sales.
+// Clock-in is only required when adding a new lead - nowhere else on sales.
 if ($id < 1) {
     sales_require_clock_in();
 }

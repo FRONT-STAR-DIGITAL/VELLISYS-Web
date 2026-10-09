@@ -489,7 +489,7 @@
     }
   }
 
-  /** Share the PDF file alone — never pass url/text (those become blob links in WhatsApp). */
+  /** Share the PDF file alone - never pass url/text (those become blob links in WhatsApp). */
   function sharePdfFile(file) {
     if (!file) {
       return Promise.reject(new Error('share-unsupported'));
@@ -622,7 +622,7 @@
 
   /**
    * Share the PDF file alone (document number as the filename).
-   * Never pass url/text — those become the useless blob:https://… link in WhatsApp.
+   * Never pass url/text - those become the useless blob:https://… link in WhatsApp.
    */
   function shareExactSheet(filename) {
     return buildPdfFile(filename).then(function (file) {
@@ -746,7 +746,7 @@
         || 'document.pdf';
       if (!/\.pdf$/i.test(shareName)) shareName += '.pdf';
 
-      // Second tap: PDF is ready — share in this gesture so WhatsApp / Contacts open.
+      // Second tap: PDF is ready - share in this gesture so WhatsApp / Contacts open.
       var readyFile = readyShareFiles.get(shareA);
       if (readyFile && shareA.classList.contains('is-ready')) {
         sharePdfFile(readyFile).then(function () {
@@ -876,7 +876,7 @@
     return 'document.pdf';
   }
 
-  // document_view.php?sharepdf=1 — prepare the PDF, then ask for a tap (gesture required).
+  // document_view.php?sharepdf=1 - prepare the PDF, then ask for a tap (gesture required).
   if (/(?:^|[?&])sharepdf=1(?:&|$)/.test(location.search || '')) {
     function runSharePrepare() {
       if (busy) return;

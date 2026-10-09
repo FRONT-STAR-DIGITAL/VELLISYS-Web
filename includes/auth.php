@@ -434,7 +434,7 @@ function session_is_platform(): bool
     return (string) ($_SESSION['role'] ?? '') === 'platform';
 }
 
-/** Cookie lifetime — until Sign out (no idle cut-off). */
+/** Cookie lifetime - until Sign out (no idle cut-off). */
 function remember_lifetime_seconds(): int
 {
     if (function_exists('folio_session_persist_seconds')) {
@@ -479,7 +479,7 @@ function folio_session_cookie_options(int $expires): array
 
 /**
  * Slide session + remember + durable auth cookies.
- * Never call session_set_cookie_params() here — the session is already active
+ * Never call session_set_cookie_params() here - the session is already active
  * (started in bootstrap). Doing so emits a warning, which sends output, which
  * blocks Set-Cookie and logs everyone out on the next navigation/app switch.
  */
@@ -518,15 +518,15 @@ function expire_remembered_session(): void
 
 function remember_login(bool $remember = true): void
 {
-    // Ignore the checkbox — stay signed in until Sign out (VPS-safe).
+    // Ignore the checkbox - stay signed in until Sign out (VPS-safe).
     $_SESSION['remember'] = 1;
     $_SESSION['last_activity'] = time();
     folio_emit_session_cookies(active_session_lifetime_seconds(), true);
 }
 
 /**
- * Keep every logged-in portal alive. No idle expiry — only Sign out clears login.
- * Never uses a browser-session cookie (lifetime 0) — those die on mobile.
+ * Keep every logged-in portal alive. No idle expiry - only Sign out clears login.
+ * Never uses a browser-session cookie (lifetime 0) - those die on mobile.
  */
 function refresh_remembered_session(): void
 {

@@ -324,7 +324,7 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
                         }
                         $val = function_exists('line_item_extra') ? line_item_extra($item, $key) : '';
                         if ($val !== '') {
-                            // One named column (e.g. Service): value only — title is already the header.
+                            // One named column (e.g. Service): value only - title is already the header.
                             $parts[] = $singleDetail
                                 ? '<span class="twin-desc">' . h($val) . '</span>'
                                 : '<span class="twin-desc">' . h($label) . ': ' . h($val) . '</span>';
@@ -420,7 +420,7 @@ function render_amount_words(array $d): void
 
 function slip_plain(string $text): string
 {
-    return str_replace(["\u{2014}", "\u{2013}", "\u{2212}", '—', '–', '−'], '-', $text);
+    return str_replace(["\u{2014}", "\u{2013}", "\u{2212}", '-', '-', '-'], '-', $text);
 }
 
 function slip_item_summary(array $doc): string
@@ -1906,7 +1906,7 @@ function render_sheet_thermal(array $d): void
 }
 
 /**
- * Trade / dealers quotation sheet — logo + name, coloured title pill,
+ * Trade / dealers quotation sheet - logo + name, coloured title pill,
  * QTY | PARTICULARS | UNIT COST | AMOUNT, amount in words, Prepared by.
  */
 function render_sheet_trade(array $d): void
@@ -2027,7 +2027,7 @@ function render_sheet_trade(array $d): void
                 $particular = function_exists('line_item_name') ? line_item_name($item) : (string) ($item['item_name'] ?? '');
                 $desc = function_exists('line_item_description') ? line_item_description($item) : (string) ($item['description'] ?? '');
                 if ($desc !== '' && strcasecmp($desc, $particular) !== 0) {
-                    $particular = trim($particular . ($particular !== '' ? ' — ' : '') . $desc);
+                    $particular = trim($particular . ($particular !== '' ? ' - ' : '') . $desc);
                 }
                 if ($money && !$qtyOnly) {
                     $decRate = function_exists('money_display_decimals')

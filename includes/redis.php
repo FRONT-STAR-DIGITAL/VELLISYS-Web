@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /**
  * Optional Redis for short-lived app cache (folio_remember, rate limits).
- * Sessions stay in MySQL — durable across redeploys.
+ * Sessions stay in MySQL - durable across redeploys.
  * If Redis is down or not configured, callers fall back to files / no-op.
  */
 
@@ -104,7 +104,7 @@ function folio_redis_del(string $key): void
     }
 }
 
-/** Delete all Vellisys cache keys (SCAN — safe). */
+/** Delete all Vellisys cache keys (SCAN - safe). */
 function folio_redis_flush_prefix(): void
 {
     $r = folio_redis();

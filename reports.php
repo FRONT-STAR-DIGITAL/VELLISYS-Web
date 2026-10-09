@@ -78,7 +78,7 @@ $costs = 0;
 $byCat = [];
 foreach ($expenses as $d) {
     if (function_exists('is_personal_creditor') && is_personal_creditor($d)) {
-        continue; // Personal Creditors ledger — not business spend
+        continue; // Personal Creditors ledger - not business spend
     }
     if (function_exists('stock_is_stock_expense') && stock_is_stock_expense($d)) {
         continue; // Stock purchases sit on inventory - not operating spend

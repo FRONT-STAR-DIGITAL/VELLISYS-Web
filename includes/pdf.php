@@ -5,7 +5,7 @@ function vellisys_pdf_latin(string $text): string
 {
     $text = str_replace(["\r\n", "\r"], "\n", $text);
     $text = strtr($text, [
-        '—' => '-', '–' => '-', '−' => '-',
+        '-' => '-', '-' => '-', '-' => '-',
         '’' => "'", '‘' => "'", '“' => '"', '”' => '"',
     ]);
     $converted = @iconv('UTF-8', 'ISO-8859-1//TRANSLIT//IGNORE', $text);

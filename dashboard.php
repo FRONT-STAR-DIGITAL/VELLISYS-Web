@@ -111,7 +111,7 @@ $expAll = array_values(array_filter(
         'i' . $bTypes,
         array_merge([$cid], $bArgs)
     )),
-    // Personal Creditors ledger stays off the desk — not business spend.
+    // Personal Creditors ledger stays off the desk - not business spend.
     static fn ($d) => !is_personal_creditor($d)
 ));
 $expensePeriod = $sumInRange($expAll);
@@ -289,7 +289,7 @@ if (function_exists('render_desk_branch_chips')) {
 $scope = function_exists('desk_view_branch') ? desk_view_branch() : ['enabled' => false, 'all' => true, 'label' => ''];
 if (!empty($scope['enabled'])) {
     echo '<p class="hint" style="margin:-4px 0 16px">' . (!empty($scope['all'])
-        ? 'Overall desk — every branch together. Chip a location to see that shop only. Branch logins cannot open Head office figures.'
+        ? 'Overall desk - every branch together. Chip a location to see that shop only. Branch logins cannot open Head office figures.'
         : ('Showing ' . h((string) $scope['label']) . ' only. Head office stays off this portal.')) . '</p>';
 }
 render_desk_metric_tabs([

@@ -91,7 +91,7 @@ function money($amount, ?string $currency = null): string
     return $currency . ' ' . number_format($n, $dec, '.', ',');
 }
 
-/** Amount for money inputs — thousands commas, no currency code. */
+/** Amount for money inputs - thousands commas, no currency code. */
 function money_input_value($amount, ?string $currency = null): string
 {
     $currency = normalize_currency((string) ($currency ?: default_currency()), default_currency());
@@ -240,7 +240,7 @@ function company_tax_name(?array $brand = null): string
     return sanitize_tax_name($brand['tax_name'] ?? 'VAT');
 }
 
-/** Fraction 0–1 stored on branding. Default 18%. */
+/** Fraction 0-1 stored on branding. Default 18%. */
 function company_tax_rate(?array $brand = null): float
 {
     $brand = $brand ?? branding();
@@ -1460,7 +1460,7 @@ function expense_categories(): array
     return ['Farm inputs', 'Fuel', 'Rent', 'Salaries', 'Transport', 'Utilities', 'Professional fees', 'Other'];
 }
 
-/** Category marker for Creditors-page entries — personal ledger, not business spend. */
+/** Category marker for Creditors-page entries - personal ledger, not business spend. */
 function personal_creditor_category(): string
 {
     return 'Personal creditor';
@@ -1859,7 +1859,7 @@ function require_desk_kind(string $kind): void
 function desk_kind_nav_items(): array
 {
     $enabled = company_enabled_kinds();
-    // Refunds and returns stay inside P&L — not on the main desk nav.
+    // Refunds and returns stay inside P&L - not on the main desk nav.
     $order = ['quotation', 'invoice', 'receipt', 'delivery', 'expense', 'letter', 'custom'];
     $out = [];
     foreach ($order as $kind) {
@@ -2169,7 +2169,7 @@ function render_desk_kinds_fields(?array $company = null): void
       ?>
       <div class="client-fields-box" style="margin-top:16px">
         <h3>Columns on document tables</h3>
-        <p class="hint">Choose and reorder what prints on quotations, invoices, receipts and delivery notes. Drag with the arrows — for example put Service before Amount. Sale and Stock keep their own tables.</p>
+        <p class="hint">Choose and reorder what prints on quotations, invoices, receipts and delivery notes. Drag with the arrows - for example put Service before Amount. Sale and Stock keep their own tables.</p>
         <input type="hidden" name="line_columns_present" value="1">
         <div class="to-order-list" data-line-col-order data-to-order="line-cols">
           <?php foreach ($lineEntries as $entry): ?>
@@ -2740,7 +2740,7 @@ function platform_create_company(?int $signupId = null): array
     $name = post('name');
     $userName = post('user_name');
     $userEmail = strtolower(post('user_email'));
-    // Document contact email (printed on sheets) — separate from the desk login email.
+    // Document contact email (printed on sheets) - separate from the desk login email.
     $docEmail = strtolower(trim(post('doc_email') !== '' ? post('doc_email') : post('email')));
     $password = post('user_password');
     $generated = false;
@@ -3089,7 +3089,7 @@ function company_signature_url(?array $brand = null): string
 
 /**
  * Pure-black ink stamp of the company signature for thermal printers.
- * Gray / anti-aliased strokes dither into faint dots on 80mm rolls — this thresholds
+ * Gray / anti-aliased strokes dither into faint dots on 80mm rolls - this thresholds
  * and thickens the mark so it lays solid black.
  */
 function company_signature_ink_url(?array $brand = null): string
@@ -3414,7 +3414,7 @@ function normalize_signature_image_bin(string $bin): array
 function save_company_signature_png(string $dataUrl): string
 {
     $dataUrl = trim($dataUrl);
-    // Do not truncate — cutting base64 mid-stream made Approve fail on retina pads.
+    // Do not truncate - cutting base64 mid-stream made Approve fail on retina pads.
     if (strlen($dataUrl) > 2_500_000) {
         throw new RuntimeException('That signature drawing is too large. Clear the pad and draw it again.');
     }
@@ -3447,7 +3447,7 @@ function save_company_signature_upload(array $file): string
     if ($err !== UPLOAD_ERR_OK || !is_uploaded_file((string) $file['tmp_name'])) {
         throw new RuntimeException('That upload did not finish. Try the image again.');
     }
-    // Phone camera photos are often 2–6 MB; we resize server-side.
+    // Phone camera photos are often 2-6 MB; we resize server-side.
     if ((int) ($file['size'] ?? 0) > 8_000_000) {
         throw new RuntimeException('Signature image must be under 8 MB.');
     }
@@ -4761,7 +4761,7 @@ function platform_issued_documents(): array
         $to = isset($byId[$rid]) ? doc_currency($byId[$rid]) : doc_currency($row);
         $paidBy[$rid] = ($paidBy[$rid] ?? 0) + convert_money($amt, doc_currency($row), $to);
     }
-    // Expense payments (document_payments) — platform rollups without inventing receipts.
+    // Expense payments (document_payments) - platform rollups without inventing receipts.
     try {
         $payRes = @db()->query("SHOW TABLES LIKE 'document_payments'");
         if ($payRes && $payRes->num_rows > 0 && $ids) {

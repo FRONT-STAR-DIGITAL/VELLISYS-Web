@@ -197,7 +197,7 @@ function desk_branch_lede(string $kind = 'books'): string
         return '';
     }
     if (!empty($scope['all'])) {
-        return ' Combined across every branch. Chip a location to see that shop only — overall is for the company admin. Each location keeps its own clients, products, debtors, creditors and expenses; deleting one does not remove it elsewhere.';
+        return ' Combined across every branch. Chip a location to see that shop only - overall is for the company admin. Each location keeps its own clients, products, debtors, creditors and expenses; deleting one does not remove it elsewhere.';
     }
     return ' ' . ucfirst($kind) . ' for ' . (string) $scope['label'] . ' only. Head office and other branches stay off this portal. Clients, products and ledgers on this list are this location only.';
 }

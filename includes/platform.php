@@ -170,7 +170,7 @@ function touch_user_seen(int $userId, bool $login = false): void
     if ($userId < 1) {
         return;
     }
-    // Throttle presence writes — every page was doing an UPDATE.
+    // Throttle presence writes - every page was doing an UPDATE.
     if (!$login) {
         $key = 'seen_at_' . $userId;
         $last = (int) ($_SESSION[$key] ?? 0);
@@ -681,7 +681,7 @@ function record_platform_perf(int $ms, string $path = ''): void
     $path = mb_substr($path !== '' ? $path : (string) ($_SERVER['SCRIPT_NAME'] ?? ''), 0, 120);
     try {
         db_exec('INSERT INTO platform_perf_samples (ms, path, created_at) VALUES (?,?,NOW())', 'is', [$ms, $path]);
-        // Prune at most once per day — DELETE on every ping was wasteful.
+        // Prune at most once per day - DELETE on every ping was wasteful.
         $pruneKey = 'perf_prune_day';
         $day = date('Y-m-d');
         if ((string) ($_SESSION[$pruneKey] ?? '') !== $day) {

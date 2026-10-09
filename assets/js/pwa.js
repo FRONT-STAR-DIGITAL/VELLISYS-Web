@@ -160,7 +160,7 @@
       }).catch(function () {});
       return true;
     }
-    // No native prompt yet — on iOS keep the login install help; otherwise wait.
+    // No native prompt yet - on iOS keep the login install help; otherwise wait.
     if (banner && btn && btn.closest('[data-pwa-install-banner]')) {
       if (isIos) {
         var login = btn.getAttribute('data-pwa-install-login') || html.getAttribute('data-pwa-login') || 'login.php';
@@ -198,7 +198,7 @@
     } catch (err) {}
   }
 
-  // iOS has no beforeinstallprompt — show once if not dismissed.
+  // iOS has no beforeinstallprompt - show once if not dismissed.
   if (banner && isIos && !bannerDismissed()) {
     window.setTimeout(showBannerGently, 900);
   }

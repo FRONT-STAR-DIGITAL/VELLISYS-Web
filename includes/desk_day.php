@@ -421,7 +421,7 @@ function render_desk_day(string $error = ''): string
 $scope = function_exists('desk_view_branch') ? desk_view_branch() : ['enabled' => false, 'all' => true, 'label' => ''];
 if (!empty($scope['enabled'])): ?>
   <p class="hint" style="margin:-4px 0 16px"><?= !empty($scope['all'])
-      ? 'Overall desk — every branch together. Chip a location to see that shop only. Branch logins cannot open Head office stock or sales.'
+      ? 'Overall desk - every branch together. Chip a location to see that shop only. Branch logins cannot open Head office stock or sales.'
       : ('Showing ' . h((string) $scope['label']) . ' only. Head office stock and sales stay off this portal.') ?></p>
 <?php endif; ?>
 

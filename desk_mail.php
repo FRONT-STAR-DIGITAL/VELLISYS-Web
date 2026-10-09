@@ -255,7 +255,7 @@ layout_start($pageTitle, $user);
     <input type="hidden" name="channel" value="email">
   <?php endif; ?>
   <p class="from-line" data-mail-from-line <?= $channel === 'whatsapp' ? 'hidden' : '' ?>><?= icon('send', 16) ?>From <?= $sendAcct ? h($fromName . ' <' . $fromEmail . '>') : 'mailbox not assigned' ?></p>
-  <p class="hint desk-mail-wa-banner" data-wa-from-line <?= $channel === 'whatsapp' ? '' : 'hidden' ?>><?= icon('whatsapp', 16) ?> Opens WhatsApp with this number and message ready — you tap Send there. Numbers must include a country code.</p>
+  <p class="hint desk-mail-wa-banner" data-wa-from-line <?= $channel === 'whatsapp' ? '' : 'hidden' ?>><?= icon('whatsapp', 16) ?> Opens WhatsApp with this number and message ready - you tap Send there. Numbers must include a country code.</p>
   <?php if ($doc): ?>
     <p class="hint desk-mail-doc-meta"><?= h(kind_meta($doc['kind'])['singular']) ?> <?= h($doc['number']) ?> · <?= h($doc['party_name']) ?><?php if ($docDue > 0.009): ?> · Balance <?= h(money($docDue, doc_currency($doc))) ?><?php endif; ?></p>
   <?php endif; ?>
@@ -296,7 +296,7 @@ layout_start($pageTitle, $user);
   <label for="message">Message</label>
   <?php render_rich_editor('message', 'message', $messagePrefill, ['rows' => 12, 'required' => true, 'placeholder' => 'Write the message.']); ?>
   <p class="hint" data-mail-email-hint <?= $channel === 'whatsapp' ? 'hidden' : '' ?>>The letter uses your logo on a white background. A copy also goes to <?= h(product_email()) ?> so Vellisys can follow up with the client.</p>
-  <p class="hint" data-mail-wa-hint <?= $channel === 'whatsapp' ? '' : 'hidden' ?>>WhatsApp opens in a new chat with this text. Vellisys does not send the message for you — tap Send in WhatsApp.</p>
+  <p class="hint" data-mail-wa-hint <?= $channel === 'whatsapp' ? '' : 'hidden' ?>>WhatsApp opens in a new chat with this text. Vellisys does not send the message for you - tap Send in WhatsApp.</p>
   <div class="actions desk-mail-actions" style="margin-top:12px">
     <button class="btn" type="submit" data-mail-submit-email <?= $channel === 'whatsapp' ? 'hidden' : '' ?> <?= $sendAcct ? '' : 'disabled' ?>><?= icon('send') ?>Send from company mailbox</button>
     <button class="btn desk-mail-wa-btn" type="submit" data-mail-submit-wa <?= $channel === 'whatsapp' ? '' : 'hidden' ?>><?= icon('whatsapp') ?>Open in WhatsApp</button>

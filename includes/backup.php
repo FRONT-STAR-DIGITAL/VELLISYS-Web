@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * In-app desk backup removed — hosting platform backups are sufficient.
+ * In-app desk backup removed - hosting platform backups are sufficient.
  * Stubs remain so any stray call sites fail soft without fatal errors.
  */
 

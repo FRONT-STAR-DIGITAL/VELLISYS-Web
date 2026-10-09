@@ -16,7 +16,7 @@ if ($payId && $_SERVER['REQUEST_METHOD'] !== 'POST') {
     <div class="page-head">
       <div>
         <h1><?= icon('bank') ?>Pay a creditor</h1>
-        <p class="lede"><?= h($doc['party_name']) ?> is owed <?= h(money($balance, doc_currency($doc))) ?> on <?= h($doc['number']) ?>. Recording this payment clears the bill — it does not create a receipt or change sales.</p>
+        <p class="lede"><?= h($doc['party_name']) ?> is owed <?= h(money($balance, doc_currency($doc))) ?> on <?= h($doc['number']) ?>. Recording this payment clears the bill - it does not create a receipt or change sales.</p>
       </div>
     </div>
     <form class="card form" method="post">
@@ -165,7 +165,7 @@ try {
     if ($action === 'pay') {
         $amount = money_parse(post('amount'));
         $expenseId = pay_creditor($id, $amount, post('payment_method') ?: 'bank-transfer', post('payment_ref'));
-        flash('Supplier payment recorded. No receipt was issued — this clears the bill only.');
+        flash('Supplier payment recorded. No receipt was issued - this clears the bill only.');
         redirect('document_view.php?id=' . $expenseId);
     }
 } catch (Throwable $e) {

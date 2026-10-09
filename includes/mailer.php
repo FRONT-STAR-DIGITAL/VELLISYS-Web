@@ -1200,7 +1200,7 @@ function payment_receipt_period_label(array $company): string
         $bits[] = $term;
     }
     if ($started !== '' && $expires !== '') {
-        $bits[] = $started . ' – ' . $expires;
+        $bits[] = $started . ' - ' . $expires;
     } elseif ($expires !== '') {
         $bits[] = 'until ' . $expires;
     } elseif ($started !== '') {

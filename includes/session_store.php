@@ -5,7 +5,7 @@ declare(strict_types=1);
  * Durable login for VPS / Docker / Traefik:
  * - PHP sessions stored in MySQL (survives redeploys and multi-replica hops)
  * - Signed vellisys_auth cookie restores the login if the PHP session row is lost
- * - No idle timeout — only logout.php (or suspended account) clears the login
+ * - No idle timeout - only logout.php (or suspended account) clears the login
  */
 
 /** ~10 years. Cookie/session lifetime; not an idle timer. */

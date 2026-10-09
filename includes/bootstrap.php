@@ -6,7 +6,7 @@ require_once ROOT_PATH . '/config/env.php';
 require_once ROOT_PATH . '/includes/redis.php';
 require_once ROOT_PATH . '/includes/session_store.php';
 
-// Sessions persist until Sign out — no idle expiry.
+// Sessions persist until Sign out - no idle expiry.
 // Prefer MySQL (survives Docker redeploys); fall back to storage/sessions.
 if (!defined('SESSION_PERSIST_SECONDS')) {
     define('SESSION_PERSIST_SECONDS', 60 * 60 * 24 * 365 * 10); // ~10 years

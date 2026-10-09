@@ -161,7 +161,7 @@
           legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
           tooltip: typeof window.vellisysChartTooltip === 'function'
             ? window.vellisysChartTooltip(function (v) {
-                return sum <= 0 ? '—' : money(boot, v);
+                return sum <= 0 ? '-' : money(boot, v);
               })
             : undefined
         }

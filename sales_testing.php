@@ -42,7 +42,7 @@ sales_layout_start('On Testing', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('building') ?>On Testing</h1>
-    <p class="lede">Your trial desks. Last login and active status show who is actually trying the app — focus follow-ups there.</p>
+    <p class="lede">Your trial desks. Last login and active status show who is actually trying the app - focus follow-ups there.</p>
   </div>
   <div class="actions page-actions">
     <a class="btn" href="<?= h(url('sales_leads.php?status=interested')) ?>"><?= icon('clients', 14) ?>Interested leads</a>

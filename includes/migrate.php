@@ -29,7 +29,7 @@ function folio_schema_stamp(): string
 }
 
 /**
- * Creditors quick-add entries are a personal ledger — retag older "Amount owed"
+ * Creditors quick-add entries are a personal ledger - retag older "Amount owed"
  * bills so they stop counting as business expenses.
  */
 function folio_ensure_personal_creditors(mysqli $db): void
@@ -50,7 +50,7 @@ function folio_ensure_personal_creditors(mysqli $db): void
     );
 }
 
-/** Supplier / expense payments — clears bills without creating receipts. */
+/** Supplier / expense payments - clears bills without creating receipts. */
 function folio_ensure_document_payments(mysqli $db): void
 {
     static $ready = false;
@@ -78,7 +78,7 @@ function folio_ensure_document_payments(mysqli $db): void
 
 /**
  * Testing desks get Pro addons at create time (sales.php).
- * Do not re-force plan or features here — super-admin edits must stick
+ * Do not re-force plan or features here - super-admin edits must stick
  * (e.g. moving a trial desk onto Vellisys Start).
  */
 function folio_ensure_testing_pro_addons(mysqli $db): void
@@ -1397,8 +1397,8 @@ function folio_migrate_platform_ops(mysqli $db): void
             }
         }
     }
-    @$db->query("UPDATE landing_ticker SET body = REPLACE(REPLACE(body, '—', '-'), '–', '-')");
-    @$db->query("UPDATE landing_cards SET body = REPLACE(REPLACE(body, '—', '-'), '–', '-')");
+    @$db->query("UPDATE landing_ticker SET body = REPLACE(REPLACE(body, '-', '-'), '-', '-')");
+    @$db->query("UPDATE landing_cards SET body = REPLACE(REPLACE(body, '-', '-'), '-', '-')");
     if (function_exists('folio_cache_bust')) {
         folio_cache_bust();
     }
@@ -1867,7 +1867,7 @@ function folio_migrate_fees(mysqli $db): void
 
 /**
  * Drop demo Ofagros fee rows (UGX 450k) and orphan ledger lines left after company delete.
- * Uses separate DELETEs — a single OR+subquery statement can fail silently under @.
+ * Uses separate DELETEs - a single OR+subquery statement can fail silently under @.
  */
 function folio_migrate_purge_ofagros_fees(mysqli $db): void
 {
@@ -2860,6 +2860,245 @@ function folio_ensure_sales_demo(mysqli $db): void
                 WHERE company_id = {$cid} AND kind = 'receipt'");
         }
     }
+
+    folio_ensure_sales_demo_presentation($db, $cid, $uid);
+}
+
+/**
+ * Months of presentation sales + healthy stock for the shared demo desk.
+ * Idempotent via PRES-SEED-v1 notes marker; always tops up on-hand qty.
+ */
+function folio_ensure_sales_demo_presentation(mysqli $db, int $cid, int $uid): void
+{
+    if ($cid < 1 || $uid < 1) {
+        return;
+    }
+
+    // Extra clients for walkthrough variety.
+    $pc = @$db->query("SELECT COUNT(*) c FROM parties WHERE company_id = {$cid}");
+    $partyCount = ($pc && ($row = $pc->fetch_assoc())) ? (int) $row['c'] : 0;
+    if ($partyCount < 6) {
+        @$db->query("INSERT INTO parties (company_id, name, kind, phone, email, address, city, contact_person, entity, status)
+            VALUES
+            ({$cid}, 'Entebbe Guest House', 'customer', '+256703400500', 'front@entebbeguest.ug', 'Portal Road', 'Entebbe', 'Sarah A.', 'company', 'active'),
+            ({$cid}, 'Jinja Agro Hub', 'customer', '+256704500600', 'buy@jinjaagro.ug', 'Main Street', 'Jinja', 'Peter O.', 'company', 'active'),
+            ({$cid}, 'Mbarara Hardware', 'customer', '+256705600700', 'counter@mbararahw.ug', 'High Street', 'Mbarara', 'Ruth T.', 'company', 'active')");
+    }
+
+    $catalog = [
+        // sku, name, description, unit, buy, sell, reorder, qty, taxed, is_service
+        ['SVC-START', 'Vellisys Start setup', 'Desk onboarding and branding', 'job', 0, 450000, 0, 0, 1, 1],
+        ['SVC-BIZ', 'Vellisys Business setup', 'Multi-user desk with stock', 'job', 0, 950000, 0, 0, 1, 1],
+        ['SVC-PRO', 'Vellisys Pro setup', 'Full desk with P&L and branches', 'job', 0, 1450000, 0, 0, 1, 1],
+        ['SVC-TRAIN', 'Team training session', 'Half-day walkthrough for staff', 'session', 0, 250000, 0, 0, 1, 1],
+        ['SVC-SUPPORT', 'Priority support month', 'Priority help for one month', 'month', 0, 180000, 0, 0, 1, 1],
+        ['PRD-RCPT', 'Branded receipt booklet', 'Printed booklet for the desk', 'pack', 12000, 25000, 10, 180, 1, 0],
+        ['PRD-INV', 'Invoice paper pack', 'A4 branded paper', 'ream', 18000, 35000, 8, 140, 1, 0],
+        ['PRD-THERM', 'Thermal roll pack', '80mm rolls for the counter', 'pack', 8000, 18000, 12, 220, 1, 0],
+        ['PRD-INK', 'Stamp ink pad', 'Desk stamp ink', 'pcs', 5000, 12000, 6, 160, 1, 0],
+        ['PRD-FOLDER', 'Client folder pack', 'Branded client folders', 'pack', 15000, 30000, 8, 120, 1, 0],
+        ['PRD-CARD', 'Business card pack', 'Company cards', 'box', 22000, 45000, 5, 90, 1, 0],
+        ['PRD-USB', 'Branded USB drive', '8GB promo drive', 'pcs', 14000, 28000, 10, 150, 1, 0],
+    ];
+    foreach ($catalog as [$sku, $name, $desc, $unit, $buy, $sell, $reorder, $qty, $taxed, $svc]) {
+        $esku = $db->real_escape_string($sku);
+        $ename = $db->real_escape_string($name);
+        $edesc = $db->real_escape_string($desc);
+        $eunit = $db->real_escape_string($unit);
+        $exists = @$db->query("SELECT id FROM stock_items WHERE company_id = {$cid} AND sku = '{$esku}' LIMIT 1");
+        if ($exists && $exists->num_rows > 0) {
+            $id = (int) $exists->fetch_assoc()['id'];
+            if ($svc) {
+                @$db->query("UPDATE stock_items SET name='{$ename}', description='{$edesc}', sell_price={$sell}, taxed={$taxed}, active=1, is_service=1 WHERE id={$id}");
+            } else {
+                @$db->query("UPDATE stock_items SET name='{$ename}', description='{$edesc}', unit='{$eunit}',
+                    buy_price={$buy}, sell_price={$sell}, reorder_level={$reorder},
+                    qty_on_hand=GREATEST(COALESCE(qty_on_hand,0), {$qty}), taxed={$taxed}, active=1, is_service=0
+                    WHERE id={$id}");
+            }
+        } else {
+            @$db->query("INSERT INTO stock_items (company_id, sku, name, description, unit, buy_price, sell_price, reorder_level, qty_on_hand, taxed, active, is_service)
+                VALUES ({$cid}, '{$esku}', '{$ename}', '{$edesc}', '{$eunit}', {$buy}, {$sell}, {$reorder}, {$qty}, {$taxed}, 1, {$svc})");
+        }
+    }
+
+    // Always keep goods looking stocked for presentations.
+    @$db->query("UPDATE stock_items SET qty_on_hand = GREATEST(COALESCE(qty_on_hand,0), 100),
+        reorder_level = GREATEST(COALESCE(reorder_level,0), 5)
+        WHERE company_id = {$cid} AND COALESCE(is_service,0) = 0 AND active = 1");
+    @$db->query("UPDATE stock_branch_qty b
+        INNER JOIN stock_items s ON s.id = b.item_id
+        SET b.qty_on_hand = GREATEST(COALESCE(b.qty_on_hand,0), 100)
+        WHERE s.company_id = {$cid} AND COALESCE(s.is_service,0) = 0");
+
+    $mark = @$db->query("SELECT id FROM documents WHERE company_id = {$cid} AND notes LIKE 'PRES-SEED-v1%' LIMIT 1");
+    if ($mark && $mark->num_rows > 0) {
+        return;
+    }
+
+    $parties = [];
+    $pr = @$db->query("SELECT id FROM parties WHERE company_id = {$cid} AND kind IN ('customer','both') AND status = 'active' ORDER BY id ASC");
+    if ($pr) {
+        while ($row = $pr->fetch_assoc()) {
+            $parties[] = (int) $row['id'];
+        }
+    }
+    if (!$parties) {
+        return;
+    }
+
+    $goods = [];
+    $services = [];
+    $ir = @$db->query("SELECT id, name, unit, sell_price, is_service FROM stock_items WHERE company_id = {$cid} AND active = 1 ORDER BY id ASC");
+    if ($ir) {
+        while ($row = $ir->fetch_assoc()) {
+            $item = [
+                'id' => (int) $row['id'],
+                'name' => (string) $row['name'],
+                'unit' => (string) ($row['unit'] ?: 'pc'),
+                'rate' => (float) $row['sell_price'],
+            ];
+            if ((int) ($row['is_service'] ?? 0) === 1) {
+                $services[] = $item;
+            } else {
+                $goods[] = $item;
+            }
+        }
+    }
+    if (!$goods && !$services) {
+        return;
+    }
+
+    $nextSeq = static function (mysqli $db, int $cid, string $kind): int {
+        $ek = $db->real_escape_string($kind);
+        $r = @$db->query("SELECT COALESCE(MAX(sequence), 0) m FROM documents WHERE company_id = {$cid} AND kind = '{$ek}'");
+        $m = ($r && ($row = $r->fetch_assoc())) ? (int) $row['m'] : 0;
+        return $m + 1;
+    };
+    $invSeq = $nextSeq($db, $cid, 'invoice');
+    $rctSeq = $nextSeq($db, $cid, 'receipt');
+    $expSeq = $nextSeq($db, $cid, 'expense');
+    $qtnSeq = $nextSeq($db, $cid, 'quotation');
+
+    $methods = ['cash', 'mobile-money', 'bank', 'card'];
+    $expenseCats = ['Fuel', 'Rent', 'Internet', 'Airtime', 'Office supplies', 'Transport'];
+    $supplierId = 0;
+    $sr = @$db->query("SELECT id FROM parties WHERE company_id = {$cid} AND kind IN ('supplier','both') ORDER BY id ASC LIMIT 1");
+    if ($sr && ($srow = $sr->fetch_assoc())) {
+        $supplierId = (int) $srow['id'];
+    }
+
+    $today = new DateTimeImmutable('today');
+    for ($offset = 89; $offset >= 0; $offset--) {
+        $day = $today->modify('-' . $offset . ' days');
+        $date = $day->format('Y-m-d');
+        $seed = crc32($date . '|pres|' . $cid);
+        // Skip ~1 in 5 days so charts look natural.
+        if (($seed % 5) === 0) {
+            continue;
+        }
+        $tickets = 1 + ($seed % 3);
+        for ($t = 0; $t < $tickets; $t++) {
+            $partyId = $parties[($seed + $t * 17) % count($parties)];
+            $useService = (($seed + $t) % 3) === 0 && $services;
+            $pool = $useService ? $services : ($goods ?: $services);
+            if (!$pool) {
+                continue;
+            }
+            $lineCount = 1 + (($seed + $t) % min(3, count($pool)));
+            $lines = [];
+            $total = 0.0;
+            for ($li = 0; $li < $lineCount; $li++) {
+                $item = $pool[($seed + $t * 3 + $li * 11) % count($pool)];
+                $qty = $useService ? 1.0 : (float) (1 + (($seed + $li) % 4));
+                $rate = (float) $item['rate'];
+                if ($rate <= 0) {
+                    $rate = $useService ? 250000 : 18000;
+                }
+                $lines[] = [$item, $qty, $rate];
+                $total += round($qty * $rate, 2);
+            }
+            if ($total <= 0) {
+                continue;
+            }
+            $due = $day->modify('+14 days')->format('Y-m-d');
+            $invNo = 'VSD-INV-' . str_pad((string) $invSeq, 4, '0', STR_PAD_LEFT);
+            $note = $db->real_escape_string('PRES-SEED-v1 sale ' . $date);
+            $ok = @$db->query("INSERT INTO documents (company_id, kind, sequence, number, date, due_date, party_id, vat_rate, notes, status, created_by, currency)
+                VALUES ({$cid}, 'invoice', {$invSeq}, '{$invNo}', '{$date}', '{$due}', {$partyId}, 0.18, '{$note}', 'issued', {$uid}, 'UGX')");
+            if (!$ok) {
+                continue;
+            }
+            $invId = (int) $db->insert_id;
+            $invSeq++;
+            foreach ($lines as [$item, $qty, $rate]) {
+                $ename = $db->real_escape_string($item['name']);
+                $eunit = $db->real_escape_string($item['unit']);
+                $sid = (int) $item['id'];
+                $sidSql = $sid > 0 ? (string) $sid : 'NULL';
+                @$db->query("INSERT INTO document_items (document_id, stock_item_id, item_name, description, qty, unit, rate, taxed)
+                    VALUES ({$invId}, {$sidSql}, '{$ename}', '{$ename}', {$qty}, '{$eunit}', {$rate}, 1)");
+            }
+
+            // Most sales are paid the same day; some left open for debtors.
+            $paidShare = (($seed + $t) % 7) === 0 ? 0.0 : ((($seed + $t) % 11) === 0 ? 0.5 : 1.0);
+            if ($paidShare > 0) {
+                $paid = round($total * $paidShare, 2);
+                $rctNo = 'VSD-RCT-' . str_pad((string) $rctSeq, 4, '0', STR_PAD_LEFT);
+                $method = $methods[($seed + $t) % count($methods)];
+                $emethod = $db->real_escape_string($method);
+                $rnote = $db->real_escape_string('PRES-SEED-v1 payment ' . $date);
+                @$db->query("INSERT INTO documents (company_id, kind, sequence, number, date, due_date, party_id, vat_rate, notes, status, related_id, payment_method, payment_ref, allocated_amount, created_by, currency)
+                    VALUES ({$cid}, 'receipt', {$rctSeq}, '{$rctNo}', '{$date}', NULL, {$partyId}, 0, '{$rnote}', 'issued', {$invId}, '{$emethod}', 'DEMO-{$rctSeq}', {$paid}, {$uid}, 'UGX')");
+                $rctSeq++;
+            }
+        }
+
+        // Occasional operating expense for spend charts.
+        if (($seed % 4) === 1 && $supplierId > 0) {
+            $cat = $expenseCats[$seed % count($expenseCats)];
+            $amt = (float) (40000 + ($seed % 9) * 15000);
+            $expNo = 'VSD-EXP-' . str_pad((string) $expSeq, 4, '0', STR_PAD_LEFT);
+            $ecat = $db->real_escape_string($cat);
+            $enote = $db->real_escape_string('PRES-SEED-v1 expense ' . $date);
+            @$db->query("INSERT INTO documents (company_id, kind, sequence, number, date, due_date, party_id, vat_rate, notes, status, expense_category, created_by, currency)
+                VALUES ({$cid}, 'expense', {$expSeq}, '{$expNo}', '{$date}', '{$date}', {$supplierId}, 0, '{$enote}', 'issued', '{$ecat}', {$uid}, 'UGX')");
+            $expId = (int) $db->insert_id;
+            if ($expId > 0) {
+                $ename = $db->real_escape_string($cat);
+                @$db->query("INSERT INTO document_items (document_id, item_name, description, qty, unit, rate, taxed)
+                    VALUES ({$expId}, '{$ename}', '{$ename}', 1, 'lot', {$amt}, 0)");
+            }
+            $expSeq++;
+        }
+
+        // A few quotations across the window.
+        if (($seed % 13) === 0 && $services) {
+            $partyId = $parties[$seed % count($parties)];
+            $item = $services[$seed % count($services)];
+            $qtnNo = 'VSD-QT-' . str_pad((string) $qtnSeq, 4, '0', STR_PAD_LEFT);
+            $due = $day->modify('+30 days')->format('Y-m-d');
+            $qnote = $db->real_escape_string('PRES-SEED-v1 quote ' . $date);
+            @$db->query("INSERT INTO documents (company_id, kind, sequence, number, date, due_date, party_id, vat_rate, notes, status, created_by, currency)
+                VALUES ({$cid}, 'quotation', {$qtnSeq}, '{$qtnNo}', '{$date}', '{$due}', {$partyId}, 0.18, '{$qnote}', 'issued', {$uid}, 'UGX')");
+            $qid = (int) $db->insert_id;
+            if ($qid > 0) {
+                $ename = $db->real_escape_string($item['name']);
+                $rate = (float) $item['rate'];
+                @$db->query("INSERT INTO document_items (document_id, stock_item_id, item_name, description, qty, unit, rate, taxed)
+                    VALUES ({$qid}, {$item['id']}, '{$ename}', '{$ename}', 1, 'job', {$rate}, 1)");
+            }
+            $qtnSeq++;
+        }
+    }
+
+    // Presentation shelves stay full after historical sales were recorded.
+    @$db->query("UPDATE stock_items SET qty_on_hand = GREATEST(COALESCE(qty_on_hand,0), 100)
+        WHERE company_id = {$cid} AND COALESCE(is_service,0) = 0 AND active = 1");
+    @$db->query("UPDATE stock_branch_qty b
+        INNER JOIN stock_items s ON s.id = b.item_id
+        SET b.qty_on_hand = GREATEST(COALESCE(b.qty_on_hand,0), 100)
+        WHERE s.company_id = {$cid} AND COALESCE(s.is_service,0) = 0");
 }
 
 

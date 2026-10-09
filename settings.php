@@ -164,7 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (!empty($taken['path'])) {
         $logoPath = $taken['path'];
     }
-    // Same form as logo — honour a chosen signature file when Save settings is used.
+    // Same form as logo - honour a chosen signature file when Save settings is used.
     $sigErr = (int) ($_FILES['signature_file']['error'] ?? UPLOAD_ERR_NO_FILE);
     if ($error === '' && $sigErr !== UPLOAD_ERR_NO_FILE && !empty($_FILES['signature_file']['tmp_name'])) {
         try {
@@ -578,7 +578,7 @@ layout_start('Settings', $user);
       </div>
       <div class="sig-block" data-signature-pad data-sig-url="<?= h(url('settings.php')) ?>">
         <h3>Signature</h3>
-        <p class="hint">Write with a finger or mouse, or upload a signature image (PNG, JPG, GIF or WebP — phone photos are resized automatically). Cancel clears the pad only. Retake lets you draw again without dropping the stored mark until you approve the new one. Remove deletes the saved signature.</p>
+        <p class="hint">Write with a finger or mouse, or upload a signature image (PNG, JPG, GIF or WebP - phone photos are resized automatically). Cancel clears the pad only. Retake lets you draw again without dropping the stored mark until you approve the new one. Remove deletes the saved signature.</p>
         <?php $sigUrl = company_signature_url($b); ?>
         <div class="sig-preview" data-sig-preview <?= $sigUrl === '' ? 'hidden' : '' ?>>
           <?php if ($sigUrl !== ''): ?>
@@ -598,7 +598,7 @@ layout_start('Settings', $user);
       <div class="sig-upload">
         <label for="signature_file">Upload a signature image</label>
         <input id="signature_file" name="signature_file" type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/*">
-        <p class="hint">Scan or photo of the sign-off. PNG, JPG, GIF or WebP up to 8 MB — large photos are resized to fit. iPhone HEIC must be shared as JPG first. Use <strong>Save image</strong> here, or <strong>Save settings</strong> with the file chosen — both keep the mark.</p>
+        <p class="hint">Scan or photo of the sign-off. PNG, JPG, GIF or WebP up to 8 MB - large photos are resized to fit. iPhone HEIC must be shared as JPG first. Use <strong>Save image</strong> here, or <strong>Save settings</strong> with the file chosen - both keep the mark.</p>
         <button class="btn ghost sm" type="submit" name="action" value="upload_signature"><?= icon('check', 14) ?>Save image</button>
       </div>
       <div class="palette-swatches" aria-hidden="true">

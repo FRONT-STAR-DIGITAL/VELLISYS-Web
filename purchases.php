@@ -96,7 +96,7 @@ layout_start('Purchases', $user);
       <div>
         <label for="paid">Amount paid now</label>
         <input id="paid" name="paid" inputmode="decimal" data-pos-paid data-money-commas placeholder="0 = full credit" autocomplete="off">
-        <p class="hint">Type 0 for credit. Unpaid stays on the stock bill — it does not reduce day profit.</p>
+        <p class="hint">Type 0 for credit. Unpaid stays on the stock bill - it does not reduce day profit.</p>
       </div>
       <div class="pos-sum">
         <span>Subtotal <strong data-pos-sub><?= h(money_behind(0)) ?></strong></span>

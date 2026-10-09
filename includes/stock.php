@@ -1023,7 +1023,7 @@ function stock_catalog_payload(): array
 function stock_import_template_rows(): array
 {
     return [
-        array_pad(['# Keep every column. Type blank = product. Empty buying price, selling price, reorder and opening qty become 0 — those rows still import.'], 10, ''),
+        array_pad(['# Keep every column. Type blank = product. Empty buying price, selling price, reorder and opening qty become 0 - those rows still import.'], 10, ''),
         ['SKU', 'Name', 'Description', 'Unit', 'Type', 'Buying price', 'Selling price', 'Reorder level', 'Opening qty', 'Tax Y/N'],
         ['RICE25', 'Rice 25kg', 'Local grain', 'bag', 'product', '90000', '110000', '5', '20', 'Y'],
         ['SOAP', 'Bar soap', 'Household', 'pc', '', '1800', '2500', '0', '40', 'N'],
@@ -1560,7 +1560,7 @@ function stock_complete_purchase(array $input): array
         'expense_category' => 'Stock',
         'payment_method' => $method,
         'notes' => 'Stock purchase',
-        // Leave open; clear only what was paid — unpaid remainder stays a creditor bill.
+        // Leave open; clear only what was paid - unpaid remainder stays a creditor bill.
         'leave_unpaid' => true,
         'items' => $clean,
         'branch_id' => stock_write_branch_id(),
@@ -2098,7 +2098,7 @@ function desk_day_json_exit(): void
         'ok' => true,
         'from' => $from,
         'to' => $to,
-        'label' => format_date($from) . ($from === $to ? '' : ' – ' . format_date($to)),
+        'label' => format_date($from) . ($from === $to ? '' : ' - ' . format_date($to)),
         'totals' => $dash['totals'],
         'float' => $dash['float'] ?? [],
         'show_profit' => $show,
@@ -2568,7 +2568,7 @@ function render_stock_reports_tab(array $analytics): void
   <div class="card">
     <div class="card-head"><h2><?= icon('clock', 16) ?>Slow movers (on hand, no sales)</h2></div>
     <?php if (!$slow): ?>
-      <p class="empty">No slow movers in this period — stocked goods all had sales, or shelves are empty.</p>
+      <p class="empty">No slow movers in this period - stocked goods all had sales, or shelves are empty.</p>
     <?php else: ?>
       <div class="table-scroll">
         <table class="grid">

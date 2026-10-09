@@ -140,7 +140,7 @@ summary {
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  /* Soft V mark only — no blue mask fill (mask+blue was painting checker artefacts). */
+  /* Soft V mark only - no blue mask fill (mask+blue was painting checker artefacts). */
   background-color: transparent;
   background-image: url("../img/vellisys-watermark.png");
   background-repeat: no-repeat;
@@ -858,7 +858,7 @@ summary {
   .people-access-head .btn { width: 100%; }
   .lp-stock-addon { align-items: flex-start; }
 }
-/* Avoid overflow-x:clip here — it forces overflow-y:auto and can truncate long desk pages. */
+/* Avoid overflow-x:clip here - it forces overflow-y:auto and can truncate long desk pages. */
 .content { padding: 24px 22px 72px; max-width: none; width: 100%; min-width: 0; overflow-x: visible; }
 .flash {
   margin: 16px 22px 0;
@@ -2871,7 +2871,7 @@ html.print-preview .print-bar .btn {
 }
 body.bell-open .top-bell { z-index: 60; }
 body.bell-open .top-bell-panel { z-index: 61; }
-/* Keep the bell icon/panel neutral while open — no brand wash over the desk. */
+/* Keep the bell icon/panel neutral while open - no brand wash over the desk. */
 body.bell-open .top-bell > summary.header-settings,
 body.bell-open .top-bell > summary.header-settings:hover,
 details.top-bell[open] > summary.header-settings,
@@ -4275,7 +4275,7 @@ input, select, textarea { font-weight: 400; }
   .page-head .doc-toolbar form { display: block; margin: 0; }
   .page-head .doc-toolbar form > .btn { width: 100%; }
   .page-head .doc-toolbar .share-pop > summary.btn { width: 100%; overflow: hidden; }
-  /* Share is in the left column — open the menu to the right so it stays on-screen */
+  /* Share is in the left column - open the menu to the right so it stays on-screen */
   .page-head .doc-toolbar .share-pop-panel,
   .page-head .doc-toolbar .share-pop-list {
     left: 0;
@@ -4415,7 +4415,7 @@ input, select, textarea { font-weight: 400; }
   input, select, textarea, .btn { font-size: 16px; }
   .qty-btn { min-width: 40px; min-height: 40px; }
   /*
-   * Never set overflow-x:clip/hidden on html or body — that makes position:fixed
+   * Never set overflow-x:clip/hidden on html or body - that makes position:fixed
    * descendants (bottom tab bar) use the document as containing block and sit mid-page.
    * Contain width with max-width / min-width:0; scroll wide tables in .table-scroll only.
    */
@@ -6234,7 +6234,7 @@ a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--lin
 }
 
 
-/* —— Sales field portal (mobile-first agents) —— */
+/* -- Sales field portal (mobile-first agents) -- */
 .sales-body,
 .sales-body .main,
 .sales-body .content {
@@ -6545,7 +6545,7 @@ tr.sales-fu-overdue td {
   letter-spacing: .08em;
 }
 
-/* —— Super admin dashboard —— */
+/* -- Super admin dashboard -- */
 .admin-dash-head {
   align-items: center;
   gap: 12px;
@@ -6793,7 +6793,7 @@ tr.sales-fu-overdue td {
   .admin-metric-aside .admin-minibars { display: none; }
 }
 
-/* —— Client desk dashboard —— */
+/* -- Client desk dashboard -- */
 .cdash-company {
   display: flex;
   align-items: center;
@@ -7248,7 +7248,7 @@ body.has-upload-progress .app-tabbar {
   .cdash-metrics-tabs .cdash-metric { min-height: 100px; }
 }
 
-/* —— Admin inbox lists (sign-ups, questions): stacked full-width —— */
+/* -- Admin inbox lists (sign-ups, questions): stacked full-width -- */
 .admin-inbox {
   display: flex;
   flex-direction: column;
@@ -7347,7 +7347,7 @@ body.has-upload-progress .app-tabbar {
   }
 }
 
-/* —— Platform payment receipt (share + print) —— */
+/* -- Platform payment receipt (share + print) -- */
 .pay-receipt-body {
   margin: 0;
   min-height: 100dvh;

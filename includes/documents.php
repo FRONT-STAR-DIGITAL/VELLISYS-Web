@@ -127,7 +127,7 @@ function default_number_format(): string
 function sanitize_number_format(string $raw): string
 {
     $raw = trim($raw);
-    $raw = str_replace(['—', '–', '−'], '-', $raw);
+    $raw = str_replace(['-', '-', '-'], '-', $raw);
     if ($raw === '') {
         return default_number_format();
     }
@@ -367,7 +367,7 @@ function create_quick_ledger_entry(string $side): int
         'vat_rate' => 0,
         'currency' => default_currency(),
         'notes' => $reason,
-        // Personal/standalone creditor — not a business expense (PnL / dashboard).
+        // Personal/standalone creditor - not a business expense (PnL / dashboard).
         'expense_category' => $kind === 'expense'
             ? (function_exists('personal_creditor_category') ? personal_creditor_category() : 'Personal creditor')
             : null,
@@ -401,13 +401,13 @@ function ledger_parties_for_picker(): array
     );
 }
 
-/** Render Add new debtor/creditor form — invoice-style client suggestions. */
+/** Render Add new debtor/creditor form - invoice-style client suggestions. */
 function render_ledger_add_form(string $side, array $parties, bool $open = false, string $error = ''): void
 {
     $side = $side === 'creditor' ? 'creditor' : 'debtor';
     $title = $side === 'creditor' ? 'Add creditor' : 'Add debtor';
     $hint = $side === 'creditor'
-        ? 'Personal amounts you owe — not a business expense. Choose a saved name or type a new one.'
+        ? 'Personal amounts you owe - not a business expense. Choose a saved name or type a new one.'
         : 'Choose a saved client or type a new one. New names are saved as a customer.';
     $action = $side === 'creditor' ? 'creditors.php' : 'debtors.php';
     $partyBook = [];
@@ -839,7 +839,7 @@ function create_document(array $data): int
         stock_apply_document($id, $kind, $items);
     }
 
-    // Ordinary expenses are business spend already paid — clear the bill by default.
+    // Ordinary expenses are business spend already paid - clear the bill by default.
     // Creditor quick-add and stock purchases pass leave_unpaid and record payments separately.
     if ($kind === 'expense' && empty($data['leave_unpaid']) && document_payments_available()) {
         $tmp = ['items' => $items, 'vat_rate' => $rate, 'currency' => $currency];
@@ -1089,13 +1089,13 @@ function document_share_token(array $doc): string
     return hash_hmac('sha256', (int) ($doc['id'] ?? 0) . ':' . (int) ($doc['company_id'] ?? 0) . ':' . (string) ($doc['number'] ?? ''), document_share_secret());
 }
 
-/** Short token for QR payloads — fewer modules ⇒ thicker printed dots on thermal. */
+/** Short token for QR payloads - fewer modules ⇒ thicker printed dots on thermal. */
 function document_share_token_short(array $doc): string
 {
     return substr(document_share_token($doc), 0, 16);
 }
 
-/** Accept full HMAC or a 16–63 char prefix (QR / short links). */
+/** Accept full HMAC or a 16-63 char prefix (QR / short links). */
 function document_share_token_matches(array $doc, string $token): bool
 {
     $expect = document_share_token($doc);
@@ -1136,7 +1136,7 @@ function document_absolute_media_url(string $href): string
 
 /**
  * Full document JSON for client PDF generation (@react-pdf).
- * Same fields the detail screen uses — never a thin list row.
+ * Same fields the detail screen uses - never a thin list row.
  */
 function document_full_payload(array $doc): array
 {
@@ -1158,7 +1158,7 @@ function document_full_payload(array $doc): array
         $itemDesc = line_item_description($item);
         $desc = $itemName;
         if ($itemDesc !== '' && strcasecmp($itemDesc, $itemName) !== 0) {
-            $desc = $itemName !== '' ? ($itemName . ' — ' . $itemDesc) : $itemDesc;
+            $desc = $itemName !== '' ? ($itemName . ' - ' . $itemDesc) : $itemDesc;
         }
         $lines[] = [
             'description' => $desc,
@@ -1888,7 +1888,7 @@ function document_content_fingerprint(array $doc): string
     return hash('sha256', implode('|', $payload));
 }
 
-/** Cached PDF path — invalidates when document content or company branding changes. */
+/** Cached PDF path - invalidates when document content or company branding changes. */
 function document_pdf_cache_path(array $doc): string
 {
     $dir = ROOT_PATH . '/uploads/pdfs';
@@ -2549,7 +2549,7 @@ function send_document_download(array $doc, ?string $fallbackUrl = null): void
         $fallback = $fallbackUrl !== null && $fallbackUrl !== ''
             ? $fallbackUrl
             : ('document_sheet.php?id=' . (int) ($doc['id'] ?? 0) . '&autodownload=1');
-        // XHR/fetch callers should fall through to the sheet URL — do not return HTML as a "PDF".
+        // XHR/fetch callers should fall through to the sheet URL - do not return HTML as a "PDF".
         $xhr = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest'
             || str_contains(strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? '')), 'application/json');
         if ($xhr) {
@@ -2629,7 +2629,7 @@ function document_whatsapp_url(array $doc): string
             return $href;
         }
     }
-    // No client number on file — open WhatsApp with the message only.
+    // No client number on file - open WhatsApp with the message only.
     return 'https://wa.me/?text=' . rawurlencode($text);
 }
 
@@ -2841,7 +2841,7 @@ function receipt_due_amount(array $doc): float
     if (($doc['kind'] ?? '') !== 'receipt') {
         return 0.0;
     }
-    // Follow-up / allocation receipts already applied cash — remaining balance
+    // Follow-up / allocation receipts already applied cash - remaining balance
     // lives on the parent invoice, expense or sale. Never copy parent remain
     // onto every payment row (that made Due footers sum the same debt N times).
     if ((int) ($doc['related_id'] ?? 0) > 0) {
@@ -2849,7 +2849,7 @@ function receipt_due_amount(array $doc): float
     }
     if (receipt_is_sale($doc)) {
         // Per-client running balance: only the newest sale receipt carries Due.
-        // Older sale receipts are prior states — summing them invented fake debt
+        // Older sale receipts are prior states - summing them invented fake debt
         // (e.g. Fatima Due total 1,060,000 instead of the latest tip).
         if (!receipt_is_party_latest_sale($doc)) {
             return 0.0;
@@ -2979,7 +2979,7 @@ function list_open_debtors(): array
         list_documents('invoice'),
         static fn ($d) => ($d['status'] ?? '') !== 'void' && document_due_amount($d) > 0.009
     ));
-    // One live receipt debt per client — the newest sale receipt only.
+    // One live receipt debt per client - the newest sale receipt only.
     $sales = array_values(array_filter(
         latest_sale_receipts_by_party(list_documents('receipt')),
         static fn ($d) => document_due_amount($d) > 0.009
@@ -3031,7 +3031,7 @@ function sum_document_payments(int $documentId, string $toCurrency): float
 
 /**
  * Record a payment against an expense/creditor bill.
- * This is spend clearing — not a receipt and not sales cash-in.
+ * This is spend clearing - not a receipt and not sales cash-in.
  */
 function record_document_payment(
     int $documentId,
@@ -3114,7 +3114,7 @@ function pay_creditor(int $expenseId, float $amount, string $method, string $ref
         today(),
         'Payment to supplier against ' . $doc['number'] . '.'
     );
-    // Return the expense id — no receipt is created and sales/cash-in are untouched.
+    // Return the expense id - no receipt is created and sales/cash-in are untouched.
     return $expenseId;
 }
 
@@ -3300,7 +3300,7 @@ function attach_document_totals(array $rows): array
         $to = $curById[$rid] ?? default_currency();
         $paidBy[$rid] = ($paidBy[$rid] ?? 0) + convert_money((float) ($p['allocated_amount'] ?? 0), doc_currency($p), $to);
     }
-    // Expense/creditor payments (not receipts) — clear bills without touching sales cash.
+    // Expense/creditor payments (not receipts) - clear bills without touching sales cash.
     if (document_payments_available()) {
         $extraPays = db_all(
             "SELECT document_id, amount, currency FROM document_payments
@@ -3480,7 +3480,7 @@ function render_remind_button(array $doc, bool $labeled = true): void
     <?php
 }
 
-/** PDF control — always the unfitted sheet autodownload (same design every click/refresh). */
+/** PDF control - always the unfitted sheet autodownload (same design every click/refresh). */
 function render_pdf_download_link(array $doc, string $class = 'btn ghost sm', bool $showLabel = true): void
 {
     $id = (int) ($doc['id'] ?? 0);
@@ -3489,7 +3489,7 @@ function render_pdf_download_link(array $doc, string $class = 'btn ghost sm', bo
     }
     $name = document_download_filename($doc);
     $sheet = url('document_sheet.php?id=' . $id . '&autodownload=1');
-    // href is the sheet capture page — never a separately-cached server PDF that can diverge.
+    // href is the sheet capture page - never a separately-cached server PDF that can diverge.
     ?>
         <a
           class="<?= h($class) ?>"
@@ -3747,7 +3747,7 @@ function document_sold_lines(?string $from = null, ?string $to = null): array
 /**
  * Profit on money collected in a date range.
  * Products: collected share of selling price minus the same share of buying price.
- * Services (and receipts with no product lines): collected amount is profit — no sell-minus-buy.
+ * Services (and receipts with no product lines): collected amount is profit - no sell-minus-buy.
  *
  * @return array{days: array<string, array<string, float>>, income: list<array>, collected: float, cogs: float, profit: float}
  */
