@@ -781,7 +781,7 @@ function render_admin_tabbar(): void
     $reportsOn = $here === 'admin_reports.php';
     $systemOn = in_array($here, ['admin_system.php', 'admin_settings.php', 'admin_admins.php'], true);
     ?>
-<nav class="app-tabbar admin-tabbar" aria-label="Admin" data-app-tabbar style="position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;z-index:9999;margin:0">
+<nav class="app-tabbar admin-tabbar" aria-label="Admin" data-app-tabbar>
   <a class="app-tab<?= $dashOn ? ' is-on' : '' ?>" href="<?= h(url('admin_dashboard.php')) ?>">
     <?= icon('home', 22) ?><span>Dashboard</span>
   </a>

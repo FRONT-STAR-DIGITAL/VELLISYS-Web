@@ -6320,13 +6320,18 @@ a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--lin
   .sales-demo-desk .content {
     padding-bottom: calc(28px + var(--app-tabbar-h, 48px));
   }
-  .sales-demo-desk .app-tabbar {
-    display: grid;
+  .sales-demo-desk #app-tabbar-host {
+    display: block !important;
     position: fixed !important;
     left: 0 !important;
     right: 0 !important;
     bottom: 0 !important;
-    z-index: 240;
+    z-index: 99999 !important;
+  }
+  .sales-demo-desk .app-tabbar {
+    display: grid;
+    position: relative !important;
+    z-index: 1;
   }
 }
 @media (max-width: 820px) {
