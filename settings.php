@@ -266,7 +266,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $b = branding();
 $settings_save = static function (): void {
-    echo '<div class="actions settings-section-save"><button class="btn sm" type="submit">' . icon('check', 14) . 'Save settings</button></div>';
+    echo '<div class="actions settings-section-save"><button class="btn sm" type="submit" name="action" value="save_brand">' . icon('check', 14) . 'Save settings</button></div>';
 };
 layout_start('Settings', $user);
 ?>
@@ -819,7 +819,7 @@ layout_start('Settings', $user);
       <?php $settings_save(); ?>
     </section>
     <div class="settings-save-dock">
-      <button class="btn" type="submit"><?= icon('check') ?>Save settings</button>
+      <button class="btn" type="submit" name="action" value="save_brand"><?= icon('check') ?>Save settings</button>
     </div>
     </form>
     <section class="card settings-card" id="import">
