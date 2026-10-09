@@ -1835,6 +1835,7 @@ function document_brand_fingerprint(array $doc): string
         (string) ($brand['payment_note'] ?? ''),
         (string) ($brand['invoice_comments'] ?? ''),
         (string) ($brand['receipt_comments'] ?? ''),
+        (string) ($brand['thanks_message'] ?? ''),
         (string) ($brand['currency'] ?? ''),
         (string) ($brand['fx_ugx_per_usd'] ?? ''),
         (string) ($brand['doc_template'] ?? ''),

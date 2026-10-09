@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS branding (
   payment_note TEXT,
   invoice_comments TEXT,
   receipt_comments TEXT,
+  thanks_message VARCHAR(120) NOT NULL DEFAULT 'Thank you',
   plan ENUM('starter','sme','office') NOT NULL DEFAULT 'sme',
   currency CHAR(3) NOT NULL DEFAULT 'UGX',
   fx_ugx_per_usd DECIMAL(12,4) NOT NULL DEFAULT 3700,
