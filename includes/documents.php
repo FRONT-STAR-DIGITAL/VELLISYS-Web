@@ -1582,15 +1582,15 @@ function document_qr_img_src(string $text, int $size = 120): string
     if (!is_dir($dir)) {
         @mkdir($dir, 0755, true);
     }
-    // ink3: short payload + ecc=M + chunky nearest-neighbor modules for thermal.
-    $key = substr(hash('sha256', $genSize . '|ink3|M|' . $text), 0, 40);
+    // ink4: short payload + ecc=M + tight quiet zone + chunky modules for thermal.
+    $key = substr(hash('sha256', $genSize . '|ink4|M|qz1|' . $text), 0, 40);
     $file = $dir . '/' . $key . '.png';
     $rel = 'uploads/qr/' . $key . '.png';
     if (!is_file($file) || filesize($file) < 40) {
         // ecc=M needs fewer modules than H → thicker dots at the same print size.
-        // Quiet zone keeps scanners happy on speckled thermal paper.
+        // qzone=1 (~1/4 of prior) trims the white ring inside the authenticity border.
         $api = 'https://api.qrserver.com/v1/create-qr-code/?size=' . $genSize . 'x' . $genSize
-            . '&margin=0&ecc=M&color=000000&bgcolor=FFFFFF&format=png&qzone=4&data='
+            . '&margin=0&ecc=M&color=000000&bgcolor=FFFFFF&format=png&qzone=1&data='
             . rawurlencode($text);
         $bin = '';
         if (function_exists('curl_init')) {
@@ -1628,7 +1628,7 @@ function document_qr_img_src(string $text, int $size = 120): string
         return url($rel);
     }
     return 'https://api.qrserver.com/v1/create-qr-code/?size=' . $genSize . 'x' . $genSize
-        . '&margin=0&ecc=M&color=000000&bgcolor=FFFFFF&format=png&qzone=4&data='
+        . '&margin=0&ecc=M&color=000000&bgcolor=FFFFFF&format=png&qzone=1&data='
         . rawurlencode($text);
 }
 

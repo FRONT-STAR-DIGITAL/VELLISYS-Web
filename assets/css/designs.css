@@ -2675,9 +2675,10 @@
   align-items: center;
   justify-content: center;
   text-align: left;
-  gap: 8px;
+  gap: 2px;
   margin: 10px auto 0;
-  padding: 6px 8px;
+  /* Keep ~1/4 of the old inner padding so the border hugs the QR. */
+  padding: 2px;
   width: fit-content;
   max-width: 100%;
   box-sizing: border-box;
