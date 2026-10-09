@@ -653,10 +653,13 @@ function render_company_signature(array $doc): void
     if (!document_has_e_signature($doc)) {
         return;
     }
-    $src = company_signature_url();
+    $thermal = function_exists('doc_template_key') && doc_template_key($doc) === 'thermal';
+    $src = ($thermal && function_exists('company_signature_ink_url'))
+        ? company_signature_ink_url()
+        : company_signature_url();
     ?>
     <div class="d-sign has-stamp">
-      <img src="<?= h($src) ?>" alt="Signature">
+      <img src="<?= h($src) ?>" alt="Signature"<?= $thermal ? ' class="thermal-sign-img"' : '' ?>>
     </div>
     <?php
 }

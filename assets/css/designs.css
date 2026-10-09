@@ -2747,15 +2747,22 @@
   max-width: 70mm;
 }
 .invoice-sheet.sheet-thermal .auth-sign .d-sign img,
-.print-thermal .auth-sign .d-sign img {
+.invoice-sheet.sheet-thermal .thermal-sign-img,
+.print-thermal .auth-sign .d-sign img,
+.print-thermal .thermal-sign-img {
   display: block;
-  margin: 0 auto 4px;
-  height: 36px;
-  max-width: 60mm;
+  margin: 0 auto 2px;
+  height: 52px;
+  max-height: 18mm;
+  max-width: 64mm;
   width: auto;
   object-fit: contain;
-  /* Keep inked marks solid on thermal (light / grey scans print faint otherwise) */
-  filter: grayscale(1) contrast(2.4) brightness(0.78);
+  background: #fff;
+  /* Hard ink bitmap already thresholded — keep nearest-neighbour, no soft scaling */
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+  filter: contrast(1000%) brightness(0.55);
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }

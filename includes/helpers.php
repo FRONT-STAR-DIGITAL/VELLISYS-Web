@@ -3087,6 +3087,143 @@ function company_signature_url(?array $brand = null): string
     return '';
 }
 
+/**
+ * Pure-black ink stamp of the company signature for thermal printers.
+ * Gray / anti-aliased strokes dither into faint dots on 80mm rolls — this thresholds
+ * and thickens the mark so it lays solid black.
+ */
+function company_signature_ink_url(?array $brand = null): string
+{
+    $brand = $brand ?? branding();
+    $srcRel = company_signature_path($brand);
+    if ($srcRel === '' || !is_file(ROOT_PATH . '/' . $srcRel)) {
+        return company_signature_url($brand);
+    }
+    if (!function_exists('imagecreatefromstring') || !function_exists('imagepng')) {
+        return company_signature_url($brand);
+    }
+    $cid = (int) ($brand['company_id'] ?? current_company_id());
+    $srcFull = ROOT_PATH . '/' . $srcRel;
+    $inkRel = 'uploads/signatures/sig-' . max(0, $cid) . '-ink.png';
+    $inkFull = ROOT_PATH . '/' . $inkRel;
+    $srcMtime = (int) filemtime($srcFull);
+    if (!is_file($inkFull) || filemtime($inkFull) < $srcMtime || filesize($inkFull) < 40) {
+        $bin = (string) file_get_contents($srcFull);
+        $ink = signature_thermal_ink_bin($bin);
+        if ($ink === '' || strlen($ink) < 40) {
+            return company_signature_url($brand);
+        }
+        $dir = dirname($inkFull);
+        if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
+            return company_signature_url($brand);
+        }
+        if (@file_put_contents($inkFull, $ink) === false) {
+            return company_signature_url($brand);
+        }
+    }
+    return url($inkRel) . '?v=' . filemtime($inkFull);
+}
+
+/**
+ * Threshold a signature bitmap to solid black ink on white (thermal-safe).
+ * Light gray anti-alias and pale scans become pure #000, then strokes are thickened.
+ */
+function signature_thermal_ink_bin(string $bin): string
+{
+    if ($bin === '' || !function_exists('imagecreatefromstring') || !function_exists('imagepng')) {
+        return '';
+    }
+    $src = @imagecreatefromstring($bin);
+    if (!$src) {
+        return '';
+    }
+    $w = imagesx($src);
+    $h = imagesy($src);
+    if ($w < 2 || $h < 2) {
+        imagedestroy($src);
+        return '';
+    }
+
+    // Upscale thin pad strokes so thermal dpi has more black pixels to lay.
+    $scale = ($w < 480 || $h < 160) ? 2 : 1;
+    $nw = $w * $scale;
+    $nh = $h * $scale;
+    $work = imagecreatetruecolor($nw, $nh);
+    if ($work === false) {
+        imagedestroy($src);
+        return '';
+    }
+    // Flatten onto white so transparent pad strokes become measurable gray/black.
+    $white = imagecolorallocate($work, 255, 255, 255);
+    imagefilledrectangle($work, 0, 0, $nw, $nh, $white);
+    imagealphablending($work, true);
+    imagesavealpha($work, false);
+    imagecopyresampled($work, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
+    imagedestroy($src);
+
+    $ink = [];
+    for ($y = 0; $y < $nh; $y++) {
+        $ink[$y] = [];
+        for ($x = 0; $x < $nw; $x++) {
+            $rgba = imagecolorat($work, $x, $y);
+            $r = ($rgba >> 16) & 0xFF;
+            $g = ($rgba >> 8) & 0xFF;
+            $b = $rgba & 0xFF;
+            $luma = (0.2126 * $r + 0.7152 * $g + 0.0722 * $b);
+            // Generous threshold: catch light-gray anti-alias as solid ink.
+            $ink[$y][$x] = $luma < 225 ? 1 : 0;
+        }
+    }
+
+    // Dilate three times so thin strokes become thick enough for thermal heads.
+    for ($pass = 0; $pass < 3; $pass++) {
+        $next = $ink;
+        for ($y = 0; $y < $nh; $y++) {
+            for ($x = 0; $x < $nw; $x++) {
+                if ($ink[$y][$x]) {
+                    continue;
+                }
+                for ($dy = -1; $dy <= 1; $dy++) {
+                    for ($dx = -1; $dx <= 1; $dx++) {
+                        $yy = $y + $dy;
+                        $xx = $x + $dx;
+                        if ($yy < 0 || $xx < 0 || $yy >= $nh || $xx >= $nw) {
+                            continue;
+                        }
+                        if ($ink[$yy][$xx]) {
+                            $next[$y][$x] = 1;
+                            break 2;
+                        }
+                    }
+                }
+            }
+        }
+        $ink = $next;
+    }
+
+    $out = imagecreatetruecolor($nw, $nh);
+    if ($out === false) {
+        imagedestroy($work);
+        return '';
+    }
+    $whiteOut = imagecolorallocate($out, 255, 255, 255);
+    $blackOut = imagecolorallocate($out, 0, 0, 0);
+    imagefilledrectangle($out, 0, 0, $nw, $nh, $whiteOut);
+    for ($y = 0; $y < $nh; $y++) {
+        for ($x = 0; $x < $nw; $x++) {
+            if ($ink[$y][$x]) {
+                imagesetpixel($out, $x, $y, $blackOut);
+            }
+        }
+    }
+    imagedestroy($work);
+    ob_start();
+    imagepng($out, null, 6);
+    $png = (string) ob_get_clean();
+    imagedestroy($out);
+    return strlen($png) >= 40 ? $png : '';
+}
+
 function letter_template_needs_signature(?string $key): bool
 {
     $key = trim((string) $key);
@@ -3291,7 +3428,14 @@ function save_company_signature_png(string $dataUrl): string
     if (!str_starts_with($bin, "\x89PNG")) {
         throw new RuntimeException('That signature could not be saved.');
     }
-    return store_company_signature_file($bin, 'png');
+    // Store a hard black ink stamp so thermal printers do not dither gray strokes.
+    $ink = signature_thermal_ink_bin($bin);
+    if ($ink !== '') {
+        $bin = $ink;
+    }
+    $rel = store_company_signature_file($bin, 'png');
+    clear_company_signature_ink_cache();
+    return $rel;
 }
 
 function save_company_signature_upload(array $file): string
@@ -3312,7 +3456,26 @@ function save_company_signature_upload(array $file): string
         throw new RuntimeException('That signature file is empty.');
     }
     [$out, $ext] = normalize_signature_image_bin($bin);
-    return store_company_signature_file($out, $ext);
+    $ink = signature_thermal_ink_bin($out);
+    if ($ink !== '') {
+        $out = $ink;
+        $ext = 'png';
+    }
+    $rel = store_company_signature_file($out, $ext);
+    clear_company_signature_ink_cache();
+    return $rel;
+}
+
+function clear_company_signature_ink_cache(?int $companyId = null): void
+{
+    $cid = $companyId ?? current_company_id();
+    if ($cid < 1) {
+        return;
+    }
+    $ink = ROOT_PATH . '/uploads/signatures/sig-' . $cid . '-ink.png';
+    if (is_file($ink)) {
+        @unlink($ink);
+    }
 }
 
 function clear_company_signature(): void
@@ -3321,6 +3484,7 @@ function clear_company_signature(): void
     $old = ltrim((string) (branding()['signature_path'] ?? ''), '/');
     db_exec('UPDATE branding SET signature_path=NULL WHERE company_id=?', 'i', [$cid]);
     clear_branding_asset($cid, 'signature');
+    clear_company_signature_ink_cache($cid);
     if ($old !== '' && str_contains($old, 'uploads/signatures/') && is_file(ROOT_PATH . '/' . $old)) {
         @unlink($old);
     }
