@@ -302,14 +302,19 @@ function closestEl(e, sel) {
 function navScrim() {
   return document.querySelector('[data-nav-scrim]');
 }
-/** Pin bottom tab bars to the layout viewport on every portal (admin, desk, sales). */
+/** Pin bottom tab bars to the screen bottom on every portal (admin, desk, sales). */
 function pinAppTabbar() {
   var bar = document.querySelector('nav.app-tabbar');
   if (!bar || !document.body) return;
-  if (bar.parentElement !== document.body) {
-    document.body.appendChild(bar);
+  var host = document.getElementById('app-tabbar-host');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'app-tabbar-host';
+    host.setAttribute('data-app-tabbar-host', '');
+    document.body.appendChild(host);
   }
   if (window.matchMedia && window.matchMedia('(min-width: 1025px)').matches) {
+    host.style.display = 'none';
     bar.style.removeProperty('position');
     bar.style.removeProperty('left');
     bar.style.removeProperty('right');
@@ -321,20 +326,37 @@ function pinAppTabbar() {
     bar.style.removeProperty('transform');
     return;
   }
-  // Always glue to the screen bottom. Do NOT offset with visualViewport —
-  // that math floats the bar mid-page when mobile chrome moves on scroll.
+  // Fixed host on <body> — bar stays at the real screen bottom even when a
+  // sheet/preview ancestor uses transform (which breaks position:fixed).
+  if (bar.parentElement !== host) host.appendChild(bar);
+  if (host.parentElement !== document.body) document.body.appendChild(host);
+  host.style.setProperty('display', 'block', 'important');
+  host.style.setProperty('position', 'fixed', 'important');
+  host.style.setProperty('left', '0px', 'important');
+  host.style.setProperty('right', '0px', 'important');
+  host.style.setProperty('bottom', '0px', 'important');
+  host.style.setProperty('top', 'auto', 'important');
+  host.style.setProperty('width', '100%', 'important');
+  host.style.setProperty('max-width', '100vw', 'important');
+  host.style.setProperty('margin', '0', 'important');
+  host.style.setProperty('padding', '0', 'important');
+  host.style.setProperty('z-index', '99999', 'important');
+  host.style.setProperty('transform', 'none', 'important');
+  host.style.setProperty('webkit-transform', 'none', 'important');
+  host.style.setProperty('filter', 'none', 'important');
+  host.style.setProperty('pointer-events', 'none', 'important');
   bar.style.setProperty('display', 'grid', 'important');
-  bar.style.setProperty('position', 'fixed', 'important');
-  bar.style.setProperty('left', '0px', 'important');
-  bar.style.setProperty('right', '0px', 'important');
-  bar.style.setProperty('bottom', '0px', 'important');
+  bar.style.setProperty('position', 'relative', 'important');
+  bar.style.setProperty('left', 'auto', 'important');
+  bar.style.setProperty('right', 'auto', 'important');
+  bar.style.setProperty('bottom', 'auto', 'important');
   bar.style.setProperty('top', 'auto', 'important');
   bar.style.setProperty('width', '100%', 'important');
   bar.style.setProperty('max-width', '100vw', 'important');
   bar.style.setProperty('margin', '0', 'important');
-  bar.style.setProperty('z-index', '9999', 'important');
   bar.style.setProperty('transform', 'none', 'important');
   bar.style.setProperty('webkit-transform', 'none', 'important');
+  bar.style.setProperty('pointer-events', 'auto', 'important');
   if (!bar._tabbarPinned) {
     bar._tabbarPinned = true;
     window.addEventListener('resize', pinAppTabbar);

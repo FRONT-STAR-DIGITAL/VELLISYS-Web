@@ -47,10 +47,15 @@ function render_nav_boot_script(): void
 {
     ?>
 <style id="vellisys-tabbar-pin">
+/* Host is the only fixed layer — keeps the bar on the screen bottom even when
+   ancestors use transform/overflow (common on admin + sheet preview pages). */
 @media (max-width: 1024px) {
-  html, body.desk-body, body.admin-body, body.sales-body { overflow-x: visible !important; }
-  nav.app-tabbar[data-app-tabbar] {
-    display: grid !important;
+  html, body.desk-body, body.admin-body, body.sales-body {
+    overflow-x: visible !important;
+  }
+  #app-tabbar-host,
+  body > #app-tabbar-host {
+    display: block !important;
     position: fixed !important;
     left: 0 !important;
     right: 0 !important;
@@ -59,12 +64,33 @@ function render_nav_boot_script(): void
     width: 100% !important;
     max-width: 100vw !important;
     margin: 0 !important;
-    z-index: 9999 !important;
+    padding: 0 !important;
+    z-index: 99999 !important;
     transform: none !important;
     -webkit-transform: none !important;
+    filter: none !important;
+    pointer-events: none !important;
+    background: transparent !important;
+  }
+  #app-tabbar-host > nav.app-tabbar[data-app-tabbar],
+  body > nav.app-tabbar[data-app-tabbar] {
+    display: grid !important;
+    position: relative !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    z-index: 1 !important;
+    transform: none !important;
+    -webkit-transform: none !important;
+    pointer-events: auto !important;
   }
 }
 @media (min-width: 1025px) {
+  #app-tabbar-host,
   nav.app-tabbar[data-app-tabbar] { display: none !important; }
 }
 </style>
@@ -82,22 +108,46 @@ function render_nav_boot_script(): void
     if (scrim) scrim.hidden = !open;
   }
   window.vellisysSetNav = setNav;
+  function ensureHost() {
+    var host = document.getElementById('app-tabbar-host');
+    if (host) return host;
+    if (!document.body) return null;
+    host = document.createElement('div');
+    host.id = 'app-tabbar-host';
+    host.setAttribute('data-app-tabbar-host', '');
+    document.body.appendChild(host);
+    return host;
+  }
   function pinBar() {
     var bar = document.querySelector('nav.app-tabbar');
     if (!bar || !document.body) return;
-    if (bar.parentElement !== document.body) document.body.appendChild(bar);
-    if (window.matchMedia && window.matchMedia('(min-width: 1025px)').matches) return;
-    bar.style.setProperty('position', 'fixed', 'important');
-    bar.style.setProperty('left', '0px', 'important');
-    bar.style.setProperty('right', '0px', 'important');
-    bar.style.setProperty('bottom', '0px', 'important');
+    var host = ensureHost();
+    if (!host) return;
+    if (window.matchMedia && window.matchMedia('(min-width: 1025px)').matches) {
+      host.style.display = 'none';
+      return;
+    }
+    if (bar.parentElement !== host) host.appendChild(bar);
+    host.style.setProperty('display', 'block', 'important');
+    host.style.setProperty('position', 'fixed', 'important');
+    host.style.setProperty('left', '0px', 'important');
+    host.style.setProperty('right', '0px', 'important');
+    host.style.setProperty('bottom', '0px', 'important');
+    host.style.setProperty('top', 'auto', 'important');
+    host.style.setProperty('width', '100%', 'important');
+    host.style.setProperty('z-index', '99999', 'important');
+    host.style.setProperty('transform', 'none', 'important');
+    host.style.setProperty('pointer-events', 'none', 'important');
+    bar.style.setProperty('display', 'grid', 'important');
+    bar.style.setProperty('position', 'relative', 'important');
+    bar.style.setProperty('left', 'auto', 'important');
+    bar.style.setProperty('right', 'auto', 'important');
+    bar.style.setProperty('bottom', 'auto', 'important');
     bar.style.setProperty('top', 'auto', 'important');
     bar.style.setProperty('width', '100%', 'important');
-    bar.style.setProperty('max-width', '100vw', 'important');
     bar.style.setProperty('margin', '0', 'important');
-    bar.style.setProperty('z-index', '9999', 'important');
-    bar.style.setProperty('display', 'grid', 'important');
     bar.style.setProperty('transform', 'none', 'important');
+    bar.style.setProperty('pointer-events', 'auto', 'important');
   }
   document.addEventListener('DOMContentLoaded', pinBar);
   window.addEventListener('load', pinBar);
@@ -533,7 +583,7 @@ function layout_admin_start(string $title, array $user): void
 <html lang="en"<?= function_exists('folio_html_root_attrs') ? folio_html_root_attrs() : '' ?>>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title><?= h($title) ?> · <?= h(product_name()) ?> admin</title>
   <?php product_icons(); ?>
   <?php folio_css_links(); ?>
@@ -701,7 +751,7 @@ function render_app_tabbar(): void
     $repOn = in_array($here, ['reports.php', 'pnl.php', 'pnl_entries.php', 'pnl_savings.php', 'pnl_banking.php'], true)
         || in_array($kind, ['refund', 'return_note'], true);
     ?>
-<nav class="app-tabbar" aria-label="App" data-app-tabbar style="position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;z-index:9999;margin:0">
+<nav class="app-tabbar" aria-label="App" data-app-tabbar>
   <a class="app-tab<?= $homeOn ? ' is-on' : '' ?>" href="<?= h(url('dashboard.php')) ?>">
     <?= icon('home', 22) ?><span>Dashboard</span>
   </a>
