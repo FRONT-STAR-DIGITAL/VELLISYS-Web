@@ -2671,14 +2671,14 @@
 .invoice-sheet.sheet-thermal .doc-authenticity,
 .print-thermal .doc-authenticity {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  text-align: center;
-  gap: 6px;
-  margin: 12px auto 0;
-  padding: 8px 8px 10px;
-  width: 100%;
+  text-align: left;
+  gap: 8px;
+  margin: 10px auto 0;
+  padding: 6px 8px;
+  width: fit-content;
   max-width: 100%;
   box-sizing: border-box;
   border: 2px solid #000 !important;
@@ -2689,15 +2689,15 @@
 }
 .invoice-sheet.sheet-thermal .doc-auth-qr,
 .print-thermal .doc-auth-qr {
-  width: 112px;
-  height: 112px;
+  width: 80px;
+  height: 80px;
   flex: 0 0 auto;
 }
 .invoice-sheet.sheet-thermal .doc-auth-qr img,
 .print-thermal .doc-auth-qr img {
   display: block;
-  width: 112px;
-  height: 112px;
+  width: 80px;
+  height: 80px;
   /* Solid modules only — soft scaling / gray edges fail on thermal */
   image-rendering: pixelated;
   image-rendering: crisp-edges;
@@ -2710,9 +2710,10 @@
 }
 .invoice-sheet.sheet-thermal .doc-auth-meta,
 .print-thermal .doc-auth-meta {
-  flex: 0 0 auto;
-  max-width: 100%;
-  text-align: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 42mm;
+  text-align: left;
   color: #000 !important;
 }
 .invoice-sheet.sheet-thermal .doc-auth-hint,
@@ -2725,11 +2726,11 @@
 .print-thermal .doc-auth-powered span {
   color: #000 !important;
   font-weight: 700 !important;
-  font-size: 11px !important;
+  font-size: 10px !important;
   line-height: 1.25 !important;
   white-space: normal;
-  -webkit-text-stroke: 0.25px #000;
-  text-shadow: 0.2px 0 0 #000, -0.2px 0 0 #000;
+  -webkit-text-stroke: 0.2px #000;
+  text-shadow: 0.15px 0 0 #000, -0.15px 0 0 #000;
 }
 .invoice-sheet.sheet-thermal .doc-auth-hint,
 .print-thermal .doc-auth-hint {
