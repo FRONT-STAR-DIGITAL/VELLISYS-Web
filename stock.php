@@ -128,12 +128,19 @@ layout_start('Stock', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('package') ?>Stock</h1>
-    <p class="lede">Products and services. Counts and stock value cover goods only. Restock on Purchases. Sales and invoices can pick either.<?= function_exists('desk_branch_lede') ? h(desk_branch_lede('stock')) : '' ?></p>
+    <p class="lede"><?php if ($tab === 'reports'): ?>
+      POS analytics for this stock desk — daily sales, top products, mix and inventory health.
+    <?php else: ?>
+      Products and services. Counts and stock value cover goods only. Restock on Purchases. Sales and invoices can pick either.
+    <?php endif; ?><?= function_exists('desk_branch_lede') ? h(desk_branch_lede('stock')) : '' ?></p>
   </div>
   <div class="actions page-actions">
     <?php if ($tab === 'items'): ?>
       <a class="btn" href="<?= h(url('stock.php?tab=items&add=1#stock-add')) ?>"><?= icon('plus', 16) ?>Add item</a>
       <a class="btn ghost" href="<?= h(url('stock.php?tab=items&import=1#stock-import')) ?>"><?= icon('download', 16) ?>Import stock</a>
+    <?php endif; ?>
+    <?php if ($tab !== 'reports'): ?>
+      <a class="btn ghost" href="<?= h(url('stock.php?tab=reports')) ?>"><?= icon('reports', 16) ?>Reports</a>
     <?php endif; ?>
     <?php if (stock_can_buy()): ?>
     <a class="btn ghost" href="<?= h(url('purchases.php')) ?>"><?= icon('expense', 16) ?>Purchases</a>
@@ -396,6 +403,18 @@ layout_start('Stock', $user);
   <?php endif; ?>
 </div>
 
-<?php endif; ?>
+<?php elseif ($tab === 'reports'):
+    $period = period_range();
+    $from = (string) $period['from'];
+    $to = (string) $period['to'];
+    $analytics = stock_reports_analytics($from, $to);
+    $keep = array_merge(['tab' => 'reports'], function_exists('desk_branch_keep') ? desk_branch_keep() : []);
+    render_filters('stock.php', $keep, ['no_all' => true, 'live' => true]);
+    render_stock_reports_tab($analytics);
+    $payload = json_encode($analytics, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP);
+    $extraJs = '<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script>'
+        . '<script>window.vellisysStockReports=' . $payload . ';</script>'
+        . '<script src="' . h(asset('js/stock-reports.js')) . '" defer></script>';
+endif; ?>
 
 <?php layout_end($extraJs);

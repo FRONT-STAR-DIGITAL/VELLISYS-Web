@@ -94,6 +94,7 @@ function stock_tabs(): array
         'items' => ['Items', 'package', 'stock.php?tab=items'],
         'counts' => ['Counts', 'hash', 'stock.php?tab=counts'],
         'purchases' => ['Purchases', 'expense', 'purchases.php'],
+        'reports' => ['Reports', 'reports', 'stock.php?tab=reports'],
     ];
 }
 
@@ -2234,6 +2235,358 @@ function render_stock_sold_table(array $rows): void
         </tbody>
       </table>
     </div>
+    <?php
+}
+
+/**
+ * Daily units + ticket counts for POS stock reports (invoices + standalone receipts).
+ *
+ * @return array<string, array{units: float, tickets: int, revenue: float}>
+ */
+function stock_sold_daily(string $from, string $to): array
+{
+    $cid = current_company_id();
+    if ($cid < 1) {
+        return [];
+    }
+    $types = 'iss';
+    $params = [$cid, $from, $to];
+    $bSql = '';
+    if (function_exists('desk_branch_sql')) {
+        [$bSql, $bTypes, $bArgs] = desk_branch_sql('d.branch_id');
+        $types .= $bTypes;
+        $params = array_merge($params, $bArgs);
+    }
+    $base = default_currency();
+    $by = [];
+    try {
+        $rows = db_all(
+            "SELECT d.date, d.id, d.currency,
+                    COALESCE(SUM(i.qty), 0) AS units,
+                    COALESCE(SUM(ROUND(i.qty * i.rate, 2)), 0) AS revenue
+             FROM documents d
+             JOIN document_items i ON i.document_id = d.id
+             WHERE d.company_id = ? AND d.status = 'issued'
+               AND (d.kind = 'invoice' OR (d.kind = 'receipt' AND COALESCE(d.related_id, 0) = 0))
+               AND d.date >= ? AND d.date <= ?" . $bSql . "
+             GROUP BY d.date, d.id, d.currency",
+            $types,
+            $params
+        );
+    } catch (Throwable $e) {
+        error_log('stock_sold_daily: ' . $e->getMessage());
+        return [];
+    }
+    foreach ($rows as $row) {
+        $day = (string) $row['date'];
+        if (!isset($by[$day])) {
+            $by[$day] = ['units' => 0.0, 'tickets' => 0, 'revenue' => 0.0];
+        }
+        $by[$day]['units'] += (float) ($row['units'] ?? 0);
+        $by[$day]['tickets'] += 1;
+        $fromCur = function_exists('normalize_currency')
+            ? normalize_currency((string) ($row['currency'] ?? ''), $base)
+            : (string) ($row['currency'] ?? $base);
+        $rev = (float) ($row['revenue'] ?? 0);
+        $by[$day]['revenue'] += function_exists('convert_money') ? convert_money($rev, $fromCur, $base) : $rev;
+    }
+    ksort($by);
+    return $by;
+}
+
+/**
+ * POS-style stock analytics payload for charts + KPI cards.
+ *
+ * @return array<string, mixed>
+ */
+function stock_reports_analytics(string $from, string $to): array
+{
+    $dash = stock_day_dashboard($from, $to);
+    $sold = $dash['sold'] ?? [];
+    $days = $dash['days'] ?? [];
+    $months = $dash['months'] ?? [];
+    $totals = $dash['totals'] ?? stock_finish_totals(stock_blank_totals());
+    $showProfit = !empty($dash['show_profit']);
+    $dailySold = stock_sold_daily($from, $to);
+    $stats = stock_stats();
+    $low = stock_low_items();
+
+    $dayLabels = [];
+    $dayIncome = [];
+    $dayExpense = [];
+    $dayUnits = [];
+    $dayTickets = [];
+    $dayProfit = [];
+    foreach ($days as $date => $row) {
+        $dayLabels[] = format_date((string) $date);
+        $dayIncome[] = round((float) ($row['income'] ?? 0), 2);
+        $dayExpense[] = round((float) ($row['expense'] ?? 0), 2);
+        $dayProfit[] = round((float) ($row['profit'] ?? 0), 2);
+        $hit = $dailySold[(string) $date] ?? ['units' => 0.0, 'tickets' => 0];
+        $dayUnits[] = round((float) $hit['units'], 2);
+        $dayTickets[] = (int) $hit['tickets'];
+    }
+
+    $monthLabels = [];
+    $monthIncome = [];
+    $monthExpense = [];
+    $monthProfit = [];
+    foreach ($months as $m => $row) {
+        $monthLabels[] = (string) $m;
+        $monthIncome[] = round((float) ($row['income'] ?? 0), 2);
+        $monthExpense[] = round((float) ($row['expense'] ?? 0), 2);
+        $monthProfit[] = round((float) ($row['profit'] ?? 0), 2);
+    }
+
+    $topRev = array_slice($sold, 0, 10);
+    $byQty = $sold;
+    usort($byQty, static fn ($a, $b) => ((float) ($b['qty'] ?? 0)) <=> ((float) ($a['qty'] ?? 0)));
+    $topQty = array_slice($byQty, 0, 10);
+
+    $mix = ['product' => 0.0, 'service' => 0.0, 'other' => 0.0];
+    $unitsTotal = 0.0;
+    foreach ($sold as $row) {
+        $kind = (string) ($row['kind'] ?? 'other');
+        if (!isset($mix[$kind])) {
+            $kind = 'other';
+        }
+        $mix[$kind] += (float) ($row['amount'] ?? 0);
+        $unitsTotal += (float) ($row['qty'] ?? 0);
+    }
+
+    $weekdayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    $weekday = array_fill(0, 7, 0.0);
+    $weekdayTickets = array_fill(0, 7, 0);
+    foreach ($days as $date => $row) {
+        $ts = strtotime((string) $date);
+        if (!$ts) {
+            continue;
+        }
+        $idx = ((int) date('N', $ts)) - 1;
+        $weekday[$idx] += (float) ($row['income'] ?? 0);
+        $weekdayTickets[$idx] += (int) (($dailySold[(string) $date] ?? [])['tickets'] ?? 0);
+    }
+
+    $tickets = array_sum(array_map(static fn ($d) => (int) ($d['tickets'] ?? 0), $dailySold));
+    $revenue = (float) ($totals['income'] ?? 0);
+    $cogs = (float) ($totals['cogs'] ?? 0);
+    $avgTicket = $tickets > 0 ? round($revenue / $tickets, 2) : 0.0;
+    $margin = $revenue > 0.009 ? round((($revenue - $cogs) / $revenue) * 100, 1) : 0.0;
+
+    // Slow movers: goods on hand with zero sales in the period.
+    $soldIds = [];
+    foreach ($sold as $row) {
+        // document_sold_lines keys by name; recover stock ids via name match below.
+    }
+    $activeGoods = array_values(array_filter(
+        stock_items(false),
+        static fn ($r) => (int) ($r['is_service'] ?? 0) === 0 && (float) ($r['qty_on_hand'] ?? 0) > 0.009
+    ));
+    $soldNames = [];
+    foreach ($sold as $row) {
+        if (($row['kind'] ?? '') === 'product') {
+            $soldNames[mb_strtolower(trim((string) ($row['name'] ?? '')))] = true;
+        }
+    }
+    $slow = [];
+    foreach ($activeGoods as $item) {
+        $key = mb_strtolower(trim((string) ($item['name'] ?? '')));
+        if ($key !== '' && empty($soldNames[$key])) {
+            $slow[] = [
+                'name' => (string) $item['name'],
+                'qty' => (float) $item['qty_on_hand'],
+                'sell' => (float) $item['sell_price'],
+                'value' => round((float) $item['qty_on_hand'] * (float) $item['sell_price'], 2),
+            ];
+        }
+        if (count($slow) >= 12) {
+            break;
+        }
+    }
+
+    $brand = branding();
+    return [
+        'from' => $from,
+        'to' => $to,
+        'currency' => default_currency(),
+        'color' => (string) ($brand['brand_color'] ?? '#1E4EFF'),
+        'show_profit' => $showProfit,
+        'kpis' => [
+            'revenue' => round($revenue, 2),
+            'units' => round($unitsTotal, 2),
+            'tickets' => (int) $tickets,
+            'avg_ticket' => $avgTicket,
+            'cogs' => round($cogs, 2),
+            'margin_pct' => $margin,
+            'skus' => count($sold),
+            'low' => (int) ($stats['low'] ?? count($low)),
+            'stock_cost' => round((float) ($stats['cost'] ?? 0), 2),
+            'stock_sell' => round((float) ($stats['sell'] ?? 0), 2),
+        ],
+        'days' => [
+            'labels' => $dayLabels,
+            'income' => $dayIncome,
+            'expense' => $dayExpense,
+            'profit' => $dayProfit,
+            'units' => $dayUnits,
+            'tickets' => $dayTickets,
+        ],
+        'months' => [
+            'labels' => $monthLabels,
+            'income' => $monthIncome,
+            'expense' => $monthExpense,
+            'profit' => $monthProfit,
+        ],
+        'top_revenue' => [
+            'labels' => array_map(static fn ($r) => (string) ($r['name'] ?? ''), $topRev),
+            'values' => array_map(static fn ($r) => round((float) ($r['amount'] ?? 0), 2), $topRev),
+            'qty' => array_map(static fn ($r) => round((float) ($r['qty'] ?? 0), 2), $topRev),
+        ],
+        'top_qty' => [
+            'labels' => array_map(static fn ($r) => (string) ($r['name'] ?? ''), $topQty),
+            'values' => array_map(static fn ($r) => round((float) ($r['qty'] ?? 0), 2), $topQty),
+            'amount' => array_map(static fn ($r) => round((float) ($r['amount'] ?? 0), 2), $topQty),
+        ],
+        'mix' => [
+            'labels' => ['Products', 'Services', 'Other'],
+            'values' => [
+                round($mix['product'], 2),
+                round($mix['service'], 2),
+                round($mix['other'], 2),
+            ],
+        ],
+        'weekday' => [
+            'labels' => $weekdayNames,
+            'income' => array_map(static fn ($v) => round((float) $v, 2), $weekday),
+            'tickets' => $weekdayTickets,
+        ],
+        'sold' => $sold,
+        'slow' => $slow,
+        'low_items' => array_slice(array_map(static function ($r) {
+            return [
+                'name' => (string) ($r['name'] ?? ''),
+                'qty' => (float) ($r['qty_on_hand'] ?? 0),
+                'reorder' => (float) ($r['reorder_level'] ?? 0),
+            ];
+        }, $low), 0, 12),
+    ];
+}
+
+function render_stock_reports_tab(array $analytics): void
+{
+    $k = $analytics['kpis'] ?? [];
+    $showProfit = !empty($analytics['show_profit']);
+    $sold = $analytics['sold'] ?? [];
+    $slow = $analytics['slow'] ?? [];
+    $lowItems = $analytics['low_items'] ?? [];
+    ?>
+<div class="stats stock-stats stock-report-kpis">
+  <div class="card stat"><?= icon('invoice', 20) ?><span>Sales</span><strong><?= h(money((float) ($k['revenue'] ?? 0))) ?></strong></div>
+  <div class="card stat"><?= icon('cart', 20) ?><span>Tickets</span><strong><?= (int) ($k['tickets'] ?? 0) ?></strong></div>
+  <div class="card stat"><?= icon('package', 20) ?><span>Units sold</span><strong><?= h(function_exists('format_qty') ? format_qty($k['units'] ?? 0) : (string) ($k['units'] ?? 0)) ?></strong></div>
+  <div class="card stat"><?= icon('bank', 20) ?><span>Avg ticket</span><strong><?= h(money((float) ($k['avg_ticket'] ?? 0))) ?></strong></div>
+  <?php if ($showProfit): ?>
+  <div class="card stat"><?= icon('reports', 20) ?><span>Margin</span><strong><?= h(number_format((float) ($k['margin_pct'] ?? 0), 1)) ?>%</strong></div>
+  <div class="card stat"><?= icon('expense', 20) ?><span>COGS</span><strong><?= h(money((float) ($k['cogs'] ?? 0))) ?></strong></div>
+  <?php endif; ?>
+  <div class="card stat"><?= icon('alert', 20) ?><span>Low stock</span><strong><?= (int) ($k['low'] ?? 0) ?></strong></div>
+  <div class="card stat"><?= icon('hash', 20) ?><span>SKUs sold</span><strong><?= (int) ($k['skus'] ?? 0) ?></strong></div>
+</div>
+
+<div class="chart-grid stock-report-charts">
+  <div class="card chart-box">
+    <div class="card-head"><h2><?= icon('reports', 16) ?>Daily sales</h2></div>
+    <div class="chart-frame"><canvas id="chart-stock-daily" aria-label="Daily sales chart"></canvas></div>
+  </div>
+  <div class="card chart-box">
+    <div class="card-head"><h2><?= icon('package', 16) ?>Units sold / day</h2></div>
+    <div class="chart-frame"><canvas id="chart-stock-units" aria-label="Daily units chart"></canvas></div>
+  </div>
+</div>
+
+<div class="chart-grid equal stock-report-charts">
+  <div class="card chart-box">
+    <div class="card-head"><h2><?= icon('cart', 16) ?>Top products by sales</h2></div>
+    <div class="chart-frame chart-frame-tall"><canvas id="chart-stock-top-rev" aria-label="Top products by revenue"></canvas></div>
+  </div>
+  <div class="card chart-box">
+    <div class="card-head"><h2><?= icon('package', 16) ?>Top products by qty</h2></div>
+    <div class="chart-frame chart-frame-tall"><canvas id="chart-stock-top-qty" aria-label="Top products by quantity"></canvas></div>
+  </div>
+</div>
+
+<div class="chart-grid equal stock-report-charts">
+  <div class="card chart-box">
+    <div class="card-head"><h2><?= icon('calendar', 16) ?>Weekday performance</h2></div>
+    <div class="chart-frame"><canvas id="chart-stock-weekday" aria-label="Weekday performance chart"></canvas></div>
+  </div>
+  <div class="card chart-box">
+    <div class="card-head"><h2><?= icon('reports', 16) ?>Product vs service mix</h2></div>
+    <div class="chart-frame"><canvas id="chart-stock-mix" aria-label="Sales mix chart"></canvas></div>
+  </div>
+</div>
+
+<div class="chart-grid stock-report-charts">
+  <div class="card chart-box">
+    <div class="card-head"><h2><?= icon('reports', 16) ?>Monthly trend</h2></div>
+    <div class="chart-frame"><canvas id="chart-stock-months-rep" aria-label="Monthly trend chart"></canvas></div>
+  </div>
+  <div class="card chart-box stock-inv-card">
+    <div class="card-head"><h2><?= icon('package', 16) ?>Inventory snapshot</h2></div>
+    <div class="stock-inv-grid">
+      <div><span>Stock at cost</span><strong><?= h(money((float) ($k['stock_cost'] ?? 0))) ?></strong></div>
+      <div><span>Stock at sell</span><strong><?= h(money((float) ($k['stock_sell'] ?? 0))) ?></strong></div>
+      <div><span>Low-stock items</span><strong><?= (int) ($k['low'] ?? 0) ?></strong></div>
+      <div><span>SKUs with sales</span><strong><?= (int) ($k['skus'] ?? 0) ?></strong></div>
+    </div>
+    <?php if ($lowItems): ?>
+      <div class="table-scroll stock-inv-table">
+        <table class="grid">
+          <thead><tr><th>Low stock</th><th class="right">On hand</th><th class="right">Reorder</th></tr></thead>
+          <tbody>
+            <?php foreach ($lowItems as $row): ?>
+              <tr>
+                <td><?= h((string) ($row['name'] ?? '')) ?></td>
+                <td class="right mono"><?= h(function_exists('format_qty') ? format_qty($row['qty'] ?? 0) : (string) ($row['qty'] ?? 0)) ?></td>
+                <td class="right mono"><?= h(function_exists('format_qty') ? format_qty($row['reorder'] ?? 0) : (string) ($row['reorder'] ?? 0)) ?></td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    <?php else: ?>
+      <p class="empty" style="padding:8px 18px 18px">No low-stock items right now.</p>
+    <?php endif; ?>
+  </div>
+</div>
+
+<div class="desk-grid stock-split stock-report-tables">
+  <div class="card">
+    <div class="card-head"><h2><?= icon('package', 16) ?>Sold in period</h2></div>
+    <?php render_stock_sold_table($sold); ?>
+  </div>
+  <div class="card">
+    <div class="card-head"><h2><?= icon('clock', 16) ?>Slow movers (on hand, no sales)</h2></div>
+    <?php if (!$slow): ?>
+      <p class="empty">No slow movers in this period — stocked goods all had sales, or shelves are empty.</p>
+    <?php else: ?>
+      <div class="table-scroll">
+        <table class="grid">
+          <thead><tr><th>Item</th><th class="right">On hand</th><th class="right">At sell</th></tr></thead>
+          <tbody>
+            <?php foreach ($slow as $row): ?>
+              <tr>
+                <td><?= h((string) ($row['name'] ?? '')) ?></td>
+                <td class="right mono"><?= h(function_exists('format_qty') ? format_qty($row['qty'] ?? 0) : (string) ($row['qty'] ?? 0)) ?></td>
+                <td class="right mono"><?= h(money((float) ($row['value'] ?? 0))) ?></td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    <?php endif; ?>
+  </div>
+</div>
     <?php
 }
 
