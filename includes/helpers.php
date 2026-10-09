@@ -1026,6 +1026,7 @@ function folio_defaults(): array
         'payment_note' => '',
         'invoice_comments' => '',
         'receipt_comments' => '',
+        'thanks_message' => 'Thank you',
         'letter_templates' => '',
         'doc_template' => 'folio',
         'logo_bg' => 0,
@@ -1118,6 +1119,14 @@ function brand_document_comments(array $brand, string $kind, ?string $notes = nu
         return trim((string) ($brand['invoice_comments'] ?? ''));
     }
     return '';
+}
+
+/** Closing line on thermal rolls (and similar slips). Empty falls back to Thank you. */
+function brand_thanks_message(?array $brand = null): string
+{
+    $brand = $brand ?? (function_exists('branding') ? branding() : []);
+    $msg = trim((string) ($brand['thanks_message'] ?? ''));
+    return $msg !== '' ? mb_substr($msg, 0, 120) : 'Thank you';
 }
 
 function parse_hex_color(?string $raw, string $fallback = '#82B440'): string

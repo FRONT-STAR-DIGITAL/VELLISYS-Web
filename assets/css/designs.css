@@ -2690,15 +2690,15 @@
 }
 .invoice-sheet.sheet-thermal .doc-auth-qr,
 .print-thermal .doc-auth-qr {
-  width: 104px;
-  height: 104px;
+  width: 78px;
+  height: 78px;
   flex: 0 0 auto;
 }
 .invoice-sheet.sheet-thermal .doc-auth-qr img,
 .print-thermal .doc-auth-qr img {
   display: block;
-  width: 104px;
-  height: 104px;
+  width: 78px;
+  height: 78px;
   /* Solid chunky modules - soft scaling / gray edges fail on thermal */
   image-rendering: pixelated;
   image-rendering: crisp-edges;

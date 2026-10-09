@@ -25,7 +25,7 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '72';
+    return '73';
 }
 
 /**
@@ -265,6 +265,19 @@ function folio_ensure_receipt_comments(mysqli $db): void
     if (!db_has_column($db, 'branding', 'receipt_comments')) {
         @$db->query('ALTER TABLE branding ADD COLUMN receipt_comments TEXT NULL');
         db_has_column($db, 'branding', 'receipt_comments', true);
+    }
+}
+
+function folio_ensure_thanks_message(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    if (!db_has_column($db, 'branding', 'thanks_message')) {
+        @$db->query("ALTER TABLE branding ADD COLUMN thanks_message VARCHAR(120) NOT NULL DEFAULT 'Thank you'");
+        db_has_column($db, 'branding', 'thanks_message', true);
     }
 }
 
@@ -988,6 +1001,7 @@ function folio_migrate(mysqli $db): void
     folio_ensure_logo_bg($db);
     folio_ensure_optional_doc_party($db);
     folio_ensure_receipt_comments($db);
+    folio_ensure_thanks_message($db);
     folio_ensure_party_status($db);
     folio_ensure_branches($db);
     folio_ensure_trust_logos($db);

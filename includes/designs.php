@@ -1899,7 +1899,15 @@ function render_sheet_thermal(array $d): void
     <?php endif; ?>
   <?php endif; ?>
   <?php render_authorized_signoff($doc); ?>
-  <p class="thermal-thanks">Thank you</p>
+  <?php
+  $thanks = function_exists('brand_thanks_message')
+      ? brand_thanks_message($brand)
+      : trim((string) ($brand['thanks_message'] ?? ''));
+  if ($thanks === '') {
+      $thanks = 'Thank you';
+  }
+  ?>
+  <p class="thermal-thanks"><?= h($thanks) ?></p>
   <p class="thermal-foot"><?= h($brand['email']) ?></p>
 </article>
 <?php

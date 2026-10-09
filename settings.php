@@ -174,9 +174,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     if ($error === '') {
+        $thanksMsg = trim((string) post('thanks_message'));
+        if ($thanksMsg === '') {
+            $thanksMsg = 'Thank you';
+        }
+        $thanksMsg = mb_substr($thanksMsg, 0, 120);
         db_exec(
-            'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, receipt_comments=?, currency=?, fx_ugx_per_usd=?, letter_templates=?, doc_template=?, number_format=?, logo_bg=?, tax_name=?, tax_rate=?, tax_default=? WHERE company_id=?',
-            'sssssssssssssssssssssdsssisdii',
+            'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, receipt_comments=?, thanks_message=?, currency=?, fx_ugx_per_usd=?, letter_templates=?, doc_template=?, number_format=?, logo_bg=?, tax_name=?, tax_rate=?, tax_default=? WHERE company_id=?',
+            'ssssssssssssssssssssssdsssisdii',
             [
                 post('name'),
                 post('tagline'),
@@ -198,6 +203,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 post('payment_note'),
                 post('invoice_comments'),
                 post('receipt_comments'),
+                $thanksMsg,
                 posted_currency('currency', default_currency()),
                 parse_fx_rate(post('fx_ugx_per_usd')),
                 encode_letter_templates(isset($_POST['tpl']) && is_array($_POST['tpl']) ? $_POST['tpl'] : []),
@@ -748,6 +754,9 @@ layout_start('Settings', $user);
       <label for="receipt_comments">Default receipt comments</label>
       <textarea id="receipt_comments" name="receipt_comments" rows="3"><?= h($b['receipt_comments'] ?? '') ?></textarea>
       <p class="hint">Printed on receipts when that receipt has no comments of its own.</p>
+      <label for="thanks_message">Thermal thank-you line</label>
+      <input id="thanks_message" name="thanks_message" maxlength="120" value="<?= h(($b['thanks_message'] ?? '') !== '' ? (string) $b['thanks_message'] : 'Thank you') ?>">
+      <p class="hint">Closing line on the thermal roll (for example Thank you, or Asante sana). Leave blank to use Thank you.</p>
       <?php $settings_save(); ?>
     </section>
 

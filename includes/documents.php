@@ -1658,7 +1658,8 @@ function document_authenticity_html(array $brand, array $doc): string
     $isThermal = function_exists('doc_template_key') && doc_template_key($doc) === 'thermal';
     // Oversized hard-ink bitmap + short URL → thick modules that survive thermal print.
     $qr = document_qr_img_src($verifyUrl, $isThermal ? 400 : 280);
-    $imgPx = $isThermal ? 104 : 96;
+    // Thermal QR is ~3/4 of the previous 104px print size.
+    $imgPx = $isThermal ? 78 : 96;
     $site = product_site_url();
     $host = preg_replace('#^https?://#', '', $site) ?: 'www.vellisys.com';
     ob_start();
