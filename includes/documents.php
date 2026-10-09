@@ -1476,6 +1476,54 @@ function document_verify_url(array $doc): string
 }
 
 /**
+ * Threshold a QR PNG to pure black modules on white (no gray anti-alias).
+ * Does not dilate — expanding modules would break scanning.
+ */
+function qr_thermal_ink_bin(string $bin): string
+{
+    if ($bin === '' || !function_exists('imagecreatefromstring') || !function_exists('imagepng')) {
+        return '';
+    }
+    $src = @imagecreatefromstring($bin);
+    if (!$src) {
+        return '';
+    }
+    $w = imagesx($src);
+    $h = imagesy($src);
+    if ($w < 16 || $h < 16) {
+        imagedestroy($src);
+        return '';
+    }
+    $out = imagecreatetruecolor($w, $h);
+    if ($out === false) {
+        imagedestroy($src);
+        return '';
+    }
+    $white = imagecolorallocate($out, 255, 255, 255);
+    $black = imagecolorallocate($out, 0, 0, 0);
+    imagefilledrectangle($out, 0, 0, $w, $h, $white);
+    imagealphablending($out, true);
+    // Flatten onto white, then hard-cut every pixel to black or white.
+    imagecopy($out, $src, 0, 0, 0, 0, $w, $h);
+    imagedestroy($src);
+    for ($y = 0; $y < $h; $y++) {
+        for ($x = 0; $x < $w; $x++) {
+            $rgba = imagecolorat($out, $x, $y);
+            $r = ($rgba >> 16) & 0xFF;
+            $g = ($rgba >> 8) & 0xFF;
+            $b = $rgba & 0xFF;
+            $luma = (0.2126 * $r + 0.7152 * $g + 0.0722 * $b);
+            imagesetpixel($out, $x, $y, $luma < 160 ? $black : $white);
+        }
+    }
+    ob_start();
+    imagepng($out, null, 6);
+    $png = (string) ob_get_clean();
+    imagedestroy($out);
+    return strlen($png) >= 40 ? $png : '';
+}
+
+/**
  * PNG src for a QR that encodes $text. Cached under uploads/qr.
  * Prefers a same-origin file URL (reliable in PDF/print), then data-URI, then external API.
  */
@@ -1485,18 +1533,19 @@ function document_qr_img_src(string $text, int $size = 120): string
     if ($text === '') {
         return '';
     }
-    $size = max(96, min(240, $size));
+    $size = max(96, min(320, $size));
     $dir = ROOT_PATH . '/uploads/qr';
     if (!is_dir($dir)) {
         @mkdir($dir, 0755, true);
     }
-    // Pure black modules on white — gray anti-alias from the API prints faint on thermal.
-    $key = substr(hash('sha256', $size . '|bw|' . $text), 0, 40);
+    // ink2: pure black modules after local threshold (API anti-alias prints faint on thermal).
+    $key = substr(hash('sha256', $size . '|ink2|H|' . $text), 0, 40);
     $file = $dir . '/' . $key . '.png';
     $rel = 'uploads/qr/' . $key . '.png';
     if (!is_file($file) || filesize($file) < 40) {
+        // ecc=H + quiet zone help scanners on speckled thermal paper.
         $api = 'https://api.qrserver.com/v1/create-qr-code/?size=' . $size . 'x' . $size
-            . '&margin=1&ecc=M&color=000000&bgcolor=FFFFFF&format=png&qzone=1&data='
+            . '&margin=2&ecc=H&color=000000&bgcolor=FFFFFF&format=png&qzone=2&data='
             . rawurlencode($text);
         $bin = '';
         if (function_exists('curl_init')) {
@@ -1522,6 +1571,10 @@ function document_qr_img_src(string $text, int $size = 120): string
             $bin = (string) @file_get_contents($api, false, $ctx);
         }
         if ($bin !== '' && strlen($bin) >= 40 && strncmp($bin, "\x89PNG", 4) === 0) {
+            $ink = qr_thermal_ink_bin($bin);
+            if ($ink !== '') {
+                $bin = $ink;
+            }
             @file_put_contents($file, $bin);
         }
     }
@@ -1530,7 +1583,7 @@ function document_qr_img_src(string $text, int $size = 120): string
         return url($rel);
     }
     return 'https://api.qrserver.com/v1/create-qr-code/?size=' . $size . 'x' . $size
-        . '&margin=1&ecc=M&color=000000&bgcolor=FFFFFF&format=png&qzone=1&data='
+        . '&margin=2&ecc=H&color=000000&bgcolor=FFFFFF&format=png&qzone=2&data='
         . rawurlencode($text);
 }
 
@@ -1557,8 +1610,8 @@ function document_authenticity_html(array $brand, array $doc): string
         return '';
     }
     $verifyUrl = document_verify_url($doc);
-    // Larger source bitmap so thermal 80mm scale-down keeps solid black modules.
-    $qr = document_qr_img_src($verifyUrl, 180);
+    // Large hard-ink bitmap: thermal printers need big solid modules to scan.
+    $qr = document_qr_img_src($verifyUrl, 240);
     $site = product_site_url();
     $host = preg_replace('#^https?://#', '', $site) ?: 'www.vellisys.com';
     ob_start();
@@ -1566,7 +1619,7 @@ function document_authenticity_html(array $brand, array $doc): string
 <div class="doc-authenticity" aria-label="Document authenticity">
   <div class="doc-auth-qr">
     <?php if ($qr !== ''): ?>
-      <img src="<?= h($qr) ?>" width="72" height="72" alt="Scan to verify this document">
+      <img src="<?= h($qr) ?>" width="96" height="96" alt="Scan to verify this document">
     <?php endif; ?>
   </div>
   <div class="doc-auth-meta">
