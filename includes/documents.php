@@ -1490,12 +1490,14 @@ function document_qr_img_src(string $text, int $size = 120): string
     if (!is_dir($dir)) {
         @mkdir($dir, 0755, true);
     }
-    $key = substr(hash('sha256', $size . '|' . $text), 0, 40);
+    // Pure black modules on white — gray anti-alias from the API prints faint on thermal.
+    $key = substr(hash('sha256', $size . '|bw|' . $text), 0, 40);
     $file = $dir . '/' . $key . '.png';
     $rel = 'uploads/qr/' . $key . '.png';
     if (!is_file($file) || filesize($file) < 40) {
         $api = 'https://api.qrserver.com/v1/create-qr-code/?size=' . $size . 'x' . $size
-            . '&margin=1&ecc=M&data=' . rawurlencode($text);
+            . '&margin=1&ecc=M&color=000000&bgcolor=FFFFFF&format=png&qzone=1&data='
+            . rawurlencode($text);
         $bin = '';
         if (function_exists('curl_init')) {
             $ch = curl_init($api);
@@ -1528,7 +1530,8 @@ function document_qr_img_src(string $text, int $size = 120): string
         return url($rel);
     }
     return 'https://api.qrserver.com/v1/create-qr-code/?size=' . $size . 'x' . $size
-        . '&margin=1&ecc=M&data=' . rawurlencode($text);
+        . '&margin=1&ecc=M&color=000000&bgcolor=FFFFFF&format=png&qzone=1&data='
+        . rawurlencode($text);
 }
 
 function document_party_display_name(array $doc): string
@@ -1554,7 +1557,8 @@ function document_authenticity_html(array $brand, array $doc): string
         return '';
     }
     $verifyUrl = document_verify_url($doc);
-    $qr = document_qr_img_src($verifyUrl, 120);
+    // Larger source bitmap so thermal 80mm scale-down keeps solid black modules.
+    $qr = document_qr_img_src($verifyUrl, 180);
     $site = product_site_url();
     $host = preg_replace('#^https?://#', '', $site) ?: 'www.vellisys.com';
     ob_start();
@@ -1562,7 +1566,7 @@ function document_authenticity_html(array $brand, array $doc): string
 <div class="doc-authenticity" aria-label="Document authenticity">
   <div class="doc-auth-qr">
     <?php if ($qr !== ''): ?>
-      <img src="<?= h($qr) ?>" width="60" height="60" alt="Scan to verify this document">
+      <img src="<?= h($qr) ?>" width="72" height="72" alt="Scan to verify this document">
     <?php endif; ?>
   </div>
   <div class="doc-auth-meta">

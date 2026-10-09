@@ -1170,16 +1170,18 @@
 .thermal-head .d-logo.xs {
   display: block;
   margin: 0 auto 8px;
-  height: 56px;
-  max-width: 176px;
-  max-height: 56px;
+  height: 64px;
+  max-width: 190px;
+  max-height: 64px;
   width: auto;
   object-fit: contain;
   background: #fff;
-  padding: 3px;
+  padding: 0;
   border-radius: 0;
-  /* Push faint / light logos toward hard black for thermal ink */
-  filter: contrast(1.45) saturate(0.85);
+  /* Hard B&W stamp — colored / light logos otherwise dither to gray on thermal */
+  filter: grayscale(1) contrast(2.8) brightness(0.72);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 .thermal-head strong {
   display: block;
@@ -1375,9 +1377,17 @@
   border-top-width: 2px;
 }
 .invoice-sheet.sheet-thermal .doc-auth-meta,
-.print-thermal .doc-auth-meta {
-  color: #000;
-  font-weight: 600;
+.invoice-sheet.sheet-thermal .doc-auth-hint,
+.invoice-sheet.sheet-thermal .doc-auth-powered,
+.invoice-sheet.sheet-thermal .doc-auth-powered a,
+.invoice-sheet.sheet-thermal .doc-auth-powered span,
+.print-thermal .doc-auth-meta,
+.print-thermal .doc-auth-hint,
+.print-thermal .doc-auth-powered,
+.print-thermal .doc-auth-powered a,
+.print-thermal .doc-auth-powered span {
+  color: #000 !important;
+  font-weight: 700 !important;
 }
 
 /* Counter booklet - one-sheet receipt book, no item table */
@@ -2660,25 +2670,62 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: 6px;
+  gap: 8px;
   margin: 10px auto 0;
-  padding: 5px 6px;
+  padding: 6px 8px;
   width: fit-content;
   max-width: 100%;
   box-sizing: border-box;
+  border: 2px solid #000 !important;
+  border-radius: 0;
+  background: #fff !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 .invoice-sheet.sheet-thermal .doc-auth-qr,
 .invoice-sheet.sheet-thermal .doc-auth-qr img,
 .print-thermal .doc-auth-qr,
 .print-thermal .doc-auth-qr img {
-  width: 48px;
-  height: 48px;
+  width: 72px;
+  height: 72px;
+}
+.invoice-sheet.sheet-thermal .doc-auth-qr img,
+.print-thermal .doc-auth-qr img {
+  /* Keep modules as solid black squares — soft scaling was printing gray */
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+  filter: grayscale(1) contrast(4) brightness(0.85);
+  background: #fff;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 .invoice-sheet.sheet-thermal .doc-auth-meta,
 .print-thermal .doc-auth-meta {
   flex: 0 0 auto;
   max-width: none;
-  text-align: center;
+  text-align: left;
+  color: #000 !important;
+}
+.invoice-sheet.sheet-thermal .doc-auth-hint,
+.invoice-sheet.sheet-thermal .doc-auth-powered,
+.invoice-sheet.sheet-thermal .doc-auth-powered a,
+.invoice-sheet.sheet-thermal .doc-auth-powered span,
+.print-thermal .doc-auth-hint,
+.print-thermal .doc-auth-powered,
+.print-thermal .doc-auth-powered a,
+.print-thermal .doc-auth-powered span {
+  color: #000 !important;
+  font-weight: 700 !important;
+  font-size: 10px !important;
+  line-height: 1.25 !important;
+  -webkit-text-stroke: 0.2px #000;
+  text-shadow: 0.15px 0 0 #000, -0.15px 0 0 #000;
+}
+.invoice-sheet.sheet-thermal .doc-auth-hint,
+.print-thermal .doc-auth-hint {
+  letter-spacing: .02em;
+  text-transform: uppercase;
 }
 .invoice-sheet.sheet-thermal .auth-sign,
 .print-thermal .auth-sign {
