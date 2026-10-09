@@ -2413,7 +2413,11 @@
 .invoice-sheet.sheet-thermal .thermal-thanks,
 .invoice-sheet.sheet-thermal .thermal-foot,
 .invoice-sheet.sheet-thermal .auth-sign p,
-.invoice-sheet.sheet-thermal .doc-auth-meta {
+.invoice-sheet.sheet-thermal .doc-auth-meta,
+.invoice-sheet.sheet-thermal .doc-auth-hint,
+.invoice-sheet.sheet-thermal .doc-auth-powered,
+.invoice-sheet.sheet-thermal .doc-auth-powered a,
+.invoice-sheet.sheet-thermal .doc-auth-powered span {
   color: #000 !important;
 }
 .invoice-sheet.sheet-thermal .thermal-head strong {
