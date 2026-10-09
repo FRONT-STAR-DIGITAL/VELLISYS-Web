@@ -1121,11 +1121,15 @@ function brand_document_comments(array $brand, string $kind, ?string $notes = nu
     return '';
 }
 
-/** Closing line on thermal rolls (and similar slips). Empty falls back to Thank you. */
+/** Closing “Thank you” line above email/QR on thermal rolls. Empty falls back to Thank you. */
 function brand_thanks_message(?array $brand = null): string
 {
-    $brand = $brand ?? (function_exists('branding') ? branding() : []);
-    $msg = trim((string) ($brand['thanks_message'] ?? ''));
+    $msg = '';
+    if (is_array($brand) && array_key_exists('thanks_message', $brand)) {
+        $msg = trim((string) $brand['thanks_message']);
+    } elseif (function_exists('branding')) {
+        $msg = trim((string) (branding()['thanks_message'] ?? ''));
+    }
     return $msg !== '' ? mb_substr($msg, 0, 120) : 'Thank you';
 }
 

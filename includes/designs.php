@@ -1927,6 +1927,7 @@ function render_sheet_thermal(array $d): void
   <?php endif; ?>
   <?php render_authorized_signoff($doc); ?>
   <?php
+  // Footer line above email + QR — company edits this in Settings → Document designs.
   $thanks = function_exists('brand_thanks_message')
       ? brand_thanks_message($brand)
       : trim((string) ($brand['thanks_message'] ?? ''));

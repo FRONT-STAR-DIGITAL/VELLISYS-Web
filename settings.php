@@ -754,15 +754,15 @@ layout_start('Settings', $user);
       <label for="receipt_comments">Default receipt comments</label>
       <textarea id="receipt_comments" name="receipt_comments" rows="3"><?= h($b['receipt_comments'] ?? '') ?></textarea>
       <p class="hint">Printed on receipts when that receipt has no comments of its own.</p>
-      <label for="thanks_message">Thermal thank-you line</label>
-      <input id="thanks_message" name="thanks_message" maxlength="120" value="<?= h(($b['thanks_message'] ?? '') !== '' ? (string) $b['thanks_message'] : 'Thank you') ?>">
-      <p class="hint">Closing line on the thermal roll (for example Thank you, or Asante sana). Leave blank to use Thank you.</p>
       <?php $settings_save(); ?>
     </section>
 
     <section class="card settings-card" id="templates">
       <h2><?= icon('palette') ?>Document designs</h2>
       <p class="lede">Fifteen layouts on white paper with black type and your brand colours. The preview is the printed sheet. This design prints on invoices, quotations, receipts and letters. On small screens A4 pages are scaled to fit. Page frame and Inset border put a rule around the paper. Thermal roll is an 80mm receipt for a kitchen or shop printer. Logo watermark and Bond watermark print the company mark faintly. Changing the design here reprints the whole books.</p>
+      <label for="thanks_message">Thank you on thermal roll</label>
+      <input id="thanks_message" name="thanks_message" maxlength="120" value="<?= h(($b['thanks_message'] ?? '') !== '' ? (string) $b['thanks_message'] : 'Thank you') ?>">
+      <p class="hint">The bold line above your email and QR on the thermal receipt. Change it to whatever your clients should see (for example Thank you, or Asante sana). Leave blank to use Thank you.</p>
       <?php $letterTpls = letter_templates(true); ?>
       <label class="check">
         <input type="hidden" name="logo_bg" value="0">
