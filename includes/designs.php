@@ -2144,7 +2144,12 @@ function render_sheet_trade(array $d): void
   <div class="trade-meta">
     <div class="trade-no">No. <?= h((string) ($doc['number'] ?? '')) ?></div>
     <div class="trade-pill"><?= h($heading) ?></div>
-    <div class="trade-date">DATE: <?= h(format_date($doc['date'] ?? null)) ?></div>
+    <div class="trade-dates">
+      <div class="trade-date">DATE: <?= h(format_date($doc['date'] ?? null)) ?></div>
+      <?php if (function_exists('document_shows_due_date') && document_shows_due_date($doc)): ?>
+        <div class="trade-due">DUE: <?= h(format_date($doc['due_date'] ?? null)) ?></div>
+      <?php endif; ?>
+    </div>
   </div>
 
   <?php if ($doc['status'] === 'void'): ?><p class="d-void">VOID<?= !empty($doc['void_reason']) ? ' - ' . h((string) $doc['void_reason']) : '' ?></p><?php endif; ?>

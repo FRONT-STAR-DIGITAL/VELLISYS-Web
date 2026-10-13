@@ -1753,14 +1753,25 @@
   border: 2px solid #111;
   box-shadow: 0 0 0 1px #fff inset;
 }
-.sheet-trade .trade-date {
+.sheet-trade .trade-dates {
+  justify-self: end;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  min-width: 160px;
+  text-align: right;
+}
+.sheet-trade .trade-date,
+.sheet-trade .trade-due {
   text-align: right;
   font-weight: 700;
   font-size: 13px;
   border-bottom: 1px dotted #555;
   padding-bottom: 2px;
-  justify-self: end;
-  min-width: 160px;
+}
+.sheet-trade .trade-due {
+  color: var(--brand-3);
 }
 .sheet-trade .trade-ms {
   display: flex;
