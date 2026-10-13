@@ -20,9 +20,14 @@ if (strtolower((string) ($doc['status'] ?? '')) === 'void') {
 
 $brand = branding();
 require_once ROOT_PATH . '/includes/designs.php';
-$thermal = doc_template_key($doc) === 'thermal'
+$templateKey = doc_template_key($doc);
+$thermal = $templateKey === 'thermal'
     && ($doc['kind'] ?? '') !== 'custom'
     && ($doc['kind'] ?? '') !== 'expense';
+$trade = $templateKey === 'trade'
+    && ($doc['kind'] ?? '') !== 'custom'
+    && ($doc['kind'] ?? '') !== 'expense';
+$pageSize = $thermal ? '80mm auto' : ($trade ? 'A5' : 'A4');
 $filename = document_download_filename($doc);
 $auto = isset($_GET['autodownload']);
 ?>
@@ -38,7 +43,7 @@ $auto = isset($_GET['autodownload']);
   <?php folio_font_links(); ?>
   <style>
     :root { <?= brand_css_vars($brand) ?> }
-    @page { size: <?= $thermal ? '80mm auto' : 'A4' ?>; margin: 0; }
+    @page { size: <?= $pageSize ?>; margin: 0; }
     html, body, body.print-body, .invoice-sheet, .invoice-sheet * {
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
@@ -57,12 +62,16 @@ $auto = isset($_GET['autodownload']);
       break-after: avoid !important;
     }
     .invoice-sheet.sheet-thermal { width: 80mm !important; max-width: 80mm !important; }
-    .invoice-sheet:not(.sheet-thermal) {
+    .invoice-sheet:not(.sheet-thermal):not(.sheet-trade) {
       width: 210mm !important;
       max-width: 210mm !important;
       padding: 2.5mm 2.5mm 3mm !important;
     }
-    .invoice-sheet.sheet-trade { padding: 2mm 2mm 2.5mm !important; }
+    .invoice-sheet.sheet-trade {
+      width: 148mm !important;
+      max-width: 148mm !important;
+      padding: 2mm 2mm 2.5mm !important;
+    }
     .invoice-sheet.sheet-twin { padding: 2mm 2mm 2.5mm !important; }
     .invoice-sheet.sheet-frame { padding: 1.5mm !important; }
     .invoice-sheet.sheet-inset,
@@ -81,7 +90,7 @@ $auto = isset($_GET['autodownload']);
   </style>
 </head>
 <body
-  class="print-body<?= $thermal ? ' print-thermal' : '' ?>"
+  class="print-body<?= $thermal ? ' print-thermal' : '' ?><?= $trade ? ' print-trade' : '' ?>"
   data-pdf-name="<?= h($filename) ?>"
   data-pdf-exact="1"
   <?= $auto ? ' data-autodownload="1"' : '' ?>

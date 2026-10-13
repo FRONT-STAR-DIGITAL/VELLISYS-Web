@@ -1638,13 +1638,17 @@
 }
 .chit-footrow { margin-top: 8px; }
 
-/* Trade Document - dealers sheet (Deals in, contact, title pill, qty table, Prepared by) */
+/* Trade Document - dealers sheet on A5 (Deals in, contact, title pill, qty table, Prepared by) */
 .invoice-sheet.sheet-trade {
-  /* Tight page margins so print/PDF fills the A4. */
+  width: 148mm;
+  max-width: 148mm;
+  min-height: 210mm;
+  /* Tight page margins so print/PDF fills the A5. */
   padding: 2mm 2mm 2.5mm;
   font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   color: #111;
   box-sizing: border-box;
+  page: trade-a5;
 }
 .sheet-trade .trade-head { margin: 0 0 10px; }
 .sheet-trade .trade-brand {
@@ -2196,6 +2200,10 @@
   size: A4;
   margin: 0;
 }
+@page trade-a5 {
+  size: A5;
+  margin: 0;
+}
 
 @media print {
   .desk-body::before { display: none !important; }
@@ -2251,7 +2259,22 @@
     padding: 2.5mm 2.5mm 3mm !important;
   }
   .invoice-sheet.sheet-trade {
+    page: trade-a5;
+    width: 148mm !important;
+    max-width: 148mm !important;
     padding: 2mm 2mm 2.5mm !important;
+  }
+  .print-trade,
+  .print-trade .sheet-wrap,
+  .print-trade .sheet-stage {
+    width: 148mm !important;
+    max-width: 148mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  .print-trade .invoice-sheet {
+    margin: 0 !important;
   }
   .invoice-sheet.sheet-frame {
     padding: 1.5mm !important;

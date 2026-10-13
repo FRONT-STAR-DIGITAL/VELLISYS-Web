@@ -783,7 +783,10 @@ function render_letter_body(array $doc): void
 function render_print_document_page(array $doc, bool $pdf = false): void
 {
     $brand = branding();
-    $thermal = doc_template_key($doc) === 'thermal' && ($doc['kind'] ?? '') !== 'custom' && ($doc['kind'] ?? '') !== 'expense';
+    $templateKey = doc_template_key($doc);
+    $thermal = $templateKey === 'thermal' && ($doc['kind'] ?? '') !== 'custom' && ($doc['kind'] ?? '') !== 'expense';
+    $trade = $templateKey === 'trade' && ($doc['kind'] ?? '') !== 'custom' && ($doc['kind'] ?? '') !== 'expense';
+    $pageSize = $thermal ? '80mm auto' : ($trade ? 'A5' : 'A4');
     ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -798,10 +801,10 @@ function render_print_document_page(array $doc, bool $pdf = false): void
   <?php folio_font_links(); ?>
   <style>
     :root { <?= brand_css_vars() ?> }
-    @page { size: <?= $thermal ? '80mm auto' : 'A4' ?>; margin: 0; }
+    @page { size: <?= $pageSize ?>; margin: 0; }
   </style>
 </head>
-<body class="print-body<?= $thermal ? ' print-thermal' : '' ?>">
+<body class="print-body<?= $thermal ? ' print-thermal' : '' ?><?= $trade ? ' print-trade' : '' ?>">
   <div class="sheet-wrap">
     <div class="sheet-stage">
       <?php render_sheet($brand, $doc); ?>

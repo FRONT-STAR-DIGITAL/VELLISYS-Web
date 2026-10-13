@@ -2001,9 +2001,14 @@ function document_sheet_print_html(array $doc): string
         $GLOBALS['folio_company_override'] = $cid;
     }
     $brand = branding_for($cid > 0 ? $cid : current_company_id());
-    $thermal = doc_template_key($doc) === 'thermal'
+    $templateKey = doc_template_key($doc);
+    $thermal = $templateKey === 'thermal'
         && ($doc['kind'] ?? '') !== 'custom'
         && ($doc['kind'] ?? '') !== 'expense';
+    $trade = $templateKey === 'trade'
+        && ($doc['kind'] ?? '') !== 'custom'
+        && ($doc['kind'] ?? '') !== 'expense';
+    $pageSize = $thermal ? '80mm auto' : ($trade ? 'A5' : 'A4');
     $appCss = document_rewrite_css_urls((string) file_get_contents(ROOT_PATH . '/assets/css/app.css'), ROOT_PATH . '/assets/css');
     $designCss = document_rewrite_css_urls((string) file_get_contents(ROOT_PATH . '/assets/css/designs.css'), ROOT_PATH . '/assets/css');
     ob_start();
@@ -2018,7 +2023,7 @@ function document_sheet_print_html(array $doc): string
   <style><?= $designCss ?></style>
   <style>
     :root { <?= brand_css_vars($brand) ?> }
-    @page { size: <?= $thermal ? '80mm auto' : 'A4' ?>; margin: 0; }
+    @page { size: <?= $pageSize ?>; margin: 0; }
     html, body, body.print-body, .invoice-sheet, .invoice-sheet * {
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
@@ -2042,12 +2047,14 @@ function document_sheet_print_html(array $doc): string
       max-width: 80mm !important;
       min-height: 0 !important;
     }
-    .invoice-sheet:not(.sheet-thermal) {
+    .invoice-sheet:not(.sheet-thermal):not(.sheet-trade) {
       width: 210mm !important;
       max-width: 210mm !important;
       padding: 2.5mm 2.5mm 3mm !important;
     }
     .invoice-sheet.sheet-trade {
+      width: 148mm !important;
+      max-width: 148mm !important;
       padding: 2mm 2mm 2.5mm !important;
     }
     .invoice-sheet.sheet-twin {
@@ -2075,7 +2082,7 @@ function document_sheet_print_html(array $doc): string
     .doc-authenticity { margin-top: 14px !important; }
   </style>
 </head>
-<body class="print-body<?= $thermal ? ' print-thermal' : '' ?>">
+<body class="print-body<?= $thermal ? ' print-thermal' : '' ?><?= $trade ? ' print-trade' : '' ?>">
   <div class="sheet-wrap">
     <div class="sheet-stage">
       <?php render_sheet($brand, $doc); ?>

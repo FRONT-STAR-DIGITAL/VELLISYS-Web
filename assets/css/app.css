@@ -2441,10 +2441,16 @@ input:focus, select:focus, textarea:focus {
   background: #fff;
   color: #000;
 }
-/* Twin stays A4 width (two copies side by side). Thermal is roll width. */
+/* Twin stays A4 width (two copies side by side). Thermal is roll width. Trade is A5. */
 .invoice-sheet.sheet-twin {
   width: 210mm;
   max-width: 210mm;
+}
+.invoice-sheet.sheet-trade {
+  width: 148mm;
+  max-width: 148mm;
+  /* Screen preview looks like an A5 sheet; print/PDF collapse empty bottom space. */
+  min-height: 210mm;
 }
 .invoice-sheet.sheet-thermal {
   width: 80mm;
@@ -4757,6 +4763,7 @@ body.tut-lightbox-open { overflow: hidden; }
   }
 }
 @page { size: A4; margin: 0; }
+@page trade-a5 { size: A5; margin: 0; }
 @media print {
   .desk-calc { display: none !important; }
   .app-tabbar { display: none !important; }
@@ -4804,13 +4811,28 @@ body.tut-lightbox-open { overflow: hidden; }
     page-break-after: auto !important;
     break-after: auto !important;
   }
-  .invoice-sheet:not(.sheet-thermal):not(.sheet-twin) {
+  .invoice-sheet:not(.sheet-thermal):not(.sheet-twin):not(.sheet-trade) {
     width: 210mm !important;
     max-width: 210mm !important;
     padding: 2.5mm 2.5mm 3mm !important;
   }
   .invoice-sheet.sheet-trade {
+    page: trade-a5;
+    width: 148mm !important;
+    max-width: 148mm !important;
     padding: 2mm 2mm 2.5mm !important;
+  }
+  .print-trade,
+  .print-trade .sheet-wrap,
+  .print-trade .sheet-stage {
+    width: 148mm !important;
+    max-width: 148mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  .print-trade .invoice-sheet {
+    margin: 0 !important;
   }
   .invoice-sheet.sheet-twin {
     padding: 2mm 2mm 2.5mm !important;

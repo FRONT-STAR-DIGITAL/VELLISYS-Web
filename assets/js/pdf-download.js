@@ -10,6 +10,13 @@
   var busy = false;
   var A4_W = 794; // 210mm at 96dpi
   var A4_H = 1122.52; // 297mm at 96dpi
+  var A5_W = 559; // 148mm at 96dpi
+  var A5_H = 794; // 210mm at 96dpi
+
+  function isTradeSheet(sheet) {
+    return !!(sheet && sheet.classList && sheet.classList.contains('sheet-trade'))
+      || !!(document.body && document.body.classList.contains('print-trade'));
+  }
 
   function loadHtml2Pdf() {
     if (typeof window.html2pdf === 'function') {
@@ -42,6 +49,8 @@
 
   function unfitLiveSheet(sheet) {
     var stage = sheet.closest('.sheet-stage');
+    var trade = isTradeSheet(sheet);
+    var thermal = !!(sheet.classList && sheet.classList.contains('sheet-thermal'));
     var prev = {
       transform: sheet.style.transform,
       zoom: sheet.style.zoom,
@@ -59,8 +68,16 @@
     sheet.style.zoom = '1';
     sheet.style.margin = '0';
     sheet.style.marginLeft = '0';
-    sheet.style.width = '210mm';
-    sheet.style.maxWidth = '210mm';
+    if (thermal) {
+      sheet.style.width = '80mm';
+      sheet.style.maxWidth = '80mm';
+    } else if (trade) {
+      sheet.style.width = '148mm';
+      sheet.style.maxWidth = '148mm';
+    } else {
+      sheet.style.width = '210mm';
+      sheet.style.maxWidth = '210mm';
+    }
     sheet.style.minHeight = '0';
     sheet.style.height = 'auto';
     sheet.style.overflow = 'visible';
@@ -127,17 +144,19 @@
     var cloned = clonedDoc.querySelector('.invoice-sheet');
     if (!cloned) return null;
 
+    var pageW = opts.trade ? A5_W : A4_W;
+    var pageH = opts.trade ? A5_H : A4_H;
     var html = clonedDoc.documentElement;
     var body = clonedDoc.body;
     if (html) {
-      html.style.width = A4_W + 'px';
-      html.style.minWidth = A4_W + 'px';
+      html.style.width = pageW + 'px';
+      html.style.minWidth = pageW + 'px';
       html.style.overflow = 'visible';
       html.style.background = '#ffffff';
     }
     if (body) {
-      body.style.width = A4_W + 'px';
-      body.style.minWidth = A4_W + 'px';
+      body.style.width = pageW + 'px';
+      body.style.minWidth = pageW + 'px';
       body.style.margin = '0';
       body.style.padding = '0';
       body.style.overflow = 'visible';
@@ -151,7 +170,7 @@
       stage.style.padding = '0';
       stage.style.margin = '0';
       stage.style.overflow = 'visible';
-      stage.style.width = A4_W + 'px';
+      stage.style.width = pageW + 'px';
     }
 
     var wrap = clonedDoc.querySelector('.sheet-wrap');
@@ -159,7 +178,7 @@
       wrap.style.padding = '0';
       wrap.style.margin = '0';
       wrap.style.overflow = 'visible';
-      wrap.style.width = A4_W + 'px';
+      wrap.style.width = pageW + 'px';
       wrap.style.background = '#ffffff';
     }
 
@@ -167,6 +186,7 @@
     for (var i = 0; i < sheets.length; i++) {
       var n = sheets[i];
       var thermalSheet = n.classList.contains('sheet-thermal');
+      var tradeSheet = n.classList.contains('sheet-trade');
       n.style.setProperty('transform', 'none', 'important');
       n.style.setProperty('zoom', '1', 'important');
       n.style.setProperty('margin', '0', 'important');
@@ -177,6 +197,9 @@
       if (thermalSheet) {
         n.style.setProperty('width', '80mm', 'important');
         n.style.setProperty('max-width', '80mm', 'important');
+      } else if (tradeSheet) {
+        n.style.setProperty('width', '148mm', 'important');
+        n.style.setProperty('max-width', '148mm', 'important');
       } else {
         n.style.setProperty('width', '210mm', 'important');
         n.style.setProperty('max-width', '210mm', 'important');
@@ -186,7 +209,7 @@
       n.style.setProperty('break-after', 'avoid', 'important');
       // Real PDF / Print: half the prior tight margins (thermal unchanged).
       if (!thermalSheet) {
-        if (n.classList.contains('sheet-trade')) {
+        if (tradeSheet) {
           n.style.setProperty('padding', '2mm 2mm 2.5mm', 'important');
         } else if (n.classList.contains('sheet-twin')) {
           n.style.setProperty('padding', '2mm 2mm 2.5mm', 'important');
@@ -257,19 +280,21 @@
       paintCloneTree(liveRoot, cloned);
     }
 
-    // Scale tall sheets into one A4 page; never clip left/right content.
+    // Scale tall sheets into one page; never clip left/right content.
     if (opts.forceSingle && !opts.thermal) {
       void cloned.offsetHeight;
+      var fitH = opts.trade ? A5_H : A4_H;
+      var fitW = opts.trade ? A5_W : A4_W;
       var cloneH = Math.max(cloned.scrollHeight || 0, cloned.offsetHeight || 0, opts.liveHeight || 0);
-      var cloneW = Math.max(cloned.scrollWidth || 0, cloned.offsetWidth || 0, A4_W);
-      if (cloneH > A4_H + 1) {
-        var sc = A4_H / cloneH;
+      var cloneW = Math.max(cloned.scrollWidth || 0, cloned.offsetWidth || 0, fitW);
+      if (cloneH > fitH + 1) {
+        var sc = fitH / cloneH;
         cloned.style.transformOrigin = 'top left';
         cloned.style.transform = 'scale(' + sc + ')';
         var parent = cloned.parentElement;
         if (parent) {
           parent.style.width = cloneW + 'px';
-          parent.style.height = A4_H + 'px';
+          parent.style.height = fitH + 'px';
           parent.style.overflow = 'hidden';
         }
       }
@@ -365,14 +390,17 @@
       return loadHtml2Pdf().then(function (html2pdf) {
         var thermal = !!(document.body && document.body.classList.contains('print-thermal'))
           || !!(sheet.classList && sheet.classList.contains('sheet-thermal'));
+        var trade = !thermal && isTradeSheet(sheet);
+        var pageW = trade ? A5_W : A4_W;
+        var pageH = trade ? A5_H : A4_H;
         var multipage = !!(sheet.classList && sheet.classList.contains('is-multipage'));
         var w = thermal
           ? Math.max(sheet.scrollWidth || 0, sheet.offsetWidth || 0, 302)
-          : Math.max(sheet.scrollWidth || 0, sheet.offsetWidth || 0, A4_W);
+          : Math.max(sheet.scrollWidth || 0, sheet.offsetWidth || 0, pageW);
         var h = Math.max(sheet.scrollHeight || 0, sheet.offsetHeight || 0, 1);
-        // Short desk sheets: one A4. Only true multipage / very tall keep >1.
-        var forceSingle = !thermal && !multipage && h <= A4_H * 1.45;
-        var captureH = forceSingle ? Math.min(Math.max(h, 1), Math.ceil(A4_H)) : h;
+        // Short desk sheets: one page. Only true multipage / very tall keep >1.
+        var forceSingle = !thermal && !multipage && h <= pageH * 1.45;
+        var captureH = forceSingle ? Math.min(Math.max(h, 1), Math.ceil(pageH)) : h;
 
         var mobile = isMobileCapture();
         var worker = html2pdf().set({
@@ -389,7 +417,7 @@
             width: w,
             height: captureH,
             windowWidth: w,
-            windowHeight: Math.max(captureH, A4_H),
+            windowHeight: Math.max(captureH, pageH),
             x: 0,
             y: 0,
             scrollX: 0,
@@ -398,6 +426,7 @@
               prepareCloneForCapture(clonedDoc, sheet, {
                 forceSingle: forceSingle,
                 thermal: thermal,
+                trade: trade,
                 liveHeight: h,
                 liveWidth: w,
               });
@@ -407,7 +436,7 @@
             unit: 'mm',
             format: thermal
               ? [80, Math.max(120, Math.round(h * 0.2646))]
-              : 'a4',
+              : (trade ? 'a5' : 'a4'),
             orientation: 'portrait',
           },
           pagebreak: { mode: forceSingle || thermal ? ['avoid-all'] : ['css', 'legacy'] },

@@ -16,7 +16,9 @@
     var sheet = (root || document).querySelector('.invoice-sheet');
     if (!sheet || sheet.classList.contains('sheet-thermal')) return;
     sheet.style.minHeight = '0';
-    var pagePx = (297 * 96) / 25.4;
+    // A4 is 297mm tall; Trade Document is A5 (210mm).
+    var pageMm = sheet.classList.contains('sheet-trade') ? 210 : 297;
+    var pagePx = (pageMm * 96) / 25.4;
     if (sheet.offsetHeight > pagePx + 8) {
       sheet.classList.add('is-multipage');
       (root || document).documentElement.classList.add('is-multipage');

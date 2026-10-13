@@ -59,9 +59,14 @@ if ($print) {
 require ROOT_PATH . '/includes/sheet.php';
 $copy = document_share_preview_copy($doc, $brand);
 $pdfName = document_download_filename($doc);
-$thermal = doc_template_key($doc) === 'thermal'
+$templateKey = doc_template_key($doc);
+$thermal = $templateKey === 'thermal'
     && ($doc['kind'] ?? '') !== 'custom'
     && ($doc['kind'] ?? '') !== 'expense';
+$trade = $templateKey === 'trade'
+    && ($doc['kind'] ?? '') !== 'custom'
+    && ($doc['kind'] ?? '') !== 'expense';
+$pageSize = $thermal ? '80mm auto' : ($trade ? 'A5' : 'A4');
 $fitOff = $asSheet || $auto;
 ?>
 <!DOCTYPE html>
@@ -78,9 +83,9 @@ $fitOff = $asSheet || $auto;
   <?php folio_font_links(); ?>
   <style>
     :root { <?= brand_css_vars($brand) ?> }
-    @page { size: <?= $thermal ? '80mm auto' : 'A4' ?>; margin: 0; }
+    @page { size: <?= $pageSize ?>; margin: 0; }
     .share-toolbar {
-      max-width: 210mm;
+      max-width: <?= $trade ? '148mm' : '210mm' ?>;
       margin: 16px auto;
       padding: 0 16px;
       display: flex;
@@ -105,12 +110,16 @@ $fitOff = $asSheet || $auto;
       min-height: 0 !important;
     }
     .invoice-sheet.sheet-thermal { width: 80mm !important; max-width: 80mm !important; }
-    .invoice-sheet:not(.sheet-thermal) {
+    .invoice-sheet:not(.sheet-thermal):not(.sheet-trade) {
       width: 210mm !important;
       max-width: 210mm !important;
       padding: 2.5mm 2.5mm 3mm !important;
     }
-    .invoice-sheet.sheet-trade { padding: 2mm 2mm 2.5mm !important; }
+    .invoice-sheet.sheet-trade {
+      width: 148mm !important;
+      max-width: 148mm !important;
+      padding: 2mm 2mm 2.5mm !important;
+    }
     .invoice-sheet.sheet-twin { padding: 2mm 2mm 2.5mm !important; }
     .sheet-frame .page-frame,
     .sheet-inset .page-inset,
@@ -130,7 +139,7 @@ $fitOff = $asSheet || $auto;
   </style>
 </head>
 <body
-  class="print-body<?= $thermal ? ' print-thermal' : '' ?>"
+  class="print-body<?= $thermal ? ' print-thermal' : '' ?><?= $trade ? ' print-trade' : '' ?>"
   data-pdf-name="<?= h($pdfName) ?>"
   <?= $auto ? ' data-autodownload="1" data-pdf-exact="1"' : '' ?>
 >

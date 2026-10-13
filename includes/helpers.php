@@ -473,7 +473,7 @@ function doc_templates(): array
         ],
         'trade' => [
             'name' => 'Trade Document',
-            'blurb' => 'Dealers sheet: logo and name, Deals in line, contact details, coloured title pill, qty table, amount in words and Prepared by.',
+            'blurb' => 'A5 dealers sheet: logo and name, Deals in line, contact details, coloured title pill, qty table, amount in words and Prepared by.',
         ],
     ];
 }
