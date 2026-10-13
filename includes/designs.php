@@ -2001,6 +2001,61 @@ function render_sheet_thermal(array $d): void
 }
 
 /**
+ * PARTICULARS cell for Trade Document: item name, description, and any custom line fields.
+ * Companies that rename/replace the Item column with a custom field still print here.
+ */
+function sheet_trade_particulars(array $item): string
+{
+    $parts = [];
+    $name = function_exists('line_item_name') ? trim((string) line_item_name($item)) : trim((string) ($item['item_name'] ?? ''));
+    $desc = function_exists('line_item_description') ? trim((string) line_item_description($item)) : trim((string) ($item['description'] ?? ''));
+    if ($name !== '') {
+        $parts[] = $name;
+    }
+    if ($desc !== '' && strcasecmp($desc, $name) !== 0 && strcasecmp($desc, '-') !== 0) {
+        $parts[] = $desc;
+    }
+    $extraMap = function_exists('line_item_extra_map') ? line_item_extra_map($item) : [];
+    $customCols = function_exists('company_custom_line_columns') ? company_custom_line_columns() : [];
+    $seen = [];
+    foreach ($customCols as $col) {
+        $key = (string) ($col['key'] ?? '');
+        if ($key === '' || !array_key_exists($key, $extraMap)) {
+            continue;
+        }
+        $val = trim((string) $extraMap[$key]);
+        if ($val === '') {
+            continue;
+        }
+        $seen[$key] = true;
+        // Avoid repeating the same text already shown as item/description.
+        foreach ($parts as $p) {
+            if (strcasecmp($p, $val) === 0) {
+                continue 2;
+            }
+        }
+        $parts[] = $val;
+    }
+    // Any other saved extras (older docs / renamed keys).
+    foreach ($extraMap as $key => $val) {
+        if (isset($seen[$key])) {
+            continue;
+        }
+        $val = trim((string) $val);
+        if ($val === '') {
+            continue;
+        }
+        foreach ($parts as $p) {
+            if (strcasecmp($p, $val) === 0) {
+                continue 2;
+            }
+        }
+        $parts[] = $val;
+    }
+    return trim(implode(' - ', $parts));
+}
+
+/**
  * Trade Document sheet - logo + name, Deals in, contact details,
  * coloured title pill, QTY | PARTICULARS | UNIT COST | AMOUNT, Prepared by.
  */
@@ -2123,11 +2178,7 @@ function render_sheet_trade(array $d): void
                 $qtyLabel = function_exists('format_qty_with_unit')
                     ? format_qty_with_unit($item['qty'] ?? 0, $item['unit'] ?? null)
                     : format_qty($item['qty'] ?? 0);
-                $particular = function_exists('line_item_name') ? line_item_name($item) : (string) ($item['item_name'] ?? '');
-                $desc = function_exists('line_item_description') ? line_item_description($item) : (string) ($item['description'] ?? '');
-                if ($desc !== '' && strcasecmp($desc, $particular) !== 0) {
-                    $particular = trim($particular . ($particular !== '' ? ' - ' : '') . $desc);
-                }
+                $particular = sheet_trade_particulars($item);
                 if ($money && !$qtyOnly) {
                     $decRate = function_exists('money_display_decimals')
                         ? money_display_decimals((float) ($item['rate'] ?? 0), $cur)

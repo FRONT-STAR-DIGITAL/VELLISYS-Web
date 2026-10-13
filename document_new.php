@@ -84,6 +84,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($name === '' && $desc === '' && !$extra) {
             continue;
         }
+        // If Item is hidden/empty but a custom column holds the particulars text, keep it on item_name
+        // so Trade Document and other sheets can print PARTICULARS.
+        if ($name === '' && $extra) {
+            $extraVals = array_values(array_filter(array_map('strval', $extra), static fn ($v) => trim($v) !== ''));
+            if (count($extraVals) === 1) {
+                $name = trim($extraVals[0]);
+            } elseif ($extraVals) {
+                $name = trim(implode(' - ', $extraVals));
+            }
+        }
         $isTaxed = !empty($taxed[$i]) ? 1 : 0;
         if ($isTaxed) {
             $anyTaxed = true;
