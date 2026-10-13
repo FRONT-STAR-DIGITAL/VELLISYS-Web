@@ -275,13 +275,27 @@ function pricing_retarget_package_name(string $oldName, string $newName, int $ex
     }
 }
 
+/** Drop request-local pricing caches after admin saves (file/redis cleared by folio_cache_bust). */
+function pricing_cache_clear(): void
+{
+    $bag = &pricing_request_cache();
+    $bag = ['packages' => null, 'section' => null];
+}
+
+/** @return array{packages:?array, section:?array} */
+function &pricing_request_cache(): array
+{
+    static $bag = ['packages' => null, 'section' => null];
+    return $bag;
+}
+
 function pricing_packages(): array
 {
-    static $cached = null;
-    if ($cached !== null) {
-        return $cached;
+    $bag = &pricing_request_cache();
+    if ($bag['packages'] !== null) {
+        return $bag['packages'];
     }
-    $cached = folio_remember('pricing_packages', static function (): array {
+    $bag['packages'] = folio_remember('pricing_packages', static function (): array {
         try {
             $rows = db_all('SELECT * FROM landing_packages ORDER BY sort, id');
             $out = [];
@@ -296,7 +310,7 @@ function pricing_packages(): array
             return pricing_package_defaults();
         }
     });
-    return $cached;
+    return $bag['packages'];
 }
 
 function pricing_ugx_rates(): array
@@ -330,11 +344,11 @@ function pricing_package(string $key): ?array
 
 function pricing_section(): array
 {
-    static $cached = null;
-    if ($cached !== null) {
-        return $cached;
+    $bag = &pricing_request_cache();
+    if ($bag['section'] !== null) {
+        return $bag['section'];
     }
-    $cached = folio_remember('pricing_section', static function (): array {
+    $bag['section'] = folio_remember('pricing_section', static function (): array {
         $base = pricing_section_defaults();
         try {
             $row = db_one('SELECT * FROM landing_pricing WHERE id = 1');
@@ -374,7 +388,7 @@ function pricing_section(): array
         }
         return $out;
     });
-    return $cached;
+    return $bag['section'];
 }
 
 /** Short stable key from a package display name (max 16 chars for pkg_key). */

@@ -5,9 +5,13 @@ $user = require_platform();
 
 $error = '';
 
+/** Bust public landing caches only after a successful write (avoids refill-with-stale races). */
+$landing_saved = static function (): void {
+    folio_cache_bust();
+};
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
-    folio_cache_bust();
     $form = post('form');
 
     if ($form === 'ticker') {
@@ -23,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $sort = (int) ($max['s'] ?? 0) + 10;
                 }
                 db_exec('INSERT INTO landing_ticker (body, sort) VALUES (?,?)', 'si', [$body, $sort]);
+                $landing_saved();
                 flash('Added a top-bar line.');
                 redirect('admin_landing.php#top-bar');
             }
@@ -39,6 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'Write a line for the top bar.';
             } else {
                 db_exec('UPDATE landing_ticker SET body=?, sort=? WHERE id=?', 'sii', [$body, $sort, $id]);
+                $landing_saved();
                 flash('Saved the top-bar line.');
                 redirect('admin_landing.php#top-bar');
             }
@@ -47,12 +53,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $row = $id ? db_one('SELECT * FROM landing_ticker WHERE id = ?', 'i', [$id]) : null;
             if ($row) {
                 db_exec('DELETE FROM landing_ticker WHERE id = ?', 'i', [$id]);
+                $landing_saved();
                 flash('Removed that top-bar line.');
             }
             redirect('admin_landing.php#top-bar');
         }
     } elseif ($form === 'pricing_section') {
-        $base = pricing_section_defaults();
         $rates = [];
         foreach (pricing_ugx_rate_defaults() as $code => $fallback) {
             if ($code === 'UGX') {
@@ -68,16 +74,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             [
                 mb_substr(post('kicker'), 0, 80),
                 mb_substr(post('heading'), 0, 180),
-                post('lead'),
+                post('lead', '', 12000),
                 mb_substr(post('clock_label'), 0, 80),
                 mb_substr(post('term_label'), 0, 40) ?: 'per year',
-                post('register_copy'),
+                post('register_copy', '', 12000),
                 mb_substr(post('register_label'), 0, 80),
                 max(0, min(30, (int) post('countdown_days'))),
                 max(0, min(23, (int) post('countdown_hours'))),
                 json_encode($rates),
             ]
         );
+        $landing_saved();
         flash('Saved package section copy, countdown and rates.');
         redirect('admin_landing.php#packages');
     } elseif ($form === 'package') {
@@ -93,25 +100,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($sort <= 0) {
                     $sort = (int) ($max['s'] ?? 0) + 10;
                 }
+                $priceUgx = max(0, (int) round((float) str_replace(',', '', post('price_ugx'))));
+                $wasUgx = max(0, (int) round((float) str_replace(',', '', post('was_ugx'))));
                 db_exec(
                     'INSERT INTO landing_packages (pkg_key, name, kicker, ribbon, seats, price_ugx, was_ugx, cta, lead, points, popular, sort)
                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
-                    'ssssiddsssii',
+                    'ssssisssssii',
                     [
                         $key,
                         $name,
                         mb_substr(post('kicker'), 0, 80),
                         mb_substr(post('ribbon'), 0, 80),
                         max(1, min(4, (int) post('seats') ?: 1)),
-                        (float) str_replace(',', '', post('price_ugx')),
-                        (float) str_replace(',', '', post('was_ugx')),
+                        (string) $priceUgx,
+                        (string) $wasUgx,
                         mb_substr(post('cta') ?: ('Select ' . $name), 0, 80),
-                        post('lead'),
-                        post('points'),
+                        post('lead', '', 12000),
+                        post('points', '', 12000),
                         post('popular') === '1' ? 1 : 0,
                         $sort,
                     ]
                 );
+                $landing_saved();
                 flash('Added the ' . $name . ' package.');
                 redirect('admin_landing.php#packages');
             }
@@ -128,26 +138,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $oldName = (string) ($row['name'] ?? '');
                 $cta = mb_substr(post('cta') ?: ('Select ' . $name), 0, 80);
+                $priceUgx = max(0, (int) round((float) str_replace(',', '', post('price_ugx'))));
+                $wasUgx = max(0, (int) round((float) str_replace(',', '', post('was_ugx'))));
                 db_exec(
                     'UPDATE landing_packages SET name=?, kicker=?, ribbon=?, seats=?, price_ugx=?, was_ugx=?, cta=?, lead=?, points=?, popular=?, sort=? WHERE id=?',
-                    'sssiddsssiii',
+                    'sssisssssiii',
                     [
                         $name,
                         mb_substr(post('kicker'), 0, 80),
                         mb_substr(post('ribbon'), 0, 80),
                         max(1, min(4, (int) post('seats') ?: 1)),
-                        (float) str_replace(',', '', post('price_ugx')),
-                        (float) str_replace(',', '', post('was_ugx')),
+                        (string) $priceUgx,
+                        (string) $wasUgx,
                         $cta,
-                        post('lead'),
-                        post('points'),
+                        post('lead', '', 12000),
+                        post('points', '', 12000),
                         post('popular') === '1' ? 1 : 0,
                         (int) post('sort'),
                         $id,
                     ]
                 );
                 pricing_retarget_package_name($oldName, $name, $id);
-                flash('Saved ' . $name . '.');
+                $landing_saved();
+                flash('Saved ' . $name . ' (UGX ' . number_format($priceUgx) . ').');
                 redirect('admin_landing.php#packages');
             }
         } elseif ($action === 'delete') {
@@ -158,6 +171,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flash('Keep at least one package on the site.', 'err');
             } elseif ($row) {
                 db_exec('DELETE FROM landing_packages WHERE id = ?', 'i', [$id]);
+                $landing_saved();
                 flash('Removed ' . $row['name'] . '.');
             }
             redirect('admin_landing.php#packages');
@@ -171,6 +185,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'ss',
             [$kicker, $heading]
         );
+        $landing_saved();
         flash('Saved testimonial section copy.');
         redirect('admin_landing.php#testimonials');
     } elseif ($form === 'reviews') {
@@ -178,7 +193,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'add') {
             $name = mb_substr(post('name'), 0, 120);
             $role = mb_substr(post('role'), 0, 160);
-            $quote = trim(post('quote'));
+            $quote = trim(post('quote', '', 12000));
             $sort = (int) post('sort');
             if ($name === '' || $quote === '') {
                 $error = 'Give the testimonial a name and a quote.';
@@ -188,6 +203,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $sort = (int) ($max['s'] ?? 0) + 10;
                 }
                 db_exec('INSERT INTO landing_reviews (name, role, quote, sort) VALUES (?,?,?,?)', 'sssi', [$name, $role, $quote, $sort]);
+                $landing_saved();
                 flash('Added a testimonial from ' . $name . '.');
                 redirect('admin_landing.php#testimonials');
             }
@@ -200,12 +216,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $name = mb_substr(post('name'), 0, 120);
             $role = mb_substr(post('role'), 0, 160);
-            $quote = trim(post('quote'));
+            $quote = trim(post('quote', '', 12000));
             $sort = (int) post('sort');
             if ($name === '' || $quote === '') {
                 $error = 'Give the testimonial a name and a quote.';
             } else {
                 db_exec('UPDATE landing_reviews SET name=?, role=?, quote=?, sort=? WHERE id=?', 'sssii', [$name, $role, $quote, $sort, $id]);
+                $landing_saved();
                 flash('Saved the testimonial from ' . $name . '.');
                 redirect('admin_landing.php#testimonials');
             }
@@ -214,6 +231,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $row = $id ? db_one('SELECT * FROM landing_reviews WHERE id = ?', 'i', [$id]) : null;
             if ($row) {
                 db_exec('DELETE FROM landing_reviews WHERE id = ?', 'i', [$id]);
+                $landing_saved();
                 flash('Removed the testimonial from ' . $row['name'] . '.');
             }
             redirect('admin_landing.php#testimonials');
@@ -238,6 +256,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     $newId = db_exec('INSERT INTO trust_clients (name, logo_path, sort) VALUES (?,?,?)', 'ssi', [$name, $up['path'], $sort]);
                     persist_trust_client_logo($newId, $up['path']);
+                    $landing_saved();
                     flash('Added ' . $name . ' to Clients who trust us.');
                     redirect('admin_landing.php#trust-clients');
                 }
@@ -265,6 +284,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     db_exec('UPDATE trust_clients SET name=?, logo_path=?, sort=? WHERE id=?', 'ssii', [$name, $logoPath, $sort, $id]);
                     persist_trust_client_logo($id, $logoPath);
+                    $landing_saved();
                     flash('Saved ' . $name . '.');
                     redirect('admin_landing.php#trust-clients');
                 }
@@ -275,6 +295,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($row) {
                 maybe_unlink_upload((string) $row['logo_path']);
                 db_exec('DELETE FROM trust_clients WHERE id = ?', 'i', [$id]);
+                $landing_saved();
                 flash('Removed ' . $row['name'] . ' from the marquee.');
             }
             redirect('admin_landing.php#trust-clients');
@@ -286,8 +307,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('That card was not found.', 'err');
             redirect('admin_landing.php');
         }
-        $title = post('title');
-        $body = post('body');
+        $title = post('title', '', 500);
+        $body = post('body', '', 12000);
         if ($title === '' || $body === '') {
             $error = 'Title and copy are required.';
         } else {
@@ -301,6 +322,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $imagePath = $up['path'];
                 }
                 db_exec('UPDATE landing_cards SET title=?, body=?, image_path=? WHERE id=?', 'sssi', [$title, $body, $imagePath, $id]);
+                $landing_saved();
                 flash('Landing card saved.');
                 redirect('admin_landing.php');
             }
@@ -399,7 +421,7 @@ layout_admin_start('Landing', $user);
 </section>
 <section class="landing-admin-section">
 <h2 class="landing-admin-h" id="packages"><?= icon('bank', 20) ?>Packages</h2>
-<p class="lede" style="margin-top:-8px">Everything on the public packages block - heading, countdown, currency rates, names, prices, inclusions. Prices are stored in UGX. Header currencies convert from the rates below. Put <code>{currency}</code> in the intro where the live code should appear, and <code>{register}</code> where the register link should go.</p>
+<p class="lede" style="margin-top:-8px">Everything on the public packages block - heading, countdown, currency rates, names, prices, inclusions. Prices are stored in UGX. Use <strong>Save</strong> on each package card to update that package’s price (section save only updates heading, countdown and rates). Header currencies convert from the rates below. Put <code>{currency}</code> in the intro where the live code should appear, and <code>{register}</code> where the register link should go.</p>
 
 <form class="card pricing-admin-section" method="post">
   <?= csrf_field() ?>

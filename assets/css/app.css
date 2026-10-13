@@ -7618,3 +7618,27 @@ body.has-upload-progress .app-tabbar {
     flex-wrap: nowrap;
   }
 }
+
+/* Sales agent rolling weekly planner */
+.sales-week-planner {
+  display: grid;
+  gap: 12px;
+}
+.sales-week-day {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 10px;
+  background: #fff;
+}
+.sales-week-day.is-on {
+  border-color: rgba(30, 78, 255, 0.35);
+  background: rgba(30, 78, 255, 0.04);
+}
+.sales-week-day legend {
+  padding: 0 4px;
+}
+.sales-week-day textarea {
+  width: 100%;
+  margin-top: 6px;
+}

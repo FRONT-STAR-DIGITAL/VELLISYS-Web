@@ -3590,6 +3590,152 @@ function platform_alerts_unread(int $limit = 20): array
     }
 }
 
+/** ISO weekday labels (1 = Monday … 7 = Sunday). */
+function sales_week_day_labels(): array
+{
+    return [
+        1 => 'Monday',
+        2 => 'Tuesday',
+        3 => 'Wednesday',
+        4 => 'Thursday',
+        5 => 'Friday',
+        6 => 'Saturday',
+        7 => 'Sunday',
+    ];
+}
+
+/** Monday (Y-m-d) of the current desk week. */
+function sales_week_start(?DateTimeInterface $now = null): string
+{
+    $now = $now instanceof DateTimeImmutable
+        ? $now
+        : ($now ? DateTimeImmutable::createFromInterface($now) : desk_now());
+    $n = (int) $now->format('N');
+    return $now->modify('-' . ($n - 1) . ' days')->format('Y-m-d');
+}
+
+/** Drop stale week rows so this Monday replaces last Monday, etc. */
+function sales_week_plans_purge_stale(?int $agentId = null): void
+{
+    $week = sales_week_start();
+    try {
+        if ($agentId !== null && $agentId > 0) {
+            db_exec('DELETE FROM sales_week_plans WHERE agent_id = ? AND week_start < ?', 'is', [$agentId, $week]);
+        } else {
+            db_exec('DELETE FROM sales_week_plans WHERE week_start < ?', 's', [$week]);
+        }
+    } catch (Throwable $e) {
+        // Table may not exist until migrate runs.
+    }
+}
+
+/**
+ * Current-week plan for an agent, keyed by weekday 1–7.
+ *
+ * @return array<int, array{weekday:int, label:string, enabled:bool, activities:string, week_start:string}>
+ */
+function sales_week_plans_for(int $agentId): array
+{
+    $week = sales_week_start();
+    sales_week_plans_purge_stale($agentId);
+    $byDay = [];
+    try {
+        $rows = db_all(
+            'SELECT weekday, activities, week_start FROM sales_week_plans WHERE agent_id = ? AND week_start = ?',
+            'is',
+            [$agentId, $week]
+        );
+        foreach ($rows as $row) {
+            $d = (int) ($row['weekday'] ?? 0);
+            if ($d >= 1 && $d <= 7) {
+                $byDay[$d] = $row;
+            }
+        }
+    } catch (Throwable $e) {
+        $byDay = [];
+    }
+    $out = [];
+    foreach (sales_week_day_labels() as $d => $label) {
+        $acts = trim((string) ($byDay[$d]['activities'] ?? ''));
+        $out[$d] = [
+            'weekday' => $d,
+            'label' => $label,
+            'enabled' => $acts !== '',
+            'activities' => $acts,
+            'week_start' => $week,
+        ];
+    }
+    return $out;
+}
+
+/**
+ * Save chosen days + activities for this week. Empty / unchecked days clear that weekday.
+ *
+ * @param array<int|string, array{enabled?:mixed, activities?:string}|string> $posted
+ */
+function sales_week_plans_save(int $agentId, array $posted): array
+{
+    if ($agentId < 1) {
+        return ['ok' => false, 'error' => 'Missing agent.'];
+    }
+    $week = sales_week_start();
+    sales_week_plans_purge_stale($agentId);
+    try {
+        foreach (sales_week_day_labels() as $d => $_label) {
+            $raw = $posted[$d] ?? $posted[(string) $d] ?? [];
+            if (!is_array($raw)) {
+                $raw = ['activities' => (string) $raw, 'enabled' => trim((string) $raw) !== ''];
+            }
+            $enabled = !empty($raw['enabled']);
+            $acts = trim((string) ($raw['activities'] ?? ''));
+            if (!$enabled || $acts === '') {
+                db_exec('DELETE FROM sales_week_plans WHERE agent_id = ? AND weekday = ?', 'ii', [$agentId, $d]);
+                continue;
+            }
+            $acts = mb_substr($acts, 0, 4000);
+            db_exec(
+                'INSERT INTO sales_week_plans (agent_id, weekday, week_start, activities) VALUES (?,?,?,?)
+                 ON DUPLICATE KEY UPDATE week_start = VALUES(week_start), activities = VALUES(activities)',
+                'iiss',
+                [$agentId, $d, $week, $acts]
+            );
+        }
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'Could not save the weekly plan. Try again after the next page load.'];
+    }
+    return ['ok' => true, 'week_start' => $week];
+}
+
+/**
+ * Admin view: current-week plans for all (or one) agents.
+ *
+ * @return list<array{agent:array, days:array, filled:int}>
+ */
+function sales_week_plans_admin(?int $agentId = null): array
+{
+    sales_week_plans_purge_stale($agentId);
+    $agents = $agentId
+        ? array_values(array_filter(sales_agents(false), static fn (array $a): bool => (int) $a['id'] === $agentId))
+        : sales_agents(false);
+    $out = [];
+    foreach ($agents as $agent) {
+        $days = sales_week_plans_for((int) $agent['id']);
+        $filled = 0;
+        foreach ($days as $day) {
+            if (!empty($day['enabled'])) {
+                $filled++;
+            }
+        }
+        $out[] = [
+            'agent' => $agent,
+            'days' => $days,
+            'filled' => $filled,
+            'week_start' => sales_week_start(),
+        ];
+    }
+    return $out;
+}
+
 function sales_layout_start(string $title, array $user): void
 {
     if (function_exists('touch_user_seen')) {
@@ -3610,6 +3756,7 @@ function sales_layout_start(string $title, array $user): void
             ['sales_leads.php', 'Leads', 'clients'],
             ['sales_leads.php?bucket=pending', 'Open follow-ups', 'calendar', false, 'followups'],
             ['sales_testing.php', 'On Testing', 'building'],
+            ['sales_planner.php', 'Weekly planner', 'calendar'],
         ]],
         ['label' => 'Chat', 'items' => [
             ['sales_messages.php', 'Messages', 'mail'],

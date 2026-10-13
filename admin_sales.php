@@ -4,7 +4,7 @@ require __DIR__ . '/includes/bootstrap.php';
 $user = require_platform();
 
 $tab = (string) ($_GET['tab'] ?? 'overview');
-$allowed = ['overview', 'leads', 'agents', 'targets', 'messages', 'agent', 'lead'];
+$allowed = ['overview', 'leads', 'agents', 'targets', 'messages', 'agent', 'lead', 'planner'];
 if (!in_array($tab, $allowed, true)) {
     $tab = 'overview';
 }
@@ -295,6 +295,7 @@ layout_admin_start('Sales', $user);
   <a class="planner-tab<?= $tab === 'overview' ? ' is-on' : '' ?>" href="<?= h(url('admin_sales.php?tab=overview')) ?>"><?= icon('reports', 16) ?><span>Sales</span></a>
   <a class="planner-tab<?= $tab === 'leads' || $tab === 'lead' ? ' is-on' : '' ?>" href="<?= h(url('admin_sales.php?tab=leads')) ?>"><?= icon('clients', 16) ?><span>Businesses<?php if ($overdueFollowN > 0): ?> <span class="sales-follow-count" title="Overdue follow-ups"><?= (int) $overdueFollowN ?></span><?php endif; ?></span></a>
   <a class="planner-tab<?= $tab === 'agents' || $tab === 'agent' ? ' is-on' : '' ?>" href="<?= h(url('admin_sales.php?tab=agents')) ?>"><?= icon('user', 16) ?><span>Agents</span></a>
+  <a class="planner-tab<?= $tab === 'planner' ? ' is-on' : '' ?>" href="<?= h(url('admin_sales.php?tab=planner')) ?>"><?= icon('calendar', 16) ?><span>Planner</span></a>
   <a class="planner-tab<?= $tab === 'targets' ? ' is-on' : '' ?>" href="<?= h(url('admin_sales.php?tab=targets')) ?>"><?= icon('flag', 16) ?><span>Targets</span></a>
   <a class="planner-tab<?= $tab === 'messages' ? ' is-on' : '' ?>" href="<?= h(url('admin_sales.php?tab=messages')) ?>"><?= icon('mail', 16) ?><span>Messages</span></a>
 </nav>
@@ -1233,6 +1234,67 @@ if ($tab === 'messages'):
     <div class="actions" style="margin-top:10px"><button class="btn" type="submit"><?= icon('send', 16) ?>Send</button></div>
   </form>
 </div></div>
+<?php endif; ?>
+<?php layout_end(); return; endif;
+
+if ($tab === 'planner'):
+    $planFilter = (int) ($_GET['agent_filter'] ?? 0);
+    $planRows = sales_week_plans_admin($planFilter > 0 ? $planFilter : null);
+    $planWeek = sales_week_start();
+    $planWeekEnd = (new DateTimeImmutable($planWeek))->modify('+6 days')->format('Y-m-d');
+    ?>
+<div class="page-head" style="margin-top:0">
+  <div>
+    <h2 style="margin:0"><?= icon('calendar', 18) ?>Weekly plans</h2>
+    <p class="lede">What each sales agent set for this week. Next week each weekday replaces the same weekday from this plan.</p>
+  </div>
+</div>
+<p class="hint" style="margin:0 0 12px">Week of <?= h(format_date($planWeek)) ?> – <?= h(format_date($planWeekEnd)) ?></p>
+<div class="filter-chips" style="margin:0 0 14px">
+  <a class="chip<?= $planFilter < 1 ? ' is-on' : '' ?>" href="<?= h(url('admin_sales.php?tab=planner')) ?>">All agents</a>
+  <?php foreach ($agents as $a): ?>
+    <a class="chip<?= $planFilter === (int) $a['id'] ? ' is-on' : '' ?>" href="<?= h(url('admin_sales.php?tab=planner&agent_filter=' . (int) $a['id'])) ?>"><?= h((string) $a['name']) ?></a>
+  <?php endforeach; ?>
+</div>
+<?php if (!$planRows): ?>
+  <p class="empty">No sales agents yet.</p>
+<?php else: ?>
+  <div class="sales-admin-plans">
+    <?php foreach ($planRows as $block):
+        $agent = $block['agent'];
+        ?>
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-head">
+          <h2>
+            <a href="<?= h(url('admin_sales.php?tab=agent&agent=' . (int) $agent['id'] . '&period=daily')) ?>"><?= h((string) $agent['name']) ?></a>
+          </h2>
+          <span class="muted"><?= (int) $block['filled'] ?> day<?= (int) $block['filled'] === 1 ? '' : 's' ?> planned</span>
+        </div>
+        <div class="pad-form">
+          <?php if ((int) $block['filled'] < 1): ?>
+            <p class="muted" style="margin:0">No days set for this week.</p>
+          <?php else: ?>
+            <div class="table-scroll">
+              <table class="grid">
+                <thead><tr><th>Day</th><th>Activities</th></tr></thead>
+                <tbody>
+                  <?php foreach ($block['days'] as $day): ?>
+                    <?php if (empty($day['enabled'])) {
+                        continue;
+                    } ?>
+                    <tr>
+                      <td><strong><?= h((string) $day['label']) ?></strong></td>
+                      <td><?= nl2br(h((string) $day['activities'])) ?></td>
+                    </tr>
+                  <?php endforeach; ?>
+                </tbody>
+              </table>
+            </div>
+          <?php endif; ?>
+        </div>
+      </div>
+    <?php endforeach; ?>
+  </div>
 <?php endif; ?>
 <?php layout_end(); return; endif;
 

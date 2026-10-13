@@ -25,7 +25,7 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '73';
+    return '74';
 }
 
 /**
@@ -2701,6 +2701,18 @@ function folio_migrate_sales_field(mysqli $db): void
         @$db->query('INSERT INTO sales_goal_defaults (id, daily_reach, daily_sales, weekly_reach, weekly_sales, monthly_reach, monthly_sales)
             VALUES (1, 10, 2, 0, 10, 0, 30)');
     }
+    // Rolling weekly planner: one row per agent per weekday; new week overwrites the same weekday.
+    $db->query("CREATE TABLE IF NOT EXISTS sales_week_plans (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      agent_id INT UNSIGNED NOT NULL,
+      weekday TINYINT UNSIGNED NOT NULL,
+      week_start DATE NOT NULL,
+      activities TEXT NOT NULL,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY agent_weekday (agent_id, weekday),
+      KEY week_start (week_start),
+      KEY agent_week (agent_id, week_start)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     if (!db_has_column($db, 'sales_leads', 'rejected_category')) {
         @$db->query("ALTER TABLE sales_leads ADD COLUMN rejected_category VARCHAR(60) NOT NULL DEFAULT '' AFTER rejected_reason");
         db_has_column($db, 'sales_leads', 'rejected_category', true);

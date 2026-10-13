@@ -958,9 +958,16 @@ function folio_cache_dir(): string
     return $dir;
 }
 
-function folio_remember(string $key, callable $fill, int $ttl = 90): mixed
+/** In-request folio_remember bag (reference so cache bust can empty it). */
+function &folio_remember_bag(): array
 {
     static $mem = [];
+    return $mem;
+}
+
+function folio_remember(string $key, callable $fill, int $ttl = 90): mixed
+{
+    $mem = &folio_remember_bag();
     if (array_key_exists($key, $mem)) {
         return $mem[$key];
     }
@@ -997,12 +1004,17 @@ function folio_remember(string $key, callable $fill, int $ttl = 90): mixed
 
 function folio_cache_bust(): void
 {
+    $mem = &folio_remember_bag();
+    $mem = [];
     if (function_exists('folio_redis_flush_prefix')) {
         folio_redis_flush_prefix();
     }
     $dir = folio_cache_dir();
     foreach (glob($dir . '/*.ser') ?: [] as $file) {
         @unlink($file);
+    }
+    if (function_exists('pricing_cache_clear')) {
+        pricing_cache_clear();
     }
 }
 
