@@ -1715,13 +1715,6 @@ function render_sheet_booklet(array $d): void
     $qtyOnly = in_array($kind, ['delivery', 'return_note'], true);
     $showMoney = sheet_shows_money($d) && !$qtyOnly;
     [$paid, $due, $how, $words] = slip_money_bits($d);
-    $contact = array_filter([
-        (string) ($brand['address'] ?? ''),
-        trim((string) ($brand['city'] ?? '')),
-        (string) ($brand['phone'] ?? ''),
-        (string) ($brand['email'] ?? ''),
-        (string) ($brand['website'] ?? ''),
-    ], static fn ($v) => trim($v) !== '');
     $rest = [];
     foreach (slip_to_lines($doc) as $line) {
         if (mb_strtolower((string) ($line['label'] ?? '')) === 'name') {
@@ -1743,6 +1736,7 @@ function render_sheet_booklet(array $d): void
         <?php if (trim((string) ($brand['city'] ?? '')) !== ''): ?><div><?= sheet_brand_strong(slip_plain((string) $brand['city'])) ?></div><?php endif; ?>
         <?php if (trim((string) ($brand['phone'] ?? '')) !== ''): ?><div><?= sheet_brand_strong(slip_plain((string) $brand['phone'])) ?></div><?php endif; ?>
         <?php if (trim((string) ($brand['email'] ?? '')) !== ''): ?><div><?= h(slip_plain((string) $brand['email'])) ?></div><?php endif; ?>
+        <?php if (!empty($brand['website'])): ?><div><?= h(slip_plain((string) $brand['website'])) ?></div><?php endif; ?>
         <?php if (!empty($brand['tin'])): ?><div>TIN <?= h($brand['tin']) ?></div><?php endif; ?>
       </div>
     </header>
