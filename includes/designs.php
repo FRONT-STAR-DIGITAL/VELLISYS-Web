@@ -73,6 +73,66 @@ function render_sheet_logo(array $d, string $class = 'd-logo'): void
     echo '<img src="' . h($src) . '" alt="' . h($alt) . '" class="' . h($class) . '">';
 }
 
+/** Bold business name / phone / location on printed sheets. */
+function sheet_brand_strong(string $text): string
+{
+    $text = trim($text);
+    return $text === '' ? '' : '<b class="sheet-brand-strong">' . h($text) . '</b>';
+}
+
+function sheet_brand_name(array $brand): string
+{
+    return sheet_brand_strong((string) ($brand['name'] ?? ''));
+}
+
+function sheet_brand_phone(array $brand): string
+{
+    return sheet_brand_strong((string) ($brand['phone'] ?? ''));
+}
+
+function sheet_brand_location(array $brand, bool $includeCity = true): string
+{
+    $parts = [trim((string) ($brand['address'] ?? ''))];
+    if ($includeCity) {
+        $parts[] = trim((string) ($brand['city'] ?? ''));
+    }
+    $loc = implode(', ', array_values(array_filter($parts, static fn ($v) => $v !== '')));
+    return sheet_brand_strong($loc);
+}
+
+/** address · phone · email — name/location/phone bold, email plain. */
+function sheet_brand_contact_line(array $brand, bool $includeCity = false): string
+{
+    $bits = [];
+    $loc = sheet_brand_location($brand, $includeCity);
+    $phone = sheet_brand_phone($brand);
+    $email = trim((string) ($brand['email'] ?? ''));
+    if ($loc !== '') {
+        $bits[] = $loc;
+    }
+    if ($phone !== '') {
+        $bits[] = $phone;
+    }
+    if ($email !== '') {
+        $bits[] = h($email);
+    }
+    return implode(' · ', $bits);
+}
+
+function sheet_brand_phone_email_line(array $brand): string
+{
+    $bits = [];
+    $phone = sheet_brand_phone($brand);
+    $email = trim((string) ($brand['email'] ?? ''));
+    if ($phone !== '') {
+        $bits[] = $phone;
+    }
+    if ($email !== '') {
+        $bits[] = h($email);
+    }
+    return implode(' · ', $bits);
+}
+
 function sheet_is_receipt(array $d): bool
 {
     return ($d['doc']['kind'] ?? '') === 'receipt';
@@ -776,11 +836,11 @@ function render_sheet_correspondence(array $d): void
     <div class="corr-brand">
       <?php render_sheet_logo($d); ?>
       <div class="corr-co">
-        <strong><?= h($brand['name']) ?></strong>
+        <strong class="sheet-brand-strong"><?= h($brand['name']) ?></strong>
         <?php if (!empty($brand['tagline'])): ?><div><?= h($brand['tagline']) ?></div><?php endif; ?>
-        <div><?= h($brand['address']) ?></div>
-        <?php if (!empty($brand['city'])): ?><div><?= h($brand['city']) ?></div><?php endif; ?>
-        <div><?= h($brand['phone']) ?></div>
+        <?php if (trim((string) ($brand['address'] ?? '')) !== ''): ?><div><?= sheet_brand_strong((string) $brand['address']) ?></div><?php endif; ?>
+        <?php if (!empty($brand['city'])): ?><div><?= sheet_brand_strong((string) $brand['city']) ?></div><?php endif; ?>
+        <?php if (trim((string) ($brand['phone'] ?? '')) !== ''): ?><div><?= sheet_brand_phone($brand) ?></div><?php endif; ?>
         <div><?= h($brand['email']) ?></div>
         <?php if (!empty($brand['website'])): ?><div><?= h($brand['website']) ?></div><?php endif; ?>
         <?php if (!empty($brand['tin'])): ?><div>TIN <?= h($brand['tin']) ?></div><?php endif; ?>
@@ -822,7 +882,7 @@ function render_sheet_correspondence(array $d): void
   <?php render_letter_signature($doc); ?>
   <footer class="corr-sign">
     <p>Yours faithfully,</p>
-    <p><strong><?= h($brand['name']) ?></strong></p>
+    <p><?= sheet_brand_name($brand) ?></p>
   </footer>
 </article>
 <?php
@@ -838,8 +898,10 @@ function render_sheet_folio(array $d): void
     <div>
       <?php render_sheet_logo($d); ?>
       <div class="d-co">
-        <div><?= h($brand['address']) ?></div>
-        <div><?= h($brand['phone']) ?></div>
+        <?php if (trim((string) ($brand['name'] ?? '')) !== ''): ?><div><?= sheet_brand_name($brand) ?></div><?php endif; ?>
+        <?php if (trim((string) ($brand['address'] ?? '')) !== ''): ?><div><?= sheet_brand_strong((string) $brand['address']) ?></div><?php endif; ?>
+        <?php if (!empty($brand['city'])): ?><div><?= sheet_brand_strong((string) $brand['city']) ?></div><?php endif; ?>
+        <?php if (trim((string) ($brand['phone'] ?? '')) !== ''): ?><div><?= sheet_brand_phone($brand) ?></div><?php endif; ?>
         <div><?= h($brand['email']) ?></div>
         <div><?= h($brand['website']) ?></div>
         <?php if (!empty($brand['tin'])): ?><div>TIN <?= h($brand['tin']) ?></div><?php endif; ?>
@@ -912,7 +974,7 @@ function render_sheet_ledger(array $d): void
   <div class="ledger-top">
     <div class="ledger-brand">
       <?php render_sheet_logo($d, 'd-logo sm'); ?>
-      <div><?= h($brand['address']) ?><br><?= h($brand['email']) ?><br><?= h($brand['phone']) ?></div>
+      <div><?= sheet_brand_location($brand, false) ?><?php if (trim((string) ($brand['email'] ?? '')) !== ''): ?><br><?= h($brand['email']) ?><?php endif; ?><?php if (trim((string) ($brand['phone'] ?? '')) !== ''): ?><br><?= sheet_brand_phone($brand) ?><?php endif; ?></div>
     </div>
     <h1><?= h($d['heading']) ?></h1>
     <div class="ledger-no">No. <?= h($doc['number']) ?></div>
@@ -928,11 +990,11 @@ function render_sheet_ledger(array $d): void
       <?php if (($doc['kind'] ?? '') !== 'letter'): ?>
       <div class="ledger-from">
         <span>From</span>
-        <b><?= h($brand['name']) ?></b>
+        <?= sheet_brand_name($brand) ?>
         <p>
-          <?= h($brand['address']) ?>
-          <?php if (!empty($brand['city'])): ?><br><?= h($brand['city']) ?><?php endif; ?>
-          <?php if (!empty($brand['phone'])): ?><br><?= h($brand['phone']) ?><?php endif; ?>
+          <?= sheet_brand_strong((string) ($brand['address'] ?? '')) ?>
+          <?php if (!empty($brand['city'])): ?><br><?= sheet_brand_strong((string) $brand['city']) ?><?php endif; ?>
+          <?php if (!empty($brand['phone'])): ?><br><?= sheet_brand_phone($brand) ?><?php endif; ?>
           <?php if (!empty($brand['email'])): ?><br><?= h($brand['email']) ?><?php endif; ?>
           <?php if (!empty($brand['tin'])): ?><br>TIN <?= h($brand['tin']) ?><?php endif; ?>
         </p>
@@ -979,7 +1041,7 @@ function render_sheet_ledger(array $d): void
       </div>
       <?php endif; ?>
       <div class="ledger-sign">
-        <div><span>From</span><b><?= h($brand['name']) ?></b></div>
+        <div><span>From</span><?= sheet_brand_name($brand) ?></div>
         <div><span>To</span><b><?= h($doc['party_name'] ?? '') ?></b></div>
         <div><span>By</span><?php render_company_signature($doc); ?><b><?= h($brand['account_name'] ?: 'Accounts') ?></b></div>
       </div>
@@ -1003,8 +1065,8 @@ function render_sheet_bill(array $d, string $variant): void
   <header class="bill-head">
     <?php render_sheet_logo($d, 'd-logo sm'); ?>
     <div>
-      <h2><?= h($brand['name']) ?></h2>
-      <p><?= h($brand['address']) ?> · <?= h($brand['phone']) ?> · <?= h($brand['email']) ?></p>
+      <h2 class="sheet-brand-strong"><?= h($brand['name']) ?></h2>
+      <p><?= sheet_brand_contact_line($brand) ?></p>
     </div>
   </header>
   <div class="bill-pill" style="background:<?= h($primary) ?>;color:<?= h(contrast_on($primary)) ?>"><?= h($d['heading']) ?></div>
@@ -1057,8 +1119,8 @@ function render_twin_half(array $d, string $label): void
       <div class="twin-head">
         <?php render_sheet_logo($d, 'd-logo xs'); ?>
         <div>
-          <strong><?= h($brand['name']) ?></strong>
-          <span><?= h($brand['address']) ?></span>
+          <?= sheet_brand_name($brand) ?>
+          <span><?= sheet_brand_location($brand, false) ?></span>
         </div>
       </div>
       <h3><?= h($d['heading']) ?></h3>
@@ -1126,11 +1188,11 @@ function render_sheet_stripe(array $d): void
     <div class="stripe-parties">
       <div class="stripe-from">
         <span>From</span>
-        <b><?= h($brand['name']) ?></b>
+        <?= sheet_brand_name($brand) ?>
         <p>
-          <?= h($brand['address']) ?>
-          <?php if (!empty($brand['city'])): ?><br><?= h($brand['city']) ?><?php endif; ?>
-          <br><?= h($brand['phone']) ?>
+          <?= sheet_brand_strong((string) ($brand['address'] ?? '')) ?>
+          <?php if (!empty($brand['city'])): ?><br><?= sheet_brand_strong((string) $brand['city']) ?><?php endif; ?>
+          <?php if (trim((string) ($brand['phone'] ?? '')) !== ''): ?><br><?= sheet_brand_phone($brand) ?><?php endif; ?>
           <?php if (!empty($brand['email'])): ?><br><?= h($brand['email']) ?><?php endif; ?>
           <?php if (!empty($brand['tin'])): ?><br>TIN <?= h($brand['tin']) ?><?php endif; ?>
         </p>
@@ -1185,8 +1247,8 @@ function render_sheet_estate(array $d): void
     <?php render_sheet_logo($d); ?>
     <div>
       <em><?= h($brand['tagline'] ?: 'Estate books') ?></em>
-      <h1><?= h($brand['name']) ?></h1>
-      <p><?= h($brand['address']) ?> · TIN <?= h($brand['tin'] ?: '-') ?></p>
+      <h1 class="sheet-brand-strong"><?= h($brand['name']) ?></h1>
+      <p><?= sheet_brand_location($brand, false) ?><?= !empty($brand['tin']) ? ' · TIN ' . h($brand['tin']) : '' ?></p>
     </div>
     <div class="estate-no">
       <span><?= h($d['heading']) ?></span>
@@ -1240,7 +1302,7 @@ function render_sheet_night(array $d): void
   <div class="night-sky">
     <div>
       <?php render_sheet_logo($d, 'd-logo invert'); ?>
-      <p><?= h($brand['name']) ?></p>
+      <p><?= sheet_brand_name($brand) ?></p>
     </div>
     <h1><?= h($d['heading']) ?></h1>
   </div>
@@ -1280,7 +1342,7 @@ function render_sheet_night(array $d): void
       <?php endif; ?>
     <?php endif; ?>
     <?php render_authorized_signoff($doc); ?>
-    <p class="night-foot"><?= h($brand['phone']) ?> · <?= h($brand['email']) ?> · <?= h($brand['website']) ?></p>
+    <p class="night-foot"><?= sheet_brand_phone($brand) ?><?php if (trim((string) ($brand['email'] ?? '')) !== ''): ?> · <?= h($brand['email']) ?><?php endif; ?><?php if (!empty($brand['website'])): ?> · <?= h($brand['website']) ?><?php endif; ?></p>
   </div>
 </article>
 <?php
@@ -1295,8 +1357,8 @@ function render_sheet_atelier(array $d): void
   <header class="atelier-head">
     <div class="atelier-brand">
       <?php render_sheet_logo($d); ?>
-      <p class="atelier-kicker"><?= h($brand['name']) ?></p>
-      <p><?= h($brand['address']) ?><?= !empty($brand['tin']) ? ' · TIN ' . h($brand['tin']) : '' ?></p>
+      <p class="atelier-kicker sheet-brand-strong"><?= h($brand['name']) ?></p>
+      <p><?= sheet_brand_location($brand, false) ?><?= !empty($brand['tin']) ? ' · TIN ' . h($brand['tin']) : '' ?></p>
     </div>
     <div class="atelier-meta">
       <em><?= h($d['heading']) ?></em>
@@ -1335,7 +1397,7 @@ function render_sheet_atelier(array $d): void
   <?php endif; ?>
   <?php render_authorized_signoff($doc); ?>
   <footer class="atelier-foot">
-    <?= h($brand['phone']) ?> · <?= h($brand['email']) ?> · <?= h($brand['website']) ?>
+    <?= sheet_brand_phone($brand) ?><?php if (trim((string) ($brand['email'] ?? '')) !== ''): ?> · <?= h($brand['email']) ?><?php endif; ?><?php if (!empty($brand['website'])): ?> · <?= h($brand['website']) ?><?php endif; ?>
   </footer>
 </article>
 <?php
@@ -1349,8 +1411,8 @@ function render_sheet_seal(array $d): void
 <article class="invoice-sheet sheet-seal" style="<?= h($d['vars']) ?>">
   <header class="seal-head">
     <?php render_sheet_logo($d); ?>
-    <h1><?= h($brand['name']) ?></h1>
-    <p><?= h($brand['address']) ?> · <?= h($brand['phone']) ?> · <?= h($brand['email']) ?></p>
+    <h1 class="sheet-brand-strong"><?= h($brand['name']) ?></h1>
+    <p><?= sheet_brand_contact_line($brand) ?></p>
     <div class="seal-title">
       <i></i>
       <strong><?= h($d['heading']) ?></strong>
@@ -1419,9 +1481,9 @@ function render_sheet_mark(array $d): void
     <div>
       <?php render_sheet_logo($d); ?>
       <div class="d-co">
-        <strong><?= h($brand['name']) ?></strong>
-        <div><?= h($brand['address']) ?></div>
-        <div><?= h($brand['phone']) ?> · <?= h($brand['email']) ?></div>
+        <?= sheet_brand_name($brand) ?>
+        <?php if (trim((string) ($brand['address'] ?? '')) !== ''): ?><div><?= sheet_brand_strong((string) $brand['address']) ?></div><?php endif; ?>
+        <?php if (sheet_brand_phone_email_line($brand) !== ''): ?><div><?= sheet_brand_phone_email_line($brand) ?></div><?php endif; ?>
         <?php if (!empty($brand['tin'])): ?><div>TIN <?= h($brand['tin']) ?></div><?php endif; ?>
       </div>
     </div>
@@ -1473,9 +1535,9 @@ function render_sheet_bond(array $d): void
     <div class="bond-brand">
       <?php render_sheet_logo($d, 'd-logo sm'); ?>
       <div>
-        <strong><?= h($brand['name']) ?></strong>
-        <p><?= h($brand['address']) ?></p>
-        <p><?= h($brand['phone']) ?> · <?= h($brand['email']) ?></p>
+        <?= sheet_brand_name($brand) ?>
+        <?php if (trim((string) ($brand['address'] ?? '')) !== ''): ?><p><?= sheet_brand_strong((string) $brand['address']) ?></p><?php endif; ?>
+        <?php if (sheet_brand_phone_email_line($brand) !== ''): ?><p><?= sheet_brand_phone_email_line($brand) ?></p><?php endif; ?>
       </div>
     </div>
     <div class="bond-stamp">
@@ -1525,9 +1587,9 @@ function render_sheet_frame(array $d): void
         <div>
           <?php render_sheet_logo($d); ?>
           <div class="d-co">
-            <strong><?= h($brand['name']) ?></strong>
-            <div><?= h($brand['address']) ?></div>
-            <div><?= h($brand['phone']) ?> · <?= h($brand['email']) ?></div>
+            <?= sheet_brand_name($brand) ?>
+            <?php if (trim((string) ($brand['address'] ?? '')) !== ''): ?><div><?= sheet_brand_strong((string) $brand['address']) ?></div><?php endif; ?>
+            <?php if (sheet_brand_phone_email_line($brand) !== ''): ?><div><?= sheet_brand_phone_email_line($brand) ?></div><?php endif; ?>
             <?php if (!empty($brand['tin'])): ?><div>TIN <?= h($brand['tin']) ?></div><?php endif; ?>
           </div>
         </div>
@@ -1575,7 +1637,7 @@ function render_sheet_frame(array $d): void
       <?php endif; ?>
       <?php render_authorized_signoff($doc); ?>
       <footer class="d-foot">
-        <p><?= h($brand['phone']) ?> · <?= h($brand['email']) ?></p>
+        <p><?= sheet_brand_phone_email_line($brand) ?></p>
         <p class="thanks">Thank You For Your Business!</p>
       </footer>
     </div>
@@ -1595,9 +1657,9 @@ function render_sheet_inset(array $d): void
       <div>
         <?php render_sheet_logo($d); ?>
         <div class="d-co">
-          <strong><?= h($brand['name']) ?></strong>
-          <div><?= h($brand['address']) ?></div>
-          <div><?= h($brand['phone']) ?></div>
+          <?= sheet_brand_name($brand) ?>
+          <?php if (trim((string) ($brand['address'] ?? '')) !== ''): ?><div><?= sheet_brand_strong((string) $brand['address']) ?></div><?php endif; ?>
+          <?php if (trim((string) ($brand['phone'] ?? '')) !== ''): ?><div><?= sheet_brand_phone($brand) ?></div><?php endif; ?>
           <div><?= h($brand['email']) ?></div>
         </div>
       </div>
@@ -1674,10 +1736,13 @@ function render_sheet_booklet(array $d): void
   <div class="booklet-page">
     <header class="booklet-head">
       <?php render_sheet_logo($d, 'd-logo sm booklet-logo'); ?>
-      <h1 class="slip-brand"><?= h((string) $brand['name']) ?></h1>
+      <h1 class="slip-brand sheet-brand-strong"><?= h((string) $brand['name']) ?></h1>
       <?php if (!empty($brand['tagline'])): ?><p class="slip-motto"><?= h((string) $brand['tagline']) ?></p><?php endif; ?>
       <div class="slip-co">
-        <?php foreach ($contact as $row): ?><div><?= h(slip_plain($row)) ?></div><?php endforeach; ?>
+        <?php if (trim((string) ($brand['address'] ?? '')) !== ''): ?><div><?= sheet_brand_strong(slip_plain((string) $brand['address'])) ?></div><?php endif; ?>
+        <?php if (trim((string) ($brand['city'] ?? '')) !== ''): ?><div><?= sheet_brand_strong(slip_plain((string) $brand['city'])) ?></div><?php endif; ?>
+        <?php if (trim((string) ($brand['phone'] ?? '')) !== ''): ?><div><?= sheet_brand_strong(slip_plain((string) $brand['phone'])) ?></div><?php endif; ?>
+        <?php if (trim((string) ($brand['email'] ?? '')) !== ''): ?><div><?= h(slip_plain((string) $brand['email'])) ?></div><?php endif; ?>
         <?php if (!empty($brand['tin'])): ?><div>TIN <?= h($brand['tin']) ?></div><?php endif; ?>
       </div>
     </header>
@@ -1752,12 +1817,6 @@ function render_sheet_chit(array $d): void
     $qtyOnly = in_array($kind, ['delivery', 'return_note'], true);
     $showMoney = sheet_shows_money($d) && !$qtyOnly;
     [$paid, $due, $how, $words] = slip_money_bits($d);
-    $contact = array_filter([
-        (string) ($brand['address'] ?? ''),
-        trim((string) ($brand['city'] ?? '')),
-        (string) ($brand['phone'] ?? ''),
-        (string) ($brand['email'] ?? ''),
-    ], static fn ($v) => trim($v) !== '');
     $rest = [];
     foreach (slip_to_lines($doc) as $line) {
         if (mb_strtolower((string) ($line['label'] ?? '')) === 'name') {
@@ -1770,10 +1829,13 @@ function render_sheet_chit(array $d): void
   <div class="chit-page">
     <header class="chit-head">
       <?php render_sheet_logo($d, 'd-logo sm'); ?>
-      <h1 class="chit-name"><?= h((string) $brand['name']) ?></h1>
+      <h1 class="chit-name sheet-brand-strong"><?= h((string) $brand['name']) ?></h1>
       <?php if (!empty($brand['tagline'])): ?><p class="chit-tag"><?= h((string) $brand['tagline']) ?></p><?php endif; ?>
       <div class="chit-co">
-        <?php foreach ($contact as $row): ?><div><?= h($row) ?></div><?php endforeach; ?>
+        <?php if (trim((string) ($brand['address'] ?? '')) !== ''): ?><div><?= sheet_brand_strong((string) $brand['address']) ?></div><?php endif; ?>
+        <?php if (trim((string) ($brand['city'] ?? '')) !== ''): ?><div><?= sheet_brand_strong((string) $brand['city']) ?></div><?php endif; ?>
+        <?php if (trim((string) ($brand['phone'] ?? '')) !== ''): ?><div><?= sheet_brand_phone($brand) ?></div><?php endif; ?>
+        <?php if (trim((string) ($brand['email'] ?? '')) !== ''): ?><div><?= h((string) $brand['email']) ?></div><?php endif; ?>
         <?php if (!empty($brand['tin'])): ?><div>TIN <?= h($brand['tin']) ?></div><?php endif; ?>
       </div>
     </header>
@@ -1883,9 +1945,9 @@ function render_sheet_thermal(array $d): void
 <article class="invoice-sheet sheet-thermal" style="<?= h($d['vars']) ?>">
   <header class="thermal-head">
     <?php render_sheet_logo($d, 'd-logo xs'); ?>
-    <strong><?= h($brand['name']) ?></strong>
-    <p><?= h($brand['address']) ?></p>
-    <p><?= h($brand['phone']) ?></p>
+    <strong class="sheet-brand-strong"><?= h($brand['name']) ?></strong>
+    <?php if (trim((string) ($brand['address'] ?? '')) !== ''): ?><p><?= sheet_brand_strong((string) $brand['address']) ?></p><?php endif; ?>
+    <?php if (trim((string) ($brand['phone'] ?? '')) !== ''): ?><p><?= sheet_brand_phone($brand) ?></p><?php endif; ?>
     <?php if (!empty($brand['tin'])): ?><p>TIN <?= h($brand['tin']) ?></p><?php endif; ?>
   </header>
   <p class="thermal-kind"><?= h($heading) ?></p>
@@ -1999,8 +2061,8 @@ function render_sheet_trade(array $d): void
     <div class="trade-brand">
       <div class="trade-logo"><?php render_sheet_logo($d); ?></div>
       <div class="trade-titles">
-        <h1><?= h($nameTop !== '' ? $nameTop : 'Company') ?></h1>
-        <?php if ($nameSub !== ''): ?><h2><?= h($nameSub) ?></h2><?php endif; ?>
+        <h1 class="sheet-brand-strong"><?= h($nameTop !== '' ? $nameTop : 'Company') ?></h1>
+        <?php if ($nameSub !== ''): ?><h2 class="sheet-brand-strong"><?= h($nameSub) ?></h2><?php endif; ?>
       </div>
     </div>
     <?php if ($tagline !== ''): ?>
@@ -2009,7 +2071,7 @@ function render_sheet_trade(array $d): void
     <div class="trade-contact">
       <div class="trade-contact-left">
         <?php if ($phones): ?>
-          <div><span>Tel:</span> <?= h(implode(', ', $phones)) ?></div>
+          <div><span>Tel:</span> <?= sheet_brand_strong(implode(', ', $phones)) ?></div>
         <?php endif; ?>
         <?php if ($email !== ''): ?>
           <div><span>Email:</span> <?= h($email) ?></div>
@@ -2018,7 +2080,7 @@ function render_sheet_trade(array $d): void
       <?php if ($location !== ''): ?>
         <div class="trade-contact-right">
           <span class="trade-pin" aria-hidden="true"></span>
-          <span><?= h($location) ?></span>
+          <?= sheet_brand_strong($location) ?>
         </div>
       <?php endif; ?>
     </div>
@@ -2057,9 +2119,8 @@ function render_sheet_trade(array $d): void
             $rate = '';
             $lineAmt = '';
             if (is_array($item)) {
-                $q = format_qty($item['qty'] ?? 0);
-                $unit = trim((string) ($item['unit'] ?? ''));
-                $qtyLabel = $q . ($unit !== '' ? $unit : '');
+                // Trade QTY column is the quantity only — never append unit (e.g. "lot").
+                $qtyLabel = format_qty($item['qty'] ?? 0);
                 $particular = function_exists('line_item_name') ? line_item_name($item) : (string) ($item['item_name'] ?? '');
                 $desc = function_exists('line_item_description') ? line_item_description($item) : (string) ($item['description'] ?? '');
                 if ($desc !== '' && strcasecmp($desc, $particular) !== 0) {
