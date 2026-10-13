@@ -315,4 +315,7 @@ function folio_auth_resume(): void
     $_SESSION['last_activity'] = time();
     // Refresh the auth cookie so it keeps sliding forward with use.
     folio_auth_cookie_set((int) $user['id']);
+    if (function_exists('touch_user_seen')) {
+        touch_user_seen((int) $user['id'], true);
+    }
 }

@@ -77,15 +77,6 @@ require_once ROOT_PATH . '/includes/client_fields.php';
 require_once ROOT_PATH . '/includes/search.php';
 require_once ROOT_PATH . '/includes/pricing.php';
 require_once ROOT_PATH . '/includes/auth.php';
-
-// Resume signed login cookie if the PHP session row was lost, then slide cookies.
-if (function_exists('folio_auth_resume')) {
-    folio_auth_resume();
-}
-if (function_exists('refresh_remembered_session')) {
-    refresh_remembered_session();
-}
-
 require_once ROOT_PATH . '/includes/icons.php';
 require_once ROOT_PATH . '/includes/documents.php';
 require_once ROOT_PATH . '/includes/stock.php';
@@ -109,6 +100,14 @@ require_once ROOT_PATH . '/includes/docx.php';
 require_once ROOT_PATH . '/includes/pdf.php';
 require_once ROOT_PATH . '/includes/layout.php';
 require_once ROOT_PATH . '/includes/push.php';
+
+// Resume signed login cookie after presence helpers load so sign-in stamps correctly.
+if (function_exists('folio_auth_resume')) {
+    folio_auth_resume();
+}
+if (function_exists('refresh_remembered_session')) {
+    refresh_remembered_session();
+}
 
 if (function_exists('apply_desk_timezone')) {
     try {

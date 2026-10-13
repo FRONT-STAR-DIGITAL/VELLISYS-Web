@@ -153,22 +153,70 @@ function platform_online_window_minutes(): int
     return 5;
 }
 
+/** Wall-clock now in platform zone (EAT) for presence columns. */
+function platform_presence_now(): string
+{
+    $tzName = function_exists('platform_timezone_id') ? platform_timezone_id() : 'Africa/Kampala';
+    try {
+        return (new DateTimeImmutable('now', new DateTimeZone($tzName)))->format('Y-m-d H:i:s');
+    } catch (Throwable $e) {
+        return gmdate('Y-m-d H:i:s', time() + 3 * 3600);
+    }
+}
+
+function platform_presence_today(): string
+{
+    return substr(platform_presence_now(), 0, 10);
+}
+
+/** EAT cutoff for “online in the last N minutes” SQL compares. */
+function platform_presence_cutoff(int $minutes): string
+{
+    $minutes = max(1, $minutes);
+    $tzName = function_exists('platform_timezone_id') ? platform_timezone_id() : 'Africa/Kampala';
+    try {
+        return (new DateTimeImmutable('now', new DateTimeZone($tzName)))
+            ->modify('-' . $minutes . ' minutes')
+            ->format('Y-m-d H:i:s');
+    } catch (Throwable $e) {
+        return gmdate('Y-m-d H:i:s', time() + 3 * 3600 - $minutes * 60);
+    }
+}
+
 function user_is_online(?string $lastSeen): bool
 {
     if ($lastSeen === null || trim($lastSeen) === '') {
         return false;
     }
-    $t = strtotime($lastSeen);
-    if ($t === false) {
-        return false;
+    $raw = trim($lastSeen);
+    try {
+        $tzName = function_exists('platform_timezone_id') ? platform_timezone_id() : 'Africa/Kampala';
+        $tz = new DateTimeZone($tzName);
+        $dt = new DateTimeImmutable(str_replace('T', ' ', substr($raw, 0, 19)), $tz);
+        return (time() - $dt->getTimestamp()) <= platform_online_window_minutes() * 60;
+    } catch (Throwable $e) {
+        $t = strtotime($raw);
+        if ($t === false) {
+            return false;
+        }
+        return (time() - $t) <= platform_online_window_minutes() * 60;
     }
-    return (time() - $t) <= platform_online_window_minutes() * 60;
 }
 
 function touch_user_seen(int $userId, bool $login = false): void
 {
     if ($userId < 1) {
         return;
+    }
+    // Sales/platform desk walkthroughs must not look like the company signed in.
+    if (function_exists('sales_demo_active') && sales_demo_active()) {
+        return;
+    }
+    // Long-lived sessions rarely re-hit password login. Count the first
+    // presence hit of each EAT calendar day as a sign-in so company lists stay current.
+    $today = platform_presence_today();
+    if (!$login && (string) ($_SESSION['presence_login_day'] ?? '') !== $today) {
+        $login = true;
     }
     // Throttle presence writes - every page was doing an UPDATE.
     if (!$login) {
@@ -179,13 +227,16 @@ function touch_user_seen(int $userId, bool $login = false): void
         }
         $_SESSION[$key] = time();
     }
+    $now = platform_presence_now();
     try {
         if ($login && db_has_column(db(), 'users', 'last_login_at')) {
-            db_exec('UPDATE users SET last_seen_at = NOW(), last_login_at = NOW() WHERE id = ?', 'i', [$userId]);
+            db_exec('UPDATE users SET last_seen_at = ?, last_login_at = ? WHERE id = ?', 'ssi', [$now, $now, $userId]);
+            $_SESSION['presence_login_day'] = $today;
+            $_SESSION['seen_at_' . $userId] = time();
             return;
         }
         if (db_has_column(db(), 'users', 'last_seen_at')) {
-            db_exec('UPDATE users SET last_seen_at = NOW() WHERE id = ?', 'i', [$userId]);
+            db_exec('UPDATE users SET last_seen_at = ? WHERE id = ?', 'si', [$now, $userId]);
         }
     } catch (Throwable $e) {
         // Column may not exist until migrate.
@@ -791,14 +842,15 @@ function platform_device_install_stats(): array
 function platform_online_users(): array
 {
     try {
+        $cutoff = platform_presence_cutoff(platform_online_window_minutes());
         return db_all(
             "SELECT u.id, u.name, u.email, u.company_id, u.last_seen_at, u.last_login_at, c.name AS company_name
              FROM users u
              LEFT JOIN companies c ON c.id = u.company_id
-             WHERE u.role <> 'platform' AND u.last_seen_at IS NOT NULL AND u.last_seen_at > DATE_SUB(NOW(), INTERVAL ? MINUTE)
+             WHERE u.role <> 'platform' AND u.last_seen_at IS NOT NULL AND u.last_seen_at > ?
              ORDER BY u.last_seen_at DESC",
-            'i',
-            [platform_online_window_minutes()]
+            's',
+            [$cutoff]
         );
     } catch (Throwable $e) {
         return [];
@@ -809,6 +861,7 @@ function platform_company_presence(): array
 {
     $rows = [];
     try {
+        $cutoff = platform_presence_cutoff(platform_online_window_minutes());
         $rows = db_all(
             "SELECT c.id, c.name, c.status, c.plan, c.expires_at, c.paid_term, c.paid_unit, c.fee_amount, c.fee_paid, c.fee_currency,
                     c.loc_office, c.loc_street, c.loc_city, c.loc_region, c.loc_country,
@@ -816,9 +869,11 @@ function platform_company_presence(): array
                     (SELECT COUNT(*) FROM branches b WHERE b.company_id = c.id) AS branches,
                     (SELECT MAX(u.last_login_at) FROM users u WHERE u.company_id = c.id AND u.role <> 'platform') AS last_login_at,
                     (SELECT MAX(u.last_seen_at) FROM users u WHERE u.company_id = c.id AND u.role <> 'platform') AS last_seen_at,
-                    (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id AND u.role <> 'platform' AND u.last_seen_at > DATE_SUB(NOW(), INTERVAL " . (int) platform_online_window_minutes() . " MINUTE)) AS online_users
+                    (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id AND u.role <> 'platform' AND u.last_seen_at > ?) AS online_users
              FROM companies c
-             ORDER BY last_seen_at IS NULL, last_seen_at DESC, c.name"
+             ORDER BY last_seen_at IS NULL, last_seen_at DESC, c.name",
+            's',
+            [$cutoff]
         );
     } catch (Throwable $e) {
         try {
@@ -886,7 +941,8 @@ function format_when(?string $dt): string
     $raw = trim($dt);
     try {
         $tz = new DateTimeZone(function_exists('desk_timezone_id') ? desk_timezone_id() : 'Africa/Kampala');
-        // Naive MySQL datetimes are wall-clock in the active desk/platform zone (EAT for Super Admin).
+        // Presence stamps (last_login_at / last_seen_at) are platform wall-clock (EAT).
+        // Other naive datetimes are also shown in the active desk/platform zone.
         if (preg_match('/^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?/', $raw)) {
             $dtObj = new DateTimeImmutable(str_replace('T', ' ', substr($raw, 0, 19)), $tz);
         } else {

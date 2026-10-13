@@ -45,14 +45,18 @@ $linkedLead = db_one(
     [$id, (int) $user['id']]
 );
 // Enrich with last login / active for this desk.
+$onlineMins = function_exists('platform_online_window_minutes') ? (int) platform_online_window_minutes() : 5;
+$onlineCutoff = function_exists('platform_presence_cutoff')
+    ? platform_presence_cutoff($onlineMins)
+    : gmdate('Y-m-d H:i:s', time() + 3 * 3600 - $onlineMins * 60);
 $presenceRow = db_one(
     "SELECT
         (SELECT MAX(u.last_login_at) FROM users u WHERE u.company_id = ? AND u.role <> 'platform') AS last_login_at,
         (SELECT MAX(u.last_seen_at) FROM users u WHERE u.company_id = ? AND u.role <> 'platform') AS last_seen_at,
         (SELECT COUNT(*) FROM users u WHERE u.company_id = ? AND u.role <> 'platform'
-           AND u.last_seen_at > DATE_SUB(NOW(), INTERVAL " . (int) (function_exists('platform_online_window_minutes') ? platform_online_window_minutes() : 5) . " MINUTE)) AS online_users",
-    'iii',
-    [$id, $id, $id]
+           AND u.last_seen_at > ?) AS online_users",
+    'iiis',
+    [$id, $id, $id, $onlineCutoff]
 ) ?: [];
 $company = array_merge($company, $presenceRow);
 $activity = sales_testing_activity($company);

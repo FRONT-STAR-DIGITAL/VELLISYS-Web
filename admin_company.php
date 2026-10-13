@@ -821,7 +821,7 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
               <td class="mono"><?= h($m['email']) ?></td>
               <td><?= h(desk_access_label((string) $m['role'], (string) ($m['access'] ?? 'books'))) ?></td>
               <td><?= (($m['status'] ?? 'live') === 'suspended') ? 'Suspended' : 'Live' ?></td>
-              <td class="mono"><?php if (user_is_online($m['last_seen_at'] ?? null)): ?><span class="pill">Online</span><?php else: ?><?= h(format_when($m['last_login_at'] ?? $m['last_seen_at'] ?? null)) ?><?php endif; ?></td>
+              <td class="mono"><?php if (user_is_online($m['last_seen_at'] ?? null)): ?><span class="pill">Online</span><?php else: ?><?= h(format_when($m['last_login_at'] ?? null)) ?><?php endif; ?></td>
               <td class="row-actions">
                 <div class="actions">
                   <a class="btn ghost sm" href="<?= h(url('admin_company.php?id=' . $id . '&edit_user=' . (int) $m['id'])) ?>">Edit</a>

@@ -1896,10 +1896,14 @@ function sales_create_testing_company(array $fields, int $actorId, bool $asPlatf
 function sales_testing_presence_select(): string
 {
     $mins = function_exists('platform_online_window_minutes') ? (int) platform_online_window_minutes() : 5;
+    $cutoff = function_exists('platform_presence_cutoff')
+        ? platform_presence_cutoff($mins)
+        : gmdate('Y-m-d H:i:s', time() + 3 * 3600 - $mins * 60);
+    $cutoffSql = "'" . addslashes($cutoff) . "'";
     return "(SELECT MAX(u.last_login_at) FROM users u WHERE u.company_id = c.id AND u.role <> 'platform') AS last_login_at,
             (SELECT MAX(u.last_seen_at) FROM users u WHERE u.company_id = c.id AND u.role <> 'platform') AS last_seen_at,
             (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id AND u.role <> 'platform'
-               AND u.last_seen_at > DATE_SUB(NOW(), INTERVAL {$mins} MINUTE)) AS online_users";
+               AND u.last_seen_at > {$cutoffSql}) AS online_users";
 }
 
 function sales_testing_companies_for_agent(int $agentId): array
