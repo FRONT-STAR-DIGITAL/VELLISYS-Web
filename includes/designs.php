@@ -2089,15 +2089,9 @@ function render_sheet_trade(array $d): void
     ])));
     $email = trim((string) ($brand['email'] ?? ''));
     $party = trim((string) ($doc['party_name'] ?? ''));
-    $prepared = '';
-    $uid = (int) ($doc['created_by'] ?? 0);
-    if ($uid > 0) {
-        $u = db_one('SELECT name FROM users WHERE id = ? AND company_id = ?', 'ii', [$uid, current_company_id()]);
-        $prepared = trim((string) ($u['name'] ?? ''));
-    }
-    if ($prepared === '') {
-        $prepared = trim((string) (current_user()['name'] ?? ''));
-    }
+    $prepared = function_exists('document_prepared_by_name')
+        ? document_prepared_by_name($doc)
+        : trim((string) (current_user()['name'] ?? ''));
     $items = $doc['items'] ?? [];
     $minRows = max(8, count($items));
     $rows = $items;

@@ -1851,6 +1851,81 @@ function document_signoff_label(array $doc): string
     return (($doc['kind'] ?? '') === 'quotation') ? 'Prepared by' : 'Authorized Signature';
 }
 
+/** Trade Document sheet prints a Prepared by line (not custom/expense). */
+function document_uses_trade_prepared_by(?array $doc = null): bool
+{
+    $kind = (string) ($doc['kind'] ?? '');
+    if ($kind === 'custom' || $kind === 'expense') {
+        return false;
+    }
+    return doc_template_key($doc) === 'trade';
+}
+
+/**
+ * Name on Trade Document “Prepared by”.
+ * Prefers an editable value saved on the document, then the creator, then the signed-in user.
+ */
+function document_prepared_by_name(array $doc): string
+{
+    $custom = $doc['custom_values'] ?? [];
+    if (is_string($custom)) {
+        $custom = json_decode($custom, true) ?: [];
+    }
+    if (!is_array($custom)) {
+        $custom = [];
+    }
+    $name = trim((string) ($custom['prepared_by'] ?? ''));
+    if ($name !== '') {
+        return mb_substr($name, 0, 120);
+    }
+    $uid = (int) ($doc['created_by'] ?? 0);
+    if ($uid > 0 && function_exists('db_one')) {
+        try {
+            $u = db_one('SELECT name FROM users WHERE id = ? AND company_id = ?', 'ii', [$uid, current_company_id()]);
+            $name = trim((string) ($u['name'] ?? ''));
+            if ($name !== '') {
+                return mb_substr($name, 0, 120);
+            }
+        } catch (Throwable $e) {
+            // fall through
+        }
+    }
+    $name = trim((string) (current_user()['name'] ?? ''));
+    return $name !== '' ? mb_substr($name, 0, 120) : '';
+}
+
+function render_prepared_by_field(?array $existing = null, ?string $kind = null): void
+{
+    $kind = $kind ?? (string) ($existing['kind'] ?? '');
+    if ($kind === 'custom' || $kind === 'expense') {
+        return;
+    }
+    $value = '';
+    if ($existing) {
+        $custom = $existing['custom_values'] ?? [];
+        if (is_string($custom)) {
+            $custom = json_decode($custom, true) ?: [];
+        }
+        if (is_array($custom)) {
+            $value = trim((string) ($custom['prepared_by'] ?? ''));
+        }
+        if ($value === '') {
+            $value = document_prepared_by_name($existing);
+        }
+    }
+    if ($value === '') {
+        $value = trim((string) (current_user()['name'] ?? ''));
+    }
+    $show = document_uses_trade_prepared_by($existing);
+    ?>
+    <div class="prepared-by-box" data-prepared-by-box<?= $show ? '' : ' hidden' ?>>
+      <label for="prepared_by">Prepared by</label>
+      <input id="prepared_by" name="prepared_by" maxlength="120" value="<?= h($value) ?>" placeholder="Name printed on the Trade Document"<?= $show ? '' : ' disabled' ?>>
+      <p class="hint">Printed under Prepared by on the Trade Document sheet. Change it if someone else prepared this document.</p>
+    </div>
+    <?php
+}
+
 function document_kind_icon(string $kind): string
 {
     return match ($kind) {

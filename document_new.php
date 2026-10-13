@@ -126,6 +126,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($customDef['fields'] as $field) {
             $customValues[$field['key']] = trim((string) ($_POST['custom_field'][$field['key']] ?? ''));
         }
+    } elseif (is_array($existing['custom_values'] ?? null)) {
+        $customValues = $existing['custom_values'];
+    }
+    $tplForSave = trim((string) post('doc_template'));
+    if ($tplForSave === '' || !array_key_exists($tplForSave, doc_templates())) {
+        $tplForSave = doc_template_key($existing);
+    }
+    $tradePrepared = $tplForSave === 'trade' && !in_array($kind, ['custom', 'expense'], true);
+    if ($tradePrepared) {
+        $preparedBy = mb_substr(trim((string) post('prepared_by')), 0, 120);
+        if ($preparedBy !== '') {
+            $customValues['prepared_by'] = $preparedBy;
+        } else {
+            unset($customValues['prepared_by']);
+        }
     }
     $payload = [
         'kind' => $kind,
@@ -514,6 +529,7 @@ layout_start($heading, $user, ['kind' => $kind]);
     <input id="subject" name="subject" required value="<?= h($prefillTpl['subject']) ?>">
     <label for="body">Body</label>
     <?php render_rich_editor('body', 'body', (string) $prefillTpl['body'], ['rows' => 16, 'required' => true, 'placeholder' => 'Write the letter. Use the toolbar for bold, lists and alignment.']); ?>
+    <?php render_prepared_by_field($existing, $kind); ?>
     <?php render_add_signature_checkbox($existing, $tplKey !== 'none'); ?>
   <?php elseif ($kind === 'custom'): ?>
     <?php $savedCustom = is_array($existing['custom_values'] ?? null) ? $existing['custom_values'] : []; ?>
@@ -744,6 +760,7 @@ layout_start($heading, $user, ['kind' => $kind]);
     }
     ?>
     <textarea id="notes" name="notes" rows="4" placeholder="<?= h($commentPh) ?>"><?= h($commentSeed) ?></textarea>
+    <?php if ($kind !== 'expense') { render_prepared_by_field($existing, $kind); } ?>
     <?php if ($kind !== 'expense') { render_add_signature_checkbox($existing); } ?>
   <?php endif; ?>
 

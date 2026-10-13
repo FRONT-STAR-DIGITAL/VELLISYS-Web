@@ -1402,6 +1402,25 @@ document.querySelectorAll('[data-letter-templates]').forEach(function (form) {
   });
 });
 
+function syncPreparedByField(root) {
+  var scope = root || document;
+  var select = scope.querySelector('#doc_template');
+  var box = scope.querySelector('[data-prepared-by-box]');
+  if (!box) return;
+  var isTrade = select ? select.value === 'trade' : box.getAttribute('data-trade-default') === '1';
+  box.hidden = !isTrade;
+  var input = box.querySelector('input[name="prepared_by"]');
+  if (input) input.disabled = !isTrade;
+}
+
+document.querySelectorAll('#doc_template').forEach(function (select) {
+  var form = select.closest('form') || document;
+  syncPreparedByField(form);
+  select.addEventListener('change', function () {
+    syncPreparedByField(form);
+  });
+});
+
 document.addEventListener('click', function (e) {
   var a = e.target.closest('[data-letter-docx]');
   if (!a) return;
