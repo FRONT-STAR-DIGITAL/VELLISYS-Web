@@ -1013,6 +1013,7 @@ function stock_catalog_payload(): array
             'buy' => (float) $row['buy_price'],
             'sell' => (float) $row['sell_price'],
             'qty' => stock_item_is_service($row) ? null : (float) $row['qty_on_hand'],
+            'unit' => trim((string) ($row['unit'] ?? '')) !== '' ? (string) $row['unit'] : 'pcs',
             'taxed' => (int) $row['taxed'] === 1,
             'service' => stock_item_is_service($row),
         ];

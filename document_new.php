@@ -53,11 +53,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $names = $_POST['item_name'] ?? [];
     $descs = $_POST['item_desc'] ?? [];
     $qtys = $_POST['item_qty'] ?? [];
+    $units = $_POST['item_unit'] ?? [];
     $rates = $_POST['item_rate'] ?? [];
     $taxed = $_POST['item_taxed'] ?? [];
     $stockIds = $_POST['item_stock_id'] ?? [];
     $extrasPosted = $_POST['item_extra'] ?? [];
     $customLineCols = function_exists('company_custom_line_columns') ? company_custom_line_columns() : [];
+    $defaultUnit = function_exists('default_line_unit') ? default_line_unit() : 'pcs';
     $anyTaxed = false;
     $keys = array_unique(array_merge(array_keys((array) $names), array_keys((array) $descs)));
     if (is_array($extrasPosted)) {
@@ -86,11 +88,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($isTaxed) {
             $anyTaxed = true;
         }
+        $unitRaw = (string) ($units[$i] ?? $defaultUnit);
+        $unit = function_exists('normalize_line_unit') ? normalize_line_unit($unitRaw) : (trim($unitRaw) !== '' ? trim($unitRaw) : $defaultUnit);
         $items[] = [
             'item_name' => $name,
             'description' => $desc,
             'qty' => round((float) ($qtys[$i] ?? 1), 2),
-            'unit' => 'lot',
+            'unit' => $unit,
             'rate' => money_parse((string) ($rates[$i] ?? '0')),
             'taxed' => $isTaxed,
             'stock_item_id' => (int) ($stockIds[$i] ?? 0),
@@ -206,7 +210,14 @@ if ($existing && $kind === 'letter') {
 $lines = kind_uses_lines($kind) ? ($existing['items'] ?? []) : [];
 $minLines = $existing ? max(1, count($existing['items'] ?? [])) : 1;
 while (kind_uses_lines($kind) && count($lines) < $minLines) {
-    $lines[] = ['item_name' => '', 'description' => '', 'qty' => 1, 'unit' => 'lot', 'rate' => '', 'taxed' => $taxLineDefault];
+    $lines[] = [
+        'item_name' => '',
+        'description' => '',
+        'qty' => 1,
+        'unit' => function_exists('default_line_unit') ? default_line_unit() : 'pcs',
+        'rate' => '',
+        'taxed' => $taxLineDefault,
+    ];
 }
 $heading = $existing ? 'Edit ' . strtolower($meta['singular']) : $meta['verb'];
 $docCurrency = $existing ? doc_currency($existing) : default_currency();
@@ -564,10 +575,22 @@ layout_start($heading, $user, ['kind' => $kind]);
           </tr>
         </thead>
         <tbody>
+          <?php
+          $defaultUnit = function_exists('default_line_unit') ? default_line_unit() : 'pcs';
+          $unitSuggestions = function_exists('document_line_unit_suggestions') ? document_line_unit_suggestions() : ['pcs', 'meters', 'batches'];
+          ?>
+          <datalist id="qty-unit-suggestions">
+            <?php foreach ($unitSuggestions as $sug): ?>
+              <option value="<?= h($sug) ?>"></option>
+            <?php endforeach; ?>
+          </datalist>
           <?php foreach ($lines as $i => $line):
               $qty = (float) ($line['qty'] ?? 1);
               $rate = (float) ($line['rate'] ?? 0);
               $lineTotal = $qty * $rate;
+              $lineUnit = function_exists('normalize_line_unit')
+                  ? normalize_line_unit((string) ($line['unit'] ?? $defaultUnit))
+                  : (trim((string) ($line['unit'] ?? '')) !== '' ? trim((string) $line['unit']) : $defaultUnit);
               $lineExtra = function_exists('line_item_extra_map') ? line_item_extra_map($line) : [];
               ?>
             <tr>
@@ -580,6 +603,7 @@ layout_start($heading, $user, ['kind' => $kind]);
               <?php endif; ?>
               <?php if (!$colQty): ?>
                 <input type="hidden" name="item_qty[<?= $i ?>]" value="<?= h((string) ($line['qty'] ?? 1)) ?>" data-line-qty>
+                <input type="hidden" name="item_unit[<?= $i ?>]" value="<?= h($lineUnit) ?>" data-line-unit>
               <?php endif; ?>
               <?php if ($qtyOnly || !$colRate): ?>
                 <input type="hidden" name="item_rate[<?= $i ?>]" value="<?= $qtyOnly ? '0' : h((string) ($line['rate'] ?? '0')) ?>"<?= $qtyOnly ? '' : ' data-line-rate' ?>>
@@ -598,9 +622,20 @@ layout_start($heading, $user, ['kind' => $kind]);
               <td class="line-qty">
                 <div class="qty-wrap">
                   <button type="button" class="qty-btn" data-qty-delta="-1" aria-label="Decrease quantity">-</button>
-                  <input name="item_qty[<?= $i ?>]" type="number" min="0" step="any" inputmode="decimal" value="<?= h((string) ($line['qty'] ?? 1)) ?>" data-line-qty>
+                  <input name="item_qty[<?= $i ?>]" type="number" min="0" step="any" inputmode="decimal" value="<?= h((string) ($line['qty'] ?? 1)) ?>" data-line-qty aria-label="Quantity">
                   <button type="button" class="qty-btn" data-qty-delta="1" aria-label="Increase quantity">+</button>
                 </div>
+                <input
+                  class="qty-unit"
+                  name="item_unit[<?= $i ?>]"
+                  list="qty-unit-suggestions"
+                  value="<?= h($lineUnit) ?>"
+                  placeholder="pcs"
+                  autocomplete="off"
+                  data-line-unit
+                  aria-label="Unit"
+                  title="Unit (pcs, meters, batches…). Amount still uses qty × unit price."
+                >
               </td>
                   <?php elseif ($key === 'rate'): ?>
               <td class="line-rate"><input name="item_rate[<?= $i ?>]" inputmode="decimal" placeholder="0" value="<?= ($line['rate'] ?? '') !== '' && ($line['rate'] ?? '') !== null ? h(money_input_value((float) $line['rate'], $docCurrency ?? null)) : '' ?>" data-line-rate data-money-commas autocomplete="off"></td>

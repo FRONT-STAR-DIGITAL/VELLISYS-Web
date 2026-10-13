@@ -1802,7 +1802,7 @@
   text-align: left;
 }
 .sheet-trade .trade-lines th.c,
-.sheet-trade .trade-lines td.c { text-align: center; width: 14%; }
+.sheet-trade .trade-lines td.c { text-align: center; width: 18%; white-space: nowrap; }
 .sheet-trade .trade-lines th.r,
 .sheet-trade .trade-lines td.r { text-align: right; }
 .sheet-trade .trade-lines th:nth-child(3),
@@ -1851,8 +1851,8 @@
 .sheet-trade .trade-sign {
   display: block;
   margin-top: 18px;
-  padding-top: 10px;
-  border-top: 1px dotted #888;
+  padding-top: 0;
+  border-top: 0;
 }
 .sheet-trade .trade-prepared {
   display: flex;

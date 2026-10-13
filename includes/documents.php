@@ -894,7 +894,9 @@ function insert_document_items(int $id, array $items): void
             continue;
         }
         $qty = (float) ($item['qty'] ?? 1);
-        $unit = (string) ($item['unit'] ?? 'lot');
+        $unit = function_exists('normalize_line_unit')
+            ? normalize_line_unit((string) ($item['unit'] ?? ''))
+            : (trim((string) ($item['unit'] ?? '')) !== '' ? trim((string) $item['unit']) : 'pcs');
         $itemRate = (float) ($item['rate'] ?? 0);
         $taxed = empty($item['taxed']) ? 0 : 1;
         $stockId = (int) ($item['stock_item_id'] ?? 0);

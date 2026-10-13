@@ -304,6 +304,41 @@ function format_qty($qty): string
     return rtrim(rtrim(number_format($n, 2, '.', ''), '0'), '.');
 }
 
+/** Default quantity unit for new document lines (pcs, meters, batches, …). */
+function default_line_unit(): string
+{
+    return 'pcs';
+}
+
+/**
+ * Normalize a per-line quantity unit label.
+ * Empty / legacy "lot" become pcs. Amount math still uses numeric qty only.
+ */
+function normalize_line_unit(?string $unit): string
+{
+    $u = trim((string) $unit);
+    if ($u === '' || strcasecmp($u, 'lot') === 0) {
+        return default_line_unit();
+    }
+    return mb_substr($u, 0, 30);
+}
+
+/** "3 pcs", "12.5 meters" — unit is display-only; amount stays qty × rate. */
+function format_qty_with_unit($qty, ?string $unit = null): string
+{
+    $q = format_qty($qty);
+    if ($q === '') {
+        return '';
+    }
+    return trim($q . ' ' . normalize_line_unit($unit));
+}
+
+/** Common unit suggestions for the document line qty field. */
+function document_line_unit_suggestions(): array
+{
+    return ['pcs', 'pc', 'meters', 'm', 'kg', 'g', 'liters', 'L', 'batches', 'batch', 'boxes', 'packs', 'sets', 'hours', 'days', 'rolls', 'bags'];
+}
+
 function currencies(): array
 {
     return [

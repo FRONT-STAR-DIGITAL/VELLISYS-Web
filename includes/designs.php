@@ -2119,8 +2119,10 @@ function render_sheet_trade(array $d): void
             $rate = '';
             $lineAmt = '';
             if (is_array($item)) {
-                // Trade QTY column is the quantity only — never append unit (e.g. "lot").
-                $qtyLabel = format_qty($item['qty'] ?? 0);
+                // QTY shows "3 pcs" / "3 meters"; amount still uses numeric qty × rate.
+                $qtyLabel = function_exists('format_qty_with_unit')
+                    ? format_qty_with_unit($item['qty'] ?? 0, $item['unit'] ?? null)
+                    : format_qty($item['qty'] ?? 0);
                 $particular = function_exists('line_item_name') ? line_item_name($item) : (string) ($item['item_name'] ?? '');
                 $desc = function_exists('line_item_description') ? line_item_description($item) : (string) ($item['description'] ?? '');
                 if ($desc !== '' && strcasecmp($desc, $particular) !== 0) {

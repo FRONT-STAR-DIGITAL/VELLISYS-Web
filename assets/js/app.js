@@ -885,6 +885,8 @@ document.addEventListener('click', function (e) {
         return;
       } else if (inp.name && inp.name.indexOf('item_qty') !== -1) {
         inp.value = '1';
+      } else if (inp.name && inp.name.indexOf('item_unit') !== -1) {
+        inp.value = 'pcs';
       } else if (inp.name && inp.name.indexOf('item_stock_id') !== -1) {
         inp.value = '0';
       } else {
@@ -914,6 +916,8 @@ document.addEventListener('click', function (e) {
           applyLineTaxDefault(row);
         } else if (inp.name && inp.name.indexOf('item_qty') !== -1) {
           inp.value = '1';
+        } else if (inp.name && inp.name.indexOf('item_unit') !== -1) {
+          inp.value = 'pcs';
         } else if (inp.name && inp.name.indexOf('item_stock_id') !== -1) {
           inp.value = '0';
         } else if (inp.type !== 'hidden') {
@@ -1280,6 +1284,9 @@ function refreshLinesPreview() {
     shown += 1;
     var qty = parseFloat(String((row.querySelector('[data-line-qty]') || {}).value || '0').replace(/,/g, ''));
     var rate = parseFloat(String((row.querySelector('[data-line-rate]') || {}).value || '0').replace(/,/g, ''));
+    var unitEl = row.querySelector('[data-line-unit]');
+    var unit = String((unitEl && unitEl.value) || 'pcs').trim() || 'pcs';
+    if (/^lot$/i.test(unit)) unit = 'pcs';
     if (isNaN(qty)) qty = 0;
     if (isNaN(rate)) rate = 0;
     var taxed = !!(row.querySelector('[data-vat-box]') || {}).checked;
@@ -1289,7 +1296,10 @@ function refreshLinesPreview() {
       var label = col.label || key;
       if (key === 'item') html += '<td data-label="' + escapeHtml(label) + '">' + escapeHtml(name || '-') + '</td>';
       else if (key === 'description') html += '<td data-label="' + escapeHtml(label) + '">' + escapeHtml(desc).replace(/\n/g, '<br>') + '</td>';
-      else if (key === 'qty') html += '<td class="center mono" data-label="' + escapeHtml(label) + '">' + escapeHtml(String(qty || '')) + '</td>';
+      else if (key === 'qty') {
+        var qtyLabel = qty ? (String(qty) + (unit ? ' ' + unit : '')) : '';
+        html += '<td class="center mono" data-label="' + escapeHtml(label) + '">' + escapeHtml(qtyLabel) + '</td>';
+      }
       else if (key === 'rate') html += '<td class="right mono" data-label="' + escapeHtml(label) + '">' + escapeHtml(formatDeskMoney(rate, cur)) + '</td>';
       else if (key === 'total') html += '<td class="right mono" data-label="' + escapeHtml(label) + '">' + escapeHtml(formatDeskMoney(Math.round(qty * rate * 100) / 100, cur)) + '</td>';
       else if (key === 'vat') html += '<td class="center" data-label="' + escapeHtml(taxName) + '">' + (taxed ? 'Y' : 'N') + '</td>';
@@ -1322,7 +1332,7 @@ document.addEventListener('input', function (e) {
   if (!row) return;
   if (e.target.matches('[data-line-qty], [data-line-rate]')) updateLineTotal(row);
   if (e.target.matches('[data-line-total]')) updateLineTotal(row, true);
-  if (e.target.matches('input[name^="item_name"], textarea[name^="item_desc"], [data-line-qty], [data-line-rate], [data-line-total], [data-line-extra]')) {
+  if (e.target.matches('input[name^="item_name"], textarea[name^="item_desc"], [data-line-qty], [data-line-unit], [data-line-rate], [data-line-total], [data-line-extra]')) {
     refreshLinesPreview();
   }
 });
@@ -2304,6 +2314,8 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
     if (desc && !desc.value) desc.value = p.description || '';
     var rate = row.querySelector('[data-line-rate]');
     if (rate) rate.value = p.sell;
+    var unitInp = row.querySelector('[data-line-unit]');
+    if (unitInp && p.unit) unitInp.value = p.unit;
     var tax = row.querySelector('[data-vat-box]');
     if (tax) {
       tax.checked = !!p.taxed;
