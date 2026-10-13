@@ -1652,11 +1652,20 @@
 }
 .sheet-trade .trade-head { margin: 0 0 10px; }
 .sheet-trade .trade-brand {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 14px 18px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: center;
   align-items: center;
+  gap: 12px 14px;
   margin-bottom: 6px;
+  text-align: left;
+}
+.sheet-trade .trade-logo {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .sheet-trade .trade-logo .d-logo {
   height: 72px;
@@ -1664,6 +1673,11 @@
   max-width: 120px;
   width: auto;
   object-fit: contain;
+}
+.sheet-trade .trade-titles {
+  flex: 0 1 auto;
+  min-width: 0;
+  text-align: left;
 }
 .sheet-trade .trade-titles h1 {
   margin: 0;
