@@ -62,7 +62,7 @@ layout_start('Purchases', $user);
         </datalist>
       </div>
       <div>
-        <label for="method">Paid how</label>
+        <label for="method">Payment method</label>
         <?php render_stock_payment_select('method', false, 'cash'); ?>
       </div>
     </div>

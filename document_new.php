@@ -458,7 +458,7 @@ layout_start($heading, $user, ['kind' => $kind]);
         </div>
       <?php endif; ?>
       <div>
-        <label for="payment_method">Paid how</label>
+        <label for="payment_method">Payment method</label>
         <select id="payment_method" name="payment_method">
           <?php foreach (payment_methods() as $k => $label): ?>
             <option value="<?= h($k) ?>" <?= ($existing['payment_method'] ?? '') === $k ? 'selected' : '' ?>><?= h($label) ?></option>

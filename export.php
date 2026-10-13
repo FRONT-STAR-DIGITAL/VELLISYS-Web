@@ -70,7 +70,7 @@ if ($type === 'party') {
         ];
     }
     $safe = preg_replace('/[^A-Za-z0-9_-]+/', '_', (string) $party['name']) ?: 'client';
-    csv_download($safe . '.csv', ['Kind', 'Number', 'Date', 'Due', 'Subject', 'Comments', 'Paid how', 'Reference', 'Net', 'VAT', 'Total', 'Paid', 'Balance', 'Status', 'Currency'], $rows);
+    csv_download($safe . '.csv', ['Kind', 'Number', 'Date', 'Due', 'Subject', 'Comments', 'Payment method', 'Reference', 'Net', 'VAT', 'Total', 'Paid', 'Balance', 'Status', 'Currency'], $rows);
 }
 
 if ($type === 'document') {
@@ -98,7 +98,7 @@ if ($type === 'document') {
         ['Subject', (string) ($doc['subject'] ?? '')],
         ['Body', (string) ($doc['body'] ?? '')],
         ['Comments', (string) ($doc['notes'] ?? '')],
-        ['Paid how', (string) ($doc['payment_method'] ?? '')],
+        ['Payment method', (string) ($doc['payment_method'] ?? '')],
         ['Reference', (string) ($doc['payment_ref'] ?? '')],
         [''],
         ['Item', 'Description', 'Qty', 'Unit price', 'Total Amt', 'VAT', 'Currency'],
@@ -313,6 +313,6 @@ foreach ($docs as $d) {
 }
 csv_download(
     $kind . 's.csv',
-    ['Number', 'Party', 'Email', 'Phone', 'TIN', 'Date', 'Due', 'Category', 'Subject', 'Comments', 'Paid how', 'Reference', 'Net', 'VAT', 'Total', 'Paid', 'Balance', 'Status', 'Currency'],
+    ['Number', 'Party', 'Email', 'Phone', 'TIN', 'Date', 'Due', 'Category', 'Subject', 'Comments', 'Payment method', 'Reference', 'Net', 'VAT', 'Total', 'Paid', 'Balance', 'Status', 'Currency'],
     $rows
 );

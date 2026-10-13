@@ -252,7 +252,7 @@ function document_pdf_bytes(array $brand, array $doc): string
     $method = trim((string) ($doc['payment_method'] ?? ''));
     $ref = trim((string) ($doc['payment_ref'] ?? ''));
     $extra = array_filter([
-        $method !== '' ? 'Paid how: ' . ($method) : '',
+        $method !== '' ? 'Payment method: ' . ($method) : '',
         $ref !== '' ? 'Reference: ' . $ref : '',
         $notes,
         $pay,

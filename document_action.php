@@ -25,7 +25,7 @@ if ($payId && $_SERVER['REQUEST_METHOD'] !== 'POST') {
       <input type="hidden" name="id" value="<?= $payId ?>">
       <label for="amount">Amount (<?= h(doc_currency($doc)) ?>)</label>
       <input id="amount" name="amount" inputmode="decimal" required value="<?= h(money_input_value($balance, doc_currency($doc))) ?>" data-money-commas autocomplete="off">
-      <label for="payment_method">Paid how</label>
+      <label for="payment_method">Payment method</label>
       <select id="payment_method" name="payment_method">
         <?php foreach (payment_methods() as $k => $label): ?>
           <option value="<?= h($k) ?>"><?= h($label) ?></option>
@@ -71,7 +71,7 @@ if ($receiveId && $_SERVER['REQUEST_METHOD'] !== 'POST') {
       <label for="amount">Amount received (<?= h(doc_currency($doc)) ?>)</label>
       <input id="amount" name="amount" inputmode="decimal" required value="<?= h(money_input_value($balance, doc_currency($doc))) ?>" data-money-commas autocomplete="off">
       <p class="hint">Leave the full balance to clear this sale, or type a smaller figure for a part payment.</p>
-      <label for="payment_method">Paid how</label>
+      <label for="payment_method">Payment method</label>
       <select id="payment_method" name="payment_method">
         <?php foreach (payment_methods() as $k => $label): ?>
           <option value="<?= h($k) ?>"><?= h($label) ?></option>
@@ -108,7 +108,7 @@ if ($receiveId && $_SERVER['REQUEST_METHOD'] !== 'POST') {
       <label for="amount">Amount received (<?= h(doc_currency($doc)) ?>)</label>
       <input id="amount" name="amount" inputmode="decimal" required value="<?= h(money_input_value($balance, doc_currency($doc))) ?>" data-money-commas autocomplete="off">
       <p class="hint">Leave the full balance for a complete receipt, or type a smaller figure for a part payment.</p>
-      <label for="payment_method">Paid how</label>
+      <label for="payment_method">Payment method</label>
       <select id="payment_method" name="payment_method">
         <?php foreach (payment_methods() as $k => $label): ?>
           <option value="<?= h($k) ?>"><?= h($label) ?></option>

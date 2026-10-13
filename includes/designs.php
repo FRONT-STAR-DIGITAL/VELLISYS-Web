@@ -1068,7 +1068,7 @@ function render_twin_half(array $d, string $label): void
         <?php if (sheet_shows_money($d)): ?>
         <div><span><?= sheet_is_receipt($d) ? 'Received' : 'Amount' ?></span><b><?= h(money(sheet_is_receipt($d) ? sheet_received_amount($d) : (float) $d['total'], $d['cur'])) ?></b></div>
         <?php render_fx_equiv($d); ?>
-        <div><span>Paid how</span><b><?= h($d['methods'][$d['method']] ?? ($d['method'] ?: '-')) ?></b></div>
+        <div><span>Payment method</span><b><?= h($d['methods'][$d['method']] ?? ($d['method'] ?: '-')) ?></b></div>
         <?php endif; ?>
       </div>
       <?php if ($doc['kind'] === 'letter'): ?>
@@ -1916,7 +1916,7 @@ function render_sheet_thermal(array $d): void
         $payHow = trim((string) (($d['methods'][$d['method']] ?? '') ?: $d['method']));
         if ($payHow !== ''):
         ?>
-          <div><span>How</span><b><?= h($payHow) ?></b></div>
+          <div><span>Payment method</span><b><?= h($payHow) ?></b></div>
         <?php endif; ?>
       <?php endif; ?>
     </div>
@@ -2159,7 +2159,7 @@ function render_expense_card(array $brand, array $doc): void
       <div><span>Payee</span><b><?= h((string) ($doc['party_name'] ?? '')) ?></b></div>
       <div><span>Category</span><b><?= h((string) ($doc['expense_category'] ?: 'Other')) ?></b></div>
       <?php if ($method !== ''): ?>
-        <div><span>Paid how</span><b><?= h($methods[$method] ?? $method) ?></b></div>
+        <div><span>Payment method</span><b><?= h($methods[$method] ?? $method) ?></b></div>
       <?php endif; ?>
       <?php if (!empty($doc['payment_ref'])): ?>
         <div><span>Reference</span><b><?= h((string) $doc['payment_ref']) ?></b></div>

@@ -1344,17 +1344,26 @@
 .thermal-sums > div {
   display: flex;
   justify-content: space-between;
-  gap: 10px;
+  align-items: baseline;
+  gap: 8px;
   font-size: 12px;
   color: #000;
+  min-width: 0;
 }
 .thermal-sums > div > span {
   font-weight: 700;
   color: #000;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-right: 4px;
 }
 .thermal-sums > div > b {
   font-weight: 700;
   color: #000;
+  flex: 0 1 auto;
+  text-align: right;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .thermal-total {
   font-size: 14px;
