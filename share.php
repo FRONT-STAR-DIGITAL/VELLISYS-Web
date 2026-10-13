@@ -68,7 +68,7 @@ $fitOff = $asSheet || $auto;
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
   <meta name="robots" content="noindex">
   <title><?= h($print ? $pdfName : ($copy['title'] . ' · ' . $brand['name'])) ?></title>
   <meta name="format-detection" content="telephone=no,email=no,address=no,date=no">

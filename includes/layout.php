@@ -327,7 +327,13 @@ function layout_start(string $title, array $user, array $opts = []): void
 <html lang="en"<?= function_exists('folio_html_root_attrs') ? folio_html_root_attrs() : '' ?>>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <?php
+    $viewportContent = 'width=device-width, initial-scale=1, viewport-fit=cover';
+    if (basename($_SERVER['SCRIPT_NAME'] ?? '') === 'document_view.php') {
+        $viewportContent .= ', maximum-scale=5';
+    }
+    ?>
+  <meta name="viewport" content="<?= h($viewportContent) ?>">
   <title><?= h($title) ?> · <?= h(product_name()) ?></title>
   <?php if (basename($_SERVER['SCRIPT_NAME'] ?? '') === 'document_view.php'): ?>
   <meta name="format-detection" content="telephone=no,email=no,address=no,date=no">

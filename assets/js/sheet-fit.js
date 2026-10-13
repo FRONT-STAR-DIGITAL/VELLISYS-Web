@@ -4,10 +4,17 @@
     var doc = document.documentElement && document.documentElement.clientWidth;
     var win = window.innerWidth;
     var w = vv || doc || win || 0;
-    // Prefer the tightest reliable viewport so an overflowing A4 child cannot inflate width.
     if (vv && doc) w = Math.min(vv, doc);
     if (win && w) w = Math.min(w, win);
     return Math.max(0, w);
+  }
+
+  function isNarrowScreen() {
+    return viewportWidth() > 0 && viewportWidth() <= 900;
+  }
+
+  function isUserZooming() {
+    return !!(window.visualViewport && window.visualViewport.scale > 1.02);
   }
 
   function availableWidth(stage, isThermal) {
@@ -16,7 +23,6 @@
     var content = stage.closest('.content');
     var narrow = view > 0 && view <= 900;
 
-    // Thermal roll already fills phones well - keep a gentle padded measure.
     if (isThermal) {
       var tw = stage.clientWidth || view;
       if (wrap && wrap.clientWidth > 8) {
@@ -28,8 +34,6 @@
       return Math.max(0, tw);
     }
 
-    // A4 on phones: fill the screen. Keep side empty space under a quarter of
-    // the viewport (target ~8% total gutter) so type stays readable without pinch-zoom.
     if (narrow) {
       var gutter = Math.max(4, Math.round(view * 0.08));
       var avail = view - gutter;
@@ -64,6 +68,9 @@
     if (window.matchMedia && window.matchMedia('print').matches) {
       return;
     }
+    if (isUserZooming()) {
+      return;
+    }
     document.querySelectorAll('.sheet-stage').forEach(function (stage) {
       var sheet = stage.querySelector('.invoice-sheet');
       if (!sheet) return;
@@ -72,6 +79,22 @@
       sheet.style.transform = 'none';
       sheet.style.marginLeft = '0';
       stage.style.height = '';
+
+      // Phones: full design size (no transform shrink). Pinch-zoom and pan stay faithful.
+      if (isNarrowScreen()) {
+        stage.style.overflow = '';
+        stage.dataset.sheetFit = 'native';
+        if (isThermal) {
+          var avail = availableWidth(stage, true);
+          var tw = Math.max(sheet.offsetWidth, sheet.scrollWidth);
+          if (tw && avail > tw) {
+            sheet.style.marginLeft = (avail - tw) / 2 + 'px';
+          }
+        }
+        return;
+      }
+
+      delete stage.dataset.sheetFit;
       stage.style.overflow = 'hidden';
       var avail = availableWidth(stage, isThermal);
       var w = Math.max(sheet.offsetWidth, sheet.scrollWidth);
@@ -80,7 +103,6 @@
       var scale = Math.min(1, avail / w);
       sheet.style.transformOrigin = 'top left';
       if (scale >= 0.999) {
-        // Still center thermal / narrow sheets when the stage is wider.
         var leftoverFull = avail - w;
         if (leftoverFull > 0.5) {
           sheet.style.marginLeft = leftoverFull / 2 + 'px';
@@ -98,9 +120,16 @@
 
   window.fitDocumentSheets = fitSheets;
   window.addEventListener('resize', fitSheets);
-  window.addEventListener('orientationchange', fitSheets);
+  window.addEventListener('orientationchange', function () {
+    setTimeout(fitSheets, 100);
+  });
   if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', fitSheets);
+    window.visualViewport.addEventListener('resize', function () {
+      if (isUserZooming()) {
+        return;
+      }
+      fitSheets();
+    });
   }
   document.querySelectorAll('.invoice-sheet img').forEach(function (img) {
     if (!img.complete) {

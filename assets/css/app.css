@@ -2403,19 +2403,40 @@ input:focus, select:focus, textarea:focus {
     padding-left: 4px;
     padding-right: 4px;
     padding-top: 10px;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
   }
   .sheet-wrap {
     padding: 4px 2px 20px;
     border-radius: 0;
     box-shadow: none;
+    overflow-x: auto;
+    overflow-y: visible;
+    contain: none;
+    touch-action: pan-x pan-y pinch-zoom;
+    -webkit-overflow-scrolling: touch;
   }
   .print-body .sheet-wrap {
     padding: 4px 2px 56px;
+  }
+  .sheet-stage[data-sheet-fit="native"],
+  .sheet-stage:has(.invoice-sheet:not(.sheet-thermal)) {
+    width: max-content;
+    max-width: none;
+    min-width: min(100%, max-content);
+    margin-left: auto;
+    margin-right: auto;
+    overflow: visible;
+  }
+  .expense-wrap .sheet-stage {
+    overflow: visible;
   }
   .invoice-sheet:not(.sheet-thermal) {
     min-height: 0;
     padding: 8mm 8mm 10mm;
     box-shadow: 0 4px 16px rgba(8, 20, 58, .1);
+    transform: none !important;
   }
   .invoice-sheet.sheet-trade:not(.sheet-thermal) {
     padding: 2mm 2mm 2.5mm;
