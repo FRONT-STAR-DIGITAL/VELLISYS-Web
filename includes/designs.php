@@ -1998,8 +1998,8 @@ function render_sheet_thermal(array $d): void
 }
 
 /**
- * Trade / dealers quotation sheet - logo + name, coloured title pill,
- * QTY | PARTICULARS | UNIT COST | AMOUNT, amount in words, Prepared by.
+ * Trade Document sheet - logo + name, Deals in, contact details,
+ * coloured title pill, QTY | PARTICULARS | UNIT COST | AMOUNT, Prepared by.
  */
 function render_sheet_trade(array $d): void
 {
@@ -2016,6 +2016,14 @@ function render_sheet_trade(array $d): void
         $nameSub = 'BY ' . trim($m[2]);
     }
     $tagline = trim((string) ($brand['tagline'] ?? ''));
+    // Match paper pads: "Deals in: …" under the business name.
+    $dealsIn = '';
+    if ($tagline !== '') {
+        $dealsIn = preg_match('/^deals\s*in\s*:?\s*/iu', $tagline)
+            ? preg_replace('/^deals\s*in\s*:?\s*/iu', '', $tagline) ?? $tagline
+            : $tagline;
+        $dealsIn = trim((string) $dealsIn);
+    }
     $phones = preg_split('/\s*[,;\/|]\s*/', trim((string) ($brand['phone'] ?? '')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
     $location = trim(implode(', ', array_filter([
         trim((string) ($brand['address'] ?? '')),
@@ -2031,10 +2039,6 @@ function render_sheet_trade(array $d): void
     }
     if ($prepared === '') {
         $prepared = trim((string) (current_user()['name'] ?? ''));
-    }
-    $signLabel = function_exists('document_signoff_label') ? document_signoff_label($doc) : (($kind === 'quotation') ? 'Prepared by' : 'Authorized Signature');
-    if (strcasecmp($signLabel, 'Authorized Signature') === 0) {
-        $signLabel = 'Prepared by';
     }
     $items = $doc['items'] ?? [];
     $minRows = max(8, count($items));
@@ -2059,22 +2063,21 @@ function render_sheet_trade(array $d): void
         <?php if ($nameSub !== ''): ?><h2 class="sheet-brand-strong"><?= h($nameSub) ?></h2><?php endif; ?>
       </div>
     </div>
-    <?php if ($tagline !== ''): ?>
-      <p class="trade-tag"><?= h($tagline) ?></p>
+    <?php if ($dealsIn !== ''): ?>
+      <p class="trade-deals"><span>Deals in:</span> <?= h($dealsIn) ?></p>
     <?php endif; ?>
     <div class="trade-contact">
       <div class="trade-contact-left">
-        <?php if ($phones): ?>
-          <div><span>Tel:</span> <?= sheet_brand_strong(implode(', ', $phones)) ?></div>
+        <?php if ($location !== ''): ?>
+          <div><span>Location:</span> <?= sheet_brand_strong($location) ?></div>
         <?php endif; ?>
         <?php if ($email !== ''): ?>
           <div><span>Email:</span> <?= h($email) ?></div>
         <?php endif; ?>
       </div>
-      <?php if ($location !== ''): ?>
+      <?php if ($phones): ?>
         <div class="trade-contact-right">
-          <span class="trade-pin" aria-hidden="true"></span>
-          <?= sheet_brand_strong($location) ?>
+          <div><span>Tel:</span> <?= sheet_brand_strong(implode(' / ', $phones)) ?></div>
         </div>
       <?php endif; ?>
     </div>
@@ -2176,12 +2179,8 @@ function render_sheet_trade(array $d): void
 
   <footer class="trade-sign">
     <div class="trade-prepared">
-      <span><?= h($signLabel) ?></span>
+      <span>Prepared by</span>
       <b class="trade-dotline"><?= h($prepared) ?></b>
-    </div>
-    <div class="trade-signoff<?= document_has_e_signature($doc) ? ' has-stamp' : '' ?>">
-      <span>Sign :</span>
-      <div class="trade-sign-mark"><?php render_company_signature($doc); ?></div>
     </div>
   </footer>
 </article>
