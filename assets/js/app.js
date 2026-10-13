@@ -1118,22 +1118,44 @@ function formatDeskMoney(n, currency) {
 function lineMoneyTotals() {
   var sub = 0;
   var taxedNet = 0;
-  document.querySelectorAll('#lines tbody tr').forEach(function (row) {
-    var name = ((row.querySelector('input[name^="item_name"]') || {}).value || '').trim();
-    var desc = ((row.querySelector('textarea[name^="item_desc"]') || {}).value || '').trim();
-    if (!name && !desc) return;
-    var qty = parseFloat(String((row.querySelector('[data-line-qty]') || {}).value || '0').replace(/,/g, ''));
-    var rate = parseFloat(String((row.querySelector('[data-line-rate]') || {}).value || '0').replace(/,/g, ''));
-    if (isNaN(qty)) qty = 0;
-    if (isNaN(rate)) rate = 0;
-    var tot = qty * rate;
+  // Prefer tbody rows; fall back to any line row if the table was reparented by the browser.
+  var rows = document.querySelectorAll('#lines tbody tr');
+  if (!rows.length) {
+    rows = document.querySelectorAll('#lines tr');
+  }
+  rows.forEach(function (row) {
+    if (row.closest && row.closest('thead')) return;
+    var nameEl = row.querySelector('input[name^="item_name"]');
+    var descEl = row.querySelector('textarea[name^="item_desc"], input[name^="item_desc"]');
+    var name = ((nameEl || {}).value || '').trim();
+    var desc = ((descEl || {}).value || '').trim();
+    var hasExtra = false;
+    row.querySelectorAll('[data-line-extra]').forEach(function (ex) {
+      if (String(ex.value || '').trim()) hasExtra = true;
+    });
+    if (!name && !desc && !hasExtra) return;
+    var qty = parseLineNumber((row.querySelector('[data-line-qty]') || {}).value);
+    var rate = parseLineNumber((row.querySelector('[data-line-rate]') || {}).value);
+    var totEl = row.querySelector('[data-line-total]');
+    var typedTot = totEl ? parseLineNumber(totEl.value !== undefined ? totEl.value : totEl.textContent) : 0;
+    // Amount = qty × unit price; if rate is empty but Total Amt was typed, use that.
+    var tot = Math.round(qty * rate * 100) / 100;
+    if (!tot && typedTot) {
+      tot = typedTot;
+      if (!qty) qty = 1;
+      if (!rate && qty) rate = Math.round((tot / qty) * 100) / 100;
+    }
+    if (!qty && rate && !tot) {
+      qty = 1;
+      tot = Math.round(rate * 100) / 100;
+    }
     sub += tot;
     var taxBox = row.querySelector('[data-vat-box]');
     if (taxBox && taxBox.checked) taxedNet += tot;
   });
   var form = document.querySelector('.document-form');
-  var rate = form ? (parseFloat(form.getAttribute('data-tax-rate') || '0') || 0) : 0;
-  var taxAmt = Math.round(taxedNet * rate * 100) / 100;
+  var taxRate = form ? (parseFloat(form.getAttribute('data-tax-rate') || '0') || 0) : 0;
+  var taxAmt = Math.round(taxedNet * taxRate * 100) / 100;
   sub = Math.round(sub * 100) / 100;
   return { sub: sub, tax: taxAmt, grand: Math.round((sub + taxAmt) * 100) / 100 };
 }
@@ -1148,6 +1170,7 @@ function updateDocRunningTotals() {
     var el = box.querySelector(sel);
     if (el) el.textContent = formatDeskMoney(v, cur);
   };
+  set('[data-doc-sub]', t.sub);
   set('[data-doc-tax]', t.tax);
   set('[data-doc-grand]', t.grand);
   var dueEl = box.querySelector('[data-doc-due]');
@@ -1174,6 +1197,7 @@ function updateDocRunningTotals() {
     var lead = Math.max(n - 1, 1);
     foot.hidden = false;
     var rows =
+      '<tr><td colspan="' + lead + '">Amount</td><td class="right mono">' + escapeHtml(formatDeskMoney(t.sub, cur)) + '</td></tr>' +
       '<tr><td colspan="' + lead + '">' + escapeHtml(taxName) + '</td><td class="right mono">' + escapeHtml(formatDeskMoney(t.tax, cur)) + '</td></tr>' +
       '<tr><td colspan="' + lead + '">Total</td><td class="right mono">' + escapeHtml(formatDeskMoney(t.grand, cur)) + '</td></tr>';
     if (dueEl) {
@@ -2313,7 +2337,14 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
     var desc = row.querySelector('textarea[name^="item_desc"]');
     if (desc && !desc.value) desc.value = p.description || '';
     var rate = row.querySelector('[data-line-rate]');
-    if (rate) rate.value = p.sell;
+    if (rate) {
+      var sell = p.sell;
+      if (sell != null && sell !== '') {
+        rate.value = typeof formatMoneyCommas === 'function'
+          ? formatMoneyCommas(String(sell), true)
+          : String(sell);
+      }
+    }
     var unitInp = row.querySelector('[data-line-unit]');
     if (unitInp && p.unit) unitInp.value = p.unit;
     var tax = row.querySelector('[data-vat-box]');
@@ -2323,8 +2354,10 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
       if (yn) yn.textContent = p.taxed ? 'Y' : 'N';
     }
     box.hidden = true;
+    if (typeof updateLineTotal === 'function') updateLineTotal(row);
     if (rate) rate.dispatchEvent(new Event('input', { bubbles: true }));
     else if (typeof refreshLinesPreview === 'function') refreshLinesPreview();
+    else if (typeof updateDocRunningTotals === 'function') updateDocRunningTotals();
   }
   function showFor(inp) {
     currentInp = inp;

@@ -555,6 +555,15 @@ layout_start($heading, $user, ['kind' => $kind]);
             $colTotal = !$qtyOnly;
         }
       ?>
+      <?php
+      $defaultUnit = function_exists('default_line_unit') ? default_line_unit() : 'pcs';
+      $unitSuggestions = function_exists('document_line_unit_suggestions') ? document_line_unit_suggestions() : ['pcs', 'meters', 'batches'];
+      ?>
+      <datalist id="qty-unit-suggestions">
+        <?php foreach ($unitSuggestions as $sug): ?>
+          <option value="<?= h($sug) ?>"></option>
+        <?php endforeach; ?>
+      </datalist>
       <div class="lines-wrap">
       <table class="grid lines" id="lines" data-lines data-tax-default="<?= (int) $taxLineDefault ?>"<?= (function_exists('company_stock_enabled') && company_stock_enabled()) ? ' data-stock-catalog="1"' : '' ?>>
         <thead>
@@ -575,15 +584,6 @@ layout_start($heading, $user, ['kind' => $kind]);
           </tr>
         </thead>
         <tbody>
-          <?php
-          $defaultUnit = function_exists('default_line_unit') ? default_line_unit() : 'pcs';
-          $unitSuggestions = function_exists('document_line_unit_suggestions') ? document_line_unit_suggestions() : ['pcs', 'meters', 'batches'];
-          ?>
-          <datalist id="qty-unit-suggestions">
-            <?php foreach ($unitSuggestions as $sug): ?>
-              <option value="<?= h($sug) ?>"></option>
-            <?php endforeach; ?>
-          </datalist>
           <?php foreach ($lines as $i => $line):
               $qty = (float) ($line['qty'] ?? 1);
               $rate = (float) ($line['rate'] ?? 0);
@@ -677,6 +677,7 @@ layout_start($heading, $user, ['kind' => $kind]);
       </p>
       <?php if (!in_array($kind, ['delivery', 'return_note'], true)): ?>
       <div class="doc-sum" data-doc-sum>
+        <span>Amount <strong data-doc-sub><?= h(money_behind(0, $docCurrency)) ?></strong></span>
         <span><?= h($taxName) ?> <strong data-doc-tax><?= h(money_behind(0, $docCurrency)) ?></strong></span>
         <span>Total <strong data-doc-grand><?= h(money_behind(0, $docCurrency)) ?></strong></span>
         <?php if (in_array($kind, ['invoice', 'receipt', 'expense', 'refund'], true)): ?>
