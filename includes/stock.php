@@ -1822,7 +1822,11 @@ function stock_search_docs(string $kind, string $q, int $page, int $per = 20, ?s
 {
     $cid = current_company_id();
     if ($kind === 'sales') {
-        $where = "d.company_id = ? AND (d.kind = 'invoice' OR (d.kind = 'receipt' AND COALESCE(d.related_id, 0) = 0))";
+        // Till sales are standalone receipts; keep legacy Sale invoices in this list only.
+        $where = "d.company_id = ? AND (
+            (d.kind = 'receipt' AND COALESCE(d.related_id, 0) = 0)
+            OR (d.kind = 'invoice' AND (d.notes LIKE 'Sale' OR d.notes LIKE 'Sale.%' OR d.notes LIKE 'Sale %'))
+        )";
         $types = 'i';
         $params = [$cid];
     } else {
