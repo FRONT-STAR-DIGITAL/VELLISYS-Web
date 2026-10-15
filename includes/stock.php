@@ -253,10 +253,30 @@ function stock_set_branch_qty(int $itemId, int $branchId, float $delta): void
         return;
     }
     $cid = current_company_id();
+    $branchId = max(0, $branchId);
+    $exists = db_one(
+        'SELECT id FROM stock_branch_qty WHERE company_id = ? AND item_id = ? AND branch_id = ?',
+        'iii',
+        [$cid, $itemId, $branchId]
+    );
+    if ($exists) {
+        db_exec(
+            'UPDATE stock_branch_qty SET qty_on_hand = qty_on_hand + ? WHERE company_id = ? AND item_id = ? AND branch_id = ?',
+            'diii',
+            [$delta, $cid, $itemId, $branchId]
+        );
+        return;
+    }
+    // First branch row: seed from stock_items (pre-move qty), then apply delta.
+    $base = 0.0;
+    $item = db_one('SELECT qty_on_hand FROM stock_items WHERE id = ? AND company_id = ?', 'ii', [$itemId, $cid]);
+    if ($item) {
+        $base = (float) ($item['qty_on_hand'] ?? 0);
+    }
     db_exec(
-        'INSERT INTO stock_branch_qty (company_id, item_id, branch_id, qty_on_hand) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE qty_on_hand = qty_on_hand + ?',
-        'iiidd',
-        [$cid, $itemId, max(0, $branchId), $delta, $delta]
+        'INSERT INTO stock_branch_qty (company_id, item_id, branch_id, qty_on_hand) VALUES (?,?,?,?)',
+        'iiid',
+        [$cid, $itemId, $branchId, $base + $delta]
     );
 }
 
@@ -580,31 +600,48 @@ function stock_move(int $itemId, string $kind, float $qty, float $unitCost = 0, 
         $delta = $qty;
     }
     $branchId = $branchId !== null ? max(0, $branchId) : stock_write_branch_id();
-    $hasBranch = stock_branch_qty_ready() && function_exists('db_has_column') && db_has_column(db(), 'stock_moves', 'branch_id');
-    if ($hasBranch) {
+    $moveHasBranch = function_exists('db_has_column') && db_has_column(db(), 'stock_moves', 'branch_id');
+    $noteVal = $note !== '' ? mb_substr($note, 0, 190) : null;
+    $uid = (int) ($_SESSION['user_id'] ?? 0);
+    if ($moveHasBranch) {
         db_exec(
             'INSERT INTO stock_moves (company_id, branch_id, item_id, kind, qty, unit_cost, document_id, note, user_id) VALUES (?,?,?,?,?,?,?,?,?)',
             'iiisddisi',
-            [$cid, $branchId, $itemId, $kind, $delta, $unitCost, $documentId, $note !== '' ? mb_substr($note, 0, 190) : null, (int) ($_SESSION['user_id'] ?? 0)]
+            [$cid, $branchId, $itemId, $kind, $delta, $unitCost, $documentId, $noteVal, $uid]
         );
-        stock_set_branch_qty($itemId, $branchId, $delta);
     } else {
         db_exec(
             'INSERT INTO stock_moves (company_id, item_id, kind, qty, unit_cost, document_id, note, user_id) VALUES (?,?,?,?,?,?,?,?)',
             'iisddisi',
-            [$cid, $itemId, $kind, $delta, $unitCost, $documentId, $note !== '' ? mb_substr($note, 0, 190) : null, (int) ($_SESSION['user_id'] ?? 0)]
+            [$cid, $itemId, $kind, $delta, $unitCost, $documentId, $noteVal, $uid]
         );
     }
+    // Always keep branch qty in sync when that table exists — the stock list reads from it.
+    if (stock_branch_qty_ready()) {
+        stock_set_branch_qty($itemId, $branchId, $delta);
+    }
     db_exec('UPDATE stock_items SET qty_on_hand = qty_on_hand + ? WHERE id = ? AND company_id = ?', 'dii', [$delta, $itemId, $cid]);
-    stock_catalog_cache_bust($branchId);
+    try {
+        stock_catalog_cache_bust($branchId);
+    } catch (Throwable $e) {
+        // Qty already updated; cache can refresh on TTL.
+    }
 }
 
+/**
+ * Decrement (or restock) inventory for document lines.
+ * Standalone till sale receipts reduce stock; allocation receipts do not.
+ */
 function stock_apply_document(int $documentId, string $kind, array $items): void
 {
-    if (!company_stock_enabled()) {
+    if (!company_stock_enabled() || $documentId < 1) {
         return;
     }
-    $existing = db_all('SELECT id FROM stock_moves WHERE document_id = ? AND company_id = ?', 'ii', [$documentId, current_company_id()]);
+    try {
+        $existing = db_all('SELECT id FROM stock_moves WHERE document_id = ? AND company_id = ? LIMIT 1', 'ii', [$documentId, current_company_id()]);
+    } catch (Throwable $e) {
+        $existing = [];
+    }
     if ($existing) {
         return;
     }
@@ -616,16 +653,40 @@ function stock_apply_document(int $documentId, string $kind, array $items): void
     if ($moveKind === '') {
         return;
     }
-    $docBranch = 0;
+    $docBranch = stock_write_branch_id();
     $relatedId = 0;
-    $doc = db_one('SELECT branch_id, related_id FROM documents WHERE id = ? AND company_id = ?', 'ii', [$documentId, current_company_id()]);
-    if ($doc) {
-        $docBranch = (int) ($doc['branch_id'] ?? 0);
-        $relatedId = (int) ($doc['related_id'] ?? 0);
+    try {
+        $doc = db_one('SELECT branch_id, related_id FROM documents WHERE id = ? AND company_id = ?', 'ii', [$documentId, current_company_id()]);
+        if ($doc) {
+            if (array_key_exists('branch_id', $doc) && $doc['branch_id'] !== null && $doc['branch_id'] !== '') {
+                $docBranch = (int) $doc['branch_id'];
+            }
+            $relatedId = (int) ($doc['related_id'] ?? 0);
+        }
+    } catch (Throwable $e) {
+        // Older schemas may lack a column; still apply stock for sale docs.
     }
     // Allocation / follow-up receipts never move stock — only till sale receipts (no parent).
     if ($kind === 'receipt' && $relatedId > 0) {
         return;
+    }
+    $hasStockId = false;
+    foreach ($items as $item) {
+        if ((int) ($item['stock_item_id'] ?? 0) > 0) {
+            $hasStockId = true;
+            break;
+        }
+    }
+    if (!$hasStockId) {
+        try {
+            $items = db_all(
+                'SELECT stock_item_id, qty, rate FROM document_items WHERE document_id = ? AND stock_item_id IS NOT NULL AND stock_item_id > 0',
+                'i',
+                [$documentId]
+            ) ?: [];
+        } catch (Throwable $e) {
+            return;
+        }
     }
     foreach ($items as $item) {
         $sid = (int) ($item['stock_item_id'] ?? 0);
@@ -636,14 +697,45 @@ function stock_apply_document(int $documentId, string $kind, array $items): void
         if ($qty == 0.0) {
             continue;
         }
-        $row = stock_item($sid, true) ?: [];
-        if (stock_item_is_service($row)) {
+        $row = stock_item($sid, true);
+        if (!$row || stock_item_is_service($row)) {
             continue;
         }
         $cost = $moveKind === 'sale'
             ? (float) ($row['buy_price'] ?? 0)
             : (float) ($item['rate'] ?? ($row['buy_price'] ?? 0));
-        stock_move($sid, $moveKind, $qty, $cost, $documentId, $kind, $docBranch);
+        stock_move($sid, $moveKind, $qty, $cost, $documentId, $kind === 'receipt' ? 'sale' : $kind, $docBranch);
+    }
+}
+
+/** Force stock out for a till sale receipt (idempotent if moves already exist). */
+function stock_apply_till_sale(int $receiptId, array $lines, ?int $branchId = null): void
+{
+    if (!company_stock_enabled() || $receiptId < 1 || !$lines) {
+        return;
+    }
+    stock_apply_document($receiptId, 'receipt', $lines);
+    // If create_document skipped apply for any reason, move stock from the saved lines now.
+    try {
+        $existing = db_all('SELECT id FROM stock_moves WHERE document_id = ? AND company_id = ? LIMIT 1', 'ii', [$receiptId, current_company_id()]);
+    } catch (Throwable $e) {
+        $existing = [];
+    }
+    if ($existing) {
+        return;
+    }
+    $branchId = $branchId !== null ? max(0, $branchId) : stock_write_branch_id();
+    foreach ($lines as $line) {
+        $sid = (int) ($line['stock_item_id'] ?? 0);
+        $qty = round((float) ($line['qty'] ?? 0), 2);
+        if ($sid < 1 || $qty <= 0) {
+            continue;
+        }
+        $item = stock_item($sid, true);
+        if (!$item || stock_item_is_service($item)) {
+            continue;
+        }
+        stock_move($sid, 'sale', $qty, (float) ($item['buy_price'] ?? 0), $receiptId, 'sale', $branchId);
     }
 }
 
@@ -1544,6 +1636,8 @@ function stock_complete_sale(array $input): array
         'branch_id' => $branchId,
         'add_signature' => $stampSig ? 1 : 0,
     ]);
+    // Always reduce on-hand qty for till sales (create_document also tries; this is the guarantee).
+    stock_apply_till_sale((int) $receiptId, $clean, $branchId);
     return [
         'ok' => true,
         'invoice_id' => 0,
