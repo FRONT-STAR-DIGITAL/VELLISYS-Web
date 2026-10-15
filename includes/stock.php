@@ -240,7 +240,11 @@ function stock_overlay_qty(array $rows, ?int $forcedBranch = null, bool $forceBr
     }
     foreach ($rows as &$row) {
         if (!stock_item_is_service($row)) {
-            $row['qty_on_hand'] = $map[(int) ($row['id'] ?? 0)] ?? 0.0;
+            $id = (int) ($row['id'] ?? 0);
+            // Prefer branch qty when tracked; otherwise keep stock_items.qty_on_hand.
+            if ($id > 0 && array_key_exists($id, $map)) {
+                $row['qty_on_hand'] = $map[$id];
+            }
         }
     }
     unset($row);
