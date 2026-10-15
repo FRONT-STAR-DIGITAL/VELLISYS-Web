@@ -165,7 +165,18 @@
     }
     totals();
   });
+  function setDoPrint(from) {
+    var field = form.querySelector('[data-pos-do-print]');
+    if (!field) return;
+    var btn = from && from.closest ? from.closest('[data-pos-print]') : null;
+    field.value = btn && btn.getAttribute('data-pos-print') === '1' ? '1' : '0';
+  }
+  form.addEventListener('click', function (e) {
+    var btn = e.target.closest('button[type="submit"][data-pos-print]');
+    if (btn) setDoPrint(btn);
+  });
   form.addEventListener('submit', function (e) {
+    if (e.submitter) setDoPrint(e.submitter);
     if (!lines().length) {
       e.preventDefault();
       alert('Add a product first.');

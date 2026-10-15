@@ -258,8 +258,9 @@ function stock_set_branch_qty(int $itemId, int $branchId, float $delta): void
     }
     $cid = current_company_id();
     $branchId = max(0, $branchId);
+    // Table PK is (item_id, branch_id) — there is no id column.
     $exists = db_one(
-        'SELECT id FROM stock_branch_qty WHERE company_id = ? AND item_id = ? AND branch_id = ?',
+        'SELECT item_id, qty_on_hand FROM stock_branch_qty WHERE company_id = ? AND item_id = ? AND branch_id = ?',
         'iii',
         [$cid, $itemId, $branchId]
     );

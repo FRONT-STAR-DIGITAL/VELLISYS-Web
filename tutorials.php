@@ -251,7 +251,7 @@ $lessons = [
         'points' => [
             'Find a product or service by name or code. It fills qty, unit price and tax. Tap X on a row to take it off.',
             'Discount and part pay sit under the list. Leave paid blank to take the full amount. Part-paid or unpaid balance sits on Debtors on that receipt.',
-            'Save and print opens the receipt slip. Save sale stays on the till. Print last reprints the last slip from the page head.',
+            'Save and print opens the receipt slip. Save sale stays on the till.',
         ],
     ],
     [

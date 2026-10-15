@@ -53,10 +53,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($bal > 0.009) {
                 $msg .= ' Balance ' . money($bal) . ' sits on Debtors.';
             }
-            $_SESSION['stock_last_print'] = (int) $done['print_id'];
-            if (isset($_POST['do_print']) && (string) $_POST['do_print'] === '1' && (int) $done['print_id'] > 0) {
+            $printId = (int) ($done['print_id'] ?? 0);
+            $_SESSION['stock_last_print'] = $printId;
+            $wantPrint = (string) ($_POST['do_print'] ?? '') === '1';
+            if ($wantPrint && $printId > 0) {
                 flash($msg);
-                redirect('document_view.php?id=' . (int) $done['print_id'] . '&print=1');
+                redirect('document_view.php?id=' . $printId . '&print=1');
             }
             flash($msg);
             redirect('sale.php');
@@ -75,7 +77,6 @@ $customers = db_all(
     array_merge([current_company_id()], $custArgs)
 );
 $taxName = company_tax_name();
-$lastPrint = stock_last_print_id();
 $salesPage = stock_search_docs('sales', stock_q(), stock_page_key('p'), 20);
 
 layout_start('Sale', $user);
@@ -91,12 +92,6 @@ layout_start('Sale', $user);
           : ('Till for ' . h((string) $saleScope['label']) . '. Head office and other branches keep their own products.') ?></p>
     <?php endif; endif; ?>
   </div>
-  <?php if ($lastPrint): ?>
-    <div class="actions page-actions">
-      <a class="btn ghost" href="<?= h(url('document_sheet.php?id=' . $lastPrint . '&autodownload=1')) ?>" data-pdf-download data-doc-id="<?= (int) $lastPrint ?>" data-pdf-name="document.pdf" data-sheet-url="<?= h(url('document_sheet.php?id=' . $lastPrint . '&autodownload=1')) ?>" title="Download PDF" aria-label="Download PDF"><?= icon('pdf', 16) ?> PDF last</a>
-      <a class="btn ghost" href="<?= h(url('document_view.php?id=' . $lastPrint . '&print=1')) ?>"><?= icon('printer', 16) ?>Print last</a>
-    </div>
-  <?php endif; ?>
 </div>
 <?php render_stock_subnav('sale'); ?>
 
@@ -109,6 +104,7 @@ layout_start('Sale', $user);
 
 <form method="post" class="card pos-sale" data-pos-till data-pos-prefix="s" data-pos-mode="sale" data-pos-currency="<?= h(default_currency()) ?>">
   <?= csrf_field() ?>
+  <input type="hidden" name="do_print" value="0" data-pos-do-print>
   <div class="pad-form">
     <div class="form-grid">
       <div>
@@ -167,12 +163,8 @@ layout_start('Sale', $user);
       </div>
     </div>
     <div class="actions sticky-save">
-      <button class="btn pos-save" type="submit" name="do_print" value="1" <?= $dayOpen ? '' : 'disabled' ?>><?= icon('printer') ?>Save and print</button>
-      <button class="btn" type="submit" <?= $dayOpen ? '' : 'disabled' ?>><?= icon('check') ?>Save sale</button>
-      <?php if ($lastPrint): ?>
-        <a class="btn ghost" href="<?= h(url('document_sheet.php?id=' . $lastPrint . '&autodownload=1')) ?>" data-pdf-download data-doc-id="<?= (int) $lastPrint ?>" data-pdf-name="document.pdf" data-sheet-url="<?= h(url('document_sheet.php?id=' . $lastPrint . '&autodownload=1')) ?>" title="Download PDF" aria-label="Download PDF"><?= icon('pdf') ?> PDF last</a>
-        <a class="btn ghost pos-print-last" href="<?= h(url('document_view.php?id=' . $lastPrint . '&print=1')) ?>"><?= icon('printer') ?>Print last</a>
-      <?php endif; ?>
+      <button class="btn pos-save" type="submit" name="do_print" value="1" data-pos-print="1" <?= $dayOpen ? '' : 'disabled' ?>><?= icon('printer') ?>Save and print</button>
+      <button class="btn" type="submit" data-pos-print="0" <?= $dayOpen ? '' : 'disabled' ?>><?= icon('check') ?>Save sale</button>
     </div>
   </div>
 </form>
