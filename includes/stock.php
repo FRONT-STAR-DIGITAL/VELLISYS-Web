@@ -374,26 +374,41 @@ function stock_stats(): array
 
 function stock_low_items(): array
 {
-    $out = [];
-    foreach (stock_items(true) as $row) {
-        if (stock_item_is_service($row)) {
-            continue;
+    $cid = current_company_id();
+    [$extra, $bTypes, $bArgs] = stock_item_branch_where();
+    try {
+        $rows = db_all(
+            "SELECT * FROM stock_items
+             WHERE company_id = ? AND COALESCE(active, 1) = 1 AND COALESCE(is_service, 0) = 0
+               AND COALESCE(reorder_level, 0) > 0 AND qty_on_hand <= reorder_level" . $extra . '
+             ORDER BY qty_on_hand ASC, name ASC
+             LIMIT 100',
+            'i' . $bTypes,
+            array_merge([$cid], $bArgs)
+        );
+        return stock_overlay_qty($rows ?: []);
+    } catch (Throwable $e) {
+        $out = [];
+        foreach (stock_items(true) as $row) {
+            if (stock_item_is_service($row)) {
+                continue;
+            }
+            $reorder = (float) ($row['reorder_level'] ?? 0);
+            $qty = (float) ($row['qty_on_hand'] ?? 0);
+            if ($reorder > 0 && $qty <= $reorder) {
+                $out[] = $row;
+            }
         }
-        $reorder = (float) ($row['reorder_level'] ?? 0);
-        $qty = (float) ($row['qty_on_hand'] ?? 0);
-        if ($reorder > 0 && $qty <= $reorder) {
-            $out[] = $row;
-        }
+        usort($out, static function (array $a, array $b): int {
+            $qa = (float) ($a['qty_on_hand'] ?? 0);
+            $qb = (float) ($b['qty_on_hand'] ?? 0);
+            if ($qa === $qb) {
+                return strcasecmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? ''));
+            }
+            return $qa <=> $qb;
+        });
+        return $out;
     }
-    usort($out, static function (array $a, array $b): int {
-        $qa = (float) ($a['qty_on_hand'] ?? 0);
-        $qb = (float) ($b['qty_on_hand'] ?? 0);
-        if ($qa === $qb) {
-            return strcasecmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? ''));
-        }
-        return $qa <=> $qb;
-    });
-    return $out;
 }
 
 /** Bell / push items for products at or below reorder level. */
@@ -581,6 +596,7 @@ function stock_move(int $itemId, string $kind, float $qty, float $unitCost = 0, 
         );
     }
     db_exec('UPDATE stock_items SET qty_on_hand = qty_on_hand + ? WHERE id = ? AND company_id = ?', 'dii', [$delta, $itemId, $cid]);
+    stock_catalog_cache_bust($branchId);
 }
 
 function stock_apply_document(int $documentId, string $kind, array $items): void
@@ -600,13 +616,16 @@ function stock_apply_document(int $documentId, string $kind, array $items): void
     if ($moveKind === '') {
         return;
     }
-    if ($kind === 'receipt') {
-        return;
-    }
     $docBranch = 0;
-    $doc = db_one('SELECT branch_id FROM documents WHERE id = ? AND company_id = ?', 'ii', [$documentId, current_company_id()]);
+    $relatedId = 0;
+    $doc = db_one('SELECT branch_id, related_id FROM documents WHERE id = ? AND company_id = ?', 'ii', [$documentId, current_company_id()]);
     if ($doc) {
         $docBranch = (int) ($doc['branch_id'] ?? 0);
+        $relatedId = (int) ($doc['related_id'] ?? 0);
+    }
+    // Allocation / follow-up receipts never move stock — only till sale receipts (no parent).
+    if ($kind === 'receipt' && $relatedId > 0) {
+        return;
     }
     foreach ($items as $item) {
         $sid = (int) ($item['stock_item_id'] ?? 0);
@@ -1001,24 +1020,51 @@ function stock_find_or_create_party(string $name, string $kind = 'customer'): in
     return db_exec('INSERT INTO parties (company_id, name, kind) VALUES (?,?,?)', 'iss', [$cid, $name, $kind]);
 }
 
+function stock_catalog_cache_bust(?int $branchId = null): void
+{
+    $cid = current_company_id();
+    $branch = $branchId !== null ? max(0, $branchId) : stock_write_branch_id();
+    $key = 'stock_catalog:' . $cid . ':' . $branch;
+    if (function_exists('folio_remember_bag')) {
+        $mem = &folio_remember_bag();
+        unset($mem[$key]);
+    }
+    if (function_exists('folio_cache_dir')) {
+        @unlink(folio_cache_dir() . '/' . hash('sha256', $key) . '.ser');
+    }
+    if (function_exists('folio_redis_del')) {
+        folio_redis_del('cache:' . hash('sha256', $key));
+    }
+}
+
 function stock_catalog_payload(): array
 {
-    $rows = stock_items(true, stock_write_branch_id(), true);
-    $out = [];
-    foreach ($rows as $row) {
-        $out[] = [
-            'id' => (int) $row['id'],
-            'sku' => (string) $row['sku'],
-            'name' => (string) $row['name'],
-            'buy' => (float) $row['buy_price'],
-            'sell' => (float) $row['sell_price'],
-            'qty' => stock_item_is_service($row) ? null : (float) $row['qty_on_hand'],
-            'unit' => trim((string) ($row['unit'] ?? '')) !== '' ? (string) $row['unit'] : 'pcs',
-            'taxed' => (int) $row['taxed'] === 1,
-            'service' => stock_item_is_service($row),
-        ];
+    $cid = current_company_id();
+    $branch = stock_write_branch_id();
+    $cacheKey = 'stock_catalog:' . $cid . ':' . $branch;
+    $build = static function () use ($branch): array {
+        $rows = stock_items(true, $branch, true);
+        $out = [];
+        foreach ($rows as $row) {
+            $out[] = [
+                'id' => (int) $row['id'],
+                'sku' => (string) $row['sku'],
+                'name' => (string) $row['name'],
+                'buy' => (float) $row['buy_price'],
+                'sell' => (float) $row['sell_price'],
+                'qty' => stock_item_is_service($row) ? null : (float) $row['qty_on_hand'],
+                'unit' => trim((string) ($row['unit'] ?? '')) !== '' ? (string) $row['unit'] : 'pcs',
+                'taxed' => (int) $row['taxed'] === 1,
+                'service' => stock_item_is_service($row),
+            ];
+        }
+        return $out;
+    };
+    // Short TTL so till qty stays useful after a sale on another tab.
+    if (function_exists('folio_remember')) {
+        return folio_remember($cacheKey, $build, 45);
     }
-    return $out;
+    return $build();
 }
 
 function stock_import_template_rows(): array
@@ -1462,46 +1508,50 @@ function stock_complete_sale(array $input): array
     $vatRate = $anyTaxed ? company_tax_rate() : 0.0;
     $branchId = stock_write_branch_id();
     $stampSig = function_exists('company_signature_path') && company_signature_path() !== '';
-    $invoiceId = create_document([
-        'kind' => 'invoice',
-        'party_id' => $partyId,
-        'date' => today(),
-        'due_date' => today(),
-        'vat_rate' => $vatRate,
-        'notes' => $discount > 0 ? 'Sale. Discount ' . money($discount) : 'Sale',
-        'payment_method' => $method,
-        'items' => $clean,
-        'branch_id' => $branchId,
-        'add_signature' => $stampSig ? 1 : 0,
-    ]);
     $grand = doc_total($clean, $vatRate);
-    $receiptId = 0;
     if (!empty($input['pay_all'])) {
         $paid = $grand;
     } else {
         $paid = round((float) ($input['paid'] ?? 0), 2);
+        if ($paid < 0) {
+            $paid = 0.0;
+        }
     }
-    if ($paid > 0) {
-        $give = min($paid, $grand);
-        $receiptId = create_document([
-            'kind' => 'receipt',
-            'party_id' => $partyId,
-            'date' => today(),
-            'related_id' => $invoiceId,
-            'allocated_amount' => $give,
-            'payment_method' => $method,
-            'notes' => $paid + 0.009 < $grand ? 'Part payment on sale' : 'Sale paid',
-            'items' => [],
-            'branch_id' => $branchId,
-            'add_signature' => $stampSig ? 1 : 0,
-        ]);
+    $give = min($paid, $grand);
+    $balance = max(0, round($grand - $give, 2));
+    $noteBits = ['Sale'];
+    if ($discount > 0) {
+        $noteBits[] = 'Discount ' . money($discount);
     }
+    if ($balance > 0.009) {
+        $noteBits[] = $give > 0.009 ? 'Part payment' : 'Unpaid';
+        $noteBits[] = 'Balance ' . money($balance) . ' on Debtors';
+    } else {
+        $noteBits[] = 'Paid in full';
+    }
+    // Till sales are receipts (paid + balance), never invoices.
+    $receiptId = create_document([
+        'kind' => 'receipt',
+        'party_id' => $partyId,
+        'date' => today(),
+        'due_date' => $balance > 0.009 ? today() : null,
+        'vat_rate' => $vatRate,
+        'notes' => implode('. ', $noteBits) . '.',
+        'payment_method' => $method,
+        'allocated_amount' => $give,
+        'related_id' => null,
+        'items' => $clean,
+        'branch_id' => $branchId,
+        'add_signature' => $stampSig ? 1 : 0,
+    ]);
     return [
         'ok' => true,
-        'invoice_id' => $invoiceId,
+        'invoice_id' => 0,
         'receipt_id' => $receiptId,
-        'print_id' => $invoiceId,
-        'balance' => max(0, round($grand - min($paid, $grand), 2)),
+        'print_id' => $receiptId,
+        'balance' => $balance,
+        'paid' => $give,
+        'total' => $grand,
     ];
 }
 
@@ -1660,8 +1710,18 @@ function stock_last_print_id(): int
         $types .= $bTypes;
         $params = array_merge($params, $bArgs);
     }
+    // Prefer standalone till sale receipts (no parent invoice).
+    $sale = db_one(
+        "SELECT id FROM documents WHERE company_id = ? AND kind = 'receipt' AND status = 'issued'
+            AND COALESCE(related_id, 0) = 0" . $extra . ' ORDER BY id DESC LIMIT 1',
+        $types,
+        $params
+    );
+    if ($sale) {
+        return (int) $sale['id'];
+    }
     $inv = db_one(
-        "SELECT id FROM documents WHERE company_id = ? AND kind = 'invoice' AND status = 'issued'" . $extra . " ORDER BY id DESC LIMIT 1",
+        "SELECT id FROM documents WHERE company_id = ? AND kind = 'invoice' AND status = 'issued'" . $extra . ' ORDER BY id DESC LIMIT 1',
         $types,
         $params
     );

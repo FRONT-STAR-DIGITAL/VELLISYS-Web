@@ -986,8 +986,9 @@ function folio_migrate(mysqli $db): void
     mysqli_report(MYSQLI_REPORT_OFF);
 
     // Fast path: after the first successful ensure pass, skip dozens of SHOW COLUMNS per request.
+    // Stamp filename already includes the schema stamp, so a code change invalidates the file.
     $ready = folio_schema_ready_file();
-    if (is_file($ready) && (int) @filemtime($ready) > time() - 604800) {
+    if (is_file($ready)) {
         $done = true;
         return;
     }

@@ -807,19 +807,34 @@ function create_document(array $data): int
         $rate = 0;
     }
     if ($kind === 'receipt') {
-        if (!$alloc || $alloc <= 0) {
-            $alloc = doc_subtotal($items);
-        }
-        if ($related) {
-            $alloc = cap_receipt_allocation($alloc, $related);
-        }
-        if (!$items && $alloc > 0) {
-            $label = 'Payment received';
-            $inv = $related ? db_one('SELECT number FROM documents WHERE id = ? AND company_id = ?', 'ii', [$related, $cid]) : null;
-            if ($inv) {
-                $label = 'Payment on ' . $inv['number'];
+        $hasSaleLines = false;
+        foreach ((array) $items as $it) {
+            if (trim((string) ($it['item_name'] ?? '')) !== '') {
+                $hasSaleLines = true;
+                break;
             }
-            $items = [['item_name' => 'Receipt', 'description' => $label, 'qty' => 1, 'unit' => 'lot', 'rate' => $alloc, 'taxed' => 0]];
+        }
+        if ($hasSaleLines) {
+            // Till / standalone sale receipt: allocated_amount is cash taken (0 = unpaid).
+            $alloc = max(0.0, (float) ($alloc ?? 0));
+        } else {
+            if (!$alloc || $alloc <= 0) {
+                $alloc = doc_subtotal($items);
+            }
+            if ($related) {
+                $alloc = cap_receipt_allocation($alloc, $related);
+            }
+            if (!$items && $alloc > 0) {
+                $label = 'Payment received';
+                $inv = $related ? db_one('SELECT number FROM documents WHERE id = ? AND company_id = ?', 'ii', [$related, $cid]) : null;
+                if ($inv) {
+                    $label = 'Payment on ' . $inv['number'];
+                }
+                $items = [['item_name' => 'Receipt', 'description' => $label, 'qty' => 1, 'unit' => 'lot', 'rate' => $alloc, 'taxed' => 0]];
+            }
+        }
+        if ($related && !$hasSaleLines) {
+            $alloc = cap_receipt_allocation((float) $alloc, $related);
         }
     }
 
@@ -2663,7 +2678,12 @@ function receipt_settlement(array $doc): ?array
     }
     $received = receipt_received_amount($doc);
     $charge = (float) (($doc['totals']['total'] ?? document_totals($doc)['total'] ?? 0));
-    if ($received <= 0 || ($charge > 0 && $received > $charge + 0.009)) {
+    $saleReceipt = receipt_is_sale($doc);
+    if ($saleReceipt) {
+        if ($charge > 0 && $received > $charge + 0.009) {
+            $received = $charge;
+        }
+    } elseif ($received <= 0 || ($charge > 0 && $received > $charge + 0.009)) {
         $received = $charge;
     }
     $later = payments_on_document((int) $doc['id'], doc_currency($doc));
@@ -2757,6 +2777,10 @@ function related_receipts(int $relatedId, ?int $exceptReceiptId = null): array
 
 function receipt_received_amount(array $doc): float
 {
+    // Standalone sale receipts store cash taken in allocated_amount (0 = unpaid).
+    if (receipt_is_sale($doc) && array_key_exists('allocated_amount', $doc) && $doc['allocated_amount'] !== null && $doc['allocated_amount'] !== '') {
+        return max(0.0, (float) $doc['allocated_amount']);
+    }
     $received = (float) ($doc['allocated_amount'] ?? 0);
     if ($received > 0) {
         return $received;
@@ -2801,7 +2825,7 @@ function receipt_sale_due(array $doc): float
     }
     $charge = (float) (($doc['totals']['total'] ?? 0) ?: (document_totals($doc)['total'] ?? 0));
     $received = receipt_received_amount($doc);
-    if ($received <= 0 || ($charge > 0 && $received > $charge + 0.009)) {
+    if ($charge > 0 && $received > $charge + 0.009) {
         $received = $charge;
     }
     $later = payments_on_document((int) $doc['id'], doc_currency($doc));

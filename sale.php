@@ -44,15 +44,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($done['ok'])) {
             $error = (string) ($done['error'] ?? 'Could not save that sale.');
         } else {
-            $msg = 'Sale saved.';
-            if (($done['balance'] ?? 0) > 0.009) {
-                $msg .= ' Balance ' . money($done['balance']) . ' sits on Debtors.';
+            $msg = 'Sale saved as a receipt.';
+            $paidNow = (float) ($done['paid'] ?? 0);
+            $bal = (float) ($done['balance'] ?? 0);
+            if ($paidNow > 0.009) {
+                $msg .= ' Paid ' . money($paidNow) . '.';
             }
-            if (!empty($done['invoice_id'])) {
-                $msg .= ' Invoice linked.';
+            if ($bal > 0.009) {
+                $msg .= ' Balance ' . money($bal) . ' sits on Debtors.';
             }
             $_SESSION['stock_last_print'] = (int) $done['print_id'];
             if (isset($_POST['do_print']) && (string) $_POST['do_print'] === '1' && (int) $done['print_id'] > 0) {
+                flash($msg);
                 redirect('document_view.php?id=' . (int) $done['print_id'] . '&print=1');
             }
             flash($msg);
@@ -73,7 +76,7 @@ $customers = db_all(
 );
 $taxName = company_tax_name();
 $lastPrint = stock_last_print_id();
-$salesPage = stock_search_docs('invoice', stock_q(), stock_page_key('p'), 20);
+$salesPage = stock_search_docs('sales', stock_q(), stock_page_key('p'), 20);
 
 layout_start('Sale', $user);
 ?>
@@ -154,7 +157,7 @@ layout_start('Sale', $user);
       <div>
         <label for="paid">Paid now</label>
         <input id="paid" name="paid" inputmode="decimal" value="" placeholder="Leave blank to pay all" data-pos-paid data-money-commas autocomplete="off" <?= $dayOpen ? '' : 'disabled' ?>>
-        <p class="hint">Unpaid balance sits on Debtors and links to the sale document.</p>
+        <p class="hint">Unpaid balance sits on Debtors on this sale receipt (not as an invoice).</p>
       </div>
       <div class="pos-sum">
         <span>Subtotal <strong data-pos-sub><?= h(money_behind(0)) ?></strong></span>
@@ -179,8 +182,8 @@ layout_start('Sale', $user);
 
 <div class="card" style="margin-top:16px">
   <div class="card-head">
-    <h2><?= icon('invoice', 16) ?>Sales documents</h2>
-    <a class="btn ghost sm" href="<?= h(url('documents.php?kind=invoice')) ?>">All invoices</a>
+    <h2><?= icon('receipt', 16) ?>Sales receipts</h2>
+    <a class="btn ghost sm" href="<?= h(url('documents.php?kind=receipt')) ?>">All receipts</a>
   </div>
   <div class="pad-form">
     <?php stock_search_bar('sale.php', [], 'Search number or customer'); ?>
