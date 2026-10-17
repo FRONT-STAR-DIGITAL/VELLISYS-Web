@@ -1711,9 +1711,17 @@ document.querySelectorAll('[data-receipt-form]').forEach(function (form) {
       currency.setAttribute('data-fx-currency', to);
       if (from && to && from !== to) convertDocumentCurrency(form, from, to);
     }
+    syncDocReceivedCurrency(form);
     updateFxPreview(form);
   });
 });
+
+function syncDocReceivedCurrency(form) {
+  var badge = (form || document).querySelector('[data-doc-received-cur]');
+  if (!badge) return;
+  var code = docCurrencyCode();
+  if (code) badge.textContent = code;
+}
 
 function fxHome(form) {
   return String((form && form.getAttribute('data-fx-home')) || 'USD').toUpperCase();
@@ -1822,11 +1830,13 @@ document.querySelectorAll('[data-fx-form]').forEach(function (form) {
       convertDocumentCurrency(form, from, to);
       currency.setAttribute('data-fx-currency', to);
     }
+    syncDocReceivedCurrency(form);
     updateFxPreview(form);
   });
   form.addEventListener('input', function () {
     updateFxPreview(form);
   });
+  syncDocReceivedCurrency(form);
   updateFxPreview(form);
 });
 

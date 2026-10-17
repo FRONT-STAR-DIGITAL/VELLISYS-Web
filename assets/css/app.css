@@ -2573,6 +2573,100 @@ table.grid tfoot td {
 }
 .lines-toolbar .hint { margin: 0; }
 .lines-del-col { width: 44px; }
+/* Receipt cash taken — stands out above Document preview */
+.doc-received {
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  border: 1px solid #d4a017;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #fff9e6 0%, #ffe8a8 100%);
+  box-shadow: 0 1px 0 rgba(212, 160, 23, .18);
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+}
+.doc-received > label {
+  display: block;
+  margin: 0 0 8px;
+  color: #7a4e00;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+.doc-received-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+}
+.doc-received-row input {
+  flex: 1 1 12rem;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1.5px solid #c9920a;
+  border-radius: 12px;
+  background: #fffef8;
+  color: #5c3b00;
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.doc-received-row input:focus {
+  outline: none;
+  border-color: #a67700;
+  box-shadow: 0 0 0 3px rgba(212, 160, 23, .28);
+  background: #fff;
+}
+.doc-received-row input::placeholder {
+  color: #b08930;
+  font-weight: 600;
+  font-size: 0.85em;
+  opacity: .85;
+}
+.doc-received-cur {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: #d4a017;
+  color: #fff;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+.doc-received > .hint {
+  margin: 8px 0 0;
+  color: #7a4e00;
+}
+@media (max-width: 560px) {
+  .doc-received {
+    padding: 12px;
+    border-radius: 12px;
+  }
+  .doc-received-row {
+    flex-direction: column;
+  }
+  .doc-received-row input {
+    font-size: 1.25rem;
+    min-height: 52px;
+  }
+  .doc-received-cur {
+    width: 100%;
+    min-height: 40px;
+    justify-content: flex-start;
+  }
+}
 .lines-preview {
   margin: 0 0 18px;
   padding: 12px 14px 14px;

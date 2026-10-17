@@ -487,12 +487,6 @@ layout_start($heading, $user, ['kind' => $kind]);
       </div>
     <?php endif; ?>
     <?php if (in_array($kind, ['receipt', 'expense', 'refund'], true)): ?>
-      <?php if ($kind === 'receipt'): ?>
-        <div>
-          <label for="allocated_amount">Amount received</label>
-          <input id="allocated_amount" name="allocated_amount" inputmode="decimal" value="<?= h($allocValue) ?>" placeholder="Leave blank to use the line total" data-money-commas autocomplete="off">
-        </div>
-      <?php endif; ?>
       <div>
         <label for="payment_method">Payment method</label>
         <select id="payment_method" name="payment_method">
@@ -709,6 +703,16 @@ layout_start($heading, $user, ['kind' => $kind]);
         <?php if (in_array($kind, ['invoice', 'receipt', 'expense', 'refund'], true)): ?>
           <span data-doc-due-wrap>Due <strong data-doc-due><?= h(money_behind(0, $docCurrency)) ?></strong></span>
         <?php endif; ?>
+      </div>
+      <?php endif; ?>
+      <?php if ($kind === 'receipt'): ?>
+      <div class="doc-received" data-doc-received>
+        <label for="allocated_amount">Amount received</label>
+        <div class="doc-received-row">
+          <input id="allocated_amount" name="allocated_amount" inputmode="decimal" value="<?= h($allocValue) ?>" placeholder="Leave blank to use the line total" data-money-commas autocomplete="off" aria-describedby="allocated-amount-hint">
+          <span class="doc-received-cur" data-doc-received-cur><?= h($docCurrency) ?></span>
+        </div>
+        <p class="hint" id="allocated-amount-hint">Leave blank to use the line total. A smaller figure leaves balance on Debtors.</p>
       </div>
       <?php endif; ?>
       <?php if ($kind !== 'expense'): ?>
