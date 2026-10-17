@@ -709,10 +709,10 @@ layout_start($heading, $user, ['kind' => $kind]);
       <div class="doc-received" data-doc-received>
         <label for="allocated_amount">Amount received</label>
         <div class="doc-received-row">
-          <input id="allocated_amount" name="allocated_amount" inputmode="decimal" value="<?= h($allocValue) ?>" placeholder="Leave blank to use the line total" data-money-commas autocomplete="off" aria-describedby="allocated-amount-hint">
+          <input id="allocated_amount" name="allocated_amount" inputmode="decimal" value="<?= h($allocValue) ?>" placeholder="Blank = fully paid" data-money-commas autocomplete="off" aria-describedby="allocated-amount-hint">
           <span class="doc-received-cur" data-doc-received-cur><?= h($docCurrency) ?></span>
         </div>
-        <p class="hint" id="allocated-amount-hint">Leave blank to use the line total. A smaller figure leaves balance on Debtors.</p>
+        <p class="hint" id="allocated-amount-hint">Leave blank if fully paid. Enter 0 if nothing was paid.</p>
       </div>
       <?php endif; ?>
       <?php if ($kind !== 'expense'): ?>
