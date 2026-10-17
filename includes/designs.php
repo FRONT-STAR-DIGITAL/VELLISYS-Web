@@ -2220,6 +2220,16 @@ function render_sheet_trade(array $d): void
       <p class="trade-vat">The amounts are VAT inclusive</p>
     <?php endif; ?>
 
+    <?php if ($money && sheet_is_receipt($d)):
+        $receivedAmt = sheet_received_amount($d);
+        $balanceAmt = sheet_due_amount($d);
+    ?>
+      <p class="trade-payrow">
+        <span class="trade-pay"><span>Amount received</span><b class="mono"><?= h(money($receivedAmt, $cur)) ?></b></span>
+        <span class="trade-pay"><span>Balance</span><b class="mono"><?= h(money($balanceAmt, $cur)) ?></b></span>
+      </p>
+    <?php endif; ?>
+
     <?php if ($words !== ''): ?>
       <p class="trade-words"><span>Amount in words</span><b><?= h($words) ?></b></p>
     <?php endif; ?>

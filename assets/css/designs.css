@@ -1836,6 +1836,33 @@
   margin: 8px 0 10px;
   font-size: 12px;
 }
+.sheet-trade .trade-payrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  align-items: baseline;
+  margin: 8px 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.sheet-trade .trade-pay {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  min-width: 0;
+  flex: 1 1 180px;
+}
+.sheet-trade .trade-pay > span {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.sheet-trade .trade-pay > b {
+  flex: 1 1 auto;
+  border-bottom: 1px dotted #555;
+  font-weight: 700;
+  padding-bottom: 2px;
+  min-width: 4em;
+}
 .sheet-trade .trade-words {
   display: flex;
   gap: 8px;
