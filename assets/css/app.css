@@ -2603,17 +2603,18 @@ table.grid tfoot td {
   min-width: 0;
 }
 .doc-received-row input {
-  flex: 1 1 12rem;
+  flex: 1 1 10rem;
   min-width: 0;
-  width: 100%;
+  width: auto;
   max-width: 100%;
-  min-height: 48px;
-  padding: 12px 14px;
+  min-height: 42px;
+  height: 42px;
+  padding: 8px 12px;
   border: 1.5px solid #c9920a;
-  border-radius: 12px;
+  border-radius: 10px;
   background: #fffef8;
   color: #5c3b00;
-  font-size: 1.35rem;
+  font-size: 1.05rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
@@ -2635,13 +2636,14 @@ table.grid tfoot td {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 48px;
-  padding: 0 14px;
-  border-radius: 12px;
+  min-height: 42px;
+  height: 42px;
+  padding: 0 12px;
+  border-radius: 10px;
   background: #d4a017;
   color: #fff;
   font-weight: 800;
-  font-size: 13px;
+  font-size: 12px;
   letter-spacing: .04em;
   white-space: nowrap;
 }
@@ -2651,20 +2653,39 @@ table.grid tfoot td {
 }
 @media (max-width: 560px) {
   .doc-received {
-    padding: 12px;
+    padding: 10px 12px;
     border-radius: 12px;
   }
+  .doc-received > label {
+    margin: 0 0 6px;
+    font-size: 12px;
+  }
   .doc-received-row {
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
   }
   .doc-received-row input {
-    font-size: 1.25rem;
-    min-height: 52px;
+    flex: 1 1 auto;
+    width: auto;
+    min-height: 40px;
+    height: 40px;
+    padding: 6px 10px;
+    font-size: 1rem;
+    border-radius: 8px;
   }
   .doc-received-cur {
-    width: 100%;
+    width: auto;
     min-height: 40px;
-    justify-content: flex-start;
+    height: 40px;
+    padding: 0 10px;
+    border-radius: 8px;
+    justify-content: center;
+  }
+  .doc-received > .hint {
+    margin: 6px 0 0;
+    font-size: 12px;
   }
 }
 .lines-preview {
@@ -4572,6 +4593,15 @@ input, select, textarea { font-weight: 400; }
   .document-form input,
   .document-form select,
   .document-form textarea { width: 100%; max-width: 100%; }
+  .document-form .doc-received-row input {
+    width: auto;
+    max-width: none;
+    flex: 1 1 auto;
+    min-height: 40px;
+    height: 40px;
+    padding: 6px 10px;
+    font-size: 16px;
+  }
   .document-form .lines input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
   .document-form .lines textarea,
   .document-form .lines select {
