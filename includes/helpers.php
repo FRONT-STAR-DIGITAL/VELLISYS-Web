@@ -3750,9 +3750,15 @@ function render_filters(string $action, array $keep = [], array $opts = []): voi
     <?php
 }
 
-function list_documents(string $kind): array
+function list_documents(string $kind, bool $ignorePeriod = false): array
 {
-    [$extra, $types, $params] = period_sql('d.date');
+    if ($ignorePeriod) {
+        $extra = '';
+        $types = '';
+        $params = [];
+    } else {
+        [$extra, $types, $params] = period_sql('d.date');
+    }
     if (function_exists('desk_branch_sql')) {
         [$bSql, $bTypes, $bArgs] = desk_branch_sql('d.branch_id');
         $extra .= $bSql;

@@ -2976,44 +2976,50 @@ function receipt_due_amount(array $doc): float
 
 /**
  * Due shown on receipt table rows and status pills.
- * Linked invoice/sale payments show the parent remain; sale receipts show
- * their own unpaid tip on each row (footers still dedupe per client).
+ * Same rules as the printed sheet: parent invoice remain, else this receipt's
+ * Total − Amount received (so part pay 600k on an 830k line shows 230k due).
  */
 function receipt_list_due(array $doc): float
 {
     if (($doc['kind'] ?? '') !== 'receipt' || ($doc['status'] ?? '') === 'void') {
         return 0.0;
     }
+    $received = receipt_received_amount($doc);
+    $charge = (float) (($doc['totals']['total'] ?? 0) ?: (document_totals($doc)['total'] ?? 0));
+    $gap = max(0, round($charge - $received, 2));
+
     $rid = (int) ($doc['related_id'] ?? 0);
     if ($rid > 0) {
-        $due = (float) ($doc['invoice_balance'] ?? 0);
-        if ($due > 0.009) {
-            return $due;
+        $parentDue = (float) ($doc['invoice_balance'] ?? 0);
+        if ($parentDue <= 0.009) {
+            $s = $doc['settlement'] ?? null;
+            if (is_array($s)) {
+                $parentDue = (float) ($s['invoice_balance'] ?? $s['balance'] ?? 0);
+            }
         }
-        $s = $doc['settlement'] ?? null;
-        if (is_array($s)) {
-            return max(0, (float) ($s['invoice_balance'] ?? $s['balance'] ?? 0));
-        }
-        return 0.0;
+        // Never hide a part payment behind a zero parent remain when this
+        // receipt itself still shows cash short of its line total.
+        return max(0, max($parentDue, $gap));
     }
-    return receipt_sale_due($doc);
+    return max(receipt_sale_due($doc), $gap);
 }
 
 function document_due_amount(array $doc): float
 {
     $kind = (string) ($doc['kind'] ?? '');
     if ($kind === 'invoice' || $kind === 'expense') {
-        // Prefer live invoice_balance() when totals/paid are present so Debtors
-        // stays accurate after part payments.
+        $stored = max(0, (float) ($doc['balance'] ?? 0));
+        // Live paid-from-receipts balance, but never drop below a remain already
+        // computed on the row (e.g. from a part-payment receipt gap).
         if ($kind === 'invoice' && function_exists('invoice_balance') && isset($doc['id'])) {
             if (isset($doc['totals']) || isset($doc['items'])) {
-                return invoice_balance($doc);
+                return max($stored, invoice_balance($doc));
             }
         }
         if ($kind === 'expense' && function_exists('expense_balance') && isset($doc['id'])) {
-            return max(0, (float) expense_balance($doc));
+            return max($stored, (float) expense_balance($doc));
         }
-        return max(0, (float) ($doc['balance'] ?? 0));
+        return $stored;
     }
     if ($kind === 'receipt') {
         return receipt_due_amount($doc);
@@ -3143,16 +3149,55 @@ function receipt_collect_target(array $doc): int
 
 function list_open_debtors(): array
 {
-    $invoices = array_values(array_filter(
-        list_documents('invoice'),
-        static fn ($d) => ($d['status'] ?? '') !== 'void' && document_due_amount($d) > 0.009
-    ));
+    // Ignore the desk date filter — outstanding balances stay owed even when
+    // the invoice is outside “this month” and only the part-payment receipt is.
+    $byId = [];
+    foreach (list_documents('invoice', true) as $inv) {
+        if (($inv['status'] ?? '') === 'void') {
+            continue;
+        }
+        if (document_due_amount($inv) > 0.009) {
+            $byId[(int) $inv['id']] = $inv;
+        }
+    }
+
+    // Part-paid invoice receipts: keep Harold-style remains (e.g. 230k) on the
+    // parent invoice even when live paid maths briefly read as cleared.
+    foreach (list_documents('receipt', true) as $rcpt) {
+        if (($rcpt['status'] ?? '') === 'void') {
+            continue;
+        }
+        $rid = (int) ($rcpt['related_id'] ?? 0);
+        if ($rid < 1) {
+            continue;
+        }
+        $due = receipt_list_due($rcpt);
+        if ($due <= 0.009) {
+            continue;
+        }
+        if (isset($byId[$rid])) {
+            if ((float) ($byId[$rid]['balance'] ?? 0) + 0.009 < $due) {
+                $byId[$rid]['balance'] = $due;
+            }
+            continue;
+        }
+        $inv = load_document($rid);
+        if (!$inv || ($inv['kind'] ?? '') !== 'invoice' || ($inv['status'] ?? '') === 'void') {
+            continue;
+        }
+        if (document_due_amount($inv) <= 0.009) {
+            $inv['balance'] = $due;
+            $inv['paid'] = max(0, (float) ($inv['totals']['total'] ?? 0) - $due);
+        }
+        $byId[$rid] = $inv;
+    }
+
     // One live receipt debt per client - the newest sale receipt only.
     $sales = array_values(array_filter(
-        latest_sale_receipts_by_party(list_documents('receipt')),
+        latest_sale_receipts_by_party(list_documents('receipt', true)),
         static fn ($d) => document_due_amount($d) > 0.009
     ));
-    $rows = array_merge($invoices, $sales);
+    $rows = array_merge(array_values($byId), $sales);
     usort($rows, static function ($a, $b) {
         $da = (string) ($a['date'] ?? '');
         $db = (string) ($b['date'] ?? '');
@@ -3577,10 +3622,15 @@ function attach_document_totals(array $rows): array
                     $remain = max(0, round($parentCharge - $parentCash - ($relPaid[$rid] ?? 0), 2));
                 }
                 $remainDoc = convert_money($remain, $relCur[$rid] ?? doc_currency($row), doc_currency($row));
-                $row['invoice_balance'] = $remainDoc;
-                // Row Due / status read invoice_balance via receipt_list_due().
-                // Footers use receipts_due_total_by_latest() so parents are not stacked.
-                $row['balance'] = $remainDoc;
+                // Keep Total − Received when parent remain is 0 but this receipt
+                // is still a part payment (lines 830k / received 600k → due 230k).
+                $dueDoc = max($remainDoc, $saleDue);
+                $row['invoice_balance'] = $dueDoc;
+                $row['balance'] = $dueDoc;
+            } elseif ($rid > 0) {
+                // Parent row missing from join — still expose the receipt gap.
+                $row['invoice_balance'] = $saleDue;
+                $row['balance'] = $saleDue;
             }
         } else {
             $row['paid'] = 0;
