@@ -109,8 +109,12 @@ function record_site_visit(?string $script = null): void
     if ($isApp && $kind === 'desk') {
         $kind = 'app';
     }
-    $key = 'visit:' . $hash . ':' . $kind . ':' . $script;
-    $last = (int) ($_SESSION[$key] ?? 0);
+    // One compact map avoids bloating long-lived php_sessions with visit:* keys.
+    $throttleKey = $hash . ':' . $kind . ':' . $script;
+    if (!isset($_SESSION['visit_throttle']) || !is_array($_SESSION['visit_throttle'])) {
+        $_SESSION['visit_throttle'] = [];
+    }
+    $last = (int) ($_SESSION['visit_throttle'][$throttleKey] ?? 0);
     if ($last > 0 && (time() - $last) < 1200) {
         $done = true;
         return;
@@ -125,7 +129,18 @@ function record_site_visit(?string $script = null): void
             'sssssiss',
             [$now, $path, $kind, $geo['code'], $geo['name'], $isApp ? 1 : 0, $device, $hash]
         );
-        $_SESSION[$key] = time();
+        $_SESSION['visit_throttle'][$throttleKey] = time();
+        // Cap map size so session blobs stay small.
+        if (count($_SESSION['visit_throttle']) > 40) {
+            asort($_SESSION['visit_throttle']);
+            $_SESSION['visit_throttle'] = array_slice($_SESSION['visit_throttle'], -30, null, true);
+        }
+        // Drop any legacy flat visit:* keys from older builds.
+        foreach (array_keys($_SESSION) as $sk) {
+            if (is_string($sk) && str_starts_with($sk, 'visit:')) {
+                unset($_SESSION[$sk]);
+            }
+        }
     } catch (Throwable $e) {
         error_log('Vellisys visit: ' . $e->getMessage());
     }

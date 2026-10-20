@@ -312,6 +312,9 @@ function layout_start(string $title, array $user, array $opts = []): void
     if (function_exists('touch_user_seen') && !empty($user['id'])) {
         touch_user_seen((int) $user['id']);
     }
+    if (function_exists('folio_housekeep_daily')) {
+        folio_housekeep_daily();
+    }
     $notes = function_exists('desk_notifications_enabled') && desk_notifications_enabled()
         ? desk_notifications(40)
         : [];
@@ -535,6 +538,9 @@ function layout_admin_start(string $title, array $user): void
     $GLOBALS['folio_layout_admin'] = true;
     if (function_exists('touch_user_seen')) {
         touch_user_seen((int) $user['id']);
+    }
+    if (function_exists('folio_housekeep_daily')) {
+        folio_housekeep_daily();
     }
     $flash = flash();
     $here = basename($_SERVER['SCRIPT_NAME'] ?? '');

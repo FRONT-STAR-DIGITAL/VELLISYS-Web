@@ -1053,6 +1053,81 @@ function folio_cache_bust(): void
     }
 }
 
+/** Remove expired folio_remember .ser files (TTL check alone leaves them on disk). */
+function folio_cache_sweep_stale(int $maxAgeSeconds = 86400): int
+{
+    $dir = folio_cache_dir();
+    if (!is_dir($dir)) {
+        return 0;
+    }
+    $cutoff = time() - max(60, $maxAgeSeconds);
+    $n = 0;
+    foreach (glob($dir . '/*.ser') ?: [] as $file) {
+        $mt = @filemtime($file);
+        if ($mt !== false && $mt < $cutoff) {
+            if (@unlink($file)) {
+                $n++;
+            }
+        }
+    }
+    return $n;
+}
+
+/**
+ * Once-per-day maintenance: prune sessions, stale cache, and growing log tables.
+ * Cheap no-op after the daily stamp file exists.
+ */
+function folio_housekeep_daily(): void
+{
+    static $checked = false;
+    if ($checked) {
+        return;
+    }
+    $checked = true;
+    try {
+        $dir = folio_cache_dir();
+        $day = date('Y-m-d');
+        $stamp = $dir . '/housekeep-' . $day . '.ok';
+        if (is_file($stamp)) {
+            return;
+        }
+        // Claim the day before work so concurrent requests do not all prune.
+        @file_put_contents($stamp, (string) time(), LOCK_EX);
+        foreach (glob($dir . '/housekeep-*.ok') ?: [] as $old) {
+            if (basename($old) !== basename($stamp)) {
+                @unlink($old);
+            }
+        }
+        if (function_exists('folio_session_gc_now')) {
+            folio_session_gc_now();
+        }
+        folio_cache_sweep_stale(86400);
+        // Growing telemetry / history tables (reports use rolling windows).
+        try {
+            db_exec('DELETE FROM site_visits WHERE occurred_at < DATE_SUB(NOW(), INTERVAL 180 DAY) LIMIT 20000');
+        } catch (Throwable $e) {
+            // table may not exist yet
+        }
+        try {
+            db_exec('DELETE FROM company_activities WHERE occurred_at < DATE_SUB(NOW(), INTERVAL 365 DAY) LIMIT 20000');
+        } catch (Throwable $e) {
+            // ignore
+        }
+        try {
+            db_exec("DELETE FROM emails WHERE status = 'sent' AND created_at < DATE_SUB(NOW(), INTERVAL 365 DAY) LIMIT 10000");
+        } catch (Throwable $e) {
+            // ignore
+        }
+        try {
+            db_exec('DELETE FROM platform_perf_samples WHERE created_at < DATE_SUB(NOW(), INTERVAL 30 DAY) LIMIT 5000');
+        } catch (Throwable $e) {
+            // ignore
+        }
+    } catch (Throwable $e) {
+        error_log('Vellisys housekeep: ' . $e->getMessage());
+    }
+}
+
 function folio_defaults(): array
 {
     return [

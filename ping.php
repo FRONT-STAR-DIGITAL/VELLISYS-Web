@@ -12,6 +12,9 @@ if (!$user) {
 }
 
 touch_user_seen((int) $user['id']);
+if (function_exists('folio_housekeep_daily')) {
+    folio_housekeep_daily();
+}
 $action = (string) ($_GET['action'] ?? $_POST['action'] ?? '');
 
 if ($action === 'blob') {

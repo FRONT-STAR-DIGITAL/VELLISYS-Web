@@ -17,6 +17,19 @@ function folio_session_persist_seconds(): int
     return 60 * 60 * 24 * 365 * 10;
 }
 
+/**
+ * How long unused MySQL/disk session rows are kept.
+ * Auth cookie (folio_auth_resume) restores login if the row is GC'd - so this
+ * can be much shorter than cookie lifetime without forcing Sign out.
+ */
+function folio_session_row_ttl_seconds(): int
+{
+    if (defined('SESSION_ROW_TTL_SECONDS')) {
+        return max(3600, (int) SESSION_ROW_TTL_SECONDS);
+    }
+    return 60 * 60 * 24 * 30; // 30 days idle
+}
+
 function folio_auth_cookie_name(): string
 {
     return 'vellisys_auth';
@@ -147,11 +160,8 @@ final class FolioDbSessionHandler implements SessionHandlerInterface
         if (!$db) {
             return false;
         }
-        $lifetime = (int) ini_get('session.gc_maxlifetime');
-        if ($lifetime < 3600) {
-            $lifetime = folio_session_persist_seconds();
-        }
-        $expires = time() + $lifetime;
+        // Slide a short row TTL on each write. Cookie stay-signed-in is separate.
+        $expires = time() + folio_session_row_ttl_seconds();
         $stmt = @$db->prepare(
             'INSERT INTO php_sessions (id, data, expires_at) VALUES (?, ?, ?)
              ON DUPLICATE KEY UPDATE data = VALUES(data), expires_at = VALUES(expires_at)'
@@ -187,11 +197,42 @@ final class FolioDbSessionHandler implements SessionHandlerInterface
         if (!$db) {
             return 0;
         }
-        $cutoff = time() - max(0, $max_lifetime);
-        // Also drop rows past their own expires_at.
-        @$db->query('DELETE FROM php_sessions WHERE expires_at < ' . (int) time() . ' OR expires_at < ' . (int) $cutoff);
+        $now = time();
+        // Active rows slide to now+30d on write. Legacy ~10y expires_at rows
+        // that were never rewritten are treated as abandoned (auth cookie resumes login).
+        $horizon = $now + folio_session_row_ttl_seconds() + 86400;
+        @$db->query(
+            'DELETE FROM php_sessions WHERE expires_at < ' . (int) $now
+            . ' OR expires_at > ' . (int) $horizon
+            . ' LIMIT 5000'
+        );
         return $db->affected_rows;
     }
+}
+
+/** Explicit session GC for daily housekeep (PHP probabilistic GC is unreliable). */
+function folio_session_gc_now(): int
+{
+    $deleted = 0;
+    $db = folio_session_mysqli();
+    if ($db instanceof mysqli) {
+        $handler = new FolioDbSessionHandler();
+        $n = $handler->gc(folio_session_persist_seconds());
+        $deleted += is_int($n) ? $n : 0;
+    }
+    $sessionDir = ROOT_PATH . '/storage/sessions';
+    if (is_dir($sessionDir)) {
+        $cutoff = time() - folio_session_row_ttl_seconds();
+        foreach (glob($sessionDir . '/sess_*') ?: [] as $file) {
+            $mt = @filemtime($file);
+            if ($mt !== false && $mt < $cutoff) {
+                if (@unlink($file)) {
+                    $deleted++;
+                }
+            }
+        }
+    }
+    return $deleted;
 }
 
 /** Prefer MySQL sessions; fall back to disk under storage/sessions. */

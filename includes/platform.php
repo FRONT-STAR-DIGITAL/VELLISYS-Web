@@ -222,7 +222,7 @@ function touch_user_seen(int $userId, bool $login = false): void
     if (!$login) {
         $key = 'seen_at_' . $userId;
         $last = (int) ($_SESSION[$key] ?? 0);
-        if ($last > 0 && (time() - $last) < 180) {
+        if ($last > 0 && (time() - $last) < 300) {
             return;
         }
         $_SESSION[$key] = time();

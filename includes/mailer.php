@@ -328,8 +328,9 @@ function desk_mail_query(string $type, int $docId, int $partyId): string
 function retry_queued_platform_mail(): array
 {
     $from = product_email();
+    // Cap each retry pass so a huge backlog cannot freeze admin mail.
     $rows = db_all(
-        "SELECT * FROM emails WHERE status = 'queued' AND document_id IS NULL AND (from_email = '' OR from_email = ?) ORDER BY id",
+        "SELECT * FROM emails WHERE status = 'queued' AND document_id IS NULL AND (from_email = '' OR from_email = ?) ORDER BY id ASC LIMIT 25",
         's',
         [$from]
     );

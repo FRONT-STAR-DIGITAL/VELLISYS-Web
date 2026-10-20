@@ -3508,17 +3508,35 @@ function attach_document_totals(array $rows): array
         $curById[(int) $row['id']] = doc_currency($row);
     }
     $paidBy = [];
+    $needLineIds = [];
+    foreach ($payDocs as $p) {
+        if ((float) ($p['allocated_amount'] ?? 0) <= 0.009) {
+            $pid = (int) ($p['id'] ?? 0);
+            if ($pid > 0) {
+                $needLineIds[$pid] = true;
+            }
+        }
+    }
+    $lineNetById = [];
+    if ($needLineIds) {
+        $lineIds = array_keys($needLineIds);
+        $linePh = implode(',', array_fill(0, count($lineIds), '?'));
+        $lineTypes = str_repeat('i', count($lineIds));
+        foreach (db_all(
+            "SELECT document_id, COALESCE(SUM(ROUND(qty * rate, 2)), 0) AS net
+             FROM document_items WHERE document_id IN ($linePh) GROUP BY document_id",
+            $lineTypes,
+            $lineIds
+        ) as $lr) {
+            $lineNetById[(int) ($lr['document_id'] ?? 0)] = (float) ($lr['net'] ?? 0);
+        }
+    }
     foreach ($payDocs as $p) {
         $rid = (int) $p['related_id'];
         $to = $curById[$rid] ?? default_currency();
         $amt = (float) ($p['allocated_amount'] ?? 0);
         if ($amt <= 0.009) {
-            $lineSum = db_one(
-                'SELECT COALESCE(SUM(ROUND(qty * rate, 2)), 0) AS net FROM document_items WHERE document_id = ?',
-                'i',
-                [(int) ($p['id'] ?? 0)]
-            );
-            $amt = (float) ($lineSum['net'] ?? 0);
+            $amt = (float) ($lineNetById[(int) ($p['id'] ?? 0)] ?? 0);
         }
         if ($amt <= 0.009) {
             continue;
