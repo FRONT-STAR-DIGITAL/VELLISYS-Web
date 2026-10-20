@@ -154,15 +154,22 @@ function sheet_received_amount(array $d): float
 
 function sheet_due_amount(array $d): float
 {
-    if (function_exists('document_due_amount') && isset($d['doc'])) {
-        return document_due_amount($d['doc']);
-    }
     $s = $d['settlement'] ?? [];
-    $due = (float) ($s['invoice_balance'] ?? 0);
-    if ($due <= 0.009) {
-        $due = (float) ($s['balance'] ?? $d['balance'] ?? 0);
+    // Linked invoice/expense payments store remain on invoice_balance.
+    // document_due_amount() returns 0 for those rows so debtors lists do not
+    // double-count; printed sheets still need the amount still due.
+    $parentDue = (float) ($s['invoice_balance'] ?? 0);
+    if ($parentDue > 0.009) {
+        return max(0, $parentDue);
     }
-    return max(0, $due);
+    $ownDue = (float) ($s['balance'] ?? 0);
+    if ($ownDue > 0.009) {
+        return max(0, $ownDue);
+    }
+    if (function_exists('document_due_amount') && isset($d['doc'])) {
+        return max(0, (float) document_due_amount($d['doc']));
+    }
+    return max(0, (float) ($d['balance'] ?? 0));
 }
 
 function sheet_words_amount(array $d): float
@@ -1931,8 +1938,8 @@ function render_sheet_thermal(array $d): void
     if ($kind === 'invoice' && $paid <= 0 && !empty($d['paid'])) {
         $paid = (float) $d['paid'];
     }
-    $due = ($kind === 'receipt' && function_exists('document_due_amount'))
-        ? document_due_amount($doc)
+    $due = $kind === 'receipt'
+        ? sheet_due_amount($d)
         : max(0, round((float) $d['total'] - $paid, 2));
     $comment = (string) ($d['comments'] ?? '');
     if ($isTill && strcasecmp($notes, 'Sale') === 0) {

@@ -232,7 +232,15 @@ function document_pdf_bytes(array $brand, array $doc): string
             $text($w - $m - 200, $y, 'Received', 12, 'F2');
             $text($w - $m - 90, $y, money((float) ($s['received'] ?? $doc['paid'] ?? 0), $ccy), 12, 'F2');
             $y -= 14;
-            $dueAmt = function_exists('document_due_amount') ? document_due_amount($doc) : (float) ($s['invoice_balance'] ?? $s['balance'] ?? $doc['balance'] ?? 0);
+            // Prefer settlement remain (invoice_balance) so part-paid linked
+            // receipts show amount still due; document_due_amount is 0 for those.
+            $dueAmt = (float) (($s['invoice_balance'] ?? 0) > 0.009
+                ? $s['invoice_balance']
+                : (($s['balance'] ?? 0) > 0.009
+                    ? $s['balance']
+                    : (function_exists('document_due_amount')
+                        ? document_due_amount($doc)
+                        : ($doc['balance'] ?? 0))));
             $text($w - $m - 200, $y, 'Due', 12);
             $text($w - $m - 90, $y, money($dueAmt, $ccy), 12, 'F2');
             $y -= 16;
