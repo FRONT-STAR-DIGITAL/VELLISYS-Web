@@ -2979,6 +2979,9 @@ function platform_create_company(?int $signupId = null): array
                 [$term, $unit, $from, $expires, $feeAmount, $feePaid, $feeCurrency, $cid]
             );
             $hasPaidTerm = true;
+            if ($feePaid > 0.009 && function_exists('sync_company_fee_ledger')) {
+                sync_company_fee_ledger($cid, $feePaid, $feeCurrency, 'Paid term for ' . $name);
+            }
         }
     }
 
