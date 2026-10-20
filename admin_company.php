@@ -984,7 +984,7 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
       <?php if (company_expires_on($company)): ?>
         Current expiry <?= h(format_date($company['expires_at'])) ?> · <?= h(company_remaining_phrase($company)) ?>.
         Balance <?= h(money(company_fee_balance($company), company_fee_currency($company))) ?>.
-        Saving recalculates the end date. Set number to 0 to clear the term (fees already collected stay on Finances).
+        Saving recalculates the end date and keeps Finances Taken in in sync with Amount paid. Set number to 0 to clear the term (fees already collected stay on Finances).
       <?php else: ?>
         Set how many weeks, months or years this client has paid for (decimals such as 1.5 are allowed), and the fee you collected. Expiry is the start date plus that term. Reports list desks one month from that date so you can send a renewal letter.
       <?php endif; ?>
