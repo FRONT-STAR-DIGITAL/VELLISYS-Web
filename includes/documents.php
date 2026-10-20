@@ -814,27 +814,32 @@ function create_document(array $data): int
                 break;
             }
         }
-        if ($hasSaleLines) {
+        if ($related) {
+            // Payment against an invoice/sale: Amount received is cash taken.
+            if (!$alloc || $alloc <= 0) {
+                $alloc = $hasSaleLines ? doc_subtotal($items) : 0.0;
+            }
+            $alloc = cap_receipt_allocation(max(0.0, (float) $alloc), $related);
+            if (!$hasSaleLines && $alloc > 0) {
+                $label = 'Payment received';
+                $inv = db_one('SELECT number FROM documents WHERE id = ? AND company_id = ?', 'ii', [$related, $cid]);
+                if ($inv) {
+                    $label = 'Payment on ' . $inv['number'];
+                }
+                $items = [['item_name' => 'Payment', 'description' => $label, 'qty' => 1, 'unit' => 'lot', 'rate' => $alloc, 'taxed' => 0]];
+            } else {
+                $items = sync_receipt_payment_lines($items, (float) $alloc, $related);
+            }
+        } elseif ($hasSaleLines) {
             // Till / standalone sale receipt: allocated_amount is cash taken (0 = unpaid).
             $alloc = max(0.0, (float) ($alloc ?? 0));
         } else {
             if (!$alloc || $alloc <= 0) {
                 $alloc = doc_subtotal($items);
             }
-            if ($related) {
-                $alloc = cap_receipt_allocation($alloc, $related);
-            }
             if (!$items && $alloc > 0) {
-                $label = 'Payment received';
-                $inv = $related ? db_one('SELECT number FROM documents WHERE id = ? AND company_id = ?', 'ii', [$related, $cid]) : null;
-                if ($inv) {
-                    $label = 'Payment on ' . $inv['number'];
-                }
-                $items = [['item_name' => 'Receipt', 'description' => $label, 'qty' => 1, 'unit' => 'lot', 'rate' => $alloc, 'taxed' => 0]];
+                $items = [['item_name' => 'Receipt', 'description' => 'Payment received', 'qty' => 1, 'unit' => 'lot', 'rate' => $alloc, 'taxed' => 0]];
             }
-        }
-        if ($related && !$hasSaleLines) {
-            $alloc = cap_receipt_allocation((float) $alloc, $related);
         }
     }
 
@@ -935,6 +940,64 @@ function insert_document_items(int $id, array $items): void
     }
 }
 
+/**
+ * Keep a simple payment receipt's line total aligned with Amount received
+ * so classic sheets do not show Total 830k / Received 600k / Amount due 0.
+ */
+function sync_receipt_payment_lines(array $items, float $alloc, ?int $relatedId = null, ?int $exceptReceiptId = null): array
+{
+    if ($alloc < 0) {
+        $alloc = 0.0;
+    }
+    $named = [];
+    foreach ($items as $it) {
+        if (!is_array($it)) {
+            continue;
+        }
+        if (trim((string) ($it['item_name'] ?? '')) === '' && trim((string) ($it['description'] ?? '')) === '') {
+            continue;
+        }
+        $named[] = $it;
+    }
+    if (count($named) !== 1) {
+        return $items;
+    }
+    $line = $named[0];
+    $name = strtolower(trim((string) ($line['item_name'] ?? '')));
+    $desc = strtolower(trim((string) ($line['description'] ?? '')));
+    $isPayment = $name === ''
+        || in_array($name, ['payment', 'part payment', 'receipt'], true)
+        || str_contains($desc, 'payment on')
+        || str_contains($desc, 'part payment');
+    if (!$isPayment) {
+        return $items;
+    }
+    $part = false;
+    $invNumber = '';
+    if ($relatedId) {
+        $inv = db_one(
+            'SELECT id, number, vat_rate, currency, kind FROM documents WHERE id = ? AND company_id = ?',
+            'ii',
+            [$relatedId, current_company_id()]
+        );
+        if ($inv) {
+            $invNumber = (string) $inv['number'];
+            $inv['items'] = db_all('SELECT * FROM document_items WHERE document_id = ? ORDER BY id', 'i', [(int) $inv['id']]);
+            $remainBefore = max(0, round((float) document_totals($inv)['total'] - invoice_paid((int) $inv['id'], $exceptReceiptId), 2));
+            $part = ($remainBefore - $alloc) > 0.009;
+        }
+    }
+    if ($invNumber !== '' && ($name === '' || in_array($name, ['payment', 'part payment', 'receipt'], true))) {
+        $line['item_name'] = $part ? 'Part payment' : 'Payment';
+        $line['description'] = ($part ? 'Part payment on ' : 'Payment on ') . $invNumber;
+    }
+    $line['qty'] = 1;
+    $line['unit'] = $line['unit'] ?? 'lot';
+    $line['rate'] = $alloc;
+    $line['taxed'] = 0;
+    return [$line];
+}
+
 function cap_receipt_allocation(float $alloc, ?int $relatedId, ?int $exceptReceiptId = null): float
 {
     if ($alloc <= 0 || !$relatedId) {
@@ -1023,6 +1086,9 @@ function update_document(int $id, array $data): void
             $alloc = doc_subtotal($items);
         }
         $alloc = cap_receipt_allocation($alloc, $related, $id);
+        if ($related) {
+            $items = sync_receipt_payment_lines($items, (float) $alloc, $related, $id);
+        }
     } else {
         $alloc = $doc['kind'] === 'expense' ? $alloc : null;
         if ($doc['kind'] !== 'expense') {
@@ -2714,8 +2780,11 @@ function receipt_settlement(array $doc): ?array
         $out['invoice_number'] = $rel['number'];
         $out['invoice_total'] = (float) (document_totals($rel)['total'] ?? 0);
         $out['invoice_paid'] = max(0, round($out['invoice_total'] - $remain, 2));
-        $out['invoice_balance'] = convert_money($remain, doc_currency($rel), doc_currency($doc));
-        $out['balance'] = 0.0;
+        $remainDoc = convert_money($remain, doc_currency($rel), doc_currency($doc));
+        // Keep remain on both keys so classic Amount due / Trade Balance / PDF
+        // can read either. Debtors lists still use receipt_due_amount() → 0.
+        $out['invoice_balance'] = $remainDoc;
+        $out['balance'] = $remainDoc;
         return $out;
     }
     if (!in_array($rel['kind'], ['invoice', 'expense'], true)) {
@@ -2730,8 +2799,9 @@ function receipt_settlement(array $doc): ?array
     $out['invoice_number'] = $rel['number'];
     $out['invoice_total'] = $total;
     $out['invoice_paid'] = $paid;
-    $out['invoice_balance'] = convert_money($remain, doc_currency($rel), doc_currency($doc));
-    $out['balance'] = 0.0;
+    $remainDoc = convert_money($remain, doc_currency($rel), doc_currency($doc));
+    $out['invoice_balance'] = $remainDoc;
+    $out['balance'] = $remainDoc;
     return $out;
 }
 
@@ -3431,8 +3501,11 @@ function attach_document_totals(array $rows): array
                     }
                     $remain = max(0, round($parentCharge - $parentCash - ($relPaid[$rid] ?? 0), 2));
                 }
-                $row['invoice_balance'] = convert_money($remain, $relCur[$rid] ?? doc_currency($row), doc_currency($row));
-                $row['balance'] = 0.0;
+                $remainDoc = convert_money($remain, $relCur[$rid] ?? doc_currency($row), doc_currency($row));
+                $row['invoice_balance'] = $remainDoc;
+                // List Due columns use receipt_due_amount() (0 for linked rows).
+                // Keep balance as remain so sheet hydration from list rows still works.
+                $row['balance'] = $remainDoc;
             }
         } else {
             $row['paid'] = 0;

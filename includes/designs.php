@@ -154,20 +154,28 @@ function sheet_received_amount(array $d): float
 
 function sheet_due_amount(array $d): float
 {
+    if (!sheet_is_receipt($d)) {
+        if (function_exists('document_due_amount') && isset($d['doc'])) {
+            return max(0, (float) document_due_amount($d['doc']));
+        }
+        return max(0, (float) ($d['balance'] ?? 0));
+    }
     $s = $d['settlement'] ?? [];
+    $doc = $d['doc'] ?? [];
     // Linked invoice/expense payments store remain on invoice_balance.
     // document_due_amount() returns 0 for those rows so debtors lists do not
-    // double-count; printed sheets still need the amount still due.
-    $parentDue = (float) ($s['invoice_balance'] ?? 0);
-    if ($parentDue > 0.009) {
-        return max(0, $parentDue);
-    }
+    // double-count; every printed sheet (classic Amount due, Trade Balance,
+    // thermal, PDF) still needs the amount still due.
+    $parentDue = (float) ($s['invoice_balance'] ?? $doc['invoice_balance'] ?? 0);
     $ownDue = (float) ($s['balance'] ?? 0);
-    if ($ownDue > 0.009) {
-        return max(0, $ownDue);
+    // Fallback when lines still show the invoice total but cash taken is less.
+    $gap = max(0, round((float) ($d['total'] ?? 0) - sheet_received_amount($d), 2));
+    $due = max($parentDue, $ownDue, $gap);
+    if ($due > 0.009) {
+        return $due;
     }
-    if (function_exists('document_due_amount') && isset($d['doc'])) {
-        return max(0, (float) document_due_amount($d['doc']));
+    if (function_exists('document_due_amount')) {
+        return max(0, (float) document_due_amount($doc));
     }
     return max(0, (float) ($d['balance'] ?? 0));
 }
