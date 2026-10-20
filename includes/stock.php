@@ -93,6 +93,7 @@ function stock_tabs(): array
     return [
         'items' => ['Items', 'package', 'stock.php?tab=items'],
         'counts' => ['Counts', 'hash', 'stock.php?tab=counts'],
+        'movements' => ['Movement', 'truck', 'stock.php?tab=movements'],
         'purchases' => ['Purchases', 'expense', 'purchases.php'],
         'reports' => ['Reports', 'reports', 'stock.php?tab=reports'],
     ];
@@ -2404,6 +2405,268 @@ function render_stock_sold_table(array $rows): void
 }
 
 /**
+ * Stock in / stock out for a date range, aggregated per item.
+ * Out rows include sell price, quantity, and profit (sold − cost).
+ *
+ * @return array{in: list<array<string, mixed>>, out: list<array<string, mixed>>, show_profit: bool}
+ */
+function stock_movements_summary(string $from, string $to): array
+{
+    $cid = current_company_id();
+    $showProfit = !function_exists('user_can_see_profit') || user_can_see_profit();
+    $empty = ['in' => [], 'out' => [], 'show_profit' => $showProfit];
+    if ($cid < 1) {
+        return $empty;
+    }
+    $types = 'iss';
+    $params = [$cid, $from, $to];
+    $bSql = '';
+    $moveHasBranch = function_exists('db_has_column') && db_has_column(db(), 'stock_moves', 'branch_id');
+    if ($moveHasBranch && function_exists('desk_branch_sql')) {
+        [$bSql, $bTypes, $bArgs] = desk_branch_sql('m.branch_id');
+        $types .= $bTypes;
+        $params = array_merge($params, $bArgs);
+    }
+    try {
+        $rows = db_all(
+            "SELECT m.id, m.item_id, m.kind, m.qty, m.unit_cost, m.document_id, m.note, m.created_at,
+                    s.name AS item_name, s.sku, s.sell_price, s.unit,
+                    COALESCE(d.date, DATE(m.created_at)) AS move_date,
+                    d.currency AS doc_currency,
+                    (
+                      SELECT i.rate FROM document_items i
+                      WHERE i.document_id = m.document_id AND i.stock_item_id = m.item_id
+                      ORDER BY i.id ASC LIMIT 1
+                    ) AS sell_rate
+             FROM stock_moves m
+             INNER JOIN stock_items s ON s.id = m.item_id AND s.company_id = m.company_id
+             LEFT JOIN documents d ON d.id = m.document_id AND d.company_id = m.company_id
+             WHERE m.company_id = ?
+               AND COALESCE(d.date, DATE(m.created_at)) >= ?
+               AND COALESCE(d.date, DATE(m.created_at)) <= ?" . $bSql . "
+             ORDER BY move_date DESC, m.id DESC",
+            $types,
+            $params
+        );
+    } catch (Throwable $e) {
+        error_log('stock_movements_summary: ' . $e->getMessage());
+        return $empty;
+    }
+    $base = default_currency();
+    $inBy = [];
+    $outBy = [];
+    foreach ($rows as $row) {
+        $itemId = (int) ($row['item_id'] ?? 0);
+        if ($itemId < 1) {
+            continue;
+        }
+        $qtySigned = (float) ($row['qty'] ?? 0);
+        $kind = (string) ($row['kind'] ?? '');
+        $isOut = in_array($kind, ['sale', 'out'], true) || ($kind === 'adjust' && $qtySigned < 0);
+        $isIn = in_array($kind, ['in'], true) || ($kind === 'adjust' && $qtySigned > 0);
+        if (!$isIn && !$isOut) {
+            // Unknown kinds: treat by sign.
+            $isOut = $qtySigned < 0;
+            $isIn = $qtySigned > 0;
+        }
+        $qty = abs($qtySigned);
+        if ($qty < 0.0001) {
+            continue;
+        }
+        $unitCost = (float) ($row['unit_cost'] ?? 0);
+        $fromCur = function_exists('normalize_currency')
+            ? normalize_currency((string) ($row['doc_currency'] ?? ''), $base)
+            : (string) ($row['doc_currency'] ?? $base);
+        $costLine = $qty * $unitCost;
+        if (function_exists('convert_money') && ($row['doc_currency'] ?? '') !== '') {
+            $costLine = convert_money($costLine, $fromCur, $base);
+            $unitCost = $qty > 0 ? round($costLine / $qty, 4) : $unitCost;
+        }
+        $name = (string) ($row['item_name'] ?? 'Item');
+        $sku = (string) ($row['sku'] ?? '');
+        $unit = (string) ($row['unit'] ?? 'pc');
+        if ($isIn) {
+            if (!isset($inBy[$itemId])) {
+                $inBy[$itemId] = [
+                    'item_id' => $itemId,
+                    'name' => $name,
+                    'sku' => $sku,
+                    'unit' => $unit,
+                    'qty' => 0.0,
+                    'cost_total' => 0.0,
+                ];
+            }
+            $inBy[$itemId]['qty'] += $qty;
+            $inBy[$itemId]['cost_total'] += $costLine;
+            continue;
+        }
+        if ($isOut) {
+            $sellUnit = (float) ($row['sell_rate'] ?? 0);
+            if ($sellUnit <= 0.0001) {
+                $sellUnit = (float) ($row['sell_price'] ?? 0);
+            }
+            $soldLine = $qty * $sellUnit;
+            if (function_exists('convert_money') && ($row['doc_currency'] ?? '') !== '') {
+                $soldLine = convert_money($soldLine, $fromCur, $base);
+                $sellUnit = $qty > 0 ? round($soldLine / $qty, 4) : $sellUnit;
+            }
+            if (!isset($outBy[$itemId])) {
+                $outBy[$itemId] = [
+                    'item_id' => $itemId,
+                    'name' => $name,
+                    'sku' => $sku,
+                    'unit' => $unit,
+                    'qty' => 0.0,
+                    'sold_total' => 0.0,
+                    'cost_total' => 0.0,
+                ];
+            }
+            $outBy[$itemId]['qty'] += $qty;
+            $outBy[$itemId]['sold_total'] += $soldLine;
+            $outBy[$itemId]['cost_total'] += $costLine;
+        }
+    }
+    $in = [];
+    foreach ($inBy as $row) {
+        $q = (float) $row['qty'];
+        $cost = round((float) $row['cost_total'], 2);
+        $in[] = [
+            'item_id' => (int) $row['item_id'],
+            'name' => (string) $row['name'],
+            'sku' => (string) $row['sku'],
+            'unit' => (string) $row['unit'],
+            'qty' => round($q, 2),
+            'unit_price' => $q > 0.0001 ? round($cost / $q, 2) : 0.0,
+            'total' => $cost,
+        ];
+    }
+    usort($in, static fn ($a, $b) => $b['total'] <=> $a['total']);
+    $out = [];
+    foreach ($outBy as $row) {
+        $q = (float) $row['qty'];
+        $sold = round((float) $row['sold_total'], 2);
+        $cost = round((float) $row['cost_total'], 2);
+        $out[] = [
+            'item_id' => (int) $row['item_id'],
+            'name' => (string) $row['name'],
+            'sku' => (string) $row['sku'],
+            'unit' => (string) $row['unit'],
+            'qty' => round($q, 2),
+            'sell_price' => $q > 0.0001 ? round($sold / $q, 2) : 0.0,
+            'sold_total' => $sold,
+            'cost_total' => $cost,
+            'profit' => round($sold - $cost, 2),
+        ];
+    }
+    usort($out, static fn ($a, $b) => $b['profit'] <=> $a['profit']);
+    return ['in' => $in, 'out' => $out, 'show_profit' => $showProfit];
+}
+
+function render_stock_movements_tab(array $summary): void
+{
+    $in = $summary['in'] ?? [];
+    $out = $summary['out'] ?? [];
+    $showProfit = !empty($summary['show_profit']);
+    $inQty = 0.0;
+    $inTotal = 0.0;
+    foreach ($in as $row) {
+        $inQty += (float) ($row['qty'] ?? 0);
+        $inTotal += (float) ($row['total'] ?? 0);
+    }
+    $outQty = 0.0;
+    $outSold = 0.0;
+    $outProfit = 0.0;
+    foreach ($out as $row) {
+        $outQty += (float) ($row['qty'] ?? 0);
+        $outSold += (float) ($row['sold_total'] ?? 0);
+        $outProfit += (float) ($row['profit'] ?? 0);
+    }
+    ?>
+<div class="stats stock-stats">
+  <div class="card stat"><?= icon('plus', 20) ?><span>Stock in</span><strong><?= h(function_exists('format_qty') ? format_qty($inQty) : (string) $inQty) ?></strong></div>
+  <div class="card stat"><?= icon('expense', 20) ?><span>In value</span><strong><?= h(money($inTotal)) ?></strong></div>
+  <div class="card stat"><?= icon('cart', 20) ?><span>Stock out</span><strong><?= h(function_exists('format_qty') ? format_qty($outQty) : (string) $outQty) ?></strong></div>
+  <?php if ($showProfit): ?>
+  <div class="card stat"><?= icon('reports', 20) ?><span>Profit on out</span><strong><?= h(money($outProfit)) ?></strong></div>
+  <?php else: ?>
+  <div class="card stat"><?= icon('invoice', 20) ?><span>Sold value</span><strong><?= h(money($outSold)) ?></strong></div>
+  <?php endif; ?>
+</div>
+
+<div class="desk-grid stock-split stock-movement-tables">
+  <div class="card">
+    <div class="card-head"><h2><?= icon('plus', 16) ?>Stock in</h2></div>
+    <?php if (!$in): ?>
+      <p class="empty">No stock in for this period. Purchases and opening qty land here.</p>
+    <?php else: ?>
+      <div class="table-scroll">
+        <table class="grid">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th class="right">Qty</th>
+              <th class="right">Unit price</th>
+              <th class="right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($in as $row): ?>
+              <tr>
+                <td>
+                  <?= h((string) ($row['name'] ?? '')) ?>
+                  <?php if (($row['sku'] ?? '') !== ''): ?><div class="muted mono" style="font-size:12px"><?= h((string) $row['sku']) ?></div><?php endif; ?>
+                </td>
+                <td class="right mono"><?= h(function_exists('format_qty_with_unit') ? format_qty_with_unit($row['qty'] ?? 0, $row['unit'] ?? null) : (function_exists('format_qty') ? format_qty($row['qty'] ?? 0) : (string) ($row['qty'] ?? 0))) ?></td>
+                <td class="right mono"><?= h(money((float) ($row['unit_price'] ?? 0))) ?></td>
+                <td class="right mono"><?= h(money((float) ($row['total'] ?? 0))) ?></td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    <?php endif; ?>
+  </div>
+  <div class="card">
+    <div class="card-head"><h2><?= icon('cart', 16) ?>Stock out</h2></div>
+    <?php if (!$out): ?>
+      <p class="empty">No stock out for this period. Till sales and invoices that reduce stock show here.</p>
+    <?php else: ?>
+      <div class="table-scroll">
+        <table class="grid">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th class="right">Qty</th>
+              <th class="right">Price sold</th>
+              <th class="right">Sold</th>
+              <?php if ($showProfit): ?><th class="right">Profit</th><?php endif; ?>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($out as $row): ?>
+              <tr>
+                <td>
+                  <?= h((string) ($row['name'] ?? '')) ?>
+                  <?php if (($row['sku'] ?? '') !== ''): ?><div class="muted mono" style="font-size:12px"><?= h((string) $row['sku']) ?></div><?php endif; ?>
+                </td>
+                <td class="right mono"><?= h(function_exists('format_qty_with_unit') ? format_qty_with_unit($row['qty'] ?? 0, $row['unit'] ?? null) : (function_exists('format_qty') ? format_qty($row['qty'] ?? 0) : (string) ($row['qty'] ?? 0))) ?></td>
+                <td class="right mono"><?= h(money((float) ($row['sell_price'] ?? 0))) ?></td>
+                <td class="right mono"><?= h(money((float) ($row['sold_total'] ?? 0))) ?></td>
+                <?php if ($showProfit): ?>
+                  <td class="right mono"><?= h(money((float) ($row['profit'] ?? 0))) ?></td>
+                <?php endif; ?>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    <?php endif; ?>
+  </div>
+</div>
+    <?php
+}
+
+/**
  * Daily units + ticket counts for POS stock reports (invoices + standalone receipts).
  *
  * @return array<string, array{units: float, tickets: int, revenue: float}>
@@ -2482,11 +2745,13 @@ function stock_reports_analytics(string $from, string $to): array
     $dayUnits = [];
     $dayTickets = [];
     $dayProfit = [];
+    $dayNet = [];
     foreach ($days as $date => $row) {
         $dayLabels[] = format_date((string) $date);
         $dayIncome[] = round((float) ($row['income'] ?? 0), 2);
         $dayExpense[] = round((float) ($row['expense'] ?? 0), 2);
         $dayProfit[] = round((float) ($row['profit'] ?? 0), 2);
+        $dayNet[] = round((float) ($row['net'] ?? 0), 2);
         $hit = $dailySold[(string) $date] ?? ['units' => 0.0, 'tickets' => 0];
         $dayUnits[] = round((float) $hit['units'], 2);
         $dayTickets[] = (int) $hit['tickets'];
@@ -2496,11 +2761,13 @@ function stock_reports_analytics(string $from, string $to): array
     $monthIncome = [];
     $monthExpense = [];
     $monthProfit = [];
+    $monthNet = [];
     foreach ($months as $m => $row) {
         $monthLabels[] = (string) $m;
         $monthIncome[] = round((float) ($row['income'] ?? 0), 2);
         $monthExpense[] = round((float) ($row['expense'] ?? 0), 2);
         $monthProfit[] = round((float) ($row['profit'] ?? 0), 2);
+        $monthNet[] = round((float) ($row['net'] ?? 0), 2);
     }
 
     $topRev = array_slice($sold, 0, 10);
@@ -2535,6 +2802,9 @@ function stock_reports_analytics(string $from, string $to): array
     $tickets = array_sum(array_map(static fn ($d) => (int) ($d['tickets'] ?? 0), $dailySold));
     $revenue = (float) ($totals['income'] ?? 0);
     $cogs = (float) ($totals['cogs'] ?? 0);
+    $expenseTotal = (float) ($totals['expense'] ?? 0);
+    $grossProfit = (float) ($totals['profit'] ?? round($revenue - $cogs, 2));
+    $netProfit = (float) ($totals['net'] ?? round($grossProfit - $expenseTotal, 2));
     $avgTicket = $tickets > 0 ? round($revenue / $tickets, 2) : 0.0;
     $margin = $revenue > 0.009 ? round((($revenue - $cogs) / $revenue) * 100, 1) : 0.0;
 
@@ -2581,6 +2851,9 @@ function stock_reports_analytics(string $from, string $to): array
             'units' => round($unitsTotal, 2),
             'tickets' => (int) $tickets,
             'avg_ticket' => $avgTicket,
+            'profit' => round($grossProfit, 2),
+            'expenses' => round($expenseTotal, 2),
+            'net_profit' => round($netProfit, 2),
             'cogs' => round($cogs, 2),
             'margin_pct' => $margin,
             'skus' => count($sold),
@@ -2593,6 +2866,7 @@ function stock_reports_analytics(string $from, string $to): array
             'income' => $dayIncome,
             'expense' => $dayExpense,
             'profit' => $dayProfit,
+            'net' => $dayNet,
             'units' => $dayUnits,
             'tickets' => $dayTickets,
         ],
@@ -2601,6 +2875,7 @@ function stock_reports_analytics(string $from, string $to): array
             'income' => $monthIncome,
             'expense' => $monthExpense,
             'profit' => $monthProfit,
+            'net' => $monthNet,
         ],
         'top_revenue' => [
             'labels' => array_map(static fn ($r) => (string) ($r['name'] ?? ''), $topRev),
@@ -2649,13 +2924,28 @@ function render_stock_reports_tab(array $analytics): void
   <div class="card stat"><?= icon('invoice', 20) ?><span>Sales</span><strong><?= h(money((float) ($k['revenue'] ?? 0))) ?></strong></div>
   <div class="card stat"><?= icon('cart', 20) ?><span>Tickets</span><strong><?= (int) ($k['tickets'] ?? 0) ?></strong></div>
   <div class="card stat"><?= icon('package', 20) ?><span>Units sold</span><strong><?= h(function_exists('format_qty') ? format_qty($k['units'] ?? 0) : (string) ($k['units'] ?? 0)) ?></strong></div>
-  <div class="card stat"><?= icon('bank', 20) ?><span>Avg ticket</span><strong><?= h(money((float) ($k['avg_ticket'] ?? 0))) ?></strong></div>
   <?php if ($showProfit): ?>
-  <div class="card stat"><?= icon('reports', 20) ?><span>Margin</span><strong><?= h(number_format((float) ($k['margin_pct'] ?? 0), 1)) ?>%</strong></div>
+  <div class="card stat"><?= icon('reports', 20) ?><span>Profit</span><strong><?= h(money((float) ($k['profit'] ?? 0))) ?></strong></div>
+  <div class="card stat"><?= icon('bank', 20) ?><span>Net profit</span><strong><?= h(money((float) ($k['net_profit'] ?? 0))) ?></strong></div>
   <div class="card stat"><?= icon('expense', 20) ?><span>COGS</span><strong><?= h(money((float) ($k['cogs'] ?? 0))) ?></strong></div>
+  <?php else: ?>
+  <div class="card stat"><?= icon('bank', 20) ?><span>Avg ticket</span><strong><?= h(money((float) ($k['avg_ticket'] ?? 0))) ?></strong></div>
   <?php endif; ?>
+  <div class="card stat"><?= icon('wallet', 20) ?><span>Expenses</span><strong><?= h(money((float) ($k['expenses'] ?? 0))) ?></strong></div>
   <div class="card stat"><?= icon('alert', 20) ?><span>Low stock</span><strong><?= (int) ($k['low'] ?? 0) ?></strong></div>
-  <div class="card stat"><?= icon('hash', 20) ?><span>SKUs sold</span><strong><?= (int) ($k['skus'] ?? 0) ?></strong></div>
+</div>
+
+<div class="chart-grid stock-report-charts<?= $showProfit ? '' : ' equal' ?>">
+  <?php if ($showProfit): ?>
+  <div class="card chart-box">
+    <div class="card-head"><h2><?= icon('reports', 16) ?>Profit</h2></div>
+    <div class="chart-frame"><canvas id="chart-stock-profit" aria-label="Gross and net profit chart"></canvas></div>
+  </div>
+  <?php endif; ?>
+  <div class="card chart-box">
+    <div class="card-head"><h2><?= icon('wallet', 16) ?>Expenses</h2></div>
+    <div class="chart-frame"><canvas id="chart-stock-expenses" aria-label="Expenses chart"></canvas></div>
+  </div>
 </div>
 
 <div class="chart-grid stock-report-charts">

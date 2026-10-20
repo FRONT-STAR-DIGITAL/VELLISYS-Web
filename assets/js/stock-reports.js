@@ -193,6 +193,44 @@
     var weekday = boot.weekday || {};
     var mix = boot.mix || {};
     var color = brand(boot);
+    var showProfit = !!boot.show_profit;
+
+    line(boot, 'chart-stock-profit', days.labels || [], [
+      {
+        label: 'Gross profit',
+        data: days.profit || [],
+        borderColor: color,
+        backgroundColor: softFill(color, 0.2),
+        tension: 0.35,
+        fill: 'origin',
+        borderWidth: 2,
+        pointRadius: 2
+      },
+      {
+        label: 'Net profit',
+        data: days.net || [],
+        borderColor: '#08143A',
+        backgroundColor: 'transparent',
+        tension: 0.35,
+        fill: false,
+        borderWidth: 2,
+        pointRadius: 2,
+        borderDash: [5, 3]
+      }
+    ], true);
+
+    line(boot, 'chart-stock-expenses', days.labels || [], [
+      {
+        label: 'Expenses',
+        data: days.expense || [],
+        borderColor: '#64748b',
+        backgroundColor: softFill('#64748b', 0.18),
+        tension: 0.35,
+        fill: 'origin',
+        borderWidth: 2,
+        pointRadius: 2
+      }
+    ], true);
 
     line(boot, 'chart-stock-daily', days.labels || [], [
       {
@@ -215,8 +253,8 @@
         borderWidth: 2,
         pointRadius: 2
       }
-    ].concat(boot.show_profit ? [{
-      label: 'Profit',
+    ].concat(showProfit ? [{
+      label: 'Gross profit',
       data: days.profit || [],
       borderColor: '#08143A',
       backgroundColor: 'transparent',
