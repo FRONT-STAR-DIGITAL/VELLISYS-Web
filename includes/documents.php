@@ -3501,11 +3501,11 @@ function attach_document_totals(array $rows): array
                     }
                     $remain = max(0, round($parentCharge - $parentCash - ($relPaid[$rid] ?? 0), 2));
                 }
-                $remainDoc = convert_money($remain, $relCur[$rid] ?? doc_currency($row), doc_currency($row));
-                $row['invoice_balance'] = $remainDoc;
-                // List Due columns use receipt_due_amount() (0 for linked rows).
-                // Keep balance as remain so sheet hydration from list rows still works.
-                $row['balance'] = $remainDoc;
+                $row['invoice_balance'] = convert_money($remain, $relCur[$rid] ?? doc_currency($row), doc_currency($row));
+                // Keep list balance at 0 for linked payments so footers/sums do not
+                // stack the same invoice remain on every receipt row. Sheets use
+                // receipt_settlement() / invoice_balance instead.
+                $row['balance'] = 0.0;
             }
         } else {
             $row['paid'] = 0;
