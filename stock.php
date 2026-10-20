@@ -129,7 +129,9 @@ layout_start('Stock', $user);
   <div>
     <h1><?= icon('package') ?>Stock</h1>
     <p class="lede"><?php if ($tab === 'reports'): ?>
-      POS analytics for this stock desk - daily sales, top products, mix and inventory health.
+      POS analytics for this stock desk - profit, expenses, daily sales, top products and inventory health.
+    <?php elseif ($tab === 'movements'): ?>
+      Stock in and stock out for the period, with prices, quantities and profit on what left the shelf.
     <?php else: ?>
       Products and services. Counts and stock value cover goods only. Restock on Purchases. Sales and invoices can pick either.
     <?php endif; ?><?= function_exists('desk_branch_lede') ? h(desk_branch_lede('stock')) : '' ?></p>
@@ -141,6 +143,9 @@ layout_start('Stock', $user);
     <?php endif; ?>
     <?php if ($tab !== 'reports'): ?>
       <a class="btn ghost" href="<?= h(url('stock.php?tab=reports')) ?>"><?= icon('reports', 16) ?>Reports</a>
+    <?php endif; ?>
+    <?php if ($tab !== 'movements'): ?>
+      <a class="btn ghost" href="<?= h(url('stock.php?tab=movements')) ?>"><?= icon('truck', 16) ?>Movement</a>
     <?php endif; ?>
     <?php if (stock_can_buy()): ?>
     <a class="btn ghost" href="<?= h(url('purchases.php')) ?>"><?= icon('expense', 16) ?>Purchases</a>
@@ -403,7 +408,15 @@ layout_start('Stock', $user);
   <?php endif; ?>
 </div>
 
-<?php elseif ($tab === 'reports'):
+<?php elseif ($tab === 'movements'):
+    $period = period_range_for_charts('this_month');
+    $from = (string) $period['from'];
+    $to = (string) $period['to'];
+    $movements = stock_movements_summary($from, $to);
+    $keep = array_merge(['tab' => 'movements'], function_exists('desk_branch_keep') ? desk_branch_keep() : []);
+    render_filters('stock.php', $keep, ['no_all' => true, 'live' => true]);
+    render_stock_movements_tab($movements);
+elseif ($tab === 'reports'):
     $period = period_range_for_charts('this_month');
     $from = (string) $period['from'];
     $to = (string) $period['to'];
