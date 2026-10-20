@@ -81,10 +81,6 @@ $months = month_axis(12);
 $statusCounts = ['onboarding' => 0, 'live' => 0, 'suspended' => 0];
 $expiryCounts = ['ok' => 0, 'soon' => 0, 'expired' => 0, 'none' => 0];
 $companyMonths = array_fill_keys($months, 0);
-$totalFee = 0.0;
-$totalPaid = 0.0;
-$totalBalance = 0.0;
-$totalRemaining = 0.0;
 $feeNames = [];
 $feePaidSeries = [];
 $feeBalSeries = [];
@@ -97,14 +93,20 @@ foreach ($companies as $c) {
     if (isset($companyMonths[$createdYm])) {
         $companyMonths[$createdYm]++;
     }
-    $totalFee += company_fee_ugx($c, 'amount');
-    $totalPaid += company_fee_ugx($c, 'paid');
-    $totalBalance += company_fee_ugx($c, 'balance');
-    $totalRemaining += company_fee_ugx($c, 'remaining');
+    // Per-company series in platform currency (same path as Finances).
+    $fromCcy = company_fee_currency($c);
     $feeNames[] = (string) $c['name'];
-    $feePaidSeries[] = platform_convert(company_fee_ugx($c, 'paid'), 'USD');
-    $feeBalSeries[] = platform_convert(company_fee_ugx($c, 'balance'), 'USD');
+    $feePaidSeries[] = platform_convert(company_fee_paid($c), $fromCcy);
+    $feeBalSeries[] = platform_convert(company_fee_balance($c), $fromCcy);
 }
+$feeTotals = function_exists('platform_companies_fee_totals')
+    ? platform_companies_fee_totals($companies)
+    : ['paid' => 0.0, 'balance' => 0.0, 'amount' => 0.0, 'remaining' => 0.0, 'currency' => platform_currency()];
+$totalFee = (float) ($feeTotals['amount'] ?? 0);
+$totalPaid = (float) ($feeTotals['paid'] ?? 0);
+$totalBalance = (float) ($feeTotals['balance'] ?? 0);
+$totalRemaining = (float) ($feeTotals['remaining'] ?? 0);
+$reportCcy = (string) ($feeTotals['currency'] ?? platform_currency());
 
 $signupMonths = array_fill_keys($months, 0);
 $signupStatus = ['new' => 0, 'contacted' => 0, 'onboarded' => 0, 'declined' => 0];
@@ -243,10 +245,10 @@ $row = static function (array $c) use ($expiryCell, $previewId): void {
   <div class="card stat"><?= icon('ban', 20) ?><span>Expired</span><strong><?= count($expired) ?></strong></div>
 </div>
 <div class="stats">
-  <div class="card stat"><?= icon('bank', 20) ?><span>Fees collected</span><strong><?= h(platform_money($totalPaid, 'USD')) ?></strong></div>
-  <div class="card stat"><?= icon('invoice', 20) ?><span>Fee balances</span><strong><?= h(platform_money($totalBalance, 'USD')) ?></strong></div>
+  <div class="card stat"><?= icon('bank', 20) ?><span>Fees collected</span><strong><?= h(money($totalPaid, $reportCcy)) ?></strong></div>
+  <div class="card stat"><?= icon('invoice', 20) ?><span>Fee balances</span><strong><?= h(money($totalBalance, $reportCcy)) ?></strong></div>
 </div>
-<p class="hint" style="margin:-12px 0 20px"><?= $withTerm ?> of <?= count($companies) ?> <?= count($companies) === 1 ? 'company has' : 'companies have' ?> a paid term on file. Unused term value <?= h(platform_money($totalRemaining, 'USD')) ?>. Open Finances for money in over time. Figures follow the currency in Settings.</p>
+<p class="hint" style="margin:-12px 0 20px"><?= $withTerm ?> of <?= count($companies) ?> <?= count($companies) === 1 ? 'company has' : 'companies have' ?> a paid term on file. Unused term value <?= h(money($totalRemaining, $reportCcy)) ?>. Same figures as Finances Taken in and Still due. Figures follow the currency in Settings.</p>
 
 <div class="page-head" style="margin-top:8px">
   <div>

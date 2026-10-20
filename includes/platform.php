@@ -49,31 +49,44 @@ function platform_money(float $amount, string $from = 'USD'): string
 }
 
 /**
- * Sum ledger rows in platform currency from original amount+currency.
- * Avoids UGX→USD→UGX round-trip drift on amount_usd (e.g. 200,000 → 200,022).
+ * All-time fee totals from company settings, in platform currency.
+ * Same source for Reports (Fees collected / Fee balances) and Finances (Taken in / Still due).
  *
- * @return float Total in platform_currency()
+ * @return array{paid: float, balance: float, amount: float, remaining: float, currency: string}
  */
+function platform_companies_fee_totals(?array $companies = null): array
+{
+    $ccy = platform_currency();
+    $out = ['paid' => 0.0, 'balance' => 0.0, 'amount' => 0.0, 'remaining' => 0.0, 'currency' => $ccy];
+    if ($companies === null) {
+        try {
+            $companies = db_all('SELECT fee_amount, fee_paid, fee_currency, paid_term, paid_unit, paid_from, expires_at FROM companies');
+        } catch (Throwable $e) {
+            return $out;
+        }
+    }
+    foreach ($companies as $c) {
+        $from = company_fee_currency($c);
+        $out['paid'] += platform_convert(company_fee_paid($c), $from, $ccy);
+        $out['balance'] += platform_convert(company_fee_balance($c), $from, $ccy);
+        $out['amount'] += platform_convert(company_fee_amount($c), $from, $ccy);
+        if (function_exists('company_remaining_value')) {
+            $out['remaining'] += platform_convert(company_remaining_value($c), $from, $ccy);
+        }
+    }
+    $out['paid'] = round_money($out['paid'], $ccy);
+    $out['balance'] = round_money($out['balance'], $ccy);
+    $out['amount'] = round_money($out['amount'], $ccy);
+    $out['remaining'] = round_money($out['remaining'], $ccy);
+    return $out;
+}
+
 /**
  * All-time taken in from company Amount paid fields (source of truth for settings).
  */
 function platform_fee_sum_from_companies(): float
 {
-    $ccy = platform_currency();
-    try {
-        $rows = db_all('SELECT fee_paid, fee_currency FROM companies WHERE COALESCE(fee_paid, 0) > 0');
-    } catch (Throwable $e) {
-        return 0.0;
-    }
-    $total = 0.0;
-    foreach ($rows as $r) {
-        $total += platform_convert(
-            (float) ($r['fee_paid'] ?? 0),
-            (string) (($r['fee_currency'] ?? '') !== '' ? $r['fee_currency'] : 'USD'),
-            $ccy
-        );
-    }
-    return round_money($total, $ccy);
+    return (float) (platform_companies_fee_totals()['paid'] ?? 0.0);
 }
 
 function platform_fee_sum(?string $fromDate = null, ?string $toDate = null): float
