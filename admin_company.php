@@ -370,9 +370,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
             $fresh = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$id]);
             company_mark_onboard_step($id, 'paid_term');
-            $delta = $feePaid - company_fee_paid($company);
-            if ($delta > 0.009) {
-                record_platform_fee($id, $delta, $feeCurrency, 'term', 'Paid term for ' . $company['name']);
+            // Align Finances Taken in with Amount paid on this company (not only positive deltas).
+            if (function_exists('sync_company_fee_ledger')) {
+                sync_company_fee_ledger($id, $feePaid, $feeCurrency, 'Paid term for ' . $company['name']);
             }
             $note = $company['name'] . ' is paid for ' . format_paid_term_number($term) . ' ' . $unit . ', until ' . format_date($expires) . '.';
             if ($sendReceipt) {

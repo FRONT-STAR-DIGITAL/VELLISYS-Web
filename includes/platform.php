@@ -54,9 +54,35 @@ function platform_money(float $amount, string $from = 'USD'): string
  *
  * @return float Total in platform_currency()
  */
+/**
+ * All-time taken in from company Amount paid fields (source of truth for settings).
+ */
+function platform_fee_sum_from_companies(): float
+{
+    $ccy = platform_currency();
+    try {
+        $rows = db_all('SELECT fee_paid, fee_currency FROM companies WHERE COALESCE(fee_paid, 0) > 0');
+    } catch (Throwable $e) {
+        return 0.0;
+    }
+    $total = 0.0;
+    foreach ($rows as $r) {
+        $total += platform_convert(
+            (float) ($r['fee_paid'] ?? 0),
+            (string) (($r['fee_currency'] ?? '') !== '' ? $r['fee_currency'] : 'USD'),
+            $ccy
+        );
+    }
+    return round_money($total, $ccy);
+}
+
 function platform_fee_sum(?string $fromDate = null, ?string $toDate = null): float
 {
     $ccy = platform_currency();
+    // All-time matches company settings Amount paid (not a stale ledger total).
+    if ($fromDate === null && $toDate === null) {
+        return platform_fee_sum_from_companies();
+    }
     $sql = 'SELECT currency, COALESCE(SUM(amount),0) AS t FROM platform_fee_ledger';
     $types = '';
     $params = [];
@@ -245,7 +271,9 @@ function touch_user_seen(int $userId, bool $login = false): void
 
 function record_platform_fee(int $companyId, float $amount, string $currency, string $source, string $note = '', ?string $when = null): void
 {
-    if ($amount <= 0.009) {
+    $amount = round($amount, 2);
+    // Allow negative rows so Amount paid reductions stay in sync with Finances.
+    if (abs($amount) <= 0.009) {
         return;
     }
     $currency = normalize_currency($currency, 'USD');
@@ -263,6 +291,55 @@ function record_platform_fee(int $companyId, float $amount, string $currency, st
     } catch (Throwable $e) {
         error_log('Vellisys fee ledger: ' . $e->getMessage());
     }
+}
+
+/** Ledger total for one company, converted into $currency. */
+function platform_company_fee_ledger_total(int $companyId, string $currency = 'USD'): float
+{
+    if ($companyId < 1) {
+        return 0.0;
+    }
+    $currency = normalize_currency($currency, 'USD');
+    try {
+        $rows = db_all(
+            'SELECT amount, currency FROM platform_fee_ledger WHERE company_id = ?',
+            'i',
+            [$companyId]
+        );
+    } catch (Throwable $e) {
+        return 0.0;
+    }
+    $total = 0.0;
+    foreach ($rows as $r) {
+        $total += platform_convert(
+            (float) ($r['amount'] ?? 0),
+            (string) (($r['currency'] ?? '') !== '' ? $r['currency'] : 'USD'),
+            $currency
+        );
+    }
+    return round($total, 2);
+}
+
+/**
+ * Keep platform_fee_ledger aligned with companies.fee_paid (Amount paid on company settings).
+ * Inserts the missing difference (positive or negative) so period Taken in updates too.
+ */
+function sync_company_fee_ledger(int $companyId, float $targetPaid, string $currency, string $note = ''): void
+{
+    if ($companyId < 1) {
+        return;
+    }
+    $currency = normalize_currency($currency, 'USD');
+    $targetPaid = max(0.0, round($targetPaid, 2));
+    $ledger = platform_company_fee_ledger_total($companyId, $currency);
+    $delta = round($targetPaid - $ledger, 2);
+    if (abs($delta) <= 0.009) {
+        return;
+    }
+    if ($note === '') {
+        $note = $delta > 0 ? 'Amount paid updated' : 'Amount paid reduced';
+    }
+    record_platform_fee($companyId, $delta, $currency, 'term', $note);
 }
 
 /** Saved expense names for reuse (datalist). */

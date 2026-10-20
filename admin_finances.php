@@ -138,7 +138,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'dsssddsi',
                         [$term, $unit, $paidFrom, $expires, $feeAmount, $newPaid, $feeCurrency, $cid]
                     );
-                    record_platform_fee($cid, $payAmount, $feeCurrency, 'term', 'Payment for ' . $co['name']);
+                    if (function_exists('sync_company_fee_ledger')) {
+                        sync_company_fee_ledger($cid, $newPaid, $feeCurrency, 'Payment for ' . $co['name']);
+                    } else {
+                        record_platform_fee($cid, $payAmount, $feeCurrency, 'term', 'Payment for ' . $co['name']);
+                    }
                     company_mark_onboard_step($cid, 'paid_term');
                     company_mark_onboard_step($cid, 'package_paid');
                     flash(
