@@ -2443,6 +2443,75 @@ function sales_testing_active_count(?int $agentId = null): int
     }
 }
 
+/**
+ * When a lead became a sale (first onboarded event), else updated_at if already onboarded.
+ * Used so period filters count the close date — not the original lead created_at.
+ */
+function sales_lead_sold_at_sql(string $leadAlias = 'l'): string
+{
+    return "COALESCE(
+        (SELECT MIN(e.created_at) FROM sales_lead_events e
+          WHERE e.lead_id = {$leadAlias}.id
+            AND (e.to_status = 'onboarded' OR e.event_type = 'onboarded')),
+        CASE WHEN {$leadAlias}.status = 'onboarded' THEN {$leadAlias}.updated_at ELSE NULL END
+    )";
+}
+
+/** Onboarded clients (sales) whose close date falls in [$from, $to]. */
+function sales_onboarded_count(?int $agentId, string $from, string $to): int
+{
+    $soldAt = sales_lead_sold_at_sql('l');
+    $where = "l.status = 'onboarded' AND DATE({$soldAt}) >= ? AND DATE({$soldAt}) <= ?";
+    $types = 'ss';
+    $params = [$from, $to];
+    if ($agentId) {
+        $where .= ' AND l.agent_id = ?';
+        $types .= 'i';
+        $params[] = $agentId;
+    }
+    try {
+        $row = db_one("SELECT COUNT(*) AS n FROM sales_leads l WHERE {$where}", $types, $params);
+        return (int) ($row['n'] ?? 0);
+    } catch (Throwable $e) {
+        // Events table missing: fall back to status + updated_at.
+        $where = "status = 'onboarded' AND DATE(updated_at) >= ? AND DATE(updated_at) <= ?";
+        $types = 'ss';
+        $params = [$from, $to];
+        if ($agentId) {
+            $where .= ' AND agent_id = ?';
+            $types .= 'i';
+            $params[] = $agentId;
+        }
+        try {
+            $row = db_one("SELECT COUNT(*) AS n FROM sales_leads WHERE {$where}", $types, $params);
+            return (int) ($row['n'] ?? 0);
+        } catch (Throwable $e2) {
+            return 0;
+        }
+    }
+}
+
+/** All-time onboarded clients per agent (Top performers Sales column). */
+function sales_onboarded_total(?int $agentId = null): int
+{
+    $where = "status = 'onboarded'";
+    $types = '';
+    $params = [];
+    if ($agentId) {
+        $where .= ' AND agent_id = ?';
+        $types = 'i';
+        $params[] = $agentId;
+    }
+    try {
+        $row = $types === ''
+            ? db_one("SELECT COUNT(*) AS n FROM sales_leads WHERE {$where}")
+            : db_one("SELECT COUNT(*) AS n FROM sales_leads WHERE {$where}", $types, $params);
+        return (int) ($row['n'] ?? 0);
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
 function sales_stats(?int $agentId, string $from, string $to): array
 {
     // Soft-deleted rejected leads still count in reports.
@@ -2468,8 +2537,9 @@ function sales_stats(?int $agentId, string $from, string $to): array
         $by[$key] = (int) $r['n'];
     }
     $reach = array_sum($by);
-    // A sale is an onboarded client only (onboarding is not a sale yet).
-    $sales = $by['onboarded'];
+    // A sale is an onboarded client, counted on the day they were onboarded.
+    $sales = sales_onboarded_count($agentId, $from, $to);
+    $by['onboarded'] = $sales;
     $onTest = sales_testing_count($agentId, $from, $to);
     return [
         'by_status' => $by,
@@ -2480,7 +2550,7 @@ function sales_stats(?int $agentId, string $from, string $to): array
         'follow_up' => $by['follow_up'],
         'rejected' => $by['rejected'],
         'onboarding' => $by['onboarding'],
-        'onboarded' => $by['onboarded'],
+        'onboarded' => $sales,
         'on_test' => $onTest,
         'testing' => $onTest,
         'testing_active' => sales_testing_active_count($agentId),
@@ -2940,12 +3010,44 @@ function sales_series(?int $agentId, string $from, string $to): array
         $st = (string) $r['status'];
         $n = (int) $r['n'];
         $out[$d]['reach'] += $n;
+        if ($st === 'onboarded') {
+            // Sales/onboarded are filled from close-date query below — skip created_at bucket.
+            continue;
+        }
         if (isset($out[$d][$st])) {
             $out[$d][$st] += $n;
         }
-        if ($st === 'onboarded') {
+    }
+    // Sales by the day the client was onboarded (not lead created_at).
+    $soldAt = sales_lead_sold_at_sql('l');
+    $soldWhere = "l.status = 'onboarded' AND DATE({$soldAt}) >= ? AND DATE({$soldAt}) <= ?";
+    $soldTypes = 'ss';
+    $soldParams = [$from, $to];
+    if ($agentId) {
+        $soldWhere .= ' AND l.agent_id = ?';
+        $soldTypes .= 'i';
+        $soldParams[] = $agentId;
+    }
+    try {
+        $soldRows = db_all(
+            "SELECT DATE({$soldAt}) d, COUNT(*) n FROM sales_leads l WHERE {$soldWhere} GROUP BY DATE({$soldAt})",
+            $soldTypes,
+            $soldParams
+        );
+        foreach ($soldRows as $sr) {
+            $d = (string) ($sr['d'] ?? '');
+            if ($d === '') {
+                continue;
+            }
+            if (!isset($out[$d])) {
+                $out[$d] = ['date' => $d, 'reach' => 0, 'interested' => 0, 'follow_up' => 0, 'rejected' => 0, 'onboarding' => 0, 'onboarded' => 0, 'sales' => 0, 'on_test' => 0];
+            }
+            $n = (int) ($sr['n'] ?? 0);
+            $out[$d]['onboarded'] += $n;
             $out[$d]['sales'] += $n;
         }
+    } catch (Throwable $e) {
+        // keep zeros if events/query unavailable
     }
     try {
         $tWhere = 'testing_mode = 1 AND DATE(created_at) >= ? AND DATE(created_at) <= ?';
@@ -2977,12 +3079,16 @@ function sales_series(?int $agentId, string $from, string $to): array
 
 function sales_top_agents(string $from, string $to, int $limit = 8): array
 {
+    // Reach / interested / etc. use the selected period (lead created_at).
+    // Sales = all-time onboarded clients for that agent (a sale is an onboarded client).
     $rows = db_all(
         "SELECT u.id, u.name, u.email,
                 SUM(CASE WHEN l.id IS NOT NULL THEN 1 ELSE 0 END) AS reach,
                 SUM(CASE WHEN l.status = 'interested' THEN 1 ELSE 0 END) AS interested,
-                SUM(CASE WHEN l.status = 'onboarded' THEN 1 ELSE 0 END) AS sales,
-                SUM(CASE WHEN l.status = 'onboarded' THEN 1 ELSE 0 END) AS onboarded,
+                (SELECT COUNT(*) FROM sales_leads s
+                  WHERE s.agent_id = u.id AND s.status = 'onboarded') AS sales,
+                (SELECT COUNT(*) FROM sales_leads s
+                  WHERE s.agent_id = u.id AND s.status = 'onboarded') AS onboarded,
                 SUM(CASE WHEN l.status = 'onboarding' THEN 1 ELSE 0 END) AS onboarding,
                 SUM(CASE WHEN l.status = 'rejected' THEN 1 ELSE 0 END) AS rejected,
                 SUM(CASE WHEN l.status = 'follow_up' THEN 1 ELSE 0 END) AS follow_up,
