@@ -22,7 +22,7 @@ if ($kind === 'receipt') {
         if ($doc['status'] === 'void') {
             continue;
         }
-        if (document_due_amount($doc) > 0.009) {
+        if (receipt_list_due($doc) > 0.009) {
             $partialRows[] = $doc;
         } else {
             $clearedRows[] = $doc;
@@ -145,7 +145,7 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
               <td class="right mono"><?= h(money($doc['balance'], doc_currency($doc))) ?></td>
             <?php elseif ($kind === 'receipt'): ?>
               <td class="right mono"><?= h(money($doc['paid'], doc_currency($doc))) ?></td>
-              <td class="right mono"><?= h(money(document_due_amount($doc), doc_currency($doc))) ?></td>
+              <td class="right mono"><?= h(money(receipt_list_due($doc), doc_currency($doc))) ?></td>
             <?php elseif (!kind_shows_money($kind)): ?>
             <?php elseif ($kind !== 'letter'): ?>
               <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>

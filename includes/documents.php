@@ -2863,7 +2863,16 @@ function payments_on_document(int $relatedId, string $toCurrency, ?int $exceptRe
     $sum = 0.0;
     foreach (related_receipts($relatedId, $exceptReceiptId) as $row) {
         $amt = (float) ($row['allocated_amount'] ?? 0);
-        if ($amt <= 0) {
+        if ($amt <= 0.009) {
+            // Blank allocated on a payment receipt means the line total was taken.
+            $row['items'] = db_all(
+                'SELECT * FROM document_items WHERE document_id = ? ORDER BY id',
+                'i',
+                [(int) $row['id']]
+            );
+            $amt = receipt_received_amount($row);
+        }
+        if ($amt <= 0.009) {
             continue;
         }
         $sum += convert_money($amt, doc_currency($row), $toCurrency);
@@ -2948,7 +2957,8 @@ function receipt_due_amount(array $doc): float
     }
     // Follow-up / allocation receipts already applied cash - remaining balance
     // lives on the parent invoice, expense or sale. Never copy parent remain
-    // onto every payment row (that made Due footers sum the same debt N times).
+    // onto every payment row for debtors / dashboard sums (that stacked the
+    // same debt N times). Receipt list rows use receipt_list_due() instead.
     if ((int) ($doc['related_id'] ?? 0) > 0) {
         return 0.0;
     }
@@ -2964,10 +2974,45 @@ function receipt_due_amount(array $doc): float
     return max(0, (float) ($doc['balance'] ?? 0));
 }
 
+/**
+ * Due shown on receipt table rows and status pills.
+ * Linked invoice/sale payments show the parent remain; sale receipts show
+ * their own unpaid tip on each row (footers still dedupe per client).
+ */
+function receipt_list_due(array $doc): float
+{
+    if (($doc['kind'] ?? '') !== 'receipt' || ($doc['status'] ?? '') === 'void') {
+        return 0.0;
+    }
+    $rid = (int) ($doc['related_id'] ?? 0);
+    if ($rid > 0) {
+        $due = (float) ($doc['invoice_balance'] ?? 0);
+        if ($due > 0.009) {
+            return $due;
+        }
+        $s = $doc['settlement'] ?? null;
+        if (is_array($s)) {
+            return max(0, (float) ($s['invoice_balance'] ?? $s['balance'] ?? 0));
+        }
+        return 0.0;
+    }
+    return receipt_sale_due($doc);
+}
+
 function document_due_amount(array $doc): float
 {
     $kind = (string) ($doc['kind'] ?? '');
     if ($kind === 'invoice' || $kind === 'expense') {
+        // Prefer live invoice_balance() when totals/paid are present so Debtors
+        // stays accurate after part payments.
+        if ($kind === 'invoice' && function_exists('invoice_balance') && isset($doc['id'])) {
+            if (isset($doc['totals']) || isset($doc['items'])) {
+                return invoice_balance($doc);
+            }
+        }
+        if ($kind === 'expense' && function_exists('expense_balance') && isset($doc['id'])) {
+            return max(0, (float) expense_balance($doc));
+        }
         return max(0, (float) ($doc['balance'] ?? 0));
     }
     if ($kind === 'receipt') {
@@ -3011,7 +3056,9 @@ function latest_receipt_due_among(array $receipts): float
 }
 
 /**
- * Sum of per-client latest receipt dues (home currency). Used for receipt list footers.
+ * Sum of open receipt dues (home currency) for receipt list footers.
+ * Linked payments count each parent invoice/sale remain once; standalone sales
+ * use only the newest tip per client.
  */
 function receipts_due_total_by_latest(array $receipts, ?string $toCurrency = null): float
 {
@@ -3026,11 +3073,27 @@ function receipts_due_total_by_latest(array $receipts, ?string $toCurrency = nul
     }
     $sum = 0.0;
     foreach ($byParty as $group) {
-        $due = latest_receipt_due_among($group);
+        $seenParent = [];
+        foreach ($group as $doc) {
+            $rid = (int) ($doc['related_id'] ?? 0);
+            if ($rid < 1 || isset($seenParent[$rid])) {
+                continue;
+            }
+            $seenParent[$rid] = true;
+            $due = receipt_list_due($doc);
+            if ($due > 0.009) {
+                $sum += convert_money($due, doc_currency($doc), $toCurrency);
+            }
+        }
+        $sales = array_values(array_filter(
+            $group,
+            static fn ($d) => (int) ($d['related_id'] ?? 0) <= 0
+        ));
+        $due = latest_receipt_due_among($sales);
         if ($due <= 0.009) {
             continue;
         }
-        $newest = newest_receipt_among($group);
+        $newest = newest_receipt_among($sales);
         $sum += convert_money($due, $newest ? doc_currency($newest) : $toCurrency, $toCurrency);
     }
     return round_money($sum, $toCurrency);
@@ -3390,7 +3453,7 @@ function attach_document_totals(array $rows): array
         $byDoc[(int) $sum['document_id']] = $sum;
     }
     $payDocs = db_all(
-        "SELECT related_id, allocated_amount, currency FROM documents
+        "SELECT id, related_id, allocated_amount, currency FROM documents
          WHERE kind = 'receipt' AND status = 'issued' AND company_id = ? AND related_id IN ($placeholders)",
         'i' . $types,
         array_merge([current_company_id()], $ids)
@@ -3403,7 +3466,19 @@ function attach_document_totals(array $rows): array
     foreach ($payDocs as $p) {
         $rid = (int) $p['related_id'];
         $to = $curById[$rid] ?? default_currency();
-        $paidBy[$rid] = ($paidBy[$rid] ?? 0) + convert_money((float) ($p['allocated_amount'] ?? 0), doc_currency($p), $to);
+        $amt = (float) ($p['allocated_amount'] ?? 0);
+        if ($amt <= 0.009) {
+            $lineSum = db_one(
+                'SELECT COALESCE(SUM(ROUND(qty * rate, 2)), 0) AS net FROM document_items WHERE document_id = ?',
+                'i',
+                [(int) ($p['id'] ?? 0)]
+            );
+            $amt = (float) ($lineSum['net'] ?? 0);
+        }
+        if ($amt <= 0.009) {
+            continue;
+        }
+        $paidBy[$rid] = ($paidBy[$rid] ?? 0) + convert_money($amt, doc_currency($p), $to);
     }
     // Expense/creditor payments (not receipts) - clear bills without touching sales cash.
     if (document_payments_available()) {
@@ -3501,11 +3576,11 @@ function attach_document_totals(array $rows): array
                     }
                     $remain = max(0, round($parentCharge - $parentCash - ($relPaid[$rid] ?? 0), 2));
                 }
-                $row['invoice_balance'] = convert_money($remain, $relCur[$rid] ?? doc_currency($row), doc_currency($row));
-                // Keep list balance at 0 for linked payments so footers/sums do not
-                // stack the same invoice remain on every receipt row. Sheets use
-                // receipt_settlement() / invoice_balance instead.
-                $row['balance'] = 0.0;
+                $remainDoc = convert_money($remain, $relCur[$rid] ?? doc_currency($row), doc_currency($row));
+                $row['invoice_balance'] = $remainDoc;
+                // Row Due / status read invoice_balance via receipt_list_due().
+                // Footers use receipts_due_total_by_latest() so parents are not stacked.
+                $row['balance'] = $remainDoc;
             }
         } else {
             $row['paid'] = 0;
@@ -3705,7 +3780,7 @@ function invoice_status_label(array $doc): string
         return 'Void';
     }
     if (($doc['kind'] ?? '') === 'receipt') {
-        return receipt_due_amount($doc) > 0.009 ? 'Partially cleared' : 'Cleared';
+        return receipt_list_due($doc) > 0.009 ? 'Partially cleared' : 'Cleared';
     }
     if (!in_array($doc['kind'], ['invoice', 'expense'], true)) {
         return ucfirst($doc['status']);
