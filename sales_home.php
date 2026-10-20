@@ -133,7 +133,7 @@ sales_layout_start('Home', $user);
     <?= icon('flag', 20) ?>
     <span>Sales today</span>
     <strong><?= (int) $todayStats['sales'] ?></strong>
-    <em class="muted">Onboarding + onboarded</em>
+    <em class="muted">Onboarded clients</em>
   </div>
   <div class="card stat">
     <?= icon('building', 20) ?>

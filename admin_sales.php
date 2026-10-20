@@ -1038,7 +1038,7 @@ if ($tab === 'agent' && $agentRow):
     <strong><?= (int) $agentStats['interested'] ?><?= (int) $agentProgress['sales_goal'] > 0 ? '/' . (int) $agentProgress['sales_goal'] : '' ?></strong>
     <?php sales_render_goal_chip((int) $agentProgress['sales'], (int) $agentProgress['sales_goal'], 'interested'); ?>
   </div>
-  <div class="card stat"><span>Sales</span><strong><?= (int) $agentStats['sales'] ?></strong><em class="muted">Onboarding + onboarded</em></div>
+  <div class="card stat"><span>Sales</span><strong><?= (int) $agentStats['sales'] ?></strong><em class="muted">Onboarded clients</em></div>
   <div class="card stat"><span>On test</span><strong><?= (int) ($agentStats['on_test'] ?? 0) ?></strong><em class="muted"><?= (int) ($agentStats['testing_active'] ?? 0) ?> active now</em></div>
   <div class="card stat"><span>Field hours</span><strong><?= h(sales_format_hours($agentHoursTotal)) ?></strong></div>
 </div>
@@ -1124,7 +1124,7 @@ $payload = json_encode([
     'labels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $agentSeries),
     'reach' => array_column($agentSeries, 'reach'),
     'interested' => array_map(static fn ($r) => (int) $r['interested'], $agentSeries),
-    'sales' => array_map(static fn ($r) => (int) ($r['sales'] ?? ((int) $r['onboarded'] + (int) ($r['onboarding'] ?? 0))), $agentSeries),
+    'sales' => array_map(static fn ($r) => (int) ($r['sales'] ?? (int) ($r['onboarded'] ?? 0)), $agentSeries),
     'onTest' => array_map(static fn ($r) => (int) ($r['on_test'] ?? 0), $agentSeries),
     'barLabels' => ['Interested', 'Follow up', 'Rejected', 'Sales', 'On test'],
     'barValues' => [(int) $agentStats['interested'], (int) $agentStats['follow_up'], (int) $agentStats['rejected'], (int) $agentStats['sales'], (int) ($agentStats['on_test'] ?? 0)],

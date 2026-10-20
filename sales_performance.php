@@ -78,7 +78,7 @@ sales_layout_start('Performance', $user);
     <?= icon('flag', 20) ?>
     <span>Sales</span>
     <strong><?= (int) $stats['sales'] ?></strong>
-    <em class="muted">Onboarding + onboarded</em>
+    <em class="muted">Onboarded clients</em>
   </div>
   <div class="card stat">
     <?= icon('building', 20) ?>
@@ -151,7 +151,7 @@ $payload = json_encode([
     'labels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $series),
     'reach' => array_column($series, 'reach'),
     'interested' => array_map(static fn ($r) => (int) $r['interested'], $series),
-    'sales' => array_map(static fn ($r) => (int) ($r['sales'] ?? ((int) $r['onboarded'] + (int) ($r['onboarding'] ?? 0))), $series),
+    'sales' => array_map(static fn ($r) => (int) ($r['sales'] ?? (int) ($r['onboarded'] ?? 0)), $series),
     'onTest' => array_map(static fn ($r) => (int) ($r['on_test'] ?? 0), $series),
     'barLabels' => ['Interested', 'Follow up', 'Rejected', 'Sales', 'On test'],
     'barValues' => [(int) $stats['interested'], (int) $stats['follow_up'], (int) $stats['rejected'], (int) $stats['sales'], (int) ($stats['on_test'] ?? 0)],
