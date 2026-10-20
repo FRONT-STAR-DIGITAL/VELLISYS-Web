@@ -423,7 +423,7 @@ layout_admin_start('Sales', $user);
   <div class="card-head"><h2>Top performers</h2></div>
   <div class="table-scroll">
     <table class="grid">
-      <thead><tr><th>Agent</th><th class="right">Reach</th><th class="right">Interested</th><th class="right">On test</th><th class="right">Follow up</th><th class="right">Sales</th><th class="right">Rejected</th><th></th></tr></thead>
+      <thead><tr><th>Agent</th><th class="right">Reach</th><th class="right">Interested</th><th class="right">On test</th><th class="right">Follow up</th><th class="right">Sales <span class="muted" style="font-weight:500">(onboarded)</span></th><th class="right">Rejected</th><th></th></tr></thead>
       <tbody>
         <?php foreach ($top as $row): ?>
           <tr>
@@ -500,7 +500,7 @@ $payload = json_encode([
     'labels' => array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $series),
     'reach' => array_column($series, 'reach'),
     'interested' => array_map(static fn ($r) => (int) $r['interested'], $series),
-    'sales' => array_map(static fn ($r) => (int) ($r['sales'] ?? ((int) $r['onboarded'] + (int) ($r['onboarding'] ?? 0))), $series),
+    'sales' => array_map(static fn ($r) => (int) ($r['sales'] ?? (int) ($r['onboarded'] ?? 0)), $series),
     'onTest' => array_map(static fn ($r) => (int) ($r['on_test'] ?? 0), $series),
     'hourLabels' => $hoursByAgent['labels'] ?? array_map(static fn ($r) => date('j M', strtotime((string) $r['date'])), $hoursSeries),
     'hourDatasets' => $hourAgentDatasets,
