@@ -2468,8 +2468,8 @@ function sales_stats(?int $agentId, string $from, string $to): array
         $by[$key] = (int) $r['n'];
     }
     $reach = array_sum($by);
-    // Real sales = clients moved into onboarding / onboarded (not merely interested).
-    $sales = $by['onboarded'] + $by['onboarding'];
+    // A sale is an onboarded client only (onboarding is not a sale yet).
+    $sales = $by['onboarded'];
     $onTest = sales_testing_count($agentId, $from, $to);
     return [
         'by_status' => $by,
@@ -2943,7 +2943,7 @@ function sales_series(?int $agentId, string $from, string $to): array
         if (isset($out[$d][$st])) {
             $out[$d][$st] += $n;
         }
-        if ($st === 'onboarded' || $st === 'onboarding') {
+        if ($st === 'onboarded') {
             $out[$d]['sales'] += $n;
         }
     }
@@ -2981,7 +2981,7 @@ function sales_top_agents(string $from, string $to, int $limit = 8): array
         "SELECT u.id, u.name, u.email,
                 SUM(CASE WHEN l.id IS NOT NULL THEN 1 ELSE 0 END) AS reach,
                 SUM(CASE WHEN l.status = 'interested' THEN 1 ELSE 0 END) AS interested,
-                SUM(CASE WHEN l.status IN ('onboarded','onboarding') THEN 1 ELSE 0 END) AS sales,
+                SUM(CASE WHEN l.status = 'onboarded' THEN 1 ELSE 0 END) AS sales,
                 SUM(CASE WHEN l.status = 'onboarded' THEN 1 ELSE 0 END) AS onboarded,
                 SUM(CASE WHEN l.status = 'onboarding' THEN 1 ELSE 0 END) AS onboarding,
                 SUM(CASE WHEN l.status = 'rejected' THEN 1 ELSE 0 END) AS rejected,
@@ -2994,7 +2994,7 @@ function sales_top_agents(string $from, string $to, int $limit = 8): array
               AND DATE(l.created_at) >= ? AND DATE(l.created_at) <= ?
          WHERE u.role = 'sales_agent' AND COALESCE(u.status, 'live') = 'live'
          GROUP BY u.id, u.name, u.email
-         ORDER BY interested DESC, sales DESC, reach DESC, u.name
+         ORDER BY sales DESC, onboarded DESC, interested DESC, reach DESC, u.name
          LIMIT " . (int) $limit,
         'ssss',
         [$from, $to, $from, $to]

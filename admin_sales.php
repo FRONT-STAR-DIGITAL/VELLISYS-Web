@@ -306,7 +306,7 @@ layout_admin_start('Sales', $user);
 <div class="stats">
   <div class="card stat"><?= icon('clients', 20) ?><span>Reach</span><strong><?= (int) $overall['reach'] ?></strong></div>
   <div class="card stat"><?= icon('heart', 20) ?><span>Interested</span><strong><?= (int) $overall['interested'] ?></strong></div>
-  <div class="card stat"><?= icon('flag', 20) ?><span>Sales</span><strong><?= (int) $overall['sales'] ?></strong><em class="muted">Onboarding + onboarded</em></div>
+  <div class="card stat"><?= icon('flag', 20) ?><span>Sales</span><strong><?= (int) $overall['sales'] ?></strong><em class="muted">Onboarded clients</em></div>
   <div class="card stat"><?= icon('building', 20) ?><span>On test</span><strong><?= (int) ($overall['on_test'] ?? 0) ?></strong><em class="muted"><?= (int) ($overall['testing_active'] ?? 0) ?> active now</em></div>
   <a class="card stat" href="<?= h(url('admin_sales.php?tab=leads&bucket=overdue&range=all' . ($filterAgent ? '&agent_filter=' . $filterAgent : ''))) ?>" style="text-decoration:none;color:inherit">
     <?= icon('calendar', 20) ?>
