@@ -169,7 +169,7 @@ layout_start($party['name'], $user);
                 <td class="right mono"><?= h(money($doc['balance'] ?? 0, doc_currency($doc))) ?></td>
               <?php endif; ?>
               <?php if ($kind === 'receipt'): ?>
-                <td class="right mono"><?= h(money(document_due_amount($doc), doc_currency($doc))) ?></td>
+                <td class="right mono"><?= h(money(receipt_list_due($doc), doc_currency($doc))) ?></td>
               <?php endif; ?>
               <td><span class="pill"><?= h(invoice_status_label($doc)) ?></span></td>
               <td class="row-actions"><?php if (($doc['kind'] ?? '') !== 'receipt') { render_make_payment_button($doc, true); } render_doc_actions($doc); ?></td>
@@ -185,7 +185,7 @@ layout_start($party['name'], $user);
                 <td class="right mono"><?= h(money(documents_sum($byKind[$kind], 'balance'))) ?></td>
               <?php endif; ?>
               <?php if ($kind === 'receipt'): ?>
-                <td class="right mono"><?= h(money(latest_receipt_due_among($byKind[$kind]))) ?></td>
+                <td class="right mono"><?= h(money(receipts_due_total_by_latest($byKind[$kind]))) ?></td>
               <?php endif; ?>
               <td colspan="2"></td>
             </tr>
