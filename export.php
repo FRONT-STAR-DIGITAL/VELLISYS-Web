@@ -157,7 +157,7 @@ if ($type === 'reports') {
         $rows[] = ['Expense', $d['number'], $d['party_name'], format_date($d['date']), $d['totals']['net'], $d['totals']['vat'], $d['totals']['total'], $d['balance'], invoice_status_label($d), doc_currency($d)];
     }
     foreach (list_documents('receipt') as $d) {
-        $rows[] = ['Receipt', $d['number'], $d['party_name'], format_date($d['date']), $d['totals']['net'], $d['totals']['vat'], $d['allocated_amount'] ?: $d['totals']['total'], document_due_amount($d), invoice_status_label($d), doc_currency($d)];
+        $rows[] = ['Receipt', $d['number'], $d['party_name'], format_date($d['date']), $d['totals']['net'], $d['totals']['vat'], $d['allocated_amount'] ?: $d['totals']['total'], receipt_list_due($d), invoice_status_label($d), doc_currency($d)];
     }
     $tax = report_tax_payable();
     foreach ($tax['lines'] as $line) {
