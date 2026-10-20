@@ -9,17 +9,31 @@ if (!in_array($kind, desk_kind_list(), true)) {
 }
 require_desk_kind($kind);
 $meta = kind_meta($kind);
+$voidKinds = ['quotation', 'invoice', 'receipt'];
+$supportsVoidTab = in_array($kind, $voidKinds, true);
+$view = strtolower((string) ($_GET['view'] ?? 'active'));
+if (!$supportsVoidTab || !in_array($view, ['active', 'void'], true)) {
+    $view = 'active';
+}
 $rows = list_documents($kind);
 // Personal Creditors ledger is standalone - keep it off the Expenses list.
 if ($kind === 'expense') {
     $rows = array_values(array_filter($rows, static fn ($d) => !is_personal_creditor($d)));
 }
+if ($supportsVoidTab) {
+    $rows = array_values(array_filter(
+        $rows,
+        static fn ($d) => $view === 'void'
+            ? ($d['status'] ?? '') === 'void'
+            : ($d['status'] ?? '') !== 'void'
+    ));
+}
 $clearFilter = $_GET['clear'] ?? 'all';
 $clearedRows = [];
 $partialRows = [];
-if ($kind === 'receipt') {
+if ($kind === 'receipt' && $view !== 'void') {
     foreach ($rows as $doc) {
-        if ($doc['status'] === 'void') {
+        if (($doc['status'] ?? '') === 'void') {
             continue;
         }
         if (receipt_list_due($doc) > 0.009) {
@@ -35,15 +49,50 @@ if ($kind === 'receipt') {
     }
 }
 $period = period_range();
-$receiptQs = static function (string $clear) use ($kind, $period): string {
-    return http_build_query([
+$branchKeep = function_exists('desk_branch_keep') ? desk_branch_keep() : [];
+$docListQuery = static function (array $extra = []) use ($kind, $period, $branchKeep): string {
+    $q = array_merge($branchKeep, [
         'kind' => $kind,
         'range' => $period['preset'],
         'from' => $period['from'],
         'to' => $period['to'],
-        'clear' => $clear,
-    ]);
+    ], $extra);
+    foreach ($q as $k => $v) {
+        if ($v === null || $v === '') {
+            unset($q[$k]);
+        }
+    }
+    return http_build_query($q);
 };
+$receiptQs = static function (string $clear) use ($docListQuery): string {
+    return $docListQuery(['clear' => $clear]);
+};
+$filterKeep = array_merge(['kind' => $kind], $branchKeep);
+if ($supportsVoidTab && $view === 'void') {
+    $filterKeep['view'] = 'void';
+}
+if ($kind === 'receipt' && $view !== 'void' && in_array($clearFilter, ['cleared', 'partial'], true)) {
+    $filterKeep['clear'] = $clearFilter;
+}
+$sideChips = [];
+if ($supportsVoidTab) {
+    $activeExtra = [];
+    if ($kind === 'receipt' && in_array($clearFilter, ['cleared', 'partial'], true)) {
+        $activeExtra['clear'] = $clearFilter;
+    }
+    $sideChips = [
+        [
+            'label' => 'Active',
+            'on' => $view !== 'void',
+            'href' => url('documents.php?' . $docListQuery($activeExtra)),
+        ],
+        [
+            'label' => 'Void',
+            'on' => $view === 'void',
+            'href' => url('documents.php?' . $docListQuery(['view' => 'void'])),
+        ],
+    ];
+}
 
 layout_start($meta['title'], $user, ['kind' => $kind]);
 ?>
@@ -54,7 +103,9 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
   <div>
     <h1><?= icon(document_kind_icon($kind)) ?><?= h($meta['title']) ?></h1>
     <p class="lede">
-      <?php if ($kind === 'expense'): ?>
+      <?php if ($view === 'void'): ?>
+        Void <?= h(strtolower($meta['title'])) ?> stay out of the main list and totals. Open one to review it, or delete it permanently from here.
+      <?php elseif ($kind === 'expense'): ?>
         Company spending - open a row to see the expense details. Not a bill sent to a client.<?= function_exists('desk_branch_lede') ? h(desk_branch_lede('expenses')) : '' ?>
       <?php elseif ($kind === 'letter'): ?>
         Headed letters with a subject and body, on the same document design as the rest of the books. Download a Word letterhead when you need to type the rest in Microsoft Word.<?= function_exists('desk_branch_lede') ? h(desk_branch_lede('letters')) : '' ?>
@@ -73,15 +124,22 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
     <?php if ($kind === 'letter'): ?>
       <a class="btn ghost" href="<?= h(url('letter_docx.php')) ?>"><?= icon('download', 16) ?>Word template</a>
     <?php endif; ?>
-    <a class="btn ghost" href="<?= h(export_query('documents', ['kind' => $kind])) ?>"><?= icon('download', 16) ?>Export CSV</a>
-    <a class="btn" href="<?= h(url('document_new.php?kind=' . $kind)) ?>"><?= icon(document_kind_icon($kind)) ?><?= h($meta['verb']) ?></a>
+    <a class="btn ghost" href="<?= h(export_query('documents', array_filter(['kind' => $kind, 'view' => $view === 'void' ? 'void' : null]))) ?>"><?= icon('download', 16) ?>Export CSV</a>
+    <?php if ($view !== 'void'): ?>
+      <a class="btn" href="<?= h(url('document_new.php?kind=' . $kind)) ?>"><?= icon(document_kind_icon($kind)) ?><?= h($meta['verb']) ?></a>
+    <?php endif; ?>
   </div>
 </div>
-<?php if (function_exists('render_desk_branch_chips')) { render_desk_branch_chips('documents.php', ['kind' => $kind]); } ?>
+<?php if (function_exists('render_desk_branch_chips')) {
+    render_desk_branch_chips('documents.php', array_merge(
+        ['kind' => $kind],
+        $supportsVoidTab && $view === 'void' ? ['view' => 'void'] : []
+    ));
+} ?>
 
-<?php render_filters('documents.php', array_merge(['kind' => $kind], function_exists('desk_branch_keep') ? desk_branch_keep() : [])); ?>
+<?php render_filters('documents.php', $filterKeep, $sideChips ? ['side_chips' => $sideChips] : []); ?>
 
-<?php if ($kind === 'receipt'): ?>
+<?php if ($kind === 'receipt' && $view !== 'void'): ?>
   <div class="docs-extra">
     <div class="stats">
       <div class="card stat"><?= icon('receipt', 20) ?><span>Cleared</span><strong><?= count($clearedRows) ?></strong></div>
@@ -97,7 +155,13 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
 
 <div class="card">
   <?php if (!$rows): ?>
-    <p class="empty">No <?= h(strtolower($meta['title'])) ?> in this period. <a href="<?= h(url('document_new.php?kind=' . $kind)) ?>"><?= h($meta['verb']) ?></a>.</p>
+    <p class="empty">
+      <?php if ($view === 'void'): ?>
+        No void <?= h(strtolower($meta['title'])) ?> in this period.
+      <?php else: ?>
+        No <?= h(strtolower($meta['title'])) ?> in this period. <a href="<?= h(url('document_new.php?kind=' . $kind)) ?>"><?= h($meta['verb']) ?></a>.
+      <?php endif; ?>
+    </p>
   <?php else: ?>
     <div class="table-scroll">
     <table class="grid">
@@ -155,7 +219,7 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
           </tr>
         <?php endforeach; ?>
       </tbody>
-      <?php if (kind_shows_money($kind)): ?>
+      <?php if (kind_shows_money($kind) && $view !== 'void'): ?>
         <tfoot>
           <tr>
             <td colspan="3">Totals</td>

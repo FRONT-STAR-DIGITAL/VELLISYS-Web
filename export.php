@@ -287,6 +287,15 @@ if (!in_array($kind, desk_kind_list(), true)) {
     $kind = 'invoice';
 }
 $docs = list_documents($kind);
+$exportView = strtolower((string) ($_GET['view'] ?? 'active'));
+if (in_array($kind, ['quotation', 'invoice', 'receipt'], true)) {
+    $docs = array_values(array_filter(
+        $docs,
+        static fn ($d) => $exportView === 'void'
+            ? ($d['status'] ?? '') === 'void'
+            : ($d['status'] ?? '') !== 'void'
+    ));
+}
 $rows = [];
 foreach ($docs as $d) {
     $rows[] = [

@@ -3787,6 +3787,7 @@ function render_filters(string $action, array $keep = [], array $opts = []): voi
         $chips = ['today' => 'Today'] + $chips;
     }
     $live = !empty($opts['live']);
+    $sideChips = is_array($opts['side_chips'] ?? null) ? $opts['side_chips'] : [];
     ?>
     <form class="filters<?= $live ? ' is-live' : '' ?>" method="get" action="<?= h(url($action)) ?>"<?= $live ? ' data-live-filters' : '' ?>>
       <?php foreach ($keep as $k => $v): ?>
@@ -3796,6 +3797,20 @@ function render_filters(string $action, array $keep = [], array $opts = []): voi
         <?php foreach ($chips as $key => $label): ?>
           <a class="chip<?= $p['preset'] === $key ? ' is-on' : '' ?>" href="<?= h(url($action . '?' . $qs(['range' => $key, 'from' => '', 'to' => '']))) ?>"><?= h($label) ?></a>
         <?php endforeach; ?>
+        <?php if ($sideChips): ?>
+          <span class="filter-chip-sep" aria-hidden="true"></span>
+          <?php foreach ($sideChips as $side): ?>
+            <?php
+            $sideLabel = (string) ($side['label'] ?? '');
+            $sideHref = (string) ($side['href'] ?? '');
+            $sideOn = !empty($side['on']);
+            if ($sideLabel === '' || $sideHref === '') {
+                continue;
+            }
+            ?>
+            <a class="chip<?= $sideOn ? ' is-on' : '' ?>" href="<?= h($sideHref) ?>"><?= h($sideLabel) ?></a>
+          <?php endforeach; ?>
+        <?php endif; ?>
       </div>
       <div class="filter-dates">
         <label class="date-field">

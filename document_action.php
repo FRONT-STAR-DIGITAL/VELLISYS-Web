@@ -144,8 +144,19 @@ try {
             throw new RuntimeException('Your login cannot delete documents.');
         }
         void_document($id, post('reason') ?: 'Voided from desk');
-        flash($doc['number'] . ' was voided.');
-        redirect('document_view.php?id=' . $id);
+        flash($doc['number'] . ' was moved to Void.');
+        $kind = (string) ($doc['kind'] ?? 'invoice');
+        redirect('documents.php?kind=' . rawurlencode($kind));
+    }
+    if ($action === 'purge') {
+        if (!user_can_delete_documents()) {
+            throw new RuntimeException('Your login cannot delete documents.');
+        }
+        $kind = (string) ($doc['kind'] ?? 'invoice');
+        $number = (string) ($doc['number'] ?? 'Document');
+        purge_document($id);
+        flash($number . ' was permanently deleted.');
+        redirect('documents.php?kind=' . rawurlencode($kind) . '&view=void');
     }
     if ($action === 'convert') {
         $newId = convert_quotation_to_invoice($id);

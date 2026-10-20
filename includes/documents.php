@@ -3355,6 +3355,62 @@ function void_document(int $id, string $reason): void
     }
 }
 
+/** Permanently remove a void document and its dependent rows. */
+function purge_document(int $id): void
+{
+    $cid = current_company_id();
+    $doc = db_one('SELECT * FROM documents WHERE id = ? AND company_id = ?', 'ii', [$id, $cid]);
+    if (!$doc) {
+        throw new RuntimeException('Document not found.');
+    }
+    if (($doc['status'] ?? '') !== 'void') {
+        throw new RuntimeException('Only void documents can be permanently deleted.');
+    }
+    if (function_exists('stock_reverse_document')) {
+        stock_reverse_document($id);
+    }
+    $db = db();
+    $hasTable = static function (string $table) use ($db): bool {
+        if (function_exists('company_reset_has_table')) {
+            return company_reset_has_table($table);
+        }
+        try {
+            $res = @$db->query("SHOW TABLES LIKE '" . $db->real_escape_string($table) . "'");
+            return $res && $res->num_rows > 0;
+        } catch (Throwable $e) {
+            return false;
+        }
+    };
+    if ($hasTable('emails')) {
+        db_exec('DELETE FROM emails WHERE document_id = ?', 'i', [$id]);
+    }
+    if (document_payments_available()) {
+        db_exec('DELETE FROM document_payments WHERE document_id = ? AND company_id = ?', 'ii', [$id, $cid]);
+    }
+    if ($hasTable('stock_moves')) {
+        db_exec('DELETE FROM stock_moves WHERE document_id = ? AND company_id = ?', 'ii', [$id, $cid]);
+    }
+    if ($hasTable('planner_events')) {
+        db_exec('UPDATE planner_events SET document_id = NULL WHERE document_id = ? AND company_id = ?', 'ii', [$id, $cid]);
+    }
+    if ($hasTable('pnl_entries')) {
+        db_exec('UPDATE pnl_entries SET document_id = NULL WHERE document_id = ? AND company_id = ?', 'ii', [$id, $cid]);
+    }
+    db_exec('UPDATE documents SET related_id = NULL WHERE related_id = ? AND company_id = ?', 'ii', [$id, $cid]);
+    db_exec('DELETE FROM document_items WHERE document_id = ?', 'i', [$id]);
+    db_exec('DELETE FROM documents WHERE id = ? AND company_id = ? AND status = \'void\'', 'ii', [$id, $cid]);
+    if (function_exists('record_company_activity')) {
+        $meta = kind_meta((string) $doc['kind']);
+        record_company_activity('document', $meta['singular'] . ' ' . $doc['number'] . ' permanently deleted', [
+            'detail' => 'Removed from Void',
+            'href' => 'documents.php?kind=' . urlencode((string) $doc['kind']) . '&view=void',
+            'ref_type' => 'document',
+            'ref_id' => $id,
+            'branch_id' => $doc['branch_id'] ?? null,
+        ]);
+    }
+}
+
 function convert_quotation_to_invoice(int $quoteId): int
 {
     $doc = load_document($quoteId);
@@ -3829,7 +3885,7 @@ function render_doc_actions(array $doc, bool $labeled = false, bool $includeRemi
           <a class="<?= $cls ?>" href="<?= h(url('desk_mail.php?type=creditor&id=' . $id)) ?>" title="Message supplier" aria-label="Message supplier"><?= icon('letter', 15) ?><?php if ($labeled): ?> Message<?php endif; ?></a>
         <?php endif; ?>
         <?php if (user_can_delete_documents()): ?>
-        <form method="post" action="<?= h(url('document_action.php')) ?>" onsubmit="return confirm('Delete this document? It will be voided and kept in the books.');">
+        <form method="post" action="<?= h(url('document_action.php')) ?>" onsubmit="return confirm('Delete this document? It will move to Void and drop out of totals.');">
             <?= csrf_field() ?>
             <input type="hidden" name="id" value="<?= $id ?>">
             <input type="hidden" name="action" value="void">
@@ -3837,6 +3893,13 @@ function render_doc_actions(array $doc, bool $labeled = false, bool $includeRemi
             <button class="<?= $dang ?>" type="submit" title="Delete" aria-label="Delete"><?= icon('trash', 15) ?><?php if ($labeled): ?> Delete<?php endif; ?></button>
           </form>
         <?php endif; ?>
+      <?php elseif ($void && user_can_delete_documents()): ?>
+        <form method="post" action="<?= h(url('document_action.php')) ?>" onsubmit="return confirm('Permanently delete this void document? This cannot be undone.');">
+          <?= csrf_field() ?>
+          <input type="hidden" name="id" value="<?= $id ?>">
+          <input type="hidden" name="action" value="purge">
+          <button class="<?= $dang ?>" type="submit" title="Delete permanently" aria-label="Delete permanently"><?= icon('trash', 15) ?><?php if ($labeled): ?> Delete permanently<?php endif; ?></button>
+        </form>
       <?php endif; ?>
     </div>
     <?php
