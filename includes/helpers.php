@@ -1102,21 +1102,11 @@ function folio_housekeep_daily(): void
             folio_session_gc_now();
         }
         folio_cache_sweep_stale(86400);
-        // Growing telemetry / history tables (reports use rolling windows).
+        // Only system/telemetry — never documents, clients, stock, payments, activity, or mail logs.
         try {
             db_exec('DELETE FROM site_visits WHERE occurred_at < DATE_SUB(NOW(), INTERVAL 180 DAY) LIMIT 20000');
         } catch (Throwable $e) {
             // table may not exist yet
-        }
-        try {
-            db_exec('DELETE FROM company_activities WHERE occurred_at < DATE_SUB(NOW(), INTERVAL 365 DAY) LIMIT 20000');
-        } catch (Throwable $e) {
-            // ignore
-        }
-        try {
-            db_exec("DELETE FROM emails WHERE status = 'sent' AND created_at < DATE_SUB(NOW(), INTERVAL 365 DAY) LIMIT 10000");
-        } catch (Throwable $e) {
-            // ignore
         }
         try {
             db_exec('DELETE FROM platform_perf_samples WHERE created_at < DATE_SUB(NOW(), INTERVAL 30 DAY) LIMIT 5000');
