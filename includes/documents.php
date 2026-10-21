@@ -3787,28 +3787,10 @@ function render_remind_button(array $doc, bool $labeled = true): void
     <?php
 }
 
-/** PDF control - always the unfitted sheet autodownload (same design every click/refresh). */
+/** PDF download control - hidden in desk tables and view/edit toolbars. */
 function render_pdf_download_link(array $doc, string $class = 'btn ghost sm', bool $showLabel = true): void
 {
-    $id = (int) ($doc['id'] ?? 0);
-    if ($id < 1 || strtolower((string) ($doc['status'] ?? '')) === 'void') {
-        return;
-    }
-    $name = document_download_filename($doc);
-    $sheet = url('document_sheet.php?id=' . $id . '&autodownload=1');
-    // href is the sheet capture page - never a separately-cached server PDF that can diverge.
-    ?>
-        <a
-          class="<?= h($class) ?>"
-          href="<?= h($sheet) ?>"
-          data-pdf-download
-          data-doc-id="<?= $id ?>"
-          data-pdf-name="<?= h($name) ?>"
-          data-sheet-url="<?= h($sheet) ?>"
-          title="Download PDF"
-          aria-label="Download PDF"
-        ><?= icon('pdf', 15) ?><?php if ($showLabel): ?> PDF<?php endif; ?></a>
-    <?php
+    // Intentionally blank: Print and Share remain; PDF icon removed from desk UI.
 }
 
 function render_doc_actions(array $doc, bool $labeled = false, bool $includeRemind = true): void
@@ -3834,7 +3816,6 @@ function render_doc_actions(array $doc, bool $labeled = false, bool $includeRemi
       <?php endif; ?>
       <a class="<?= $cls ?>" href="<?= h(url('document_view.php?id=' . $id . '&print=1')) ?>" title="Print" aria-label="Print"><?= icon('printer', 15) ?><?php if ($labeled): ?> Print<?php endif; ?></a>
       <?php if (!$void): ?>
-        <?php render_pdf_download_link($doc, $cls, $labeled); ?>
         <details class="share-pop">
           <summary class="<?= $cls ?>" title="Share" aria-label="Share"><?= icon('share', 15) ?><?php if ($labeled): ?> Share<?php endif; ?></summary>
           <div class="share-pop-panel" role="menu">

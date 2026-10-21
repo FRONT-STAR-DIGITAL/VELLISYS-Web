@@ -316,7 +316,6 @@ layout_start($heading, $user, ['kind' => $kind]);
   <?php if ($existing || $kind === 'letter'): ?>
   <div class="actions page-actions">
     <?php if ($existing): ?>
-      <?php render_pdf_download_link($existing, 'btn ghost sm', true); ?>
       <a class="btn ghost sm" href="<?= h(url('document_view.php?id=' . (int) $existing['id'] . '&print=1')) ?>"><?= icon('printer', 15) ?> Print</a>
       <a class="btn ghost sm" href="<?= h(url('document_view.php?id=' . (int) $existing['id'])) ?>"><?= icon('eye', 15) ?> View</a>
     <?php endif; ?>
