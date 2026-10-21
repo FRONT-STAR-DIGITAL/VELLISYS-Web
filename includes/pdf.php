@@ -180,7 +180,7 @@ function document_pdf_bytes(array $brand, array $doc): string
         }
     } else {
         $cols = [28, 120, 190, 40, 70, 70];
-        $headers = ['#', 'Item', 'Description', 'Qty', 'Rate', 'Amount'];
+        $headers = ['No.', 'Item', 'Description', 'Qty', 'Rate', 'Amount'];
         $rgb($navy);
         $fill($m, $y - 4, $w - $m * 2, 16);
         $add("1 1 1 rg\n");

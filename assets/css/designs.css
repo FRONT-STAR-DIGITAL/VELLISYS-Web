@@ -1288,11 +1288,13 @@
   print-color-adjust: exact;
 }
 .d-lines.thermal-lines th:nth-child(1),
-.d-lines.thermal-lines td:nth-child(1) { width: auto; }
+.d-lines.thermal-lines td:nth-child(1) { width: 22px; }
 .d-lines.thermal-lines th:nth-child(2),
-.d-lines.thermal-lines td:nth-child(2) { width: 14%; }
+.d-lines.thermal-lines td:nth-child(2) { width: auto; }
 .d-lines.thermal-lines th:nth-child(3),
-.d-lines.thermal-lines td:nth-child(3) { width: 32%; }
+.d-lines.thermal-lines td:nth-child(3) { width: 14%; }
+.d-lines.thermal-lines th:nth-child(4),
+.d-lines.thermal-lines td:nth-child(4) { width: 30%; }
 .d-lines.thermal-lines td.desc {
   white-space: normal;
   overflow-wrap: anywhere;
