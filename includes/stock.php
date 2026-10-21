@@ -2587,13 +2587,13 @@ function render_stock_movements_tab(array $summary): void
   <div class="card stat"><?= icon('expense', 20) ?><span>In value</span><strong><?= h(money($inTotal)) ?></strong></div>
   <div class="card stat"><?= icon('cart', 20) ?><span>Stock out</span><strong><?= h(function_exists('format_qty') ? format_qty($outQty) : (string) $outQty) ?></strong></div>
   <?php if ($showProfit): ?>
-  <div class="card stat"><?= icon('reports', 20) ?><span>Profit on out</span><strong><?= h(money($outProfit)) ?></strong></div>
+  <div class="card stat"><?= icon('reports', 20) ?><span>Profit on out</span><strong class="<?= $outProfit < -0.009 ? 'neg' : ($outProfit > 0.009 ? 'pos' : '') ?>"><?= h(money($outProfit)) ?></strong></div>
   <?php else: ?>
   <div class="card stat"><?= icon('invoice', 20) ?><span>Sold value</span><strong><?= h(money($outSold)) ?></strong></div>
   <?php endif; ?>
 </div>
 
-<div class="desk-grid stock-split stock-movement-tables">
+<div class="stock-movement-tables">
   <div class="card">
     <div class="card-head"><h2><?= icon('plus', 16) ?>Stock in</h2></div>
     <?php if (!$in): ?>
@@ -2643,7 +2643,10 @@ function render_stock_movements_tab(array $summary): void
             </tr>
           </thead>
           <tbody>
-            <?php foreach ($out as $row): ?>
+            <?php foreach ($out as $row):
+                $profit = (float) ($row['profit'] ?? 0);
+                $profitCls = $profit < -0.009 ? 'neg' : ($profit > 0.009 ? 'pos' : '');
+                ?>
               <tr>
                 <td>
                   <?= h((string) ($row['name'] ?? '')) ?>
@@ -2653,7 +2656,7 @@ function render_stock_movements_tab(array $summary): void
                 <td class="right mono"><?= h(money((float) ($row['sell_price'] ?? 0))) ?></td>
                 <td class="right mono"><?= h(money((float) ($row['sold_total'] ?? 0))) ?></td>
                 <?php if ($showProfit): ?>
-                  <td class="right mono"><?= h(money((float) ($row['profit'] ?? 0))) ?></td>
+                  <td class="right mono<?= $profitCls !== '' ? ' ' . h($profitCls) : '' ?>"><?= h(money($profit)) ?></td>
                 <?php endif; ?>
               </tr>
             <?php endforeach; ?>

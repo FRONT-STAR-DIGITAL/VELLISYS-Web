@@ -6300,7 +6300,17 @@ a.branch-activity-row:hover { text-decoration: none; }
 }
 .stock-inv-table { padding: 0 0 8px; }
 .stock-report-tables { margin-top: 4px; gap: 16px; }
-.stock-movement-tables { margin-top: 4px; gap: 16px; }
+.stock-movement-tables {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 4px;
+  width: 100%;
+}
+.stock-movement-tables > .card {
+  width: 100%;
+  min-width: 0;
+}
 @media (max-width: 1024px) {
   .stock-report-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -6319,7 +6329,6 @@ a.branch-activity-row:hover { text-decoration: none; }
   }
   .stock-inv-grid { grid-template-columns: 1fr 1fr; gap: 10px; padding: 4px 14px 12px; }
   .stock-report-tables { grid-template-columns: 1fr; }
-  .stock-movement-tables { grid-template-columns: 1fr; }
 }
 .pos-sale .pos-q {
   width: 100%;
