@@ -163,10 +163,12 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
       <?php endif; ?>
     </p>
   <?php else: ?>
+    <?php $showRowNo = in_array($kind, ['quotation', 'invoice', 'receipt'], true); ?>
     <div class="table-scroll">
     <table class="grid">
       <thead>
         <tr>
+          <?php if ($showRowNo): ?><th class="right" style="width:3rem">No.</th><?php endif; ?>
           <th>Number</th>
           <th><?= $kind === 'expense' ? 'Payee' : 'Client' ?></th>
           <th>Date</th>
@@ -190,8 +192,9 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
         </tr>
       </thead>
       <tbody>
-        <?php foreach ($rows as $doc): ?>
+        <?php foreach ($rows as $i => $doc): ?>
           <tr>
+            <?php if ($showRowNo): ?><td class="right mono"><?= (int) $i + 1 ?></td><?php endif; ?>
             <td class="mono"><a href="<?= h(url('document_view.php?id=' . $doc['id'])) ?>"><?= h($doc['number']) ?></a></td>
             <td><?php if ((int) ($doc['party_id'] ?? 0) > 0): ?>
               <a href="<?= h(url('client_view.php?id=' . $doc['party_id'])) ?>"><?= h($doc['party_name']) ?></a>
@@ -222,7 +225,7 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
       <?php if (kind_shows_money($kind) && $view !== 'void'): ?>
         <tfoot>
           <tr>
-            <td colspan="3">Totals</td>
+            <td colspan="<?= $showRowNo ? 4 : 3 ?>">Totals</td>
             <?php if ($kind === 'expense'): ?>
               <td></td>
               <td class="right mono"><?= h(money(documents_sum($rows))) ?></td>
