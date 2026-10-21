@@ -262,7 +262,8 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
         $rows[] = null;
     }
     $cur = doc_currency($doc);
-    $serial = !empty($opts['serial']);
+    // Default on so print/share/PDF sheets (including older docs) show line numbers.
+    $serial = array_key_exists('serial', $opts) ? !empty($opts['serial']) : true;
     $cls = $opts['class'] ?? '';
     $qtyOnly = in_array(($doc['kind'] ?? ''), ['delivery', 'return_note'], true);
     $taxName = trim((string) ($opts['tax_name'] ?? ''));
@@ -341,6 +342,7 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
       <thead>
         <tr style="background:<?= h($color) ?>;color:#fff">
           <?php if ($compact): ?>
+            <?php if ($serial): ?><th class="c" style="width:28px">No.</th><?php endif; ?>
             <?php if ($colDetails): ?><th><?= h($detailsHead !== '' ? $detailsHead : 'Item') ?></th><?php endif; ?>
             <?php if ($colQty): ?><th class="c" style="width:12%">Qty</th><?php endif; ?>
             <?php if ($colTotal || $colRate): ?><th class="r" style="width:28%"><?= h($amountHead) ?></th><?php endif; ?>
@@ -373,6 +375,7 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
         <?php foreach ($rows as $i => $item): ?>
           <tr style="background:<?= $i % 2 ? h($tint) : '#fff' ?>">
             <?php if ($compact): ?>
+              <?php if ($serial): ?><td class="c"><?= $item ? (string) ($i + 1) : '' ?></td><?php endif; ?>
               <?php if ($colDetails): ?>
               <td class="desc"><?php
                 if (!$item) {
@@ -2173,6 +2176,7 @@ function render_sheet_trade(array $d): void
     <table class="trade-lines">
       <thead>
         <tr>
+          <th class="c" style="width:40px">No.</th>
           <th class="c">QTY</th>
           <th>PARTICULARS</th>
           <?php if ($money && !$qtyOnly): ?>
@@ -2207,6 +2211,7 @@ function render_sheet_trade(array $d): void
             }
             ?>
           <tr class="<?= $i % 2 ? 'is-alt' : '' ?>">
+            <td class="c"><?= is_array($item) ? (string) ($i + 1) : '' ?></td>
             <td class="c"><?= $qtyLabel !== '' ? h($qtyLabel) : '&nbsp;' ?></td>
             <td><?= $particular !== '' ? h($particular) : '&nbsp;' ?></td>
             <?php if ($money && !$qtyOnly): ?>
@@ -2219,7 +2224,7 @@ function render_sheet_trade(array $d): void
       <?php if ($money && !$qtyOnly): ?>
       <tfoot>
         <tr>
-          <td class="trade-eoe" colspan="2">E&amp;OE</td>
+          <td class="trade-eoe" colspan="3">E&amp;OE</td>
           <td class="r trade-total-lab">TOTAL</td>
           <td class="r mono trade-total-amt"><?php
             $tot = (float) ($d['total'] ?? 0);
@@ -2305,6 +2310,7 @@ function render_expense_card(array $brand, array $doc): void
       <table class="grid">
         <thead>
           <tr>
+            <th class="right" style="width:3rem">No.</th>
             <th>Item</th>
             <th>Description</th>
             <th class="right">Qty</th>
@@ -2312,8 +2318,9 @@ function render_expense_card(array $brand, array $doc): void
           </tr>
         </thead>
         <tbody>
-          <?php foreach ($doc['items'] as $item): ?>
+          <?php foreach ($doc['items'] as $i => $item): ?>
             <tr>
+              <td class="right mono"><?= (int) $i + 1 ?></td>
               <td><?= h(line_item_name($item)) ?></td>
               <td><?= nl2br(h(line_item_description($item))) ?></td>
               <td class="right mono"><?= h(format_qty($item['qty'] ?? 0)) ?></td>
