@@ -1813,13 +1813,17 @@
   text-align: left;
 }
 .sheet-trade .trade-lines th.c,
-.sheet-trade .trade-lines td.c { text-align: center; width: 18%; white-space: nowrap; }
+.sheet-trade .trade-lines td.c { text-align: center; white-space: nowrap; }
 .sheet-trade .trade-lines th.r,
 .sheet-trade .trade-lines td.r { text-align: right; }
-.sheet-trade .trade-lines th:nth-child(3),
-.sheet-trade .trade-lines td:nth-child(3) { width: 20%; }
+.sheet-trade .trade-lines th:nth-child(1),
+.sheet-trade .trade-lines td:nth-child(1) { width: 40px; }
+.sheet-trade .trade-lines th:nth-child(2),
+.sheet-trade .trade-lines td:nth-child(2) { width: 16%; }
 .sheet-trade .trade-lines th:nth-child(4),
 .sheet-trade .trade-lines td:nth-child(4) { width: 20%; }
+.sheet-trade .trade-lines th:nth-child(5),
+.sheet-trade .trade-lines td:nth-child(5) { width: 20%; }
 .sheet-trade .trade-lines tbody tr.is-alt td {
   background: color-mix(in srgb, var(--brand) 8%, #fff);
 }
