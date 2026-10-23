@@ -90,12 +90,8 @@ sales_layout_start('Companies', $user);
               <td><?= h($period !== '' ? $period : '-') ?></td>
               <td class="right mono"><?= h(money(company_fee_amount($c), $feeCcy)) ?></td>
               <td class="right mono"><?= h(money($paid, $feeCcy)) ?></td>
-              <td class="right mono<?= $balance > 0.009 ? ' warn' : '' ?>">
-                <?php if ($balance > 0.009): ?>
-                  <strong><?= h(money($balance, $feeCcy)) ?></strong>
-                <?php else: ?>
-                  <?= h(money(0, $feeCcy)) ?>
-                <?php endif; ?>
+              <td class="right mono<?= $balance > 0.009 ? ' neg' : ' pos' ?>">
+                <?= h(money($balance, $feeCcy)) ?>
               </td>
               <td class="row-actions">
                 <?php if ($leadId > 0): ?>
