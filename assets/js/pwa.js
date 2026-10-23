@@ -35,7 +35,6 @@
   }
 
   var html = document.documentElement;
-  var installed = isInstalledApp() || storageFlag('vellisys-pwa-installed');
   if (isInstalledApp()) {
     html.classList.add('is-pwa');
     setStorageFlag('vellisys-pwa-installed');
@@ -88,13 +87,15 @@
 
   var deferred = null;
   var ua = navigator.userAgent || '';
-  var isIos = /iphone|ipad|ipod/i.test(ua);
+  var isIos = /iphone|ipad|ipod/i.test(ua)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   var dismissKey = 'vellisys-install-banner-dismissed';
   var installedKey = 'vellisys-pwa-installed';
 
   function hideBanner(persist) {
     if (!banner) return;
     banner.classList.remove('is-in');
+    banner.classList.remove('is-steps');
     window.setTimeout(function () {
       banner.hidden = true;
     }, 520);
@@ -114,7 +115,7 @@
   }
 
   function alreadyInstalled() {
-    if (isInstalledApp() || storageFlag(installedKey)) {
+    if (isInstalledApp()) {
       return true;
     }
     try {
@@ -128,10 +129,6 @@
     if (!banner || alreadyInstalled() || bannerDismissed()) {
       return;
     }
-    // Only open when install can run now (Chrome/Edge deferred prompt), or on iOS.
-    if (!deferred && !isIos) {
-      return;
-    }
     banner.hidden = false;
     window.requestAnimationFrame(function () {
       window.requestAnimationFrame(function () {
@@ -140,14 +137,45 @@
     });
   }
 
+  function showBannerIosSteps() {
+    if (!banner) return;
+    var steps = banner.querySelector('[data-pwa-banner-ios]');
+    if (steps) {
+      steps.hidden = false;
+      banner.classList.add('is-steps');
+    }
+  }
+
   function markInstalled() {
     setStorageFlag(installedKey);
     try {
       localStorage.setItem(dismissKey, '1');
     } catch (err) {}
     hideBanner(true);
+    if (wrap) {
+      wrap.hidden = true;
+    }
   }
 
+  function showLoginSteps() {
+    if (!wrap) return;
+    var ios = wrap.querySelector('[data-pwa-ios]');
+    var fallback = wrap.querySelector('[data-pwa-fallback]');
+    if (isIos) {
+      if (ios) ios.hidden = false;
+      if (fallback) fallback.hidden = true;
+    } else {
+      if (fallback) fallback.hidden = false;
+      if (ios) ios.hidden = true;
+    }
+    try {
+      wrap.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    } catch (err) {
+      wrap.scrollIntoView(true);
+    }
+  }
+
+  /** Returns true when the native install dialog was opened. */
   function runInstall(btn) {
     if (deferred) {
       var promptEvent = deferred;
@@ -156,22 +184,12 @@
       promptEvent.userChoice.then(function (choice) {
         if (choice && choice.outcome === 'accepted') {
           markInstalled();
+        } else {
+          // Keep listening for a later prompt if they cancelled.
+          deferred = null;
         }
       }).catch(function () {});
       return true;
-    }
-    // No native prompt yet - on iOS keep the login install help; otherwise wait.
-    if (banner && btn && btn.closest('[data-pwa-install-banner]')) {
-      if (isIos) {
-        var login = btn.getAttribute('data-pwa-install-login') || html.getAttribute('data-pwa-login') || 'login.php';
-        try {
-          location.href = login;
-        } catch (err) {
-          location.assign(login);
-        }
-        return true;
-      }
-      return false;
     }
     return false;
   }
@@ -179,7 +197,6 @@
   if (alreadyInstalled()) {
     if (wrap) {
       wrap.hidden = true;
-      wrap.removeAttribute('open');
     }
     if (banner) {
       banner.hidden = true;
@@ -187,7 +204,6 @@
     return;
   }
 
-  // Detect an already-installed PWA while browsing the website.
   if (navigator.getInstalledRelatedApps) {
     try {
       navigator.getInstalledRelatedApps().then(function (apps) {
@@ -198,8 +214,8 @@
     } catch (err) {}
   }
 
-  // iOS has no beforeinstallprompt - show once if not dismissed.
-  if (banner && isIos && !bannerDismissed()) {
+  // Soft slide-down on the public site for everyone who has not installed / dismissed.
+  if (banner && !bannerDismissed()) {
     window.setTimeout(showBannerGently, 900);
   }
 
@@ -207,29 +223,24 @@
     var btn = wrap.querySelector('[data-pwa-install-btn]');
     var ios = wrap.querySelector('[data-pwa-ios]');
     var ready = wrap.querySelector('[data-pwa-ready]');
-    var fallback = wrap.querySelector('[data-pwa-fallback]');
 
+    // iPhone / iPad: show Add to Home Screen steps right away.
     if (isIos && ios) {
       ios.hidden = false;
     }
 
     if (btn) {
       btn.addEventListener('click', function () {
-        wrap.open = true;
         if (runInstall(btn)) {
           return;
         }
-        if (isIos) {
-          if (ios) ios.hidden = false;
-        } else if (fallback) {
-          fallback.hidden = false;
-        }
-        try {
-          wrap.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-        } catch (err) {
-          wrap.scrollIntoView(true);
-        }
+        // No native prompt (typical on iPhone) - show install steps.
+        showLoginSteps();
       });
+    }
+
+    if (ready && deferred) {
+      ready.hidden = false;
     }
   }
 
@@ -238,7 +249,22 @@
     var dismiss = banner.querySelector('[data-pwa-install-dismiss]');
     if (bannerBtn) {
       bannerBtn.addEventListener('click', function () {
-        runInstall(bannerBtn);
+        if (runInstall(bannerBtn)) {
+          return;
+        }
+        if (isIos) {
+          showBannerIosSteps();
+          return;
+        }
+        // Desktop/Android without a prompt yet - open sign-in install help.
+        var login = bannerBtn.getAttribute('data-pwa-install-login')
+          || html.getAttribute('data-pwa-login')
+          || 'login.php';
+        try {
+          location.href = login + (login.indexOf('#') === -1 ? '#install' : '');
+        } catch (err) {
+          location.assign(login);
+        }
       });
     }
     if (dismiss) {
@@ -250,7 +276,7 @@
 
   window.addEventListener('beforeinstallprompt', function (e) {
     e.preventDefault();
-    if (alreadyInstalled() || bannerDismissed()) {
+    if (alreadyInstalled()) {
       return;
     }
     deferred = e;
@@ -260,16 +286,28 @@
       if (installBtn) installBtn.disabled = false;
       if (readyNote) readyNote.hidden = false;
     }
-    showBannerGently();
+    if (banner && !bannerDismissed()) {
+      showBannerGently();
+    }
   });
 
   window.addEventListener('appinstalled', function () {
     deferred = null;
-    if (wrap) wrap.hidden = true;
     markInstalled();
     try {
       localStorage.setItem('vellisys-ask-push-install', '1');
       sessionStorage.removeItem('vellisys-push-asked');
     } catch (err) {}
   });
+
+  // Deep link from the landing banner when no native prompt is available.
+  if (wrap && /(?:^|#|&)install(?:&|$)/.test(location.hash || '')) {
+    window.setTimeout(function () {
+      showLoginSteps();
+      var installBtn = wrap.querySelector('[data-pwa-install-btn]');
+      if (installBtn && typeof installBtn.focus === 'function') {
+        try { installBtn.focus(); } catch (err) {}
+      }
+    }, 200);
+  }
 })();

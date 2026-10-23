@@ -135,29 +135,30 @@ $showDemoKeys = !folio_is_live_host();
     </form>
     </div>
 
-    <details class="gate-install" data-pwa-install>
-      <summary class="gate-install-kicker">Install the app</summary>
-      <h3>Put Vellisys on your phone or computer</h3>
-      <p>The installed app opens on this sign-in page. The public website still starts on the landing page.</p>
-      <button class="gate-submit gate-install-btn" type="button" data-pwa-install-btn>Install the Vellisys app</button>
-      <p class="gate-install-note" data-pwa-ready hidden>Your browser is ready. Tap the button to add Vellisys.</p>
+    <section class="gate-install" id="install" data-pwa-install>
+      <p class="gate-install-kicker">Get the app</p>
+      <h3>Install Vellisys</h3>
+      <p>Put the app on your phone or computer. It opens on this sign-in page.</p>
+      <button class="gate-submit gate-install-btn" type="button" data-pwa-install-btn>Install Vellisys</button>
+      <p class="gate-install-note" data-pwa-ready hidden>Your browser is ready. Tap Install Vellisys to add it now.</p>
       <div class="gate-install-ios" data-pwa-ios hidden>
         <p><strong>iPhone and iPad</strong></p>
         <ol>
-          <li>Open this sign-in page in Safari.</li>
-          <li>Tap the Share button, then <strong>Add to Home Screen</strong>.</li>
-          <li>Open the new Vellisys icon. It comes here, not to the landing page.</li>
+          <li>Stay on this sign-in page in <strong>Safari</strong>.</li>
+          <li>Tap the <strong>Share</strong> button.</li>
+          <li>Tap <strong>Add to Home Screen</strong>, then Add.</li>
+          <li>Open the new Vellisys icon - it comes here, not to the landing page.</li>
         </ol>
       </div>
       <div class="gate-install-fallback" data-pwa-fallback hidden>
         <p><strong>Chrome, Edge, or Android</strong></p>
         <ol>
-          <li>Use the install icon in the address bar, or the browser menu item <strong>Install app</strong> / <strong>Add to Home screen</strong>.</li>
+          <li>Tap <strong>Install Vellisys</strong> above when your browser offers it, or use Install app / Add to Home screen in the menu.</li>
           <li>Keep this sign-in page open while you install so the app starts here.</li>
         </ol>
         <p>On a Mac in Safari: File, then Add to Dock.</p>
       </div>
-    </details>
+    </section>
   </main>
 </div>
 <?php public_float_widgets(); ?>

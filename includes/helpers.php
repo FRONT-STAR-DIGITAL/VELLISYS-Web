@@ -4557,6 +4557,15 @@ function render_landing_install_banner(): void
     </button>
     <button type="button" class="lp-install-x" data-pwa-install-dismiss aria-label="Dismiss install prompt"><?= icon('x', 16) ?></button>
   </div>
+  <div class="lp-install-ios" data-pwa-banner-ios hidden>
+    <p><strong>iPhone and iPad</strong></p>
+    <ol>
+      <li>Open this site in <strong>Safari</strong>.</li>
+      <li>Tap the <strong>Share</strong> button.</li>
+      <li>Tap <strong>Add to Home Screen</strong>, then Add.</li>
+      <li>Open the new Vellisys icon - it starts on Sign in.</li>
+    </ol>
+  </div>
 </div>
     <?php
 }

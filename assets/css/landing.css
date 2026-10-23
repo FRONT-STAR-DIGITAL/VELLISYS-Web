@@ -2082,18 +2082,14 @@ body.gate .lp-floats { display: none; }
 .gate-install {
   width: min(440px, 100%);
   margin: 12px 0 0;
-  padding: 10px 16px 12px;
-  border: 0;
-  border-radius: 12px;
-  background: transparent;
+  padding: 16px 18px 18px;
+  border: 1px solid rgba(8, 20, 58, .1);
+  border-radius: 14px;
+  background: #fff;
   position: relative;
   z-index: 1;
+  box-shadow: 0 10px 28px rgba(8, 20, 58, .06);
 }
-.gate-install summary {
-  cursor: pointer;
-  list-style: none;
-}
-.gate-install summary::-webkit-details-marker { display: none; }
 .gate-install-kicker {
   margin: 0 0 6px;
   font-size: 11px;
@@ -2293,23 +2289,26 @@ html.is-pwa body.gate .lp-floats { display: none !important; }
     bottom: auto;
     width: min(420px, 100%);
     margin: 18px auto 0;
-    padding: 4px 4px 8px;
+    padding: 16px 18px 18px;
     flex-shrink: 0;
-  }
-  .gate-install-kicker { color: #9db4ff; }
-  .gate-install h3 { color: #fff; font-size: 16px; }
-  .gate-install-btn {
     background: #fff;
-    color: #08143a;
+    border-color: rgba(255, 255, 255, .18);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, .2);
   }
-  .gate-install-btn:hover { background: #eef2ff; color: #08143a; }
+  .gate-install-kicker { color: var(--blue); }
+  .gate-install h3 { color: var(--navy); font-size: 16px; }
+  .gate-install-btn {
+    background: #08143a;
+    color: #fff;
+  }
+  .gate-install-btn:hover { background: #12245c; color: #fff; }
   .gate-install > p,
   .gate-install-ios,
   .gate-install-fallback,
-  .gate-install li { color: rgba(255, 255, 255, .72); }
+  .gate-install li { color: var(--muted); }
   .gate-install-ios,
-  .gate-install-fallback { border-top-color: rgba(255, 255, 255, .12); }
-  .gate-install-note { color: #fff; }
+  .gate-install-fallback { border-top-color: rgba(8, 20, 58, .08); }
+  .gate-install-note { color: var(--navy); }
   html.is-pwa .gate-panel,
   html.is-pwa body.gate .gate-panel {
     min-height: 0;
@@ -2334,7 +2333,9 @@ html.is-pwa body.gate .lp-floats { display: none !important; }
   right: 0;
   z-index: 95;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   padding: max(10px, env(safe-area-inset-top)) 12px 0;
   pointer-events: none;
   transform: translateY(-120%);
@@ -2359,6 +2360,25 @@ html.is-pwa body.gate .lp-floats { display: none !important; }
   border-radius: 14px;
   box-shadow: 0 14px 36px rgba(8, 20, 58, .28);
 }
+.lp-install-ios {
+  pointer-events: auto;
+  width: min(420px, calc(100vw - 24px));
+  padding: 12px 14px 14px;
+  background: #fff;
+  color: var(--navy);
+  border: 1px solid rgba(8, 20, 58, .12);
+  border-radius: 14px;
+  box-shadow: 0 14px 36px rgba(8, 20, 58, .18);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.lp-install-ios[hidden] { display: none !important; }
+.lp-install-ios p { margin: 0; }
+.lp-install-ios ol {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+.lp-install-ios li { margin: 5px 0; color: var(--muted); }
 .lp-install-cta {
   flex: 1;
   min-width: 0;
