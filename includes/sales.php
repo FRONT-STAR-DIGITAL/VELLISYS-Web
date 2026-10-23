@@ -3904,6 +3904,12 @@ function sales_notifications_for_agent(int $userId): array
             'tone' => 'info',
         ];
     }
+    if (function_exists('notification_is_dismissed')) {
+        $notes = array_values(array_filter(
+            $notes,
+            static fn (array $n): bool => !notification_is_dismissed((string) ($n['key'] ?? ''))
+        ));
+    }
     return $notes;
 }
 
@@ -4185,6 +4191,9 @@ function sales_layout_start(string $title, array $user): void
     $openFollowN = sales_open_followups_count((int) $user['id']);
     $notes = sales_notifications_for_agent((int) $user['id']);
     $noteCount = count($notes);
+    if ($noteCount && function_exists('push_schedule_sync')) {
+        push_schedule_sync();
+    }
     $avatar = sales_avatar_url($user);
     $leadsBucket = (string) ($_GET['bucket'] ?? '');
     // Grouped field nav: work → companies → chat → results → tools → account.
@@ -4317,6 +4326,14 @@ function sales_layout_start(string $title, array $user): void
                         <span class="top-bell-title"><?= h($n['title']) ?></span>
                         <span class="top-bell-meta"><?= h($n['meta']) ?></span>
                       </a>
+                      <?php if (!empty($n['key'])): ?>
+                        <form class="top-bell-dismiss" method="post" action="<?= h(url('notify_action.php')) ?>">
+                          <?= csrf_field() ?>
+                          <input type="hidden" name="action" value="dismiss">
+                          <input type="hidden" name="key" value="<?= h((string) $n['key']) ?>">
+                          <button type="submit" class="top-bell-x" title="Dismiss" aria-label="Dismiss"><?= icon('x', 14) ?></button>
+                        </form>
+                      <?php endif; ?>
                     </div>
                   </li>
                 <?php endforeach; ?>
@@ -4348,6 +4365,8 @@ function sales_layout_end(string $extra = ''): void
   <a class="app-tab<?= basename($_SERVER['SCRIPT_NAME'] ?? '') === 'sales_messages.php' ? ' is-on' : '' ?>" href="<?= h(url('sales_messages.php')) ?>"><?= icon('mail', 22) ?><span>Chat</span></a>
 </nav>
 <script src="<?= h(asset('js/app.js')) ?>" defer></script>
+<script src="<?= h(asset('js/pwa.js')) ?>" defer></script>
+<script src="<?= h(asset('js/push.js')) ?>" defer></script>
 <?= $extra ?>
 </body>
 </html>

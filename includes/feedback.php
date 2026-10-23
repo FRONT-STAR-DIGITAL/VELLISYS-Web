@@ -140,6 +140,14 @@ function notify_admin_desk_feedback(array $row): void
             'urgent'
         );
     }
+    if (function_exists('push_notify_item')) {
+        push_notify_item([
+            'title' => 'Desk help · ' . $company,
+            'meta' => clip_text($message, 80),
+            'href' => url('admin_feedback.php?id=' . $id),
+            'key' => 'desk-feedback:' . $id,
+        ], 'platform');
+    }
     notify_platform('Desk feedback - ' . $company, $html, $text, $email);
 }
 
@@ -165,4 +173,13 @@ function notify_desk_feedback_reply(array $row): void
     );
     $text = "Hello {$who},\n\nVellisys replied to your help request.\n\nYour note:\n{$original}\n\nOur reply:\n{$reply}\n\nOpen: " . absolute_url('feedback.php');
     send_platform_email($to, 'Vellisys replied to your help request', $html, $text, (int) ($row['user_id'] ?? 0));
+    $deskUserId = (int) ($row['user_id'] ?? 0);
+    if ($deskUserId > 0 && function_exists('push_notify_item')) {
+        push_notify_item([
+            'title' => 'Vellisys replied to your help request',
+            'meta' => clip_text($reply, 80),
+            'href' => url('feedback.php'),
+            'key' => 'feedback-reply:' . (int) ($row['id'] ?? 0),
+        ], 'user:' . $deskUserId);
+    }
 }

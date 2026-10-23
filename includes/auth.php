@@ -334,7 +334,11 @@ function user_can_open(string $script, string $kind = ''): bool
     if ($script === 'branches.php') {
         return company_branches_enabled() && is_desk_admin();
     }
-    if ($script === 'notify_action.php' || $script === 'activities.php') {
+    if ($script === 'notify_action.php') {
+        // Any portal login may dismiss their own bell items.
+        return true;
+    }
+    if ($script === 'activities.php') {
         return is_desk_admin();
     }
     $pnlScripts = ['pnl.php', 'pnl_entries.php', 'pnl_savings.php', 'pnl_banking.php'];

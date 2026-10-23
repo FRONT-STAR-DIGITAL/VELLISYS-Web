@@ -44,7 +44,9 @@ sales_layout_start('Profile', $fresh);
 </div>
 <?php if ($error): ?><p class="flash flash-err"><?= h($error) ?></p><?php endif; ?>
 
-<div class="desk-grid stock-split">
+<?php if (function_exists('render_push_settings_card')) { render_push_settings_card(); } ?>
+
+<div class="desk-grid stock-split" style="margin-top:16px">
   <div class="card">
     <div class="card-head"><h2><?= icon('image', 16) ?>Photo</h2></div>
     <form class="pad-form" method="post" enctype="multipart/form-data">

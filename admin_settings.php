@@ -105,4 +105,6 @@ layout_admin_start('Settings', $user);
     <a class="btn ghost sm" href="<?= h(url('admin_companies.php')) ?>">Open companies</a>
   </div>
 </form>
+
+<?php if (function_exists('render_push_settings_card')) { render_push_settings_card(); } ?>
 <?php layout_end(); ?>

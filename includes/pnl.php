@@ -1350,8 +1350,34 @@ function desk_notifications(int $limit = 40): array
             $items = array_merge($items, stock_low_notifications(20));
         }
         // Debtor / creditor due reminders (day before, due today, overdue).
+        $ledgerItems = [];
         if (function_exists('ledger_due_reminder_notifications')) {
-            $items = array_merge($items, ledger_due_reminder_notifications(20));
+            $ledgerItems = ledger_due_reminder_notifications(20);
+            $items = array_merge($items, $ledgerItems);
+        }
+        // Prefer ledger debtor_due rows over planner "invoice due" for the same document.
+        if ($ledgerItems) {
+            $debtorDocs = [];
+            foreach ($ledgerItems as $row) {
+                if (($row['type'] ?? '') === 'debtor_due') {
+                    $debtorDocs[(int) ($row['document_id'] ?? 0)] = true;
+                }
+            }
+            if ($debtorDocs) {
+                $items = array_values(array_filter(
+                    $items,
+                    static function (array $n) use ($debtorDocs): bool {
+                        if (($n['type'] ?? '') !== 'invoice') {
+                            return true;
+                        }
+                        $id = (int) ($n['document_id'] ?? 0);
+                        if ($id < 1 && preg_match('/[?&]id=(\d+)/', (string) ($n['href'] ?? ''), $m)) {
+                            $id = (int) $m[1];
+                        }
+                        return $id < 1 || empty($debtorDocs[$id]);
+                    }
+                ));
+            }
         }
         // Feedback replies addressed to this login only.
         if ($uid > 0 && function_exists('desk_feedback_for_company')) {

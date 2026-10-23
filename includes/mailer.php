@@ -575,6 +575,16 @@ function notify_password_reset_request(string $email): array
             'urgent'
         );
     }
+    if (function_exists('push_notify_item')) {
+        push_notify_item([
+            'title' => 'Password reset · ' . $email,
+            'meta' => $found
+                ? (($who !== '' ? $who : $email) . ($company !== '' ? ' · ' . $company : ''))
+                : 'No matching login',
+            'href' => $deskLink,
+            'key' => 'password-reset:' . md5($email . '|' . date('Y-m-d-H')),
+        ], 'platform');
+    }
 
     return notify_platform('Password reset requested - ' . $email, $html, $text, $email, $uid);
 }

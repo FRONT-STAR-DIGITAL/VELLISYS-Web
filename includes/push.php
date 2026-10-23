@@ -335,7 +335,18 @@ function push_audience_user_ids(string $scope, int $companyId = 0): array
         $rows = db_all("SELECT id FROM users WHERE role = 'platform'");
         return array_map(static fn (array $r): int => (int) $r['id'], $rows);
     }
+    // One login: "user:123" (sales agent chat, feedback reply, etc.).
+    if (preg_match('/^user:(\d+)$/', $scope, $m)) {
+        $uid = (int) $m[1];
+        return $uid > 0 ? [$uid] : [];
+    }
+    if ($scope === 'user' && $companyId > 0) {
+        return [(int) $companyId];
+    }
     $cid = $companyId > 0 ? $companyId : current_company_id();
+    if ($cid < 1) {
+        return [];
+    }
     $rows = db_all(
         "SELECT id FROM users WHERE company_id = ? AND (role = 'admin' OR access = 'admin')",
         'i',
@@ -393,8 +404,11 @@ function push_current_items_for_user(?array $user = null): array
         return [];
     }
     $items = [];
-    if (($user['role'] ?? '') === 'platform' && empty($_SESSION['acting_company_id'])) {
+    $role = (string) ($user['role'] ?? '');
+    if ($role === 'platform' && empty($_SESSION['acting_company_id'])) {
         $items = function_exists('platform_notifications') ? platform_notifications(40) : [];
+    } elseif ($role === 'sales_agent' && function_exists('sales_notifications_for_agent')) {
+        $items = sales_notifications_for_agent((int) ($user['id'] ?? 0));
     } elseif (function_exists('desk_notifications')) {
         $items = desk_notifications(40);
     } elseif (function_exists('company_planner_enabled') && company_planner_enabled() && is_desk_admin($user)) {
@@ -460,7 +474,7 @@ function render_push_settings_card(): void
     ?>
     <section class="card settings-card" id="notifications">
       <h2><?= icon('bell') ?>Notifications</h2>
-      <p class="lede">Allow alerts on this phone or computer. Existing desk notices appear on the installed app, and new ones pop up like a WhatsApp message. On the installed app, the home-screen icon also shows how many are waiting, the way Gmail does. Use the installed app for the most reliable alerts.</p>
+      <p class="lede">Allow alerts on this phone or computer. Notices already in the bell appear on the installed app, and new ones pop up like a WhatsApp message. On the installed app, the home-screen icon also shows how many are waiting, the way Gmail does. Use the installed app for the most reliable alerts.</p>
       <div class="push-settings" data-push-panel>
         <p class="muted" data-push-status>Checking this device…</p>
         <div class="settings-account-actions">
