@@ -1096,7 +1096,7 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
   <script type="application/json" data-mail-presets><?= json_encode(mail_provider_presets(), JSON_UNESCAPED_SLASHES) ?></script>
 </form>
 
-<form class="card form-wide" method="post" style="margin-top:16px">
+<form class="card form-wide" method="post" style="margin-top:16px" id="admin-company-profile">
   <?= csrf_field() ?>
   <input type="hidden" name="id" value="<?= $id ?>">
   <input type="hidden" name="action" value="profile">
@@ -1168,11 +1168,15 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
     <textarea id="notes" name="notes" rows="3"><?= h((string) $company['notes']) ?></textarea>
     <?php render_client_fields_admin($company); ?>
     <?php render_desk_kinds_fields($company); ?>
-    <div class="actions" style="margin-top:12px">
+    <div class="actions sticky-save" style="margin-top:12px">
       <button class="btn" type="submit"><?= icon('check') ?>Save company</button>
     </div>
   </div>
 </form>
+
+<div class="admin-company-save-dock" aria-label="Save company">
+  <button class="btn" type="submit" form="admin-company-profile"><?= icon('check') ?>Save company</button>
+</div>
 
 <form class="card form-wide" method="post" enctype="multipart/form-data" style="margin-top:16px">
   <?= csrf_field() ?>

@@ -3413,6 +3413,32 @@ details.top-bell[open] > summary.header-settings:hover {
     margin: 0;
   }
 }
+
+/* Super-admin company page: floating Save company (always in reach). */
+.admin-body .admin-company-save-dock {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 45;
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--card) 90%, #fff);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(8, 20, 58, .14);
+}
+.admin-body .admin-company-save-dock .btn { min-height: 44px; }
+.admin-body .content { padding-bottom: 88px; }
+@media (max-width: 720px) {
+  .admin-body .admin-company-save-dock {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    justify-content: stretch;
+  }
+  .admin-body .admin-company-save-dock .btn { width: 100%; }
+}
 .pdf-bar {
   display: flex;
   flex-wrap: wrap;
