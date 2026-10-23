@@ -25,7 +25,7 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '76';
+    return '77';
 }
 
 /** Push public package prices when defaults change (DB rows already exist). */
@@ -1099,6 +1099,11 @@ function folio_migrate(mysqli $db): void
     // Stamp filename already includes the schema stamp, so a code change invalidates the file.
     $ready = folio_schema_ready_file();
     if (is_file($ready)) {
+        // Safety net: critical columns added after the warm-stamp pattern must still land
+        // even if an old early-return left schema_meta ahead of the real ALTER.
+        if (!db_has_column($db, 'companies', 'sales_agent_id')) {
+            folio_migrate_company_sales_agent($db);
+        }
         $done = true;
         return;
     }
@@ -1142,17 +1147,10 @@ function folio_migrate(mysqli $db): void
     folio_ensure_personal_creditors($db);
     folio_migrate_sales_field($db);
     folio_ensure_purge_ofagros_fees($db);
+    folio_ensure_company_sales_agent($db);
 
     $tables = $db->query("SHOW TABLES LIKE 'users'");
     if (!$tables || $tables->num_rows === 0) {
-        return;
-    }
-    // Mark schema warm so the next HTTP request skips ensure_* work.
-    @file_put_contents($ready, folio_schema_stamp() . "\n" . date('c'), LOCK_EX);
-
-    $verRow = @$db->query("SELECT v FROM schema_meta WHERE k='version'");
-    if ($verRow && ($r = $verRow->fetch_assoc()) && (int) $r['v'] >= 50) {
-        $done = true;
         return;
     }
 
@@ -1165,12 +1163,9 @@ function folio_migrate(mysqli $db): void
     if ($verRow && ($r = $verRow->fetch_assoc())) {
         $ver = (int) $r['v'];
     }
-    if ($ver >= 48) {
-        @touch($ready);
-        $done = true;
-        return;
-    }
 
+    // Numbered migrations below must still run when version is already 50+.
+    // (Older code returned early at >= 50 / >= 48 and skipped testing_mode, sales_agent_id, etc.)
     try {
         folio_ensure_public_tables($db);
     } catch (Throwable $e) {
@@ -1437,11 +1432,23 @@ function folio_migrate(mysqli $db): void
     }
 
     $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '55')");
-    @touch($ready);
+    // Mark schema warm so the next HTTP request skips ensure_* work.
+    @file_put_contents($ready, folio_schema_stamp() . "\n" . date('c'), LOCK_EX);
     $done = true;
     } finally {
         mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
     }
+}
+
+/** Always-safe ensure: companies.sales_agent_id for assignment / sales portal. */
+function folio_ensure_company_sales_agent(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    folio_migrate_company_sales_agent($db);
 }
 
 /** Sales-agent testing desks: trial companies owned by an agent (default 1 month). */

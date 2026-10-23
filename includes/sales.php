@@ -1480,6 +1480,14 @@ function sales_set_company_agent_id(int $companyId, ?int $agentId): void
         return;
     }
     try {
+        if (function_exists('db_has_column') && !db_has_column(db(), 'companies', 'sales_agent_id')) {
+            if (function_exists('folio_migrate_company_sales_agent')) {
+                folio_migrate_company_sales_agent(db());
+            }
+            if (!db_has_column(db(), 'companies', 'sales_agent_id', true)) {
+                return;
+            }
+        }
         if ($agentId !== null && $agentId > 0) {
             db_exec('UPDATE companies SET sales_agent_id = ? WHERE id = ?', 'ii', [$agentId, $companyId]);
         } else {
@@ -3351,35 +3359,74 @@ function sales_top_agents(string $from, string $to, int $limit = 8): array
 {
     // Reach / interested / etc. use the selected period (lead created_at).
     // Sales = all-time onboarded clients for that agent (a sale is an onboarded client).
-    $rows = db_all(
-        "SELECT u.id, u.name, u.email,
-                SUM(CASE WHEN l.id IS NOT NULL THEN 1 ELSE 0 END) AS reach,
-                SUM(CASE WHEN l.status = 'interested' THEN 1 ELSE 0 END) AS interested,
-                (SELECT COUNT(DISTINCT c.id) FROM companies c
+    $limit = max(1, (int) $limit);
+    $hasSalesAgentCol = false;
+    try {
+        $hasSalesAgentCol = function_exists('db_has_column') && db_has_column(db(), 'companies', 'sales_agent_id');
+    } catch (Throwable $e) {
+        $hasSalesAgentCol = false;
+    }
+
+    $salesSelect = $hasSalesAgentCol
+        ? "(SELECT COUNT(DISTINCT c.id) FROM companies c
                   LEFT JOIN sales_leads s ON s.company_id = c.id AND s.deleted_at IS NULL AND s.status = 'onboarded'
                   WHERE COALESCE(c.testing_mode, 0) = 0
-                    AND (c.sales_agent_id = u.id OR s.agent_id = u.id)) AS sales,
-                (SELECT COUNT(DISTINCT c.id) FROM companies c
-                  LEFT JOIN sales_leads s ON s.company_id = c.id AND s.deleted_at IS NULL AND s.status = 'onboarded'
-                  WHERE COALESCE(c.testing_mode, 0) = 0
-                    AND (c.sales_agent_id = u.id OR s.agent_id = u.id)) AS onboarded,
-                SUM(CASE WHEN l.status = 'onboarding' THEN 1 ELSE 0 END) AS onboarding,
-                SUM(CASE WHEN l.status = 'rejected' THEN 1 ELSE 0 END) AS rejected,
-                SUM(CASE WHEN l.status = 'follow_up' THEN 1 ELSE 0 END) AS follow_up,
-                (SELECT COUNT(*) FROM companies c
-                  WHERE c.testing_mode = 1 AND c.testing_owner_id = u.id
-                    AND DATE(c.created_at) >= ? AND DATE(c.created_at) <= ?) AS on_test
-         FROM users u
-         LEFT JOIN sales_leads l ON l.agent_id = u.id
-              AND DATE(l.created_at) >= ? AND DATE(l.created_at) <= ?
-         WHERE u.role = 'sales_agent' AND COALESCE(u.status, 'live') = 'live'
-         GROUP BY u.id, u.name, u.email
-         ORDER BY sales DESC, onboarded DESC, interested DESC, reach DESC, u.name
-         LIMIT " . (int) $limit,
-        'ssss',
-        [$from, $to, $from, $to]
-    );
-    return $rows;
+                    AND (c.sales_agent_id = u.id OR s.agent_id = u.id))"
+        : "(SELECT COUNT(*) FROM sales_leads s
+                  WHERE s.agent_id = u.id AND s.status = 'onboarded')";
+
+    try {
+        return db_all(
+            "SELECT u.id, u.name, u.email,
+                    SUM(CASE WHEN l.id IS NOT NULL THEN 1 ELSE 0 END) AS reach,
+                    SUM(CASE WHEN l.status = 'interested' THEN 1 ELSE 0 END) AS interested,
+                    {$salesSelect} AS sales,
+                    {$salesSelect} AS onboarded,
+                    SUM(CASE WHEN l.status = 'onboarding' THEN 1 ELSE 0 END) AS onboarding,
+                    SUM(CASE WHEN l.status = 'rejected' THEN 1 ELSE 0 END) AS rejected,
+                    SUM(CASE WHEN l.status = 'follow_up' THEN 1 ELSE 0 END) AS follow_up,
+                    (SELECT COUNT(*) FROM companies c
+                      WHERE c.testing_mode = 1 AND c.testing_owner_id = u.id
+                        AND DATE(c.created_at) >= ? AND DATE(c.created_at) <= ?) AS on_test
+             FROM users u
+             LEFT JOIN sales_leads l ON l.agent_id = u.id
+                  AND DATE(l.created_at) >= ? AND DATE(l.created_at) <= ?
+             WHERE u.role = 'sales_agent' AND COALESCE(u.status, 'live') = 'live'
+             GROUP BY u.id, u.name, u.email
+             ORDER BY sales DESC, onboarded DESC, interested DESC, reach DESC, u.name
+             LIMIT {$limit}",
+            'ssss',
+            [$from, $to, $from, $to]
+        );
+    } catch (Throwable $e) {
+        // Last resort: no company columns (testing_mode / sales_agent_id) yet.
+        try {
+            return db_all(
+                "SELECT u.id, u.name, u.email,
+                        SUM(CASE WHEN l.id IS NOT NULL THEN 1 ELSE 0 END) AS reach,
+                        SUM(CASE WHEN l.status = 'interested' THEN 1 ELSE 0 END) AS interested,
+                        (SELECT COUNT(*) FROM sales_leads s
+                          WHERE s.agent_id = u.id AND s.status = 'onboarded') AS sales,
+                        (SELECT COUNT(*) FROM sales_leads s
+                          WHERE s.agent_id = u.id AND s.status = 'onboarded') AS onboarded,
+                        SUM(CASE WHEN l.status = 'onboarding' THEN 1 ELSE 0 END) AS onboarding,
+                        SUM(CASE WHEN l.status = 'rejected' THEN 1 ELSE 0 END) AS rejected,
+                        SUM(CASE WHEN l.status = 'follow_up' THEN 1 ELSE 0 END) AS follow_up,
+                        0 AS on_test
+                 FROM users u
+                 LEFT JOIN sales_leads l ON l.agent_id = u.id
+                      AND DATE(l.created_at) >= ? AND DATE(l.created_at) <= ?
+                 WHERE u.role = 'sales_agent' AND COALESCE(u.status, 'live') = 'live'
+                 GROUP BY u.id, u.name, u.email
+                 ORDER BY sales DESC, onboarded DESC, interested DESC, reach DESC, u.name
+                 LIMIT {$limit}",
+                'ss',
+                [$from, $to]
+            );
+        } catch (Throwable $e2) {
+            return [];
+        }
+    }
 }
 
 function sales_primary_admin_id(): int
