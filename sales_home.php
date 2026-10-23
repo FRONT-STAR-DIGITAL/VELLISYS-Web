@@ -52,7 +52,8 @@ sales_layout_start('Home', $user);
     <p class="lede">Clock in only when you add a new lead. Everything else on sales stays open. Goals stay visible after you hit them - and show clearly when you exceed them.</p>
   </div>
   <div class="actions page-actions">
-    <a class="btn ghost" href="<?= h(url('sales_testing.php')) ?>"><?= icon('building', 16) ?>On Testing</a>
+    <a class="btn ghost" href="<?= h(url('sales_companies.php')) ?>"><?= icon('building', 16) ?>Companies</a>
+    <a class="btn ghost" href="<?= h(url('sales_testing.php')) ?>"><?= icon('desk', 16) ?>On Testing</a>
     <a class="btn" href="<?= h(url('sales_lead_edit.php')) ?>"><?= icon('plus', 16) ?>New lead</a>
   </div>
 </div>

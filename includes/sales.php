@@ -1999,6 +1999,48 @@ function sales_testing_company(int $companyId, ?int $agentId = null): ?array
     return $row;
 }
 
+/**
+ * Onboarded clients (sales) for a field agent, with company fee paid / balance.
+ * One row per linked company; newest onboarded lead wins when duplicates exist.
+ *
+ * @return list<array<string, mixed>>
+ */
+function sales_onboarded_companies_for_agent(int $agentId): array
+{
+    if ($agentId < 1) {
+        return [];
+    }
+    try {
+        $rows = db_all(
+            "SELECT c.id, c.name, c.status, c.plan, c.fee_amount, c.fee_paid, c.fee_currency,
+                    c.paid_term, c.paid_unit, c.paid_from, c.expires_at, c.created_at,
+                    l.id AS lead_id, l.business_name, l.contact_name, l.contact_phone,
+                    l.city AS lead_city, l.updated_at AS onboarded_at
+             FROM sales_leads l
+             INNER JOIN companies c ON c.id = l.company_id
+             WHERE l.agent_id = ?
+               AND l.status = 'onboarded'
+               AND l.deleted_at IS NULL
+               AND l.company_id IS NOT NULL
+               AND COALESCE(c.testing_mode, 0) = 0
+             ORDER BY l.updated_at DESC, l.id DESC",
+            'i',
+            [$agentId]
+        );
+    } catch (Throwable $e) {
+        return [];
+    }
+    $byCompany = [];
+    foreach ($rows as $row) {
+        $cid = (int) ($row['id'] ?? 0);
+        if ($cid < 1 || isset($byCompany[$cid])) {
+            continue;
+        }
+        $byCompany[$cid] = $row;
+    }
+    return array_values($byCompany);
+}
+
 function sales_testing_credentials(int $companyId): array
 {
     $vault = db_one('SELECT * FROM sales_vault WHERE company_id = ? ORDER BY id DESC LIMIT 1', 'i', [$companyId]);
@@ -3865,7 +3907,8 @@ function sales_layout_start(string $title, array $user): void
             ['sales_home.php', 'Home', 'home'],
             ['sales_leads.php', 'Leads', 'clients'],
             ['sales_leads.php?bucket=pending', 'Open follow-ups', 'calendar', false, 'followups'],
-            ['sales_testing.php', 'On Testing', 'building'],
+            ['sales_companies.php', 'Companies', 'building'],
+            ['sales_testing.php', 'On Testing', 'desk'],
             ['sales_planner.php', 'Weekly planner', 'calendar'],
         ]],
         ['label' => 'Chat', 'items' => [
@@ -3925,9 +3968,12 @@ function sales_layout_start(string $title, array $user): void
                   } elseif ($file === 'sales_leads.php') {
                       $active = ($here === 'sales_leads.php' && $leadsBucket !== 'pending')
                           || $here === 'sales_lead_edit.php';
+                  } elseif ($file === 'sales_companies.php') {
+                      $active = $here === 'sales_companies.php';
+                  } elseif ($file === 'sales_testing.php') {
+                      $active = in_array($here, ['sales_testing.php', 'sales_company.php', 'sales_company_new.php', 'sales_desk.php'], true);
                   } else {
-                      $active = $file === $here
-                          || (in_array($here, ['sales_company.php', 'sales_company_new.php', 'sales_desk.php', 'sales_companies.php'], true) && $file === 'sales_testing.php');
+                      $active = $file === $here;
                   }
               }
               $badge = 0;
@@ -4011,7 +4057,7 @@ function sales_layout_end(string $extra = ''): void
 <nav class="app-tabbar sales-tabbar" aria-label="Sales" data-app-tabbar>
   <a class="app-tab<?= basename($_SERVER['SCRIPT_NAME'] ?? '') === 'sales_home.php' ? ' is-on' : '' ?>" href="<?= h(url('sales_home.php')) ?>"><?= icon('home', 22) ?><span>Home</span></a>
   <a class="app-tab<?= in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['sales_leads.php', 'sales_lead_edit.php'], true) ? ' is-on' : '' ?>" href="<?= h(url('sales_leads.php')) ?>"><?= icon('clients', 22) ?><span>Leads</span></a>
-  <a class="app-tab<?= in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['sales_testing.php', 'sales_companies.php', 'sales_company.php', 'sales_company_new.php', 'sales_desk.php'], true) ? ' is-on' : '' ?>" href="<?= h(url('sales_testing.php')) ?>"><?= icon('building', 22) ?><span>Testing</span></a>
+  <a class="app-tab<?= in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['sales_companies.php', 'sales_testing.php', 'sales_company.php', 'sales_company_new.php', 'sales_desk.php'], true) ? ' is-on' : '' ?>" href="<?= h(url('sales_companies.php')) ?>"><?= icon('building', 22) ?><span>Companies</span></a>
   <a class="app-tab app-tab-create" href="<?= h(url('sales_lead_edit.php')) ?>"><span class="app-tab-plus"><?= icon('plus', 26) ?></span><span>Lead</span></a>
   <a class="app-tab<?= basename($_SERVER['SCRIPT_NAME'] ?? '') === 'sales_messages.php' ? ' is-on' : '' ?>" href="<?= h(url('sales_messages.php')) ?>"><?= icon('mail', 22) ?><span>Chat</span></a>
 </nav>
