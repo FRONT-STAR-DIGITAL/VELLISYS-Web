@@ -36,8 +36,8 @@ function pricing_package_defaults(): array
             'ribbon' => '',
             'popular' => false,
             'seats' => 2,
-            'price_ugx' => 150000,
-            'was_ugx' => 200000,
+            'price_ugx' => 200000,
+            'was_ugx' => 250000,
             'cta' => 'Select Vellisys Start',
             'lead' => '',
             'points' => [
@@ -59,8 +59,8 @@ function pricing_package_defaults(): array
             'ribbon' => 'Most companies',
             'popular' => true,
             'seats' => 3,
-            'price_ugx' => 200000,
-            'was_ugx' => 280000,
+            'price_ugx' => 250000,
+            'was_ugx' => 320000,
             'cta' => 'Select Vellisys Business',
             'lead' => '',
             'points' => [
@@ -80,8 +80,8 @@ function pricing_package_defaults(): array
             'ribbon' => '',
             'popular' => false,
             'seats' => 4,
-            'price_ugx' => 250000,
-            'was_ugx' => 350000,
+            'price_ugx' => 300000,
+            'was_ugx' => 400000,
             'cta' => 'Select Vellisys Pro',
             'lead' => '',
             'points' => [

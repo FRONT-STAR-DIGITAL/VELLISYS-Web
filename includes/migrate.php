@@ -25,7 +25,93 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '75';
+    return '76';
+}
+
+/** Push public package prices when defaults change (DB rows already exist). */
+function folio_ensure_landing_package_prices(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    $has = @$db->query("SHOW TABLES LIKE 'landing_packages'");
+    if (!$has || $has->num_rows < 1) {
+        return;
+    }
+    // Starter / Business / Pro (keys solo, studio, practice — and common display names).
+    $prices = [
+        'solo' => [200000.0, 250000.0],
+        'studio' => [250000.0, 320000.0],
+        'practice' => [300000.0, 400000.0],
+    ];
+    $byName = [
+        'starter' => 'solo',
+        'vellisys start' => 'solo',
+        'vellisys starter' => 'solo',
+        'start' => 'solo',
+        'business' => 'studio',
+        'vellisys business' => 'studio',
+        'pro' => 'practice',
+        'vellisys pro' => 'practice',
+    ];
+    try {
+        $stmt = $db->prepare('UPDATE landing_packages SET price_ugx = ?, was_ugx = ? WHERE pkg_key = ?');
+        if ($stmt) {
+            foreach ($prices as $key => [$price, $was]) {
+                $k = (string) $key;
+                $p = (float) $price;
+                $w = (float) $was;
+                $stmt->bind_param('dds', $p, $w, $k);
+                $stmt->execute();
+            }
+            $stmt->close();
+        }
+        $rows = @$db->query('SELECT id, pkg_key, name, price_ugx, was_ugx FROM landing_packages');
+        if ($rows) {
+            $up = $db->prepare('UPDATE landing_packages SET price_ugx = ?, was_ugx = ? WHERE id = ?');
+            while ($up && ($row = $rows->fetch_assoc())) {
+                $key = strtolower(trim((string) ($row['pkg_key'] ?? '')));
+                $name = strtolower(trim((string) ($row['name'] ?? '')));
+                $name = preg_replace('/\s+/', ' ', $name) ?? $name;
+                $mapKey = $prices[$key] ?? null;
+                if ($mapKey === null && isset($byName[$name])) {
+                    $mapKey = $prices[$byName[$name]] ?? null;
+                }
+                if ($mapKey === null) {
+                    foreach ($byName as $label => $pkgKey) {
+                        if ($label !== '' && str_contains($name, $label)) {
+                            $mapKey = $prices[$pkgKey] ?? null;
+                            break;
+                        }
+                    }
+                }
+                if ($mapKey === null) {
+                    continue;
+                }
+                [$price, $was] = $mapKey;
+                if ((float) ($row['price_ugx'] ?? 0) === $price && (float) ($row['was_ugx'] ?? 0) === $was) {
+                    continue;
+                }
+                $id = (int) $row['id'];
+                $p = (float) $price;
+                $w = (float) $was;
+                $up->bind_param('ddi', $p, $w, $id);
+                $up->execute();
+            }
+            if ($up) {
+                $up->close();
+            }
+        }
+    } catch (Throwable $e) {
+        // Non-fatal: admin can still edit prices by hand.
+    }
+    if (function_exists('folio_cache_bust')) {
+        folio_cache_bust();
+    } elseif (function_exists('pricing_cache_clear')) {
+        pricing_cache_clear();
+    }
 }
 
 /** Branding phone used to be VARCHAR(40); multi-line / multi-number desks overflowed and fatals on save. */
@@ -1021,6 +1107,7 @@ function folio_migrate(mysqli $db): void
     folio_ensure_php_sessions($db);
     folio_ensure_doc_email_not_login($db);
     folio_ensure_branding_phone_wide($db);
+    folio_ensure_landing_package_prices($db);
     folio_migrate_testing_logins_vellisys($db);
     folio_ensure_platform_expenses($db);
     folio_ensure_platform_banking($db);
