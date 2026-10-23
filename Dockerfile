@@ -1,4 +1,5 @@
-FROM php:8.3-apache
+# Pinned for CVE-2026-109618 / CVE-2026-109619 (NCSC/Netcraft). Need 8.3.36+.
+FROM php:8.3.36-apache
 
 # Extensions Vellisys needs (MySQL, uploads, zip/PDF helpers, HTTPS clients)
 RUN apt-get update && apt-get install -y --no-install-recommends \
