@@ -25,7 +25,31 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '74';
+    return '75';
+}
+
+/** Branding phone used to be VARCHAR(40); multi-line / multi-number desks overflowed and fatals on save. */
+function folio_ensure_branding_phone_wide(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    try {
+        $row = @$db->query("SHOW COLUMNS FROM branding LIKE 'phone'");
+        if (!$row || $row->num_rows < 1) {
+            return;
+        }
+        $col = $row->fetch_assoc();
+        $type = strtolower((string) ($col['Type'] ?? ''));
+        if (preg_match('/varchar\((\d+)\)/', $type, $m) && (int) $m[1] >= 190) {
+            return;
+        }
+        @$db->query("ALTER TABLE branding MODIFY phone VARCHAR(190) NOT NULL DEFAULT ''");
+    } catch (Throwable $e) {
+        // Keep desk usable if ALTER is blocked; app still truncates on write.
+    }
 }
 
 /**
@@ -996,6 +1020,7 @@ function folio_migrate(mysqli $db): void
     try {
     folio_ensure_php_sessions($db);
     folio_ensure_doc_email_not_login($db);
+    folio_ensure_branding_phone_wide($db);
     folio_migrate_testing_logins_vellisys($db);
     folio_ensure_platform_expenses($db);
     folio_ensure_platform_banking($db);

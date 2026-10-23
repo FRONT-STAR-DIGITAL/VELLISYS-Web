@@ -88,7 +88,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash('Saved package section copy, countdown and rates.');
         redirect('admin_landing.php#packages');
     } elseif ($form === 'package') {
+        // Enter in a field often submits without a button name — default to save.
         $action = post('action');
+        if ($action === '' && (int) post('id') > 0) {
+            $action = 'save';
+        } elseif ($action === '' && post('name') !== '') {
+            $action = 'add';
+        }
         if ($action === 'add') {
             $name = mb_substr(post('name'), 0, 80);
             if ($name === '') {
@@ -100,30 +106,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($sort <= 0) {
                     $sort = (int) ($max['s'] ?? 0) + 10;
                 }
-                $priceUgx = max(0, (int) round((float) str_replace(',', '', post('price_ugx'))));
-                $wasUgx = max(0, (int) round((float) str_replace(',', '', post('was_ugx'))));
-                db_exec(
-                    'INSERT INTO landing_packages (pkg_key, name, kicker, ribbon, seats, price_ugx, was_ugx, cta, lead, points, popular, sort)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
-                    'ssssisssssii',
-                    [
-                        $key,
-                        $name,
-                        mb_substr(post('kicker'), 0, 80),
-                        mb_substr(post('ribbon'), 0, 80),
-                        max(1, min(4, (int) post('seats') ?: 1)),
-                        (string) $priceUgx,
-                        (string) $wasUgx,
-                        mb_substr(post('cta') ?: ('Select ' . $name), 0, 80),
-                        post('lead', '', 12000),
-                        post('points', '', 12000),
-                        post('popular') === '1' ? 1 : 0,
-                        $sort,
-                    ]
-                );
-                $landing_saved();
-                flash('Added the ' . $name . ' package.');
-                redirect('admin_landing.php#packages');
+                $priceUgx = pricing_parse_ugx_amount(post('price_ugx'));
+                $wasUgx = pricing_parse_ugx_amount(post('was_ugx'));
+                try {
+                    db_exec(
+                        'INSERT INTO landing_packages (pkg_key, name, kicker, ribbon, seats, price_ugx, was_ugx, cta, lead, points, popular, sort)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+                        'ssssiddsssii',
+                        [
+                            $key,
+                            $name,
+                            mb_substr(post('kicker'), 0, 80),
+                            mb_substr(post('ribbon'), 0, 80),
+                            max(1, min(4, (int) post('seats') ?: 1)),
+                            (float) $priceUgx,
+                            (float) $wasUgx,
+                            mb_substr(post('cta') ?: ('Select ' . $name), 0, 80),
+                            post('lead', '', 12000),
+                            post('points', '', 12000),
+                            post('popular') === '1' ? 1 : 0,
+                            $sort,
+                        ]
+                    );
+                } catch (Throwable $e) {
+                    $error = 'Could not add that package. ' . $e->getMessage();
+                }
+                if ($error === '') {
+                    $landing_saved();
+                    flash('Added the ' . $name . ' package.');
+                    redirect('admin_landing.php#packages');
+                }
             }
         } elseif ($action === 'save') {
             $id = (int) post('id');
@@ -138,30 +150,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $oldName = (string) ($row['name'] ?? '');
                 $cta = mb_substr(post('cta') ?: ('Select ' . $name), 0, 80);
-                $priceUgx = max(0, (int) round((float) str_replace(',', '', post('price_ugx'))));
-                $wasUgx = max(0, (int) round((float) str_replace(',', '', post('was_ugx'))));
-                db_exec(
-                    'UPDATE landing_packages SET name=?, kicker=?, ribbon=?, seats=?, price_ugx=?, was_ugx=?, cta=?, lead=?, points=?, popular=?, sort=? WHERE id=?',
-                    'sssisssssiii',
-                    [
-                        $name,
-                        mb_substr(post('kicker'), 0, 80),
-                        mb_substr(post('ribbon'), 0, 80),
-                        max(1, min(4, (int) post('seats') ?: 1)),
-                        (string) $priceUgx,
-                        (string) $wasUgx,
-                        $cta,
-                        post('lead', '', 12000),
-                        post('points', '', 12000),
-                        post('popular') === '1' ? 1 : 0,
-                        (int) post('sort'),
-                        $id,
-                    ]
-                );
-                pricing_retarget_package_name($oldName, $name, $id);
-                $landing_saved();
-                flash('Saved ' . $name . ' (UGX ' . number_format($priceUgx) . ').');
-                redirect('admin_landing.php#packages');
+                $priceUgx = pricing_parse_ugx_amount(post('price_ugx'));
+                $wasUgx = pricing_parse_ugx_amount(post('was_ugx'));
+                try {
+                    db_exec(
+                        'UPDATE landing_packages SET name=?, kicker=?, ribbon=?, seats=?, price_ugx=?, was_ugx=?, cta=?, lead=?, points=?, popular=?, sort=? WHERE id=?',
+                        'sssiddsssiii',
+                        [
+                            $name,
+                            mb_substr(post('kicker'), 0, 80),
+                            mb_substr(post('ribbon'), 0, 80),
+                            max(1, min(4, (int) post('seats') ?: 1)),
+                            (float) $priceUgx,
+                            (float) $wasUgx,
+                            $cta,
+                            post('lead', '', 12000),
+                            post('points', '', 12000),
+                            post('popular') === '1' ? 1 : 0,
+                            (int) post('sort'),
+                            $id,
+                        ]
+                    );
+                    pricing_retarget_package_name($oldName, $name, $id);
+                    $landing_saved();
+                    flash('Saved ' . $name . ' (UGX ' . number_format($priceUgx) . ').');
+                    redirect('admin_landing.php#packages');
+                } catch (Throwable $e) {
+                    $error = 'Could not save that package. ' . $e->getMessage();
+                }
             }
         } elseif ($action === 'delete') {
             $id = (int) post('id');
@@ -516,6 +532,7 @@ layout_admin_start('Landing', $user);
       <form class="card" method="post">
         <?= csrf_field() ?>
         <input type="hidden" name="form" value="package">
+        <input type="hidden" name="action" value="save">
         <input type="hidden" name="id" value="<?= (int) $p['id'] ?>">
         <p class="hint" style="margin:0 0 8px">Key <code><?= h((string) $p['pkg_key']) ?></code> - used on checkout and Pesapal. Saving the name also updates “Everything in …” and “Select …” wording on the other packages.</p>
         <label for="pkg-name-<?= (int) $p['id'] ?>">Name</label>
@@ -527,9 +544,9 @@ layout_admin_start('Landing', $user);
         <label for="pkg-seats-<?= (int) $p['id'] ?>">Users (1-4)</label>
         <input id="pkg-seats-<?= (int) $p['id'] ?>" name="seats" type="number" min="1" max="4" step="1" required value="<?= (int) $p['seats'] ?>">
         <label for="pkg-price-<?= (int) $p['id'] ?>">Price UGX</label>
-        <input id="pkg-price-<?= (int) $p['id'] ?>" name="price_ugx" type="number" min="0" step="1" required value="<?= h((string) (int) $p['price_ugx']) ?>">
+        <input id="pkg-price-<?= (int) $p['id'] ?>" name="price_ugx" inputmode="numeric" min="0" step="1" required value="<?= h((string) (int) $p['price_ugx']) ?>">
         <label for="pkg-was-<?= (int) $p['id'] ?>">Was UGX</label>
-        <input id="pkg-was-<?= (int) $p['id'] ?>" name="was_ugx" type="number" min="0" step="1" value="<?= h((string) (int) $p['was_ugx']) ?>">
+        <input id="pkg-was-<?= (int) $p['id'] ?>" name="was_ugx" inputmode="numeric" min="0" step="1" value="<?= h((string) (int) $p['was_ugx']) ?>">
         <label for="pkg-cta-<?= (int) $p['id'] ?>">Button</label>
         <input id="pkg-cta-<?= (int) $p['id'] ?>" name="cta" maxlength="80" value="<?= h((string) $p['cta']) ?>">
         <label for="pkg-lead-<?= (int) $p['id'] ?>">Lead</label>
@@ -540,7 +557,7 @@ layout_admin_start('Landing', $user);
         <label for="pkg-sort-<?= (int) $p['id'] ?>">Order</label>
         <input id="pkg-sort-<?= (int) $p['id'] ?>" name="sort" type="number" min="0" step="1" required value="<?= (int) $p['sort'] ?>">
         <div class="actions" style="margin-top:12px">
-          <button class="btn" type="submit" name="action" value="save"><?= icon('check') ?>Save</button>
+          <button class="btn" type="submit"><?= icon('check') ?>Save</button>
           <button class="btn ghost" type="submit" name="action" value="delete" onclick="return confirm('Remove this package from the public site?');"><?= icon('trash') ?>Remove</button>
         </div>
       </form>

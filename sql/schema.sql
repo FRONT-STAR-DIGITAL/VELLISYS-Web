@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS branding (
   vat_no VARCHAR(40) DEFAULT '',
   address VARCHAR(255) DEFAULT '',
   city VARCHAR(120) DEFAULT '',
-  phone VARCHAR(40) DEFAULT '',
+  phone VARCHAR(190) DEFAULT '',
   email VARCHAR(190) DEFAULT '',
   website VARCHAR(190) DEFAULT '',
   bank_name VARCHAR(120) DEFAULT '',

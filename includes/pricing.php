@@ -289,6 +289,16 @@ function &pricing_request_cache(): array
     return $bag;
 }
 
+/** Parse a posted UGX package price (digits, commas, spaces). */
+function pricing_parse_ugx_amount(mixed $raw): int
+{
+    $s = preg_replace('/[^\d.]/', '', str_replace(',', '', (string) $raw)) ?? '';
+    if ($s === '' || $s === '.') {
+        return 0;
+    }
+    return max(0, (int) round((float) $s));
+}
+
 function pricing_packages(): array
 {
     $bag = &pricing_request_cache();

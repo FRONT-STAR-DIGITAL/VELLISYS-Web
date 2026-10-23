@@ -179,27 +179,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $thanksMsg = 'Thank you';
         }
         $thanksMsg = mb_substr($thanksMsg, 0, 120);
+        // Cap to column widths so long phones / fields never fatal the whole settings save.
+        $brandName = mb_substr(post('name'), 0, 160);
+        $brandTagline = mb_substr(post('tagline'), 0, 180);
+        $brandTin = mb_substr(post('tin'), 0, 40);
+        $brandVat = mb_substr(post('vat_no'), 0, 40);
+        $brandAddress = mb_substr(post('address'), 0, 255);
+        $brandCity = mb_substr(post('city'), 0, 120);
+        $brandPhone = mb_substr(post('phone'), 0, 190);
+        $brandEmail = mb_substr(post('email'), 0, 190);
+        $brandWebsite = mb_substr(post('website'), 0, 190);
+        $brandBank = mb_substr(post('bank_name'), 0, 120);
+        $brandAcctName = mb_substr(post('account_name'), 0, 160);
+        $brandAcctNo = mb_substr(post('account_number'), 0, 80);
+        $brandPrefix = mb_substr(strtoupper(post('prefix') ?: 'OFG'), 0, 12);
+        try {
         db_exec(
             'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, receipt_comments=?, thanks_message=?, currency=?, fx_ugx_per_usd=?, letter_templates=?, doc_template=?, number_format=?, logo_bg=?, tax_name=?, tax_rate=?, tax_default=? WHERE company_id=?',
             'ssssssssssssssssssssssdsssisdii',
             [
-                post('name'),
-                post('tagline'),
-                post('tin'),
-                post('vat_no'),
-                post('address'),
-                post('city'),
-                post('phone'),
-                post('email'),
-                post('website'),
-                post('bank_name'),
-                post('account_name'),
-                post('account_number'),
+                $brandName,
+                $brandTagline,
+                $brandTin,
+                $brandVat,
+                $brandAddress,
+                $brandCity,
+                $brandPhone,
+                $brandEmail,
+                $brandWebsite,
+                $brandBank,
+                $brandAcctName,
+                $brandAcctNo,
                 $color,
                 $accent,
                 $deep,
                 $logoPath,
-                strtoupper(post('prefix') ?: 'OFG'),
+                $brandPrefix,
                 post('payment_note'),
                 post('invoice_comments'),
                 post('receipt_comments'),
@@ -216,6 +231,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 current_company_id(),
             ]
         );
+        } catch (Throwable $e) {
+            $msg = $e->getMessage();
+            if (stripos($msg, 'Data too long') !== false || stripos($msg, 'phone') !== false) {
+                $error = 'One of the company fields is too long. Shorten the phone or address and try again.';
+            } else {
+                $error = 'Could not save settings. ' . $msg;
+            }
+        }
+    }
+    if ($error === '') {
         $tpl = array_key_exists(post('doc_template'), doc_templates()) ? post('doc_template') : 'folio';
         db_exec('UPDATE documents SET doc_template = ? WHERE company_id = ?', 'si', [$tpl, current_company_id()]);
         branding(true);
@@ -632,7 +657,8 @@ layout_start('Settings', $user);
         </div>
         <div>
           <label for="phone">Phone</label>
-          <input id="phone" name="phone" value="<?= h($b['phone']) ?>">
+          <input id="phone" name="phone" maxlength="190" value="<?= h($b['phone']) ?>" placeholder="Main line or WhatsApp">
+          <p class="hint">Up to 190 characters - multiple numbers separated by commas or spaces are fine.</p>
         </div>
         <div>
           <label for="email">Email on documents</label>

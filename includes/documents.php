@@ -198,14 +198,14 @@ function apply_letterhead_to_branding(array $fields): void
         'UPDATE branding SET name=?, tagline=?, address=?, city=?, phone=?, email=?, tin=?, website=? WHERE company_id=?',
         'ssssssssi',
         [
-            $fields['name'],
-            $fields['tagline'] ?? '',
-            $fields['address'] ?? '',
-            $fields['city'] ?? '',
-            $fields['phone'] ?? '',
-            $fields['email'] ?? '',
-            $fields['tin'] ?? '',
-            $fields['website'] ?? '',
+            mb_substr((string) ($fields['name'] ?? ''), 0, 160),
+            mb_substr((string) ($fields['tagline'] ?? ''), 0, 180),
+            mb_substr((string) ($fields['address'] ?? ''), 0, 255),
+            mb_substr((string) ($fields['city'] ?? ''), 0, 120),
+            mb_substr((string) ($fields['phone'] ?? ''), 0, 190),
+            mb_substr((string) ($fields['email'] ?? ''), 0, 190),
+            mb_substr((string) ($fields['tin'] ?? ''), 0, 40),
+            mb_substr((string) ($fields['website'] ?? ''), 0, 190),
             current_company_id(),
         ]
     );
