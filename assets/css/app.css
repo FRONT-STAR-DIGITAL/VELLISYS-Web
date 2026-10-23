@@ -3021,8 +3021,16 @@ html.print-preview .print-bar .btn {
   background: transparent;
   outline: none;
 }
-body.bell-open .top-bell { z-index: 60; }
-body.bell-open .top-bell-panel { z-index: 61; }
+/* Lift the sticky header above the scrim so the panel stays clickable.
+   Super admin .top is normally z-index 30, which sat under the scrim and
+   trapped open notifications (could not use or close them). */
+body.bell-open .top,
+body.bell-open.admin-body .top,
+.admin-body.bell-open .top {
+  z-index: 60;
+}
+body.bell-open .top-bell { z-index: 61; }
+body.bell-open .top-bell-panel { z-index: 62; }
 /* Keep the bell icon/panel neutral while open - no brand wash over the desk. */
 body.bell-open .top-bell > summary.header-settings,
 body.bell-open .top-bell > summary.header-settings:hover,

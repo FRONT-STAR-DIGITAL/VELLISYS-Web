@@ -412,6 +412,10 @@ document.addEventListener('pointerdown', function (e) {
     closeTopBellIfOutside(null);
     return;
   }
+  // Leave the native <summary> toggle alone; only close on outside taps.
+  if (closestEl(e, 'details.top-bell')) {
+    return;
+  }
   if (document.querySelector('details.top-bell[open]')) {
     closeTopBellIfOutside(target);
   }
