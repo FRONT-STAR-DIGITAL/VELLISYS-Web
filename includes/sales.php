@@ -1392,11 +1392,8 @@ function sales_begin_company_onboard(int $leadId): array
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         'issssssssssssssssssssss',
         [
-            // Login email stays on the user row; document email starts blank until they set it.
-            // Tagline = what they deal in (nature of business) for printed sheets.
-            $cid, $name, function_exists('branding_tagline_from_nature')
-                ? branding_tagline_from_nature((string) ($lead['nature_of_business'] ?? ''))
-                : '', '', '', $address, $city, $phone, '', '', '', $name, '',
+            // Login email stays on the user row; document email / tagline start blank until they set them.
+            $cid, $name, '', '', '', $address, $city, $phone, '', '', '', $name, '',
             $color, $accent, $deep, '', $prefix,
             'Make payment to ' . $name . '.',
             "1. Payment is due by the date shown above.\n2. Quote the invoice number on the transfer.",
@@ -1835,8 +1832,8 @@ function sales_create_testing_company(array $fields, int $actorId, bool $asPlatf
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         'issssssssssssssssssssss',
         [
-            // Tagline = what they deal in — printed on quotations, invoices and receipts.
-            $cid, $name, function_exists('branding_tagline_from_nature') ? branding_tagline_from_nature($nature) : $nature, '', '', $address, $city, $phone, '', '', '', $name, '',
+            // Tagline left blank until the client saves one in Settings.
+            $cid, $name, '', '', '', $address, $city, $phone, '', '', '', $name, '',
             $color, $accent, $deep, '', $prefix,
             'Make payment to ' . $name . '.',
             "1. Payment is due by the date shown above.\n2. Quote the invoice number on the transfer.",
@@ -2272,9 +2269,6 @@ function sales_update_testing_company(int $companyId, array $fields, ?int $agent
         'sssssi',
         [$name, $phone, $city, $address, $name, $companyId]
     );
-    if (function_exists('sync_branding_tagline_from_nature')) {
-        sync_branding_tagline_from_nature($companyId, $nature);
-    }
     $contact = trim((string) ($fields['contact_name'] ?? ''));
     if ($contact !== '') {
         $admin = db_one("SELECT id FROM users WHERE company_id = ? AND role = 'admin' ORDER BY id ASC LIMIT 1", 'i', [$companyId]);

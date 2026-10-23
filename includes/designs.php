@@ -14,24 +14,6 @@ function sheet_data(array $brand, array $doc): array
             }
         }
     }
-    // Empty tagline → fall back to company nature of business (what they deal in).
-    if (trim((string) ($brand['tagline'] ?? '')) === '' && (int) ($brand['company_id'] ?? 0) > 0) {
-        try {
-            $nob = db_one(
-                'SELECT nature_of_business FROM companies WHERE id = ?',
-                'i',
-                [(int) $brand['company_id']]
-            );
-            $nature = trim((string) ($nob['nature_of_business'] ?? ''));
-            if ($nature !== '') {
-                $brand['tagline'] = function_exists('branding_tagline_from_nature')
-                    ? branding_tagline_from_nature($nature)
-                    : $nature;
-            }
-        } catch (Throwable $e) {
-            // ignore
-        }
-    }
     $items = $doc['items'] ?? [];
     $net = doc_subtotal($items);
     $vat = doc_vat($items, (float) ($doc['vat_rate'] ?? 0));
@@ -108,33 +90,47 @@ function sheet_brand_phone(array $brand): string
     return sheet_brand_strong((string) ($brand['phone'] ?? ''));
 }
 
-/** Raw tagline / nature text for documents. */
+/** Saved branding tagline only — empty means omit on documents. */
 function sheet_brand_tagline(array $brand): string
 {
-    return trim((string) ($brand['tagline'] ?? ''));
-}
-
-/** Tagline with a leading “Deals in:” stripped, for “Deals in: …” lines. */
-function sheet_brand_deals_in(array $brand): string
-{
-    $tagline = sheet_brand_tagline($brand);
+    $tagline = trim((string) ($brand['tagline'] ?? ''));
     if ($tagline === '') {
         return '';
     }
-    $deals = preg_match('/^deals\s*in\s*:?\s*/iu', $tagline)
+    // Strip a typed “Deals in:” prefix so Trade can add it; other sheets stay a plain statement.
+    $plain = preg_match('/^deals\s*in\s*:?\s*/iu', $tagline)
         ? (preg_replace('/^deals\s*in\s*:?\s*/iu', '', $tagline) ?? $tagline)
         : $tagline;
-    return trim((string) $deals);
+    return trim((string) $plain);
 }
 
-/** Print “Deals in: …” under the business name on sheets. */
-function render_sheet_deals_in(array $brand, string $class = 'sheet-deals'): void
+/**
+ * Print the company tagline under the business name.
+ * Plain statement by default; Trade passes $dealsIn = true for “Deals in: …”.
+ * Renders nothing when the client has not saved a tagline.
+ */
+function render_sheet_tagline(array $brand, string $class = 'sheet-tagline', bool $dealsIn = false): void
 {
-    $deals = sheet_brand_deals_in($brand);
-    if ($deals === '') {
+    $text = sheet_brand_tagline($brand);
+    if ($text === '') {
         return;
     }
-    echo '<p class="' . h($class) . '"><span>Deals in:</span> ' . h($deals) . '</p>';
+    if ($dealsIn) {
+        echo '<p class="' . h($class) . '"><span>Deals in:</span> ' . h($text) . '</p>';
+        return;
+    }
+    echo '<p class="' . h($class) . '">' . h($text) . '</p>';
+}
+
+/** @deprecated Use render_sheet_tagline() */
+function render_sheet_deals_in(array $brand, string $class = 'sheet-tagline'): void
+{
+    render_sheet_tagline($brand, $class, false);
+}
+
+function sheet_brand_deals_in(array $brand): string
+{
+    return sheet_brand_tagline($brand);
 }
 
 function sheet_brand_location(array $brand, bool $includeCity = true): string
@@ -905,7 +901,7 @@ function render_sheet_correspondence(array $d): void
       <?php render_sheet_logo($d); ?>
       <div class="corr-co">
         <strong class="sheet-brand-strong"><?= h($brand['name']) ?></strong>
-        <?php render_sheet_deals_in($brand, 'sheet-deals corr-deals'); ?>
+        <?php render_sheet_tagline($brand, 'sheet-tagline corr-deals'); ?>
         <?php if (trim((string) ($brand['address'] ?? '')) !== ''): ?><div><?= sheet_brand_strong((string) $brand['address']) ?></div><?php endif; ?>
         <?php if (!empty($brand['city'])): ?><div><?= sheet_brand_strong((string) $brand['city']) ?></div><?php endif; ?>
         <?php if (trim((string) ($brand['phone'] ?? '')) !== ''): ?><div><?= sheet_brand_phone($brand) ?></div><?php endif; ?>
@@ -967,7 +963,7 @@ function render_sheet_folio(array $d): void
       <?php render_sheet_logo($d); ?>
       <div class="d-co">
         <?php if (trim((string) ($brand['name'] ?? '')) !== ''): ?><div><?= sheet_brand_name($brand) ?></div><?php endif; ?>
-        <?php render_sheet_deals_in($brand); ?>
+        <?php render_sheet_tagline($brand); ?>
         <?php if (trim((string) ($brand['address'] ?? '')) !== ''): ?><div><?= sheet_brand_strong((string) $brand['address']) ?></div><?php endif; ?>
         <?php if (!empty($brand['city'])): ?><div><?= sheet_brand_strong((string) $brand['city']) ?></div><?php endif; ?>
         <?php if (trim((string) ($brand['phone'] ?? '')) !== ''): ?><div><?= sheet_brand_phone($brand) ?></div><?php endif; ?>
@@ -1043,7 +1039,7 @@ function render_sheet_ledger(array $d): void
   <div class="ledger-top">
       <div class="ledger-brand">
       <?php render_sheet_logo($d, 'd-logo sm'); ?>
-      <?php render_sheet_deals_in($brand); ?>
+      <?php render_sheet_tagline($brand); ?>
       <div><?= sheet_brand_location($brand, false) ?><?php if (trim((string) ($brand['email'] ?? '')) !== ''): ?><br><?= h($brand['email']) ?><?php endif; ?><?php if (trim((string) ($brand['phone'] ?? '')) !== ''): ?><br><?= sheet_brand_phone($brand) ?><?php endif; ?></div>
     </div>
     <h1><?= h($d['heading']) ?></h1>
@@ -1061,7 +1057,7 @@ function render_sheet_ledger(array $d): void
       <div class="ledger-from">
         <span>From</span>
         <?= sheet_brand_name($brand) ?>
-        <?php render_sheet_deals_in($brand); ?>
+        <?php render_sheet_tagline($brand); ?>
         <p>
           <?= sheet_brand_strong((string) ($brand['address'] ?? '')) ?>
           <?php if (!empty($brand['city'])): ?><br><?= sheet_brand_strong((string) $brand['city']) ?><?php endif; ?>
@@ -1137,7 +1133,7 @@ function render_sheet_bill(array $d, string $variant): void
     <?php render_sheet_logo($d, 'd-logo sm'); ?>
     <div>
       <h2 class="sheet-brand-strong"><?= h($brand['name']) ?></h2>
-      <?php render_sheet_deals_in($brand); ?>
+      <?php render_sheet_tagline($brand); ?>
       <p><?= sheet_brand_contact_line($brand) ?></p>
     </div>
   </header>
@@ -1192,7 +1188,7 @@ function render_twin_half(array $d, string $label): void
         <?php render_sheet_logo($d, 'd-logo xs'); ?>
         <div>
           <?= sheet_brand_name($brand) ?>
-          <?php render_sheet_deals_in($brand); ?>
+          <?php render_sheet_tagline($brand); ?>
           <span><?= sheet_brand_location($brand, false) ?></span>
         </div>
       </div>
@@ -1262,7 +1258,7 @@ function render_sheet_stripe(array $d): void
       <div class="stripe-from">
         <span>From</span>
         <?= sheet_brand_name($brand) ?>
-        <?php render_sheet_deals_in($brand); ?>
+        <?php render_sheet_tagline($brand); ?>
         <p>
           <?= sheet_brand_strong((string) ($brand['address'] ?? '')) ?>
           <?php if (!empty($brand['city'])): ?><br><?= sheet_brand_strong((string) $brand['city']) ?><?php endif; ?>
@@ -1321,9 +1317,9 @@ function render_sheet_estate(array $d): void
     <?php render_sheet_logo($d); ?>
     <div>
       <?php
-      $estateDeals = sheet_brand_deals_in($brand);
+      $estateTag = sheet_brand_tagline($brand);
       ?>
-      <em><?php if ($estateDeals !== ''): ?><span>Deals in:</span> <?= h($estateDeals) ?><?php else: ?>Estate books<?php endif; ?></em>
+      <em><?= h($estateTag !== '' ? $estateTag : 'Estate books') ?></em>
       <h1 class="sheet-brand-strong"><?= h($brand['name']) ?></h1>
       <p><?= sheet_brand_location($brand, false) ?><?= !empty($brand['tin']) ? ' · TIN ' . h($brand['tin']) : '' ?></p>
     </div>
@@ -1380,7 +1376,7 @@ function render_sheet_night(array $d): void
     <div>
       <?php render_sheet_logo($d, 'd-logo invert'); ?>
       <p><?= sheet_brand_name($brand) ?></p>
-      <?php render_sheet_deals_in($brand); ?>
+      <?php render_sheet_tagline($brand); ?>
     </div>
     <h1><?= h($d['heading']) ?></h1>
   </div>
@@ -1436,7 +1432,7 @@ function render_sheet_atelier(array $d): void
     <div class="atelier-brand">
       <?php render_sheet_logo($d); ?>
       <p class="atelier-kicker sheet-brand-strong"><?= h($brand['name']) ?></p>
-      <?php render_sheet_deals_in($brand); ?>
+      <?php render_sheet_tagline($brand); ?>
       <p><?= sheet_brand_location($brand, false) ?><?= !empty($brand['tin']) ? ' · TIN ' . h($brand['tin']) : '' ?></p>
     </div>
     <div class="atelier-meta">
@@ -1491,7 +1487,7 @@ function render_sheet_seal(array $d): void
   <header class="seal-head">
     <?php render_sheet_logo($d); ?>
     <h1 class="sheet-brand-strong"><?= h($brand['name']) ?></h1>
-    <?php render_sheet_deals_in($brand); ?>
+    <?php render_sheet_tagline($brand); ?>
     <p><?= sheet_brand_contact_line($brand) ?></p>
     <div class="seal-title">
       <i></i>
@@ -1562,7 +1558,7 @@ function render_sheet_mark(array $d): void
       <?php render_sheet_logo($d); ?>
       <div class="d-co">
         <?= sheet_brand_name($brand) ?>
-        <?php render_sheet_deals_in($brand); ?>
+        <?php render_sheet_tagline($brand); ?>
         <?php if (trim((string) ($brand['address'] ?? '')) !== ''): ?><div><?= sheet_brand_strong((string) $brand['address']) ?></div><?php endif; ?>
         <?php if (sheet_brand_phone_email_line($brand) !== ''): ?><div><?= sheet_brand_phone_email_line($brand) ?></div><?php endif; ?>
         <?php if (!empty($brand['tin'])): ?><div>TIN <?= h($brand['tin']) ?></div><?php endif; ?>
@@ -1617,7 +1613,7 @@ function render_sheet_bond(array $d): void
       <?php render_sheet_logo($d, 'd-logo sm'); ?>
       <div>
         <?= sheet_brand_name($brand) ?>
-        <?php render_sheet_deals_in($brand); ?>
+        <?php render_sheet_tagline($brand); ?>
         <?php if (trim((string) ($brand['address'] ?? '')) !== ''): ?><p><?= sheet_brand_strong((string) $brand['address']) ?></p><?php endif; ?>
         <?php if (sheet_brand_phone_email_line($brand) !== ''): ?><p><?= sheet_brand_phone_email_line($brand) ?></p><?php endif; ?>
       </div>
@@ -1670,7 +1666,7 @@ function render_sheet_frame(array $d): void
           <?php render_sheet_logo($d); ?>
           <div class="d-co">
             <?= sheet_brand_name($brand) ?>
-            <?php render_sheet_deals_in($brand); ?>
+            <?php render_sheet_tagline($brand); ?>
             <?php if (trim((string) ($brand['address'] ?? '')) !== ''): ?><div><?= sheet_brand_strong((string) $brand['address']) ?></div><?php endif; ?>
             <?php if (sheet_brand_phone_email_line($brand) !== ''): ?><div><?= sheet_brand_phone_email_line($brand) ?></div><?php endif; ?>
             <?php if (!empty($brand['tin'])): ?><div>TIN <?= h($brand['tin']) ?></div><?php endif; ?>
@@ -1741,7 +1737,7 @@ function render_sheet_inset(array $d): void
         <?php render_sheet_logo($d); ?>
         <div class="d-co">
           <?= sheet_brand_name($brand) ?>
-          <?php render_sheet_deals_in($brand); ?>
+          <?php render_sheet_tagline($brand); ?>
           <?php if (trim((string) ($brand['address'] ?? '')) !== ''): ?><div><?= sheet_brand_strong((string) $brand['address']) ?></div><?php endif; ?>
           <?php if (trim((string) ($brand['phone'] ?? '')) !== ''): ?><div><?= sheet_brand_phone($brand) ?></div><?php endif; ?>
           <div><?= h($brand['email']) ?></div>
@@ -1814,7 +1810,7 @@ function render_sheet_booklet(array $d): void
     <header class="booklet-head">
       <?php render_sheet_logo($d, 'd-logo sm booklet-logo'); ?>
       <h1 class="slip-brand sheet-brand-strong"><?= h((string) $brand['name']) ?></h1>
-      <?php render_sheet_deals_in($brand, 'sheet-deals slip-motto'); ?>
+      <?php render_sheet_tagline($brand, 'sheet-tagline slip-motto'); ?>
       <div class="slip-co">
         <?php if (trim((string) ($brand['address'] ?? '')) !== ''): ?><div><?= sheet_brand_strong(slip_plain((string) $brand['address'])) ?></div><?php endif; ?>
         <?php if (trim((string) ($brand['city'] ?? '')) !== ''): ?><div><?= sheet_brand_strong(slip_plain((string) $brand['city'])) ?></div><?php endif; ?>
@@ -1908,7 +1904,7 @@ function render_sheet_chit(array $d): void
     <header class="chit-head">
       <?php render_sheet_logo($d, 'd-logo sm'); ?>
       <h1 class="chit-name sheet-brand-strong"><?= h((string) $brand['name']) ?></h1>
-      <?php render_sheet_deals_in($brand, 'sheet-deals chit-tag'); ?>
+      <?php render_sheet_tagline($brand, 'sheet-tagline chit-tag'); ?>
       <div class="chit-co">
         <?php if (trim((string) ($brand['address'] ?? '')) !== ''): ?><div><?= sheet_brand_strong((string) $brand['address']) ?></div><?php endif; ?>
         <?php if (trim((string) ($brand['city'] ?? '')) !== ''): ?><div><?= sheet_brand_strong((string) $brand['city']) ?></div><?php endif; ?>
@@ -2024,7 +2020,6 @@ function render_sheet_thermal(array $d): void
   <header class="thermal-head">
     <?php render_sheet_logo($d, 'd-logo xs'); ?>
     <strong class="sheet-brand-strong"><?= h($brand['name']) ?></strong>
-    <?php render_sheet_deals_in($brand, 'sheet-deals thermal-deals'); ?>
     <?php if (trim((string) ($brand['address'] ?? '')) !== ''): ?><p><?= sheet_brand_strong((string) $brand['address']) ?></p><?php endif; ?>
     <?php if (trim((string) ($brand['phone'] ?? '')) !== ''): ?><p><?= sheet_brand_phone($brand) ?></p><?php endif; ?>
     <?php if (!empty($brand['tin'])): ?><p>TIN <?= h($brand['tin']) ?></p><?php endif; ?>
@@ -2188,7 +2183,7 @@ function render_sheet_trade(array $d): void
         <?php if ($nameSub !== ''): ?><h2 class="sheet-brand-strong"><?= h($nameSub) ?></h2><?php endif; ?>
       </div>
     </div>
-    <?php render_sheet_deals_in($brand, 'sheet-deals trade-deals'); ?>
+    <?php render_sheet_tagline($brand, 'sheet-tagline trade-deals', true); ?>
     <div class="trade-contact">
       <div class="trade-contact-left">
         <?php if ($location !== ''): ?>

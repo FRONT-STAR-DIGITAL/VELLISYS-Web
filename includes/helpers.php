@@ -3078,9 +3078,6 @@ function platform_create_company(?int $signupId = null): array
     }
 
     $createTagline = trim((string) post('tagline'));
-    if ($createTagline === '' && $natureForBrand !== '' && function_exists('branding_tagline_from_nature')) {
-        $createTagline = branding_tagline_from_nature($natureForBrand);
-    }
     db_exec(
         'INSERT INTO branding (company_id, name, tagline, tin, vat_no, address, city, phone, email, website, bank_name, account_name, account_number, brand_color, brand_accent, brand_deep, logo_path, prefix, payment_note, invoice_comments, receipt_comments, plan, currency)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',

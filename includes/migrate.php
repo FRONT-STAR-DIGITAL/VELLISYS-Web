@@ -1429,8 +1429,11 @@ function folio_migrate(mysqli $db): void
     if ($ver < 53) {
         folio_migrate_branding_tagline_from_nature($db);
     }
+    if ($ver < 54) {
+        folio_migrate_clear_unsaved_taglines($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '53')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '54')");
     @touch($ready);
     $done = true;
     } finally {
@@ -1456,8 +1459,15 @@ function folio_migrate_testing_mode(mysqli $db): void
     @$db->query('CREATE INDEX idx_companies_testing ON companies (testing_mode, testing_owner_id)');
 }
 
-/** Fill empty document taglines from company nature of business (Deals in: …). */
+/** Legacy: previously copied nature into tagline (no longer desired). */
 function folio_migrate_branding_tagline_from_nature(mysqli $db): void
+{
+    // Intentionally empty — taglines are client-saved only.
+    unset($db);
+}
+
+/** Clear taglines that were auto-copied from nature of business (client never saved them). */
+function folio_migrate_clear_unsaved_taglines(mysqli $db): void
 {
     if (!db_has_column($db, 'companies', 'nature_of_business') || !db_has_column($db, 'branding', 'tagline')) {
         return;
@@ -1465,10 +1475,13 @@ function folio_migrate_branding_tagline_from_nature(mysqli $db): void
     @$db->query(
         "UPDATE branding b
          INNER JOIN companies c ON c.id = b.company_id
-         SET b.tagline = LEFT(TRIM(c.nature_of_business), 180)
-         WHERE (b.tagline IS NULL OR TRIM(b.tagline) = '')
-           AND c.nature_of_business IS NOT NULL
-           AND TRIM(c.nature_of_business) <> ''"
+         SET b.tagline = ''
+         WHERE c.nature_of_business IS NOT NULL
+           AND TRIM(c.nature_of_business) <> ''
+           AND (
+             TRIM(b.tagline) = TRIM(c.nature_of_business)
+             OR TRIM(b.tagline) = LEFT(TRIM(c.nature_of_business), 180)
+           )"
     );
 }
 

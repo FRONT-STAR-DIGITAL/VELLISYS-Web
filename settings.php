@@ -181,7 +181,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $thanksMsg = mb_substr($thanksMsg, 0, 120);
         // Cap to column widths so long phones / fields never fatal the whole settings save.
         $brandName = mb_substr(post('name'), 0, 160);
-        $brandTagline = mb_substr(post('tagline'), 0, 180);
+        $brandTagline = mb_substr(trim((string) post('tagline')), 0, 180);
         $brandTin = mb_substr(post('tin'), 0, 40);
         $brandVat = mb_substr(post('vat_no'), 0, 40);
         $brandAddress = mb_substr(post('address'), 0, 255);
@@ -652,9 +652,9 @@ layout_start('Settings', $user);
           <input id="name" name="name" required value="<?= h($b['name']) ?>">
         </div>
         <div>
-          <label for="tagline">Tagline (what you deal in)</label>
-          <input id="tagline" name="tagline" value="<?= h($b['tagline']) ?>" placeholder="e.g. Building materials, school supplies">
-          <p class="hint">Printed on quotations, invoices and receipts as “Deals in: …”.</p>
+          <label for="tagline">Tagline</label>
+          <input id="tagline" name="tagline" maxlength="180" value="<?= h($b['tagline']) ?>" placeholder="Optional — e.g. Building materials, school supplies">
+          <p class="hint">Optional. Printed under your company name on documents when saved. Leave blank to hide it. Thermal receipts never show a tagline.</p>
         </div>
         <div>
           <label for="phone">Phone</label>

@@ -1699,6 +1699,7 @@
   font-weight: 800;
   color: var(--brand);
 }
+.sheet-tagline,
 .sheet-deals,
 .sheet-trade .trade-deals,
 .sheet-trade .trade-tag {
@@ -1713,15 +1714,11 @@
   margin: 6px 0 8px;
   text-align: center;
 }
+.sheet-tagline > span,
 .sheet-deals > span,
 .sheet-trade .trade-deals > span {
   font-weight: 800;
   color: var(--brand);
-}
-.sheet-thermal .thermal-deals {
-  margin: 2px 0 4px;
-  font-size: 11px;
-  text-align: center;
 }
 .sheet-trade .trade-contact {
   display: grid;

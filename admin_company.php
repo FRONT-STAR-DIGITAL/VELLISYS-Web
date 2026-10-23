@@ -90,9 +90,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } catch (Throwable $e) {
                     db_exec('UPDATE branding SET name=? WHERE company_id=?', 'si', [$name, $id]);
                 }
-                if (function_exists('sync_branding_tagline_from_nature')) {
-                    sync_branding_tagline_from_nature($id, sanitize_nature_of_business(post('nature_of_business')));
-                }
                 if (function_exists('document_pdf_cache_clear_company')) {
                     document_pdf_cache_clear_company($id);
                 }
@@ -142,7 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'UPDATE branding SET tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, receipt_comments=?, currency=?, fx_ugx_per_usd=? WHERE company_id=?',
                     'ssssssssssssssssssssdi',
                     [
-                        post('tagline'),
+                        mb_substr(trim((string) post('tagline')), 0, 180),
                         post('tin'),
                         post('vat_no'),
                         post('address'),
@@ -1163,9 +1160,9 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
   <p class="lede" style="padding:0 22px 0">Logo and two brand colours, matching Settings. Tap a colour square to open the colour picker. Use Eyedrop to sample from the page.</p>
   <div class="form-grid" style="padding:0 22px">
     <div>
-      <label for="tagline">Tagline (what they deal in)</label>
-      <input id="tagline" name="tagline" value="<?= h((string) ($brand['tagline'] ?? '')) ?>" placeholder="e.g. Building materials">
-      <p class="hint">Shown on documents as “Deals in: …”. Saving Nature of business above also updates this.</p>
+      <label for="tagline">Tagline</label>
+      <input id="tagline" name="tagline" maxlength="180" value="<?= h((string) ($brand['tagline'] ?? '')) ?>" placeholder="Optional — printed under the company name">
+      <p class="hint">Optional. Shown on documents only when saved. Trade sheets use “Deals in: …”; other templates show the plain line. Leave blank to hide.</p>
     </div>
     <div>
       <label for="prefix">Prefix</label>

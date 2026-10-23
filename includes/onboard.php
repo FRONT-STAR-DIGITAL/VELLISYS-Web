@@ -121,7 +121,6 @@ function create_company_from_paid_order(array $order): int
     $email = strtolower(trim((string) ($order['email'] ?? '')));
     $phone = trim((string) ($order['phone'] ?? ''));
     $city = trim((string) ($order['city'] ?? ''));
-    $tagline = function_exists('branding_tagline_from_nature') ? branding_tagline_from_nature($nature) : $nature;
     db_exec(
         'INSERT INTO branding (company_id, name, tagline, tin, vat_no, address, city, phone, email, website, bank_name, account_name, account_number, brand_color, brand_accent, brand_deep, logo_path, prefix, payment_note, invoice_comments, receipt_comments, plan, currency)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
@@ -129,7 +128,7 @@ function create_company_from_paid_order(array $order): int
         [
             $cid,
             $name,
-            $tagline,
+            '',
             '',
             '',
             '',
