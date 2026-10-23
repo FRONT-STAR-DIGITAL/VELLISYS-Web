@@ -423,7 +423,7 @@ layout_admin_start('Sales', $user);
   <div class="card-head"><h2>Top performers</h2></div>
   <div class="table-scroll">
     <table class="grid">
-      <thead><tr><th>Agent</th><th class="right">Reach</th><th class="right">Interested</th><th class="right">On test</th><th class="right">Follow up</th><th class="right">Sales <span class="muted" style="font-weight:500">(onboarded · all time)</span></th><th class="right">Rejected</th><th></th></tr></thead>
+      <thead><tr><th>Agent</th><th class="right">Reach</th><th class="right">Interested</th><th class="right">On test</th><th class="right">Follow up</th><th class="right">Sales <span class="muted" style="font-weight:500">(onboarded)</span></th><th class="right">Rejected</th><th></th></tr></thead>
       <tbody>
         <?php foreach ($top as $row): ?>
           <tr>

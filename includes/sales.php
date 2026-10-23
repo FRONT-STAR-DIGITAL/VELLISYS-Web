@@ -2752,7 +2752,7 @@ function sales_onboarded_count(?int $agentId, string $from, string $to): int
     }
 }
 
-/** All-time onboarded clients per agent (Top performers Sales column). */
+/** All-time onboarded clients per agent (portal totals / non-period views). */
 function sales_onboarded_total(?int $agentId = null): int
 {
     // Prefer distinct live companies owned by the agent (settings assignment + lead link).
@@ -3357,8 +3357,8 @@ function sales_series(?int $agentId, string $from, string $to): array
 
 function sales_top_agents(string $from, string $to, int $limit = 8): array
 {
-    // Reach / interested / etc. use the selected period (lead created_at).
-    // Sales = all-time onboarded clients for that agent (a sale is an onboarded client).
+    // Reach / interested use lead created_at in the selected period.
+    // Sales / onboarded use the close date (sold-at) in the same period - not all time.
     $limit = max(1, (int) $limit);
     $hasSalesAgentCol = false;
     try {
@@ -3367,13 +3367,18 @@ function sales_top_agents(string $from, string $to, int $limit = 8): array
         $hasSalesAgentCol = false;
     }
 
+    $soldAt = sales_lead_sold_at_sql('s');
     $salesSelect = $hasSalesAgentCol
         ? "(SELECT COUNT(DISTINCT c.id) FROM companies c
-                  LEFT JOIN sales_leads s ON s.company_id = c.id AND s.deleted_at IS NULL AND s.status = 'onboarded'
+                  INNER JOIN sales_leads s ON s.company_id = c.id
+                    AND s.deleted_at IS NULL AND s.status = 'onboarded'
                   WHERE COALESCE(c.testing_mode, 0) = 0
-                    AND (c.sales_agent_id = u.id OR s.agent_id = u.id))"
+                    AND (c.sales_agent_id = u.id OR s.agent_id = u.id)
+                    AND DATE({$soldAt}) >= ? AND DATE({$soldAt}) <= ?)"
         : "(SELECT COUNT(*) FROM sales_leads s
-                  WHERE s.agent_id = u.id AND s.status = 'onboarded')";
+                  WHERE s.agent_id = u.id AND s.status = 'onboarded'
+                    AND (s.deleted_at IS NULL)
+                    AND DATE({$soldAt}) >= ? AND DATE({$soldAt}) <= ?)";
 
     try {
         return db_all(
@@ -3395,20 +3400,22 @@ function sales_top_agents(string $from, string $to, int $limit = 8): array
              GROUP BY u.id, u.name, u.email
              ORDER BY sales DESC, onboarded DESC, interested DESC, reach DESC, u.name
              LIMIT {$limit}",
-            'ssss',
-            [$from, $to, $from, $to]
+            'ssssssss',
+            [$from, $to, $from, $to, $from, $to, $from, $to]
         );
     } catch (Throwable $e) {
-        // Last resort: no company columns (testing_mode / sales_agent_id) yet.
+        // Events / company columns may be missing - fall back to updated_at in period.
         try {
             return db_all(
                 "SELECT u.id, u.name, u.email,
                         SUM(CASE WHEN l.id IS NOT NULL THEN 1 ELSE 0 END) AS reach,
                         SUM(CASE WHEN l.status = 'interested' THEN 1 ELSE 0 END) AS interested,
                         (SELECT COUNT(*) FROM sales_leads s
-                          WHERE s.agent_id = u.id AND s.status = 'onboarded') AS sales,
+                          WHERE s.agent_id = u.id AND s.status = 'onboarded'
+                            AND DATE(s.updated_at) >= ? AND DATE(s.updated_at) <= ?) AS sales,
                         (SELECT COUNT(*) FROM sales_leads s
-                          WHERE s.agent_id = u.id AND s.status = 'onboarded') AS onboarded,
+                          WHERE s.agent_id = u.id AND s.status = 'onboarded'
+                            AND DATE(s.updated_at) >= ? AND DATE(s.updated_at) <= ?) AS onboarded,
                         SUM(CASE WHEN l.status = 'onboarding' THEN 1 ELSE 0 END) AS onboarding,
                         SUM(CASE WHEN l.status = 'rejected' THEN 1 ELSE 0 END) AS rejected,
                         SUM(CASE WHEN l.status = 'follow_up' THEN 1 ELSE 0 END) AS follow_up,
@@ -3420,8 +3427,8 @@ function sales_top_agents(string $from, string $to, int $limit = 8): array
                  GROUP BY u.id, u.name, u.email
                  ORDER BY sales DESC, onboarded DESC, interested DESC, reach DESC, u.name
                  LIMIT {$limit}",
-                'ss',
-                [$from, $to]
+                'ssssss',
+                [$from, $to, $from, $to, $from, $to]
             );
         } catch (Throwable $e2) {
             return [];
