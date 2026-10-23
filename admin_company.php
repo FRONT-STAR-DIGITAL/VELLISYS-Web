@@ -90,6 +90,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } catch (Throwable $e) {
                     db_exec('UPDATE branding SET name=? WHERE company_id=?', 'si', [$name, $id]);
                 }
+                if (function_exists('sync_branding_tagline_from_nature')) {
+                    sync_branding_tagline_from_nature($id, sanitize_nature_of_business(post('nature_of_business')));
+                }
                 if (function_exists('document_pdf_cache_clear_company')) {
                     document_pdf_cache_clear_company($id);
                 }
@@ -1160,8 +1163,9 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
   <p class="lede" style="padding:0 22px 0">Logo and two brand colours, matching Settings. Tap a colour square to open the colour picker. Use Eyedrop to sample from the page.</p>
   <div class="form-grid" style="padding:0 22px">
     <div>
-      <label for="tagline">Tagline</label>
-      <input id="tagline" name="tagline" value="<?= h((string) ($brand['tagline'] ?? '')) ?>">
+      <label for="tagline">Tagline (what they deal in)</label>
+      <input id="tagline" name="tagline" value="<?= h((string) ($brand['tagline'] ?? '')) ?>" placeholder="e.g. Building materials">
+      <p class="hint">Shown on documents as “Deals in: …”. Saving Nature of business above also updates this.</p>
     </div>
     <div>
       <label for="prefix">Prefix</label>

@@ -201,13 +201,74 @@ $periodProfit = round_money($periodTaken - $periodExpenses, $ccy);
 $allProfit = round_money($allTaken - $allExpenses, $ccy);
 
 $companies = db_all('SELECT * FROM companies ORDER BY name');
+$onboardedCompanies = [];
+$testingCompanies = [];
+foreach ($companies as $c) {
+    if (!empty($c['testing_mode'])) {
+        $testingCompanies[] = $c;
+    } else {
+        $onboardedCompanies[] = $c;
+    }
+}
 $feeTotals = function_exists('platform_companies_fee_totals')
-    ? platform_companies_fee_totals($companies)
+    ? platform_companies_fee_totals($onboardedCompanies)
     : ['paid' => $allTaken, 'balance' => 0.0];
-// Keep Taken in / Still due on the same math as Reports Fees collected / Fee balances.
+// Keep Taken in / Still due on onboarded clients (same math as Reports Fees).
 $allTaken = (float) ($feeTotals['paid'] ?? $allTaken);
 $feeBalance = round_money((float) ($feeTotals['balance'] ?? 0), $ccy);
 $allProfit = round_money($allTaken - $allExpenses, $ccy);
+
+$renderFeeCompanies = static function (array $rows, string $emptyMsg) use ($filterQs): void {
+    if (!$rows) {
+        echo '<p class="empty">' . h($emptyMsg) . '</p>';
+        return;
+    }
+    ?>
+    <div class="table-scroll">
+      <table class="grid">
+        <thead>
+          <tr>
+            <th>Company</th>
+            <th>Period</th>
+            <th>Renews</th>
+            <th class="right">Fee</th>
+            <th class="right">Amount paid</th>
+            <th class="right">Balance left</th>
+            <th class="row-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($rows as $c):
+              $cid = (int) $c['id'];
+              $hasTerm = (bool) company_expires_on($c);
+              $wa = $hasTerm ? payment_receipt_whatsapp_url($c) : '';
+              $bal = company_fee_balance($c);
+              ?>
+            <tr>
+              <td><a href="<?= h(url('admin_company.php?id=' . $cid)) ?>"><strong><?= h($c['name']) ?></strong></a></td>
+              <td><?= h(payment_receipt_period_label($c)) ?></td>
+              <td><?= !empty($c['expires_at']) ? h(format_date((string) $c['expires_at'])) : '-' ?></td>
+              <td class="right mono"><?= h(platform_money_company_fee($c, 'amount')) ?></td>
+              <td class="right mono"><?= h(platform_money_company_fee($c, 'paid')) ?></td>
+              <td class="right mono<?= $bal > 0.009 ? ' neg' : ' pos' ?>"><?= h(platform_money_company_fee($c, 'balance')) ?></td>
+              <td class="row-actions">
+                <div class="actions wrap-actions">
+                  <a class="btn sm" href="<?= h(url($filterQs('overview', ['pay' => (string) $cid]) . '#make-payment')) ?>"><?= icon('bank', 14) ?>Make payment</a>
+                  <?php if ($hasTerm): ?>
+                    <a class="btn ghost sm icon-only" href="<?= h(url('admin_payment_receipt.php?id=' . $cid)) ?>" title="Preview receipt" aria-label="Preview receipt"><?= icon('eye', 15) ?></a>
+                    <?php if ($wa !== ''): ?>
+                      <a class="btn ghost sm icon-only" href="<?= h($wa) ?>" target="_blank" rel="noopener" title="Share on WhatsApp" aria-label="Share on WhatsApp"><?= icon('share', 15) ?></a>
+                    <?php endif; ?>
+                  <?php endif; ?>
+                </div>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+    <?php
+};
 
 $expenseTitles = platform_expense_titles();
 $expenseEditing = $expenseEditId > 0 ? platform_expense_get($expenseEditId) : null;
@@ -528,52 +589,21 @@ render_filters('admin_finances.php', $filterKeep, ['live' => true, 'today_first'
   <?php endif; ?>
 </div>
 
-<div class="card" style="margin-bottom:24px">
-  <div class="card-head"><h2><?= icon('building', 16) ?>Companies · paid and balance</h2></div>
-  <?php if (!$companies): ?>
-    <p class="empty">No companies yet.</p>
-  <?php else: ?>
-    <div class="table-scroll">
-      <table class="grid">
-        <thead>
-          <tr>
-            <th>Company</th>
-            <th>Period</th>
-            <th>Renews</th>
-            <th class="right">Amount paid</th>
-            <th class="right">Balance remaining</th>
-            <th class="row-actions">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php foreach ($companies as $c):
-              $cid = (int) $c['id'];
-              $hasTerm = (bool) company_expires_on($c);
-              $wa = $hasTerm ? payment_receipt_whatsapp_url($c) : '';
-              ?>
-            <tr>
-              <td><a href="<?= h(url('admin_company.php?id=' . $cid)) ?>"><strong><?= h($c['name']) ?></strong></a></td>
-              <td><?= h(payment_receipt_period_label($c)) ?></td>
-              <td><?= !empty($c['expires_at']) ? h(format_date((string) $c['expires_at'])) : '-' ?></td>
-              <td class="right mono"><?= h(platform_money_company_fee($c, 'paid')) ?></td>
-              <td class="right mono"><?= h(platform_money_company_fee($c, 'balance')) ?></td>
-              <td class="row-actions">
-                <div class="actions">
-                  <a class="btn icon-only" href="<?= h(url($filterQs('overview', ['pay' => (string) $cid]) . '#make-payment')) ?>" title="Make payment" aria-label="Make payment"><?= icon('bank', 15) ?></a>
-                  <?php if ($hasTerm): ?>
-                    <a class="btn icon-only" href="<?= h(url('admin_payment_receipt.php?id=' . $cid)) ?>" title="Preview receipt" aria-label="Preview receipt"><?= icon('eye', 15) ?></a>
-                    <?php if ($wa !== ''): ?>
-                      <a class="btn icon-only" href="<?= h($wa) ?>" target="_blank" rel="noopener" title="Share on WhatsApp" aria-label="Share on WhatsApp"><?= icon('share', 15) ?></a>
-                    <?php endif; ?>
-                  <?php endif; ?>
-                </div>
-              </td>
-            </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
-    </div>
-  <?php endif; ?>
+<div class="card" style="margin-bottom:24px" id="onboarded-clients">
+  <div class="card-head">
+    <h2><?= icon('building', 16) ?>Onboarded clients · paid and balance</h2>
+    <span class="muted"><?= count($onboardedCompanies) ?></span>
+  </div>
+  <?php $renderFeeCompanies($onboardedCompanies, 'No onboarded clients yet.'); ?>
+</div>
+
+<div class="card" style="margin-bottom:24px" id="testing-clients">
+  <div class="card-head">
+    <h2><?= icon('desk', 16) ?>On testing · paid and balance</h2>
+    <span class="muted"><?= count($testingCompanies) ?></span>
+  </div>
+  <p class="hint pad-form" style="margin:0 0 8px;padding-top:0">Trial desks. Record a payment here when a testing client starts paying before promote.</p>
+  <?php $renderFeeCompanies($testingCompanies, 'No clients on testing right now.'); ?>
 </div>
 
 <p class="hint">All time: taken in <?= h(money($allTaken, $ccy)) ?> · expenses <?= h(money($allExpenses, $ccy)) ?> · profit <span class="<?= $allProfit < 0 ? 'neg' : 'pos' ?>"><?= h(money($allProfit, $ccy)) ?></span>.</p>

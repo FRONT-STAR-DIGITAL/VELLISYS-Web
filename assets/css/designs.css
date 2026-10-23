@@ -1699,18 +1699,29 @@
   font-weight: 800;
   color: var(--brand);
 }
+.sheet-deals,
 .sheet-trade .trade-deals,
 .sheet-trade .trade-tag {
-  margin: 6px 0 8px;
-  text-align: center;
+  margin: 4px 0 6px;
   font-size: 12px;
   font-weight: 700;
   line-height: 1.35;
   color: #222;
 }
+.sheet-trade .trade-deals,
+.sheet-trade .trade-tag {
+  margin: 6px 0 8px;
+  text-align: center;
+}
+.sheet-deals > span,
 .sheet-trade .trade-deals > span {
   font-weight: 800;
   color: var(--brand);
+}
+.sheet-thermal .thermal-deals {
+  margin: 2px 0 4px;
+  font-size: 11px;
+  text-align: center;
 }
 .sheet-trade .trade-contact {
   display: grid;

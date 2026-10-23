@@ -3008,12 +3008,14 @@ function platform_create_company(?int $signupId = null): array
         'ssssssiii',
         [$name, $status, $plan, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), $limit, $plannerOn, $pnlOn]
     );
+    $natureForBrand = '';
     if (function_exists('posted_client_fields')) {
         $cfg = posted_client_fields();
+        $natureForBrand = sanitize_nature_of_business(post('nature_of_business'));
         db_exec(
             'UPDATE companies SET nature_of_business=?, client_audience=?, client_fields=?, line_columns=? WHERE id=?',
             'ssssi',
-            [sanitize_nature_of_business(post('nature_of_business')), $cfg['audience'], json_encode($cfg, JSON_UNESCAPED_UNICODE) ?: '{}', posted_document_line_columns(), $cid]
+            [$natureForBrand, $cfg['audience'], json_encode($cfg, JSON_UNESCAPED_UNICODE) ?: '{}', posted_document_line_columns(), $cid]
         );
     }
     db_exec('UPDATE companies SET stock_enabled = ? WHERE id = ?', 'ii', [!empty($_POST['stock_enabled']) ? 1 : 0, $cid]);
@@ -3075,6 +3077,10 @@ function platform_create_company(?int $signupId = null): array
         );
     }
 
+    $createTagline = trim((string) post('tagline'));
+    if ($createTagline === '' && $natureForBrand !== '' && function_exists('branding_tagline_from_nature')) {
+        $createTagline = branding_tagline_from_nature($natureForBrand);
+    }
     db_exec(
         'INSERT INTO branding (company_id, name, tagline, tin, vat_no, address, city, phone, email, website, bank_name, account_name, account_number, brand_color, brand_accent, brand_deep, logo_path, prefix, payment_note, invoice_comments, receipt_comments, plan, currency)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
@@ -3082,7 +3088,7 @@ function platform_create_company(?int $signupId = null): array
         [
             $cid,
             $name,
-            post('tagline'),
+            $createTagline,
             post('tin'),
             post('vat_no'),
             post('address'),

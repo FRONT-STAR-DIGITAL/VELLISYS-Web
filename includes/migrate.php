@@ -1426,8 +1426,11 @@ function folio_migrate(mysqli $db): void
     if ($ver < 52) {
         folio_migrate_testing_mode($db);
     }
+    if ($ver < 53) {
+        folio_migrate_branding_tagline_from_nature($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '52')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '53')");
     @touch($ready);
     $done = true;
     } finally {
@@ -1435,7 +1438,7 @@ function folio_migrate(mysqli $db): void
     }
 }
 
-/** Sales-agent testing desks: 2-week trial companies owned by an agent. */
+/** Sales-agent testing desks: trial companies owned by an agent (default 1 month). */
 function folio_migrate_testing_mode(mysqli $db): void
 {
     if (!db_has_column($db, 'companies', 'testing_mode')) {
@@ -1451,6 +1454,22 @@ function folio_migrate_testing_mode(mysqli $db): void
         db_has_column($db, 'companies', 'testing_expires_at', true);
     }
     @$db->query('CREATE INDEX idx_companies_testing ON companies (testing_mode, testing_owner_id)');
+}
+
+/** Fill empty document taglines from company nature of business (Deals in: …). */
+function folio_migrate_branding_tagline_from_nature(mysqli $db): void
+{
+    if (!db_has_column($db, 'companies', 'nature_of_business') || !db_has_column($db, 'branding', 'tagline')) {
+        return;
+    }
+    @$db->query(
+        "UPDATE branding b
+         INNER JOIN companies c ON c.id = b.company_id
+         SET b.tagline = LEFT(TRIM(c.nature_of_business), 180)
+         WHERE (b.tagline IS NULL OR TRIM(b.tagline) = '')
+           AND c.nature_of_business IS NOT NULL
+           AND TRIM(c.nature_of_business) <> ''"
+    );
 }
 
 function folio_migrate_platform_ops(mysqli $db): void

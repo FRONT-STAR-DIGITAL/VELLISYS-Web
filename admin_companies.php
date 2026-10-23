@@ -173,7 +173,7 @@ layout_admin_start('Companies', $user);
   <div class="company-table-head">
     <div>
       <h2 style="margin:0">Testing mode</h2>
-      <p class="lede" style="margin:6px 0 0">Trial desks. Default 2 weeks.</p>
+      <p class="lede" style="margin:6px 0 0">Trial desks. Default 1 month (<?= (int) sales_testing_default_days() ?> days).</p>
     </div>
     <?php if ($testing): ?>
       <label class="company-table-search">
@@ -316,8 +316,8 @@ layout_admin_start('Companies', $user);
           <input id="t_city" name="city" value="<?= h(post('city')) ?>">
         </div>
         <div>
-          <label for="t_days">Days (default 14)</label>
-          <input id="t_days" name="days" type="number" min="1" max="90" value="<?= h(post('days') !== '' ? post('days') : '14') ?>">
+          <label for="t_days">Days (default <?= (int) sales_testing_default_days() ?>)</label>
+          <input id="t_days" name="days" type="number" min="1" max="90" value="<?= h(post('days') !== '' ? post('days') : (string) sales_testing_default_days()) ?>">
         </div>
         <div class="full">
           <label for="t_address">Address</label>

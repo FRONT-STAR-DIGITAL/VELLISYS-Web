@@ -652,8 +652,9 @@ layout_start('Settings', $user);
           <input id="name" name="name" required value="<?= h($b['name']) ?>">
         </div>
         <div>
-          <label for="tagline">Tagline</label>
-          <input id="tagline" name="tagline" value="<?= h($b['tagline']) ?>">
+          <label for="tagline">Tagline (what you deal in)</label>
+          <input id="tagline" name="tagline" value="<?= h($b['tagline']) ?>" placeholder="e.g. Building materials, school supplies">
+          <p class="hint">Printed on quotations, invoices and receipts as “Deals in: …”.</p>
         </div>
         <div>
           <label for="phone">Phone</label>

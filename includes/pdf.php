@@ -117,8 +117,15 @@ function document_pdf_bytes(array $brand, array $doc): string
     $rgb($navy);
     $put($m, $y, $name, 12, 'F2');
     $rgb('#333333');
+    $pdfTag = trim((string) ($brand['tagline'] ?? ''));
+    if ($pdfTag !== '' && function_exists('sheet_brand_deals_in')) {
+        $pdfDeals = sheet_brand_deals_in($brand);
+        $pdfTag = $pdfDeals !== '' ? ('Deals in: ' . $pdfDeals) : $pdfTag;
+    } elseif ($pdfTag !== '') {
+        $pdfTag = 'Deals in: ' . $pdfTag;
+    }
     foreach (array_filter([
-        (string) ($brand['tagline'] ?? ''),
+        $pdfTag,
         (string) ($brand['address'] ?? ''),
         trim(implode(', ', array_filter([(string) ($brand['city'] ?? ''), (string) ($brand['phone'] ?? ''), (string) ($brand['email'] ?? '')]))),
         !empty($brand['tin']) ? 'TIN ' . $brand['tin'] : '',

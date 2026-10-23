@@ -34,6 +34,29 @@ function sanitize_nature_of_business(string $raw): string
     return mb_substr($s, 0, 120);
 }
 
+/** Tagline printed on documents (“Deals in: …”) — capped for branding.tagline. */
+function branding_tagline_from_nature(string $nature): string
+{
+    return mb_substr(sanitize_nature_of_business($nature), 0, 180);
+}
+
+/** Keep branding.tagline aligned with nature of business when nature is set. */
+function sync_branding_tagline_from_nature(int $companyId, string $nature): void
+{
+    if ($companyId < 1) {
+        return;
+    }
+    $tag = branding_tagline_from_nature($nature);
+    if ($tag === '') {
+        return;
+    }
+    try {
+        db_exec('UPDATE branding SET tagline = ? WHERE company_id = ?', 'si', [$tag, $companyId]);
+    } catch (Throwable $e) {
+        // ignore if branding row missing
+    }
+}
+
 function client_audience_options(): array
 {
     return [
