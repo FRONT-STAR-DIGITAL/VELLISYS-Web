@@ -72,16 +72,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$companies = db_all(
-    'SELECT c.*,
-            (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id) AS users,
-            (SELECT COUNT(*) FROM documents d WHERE d.company_id = c.id) AS docs
-     FROM companies c
-     WHERE COALESCE(c.testing_mode, 0) = 0
-     ORDER BY c.id DESC'
-);
+try {
+    $companies = db_all(
+        'SELECT c.*,
+                sa.name AS sales_agent_name,
+                (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id) AS users,
+                (SELECT COUNT(*) FROM documents d WHERE d.company_id = c.id) AS docs
+         FROM companies c
+         LEFT JOIN users sa ON sa.id = c.sales_agent_id AND sa.role = \'sales_agent\'
+         WHERE COALESCE(c.testing_mode, 0) = 0
+         ORDER BY c.id DESC'
+    );
+} catch (Throwable $e) {
+    $companies = db_all(
+        'SELECT c.*,
+                (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id) AS users,
+                (SELECT COUNT(*) FROM documents d WHERE d.company_id = c.id) AS docs
+         FROM companies c
+         WHERE COALESCE(c.testing_mode, 0) = 0
+         ORDER BY c.id DESC'
+    );
+}
 $testing = function_exists('admin_testing_companies') ? admin_testing_companies() : [];
 $agents = function_exists('sales_agents') ? sales_agents(true) : [];
+$agentsById = [];
+foreach ($agents as $a) {
+    $agentsById[(int) $a['id']] = $a;
+}
 $from = desk_now()->modify('-30 days')->format('Y-m-d');
 $to = desk_now()->format('Y-m-d');
 $presence = [];
@@ -119,6 +136,7 @@ layout_admin_start('Companies', $user);
       <thead>
         <tr>
           <th>Company</th>
+          <th>Sales agent</th>
           <th>Country</th>
           <th>Status</th>
           <th>Online</th>
@@ -138,12 +156,17 @@ layout_admin_start('Companies', $user);
             $onlineN = (int) ($p['online_users'] ?? 0);
             $use = platform_usage_counts((int) $c['id'], $from, $to);
             $onboard = company_onboard_progress($c);
+            $agentName = trim((string) ($c['sales_agent_name'] ?? ''));
+            if ($agentName === '' && !empty($c['sales_agent_id'])) {
+                $agentName = trim((string) (($agentsById[(int) $c['sales_agent_id']]['name'] ?? '')));
+            }
             $searchBlob = strtolower(trim(
-                (string) $c['name'] . ' ' . company_loc($c, 'country') . ' ' . (string) $c['status']
+                (string) $c['name'] . ' ' . $agentName . ' ' . company_loc($c, 'country') . ' ' . (string) $c['status']
             ));
             ?>
           <tr data-search="<?= h($searchBlob) ?>">
             <td><a href="<?= h(url('admin_company.php?id=' . $c['id'])) ?>"><strong><?= h($c['name']) ?></strong></a></td>
+            <td><?= $agentName !== '' ? h($agentName) : '<span class="muted">Unassigned</span>' ?></td>
             <td><?= company_loc($c, 'country') !== '' ? h(company_loc($c, 'country')) : '<span class="muted">-</span>' ?></td>
             <td><span class="pill<?= $c['status'] === 'live' ? '' : ($c['status'] === 'suspended' ? ' bad' : ' warn') ?>"><?= h($c['status']) ?></span></td>
             <td><?php if ($onlineN > 0): ?><span class="pill"><?= $onlineN ?> online</span><?php else: ?><span class="muted">Off</span><?php endif; ?></td>

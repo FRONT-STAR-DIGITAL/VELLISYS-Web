@@ -97,6 +97,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'Could not save the company profile. Check the form and try again.';
             }
             if ($error === '') {
+                $assignAgent = (int) post('sales_agent_id');
+                if (function_exists('sales_assign_company_agent')) {
+                    $assigned = sales_assign_company_agent($id, $assignAgent > 0 ? $assignAgent : null);
+                    if (empty($assigned['ok'])) {
+                        $error = (string) ($assigned['error'] ?? 'Could not assign the sales agent.');
+                    }
+                }
+            }
+            if ($error === '') {
                 if ($status === 'live') {
                     company_mark_onboard_step($id, 'desk_live');
                 }
@@ -538,12 +547,15 @@ if ($toList) {
 
 $isTesting = company_is_testing($company);
 $testingCreds = $isTesting ? sales_testing_credentials($id) : null;
+$salesAgents = function_exists('sales_agents') ? sales_agents(true) : [];
+$assignedAgentId = (int) ($company['sales_agent_id'] ?? 0);
+$assignedAgent = $assignedAgentId > 0 && function_exists('sales_agent') ? sales_agent($assignedAgentId) : null;
 layout_admin_start($company['name'], $user);
 ?>
 <div class="page-head">
   <div>
     <h1><?= icon('building') ?><?= h($company['name']) ?></h1>
-    <p class="lede"><?php if ($isTesting): ?>Testing mode · <?= h(company_testing_remaining_label($company)) ?> · <?php endif; ?><?= h(ucfirst((string) $company['status'])) ?> · <?= h($brand['currency'] ?? 'UGX') ?> · <?= count($members) ?> / <?= (int) company_user_limit($company) ?> user<?= count($members) === 1 ? '' : 's' ?> · <?= h(company_term_label($company)) ?><?php if (company_expires_on($company)): ?> · <?= h(company_remaining_phrase($company)) ?> · <?= h(company_expiry_date_label($company)) ?><?php endif; ?><?php $nob = trim((string) ($company['nature_of_business'] ?? '')); if ($nob !== ''): ?> · <?= h($nob) ?><?php endif; ?></p>
+    <p class="lede"><?php if ($isTesting): ?>Testing mode · <?= h(company_testing_remaining_label($company)) ?> · <?php endif; ?><?= h(ucfirst((string) $company['status'])) ?> · <?= h($brand['currency'] ?? 'UGX') ?> · <?= count($members) ?> / <?= (int) company_user_limit($company) ?> user<?= count($members) === 1 ? '' : 's' ?> · <?= h(company_term_label($company)) ?><?php if (company_expires_on($company)): ?> · <?= h(company_remaining_phrase($company)) ?> · <?= h(company_expiry_date_label($company)) ?><?php endif; ?><?php if ($assignedAgent): ?> · Sales agent <?= h((string) $assignedAgent['name']) ?><?php endif; ?><?php $nob = trim((string) ($company['nature_of_business'] ?? '')); if ($nob !== ''): ?> · <?= h($nob) ?><?php endif; ?></p>
   </div>
   <div class="actions">
     <?php if ($isTesting): ?>
@@ -1104,6 +1116,16 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
           <option value="<?= h($k) ?>" <?= $company['status'] === $k ? 'selected' : '' ?>><?= h($label) ?></option>
         <?php endforeach; ?>
       </select>
+    </div>
+    <div>
+      <label for="sales_agent_id">Sales agent</label>
+      <select id="sales_agent_id" name="sales_agent_id">
+        <option value="">Unassigned</option>
+        <?php foreach ($salesAgents as $a): ?>
+          <option value="<?= (int) $a['id'] ?>" <?= $assignedAgentId === (int) $a['id'] ? 'selected' : '' ?>><?= h((string) $a['name']) ?><?= trim((string) ($a['email'] ?? '')) !== '' ? ' · ' . h((string) $a['email']) : '' ?></option>
+        <?php endforeach; ?>
+      </select>
+      <p class="hint">This agent’s sale and the person who supports the client. They see fee, amount paid and balance under Companies in the sales portal.</p>
     </div>
     <div>
       <label for="user_limit">Logins allowed</label>

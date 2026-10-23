@@ -1432,8 +1432,11 @@ function folio_migrate(mysqli $db): void
     if ($ver < 54) {
         folio_migrate_clear_unsaved_taglines($db);
     }
+    if ($ver < 55) {
+        folio_migrate_company_sales_agent($db);
+    }
 
-    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '54')");
+    $db->query("REPLACE INTO schema_meta (k, v) VALUES ('version', '55')");
     @touch($ready);
     $done = true;
     } finally {
@@ -1483,6 +1486,33 @@ function folio_migrate_clear_unsaved_taglines(mysqli $db): void
              OR TRIM(b.tagline) = LEFT(TRIM(c.nature_of_business), 180)
            )"
     );
+}
+
+/** Permanent sales-agent owner on a company (support + counted sale). */
+function folio_migrate_company_sales_agent(mysqli $db): void
+{
+    if (!db_has_column($db, 'companies', 'sales_agent_id')) {
+        @$db->query('ALTER TABLE companies ADD COLUMN sales_agent_id INT UNSIGNED NULL');
+        db_has_column($db, 'companies', 'sales_agent_id', true);
+    }
+    @$db->query('CREATE INDEX idx_companies_sales_agent ON companies (sales_agent_id)');
+    // Backfill from the newest onboarded lead linked to each live company.
+    if (db_has_column($db, 'sales_leads', 'company_id') && db_has_column($db, 'sales_leads', 'agent_id')) {
+        @$db->query(
+            "UPDATE companies c
+             INNER JOIN sales_leads l ON l.id = (
+               SELECT l2.id FROM sales_leads l2
+               WHERE l2.company_id = c.id
+                 AND l2.status = 'onboarded'
+                 AND l2.deleted_at IS NULL
+               ORDER BY l2.updated_at DESC, l2.id DESC
+               LIMIT 1
+             )
+             SET c.sales_agent_id = l.agent_id
+             WHERE c.sales_agent_id IS NULL
+               AND COALESCE(c.testing_mode, 0) = 0"
+        );
+    }
 }
 
 function folio_migrate_platform_ops(mysqli $db): void

@@ -1337,6 +1337,11 @@ function sales_lead_mark_onboarded(int $id, ?int $signupId = null, ?int $company
         [$signupId, $companyId, $id]
     );
     sales_lead_event($id, (int) (current_user()['id'] ?? 0), 'onboarded', (string) $row['status'], 'onboarded', 'Company live');
+    $cid = (int) ($companyId ?: ($row['company_id'] ?? 0));
+    $aid = (int) ($row['agent_id'] ?? 0);
+    if ($cid > 0 && $aid > 0 && function_exists('sales_set_company_agent_id')) {
+        sales_set_company_agent_id($cid, $aid);
+    }
     return ['ok' => true];
 }
 
@@ -1370,11 +1375,15 @@ function sales_begin_company_onboard(int $leadId): array
         . (!empty($lead['agent_name']) ? ' · agent ' . $lead['agent_name'] : '')
         . (!empty($lead['notes']) ? "\n" . $lead['notes'] : ''));
 
+    $agentOwner = (int) ($lead['agent_id'] ?? 0);
     $cid = db_exec(
         'INSERT INTO companies (name, status, plan, notes, enabled_kinds, user_limit, nature_of_business) VALUES (?,?,?,?,?,?,?)',
         'sssssis',
         [$name, 'onboarding', $plan, $notes !== '' ? $notes : null, $kinds, $limit, sanitize_nature_of_business((string) ($lead['nature_of_business'] ?? ''))]
     );
+    if ($cid > 0 && $agentOwner > 0) {
+        sales_set_company_agent_id($cid, $agentOwner);
+    }
 
     $emailBase = 'lead' . $leadId . '.' . substr(bin2hex(random_bytes(2)), 0, 4);
     $userEmail = strtolower($emailBase . '@onboard.vellisys.ug');
@@ -1448,15 +1457,179 @@ function sales_sync_lead_for_company_status(int $companyId, string $status): voi
     if ($companyId < 1) {
         return;
     }
-    $lead = db_one('SELECT id, status FROM sales_leads WHERE company_id = ? ORDER BY id DESC LIMIT 1', 'i', [$companyId]);
+    $lead = db_one('SELECT id, status, agent_id FROM sales_leads WHERE company_id = ? ORDER BY id DESC LIMIT 1', 'i', [$companyId]);
     if (!$lead) {
         return;
     }
     if ($status === 'live' && (string) $lead['status'] !== 'onboarded') {
         db_exec("UPDATE sales_leads SET status='onboarded', updated_at=NOW() WHERE id=?", 'i', [(int) $lead['id']]);
         sales_lead_event((int) $lead['id'], (int) (current_user()['id'] ?? 0), 'onboarded', (string) $lead['status'], 'onboarded', 'Company marked live');
+        $aid = (int) ($lead['agent_id'] ?? 0);
+        if ($aid > 0) {
+            sales_set_company_agent_id($companyId, $aid);
+        }
     } elseif ($status === 'onboarding' && (string) $lead['status'] === 'interested') {
         db_exec("UPDATE sales_leads SET status='onboarding', updated_at=NOW() WHERE id=?", 'i', [(int) $lead['id']]);
+    }
+}
+
+/** Write companies.sales_agent_id when the column exists (no lead sync). */
+function sales_set_company_agent_id(int $companyId, ?int $agentId): void
+{
+    if ($companyId < 1) {
+        return;
+    }
+    try {
+        if ($agentId !== null && $agentId > 0) {
+            db_exec('UPDATE companies SET sales_agent_id = ? WHERE id = ?', 'ii', [$agentId, $companyId]);
+        } else {
+            db_exec('UPDATE companies SET sales_agent_id = NULL WHERE id = ?', 'i', [$companyId]);
+        }
+    } catch (Throwable $e) {
+        // Column may not exist until migrate runs.
+    }
+}
+
+/**
+ * Assign a live/onboarding company to a sales agent (their sale + support owner).
+ * Keeps an onboarded sales_leads row in sync so performance counts stay correct.
+ */
+function sales_assign_company_agent(int $companyId, ?int $agentId): array
+{
+    $company = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$companyId]);
+    if (!$company) {
+        return ['ok' => false, 'error' => 'Company not found.'];
+    }
+    if ($agentId !== null && $agentId > 0) {
+        $agent = sales_agent($agentId);
+        if (!$agent) {
+            return ['ok' => false, 'error' => 'Sales agent not found.'];
+        }
+    } else {
+        $agentId = null;
+    }
+    try {
+        sales_set_company_agent_id($companyId, $agentId);
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'Could not save the sales agent assignment.'];
+    }
+    if ($agentId) {
+        sales_ensure_onboarded_lead_for_company($companyId, $agentId);
+    }
+    return ['ok' => true, 'sales_agent_id' => $agentId];
+}
+
+/** Ensure the company has an onboarded lead owned by this agent (for portal + sales counts). */
+function sales_ensure_onboarded_lead_for_company(int $companyId, int $agentId): void
+{
+    if ($companyId < 1 || $agentId < 1) {
+        return;
+    }
+    $company = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$companyId]);
+    if (!$company) {
+        return;
+    }
+    $brand = function_exists('branding_for') ? branding_for($companyId) : [];
+    $admin = db_one(
+        "SELECT name, email FROM users WHERE company_id = ? AND role = 'admin' ORDER BY id ASC LIMIT 1",
+        'i',
+        [$companyId]
+    ) ?: [];
+    $lead = db_one(
+        'SELECT * FROM sales_leads WHERE company_id = ? AND deleted_at IS NULL ORDER BY id DESC LIMIT 1',
+        'i',
+        [$companyId]
+    );
+    $business = trim((string) ($company['name'] ?? '')) ?: ('Company #' . $companyId);
+    $contact = trim((string) ($admin['name'] ?? ''));
+    $phone = trim((string) ($brand['phone'] ?? ''));
+    $city = trim((string) ($brand['city'] ?? ''));
+    $address = trim((string) ($brand['address'] ?? ''));
+    $nature = trim((string) ($company['nature_of_business'] ?? ''));
+    $actor = (int) (current_user()['id'] ?? $agentId);
+
+    if ($lead) {
+        $from = (string) ($lead['status'] ?? '');
+        db_exec(
+            "UPDATE sales_leads SET agent_id=?, status='onboarded', business_name=COALESCE(NULLIF(business_name,''), ?),
+             contact_name=COALESCE(NULLIF(contact_name,''), ?), contact_phone=COALESCE(NULLIF(contact_phone,''), ?),
+             city=COALESCE(NULLIF(city,''), ?), address=COALESCE(NULLIF(address,''), ?),
+             nature_of_business=COALESCE(NULLIF(nature_of_business,''), ?),
+             onboard_date=COALESCE(onboard_date, CURDATE()), follow_up_done_at=COALESCE(follow_up_done_at, NOW()),
+             updated_at=NOW() WHERE id=?",
+            'issssssi',
+            [$agentId, $business, $contact, $phone, $city, $address, $nature, (int) $lead['id']]
+        );
+        if ($from !== 'onboarded' || (int) ($lead['agent_id'] ?? 0) !== $agentId) {
+            sales_lead_event(
+                (int) $lead['id'],
+                $actor,
+                'onboarded',
+                $from !== '' ? $from : null,
+                'onboarded',
+                'Assigned to sales agent #' . $agentId
+            );
+        }
+        return;
+    }
+
+    try {
+        $newId = db_exec(
+            'INSERT INTO sales_leads (agent_id, status, business_name, address, contact_name, contact_phone, city,
+             nature_of_business, package_chosen, onboard_date, follow_up_date, follow_up_time, interest_rating, rejected_reason, rejected_category, notes, company_id)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            'isssssssssssisssi',
+            [
+                $agentId,
+                'onboarded',
+                $business,
+                $address,
+                $contact,
+                $phone,
+                $city,
+                $nature,
+                (string) ($company['plan'] ?? ''),
+                date('Y-m-d'),
+                null,
+                null,
+                0,
+                '',
+                '',
+                'Assigned from company settings',
+                $companyId,
+            ]
+        );
+    } catch (Throwable $e) {
+        // Older schema without interest_rating / rejected_category / company_id in INSERT.
+        $newId = db_exec(
+            'INSERT INTO sales_leads (agent_id, status, business_name, address, contact_name, contact_phone, city,
+             nature_of_business, package_chosen, onboard_date, notes)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+            'issssssssss',
+            [
+                $agentId,
+                'onboarded',
+                $business,
+                $address,
+                $contact,
+                $phone,
+                $city,
+                $nature,
+                (string) ($company['plan'] ?? ''),
+                date('Y-m-d'),
+                'Assigned from company settings',
+            ]
+        );
+        if ($newId > 0) {
+            try {
+                db_exec('UPDATE sales_leads SET company_id = ? WHERE id = ?', 'ii', [$companyId, $newId]);
+            } catch (Throwable $e2) {
+                // ignore
+            }
+        }
+    }
+    if ($newId > 0) {
+        sales_lead_event($newId, $actor, 'onboarded', null, 'onboarded', 'Assigned from company settings · company #' . $companyId);
     }
 }
 
@@ -2010,8 +2183,44 @@ function sales_onboarded_companies_for_agent(int $agentId): array
     if ($agentId < 1) {
         return [];
     }
+    $byCompany = [];
+    $absorb = static function (array $rows) use (&$byCompany): void {
+        foreach ($rows as $row) {
+            $cid = (int) ($row['id'] ?? 0);
+            if ($cid < 1 || isset($byCompany[$cid])) {
+                continue;
+            }
+            $byCompany[$cid] = $row;
+        }
+    };
+    // 1) Companies assigned to this agent in company settings (primary ownership).
     try {
-        $rows = db_all(
+        $assigned = db_all(
+            "SELECT c.id, c.name, c.status, c.plan, c.fee_amount, c.fee_paid, c.fee_currency,
+                    c.paid_term, c.paid_unit, c.paid_from, c.expires_at, c.created_at,
+                    l.id AS lead_id, l.business_name, l.contact_name, l.contact_phone,
+                    l.city AS lead_city,
+                    COALESCE(l.updated_at, c.created_at) AS onboarded_at
+             FROM companies c
+             LEFT JOIN sales_leads l ON l.id = (
+               SELECT l2.id FROM sales_leads l2
+               WHERE l2.company_id = c.id AND l2.deleted_at IS NULL
+               ORDER BY (l2.status = 'onboarded') DESC, l2.updated_at DESC, l2.id DESC
+               LIMIT 1
+             )
+             WHERE c.sales_agent_id = ?
+               AND COALESCE(c.testing_mode, 0) = 0
+             ORDER BY onboarded_at DESC, c.id DESC",
+            'i',
+            [$agentId]
+        );
+        $absorb($assigned);
+    } catch (Throwable $e) {
+        // sales_agent_id may be missing until migrate
+    }
+    // 2) Onboarded leads for this agent (legacy / lead-flow sales).
+    try {
+        $fromLeads = db_all(
             "SELECT c.id, c.name, c.status, c.plan, c.fee_amount, c.fee_paid, c.fee_currency,
                     c.paid_term, c.paid_unit, c.paid_from, c.expires_at, c.created_at,
                     l.id AS lead_id, l.business_name, l.contact_name, l.contact_phone,
@@ -2027,18 +2236,15 @@ function sales_onboarded_companies_for_agent(int $agentId): array
             'i',
             [$agentId]
         );
+        $absorb($fromLeads);
     } catch (Throwable $e) {
-        return [];
+        // ignore
     }
-    $byCompany = [];
-    foreach ($rows as $row) {
-        $cid = (int) ($row['id'] ?? 0);
-        if ($cid < 1 || isset($byCompany[$cid])) {
-            continue;
-        }
-        $byCompany[$cid] = $row;
-    }
-    return array_values($byCompany);
+    $list = array_values($byCompany);
+    usort($list, static function (array $a, array $b): int {
+        return strcmp((string) ($b['onboarded_at'] ?? ''), (string) ($a['onboarded_at'] ?? ''));
+    });
+    return $list;
 }
 
 function sales_testing_credentials(int $companyId): array
@@ -2178,6 +2384,7 @@ function sales_promote_testing_to_onboard(int $companyId, array $opts = []): arr
     } else {
         $noteBit .= '; login kept';
     }
+    $promoteAgent = (int) ($company['testing_owner_id'] ?? ($company['sales_agent_id'] ?? 0));
     db_exec(
         "UPDATE companies SET testing_mode = 0, testing_owner_id = NULL, testing_expires_at = NULL, status = 'onboarding',
          notes = CONCAT(COALESCE(notes,''), '\nPromoted from testing on ', DATE_FORMAT(NOW(), '%Y-%m-%d'), ' · ', ?)
@@ -2185,6 +2392,10 @@ function sales_promote_testing_to_onboard(int $companyId, array $opts = []): arr
         'si',
         [$noteBit, $companyId]
     );
+    if ($promoteAgent > 0) {
+        sales_set_company_agent_id($companyId, $promoteAgent);
+        sales_ensure_onboarded_lead_for_company($companyId, $promoteAgent);
+    }
 
     $vaultRow = db_one('SELECT id FROM sales_vault WHERE company_id = ? ORDER BY id DESC LIMIT 1', 'i', [$companyId]);
     if ($vaultRow && function_exists('sales_vault_save')) {
@@ -2198,7 +2409,7 @@ function sales_promote_testing_to_onboard(int $companyId, array $opts = []): arr
     }
 
     $lead = db_one('SELECT id, status FROM sales_leads WHERE company_id = ? ORDER BY id DESC LIMIT 1', 'i', [$companyId]);
-    if ($lead && (string) $lead['status'] === 'interested') {
+    if ($lead && (string) $lead['status'] === 'interested' && $promoteAgent < 1) {
         db_exec("UPDATE sales_leads SET status='onboarding', updated_at=NOW() WHERE id=?", 'i', [(int) $lead['id']]);
         sales_lead_event(
             (int) $lead['id'],
@@ -2536,6 +2747,23 @@ function sales_onboarded_count(?int $agentId, string $from, string $to): int
 /** All-time onboarded clients per agent (Top performers Sales column). */
 function sales_onboarded_total(?int $agentId = null): int
 {
+    // Prefer distinct live companies owned by the agent (settings assignment + lead link).
+    if ($agentId) {
+        try {
+            $row = db_one(
+                "SELECT COUNT(DISTINCT c.id) AS n
+                 FROM companies c
+                 LEFT JOIN sales_leads l ON l.company_id = c.id AND l.deleted_at IS NULL AND l.status = 'onboarded'
+                 WHERE COALESCE(c.testing_mode, 0) = 0
+                   AND (c.sales_agent_id = ? OR l.agent_id = ?)",
+                'ii',
+                [$agentId, $agentId]
+            );
+            return (int) ($row['n'] ?? 0);
+        } catch (Throwable $e) {
+            // fall through to lead-only count
+        }
+    }
     $where = "status = 'onboarded'";
     $types = '';
     $params = [];
@@ -3127,10 +3355,14 @@ function sales_top_agents(string $from, string $to, int $limit = 8): array
         "SELECT u.id, u.name, u.email,
                 SUM(CASE WHEN l.id IS NOT NULL THEN 1 ELSE 0 END) AS reach,
                 SUM(CASE WHEN l.status = 'interested' THEN 1 ELSE 0 END) AS interested,
-                (SELECT COUNT(*) FROM sales_leads s
-                  WHERE s.agent_id = u.id AND s.status = 'onboarded') AS sales,
-                (SELECT COUNT(*) FROM sales_leads s
-                  WHERE s.agent_id = u.id AND s.status = 'onboarded') AS onboarded,
+                (SELECT COUNT(DISTINCT c.id) FROM companies c
+                  LEFT JOIN sales_leads s ON s.company_id = c.id AND s.deleted_at IS NULL AND s.status = 'onboarded'
+                  WHERE COALESCE(c.testing_mode, 0) = 0
+                    AND (c.sales_agent_id = u.id OR s.agent_id = u.id)) AS sales,
+                (SELECT COUNT(DISTINCT c.id) FROM companies c
+                  LEFT JOIN sales_leads s ON s.company_id = c.id AND s.deleted_at IS NULL AND s.status = 'onboarded'
+                  WHERE COALESCE(c.testing_mode, 0) = 0
+                    AND (c.sales_agent_id = u.id OR s.agent_id = u.id)) AS onboarded,
                 SUM(CASE WHEN l.status = 'onboarding' THEN 1 ELSE 0 END) AS onboarding,
                 SUM(CASE WHEN l.status = 'rejected' THEN 1 ELSE 0 END) AS rejected,
                 SUM(CASE WHEN l.status = 'follow_up' THEN 1 ELSE 0 END) AS follow_up,
