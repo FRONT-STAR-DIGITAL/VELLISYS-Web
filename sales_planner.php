@@ -34,7 +34,7 @@ sales_layout_start('Weekly planner', $user);
   <p class="flash flash-err" style="margin:0 0 16px"><?= icon('alert', 16) ?><?= h($error) ?></p>
 <?php endif; ?>
 
-<p class="hint" style="margin:0 0 14px">This week · <?= h(format_date($weekStart)) ?> – <?= h(format_date($weekEnd)) ?></p>
+<p class="hint" style="margin:0 0 14px">This week · <?= h(format_date($weekStart)) ?> - <?= h(format_date($weekEnd)) ?></p>
 
 <form method="post" class="card pad-form sales-week-planner">
   <?= csrf_field() ?>

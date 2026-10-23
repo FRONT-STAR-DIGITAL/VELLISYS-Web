@@ -3149,7 +3149,7 @@ function receipt_collect_target(array $doc): int
 
 function list_open_debtors(): array
 {
-    // Ignore the desk date filter — outstanding balances stay owed even when
+    // Ignore the desk date filter - outstanding balances stay owed even when
     // the invoice is outside “this month” and only the part-payment receipt is.
     $byId = [];
     foreach (list_documents('invoice', true) as $inv) {
@@ -3702,7 +3702,7 @@ function attach_document_totals(array $rows): array
                 $row['invoice_balance'] = $dueDoc;
                 $row['balance'] = $dueDoc;
             } elseif ($rid > 0) {
-                // Parent row missing from join — still expose the receipt gap.
+                // Parent row missing from join - still expose the receipt gap.
                 $row['invoice_balance'] = $saleDue;
                 $row['balance'] = $saleDue;
             }

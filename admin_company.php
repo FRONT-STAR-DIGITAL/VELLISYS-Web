@@ -1183,7 +1183,7 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
   <div class="form-grid" style="padding:0 22px">
     <div>
       <label for="tagline">Tagline</label>
-      <input id="tagline" name="tagline" maxlength="180" value="<?= h((string) ($brand['tagline'] ?? '')) ?>" placeholder="Optional — printed under the company name">
+      <input id="tagline" name="tagline" maxlength="180" value="<?= h((string) ($brand['tagline'] ?? '')) ?>" placeholder="Optional - printed under the company name">
       <p class="hint">Optional. Shown on documents only when saved. Trade sheets use “Deals in: …”; other templates show the plain line. Leave blank to hide.</p>
     </div>
     <div>

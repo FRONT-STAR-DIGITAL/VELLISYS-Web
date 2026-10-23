@@ -653,7 +653,7 @@ layout_start('Settings', $user);
         </div>
         <div>
           <label for="tagline">Tagline</label>
-          <input id="tagline" name="tagline" maxlength="180" value="<?= h($b['tagline']) ?>" placeholder="Optional — e.g. Building materials, school supplies">
+          <input id="tagline" name="tagline" maxlength="180" value="<?= h($b['tagline']) ?>" placeholder="Optional - e.g. Building materials, school supplies">
           <p class="hint">Optional. Printed under your company name on documents when saved. Leave blank to hide it. Thermal receipts never show a tagline.</p>
         </div>
         <div>

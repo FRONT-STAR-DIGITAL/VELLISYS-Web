@@ -323,7 +323,7 @@ function normalize_line_unit(?string $unit): string
     return mb_substr($u, 0, 30);
 }
 
-/** "3 pcs", "12.5 meters" — unit is display-only; amount stays qty × rate. */
+/** "3 pcs", "12.5 meters" - unit is display-only; amount stays qty × rate. */
 function format_qty_with_unit($qty, ?string $unit = null): string
 {
     $q = format_qty($qty);
@@ -1102,7 +1102,7 @@ function folio_housekeep_daily(): void
             folio_session_gc_now();
         }
         folio_cache_sweep_stale(86400);
-        // Only system/telemetry — never documents, clients, stock, payments, activity, or mail logs.
+        // Only system/telemetry - never documents, clients, stock, payments, activity, or mail logs.
         try {
             db_exec('DELETE FROM site_visits WHERE occurred_at < DATE_SUB(NOW(), INTERVAL 180 DAY) LIMIT 20000');
         } catch (Throwable $e) {

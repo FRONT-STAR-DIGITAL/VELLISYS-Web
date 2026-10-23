@@ -2581,7 +2581,7 @@ table.grid tfoot td {
 }
 .lines-toolbar .hint { margin: 0; }
 .lines-del-col { width: 44px; }
-/* Receipt cash taken — stands out above Document preview */
+/* Receipt cash taken - stands out above Document preview */
 .doc-received {
   margin: 0 0 14px;
   padding: 14px 16px;

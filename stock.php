@@ -425,7 +425,7 @@ elseif ($tab === 'reports'):
     render_filters('stock.php', $keep, ['no_all' => true, 'live' => true]);
     render_stock_reports_tab($analytics);
     $payload = json_encode($analytics, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP);
-    // Inline payload first (no defer), then Chart.js + boot — keeps series available when charts paint.
+    // Inline payload first (no defer), then Chart.js + boot - keeps series available when charts paint.
     $extraJs = '<script>window.vellisysStockReports=' . $payload . ';</script>'
         . '<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script>'
         . '<script src="' . h(asset('js/stock-reports.js')) . '" defer></script>';

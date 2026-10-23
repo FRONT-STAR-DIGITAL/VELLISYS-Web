@@ -40,7 +40,7 @@ function folio_ensure_landing_package_prices(mysqli $db): void
     if (!$has || $has->num_rows < 1) {
         return;
     }
-    // Starter / Business / Pro (keys solo, studio, practice — and common display names).
+    // Starter / Business / Pro (keys solo, studio, practice - and common display names).
     $prices = [
         'solo' => [200000.0, 250000.0],
         'studio' => [250000.0, 320000.0],
@@ -1465,7 +1465,7 @@ function folio_migrate_testing_mode(mysqli $db): void
 /** Legacy: previously copied nature into tagline (no longer desired). */
 function folio_migrate_branding_tagline_from_nature(mysqli $db): void
 {
-    // Intentionally empty — taglines are client-saved only.
+    // Intentionally empty - taglines are client-saved only.
     unset($db);
 }
 

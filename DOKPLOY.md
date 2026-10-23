@@ -11,12 +11,12 @@ You do **not** redesign pages. Same PHP app.
 
 1. **Dokploy** in the browser (usually `http://YOUR_VPS_IP:3000`)
 2. **GitHub** account that can read `FRONT-STAR-DIGITAL/VELLISYS-Web`
-3. **Hostinger hPanel** (old site) — for a database export later
+3. **Hostinger hPanel** (old site) - for a database export later
 4. A strong password ready for MySQL (write it down)
 
 ---
 
-## Part 1 — Confirm Dokploy is up
+## Part 1 - Confirm Dokploy is up
 
 1. In Hostinger → VPS → note your **VPS IP**.
 2. Open `http://YOUR_VPS_IP:3000` (or the URL Dokploy showed at install).
@@ -27,7 +27,7 @@ You are done with Part 1 when you see the Dokploy dashboard.
 
 ---
 
-## Part 2 — Connect GitHub to Dokploy
+## Part 2 - Connect GitHub to Dokploy
 
 1. In Dokploy go to **Settings** → **Git** (or **Providers**).
 2. Connect **GitHub** (OAuth or a deploy key / personal access token).
@@ -35,7 +35,7 @@ You are done with Part 1 when you see the Dokploy dashboard.
 
 ---
 
-## Part 3 — Create the Vellisys project
+## Part 3 - Create the Vellisys project
 
 1. Dokploy → **Create Project** → name it `vellisys`.
 2. Inside the project → **Create Service** → choose **Docker Compose** (not plain Application).
@@ -47,7 +47,7 @@ You are done with Part 1 when you see the Dokploy dashboard.
 
 ---
 
-## Part 4 — Environment variables (required)
+## Part 4 - Environment variables (required)
 
 Open the Compose service → **Environment** tab.  
 Paste something like this (change the passwords):
@@ -62,7 +62,7 @@ FOLIO_REDIS_PASS=ChooseAStrongRedisPassword789!
 ```
 
 `FOLIO_REDIS_PASS` protects the Redis container on the Docker network (short app cache).  
-Logins stay in MySQL — Redis is optional cache only. If Redis is unhealthy, the desk still works with file cache.
+Logins stay in MySQL - Redis is optional cache only. If Redis is unhealthy, the desk still works with file cache.
 
 Optional (only if you want to override platform mail from env):
 
@@ -76,13 +76,13 @@ FOLIO_SMTP_FROM=info@vellisys.com
 FOLIO_SMTP_FROM_NAME=VELLISYS
 ```
 
-Optional (recommended on VPS — keeps logins stable across redeploys):
+Optional (recommended on VPS - keeps logins stable across redeploys):
 
 ```env
 FOLIO_AUTH_SECRET=paste-a-long-random-string-here
 ```
 
-Logins are stored in MySQL (`php_sessions`) plus a signed cookie. There is no idle logout — only **Sign out** clears a login.
+Logins are stored in MySQL (`php_sessions`) plus a signed cookie. There is no idle logout - only **Sign out** clears a login.
 
 **Save** the environment.
 
@@ -91,7 +91,7 @@ Logins are stored in MySQL (`php_sessions`) plus a signed cookie. There is no id
 
 ---
 
-## Part 5 — First deploy
+## Part 5 - First deploy
 
 1. Click **Deploy**.
 2. Open **Deployments** / **Logs**.
@@ -100,7 +100,7 @@ Logins are stored in MySQL (`php_sessions`) plus a signed cookie. There is no id
    - `redis` (cache)
    - `app` (PHP + Apache)
 
-First build can take **5–15 minutes** (downloads PHP/MySQL/Redis images).
+First build can take **5-15 minutes** (downloads PHP/MySQL/Redis images).
 
 If it fails, read the red log line. Common fixes:
 
@@ -112,7 +112,7 @@ If it fails, read the red log line. Common fixes:
 
 ---
 
-## Part 6 — Domain on Dokploy (before or after DNS)
+## Part 6 - Domain on Dokploy (before or after DNS)
 
 1. Compose service → **Domains**.
 2. Add domain: `www.vellisys.com` (and `vellisys.com` if you want both).
@@ -124,7 +124,7 @@ Until then, use Dokploy’s preview URL / IP to test.
 
 ---
 
-## Part 7 — Put your real data in MySQL
+## Part 7 - Put your real data in MySQL
 
 The empty MySQL database is not enough. Copy the live Hostinger database once.
 
@@ -174,7 +174,7 @@ After import, open the app URL and try login.
 
 ---
 
-## Part 8 — Uploads (logos / photos)
+## Part 8 - Uploads (logos / photos)
 
 `uploads/` is not in git. Copy once from Hostinger `public_html/uploads` into Dokploy’s persistent folder:
 
@@ -186,7 +186,7 @@ Typical approach:
 # From laptop: zip uploads on Hostinger, download, then:
 scp -r uploads root@YOUR_VPS_IP:/tmp/uploads
 
-# Copy into the running app volume (path may vary — check Dokploy Files)
+# Copy into the running app volume (path may vary - check Dokploy Files)
 # Often something like:
 docker ps   # find app container
 docker cp /tmp/uploads/. APP_CONTAINER:/var/www/html/uploads/
@@ -196,7 +196,7 @@ Or use Dokploy **Advanced → Mounts / Files** UI if you prefer not to use SSH.
 
 ---
 
-## Part 9 — Test (old site still live)
+## Part 9 - Test (old site still live)
 
 Open the Dokploy preview URL (or hosts-file → VPS IP).
 
@@ -213,7 +213,7 @@ If these work, the VPS app is ready. Customers can stay on the old Hostinger sit
 
 ---
 
-## Part 10 — Go live (short maintenance window)
+## Part 10 - Go live (short maintenance window)
 
 When you are happy with the VPS copy:
 
@@ -225,7 +225,7 @@ When you are happy with the VPS copy:
 6. Test login on the real domain.
 7. Keep old Hostinger web hosting for a few days as rollback.
 
-Planned user impact: about **30–60 minutes** if prep is done.
+Planned user impact: about **30-60 minutes** if prep is done.
 
 ---
 
@@ -249,7 +249,7 @@ Cloudflare Free sits in front of Dokploy. It caches static files, absorbs junk t
 ### A) Add the domain (Cloudflare dashboard)
 
 1. Account home → **Add a domain** (middle card).
-2. Type: `vellisys.com` (apex — Cloudflare will cover `www` too).
+2. Type: `vellisys.com` (apex - Cloudflare will cover `www` too).
 3. Continue → choose **Free** plan → Continue.
 4. Cloudflare scans DNS. Keep existing **MX** records for Hostinger/Titan mail (do not delete mail rows).
 5. Finish until Cloudflare shows **two nameservers** (e.g. `ada.ns.cloudflare.com` and `bob.ns.cloudflare.com`).
@@ -265,7 +265,7 @@ Cloudflare Free sits in front of Dokploy. It caches static files, absorbs junk t
 1. Cloudflare → your domain → **DNS**.
 2. For `vellisys.com` and `www`, set **A** (or CNAME) to your **VPS IP** (Dokploy).
 3. Turn the cloud **orange** (Proxied) for those web records.
-4. Leave **MX** as DNS only (grey cloud) — mail stays on Hostinger.
+4. Leave **MX** as DNS only (grey cloud) - mail stays on Hostinger.
 5. **SSL/TLS** → Overview → encryption mode:
    - Prefer **Full (strict)** once Dokploy Let’s Encrypt is working for `www.vellisys.com`.
    - Use **Full** temporarily if the origin cert is not ready yet.
@@ -275,9 +275,9 @@ Cloudflare Free sits in front of Dokploy. It caches static files, absorbs junk t
 
 1. **Caching** → Configuration → Caching Level: **Standard**.
 2. Browser Cache TTL can stay default.
-3. Do **not** “Cache Everything” for the whole site — PHP desk pages must stay dynamic. Static assets already send long `Cache-Control` from Apache.
+3. Do **not** “Cache Everything” for the whole site - PHP desk pages must stay dynamic. Static assets already send long `Cache-Control` from Apache.
 
-Ignore sidebar **Storage & databases** / Workers for this setup — Redis runs inside Dokploy on your VPS, not in Cloudflare.
+Ignore sidebar **Storage & databases** / Workers for this setup - Redis runs inside Dokploy on your VPS, not in Cloudflare.
 
 ## Day-2 updates (this is the easy part)
 
@@ -286,7 +286,7 @@ After go-live, every code update is:
 1. Merge/push to `main` on GitHub  
 2. Dokploy **Deploy** (or enable Auto Deploy on push)
 
-Database and `uploads/` stay on the VPS volumes — they are not wiped by `git pull` / redeploy.
+Database and `uploads/` stay on the VPS volumes - they are not wiped by `git pull` / redeploy.
 
 ---
 

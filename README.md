@@ -33,7 +33,7 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 **Field sales agents** (same login page; no desk or onboarding rights)
 
 - Demo agent: `agent@vellisys.ug` / `agent-demo-2026`
-- **Sales demo desk** (for field agents to show clients): `demo@vellisys.ug` / `demo-sales-2026` — also open from Sales → Demo (agents) or Demo in super admin nav
+- **Sales demo desk** (for field agents to show clients): `demo@vellisys.ug` / `demo-sales-2026` - also open from Sales → Demo (agents) or Demo in super admin nav
 - Super admin sets **daily / weekly / monthly** goals (defaults: 10 leads + 2 sales a day, 10 sales a week, 30 a month), sees per-agent daily progress on **Sales**, opens charts by period, messages agents, CRUD businesses, and onboards interested leads. Deleting an agent requires typing their email.
 - Agents clock in daily with a city, see daily goal bars (over-goal still shown), log businesses (status first: Interested / Follow up / Rejected), and open Performance for daily / weekly / monthly charts + chat
 - **Testing mode** (1 month): open a trial desk from an interested lead; default login is firstword@vellisys.com / Folio2026. Super admin Companies → Testing: extend/shorten, promote (email + keep/clean data), edit, delete, create
@@ -92,10 +92,10 @@ Open the **landing page** at the site root. Companies **register**. A Vellisys s
 - Company desk and every document template scale to fit a phone; line editors stack on a phone; the document table preview stays full width and scrolls sideways
 - **Activities** on every package: a log of major desk events (issued sheets, payments, mail, clients, settings). Open it from the rail or from Desk
 - **Planner** (Business and Pro) includes a Tasks tab for goals to hit, with due dates in the notification bell
-- **Branches** (Vellisys Business and Pro): Head office is the company address; Business allows up to 2 branches, Pro up to 3; several people can share a branch; Vellisys sets how many users the desk has (Start 2, Business 3, Pro 4). Stock, Sale and the Desk dashboard are per branch — a branch login cannot see Head office stock or sales. Only the company admin sees overall.
+- **Branches** (Vellisys Business and Pro): Head office is the company address; Business allows up to 2 branches, Pro up to 3; several people can share a branch; Vellisys sets how many users the desk has (Start 2, Business 3, Pro 4). Stock, Sale and the Desk dashboard are per branch - a branch login cannot see Head office stock or sales. Only the company admin sees overall.
 - **Push notifications** on the installed app: allow them in Settings → Notifications. The same prompt appears after you install the app. Desk alerts then pop up on the device, including notices already in the bell.
 - Each company sets its **own tax name and rate** in Settings (VAT 18%, GST 16%, SST 8%…). Tick whether new products and document lines should start with tax on; you can still mark Y or N on each item. Older sheets keep the rate they were saved with
-- **Stock management** (switched on per desk by Vellisys, any package): Stock (products and services, counts), **Purchases** (restock goods) and Sale. Open/close day is optional — Vellisys ticks it on the company when a till float is needed. Day reports and filters live on the **Desk dashboard**. Quick receipts (amount received) count as sales of services on Day, the same way expenses already land there. Opening cash is applied to expenses first and noted on Day. Services have a selling price only — no opening quantity or buying price — and they are left out of Stock at sell. Quotes pick items from stock. The Ofagros demo (`accounts@ofagros.org`) has stock on
+- **Stock management** (switched on per desk by Vellisys, any package): Stock (products and services, counts), **Purchases** (restock goods) and Sale. Open/close day is optional - Vellisys ticks it on the company when a till float is needed. Day reports and filters live on the **Desk dashboard**. Quick receipts (amount received) count as sales of services on Day, the same way expenses already land there. Opening cash is applied to expenses first and noted on Day. Services have a selling price only - no opening quantity or buying price - and they are left out of Stock at sell. Quotes pick items from stock. The Ofagros demo (`accounts@ofagros.org`) has stock on
 - Desk **Settings → Bring in books**: download Excel templates for clients, documents, receipts, sales (and stock when that add-on is on). Fill the sheet from old books and upload. Vellisys **adds** the rows to the current desk (matching client names are reused; duplicate document numbers are skipped). Stock keeps every product row, including 1,000 or more; blank prices and quantities save as 0. This does not wipe issued sheets
 - Email sends **From** the signed-in account
 
@@ -184,7 +184,7 @@ When someone installs the web app, the icon opens **login**, not the landing pag
 ## VPS + Dokploy (KVM 2)
 
 To run the same app on a Hostinger **KVM 2** VPS with **Dokploy** (Ubuntu), follow **[DOKPLOY.md](DOKPLOY.md)**.  
-That guide uses `Dockerfile` + `docker-compose.yml` in this repo. No page redesign — same PHP app. Keep Hostinger mailboxes; only the website moves.
+That guide uses `Dockerfile` + `docker-compose.yml` in this repo. No page redesign - same PHP app. Keep Hostinger mailboxes; only the website moves.
 
 ## Hostinger (`www.vellisys.com`)
 

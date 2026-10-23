@@ -90,7 +90,7 @@ function sheet_brand_phone(array $brand): string
     return sheet_brand_strong((string) ($brand['phone'] ?? ''));
 }
 
-/** Saved branding tagline only — empty means omit on documents. */
+/** Saved branding tagline only - empty means omit on documents. */
 function sheet_brand_tagline(array $brand): string
 {
     $tagline = trim((string) ($brand['tagline'] ?? ''));
@@ -143,7 +143,7 @@ function sheet_brand_location(array $brand, bool $includeCity = true): string
     return sheet_brand_strong($loc);
 }
 
-/** address · phone · email — name/location/phone bold, email plain. */
+/** address · phone · email - name/location/phone bold, email plain. */
 function sheet_brand_contact_line(array $brand, bool $includeCity = false): string
 {
     $bits = [];
@@ -2063,7 +2063,7 @@ function render_sheet_thermal(array $d): void
   <?php endif; ?>
   <?php render_authorized_signoff($doc); ?>
   <?php
-  // Footer line above email + QR — company edits this in Settings → Document designs.
+  // Footer line above email + QR - company edits this in Settings → Document designs.
   $thanks = function_exists('brand_thanks_message')
       ? brand_thanks_message($brand)
       : trim((string) ($brand['thanks_message'] ?? ''));

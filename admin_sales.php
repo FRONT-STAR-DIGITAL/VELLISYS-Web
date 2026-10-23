@@ -1249,7 +1249,7 @@ if ($tab === 'planner'):
     <p class="lede">What each sales agent set for this week. Next week each weekday replaces the same weekday from this plan.</p>
   </div>
 </div>
-<p class="hint" style="margin:0 0 12px">Week of <?= h(format_date($planWeek)) ?> – <?= h(format_date($planWeekEnd)) ?></p>
+<p class="hint" style="margin:0 0 12px">Week of <?= h(format_date($planWeek)) ?> - <?= h(format_date($planWeekEnd)) ?></p>
 <div class="filter-chips" style="margin:0 0 14px">
   <a class="chip<?= $planFilter < 1 ? ' is-on' : '' ?>" href="<?= h(url('admin_sales.php?tab=planner')) ?>">All agents</a>
   <?php foreach ($agents as $a): ?>

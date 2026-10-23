@@ -88,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash('Saved package section copy, countdown and rates.');
         redirect('admin_landing.php#packages');
     } elseif ($form === 'package') {
-        // Enter in a field often submits without a button name — default to save.
+        // Enter in a field often submits without a button name - default to save.
         $action = post('action');
         if ($action === '' && (int) post('id') > 0) {
             $action = 'save';

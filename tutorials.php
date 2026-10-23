@@ -247,7 +247,7 @@ $lessons = [
         'title' => 'Sale',
         'file' => 'sale.png',
         'alt' => 'Sale till with a product list, totals and Save and print',
-        'lead' => 'Sale is the till. Type a product or service, it drops onto the list, then save. Till sales create receipts with amount paid and balance — not invoices. Invoices stay for Documents or quotation conversion.',
+        'lead' => 'Sale is the till. Type a product or service, it drops onto the list, then save. Till sales create receipts with amount paid and balance - not invoices. Invoices stay for Documents or quotation conversion.',
         'points' => [
             'Find a product or service by name or code. It fills qty, unit price and tax. Tap X on a row to take it off.',
             'Discount and part pay sit under the list. Leave paid blank to take the full amount. Part-paid or unpaid balance sits on Debtors on that receipt.',

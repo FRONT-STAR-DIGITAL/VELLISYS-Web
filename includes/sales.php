@@ -2698,7 +2698,7 @@ function sales_testing_active_count(?int $agentId = null): int
 
 /**
  * When a lead became a sale (first onboarded event), else updated_at if already onboarded.
- * Used so period filters count the close date — not the original lead created_at.
+ * Used so period filters count the close date - not the original lead created_at.
  */
 function sales_lead_sold_at_sql(string $leadAlias = 'l'): string
 {
@@ -3281,7 +3281,7 @@ function sales_series(?int $agentId, string $from, string $to): array
         $n = (int) $r['n'];
         $out[$d]['reach'] += $n;
         if ($st === 'onboarded') {
-            // Sales/onboarded are filled from close-date query below — skip created_at bucket.
+            // Sales/onboarded are filled from close-date query below - skip created_at bucket.
             continue;
         }
         if (isset($out[$d][$st])) {
@@ -4014,7 +4014,7 @@ function sales_week_plans_purge_stale(?int $agentId = null): void
 }
 
 /**
- * Current-week plan for an agent, keyed by weekday 1–7.
+ * Current-week plan for an agent, keyed by weekday 1-7.
  *
  * @return array<int, array{weekday:int, label:string, enabled:bool, activities:string, week_start:string}>
  */

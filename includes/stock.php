@@ -259,7 +259,7 @@ function stock_set_branch_qty(int $itemId, int $branchId, float $delta): void
     }
     $cid = current_company_id();
     $branchId = max(0, $branchId);
-    // Table PK is (item_id, branch_id) — there is no id column.
+    // Table PK is (item_id, branch_id) - there is no id column.
     $exists = db_one(
         'SELECT item_id, qty_on_hand FROM stock_branch_qty WHERE company_id = ? AND item_id = ? AND branch_id = ?',
         'iii',
@@ -622,7 +622,7 @@ function stock_move(int $itemId, string $kind, float $qty, float $unitCost = 0, 
             [$cid, $itemId, $kind, $delta, $unitCost, $documentId, $noteVal, $uid]
         );
     }
-    // Always keep branch qty in sync when that table exists — the stock list reads from it.
+    // Always keep branch qty in sync when that table exists - the stock list reads from it.
     if (stock_branch_qty_ready()) {
         stock_set_branch_qty($itemId, $branchId, $delta);
     }
@@ -672,7 +672,7 @@ function stock_apply_document(int $documentId, string $kind, array $items): void
     } catch (Throwable $e) {
         // Older schemas may lack a column; still apply stock for sale docs.
     }
-    // Allocation / follow-up receipts never move stock — only till sale receipts (no parent).
+    // Allocation / follow-up receipts never move stock - only till sale receipts (no parent).
     if ($kind === 'receipt' && $relatedId > 0) {
         return;
     }

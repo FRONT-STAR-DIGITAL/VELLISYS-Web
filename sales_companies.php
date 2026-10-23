@@ -27,7 +27,7 @@ sales_layout_start('Companies', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('building') ?>Companies</h1>
-    <p class="lede">Your onboarded clients — companies assigned to you as sales. When admin updates amount paid, fee, paid and balance update here.</p>
+    <p class="lede">Your onboarded clients - companies assigned to you as sales. When admin updates amount paid, fee, paid and balance update here.</p>
   </div>
   <div class="actions page-actions">
     <a class="btn ghost" href="<?= h(url('sales_testing.php')) ?>"><?= icon('desk', 14) ?>On Testing</a>
@@ -46,7 +46,7 @@ sales_layout_start('Companies', $user);
 
 <div class="card">
   <?php if (!$companies): ?>
-    <p class="empty">No onboarded clients yet. When admin assigns a company to you — or a lead of yours is onboarded — it shows here with fee, amount paid and balance.</p>
+    <p class="empty">No onboarded clients yet. When admin assigns a company to you - or a lead of yours is onboarded - it shows here with fee, amount paid and balance.</p>
   <?php else: ?>
     <div class="table-scroll">
       <table class="grid">
