@@ -1256,6 +1256,35 @@ function stock_set_on_hand(int $id, float $qty, string $note = 'Imported opening
     stock_move($id, 'adjust', $diff, (float) ($item['buy_price'] ?? 0), null, $note);
 }
 
+/** Put buying price on opening/import moves that were saved with unit_cost 0. */
+function stock_stamp_opening_unit_cost(int $id, float $buy): void
+{
+    if ($id < 1 || $buy <= 0.0001) {
+        return;
+    }
+    $cid = current_company_id();
+    if ($cid < 1) {
+        return;
+    }
+    try {
+        db_exec(
+            "UPDATE stock_moves
+             SET unit_cost = ?
+             WHERE company_id = ? AND item_id = ?
+               AND ABS(COALESCE(unit_cost, 0)) < 0.0001
+               AND qty > 0
+               AND (
+                 note IN ('Opening quantity', 'Imported opening quantity')
+                 OR ((document_id IS NULL OR document_id = 0) AND kind IN ('in', 'adjust'))
+               )",
+            'dii',
+            [round($buy, 2), $cid, $id]
+        );
+    } catch (Throwable $e) {
+        // Movement UI also falls back to stock_items.buy_price.
+    }
+}
+
 function stock_import_apply_item(array $fields): string
 {
     $sku = trim((string) ($fields['sku'] ?? ''));
@@ -1265,6 +1294,7 @@ function stock_import_apply_item(array $fields): string
     }
     $applyOpening = !empty($fields['apply_opening']) && empty($fields['is_service']);
     $opening = round((float) ($fields['qty_on_hand'] ?? 0), 2);
+    $buy = empty($fields['is_service']) ? round((float) ($fields['buy_price'] ?? 0), 2) : 0.0;
     unset($fields['apply_opening']);
     $existing = null;
     $cid = current_company_id();
@@ -1288,17 +1318,20 @@ function stock_import_apply_item(array $fields): string
         if ($applyOpening) {
             stock_set_on_hand((int) $existing['id'], $opening, 'Imported opening quantity');
         }
+        stock_stamp_opening_unit_cost((int) $existing['id'], $buy);
         return 'updated';
     }
     $fields['qty_on_hand'] = $applyOpening ? $opening : 0;
     $saved = stock_save_item($fields, null);
     if (!empty($saved['ok'])) {
+        stock_stamp_opening_unit_cost((int) ($saved['id'] ?? 0), $buy);
         return 'added';
     }
     if ($sku !== '') {
         $fields['sku'] = mb_substr($sku . '-' . preg_replace('/[^A-Za-z0-9]+/', '', $name), 0, 80);
         $saved = stock_save_item($fields, null);
         if (!empty($saved['ok'])) {
+            stock_stamp_opening_unit_cost((int) ($saved['id'] ?? 0), $buy);
             return 'added';
         }
     }
@@ -2430,7 +2463,7 @@ function stock_movements_summary(string $from, string $to): array
     try {
         $rows = db_all(
             "SELECT m.id, m.item_id, m.kind, m.qty, m.unit_cost, m.document_id, m.note, m.created_at,
-                    s.name AS item_name, s.sku, s.sell_price, s.unit,
+                    s.name AS item_name, s.sku, s.buy_price, s.sell_price, s.unit,
                     COALESCE(d.date, DATE(m.created_at)) AS move_date,
                     d.currency AS doc_currency,
                     (
@@ -2474,13 +2507,18 @@ function stock_movements_summary(string $from, string $to): array
             continue;
         }
         $unitCost = (float) ($row['unit_cost'] ?? 0);
+        $itemBuy = (float) ($row['buy_price'] ?? 0);
         $fromCur = function_exists('normalize_currency')
             ? normalize_currency((string) ($row['doc_currency'] ?? ''), $base)
             : (string) ($row['doc_currency'] ?? $base);
         $costLine = $qty * $unitCost;
-        if (function_exists('convert_money') && ($row['doc_currency'] ?? '') !== '') {
+        if ($unitCost > 0.0001 && function_exists('convert_money') && ($row['doc_currency'] ?? '') !== '') {
             $costLine = convert_money($costLine, $fromCur, $base);
             $unitCost = $qty > 0 ? round($costLine / $qty, 4) : $unitCost;
+        } elseif ($unitCost <= 0.0001 && $itemBuy > 0.0001) {
+            // Imports / opening qty sometimes leave unit_cost at 0 while buying price is on the item.
+            $unitCost = $itemBuy;
+            $costLine = $qty * $unitCost;
         }
         $name = (string) ($row['item_name'] ?? 'Item');
         $sku = (string) ($row['sku'] ?? '');
