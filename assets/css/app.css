@@ -7718,6 +7718,7 @@ body.has-upload-progress .app-tabbar {
   min-width: min(280px, 100%);
   flex: 1 1 200px;
   max-width: 320px;
+  margin: 0; /* override global label margin so head gap stays tight */
 }
 .company-table-search input[type="search"] {
   width: 100%;
@@ -7831,9 +7832,18 @@ body.has-upload-progress .app-tabbar {
   .company-table-head {
     flex-direction: column;
     align-items: stretch;
+    gap: 8px;
+    margin-bottom: 8px;
   }
+  /*
+   * In a column flex, flex-basis:200px is height — that left a ~200px hole
+   * under the search input above the companies tables. Keep width full, height auto.
+   */
   .company-table-search {
     max-width: none;
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
   }
   /* Keep testing actions on one row; table-scroll handles sideways pan. */
   .admin-body #testing .testing-row-actions {
