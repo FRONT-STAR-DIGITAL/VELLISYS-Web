@@ -2556,7 +2556,36 @@ function stock_movements_summary(string $from, string $to): array
             'sold_total' => $sold,
             'cost_total' => $cost,
             'profit' => round($sold - $cost, 2),
+            'remaining' => 0.0,
         ];
+    }
+    // Remaining stock = current stock at hand (same On hand figure as the Items table).
+    $outIds = array_values(array_unique(array_map(static fn ($r) => (int) ($r['item_id'] ?? 0), $out)));
+    $outIds = array_values(array_filter($outIds, static fn ($id) => $id > 0));
+    if ($outIds) {
+        $inList = implode(',', array_fill(0, count($outIds), '?'));
+        try {
+            $handRows = db_all(
+                "SELECT id, qty_on_hand, COALESCE(is_service, 0) AS is_service
+                 FROM stock_items
+                 WHERE company_id = ? AND id IN ({$inList})",
+                'i' . str_repeat('i', count($outIds)),
+                array_merge([$cid], $outIds)
+            );
+            if (function_exists('stock_attach_branch_qty')) {
+                $handRows = stock_attach_branch_qty($handRows);
+            }
+            $handMap = [];
+            foreach ($handRows as $hand) {
+                $handMap[(int) ($hand['id'] ?? 0)] = round((float) ($hand['qty_on_hand'] ?? 0), 2);
+            }
+            foreach ($out as &$outRow) {
+                $outRow['remaining'] = $handMap[(int) ($outRow['item_id'] ?? 0)] ?? 0.0;
+            }
+            unset($outRow);
+        } catch (Throwable $e) {
+            error_log('stock_movements_summary remaining: ' . $e->getMessage());
+        }
     }
     usort($out, static fn ($a, $b) => $b['profit'] <=> $a['profit']);
     return ['in' => $in, 'out' => $out, 'show_profit' => $showProfit];
@@ -2640,12 +2669,17 @@ function render_stock_movements_tab(array $summary): void
               <th class="right">Price sold</th>
               <th class="right">Sold</th>
               <?php if ($showProfit): ?><th class="right">Profit</th><?php endif; ?>
+              <th class="right">Remaining stock</th>
             </tr>
           </thead>
           <tbody>
             <?php foreach ($out as $row):
                 $profit = (float) ($row['profit'] ?? 0);
                 $profitCls = $profit < -0.009 ? 'neg' : ($profit > 0.009 ? 'pos' : '');
+                $remaining = (float) ($row['remaining'] ?? 0);
+                $remainingLabel = function_exists('format_qty_with_unit')
+                    ? format_qty_with_unit($remaining, $row['unit'] ?? null)
+                    : (function_exists('format_qty') ? format_qty($remaining) : (function_exists('stock_qty_label') ? stock_qty_label($remaining) : (string) $remaining));
                 ?>
               <tr>
                 <td>
@@ -2658,6 +2692,7 @@ function render_stock_movements_tab(array $summary): void
                 <?php if ($showProfit): ?>
                   <td class="right mono<?= $profitCls !== '' ? ' ' . h($profitCls) : '' ?>"><?= h(money($profit)) ?></td>
                 <?php endif; ?>
+                <td class="right mono"><?= h($remainingLabel) ?></td>
               </tr>
             <?php endforeach; ?>
           </tbody>
