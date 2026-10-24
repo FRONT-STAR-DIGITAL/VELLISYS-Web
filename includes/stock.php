@@ -2605,11 +2605,18 @@ function render_stock_movements_tab(array $summary): void
     $outQty = 0.0;
     $outSold = 0.0;
     $outProfit = 0.0;
+    $outRemaining = 0.0;
     foreach ($out as $row) {
         $outQty += (float) ($row['qty'] ?? 0);
         $outSold += (float) ($row['sold_total'] ?? 0);
         $outProfit += (float) ($row['profit'] ?? 0);
+        $outRemaining += (float) ($row['remaining'] ?? 0);
     }
+    $outQtyLabel = function_exists('format_qty') ? format_qty($outQty) : (string) $outQty;
+    $outRemainingLabel = function_exists('format_qty')
+        ? format_qty($outRemaining)
+        : (function_exists('stock_qty_label') ? stock_qty_label($outRemaining) : (string) $outRemaining);
+    $outProfitCls = $outProfit < -0.009 ? 'neg' : ($outProfit > 0.009 ? 'pos' : '');
     ?>
 <div class="stats stock-stats">
   <div class="card stat"><?= icon('plus', 20) ?><span>Stock in</span><strong><?= h(function_exists('format_qty') ? format_qty($inQty) : (string) $inQty) ?></strong></div>
@@ -2696,6 +2703,18 @@ function render_stock_movements_tab(array $summary): void
               </tr>
             <?php endforeach; ?>
           </tbody>
+          <tfoot>
+            <tr>
+              <th>Total</th>
+              <th class="right mono"><?= h($outQtyLabel) ?></th>
+              <th class="right"></th>
+              <th class="right mono"><?= h(money($outSold)) ?></th>
+              <?php if ($showProfit): ?>
+                <th class="right mono<?= $outProfitCls !== '' ? ' ' . h($outProfitCls) : '' ?>"><?= h(money($outProfit)) ?></th>
+              <?php endif; ?>
+              <th class="right mono"><?= h($outRemainingLabel) ?></th>
+            </tr>
+          </tfoot>
         </table>
       </div>
     <?php endif; ?>
