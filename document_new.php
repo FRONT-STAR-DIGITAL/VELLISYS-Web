@@ -131,7 +131,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $tplForSave = trim((string) post('doc_template'));
     if ($tplForSave === '' || !array_key_exists($tplForSave, doc_templates())) {
-        $tplForSave = doc_template_key($existing);
+        $tplForSave = $existing
+            ? doc_template_key($existing)
+            : (function_exists('doc_template_default_for_kind')
+                ? doc_template_default_for_kind($kind)
+                : doc_template_key(['kind' => $kind]));
     }
     $tradePrepared = $tplForSave === 'trade' && !in_array($kind, ['custom', 'expense'], true);
     if ($tradePrepared) {
@@ -159,19 +163,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'expense_category' => post('expense_category') ?: null,
         'letter_template' => (post('letter_template') === '' || post('letter_template') === 'none') ? null : (post('letter_template') ?: null),
         'add_signature' => post('add_signature') === '1' ? 1 : 0,
-        'doc_template' => doc_template_key(),
+        'doc_template' => $tplForSave,
         'items' => $items,
         'custom_values' => $customValues,
         'branch_id' => post('branch_id'),
     ];
     try {
-        if (post('doc_template') !== '') {
-            apply_company_doc_template(post('doc_template'));
-        }
         if (post('fx_ugx_per_usd') !== '') {
             apply_fx_rate(post('fx_ugx_per_usd'));
         }
-        $payload['doc_template'] = doc_template_key();
+        $payload['doc_template'] = $tplForSave;
         $payload['party_extras'] = function_exists('posted_to_extras') ? posted_to_extras() : [];
         $postedDate = (string) ($payload['date'] ?? today());
         $today = today();
@@ -246,7 +247,9 @@ while (kind_uses_lines($kind) && count($lines) < $minLines) {
 }
 $heading = $existing ? 'Edit ' . strtolower($meta['singular']) : $meta['verb'];
 $docCurrency = $existing ? doc_currency($existing) : default_currency();
-$docTpl = $existing ? doc_template_key($existing) : doc_template_key();
+$docTpl = $existing
+    ? doc_template_key($existing)
+    : (function_exists('doc_template_default_for_kind') ? doc_template_default_for_kind($kind) : doc_template_key(['kind' => $kind]));
 $allocValue = '';
 if ($existing) {
     $allocRaw = $existing['allocated_amount'] ?: ($existing['totals']['total'] ?? '');
@@ -448,7 +451,7 @@ layout_start($heading, $user, ['kind' => $kind]);
           <option value="<?= h($key) ?>" <?= $docTpl === $key ? 'selected' : '' ?>><?= h($info['name']) ?></option>
         <?php endforeach; ?>
       </select>
-      <p class="hint">This layout prints on invoices, quotations, receipts and letters.</p>
+      <p class="hint">Layout for this <?= h(strtolower($meta['singular'] ?? 'document')) ?> only. Defaults by type are in Settings → Document designs.</p>
     </div>
     <?php endif; ?>
     <?php if ($kind === 'expense'): ?>

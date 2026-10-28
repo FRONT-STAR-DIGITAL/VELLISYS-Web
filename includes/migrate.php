@@ -25,7 +25,23 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '77';
+    return '78';
+}
+
+/** Per-kind document designs (quotation / invoice / receipt), falling back to branding.doc_template. */
+function folio_ensure_kind_doc_templates(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    foreach (['doc_template_quotation', 'doc_template_invoice', 'doc_template_receipt'] as $col) {
+        if (!db_has_column($db, 'branding', $col)) {
+            @$db->query("ALTER TABLE branding ADD COLUMN {$col} VARCHAR(40) NULL");
+            db_has_column($db, 'branding', $col, true);
+        }
+    }
 }
 
 /** Push public package prices when defaults change (DB rows already exist). */
@@ -1119,6 +1135,7 @@ function folio_migrate(mysqli $db): void
     folio_ensure_logo_bg($db);
     folio_ensure_optional_doc_party($db);
     folio_ensure_receipt_comments($db);
+    folio_ensure_kind_doc_templates($db);
     folio_ensure_thanks_message($db);
     folio_ensure_party_status($db);
     folio_ensure_branches($db);

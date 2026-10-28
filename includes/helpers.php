@@ -180,14 +180,24 @@ function money_pair($amount, string $currency, ?float $rate = null, ?string $hom
     return money($amount, $currency) . ' · ' . money(convert_money((float) $amount, $currency, $alt, $rate, $home), $alt);
 }
 
-function apply_company_doc_template(string $key): void
+function apply_company_doc_template(string $key, ?string $kind = null): void
 {
     if (!array_key_exists($key, doc_templates())) {
         $key = 'folio';
     }
     $cid = current_company_id();
-    db_exec('UPDATE branding SET doc_template = ? WHERE company_id = ?', 'si', [$key, $cid]);
-    db_exec('UPDATE documents SET doc_template = ? WHERE company_id = ?', 'si', [$key, $cid]);
+    $kind = strtolower(trim((string) $kind));
+    $kindCol = match ($kind) {
+        'quotation' => 'doc_template_quotation',
+        'invoice' => 'doc_template_invoice',
+        'receipt' => 'doc_template_receipt',
+        default => '',
+    };
+    if ($kindCol !== '' && function_exists('db_has_column') && db_has_column(db(), 'branding', $kindCol)) {
+        db_exec('UPDATE branding SET `' . $kindCol . '` = ? WHERE company_id = ?', 'si', [$key, $cid]);
+    } else {
+        db_exec('UPDATE branding SET doc_template = ? WHERE company_id = ?', 'si', [$key, $cid]);
+    }
     branding(true);
     if (function_exists('document_pdf_cache_clear_company')) {
         document_pdf_cache_clear_company($cid);
@@ -513,13 +523,45 @@ function doc_templates(): array
     ];
 }
 
+/**
+ * Company overall design (Settings → Document designs).
+ * Kind-specific branding columns fall back to this when empty.
+ */
+function doc_template_overall(?array $brand = null): string
+{
+    $brand = $brand ?? (function_exists('branding') ? branding() : []);
+    $key = strtolower(trim((string) ($brand['doc_template'] ?? 'folio')));
+    return array_key_exists($key, doc_templates()) ? $key : 'folio';
+}
+
+/** Default design for a document kind: kind override, else overall. */
+function doc_template_default_for_kind(string $kind, ?array $brand = null): string
+{
+    $brand = $brand ?? (function_exists('branding') ? branding() : []);
+    $kind = strtolower(trim($kind));
+    $col = match ($kind) {
+        'quotation' => 'doc_template_quotation',
+        'invoice' => 'doc_template_invoice',
+        'receipt' => 'doc_template_receipt',
+        default => '',
+    };
+    if ($col !== '') {
+        $specific = strtolower(trim((string) ($brand[$col] ?? '')));
+        if ($specific !== '' && array_key_exists($specific, doc_templates())) {
+            return $specific;
+        }
+    }
+    return doc_template_overall($brand);
+}
+
 function doc_template_key(?array $doc = null): string
 {
     $key = '';
     if (is_array($doc) && array_key_exists('doc_template', $doc) && $doc['doc_template'] !== null && $doc['doc_template'] !== '') {
         $key = strtolower((string) $doc['doc_template']);
     } else {
-        $key = strtolower((string) (branding()['doc_template'] ?? 'folio'));
+        $kind = is_array($doc) ? (string) ($doc['kind'] ?? '') : '';
+        $key = doc_template_default_for_kind($kind);
     }
     return array_key_exists($key, doc_templates()) ? $key : 'folio';
 }
@@ -1141,6 +1183,9 @@ function folio_defaults(): array
         'thanks_message' => 'Thank you',
         'letter_templates' => '',
         'doc_template' => 'folio',
+        'doc_template_quotation' => '',
+        'doc_template_invoice' => '',
+        'doc_template_receipt' => '',
         'logo_bg' => 0,
         'number_format' => '{prefix}-{kind}-{yyyy}-{seq:4}',
         'fx_ugx_per_usd' => 3700,

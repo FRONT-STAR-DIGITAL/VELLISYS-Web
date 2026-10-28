@@ -1139,7 +1139,7 @@ function stock_catalog_payload(): array
 {
     $cid = current_company_id();
     $branch = stock_write_branch_id();
-    $cacheKey = 'stock_catalog:' . $cid . ':' . $branch;
+    $cacheKey = 'stock_catalog:v2:' . $cid . ':' . $branch;
     $build = static function () use ($branch): array {
         $rows = stock_items(true, $branch, true);
         $out = [];
@@ -1148,6 +1148,7 @@ function stock_catalog_payload(): array
                 'id' => (int) $row['id'],
                 'sku' => (string) $row['sku'],
                 'name' => (string) $row['name'],
+                'description' => (string) ($row['description'] ?? ''),
                 'buy' => (float) $row['buy_price'],
                 'sell' => (float) $row['sell_price'],
                 'qty' => stock_item_is_service($row) ? null : (float) $row['qty_on_hand'],

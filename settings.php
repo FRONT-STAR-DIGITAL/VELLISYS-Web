@@ -193,44 +193,102 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $brandAcctName = mb_substr(post('account_name'), 0, 160);
         $brandAcctNo = mb_substr(post('account_number'), 0, 80);
         $brandPrefix = mb_substr(strtoupper(post('prefix') ?: 'OFG'), 0, 12);
+        $pickTpl = static function (string $field) : string {
+            $raw = trim((string) post($field));
+            if ($raw === '' || $raw === 'default' || !array_key_exists($raw, doc_templates())) {
+                return '';
+            }
+            return $raw;
+        };
+        $overallTpl = array_key_exists(post('doc_template'), doc_templates()) ? post('doc_template') : 'folio';
+        $quoteTpl = $pickTpl('doc_template_quotation');
+        $invoiceTpl = $pickTpl('doc_template_invoice');
+        $receiptTpl = $pickTpl('doc_template_receipt');
         try {
-        db_exec(
-            'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, receipt_comments=?, thanks_message=?, currency=?, fx_ugx_per_usd=?, letter_templates=?, doc_template=?, number_format=?, logo_bg=?, tax_name=?, tax_rate=?, tax_default=? WHERE company_id=?',
-            'ssssssssssssssssssssssdsssisdii',
-            [
-                $brandName,
-                $brandTagline,
-                $brandTin,
-                $brandVat,
-                $brandAddress,
-                $brandCity,
-                $brandPhone,
-                $brandEmail,
-                $brandWebsite,
-                $brandBank,
-                $brandAcctName,
-                $brandAcctNo,
-                $color,
-                $accent,
-                $deep,
-                $logoPath,
-                $brandPrefix,
-                post('payment_note'),
-                post('invoice_comments'),
-                post('receipt_comments'),
-                $thanksMsg,
-                posted_currency('currency', default_currency()),
-                parse_fx_rate(post('fx_ugx_per_usd')),
-                encode_letter_templates(isset($_POST['tpl']) && is_array($_POST['tpl']) ? $_POST['tpl'] : []),
-                array_key_exists(post('doc_template'), doc_templates()) ? post('doc_template') : 'folio',
-                sanitize_number_format(post('number_format')),
-                (isset($_POST['logo_bg']) && (is_array($_POST['logo_bg']) ? in_array('1', $_POST['logo_bg'], true) : (string) $_POST['logo_bg'] === '1')) ? 1 : 0,
-                sanitize_tax_name(post('tax_name')),
-                parse_tax_rate_percent(post('tax_rate_percent'), company_tax_percent()),
-                post('tax_default') === '1' ? 1 : 0,
-                current_company_id(),
-            ]
-        );
+        $hasKindTpl = function_exists('db_has_column')
+            && db_has_column(db(), 'branding', 'doc_template_quotation')
+            && db_has_column(db(), 'branding', 'doc_template_invoice')
+            && db_has_column(db(), 'branding', 'doc_template_receipt');
+        if ($hasKindTpl) {
+            db_exec(
+                'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, receipt_comments=?, thanks_message=?, currency=?, fx_ugx_per_usd=?, letter_templates=?, doc_template=?, doc_template_quotation=?, doc_template_invoice=?, doc_template_receipt=?, number_format=?, logo_bg=?, tax_name=?, tax_rate=?, tax_default=? WHERE company_id=?',
+                'ssssssssssssssssssssssdssssssisdii',
+                [
+                    $brandName,
+                    $brandTagline,
+                    $brandTin,
+                    $brandVat,
+                    $brandAddress,
+                    $brandCity,
+                    $brandPhone,
+                    $brandEmail,
+                    $brandWebsite,
+                    $brandBank,
+                    $brandAcctName,
+                    $brandAcctNo,
+                    $color,
+                    $accent,
+                    $deep,
+                    $logoPath,
+                    $brandPrefix,
+                    post('payment_note'),
+                    post('invoice_comments'),
+                    post('receipt_comments'),
+                    $thanksMsg,
+                    posted_currency('currency', default_currency()),
+                    parse_fx_rate(post('fx_ugx_per_usd')),
+                    encode_letter_templates(isset($_POST['tpl']) && is_array($_POST['tpl']) ? $_POST['tpl'] : []),
+                    $overallTpl,
+                    $quoteTpl,
+                    $invoiceTpl,
+                    $receiptTpl,
+                    sanitize_number_format(post('number_format')),
+                    (isset($_POST['logo_bg']) && (is_array($_POST['logo_bg']) ? in_array('1', $_POST['logo_bg'], true) : (string) $_POST['logo_bg'] === '1')) ? 1 : 0,
+                    sanitize_tax_name(post('tax_name')),
+                    parse_tax_rate_percent(post('tax_rate_percent'), company_tax_percent()),
+                    post('tax_default') === '1' ? 1 : 0,
+                    current_company_id(),
+                ]
+            );
+        } else {
+            db_exec(
+                'UPDATE branding SET name=?, tagline=?, tin=?, vat_no=?, address=?, city=?, phone=?, email=?, website=?, bank_name=?, account_name=?, account_number=?, brand_color=?, brand_accent=?, brand_deep=?, logo_path=?, prefix=?, payment_note=?, invoice_comments=?, receipt_comments=?, thanks_message=?, currency=?, fx_ugx_per_usd=?, letter_templates=?, doc_template=?, number_format=?, logo_bg=?, tax_name=?, tax_rate=?, tax_default=? WHERE company_id=?',
+                'ssssssssssssssssssssssdsssisdii',
+                [
+                    $brandName,
+                    $brandTagline,
+                    $brandTin,
+                    $brandVat,
+                    $brandAddress,
+                    $brandCity,
+                    $brandPhone,
+                    $brandEmail,
+                    $brandWebsite,
+                    $brandBank,
+                    $brandAcctName,
+                    $brandAcctNo,
+                    $color,
+                    $accent,
+                    $deep,
+                    $logoPath,
+                    $brandPrefix,
+                    post('payment_note'),
+                    post('invoice_comments'),
+                    post('receipt_comments'),
+                    $thanksMsg,
+                    posted_currency('currency', default_currency()),
+                    parse_fx_rate(post('fx_ugx_per_usd')),
+                    encode_letter_templates(isset($_POST['tpl']) && is_array($_POST['tpl']) ? $_POST['tpl'] : []),
+                    $overallTpl,
+                    sanitize_number_format(post('number_format')),
+                    (isset($_POST['logo_bg']) && (is_array($_POST['logo_bg']) ? in_array('1', $_POST['logo_bg'], true) : (string) $_POST['logo_bg'] === '1')) ? 1 : 0,
+                    sanitize_tax_name(post('tax_name')),
+                    parse_tax_rate_percent(post('tax_rate_percent'), company_tax_percent()),
+                    post('tax_default') === '1' ? 1 : 0,
+                    current_company_id(),
+                ]
+            );
+        }
         } catch (Throwable $e) {
             $msg = $e->getMessage();
             if (stripos($msg, 'Data too long') !== false || stripos($msg, 'phone') !== false) {
@@ -242,7 +300,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if ($error === '') {
         $tpl = array_key_exists(post('doc_template'), doc_templates()) ? post('doc_template') : 'folio';
-        db_exec('UPDATE documents SET doc_template = ? WHERE company_id = ?', 'si', [$tpl, current_company_id()]);
+        // Do not rewrite every document's design - overall + per-kind defaults apply to new sheets.
         branding(true);
         if (function_exists('document_pdf_cache_clear_company')) {
             document_pdf_cache_clear_company($cid);
@@ -256,7 +314,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         unset($_SESSION['branding_welcome']);
         mark_branding_saved($cid, $user);
-        flash('Settings saved. Desk dates use ' . str_replace('_', ' ', $tz) . '. This design now prints on every document. USD converts at your ' . default_currency() . ' rate.');
+        flash('Settings saved. Desk dates use ' . str_replace('_', ' ', $tz) . '. New documents use your designs by type; existing sheets keep their own layout. USD converts at your ' . default_currency() . ' rate.');
         if (function_exists('record_company_activity')) {
             record_company_activity('settings', 'Letterhead and colours saved', [
                 'detail' => 'Document layout ' . $tpl,
@@ -786,7 +844,7 @@ layout_start('Settings', $user);
 
     <section class="card settings-card" id="templates">
       <h2><?= icon('palette') ?>Document designs</h2>
-      <p class="lede">Fifteen layouts on white paper with black type and your brand colours. The preview is the printed sheet. This design prints on invoices, quotations, receipts and letters. On small screens A4 pages are scaled to fit. Page frame and Inset border put a rule around the paper. Thermal roll is an 80mm receipt for a kitchen or shop printer. Logo watermark and Bond watermark print the company mark faintly. Changing the design here reprints the whole books.</p>
+      <p class="lede">Layouts on white paper with black type and your brand colours. The overall design below is the company default for every sheet. You can then set quotations, invoices and receipts to their own layouts - for example Folio bar on quotations and Thermal roll on receipts - without one choice rewriting the others. Existing documents keep the design already saved on them; new ones pick up these defaults. On small screens A4 pages are scaled to fit. Thermal roll is an 80mm receipt for a kitchen or shop printer.</p>
       <label for="thanks_message">Thank you on thermal roll</label>
       <input id="thanks_message" name="thanks_message" maxlength="120" value="<?= h(($b['thanks_message'] ?? '') !== '' ? (string) $b['thanks_message'] : 'Thank you') ?>">
       <p class="hint">The bold line above your email and QR on the thermal receipt. Change it to whatever your clients should see (for example Thank you, or Asante sana). Leave blank to use Thank you.</p>
@@ -797,9 +855,13 @@ layout_start('Settings', $user);
         Put the company logo in the background of documents
       </label>
       <p class="hint">A faint watermark of your logo on invoices, receipts, quotations, letters and the rest - not only the Logo watermark and Bond watermark layouts.</p>
+      <h3 style="margin:18px 0 8px;font-size:1rem">Overall default</h3>
+      <p class="hint" style="margin-top:0">Used for letters and any type that has no separate design below.</p>
       <div class="design-grid">
         <?php
-        $currentDesign = doc_template_key(['doc_template' => $b['doc_template'] ?? 'folio']);
+        $currentDesign = function_exists('doc_template_overall')
+            ? doc_template_overall($b)
+            : doc_template_key(['doc_template' => $b['doc_template'] ?? 'folio']);
         foreach (doc_templates() as $key => $info):
             ?>
           <label class="design-card<?= $currentDesign === $key ? ' is-selected' : '' ?>">
@@ -814,6 +876,34 @@ layout_start('Settings', $user);
             </span>
             <span class="design-blurb"><?= h($info['blurb']) ?></span>
           </label>
+        <?php endforeach; ?>
+      </div>
+      <?php
+        $kindDesigns = [
+            'doc_template_quotation' => 'Quotations',
+            'doc_template_invoice' => 'Invoices',
+            'doc_template_receipt' => 'Receipts',
+        ];
+        $templatesList = doc_templates();
+      ?>
+      <h3 style="margin:28px 0 8px;font-size:1rem">By document type</h3>
+      <p class="hint" style="margin-top:0">Leave as overall default, or pick a layout for that type alone.</p>
+      <div class="form-grid">
+        <?php foreach ($kindDesigns as $field => $label):
+            $picked = strtolower(trim((string) ($b[$field] ?? '')));
+            if ($picked !== '' && !isset($templatesList[$picked])) {
+                $picked = '';
+            }
+            ?>
+          <div>
+            <label for="<?= h($field) ?>"><?= h($label) ?></label>
+            <select id="<?= h($field) ?>" name="<?= h($field) ?>">
+              <option value="default" <?= $picked === '' ? 'selected' : '' ?>>Same as overall default</option>
+              <?php foreach ($templatesList as $key => $info): ?>
+                <option value="<?= h($key) ?>" <?= $picked === $key ? 'selected' : '' ?>><?= h($info['name']) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
         <?php endforeach; ?>
       </div>
 

@@ -2383,7 +2383,7 @@ function render_expense_card(array $brand, array $doc): void
       <strong><?= h(money($d['total'], $cur)) ?></strong>
     </div>
     <?php if (!empty($doc['notes'])): ?>
-      <p class="muted" style="margin:14px 0 0;white-space:pre-wrap"><?= h((string) $doc['notes']) ?></p>
+      <p class="d-notes-body" style="margin:14px 0 0"><?= h((string) $doc['notes']) ?></p>
     <?php endif; ?>
   </div>
 </div>

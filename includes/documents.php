@@ -789,7 +789,9 @@ function create_document(array $data): int
     $currency = normalize_currency((string) ($data['currency'] ?? default_currency()), default_currency());
     $docTpl = trim((string) ($data['doc_template'] ?? ''));
     if ($docTpl === '' || !array_key_exists($docTpl, doc_templates())) {
-        $docTpl = doc_template_key();
+        $docTpl = function_exists('doc_template_default_for_kind')
+            ? doc_template_default_for_kind((string) $kind)
+            : doc_template_key(['kind' => $kind]);
     }
     $userId = (int) ($data['created_by'] ?? ($_SESSION['user_id'] ?? 0));
     $branchId = function_exists('resolve_document_branch_id')

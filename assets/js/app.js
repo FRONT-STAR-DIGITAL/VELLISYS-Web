@@ -2368,7 +2368,7 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
     var hid = row.querySelector('input[name^="item_stock_id"]');
     if (hid) hid.value = p.id;
     var desc = row.querySelector('textarea[name^="item_desc"]');
-    if (desc && !desc.value) desc.value = p.description || '';
+    if (desc) desc.value = p.description || '';
     var rate = row.querySelector('[data-line-rate]');
     if (rate) {
       var sell = p.sell;

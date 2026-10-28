@@ -215,6 +215,22 @@
   writing-mode: horizontal-tb;
   word-break: normal;
   max-width: 100%;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #0f172a;
+}
+.d-notes .bar,
+.d-notes strong,
+.d-notes > span {
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.trade-notes {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 13px;
+  line-height: 1.45;
 }
 .d-totals {
   flex: 0 0 260px;
@@ -1385,11 +1401,12 @@
   margin-top: 4px;
 }
 .thermal-note {
-  font-size: 11px;
+  font-size: 12px;
   white-space: pre-wrap;
   margin: 10px 0 0;
-  font-weight: 600;
+  font-weight: 700;
   color: #000;
+  line-height: 1.4;
 }
 .thermal-thanks {
   text-align: center;
@@ -1898,7 +1915,10 @@
 .sheet-trade .trade-notes {
   margin: 0 0 12px;
   white-space: pre-wrap;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.45;
 }
 .sheet-trade .trade-sign {
   display: block;
@@ -2556,8 +2576,8 @@
 }
 .invoice-sheet.sheet-thermal .thermal-foot,
 .invoice-sheet.sheet-thermal .thermal-note {
-  font-size: 11px !important;
-  font-weight: 600 !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
 }
 .invoice-sheet .trade-titles h1 {
   font-size: 28px !important;
