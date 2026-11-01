@@ -98,7 +98,7 @@ function company_modules_infer(?array $company = null): array
     if (!$company) {
         return ['quotes', 'invoices', 'receipts', 'letters', 'credit'];
     }
-    // Read kinds directly — do not call company_enabled_kinds() (avoids recursion
+    // Read kinds directly - do not call company_enabled_kinds() (avoids recursion
     // if that helper later consults modules).
     $kinds = function_exists('parse_enabled_kinds')
         ? parse_enabled_kinds($company['enabled_kinds'] ?? '')
@@ -116,7 +116,7 @@ function company_modules_infer(?array $company = null): array
     if (array_intersect(['letter', 'delivery', 'custom'], $kinds) !== []) {
         $out[] = 'letters';
     }
-    // Legacy desks always had debtors/creditors — keep them on when inferring.
+    // Legacy desks always had debtors/creditors - keep them on when inferring.
     $out[] = 'credit';
     if ((int) ($company['stock_enabled'] ?? 0) === 1) {
         $out[] = 'stock';
@@ -353,7 +353,7 @@ function render_company_modules_fields(?array $company = null, string $name = 'c
     <div class="company-modules" data-company-modules style="margin-top:16px">
       <h3 style="margin:0 0 6px;font-size:1rem">Desk modules</h3>
       <?php if ($testing): ?>
-        <p class="hint" style="margin:0 0 12px">This desk is in <strong>testing</strong> — every module is on so they can try the full product. After onboard, tick only what they will use.</p>
+        <p class="hint" style="margin:0 0 12px">This desk is in <strong>testing</strong> - every module is on so they can try the full product. After onboard, tick only what they will use.</p>
       <?php else: ?>
         <p class="hint" style="margin:0 0 12px">Detach what this client will not use. Core desk (home, clients, expenses, email, reports, settings) always stays. Existing live desks keep their current setup until you change ticks here.</p>
       <?php endif; ?>

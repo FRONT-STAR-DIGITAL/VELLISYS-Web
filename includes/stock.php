@@ -480,6 +480,190 @@ function stock_low_notifications(int $limit = 20): array
     return $items;
 }
 
+/** Drop cached admin bells so a fresh staff sale shows up quickly. */
+function desk_notifications_cache_bust_company(?int $companyId = null): void
+{
+    $cid = $companyId !== null ? (int) $companyId : (function_exists('current_company_id') ? (int) current_company_id() : 0);
+    if ($cid < 1) {
+        return;
+    }
+    try {
+        $admins = db_all(
+            "SELECT id FROM users WHERE company_id = ? AND (role = 'admin' OR access = 'admin')",
+            'i',
+            [$cid]
+        );
+    } catch (Throwable $e) {
+        return;
+    }
+    foreach ($admins as $admin) {
+        $uid = (int) ($admin['id'] ?? 0);
+        if ($uid < 1) {
+            continue;
+        }
+        foreach ([40, 20, 12] as $limit) {
+            $key = 'desk_notifications:' . $cid . ':' . $uid . ':' . $limit;
+            if (function_exists('folio_remember_bag')) {
+                $mem = &folio_remember_bag();
+                unset($mem[$key]);
+            }
+            if (function_exists('folio_cache_dir')) {
+                @unlink(folio_cache_dir() . '/' . hash('sha256', $key) . '.ser');
+            }
+            if (function_exists('folio_redis_del')) {
+                folio_redis_del('cache:' . hash('sha256', $key));
+            }
+        }
+    }
+}
+
+/**
+ * Bell items for desk admins: recent till sales made by staff (not the admin).
+ *
+ * @return list<array<string,mixed>>
+ */
+function stock_staff_sale_notifications(int $limit = 20): array
+{
+    if (!function_exists('is_desk_admin') || !is_desk_admin()) {
+        return [];
+    }
+    if (!function_exists('company_stock_enabled') || !company_stock_enabled()) {
+        return [];
+    }
+    $cid = current_company_id();
+    if ($cid < 1) {
+        return [];
+    }
+    $limit = max(1, min(40, $limit));
+    try {
+        $rows = db_all(
+            "SELECT d.id, d.number, d.created_at, d.currency, d.vat_rate,
+                    u.name AS staff_name, p.name AS customer_name,
+                    (
+                      SELECT COALESCE(ROUND(SUM(
+                        i.qty * i.rate * (1 + IF(i.taxed = 1, d.vat_rate, 0))
+                      ), 2), 0)
+                      FROM document_items i
+                      WHERE i.document_id = d.id
+                    ) AS sale_total
+             FROM documents d
+             INNER JOIN users u ON u.id = d.created_by AND u.company_id = d.company_id
+             LEFT JOIN parties p ON p.id = d.party_id
+             WHERE d.company_id = ?
+               AND d.kind = 'receipt'
+               AND d.status = 'issued'
+               AND d.notes LIKE 'Sale%'
+               AND d.created_by IS NOT NULL
+               AND d.created_by > 0
+               AND COALESCE(u.role, '') <> 'admin'
+               AND COALESCE(u.access, '') <> 'admin'
+               AND d.created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)
+             ORDER BY d.id DESC
+             LIMIT {$limit}",
+            'i',
+            [$cid]
+        );
+    } catch (Throwable $e) {
+        return [];
+    }
+    $items = [];
+    foreach ($rows as $row) {
+        $id = (int) ($row['id'] ?? 0);
+        if ($id < 1) {
+            continue;
+        }
+        $staff = trim((string) ($row['staff_name'] ?? '')) ?: 'Staff';
+        $customer = trim((string) ($row['customer_name'] ?? '')) ?: 'Walk-in';
+        $number = trim((string) ($row['number'] ?? '')) ?: ('#' . $id);
+        $total = (float) ($row['sale_total'] ?? 0);
+        $currency = (string) ($row['currency'] ?? '');
+        $amount = function_exists('money')
+            ? money($total, $currency !== '' ? $currency : null)
+            : number_format($total, 2);
+        $when = '';
+        if (!empty($row['created_at']) && function_exists('format_date')) {
+            $when = format_date(substr((string) $row['created_at'], 0, 10));
+        }
+        $metaBits = [$number, $customer, $amount];
+        if ($when !== '') {
+            $metaBits[] = $when;
+        }
+        $items[] = [
+            'type' => 'staff_sale',
+            'tone' => 'info',
+            'title' => $staff . ' made a sale',
+            'meta' => implode(' · ', $metaBits),
+            'href' => url('document_view.php?id=' . $id),
+            'key' => 'staff-sale:' . $id,
+            'sort' => '0-sale-' . sprintf('%010d', 2_000_000_000 - $id),
+            'document_id' => $id,
+        ];
+    }
+    return $items;
+}
+
+/**
+ * Push + bell: tell company admins when staff completes a till sale.
+ */
+function stock_notify_admin_staff_sale(int $receiptId, float $total, float $paid, float $balance, int $partyId = 0): void
+{
+    if ($receiptId < 1) {
+        return;
+    }
+    $user = function_exists('current_user') ? current_user() : null;
+    if (!$user || (function_exists('is_desk_admin') && is_desk_admin($user))) {
+        return;
+    }
+    $cid = function_exists('current_company_id') ? (int) current_company_id() : 0;
+    if ($cid < 1) {
+        return;
+    }
+    $staff = trim((string) ($user['name'] ?? '')) ?: 'Staff';
+    $doc = null;
+    try {
+        $doc = db_one(
+            'SELECT number, currency FROM documents WHERE id = ? AND company_id = ?',
+            'ii',
+            [$receiptId, $cid]
+        );
+    } catch (Throwable $e) {
+        $doc = null;
+    }
+    $number = trim((string) ($doc['number'] ?? '')) ?: ('#' . $receiptId);
+    $customer = 'Walk-in';
+    if ($partyId > 0) {
+        try {
+            $party = db_one('SELECT name FROM parties WHERE id = ? AND company_id = ?', 'ii', [$partyId, $cid]);
+            if ($party && trim((string) ($party['name'] ?? '')) !== '') {
+                $customer = trim((string) $party['name']);
+            }
+        } catch (Throwable $e) {
+            // keep Walk-in
+        }
+    }
+    $currency = (string) ($doc['currency'] ?? '');
+    $amount = function_exists('money')
+        ? money($total, $currency !== '' ? $currency : null)
+        : number_format($total, 2);
+    $meta = $number . ' · ' . $customer . ' · ' . $amount;
+    if ($balance > 0.009 && function_exists('money')) {
+        $meta .= ' · balance ' . money($balance, $currency !== '' ? $currency : null);
+    } elseif ($paid > 0.009 && abs($paid - $total) > 0.009 && function_exists('money')) {
+        $meta .= ' · paid ' . money($paid, $currency !== '' ? $currency : null);
+    }
+    if (function_exists('push_notify_item')) {
+        push_notify_item([
+            'title' => $staff . ' made a sale',
+            'meta' => $meta,
+            'href' => url('document_view.php?id=' . $receiptId),
+            'key' => 'staff-sale:' . $receiptId,
+        ], 'company', $cid);
+    }
+    if (function_exists('desk_notifications_cache_bust_company')) {
+        desk_notifications_cache_bust_company($cid);
+    }
+}
+
 function stock_save_item(array $fields, ?int $id = null): array
 {
     $cid = current_company_id();
@@ -1690,6 +1874,9 @@ function stock_complete_sale(array $input): array
     ]);
     // Always reduce on-hand qty for till sales (create_document also tries; this is the guarantee).
     stock_apply_till_sale((int) $receiptId, $clean, $branchId);
+    if (function_exists('stock_notify_admin_staff_sale')) {
+        stock_notify_admin_staff_sale((int) $receiptId, $grand, $give, $balance, $partyId);
+    }
     return [
         'ok' => true,
         'invoice_id' => 0,

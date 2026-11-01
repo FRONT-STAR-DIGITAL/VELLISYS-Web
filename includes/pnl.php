@@ -1352,6 +1352,9 @@ function desk_notifications(int $limit = 40): array
         if (function_exists('company_stock_enabled') && company_stock_enabled() && is_desk_admin() && function_exists('stock_low_notifications')) {
             $items = array_merge($items, stock_low_notifications(20));
         }
+        if (function_exists('company_stock_enabled') && company_stock_enabled() && is_desk_admin() && function_exists('stock_staff_sale_notifications')) {
+            $items = array_merge($items, stock_staff_sale_notifications(20));
+        }
         // Debtor / creditor due reminders (day before, due today, overdue).
         $ledgerItems = [];
         if (function_exists('ledger_due_reminder_notifications')) {
