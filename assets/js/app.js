@@ -1996,6 +1996,35 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
 });
 
 (function () {
+  var root = document.querySelector('[data-company-modules]');
+  if (!root) return;
+  var stock = root.querySelector('[data-company-module="stock"]');
+  var till = root.querySelector('[data-company-module="till_day"]');
+  var letters = root.querySelector('[data-company-module="letters"]');
+  var customBox = document.querySelector('[data-kinds-form] [data-custom-doc]');
+
+  function syncTill() {
+    if (!stock || !till) return;
+    // Testing desks lock every tick via disabled + hidden inputs.
+    if (stock.disabled) return;
+    if (!stock.checked) {
+      till.checked = false;
+      till.disabled = true;
+    } else {
+      till.disabled = false;
+    }
+  }
+  function syncLetters() {
+    if (!customBox || !letters) return;
+    customBox.hidden = !letters.checked;
+  }
+  if (stock) stock.addEventListener('change', syncTill);
+  if (letters) letters.addEventListener('change', syncLetters);
+  syncTill();
+  syncLetters();
+})();
+
+(function () {
   var form = document.querySelector('[data-party-book]');
   if (!form) return;
   var book = {};

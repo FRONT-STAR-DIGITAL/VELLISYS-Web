@@ -384,9 +384,15 @@ function user_can_open(string $script, string $kind = ''): bool
         return user_can_feature('clients');
     }
     if ($script === 'debtors.php') {
+        if (function_exists('company_has_module') && !company_has_module('credit')) {
+            return false;
+        }
         return user_can_feature('debtors');
     }
     if ($script === 'creditors.php') {
+        if (function_exists('company_has_module') && !company_has_module('credit')) {
+            return false;
+        }
         return user_can_feature('creditors');
     }
     if ($script === 'desk_mail.php') {

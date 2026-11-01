@@ -2400,6 +2400,10 @@ function sales_promote_testing_to_onboard(int $companyId, array $opts = []): arr
         'si',
         [$noteBit, $companyId]
     );
+    // Keep full desk access after testing until admin detaches modules on purpose.
+    if (function_exists('company_modules_materialize_all')) {
+        company_modules_materialize_all($companyId, $company, (string) ($company['plan'] ?? 'sme'));
+    }
     if ($promoteAgent > 0) {
         sales_set_company_agent_id($companyId, $promoteAgent);
         sales_ensure_onboarded_lead_for_company($companyId, $promoteAgent);

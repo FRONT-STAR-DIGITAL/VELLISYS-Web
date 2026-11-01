@@ -289,12 +289,16 @@ function layout_start(string $title, array $user, array $opts = []): void
     $navGroups = filter_nav_groups([
         ['label' => 'Work', 'items' => $work],
         ['label' => 'Books', 'items' => $books],
-        ['label' => 'Accounts', 'items' => [
+        ['label' => 'Accounts', 'items' => array_values(array_filter([
             ['clients.php', 'Clients', 'building'],
-            ['debtors.php', 'Debtors', 'clients'],
-            ['creditors.php', 'Creditors', 'bank'],
+            (!function_exists('company_has_module') || company_has_module('credit'))
+                ? ['debtors.php', 'Debtors', 'clients']
+                : null,
+            (!function_exists('company_has_module') || company_has_module('credit'))
+                ? ['creditors.php', 'Creditors', 'bank']
+                : null,
             ['desk_mail.php', 'Email', 'send'],
-        ]],
+        ]))],
         ['label' => 'Ops', 'items' => $ops],
         ['label' => 'Insights', 'items' => $insights],
         ['label' => 'Support', 'items' => [

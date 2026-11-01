@@ -12,6 +12,9 @@ function company_pnl_enabled(?array $company = null): bool
     if (!$company) {
         return false;
     }
+    if (function_exists('company_has_module')) {
+        return company_has_module('pnl', $company);
+    }
     return (int) ($company['pnl_enabled'] ?? 0) === 1;
 }
 

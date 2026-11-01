@@ -1836,6 +1836,19 @@ function parse_enabled_kinds(mixed $raw): array
 function company_enabled_kinds(?array $company = null): array
 {
     $company = $company ?? current_company();
+    if ($company && function_exists('company_is_testing') && company_is_testing($company)) {
+        return array_keys(selectable_document_kinds());
+    }
+    // When modules are stored, kinds follow the modules list (kept in sync on save).
+    if (
+        $company
+        && function_exists('company_modules_stored')
+        && company_modules_stored($company)
+        && function_exists('company_modules_to_kinds')
+        && function_exists('company_modules')
+    ) {
+        return company_modules_to_kinds(company_modules($company));
+    }
     return parse_enabled_kinds($company['enabled_kinds'] ?? '');
 }
 
@@ -2363,7 +2376,7 @@ function render_line_col_order_row(array $entry): void
     <?php
 }
 
-function render_desk_kinds_fields(?array $company = null): void
+function render_desk_kinds_fields(?array $company = null, bool $showKindTicks = true): void
 {
     $enabled = $company ? company_enabled_kinds($company) : default_enabled_kinds();
     $custom = $company ? company_custom_doc($company) : default_custom_doc();
@@ -2371,9 +2384,11 @@ function render_desk_kinds_fields(?array $company = null): void
     while (count($fields) < 2) {
         $fields[] = ['key' => '', 'label' => ''];
     }
-    $customOn = in_array('custom', $enabled, true);
+    $customOn = in_array('custom', $enabled, true)
+        || (function_exists('company_has_module') && company_has_module('letters', $company));
     ?>
     <fieldset class="kinds-pick" data-kinds-form>
+      <?php if ($showKindTicks): ?>
       <legend>Documents this desk uses</legend>
       <p class="hint">Tick only what this company needs. Creditors is a personal ledger (separate from Expenses). Custom documents are not letters - they get their own fields.</p>
       <div class="kinds-grid">
@@ -2384,6 +2399,10 @@ function render_desk_kinds_fields(?array $company = null): void
           </label>
         <?php endforeach; ?>
       </div>
+      <?php else: ?>
+      <legend>Document form extras</legend>
+      <p class="hint">Custom document fields and table columns. Document types are controlled by Desk modules above.</p>
+      <?php endif; ?>
       <div class="custom-doc-box" data-custom-doc <?= $customOn ? '' : 'hidden' ?>>
         <h3>Custom document</h3>
         <p class="hint">A form the company fills on branded paper - job cards, work orders, certificates. Not a headed letter.</p>

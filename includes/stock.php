@@ -4,13 +4,25 @@ declare(strict_types=1);
 function company_stock_enabled(?array $company = null): bool
 {
     $company = $company ?? current_company();
-    return $company ? (int) ($company['stock_enabled'] ?? 0) === 1 : false;
+    if (!$company) {
+        return false;
+    }
+    if (function_exists('company_has_module')) {
+        return company_has_module('stock', $company);
+    }
+    return (int) ($company['stock_enabled'] ?? 0) === 1;
 }
 
 function company_till_day_enabled(?array $company = null): bool
 {
     $company = $company ?? current_company();
-    return $company ? (int) ($company['till_day_enabled'] ?? 0) === 1 : false;
+    if (!$company) {
+        return false;
+    }
+    if (function_exists('company_has_module')) {
+        return company_has_module('till_day', $company);
+    }
+    return (int) ($company['till_day_enabled'] ?? 0) === 1;
 }
 
 function require_stock(): array

@@ -71,6 +71,9 @@ function company_planner_enabled(?array $company = null): bool
     if (!$company) {
         return false;
     }
+    if (function_exists('company_has_module')) {
+        return company_has_module('planner', $company);
+    }
     return (int) ($company['planner_enabled'] ?? 0) === 1;
 }
 

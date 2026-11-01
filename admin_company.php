@@ -72,18 +72,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $kindsPosted = $_POST['enabled_kinds'] ?? [];
         $plan = normalize_company_plan(post('plan') ?: (string) ($company['plan'] ?? 'sme'));
         $limit = clamp_user_limit((int) post('user_limit'), $plan);
-        if (!is_array($kindsPosted) || $kindsPosted === []) {
+        $modulesPosted = isset($_POST['company_modules_posted']);
+        $mods = function_exists('posted_company_modules') ? posted_company_modules() : [];
+        // Testing desks keep every module; ignore thinning attempts here.
+        if (!empty($company['testing_mode']) && function_exists('company_modules_all')) {
+            $mods = company_modules_all();
+            $modulesPosted = true;
+        }
+        if ($modulesPosted) {
+            $docMods = array_intersect($mods, ['quotes', 'invoices', 'receipts', 'letters']);
+            if ($docMods === []) {
+                $error = 'Select at least one document module (quotations, invoices, receipts or letters).';
+            }
+        } elseif (!is_array($kindsPosted) || $kindsPosted === []) {
             $error = 'Select at least one document type this company will use.';
-        } elseif ($limit < company_seat_count($id)) {
+        }
+        if ($error === '' && $limit < company_seat_count($id)) {
             $error = 'This desk already has ' . company_seat_count($id) . ' logins. Raise the seat count or remove a user first.';
-        } else {
-            $plannerOn = planner_resolve_enabled($plan, !empty($_POST['planner_enabled']), $company);
-            $pnlOn = pnl_resolve_enabled($plan, !empty($_POST['pnl_enabled']), $company);
+        }
+        if ($error === '') {
+            if ($modulesPosted && function_exists('company_modules_flag_payload')) {
+                $flags = company_modules_flag_payload($mods, $plan, $company);
+                $kindsJson = $flags['enabled_kinds'];
+                $plannerOn = (int) $flags['planner_enabled'];
+                $pnlOn = (int) $flags['pnl_enabled'];
+                $stockOn = (int) $flags['stock_enabled'];
+                $tillOn = (int) $flags['till_day_enabled'];
+                $modulesJson = $flags['company_modules'];
+            } else {
+                $kindsJson = posted_enabled_kinds();
+                $plannerOn = planner_resolve_enabled($plan, !empty($_POST['planner_enabled']), $company);
+                $pnlOn = pnl_resolve_enabled($plan, !empty($_POST['pnl_enabled']), $company);
+                $stockOn = !empty($_POST['stock_enabled']) ? 1 : 0;
+                $tillOn = ($stockOn === 1 && !empty($_POST['till_day_enabled'])) ? 1 : 0;
+                $modulesJson = null;
+            }
+            $customDocJson = posted_custom_doc();
+            if (!array_key_exists('custom_doc_title', $_POST) && !isset($_POST['custom_field_label'])) {
+                $customDocJson = (string) ($company['custom_doc'] ?? $customDocJson);
+            }
+            $lineColsJson = posted_document_line_columns();
+            if (!isset($_POST['line_columns_present'])) {
+                $lineColsJson = (string) ($company['line_columns'] ?? $lineColsJson);
+            }
             try {
                 try {
-                    db_exec('UPDATE companies SET name=?, status=?, plan=?, notes=?, enabled_kinds=?, custom_doc=?, nature_of_business=?, client_audience=?, client_fields=?, line_columns=?, user_limit=?, planner_enabled=?, pnl_enabled=?, stock_enabled=?, till_day_enabled=? WHERE id=?', 'ssssssssssiiiiii', [$name, $status, $plan, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), sanitize_nature_of_business(post('nature_of_business')), posted_client_fields()['audience'], posted_client_fields_json(), posted_document_line_columns(), $limit, $plannerOn, $pnlOn, !empty($_POST['stock_enabled']) ? 1 : 0, !empty($_POST['stock_enabled']) && !empty($_POST['till_day_enabled']) ? 1 : 0, $id]);
+                    if ($modulesJson !== null && function_exists('db_has_column') && db_has_column(db(), 'companies', 'company_modules')) {
+                        db_exec(
+                            'UPDATE companies SET name=?, status=?, plan=?, notes=?, enabled_kinds=?, custom_doc=?, nature_of_business=?, client_audience=?, client_fields=?, line_columns=?, user_limit=?, planner_enabled=?, pnl_enabled=?, stock_enabled=?, till_day_enabled=?, company_modules=? WHERE id=?',
+                            'ssssssssssiiiiisi',
+                            [$name, $status, $plan, post('notes') ?: null, $kindsJson, $customDocJson, sanitize_nature_of_business(post('nature_of_business')), posted_client_fields()['audience'], posted_client_fields_json(), $lineColsJson, $limit, $plannerOn, $pnlOn, $stockOn, $tillOn, $modulesJson, $id]
+                        );
+                    } else {
+                        db_exec(
+                            'UPDATE companies SET name=?, status=?, plan=?, notes=?, enabled_kinds=?, custom_doc=?, nature_of_business=?, client_audience=?, client_fields=?, line_columns=?, user_limit=?, planner_enabled=?, pnl_enabled=?, stock_enabled=?, till_day_enabled=? WHERE id=?',
+                            'ssssssssssiiiiii',
+                            [$name, $status, $plan, post('notes') ?: null, $kindsJson, $customDocJson, sanitize_nature_of_business(post('nature_of_business')), posted_client_fields()['audience'], posted_client_fields_json(), $lineColsJson, $limit, $plannerOn, $pnlOn, $stockOn, $tillOn, $id]
+                        );
+                    }
                 } catch (Throwable $eTill) {
-                    db_exec('UPDATE companies SET name=?, status=?, plan=?, notes=?, enabled_kinds=?, custom_doc=?, nature_of_business=?, client_audience=?, client_fields=?, line_columns=?, user_limit=?, planner_enabled=?, pnl_enabled=?, stock_enabled=? WHERE id=?', 'ssssssssssiiiii', [$name, $status, $plan, post('notes') ?: null, posted_enabled_kinds(), posted_custom_doc(), sanitize_nature_of_business(post('nature_of_business')), posted_client_fields()['audience'], posted_client_fields_json(), posted_document_line_columns(), $limit, $plannerOn, $pnlOn, !empty($_POST['stock_enabled']) ? 1 : 0, $id]);
+                    db_exec(
+                        'UPDATE companies SET name=?, status=?, plan=?, notes=?, enabled_kinds=?, custom_doc=?, nature_of_business=?, client_audience=?, client_fields=?, line_columns=?, user_limit=?, planner_enabled=?, pnl_enabled=?, stock_enabled=? WHERE id=?',
+                        'ssssssssssiiiii',
+                        [$name, $status, $plan, post('notes') ?: null, $kindsJson, $customDocJson, sanitize_nature_of_business(post('nature_of_business')), posted_client_fields()['audience'], posted_client_fields_json(), $lineColsJson, $limit, $plannerOn, $pnlOn, $stockOn, $id]
+                    );
                 }
                 try {
                     db_exec('UPDATE branding SET name=?, plan=? WHERE company_id=?', 'ssi', [$name, $plan, $id]);
@@ -1170,30 +1222,22 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
           <option value="<?= h($key) ?>" data-max-users="<?= (int) plan_user_limit_max($key) ?>" <?= normalize_company_plan((string) ($company['plan'] ?? 'sme')) === $key ? 'selected' : '' ?>><?= h($label) ?></option>
         <?php endforeach; ?>
       </select>
-      <p class="hint">Vellisys Business and Pro turn Planner on automatically. You can still switch Planner off below.</p>
-    </div>
-    <div>
-      <label class="check" for="planner_enabled"><input id="planner_enabled" name="planner_enabled" type="checkbox" value="1" data-planner-toggle <?= !empty($company['planner_enabled']) ? 'checked' : '' ?>> Planner on for this desk</label>
-      <p class="hint">Notes, budget and calendar for Vellisys Business and Pro. Start stays off unless you enable it here.</p>
-    </div>
-    <div>
-      <label class="check" for="pnl_enabled"><input id="pnl_enabled" name="pnl_enabled" type="checkbox" value="1" data-pnl-toggle <?= !empty($company['pnl_enabled']) ? 'checked' : '' ?>> Profit &amp; Loss on for this desk</label>
-      <p class="hint">Pro gets P&amp;L automatically. You can enable bookkeeping, refunds and returns for any plan here.</p>
-    </div>
-    <div>
-      <label class="check" for="stock_enabled"><input id="stock_enabled" name="stock_enabled" type="checkbox" value="1" <?= !empty($company['stock_enabled']) ? 'checked' : '' ?>> Stock management on for this desk</label>
-      <p class="hint">Adds Stock, Sale and Purchases (restock). Works on any package.</p>
-    </div>
-    <div>
-      <label class="check" for="till_day_enabled"><input id="till_day_enabled" name="till_day_enabled" type="checkbox" value="1" <?= !empty($company['till_day_enabled']) ? 'checked' : '' ?>> Open / close day on Sale</label>
-      <p class="hint">Optional. Leave off unless this desk needs a till float. When on, Sale asks for opening cash before selling.</p>
+      <p class="hint">Vellisys Business and Pro unlock Branches (and can auto-enable Planner). Detach modules below after onboard.</p>
     </div>
   </div>
   <div style="padding:0 22px 22px">
     <label for="notes">Internal notes</label>
     <textarea id="notes" name="notes" rows="3"><?= h((string) $company['notes']) ?></textarea>
     <?php render_client_fields_admin($company); ?>
-    <?php render_desk_kinds_fields($company); ?>
+    <input type="hidden" name="company_modules_posted" value="1">
+    <?php
+      if (function_exists('render_company_modules_fields')) {
+          render_company_modules_fields($company);
+          render_desk_kinds_fields($company, false);
+      } else {
+          render_desk_kinds_fields($company);
+      }
+    ?>
     <div class="actions sticky-save" style="margin-top:12px">
       <button class="btn" type="submit"><?= icon('check') ?>Save company</button>
     </div>
