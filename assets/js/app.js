@@ -2209,6 +2209,26 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
 })();
 
 (function () {
+  var plan = document.querySelector('[data-planner-plan]');
+  var root = document.querySelector('[data-company-modules]');
+  if (!plan || !root) return;
+  function tick(key) {
+    var el = root.querySelector('[data-company-module="' + key + '"]');
+    if (el && !el.disabled) el.checked = true;
+  }
+  function syncModulesForPlan() {
+    if (plan.value === 'sme' || plan.value === 'office') {
+      tick('planner');
+      tick('branches');
+    }
+    if (plan.value === 'office') {
+      tick('pnl');
+    }
+  }
+  plan.addEventListener('change', syncModulesForPlan);
+})();
+
+(function () {
   function prettyDate(iso) {
     if (!iso) return 'Choose a date';
     var parts = String(iso).split('-');

@@ -1839,7 +1839,8 @@ function company_enabled_kinds(?array $company = null): array
     if ($company && function_exists('company_is_testing') && company_is_testing($company)) {
         return array_keys(selectable_document_kinds());
     }
-    // When modules are stored, kinds follow the modules list (kept in sync on save).
+    // When modules are stored, kinds follow modules while preserving letter-family
+    // choices already on the desk (letter / delivery / custom).
     if (
         $company
         && function_exists('company_modules_stored')
@@ -1847,7 +1848,10 @@ function company_enabled_kinds(?array $company = null): array
         && function_exists('company_modules_to_kinds')
         && function_exists('company_modules')
     ) {
-        return company_modules_to_kinds(company_modules($company));
+        return company_modules_to_kinds(
+            company_modules($company),
+            parse_enabled_kinds($company['enabled_kinds'] ?? '')
+        );
     }
     return parse_enabled_kinds($company['enabled_kinds'] ?? '');
 }

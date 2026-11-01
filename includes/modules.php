@@ -202,11 +202,14 @@ function company_modules_stored(?array $company = null): bool
 
 /**
  * Map modules → document kinds (expense always remains available separately).
+ * Letters keep the desk’s existing letter-family kinds (letter / delivery / custom)
+ * so a routine Modules save does not suddenly add Delivery or Custom.
  *
  * @param list<string> $modules
+ * @param list<string>|null $previousKinds
  * @return list<string>
  */
-function company_modules_to_kinds(array $modules): array
+function company_modules_to_kinds(array $modules, ?array $previousKinds = null): array
 {
     $kinds = [];
     if (in_array('quotes', $modules, true)) {
@@ -219,9 +222,15 @@ function company_modules_to_kinds(array $modules): array
         $kinds[] = 'receipt';
     }
     if (in_array('letters', $modules, true)) {
-        $kinds[] = 'letter';
-        $kinds[] = 'delivery';
-        $kinds[] = 'custom';
+        $prev = is_array($previousKinds) ? $previousKinds : [];
+        $letterFamily = array_values(array_intersect($prev, ['letter', 'delivery', 'custom']));
+        if ($letterFamily === []) {
+            $kinds[] = 'letter';
+        } else {
+            foreach ($letterFamily as $k) {
+                $kinds[] = $k;
+            }
+        }
     }
     return $kinds !== [] ? $kinds : ['invoice', 'receipt'];
 }
@@ -236,23 +245,39 @@ function company_modules_flag_payload(array $modules, string $plan = 'sme', ?arr
     if (in_array('till_day', $modules, true) && !in_array('stock', $modules, true)) {
         $modules = array_values(array_diff($modules, ['till_day']));
     }
-    $kinds = company_modules_to_kinds($modules);
+    $prevKinds = [];
+    if ($previous && function_exists('parse_enabled_kinds')) {
+        $prevKinds = parse_enabled_kinds($previous['enabled_kinds'] ?? '');
+    }
+    $kinds = company_modules_to_kinds($modules, $prevKinds);
     $stock = in_array('stock', $modules, true) ? 1 : 0;
     $till = ($stock === 1 && in_array('till_day', $modules, true)) ? 1 : 0;
     $plannerWanted = in_array('planner', $modules, true);
     $pnlWanted = in_array('pnl', $modules, true);
-    // Honour plan auto-on helpers when present, but never force off an explicit module choice.
-    $plannerOn = $plannerWanted ? 1 : 0;
-    $pnlOn = $pnlWanted ? 1 : 0;
-    if (function_exists('planner_resolve_enabled') && $plannerWanted) {
-        $plannerOn = planner_resolve_enabled($plan, true, $previous);
+    // Always run plan auto-on: upgrading Start → Business/Pro turns Planner/P&L on
+    // even when those ticks were not already checked.
+    $plannerOn = function_exists('planner_resolve_enabled')
+        ? planner_resolve_enabled($plan, $plannerWanted, $previous)
+        : ($plannerWanted ? 1 : 0);
+    $pnlOn = function_exists('pnl_resolve_enabled')
+        ? pnl_resolve_enabled($plan, $pnlWanted, $previous)
+        : ($pnlWanted ? 1 : 0);
+    if ($plannerOn === 1 && !in_array('planner', $modules, true)) {
+        $modules[] = 'planner';
     }
-    if (function_exists('pnl_resolve_enabled') && $pnlWanted) {
-        $pnlOn = pnl_resolve_enabled($plan, true, $previous);
+    if ($pnlOn === 1 && !in_array('pnl', $modules, true)) {
+        $modules[] = 'pnl';
     }
-    // Branches stay plan-gated; module is recorded for clarity / future UI.
-    if (in_array('branches', $modules, true) && function_exists('plan_includes_branches') && !plan_includes_branches($plan)) {
-        $modules = array_values(array_diff($modules, ['branches']));
+    // Branches stay plan-gated; auto-attach when upgrading onto a branches plan.
+    $prevPlan = (string) ($previous['plan'] ?? 'sme');
+    if (function_exists('plan_includes_branches')) {
+        if (plan_includes_branches($plan)) {
+            if (!plan_includes_branches($prevPlan) && !in_array('branches', $modules, true)) {
+                $modules[] = 'branches';
+            }
+        } else {
+            $modules = array_values(array_diff($modules, ['branches']));
+        }
     }
     return [
         'enabled_kinds' => json_encode($kinds, JSON_UNESCAPED_UNICODE) ?: '["invoice","receipt"]',

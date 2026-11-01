@@ -538,14 +538,7 @@ function stock_staff_sale_notifications(int $limit = 20): array
     try {
         $rows = db_all(
             "SELECT d.id, d.number, d.created_at, d.currency, d.vat_rate,
-                    u.name AS staff_name, p.name AS customer_name,
-                    (
-                      SELECT COALESCE(ROUND(SUM(
-                        i.qty * i.rate * (1 + IF(i.taxed = 1, d.vat_rate, 0))
-                      ), 2), 0)
-                      FROM document_items i
-                      WHERE i.document_id = d.id
-                    ) AS sale_total
+                    u.name AS staff_name, p.name AS customer_name
              FROM documents d
              INNER JOIN users u ON u.id = d.created_by AND u.company_id = d.company_id
              LEFT JOIN parties p ON p.id = d.party_id
@@ -575,7 +568,31 @@ function stock_staff_sale_notifications(int $limit = 20): array
         $staff = trim((string) ($row['staff_name'] ?? '')) ?: 'Staff';
         $customer = trim((string) ($row['customer_name'] ?? '')) ?: 'Walk-in';
         $number = trim((string) ($row['number'] ?? '')) ?: ('#' . $id);
-        $total = (float) ($row['sale_total'] ?? 0);
+        // Match receipt totals (per-line VAT rounding via document_totals / doc_total).
+        $total = 0.0;
+        try {
+            $lineRows = db_all(
+                'SELECT qty, rate, taxed FROM document_items WHERE document_id = ?',
+                'i',
+                [$id]
+            );
+            $docLines = [];
+            foreach ($lineRows as $line) {
+                $docLines[] = [
+                    'qty' => (float) ($line['qty'] ?? 0),
+                    'rate' => (float) ($line['rate'] ?? 0),
+                    'taxed' => !empty($line['taxed']) ? 1 : 0,
+                ];
+            }
+            $rate = (float) ($row['vat_rate'] ?? 0);
+            if (function_exists('doc_total')) {
+                $total = doc_total($docLines, $rate);
+            } elseif (function_exists('document_totals')) {
+                $total = (float) (document_totals(['items' => $docLines, 'vat_rate' => $rate])['total'] ?? 0);
+            }
+        } catch (Throwable $e) {
+            $total = 0.0;
+        }
         $currency = (string) ($row['currency'] ?? '');
         $amount = function_exists('money')
             ? money($total, $currency !== '' ? $currency : null)

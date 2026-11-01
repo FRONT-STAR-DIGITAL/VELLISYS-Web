@@ -360,6 +360,18 @@ function user_can_open(string $script, string $kind = ''): bool
         }
         return user_can_feature('stock');
     }
+    // Credit module gates everyone (including desk admins) before the admin bypass.
+    if (in_array($script, ['debtors.php', 'creditors.php'], true)) {
+        if (function_exists('company_has_module') && !company_has_module('credit')) {
+            return false;
+        }
+        if (is_desk_admin()) {
+            return true;
+        }
+        return $script === 'debtors.php'
+            ? user_can_feature('debtors')
+            : user_can_feature('creditors');
+    }
     if (is_desk_admin()) {
         return true;
     }
@@ -382,18 +394,6 @@ function user_can_open(string $script, string $kind = ''): bool
     }
     if ($script === 'clients.php') {
         return user_can_feature('clients');
-    }
-    if ($script === 'debtors.php') {
-        if (function_exists('company_has_module') && !company_has_module('credit')) {
-            return false;
-        }
-        return user_can_feature('debtors');
-    }
-    if ($script === 'creditors.php') {
-        if (function_exists('company_has_module') && !company_has_module('credit')) {
-            return false;
-        }
-        return user_can_feature('creditors');
     }
     if ($script === 'desk_mail.php') {
         return user_can_feature('email');
