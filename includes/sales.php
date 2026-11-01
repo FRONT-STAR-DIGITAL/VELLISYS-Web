@@ -1647,10 +1647,7 @@ function sales_testing_default_days(): int
     return 30;
 }
 
-function company_is_testing(?array $company): bool
-{
-    return $company && !empty($company['testing_mode']);
-}
+// company_is_testing() lives in includes/modules.php (loaded via bootstrap).
 
 function company_testing_expires_at(?array $company): ?DateTimeImmutable
 {
