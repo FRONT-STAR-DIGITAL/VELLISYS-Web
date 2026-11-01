@@ -285,15 +285,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $popPort = (int) $ends['pop_port'];
         $imapHost = $ends['imap_host'];
         $imapPort = (int) $ends['imap_port'];
-        $passPlain = mail_normalize_secret(post('mail_password'));
+        $passPlain = mail_normalize_secret(post('mail_password'), $provider);
         $stored = (string) ($company['mail_password'] ?? '');
         if ($passPlain !== '') {
-            $stored = mail_encrypt_secret($passPlain);
+            $stored = mail_encrypt_secret($passPlain, $provider);
         }
         if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $error = 'The sending mailbox must be a valid email.';
         } elseif ($provider === 'gmail' && $passPlain !== '' && strlen($passPlain) !== 16) {
             $error = 'Gmail needs a 16-character App Password (Google Account → Security → App passwords), not the normal Gmail sign-in password.';
+        } elseif (in_array($provider, ['hostinger', 'titan'], true) && $passPlain !== '' && strlen($passPlain) < 6) {
+            $error = ucfirst($provider) . ' needs the full mailbox password from the email panel (at least 6 characters).';
         } else {
             db_exec(
                 'UPDATE companies SET mail_provider=?, mail_email=?, mail_password=?, mail_from_name=?, smtp_host=?, smtp_port=?, smtp_secure=?, pop_host=?, pop_port=?, imap_host=?, imap_port=? WHERE id=?',
@@ -340,7 +342,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($okTo) {
                         flash('Company test sent from ' . $from . ' (their logo and colours) to ' . implode(' and ', $okTo) . '. Open that inbox - not info@vellisys.com.');
                     } else {
-                        flash('Company test was not sent from ' . $from . ': ' . ($err !== '' ? $err : 'SMTP did not accept the message.') . ' Check the Gmail App Password (16 characters) and that the provider is Gmail.', 'err');
+                        $provHint = match ((string) ($company['mail_provider'] ?? '')) {
+                            'gmail' => ' For Gmail use a 16-character App Password.',
+                            'titan' => ' For Titan use the mailbox password from the Titan panel.',
+                            'hostinger' => ' For Hostinger use the mailbox password from hPanel.',
+                            default => ' Check the mail type, mailbox and password.',
+                        };
+                        flash('Company test was not sent from ' . $from . ': ' . ($err !== '' ? $err : 'SMTP did not accept the message.') . $provHint, 'err');
                     }
                     redirect('admin_company.php?id=' . $id);
                 }
@@ -1050,7 +1058,7 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
     </div>
     <div>
       <label for="mail_password">Password</label>
-      <?php render_password_toggle_field('mail_password', 'mail_password', !empty($company['mail_password']) ? 'Saved · leave blank to keep' : 'Mailbox or Gmail App Password'); ?>
+      <?php render_password_toggle_field('mail_password', 'mail_password', !empty($company['mail_password']) ? 'Saved · leave blank to keep' : 'Hostinger / Titan password, or Gmail App Password'); ?>
     </div>
     <div>
       <label for="mail_from_name">From name</label>
@@ -1093,8 +1101,9 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
     <p class="hint" style="margin:8px 0 8px" data-mail-help><?= h(mail_provider_hint((string) ($company['mail_provider'] ?? 'hostinger'))) ?></p>
     <p class="hint" style="margin:0 0 12px">
       This is the only place to set the sending mailbox. Desk Settings show the address as locked - the company cannot change it.
-      Pick the mail type (Hostinger, Titan, Gmail or Custom), enter the mailbox and password, then Save mailbox. For Gmail you must use a 16-character App Password, not the normal login password.
-      After saving, use Send test. If the test arrives in that mailbox, the desk can email quotations, invoices, receipts and letters from it.
+      Hostinger, Titan and Gmail are all supported and send over encrypted SMTP. Passwords are encrypted at rest. Pick the mail type, enter the mailbox and that provider's password, Save mailbox, then Send test.
+      Hostinger / Titan: use the mailbox password from hPanel or Titan. Gmail: use a 16-character App Password (not the normal login).
+      If the test arrives in that mailbox, the desk can email quotations, invoices, receipts and letters from it.
       Send test uses the company's colours and logo. It is not sent to <?= h(product_email()) ?>.
       <?php
         $readyAcct = company_mail_account($company);

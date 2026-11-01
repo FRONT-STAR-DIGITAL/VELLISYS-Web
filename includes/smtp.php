@@ -22,7 +22,7 @@ function mail_provider_presets(): array
             'pop_port' => 995,
             'imap_host' => 'imap.hostinger.com',
             'imap_port' => 993,
-            'hint' => 'Hostinger hPanel uses smtp.hostinger.com:465 SSL, pop.hostinger.com:995, imap.hostinger.com:993. Use the mailbox password from hPanel.',
+            'hint' => 'Hostinger is supported and sends over SSL (smtp.hostinger.com:465). Create the mailbox in hPanel, paste that exact mailbox password here, Save mailbox, then Send test. Passwords are encrypted at rest on Vellisys.',
         ],
         'titan' => [
             'label' => 'Titan',
@@ -33,7 +33,7 @@ function mail_provider_presets(): array
             'pop_port' => 995,
             'imap_host' => 'imap.titan.email',
             'imap_port' => 993,
-            'hint' => 'Titan uses smtp.titan.email:465 SSL, pop.titan.email:995, imap.titan.email:993. Use the mailbox password from the Titan panel.',
+            'hint' => 'Titan is supported and sends over SSL (smtp.titan.email:465). Use the mailbox password from the Titan / Hostinger email panel, Save mailbox, then Send test. Passwords are encrypted at rest on Vellisys.',
         ],
         'gmail' => [
             'label' => 'Gmail',
@@ -44,7 +44,7 @@ function mail_provider_presets(): array
             'pop_port' => 995,
             'imap_host' => 'imap.gmail.com',
             'imap_port' => 993,
-            'hint' => 'Gmail: turn on 2-Step Verification on the Google Account, then create an App Password (Google Account → Security → App passwords). Paste that 16-character App Password here, not the Gmail sign-in password. SMTP is smtp.gmail.com, port 587, STARTTLS.',
+            'hint' => 'Gmail is supported and sends over STARTTLS (smtp.gmail.com:587). Turn on 2-Step Verification, create a 16-character App Password (not the normal Gmail login), Save mailbox, then Send test. Passwords are encrypted at rest on Vellisys.',
         ],
         'custom' => [
             'label' => 'Custom',
@@ -70,10 +70,20 @@ function mail_provider_hint(string $provider): string
     return (string) ($presets['hostinger']['hint'] ?? '');
 }
 
-/** Strip spaces so Gmail App Passwords pasted as "abcd efgh …" still sign in. */
-function mail_normalize_secret(string $plain): string
+/**
+ * Normalize a mailbox secret for storage/sign-in.
+ * Gmail App Passwords are often pasted with spaces - strip those only for Gmail.
+ * Hostinger and Titan keep the password exactly as set in their panel.
+ */
+function mail_normalize_secret(string $plain, ?string $provider = null): string
 {
-    return preg_replace('/\s+/', '', trim($plain)) ?? '';
+    $plain = trim($plain);
+    $provider = strtolower(trim((string) $provider));
+    $looksLikeGmailApp = (bool) preg_match('/^[a-z0-9]{4}(?:\s+[a-z0-9]{4}){3}$/i', $plain);
+    if ($provider === 'gmail' || $looksLikeGmailApp) {
+        return preg_replace('/\s+/', '', $plain) ?? '';
+    }
+    return $plain;
 }
 
 /**
@@ -129,9 +139,9 @@ function render_password_toggle_field(string $id, string $name, string $placehol
     <?php
 }
 
-function mail_encrypt_secret(string $plain): string
+function mail_encrypt_secret(string $plain, ?string $provider = null): string
 {
-    $plain = mail_normalize_secret($plain);
+    $plain = mail_normalize_secret($plain, $provider);
     if ($plain === '') {
         return '';
     }
@@ -141,15 +151,15 @@ function mail_encrypt_secret(string $plain): string
     return $raw === false ? '' : base64_encode($iv . $raw);
 }
 
-function mail_decrypt_secret(string $stored): string
+function mail_decrypt_secret(string $stored, ?string $provider = null): string
 {
     if ($stored === '') {
         return '';
     }
     $bin = base64_decode($stored, true);
     if ($bin === false || strlen($bin) < 17) {
-        // Legacy plaintext (should be rare); still strip App Password spaces.
-        return mail_normalize_secret($stored);
+        // Legacy plaintext (should be rare).
+        return mail_normalize_secret($stored, $provider);
     }
     $key = hash('sha256', (string) (mail_config()['secret'] ?? 'vellisys'), true);
     $iv = substr($bin, 0, 16);
@@ -158,7 +168,7 @@ function mail_decrypt_secret(string $stored): string
     if ($plain === false) {
         return '';
     }
-    return mail_normalize_secret($plain);
+    return mail_normalize_secret($plain, $provider);
 }
 
 function platform_mail_account(): array
@@ -182,11 +192,11 @@ function platform_mail_account(): array
 function company_mail_account(array $company): ?array
 {
     $email = trim((string) ($company['mail_email'] ?? ''));
-    $pass = mail_decrypt_secret((string) ($company['mail_password'] ?? ''));
+    $provider = (string) ($company['mail_provider'] ?? 'hostinger');
+    $pass = mail_decrypt_secret((string) ($company['mail_password'] ?? ''), $provider);
     if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || $pass === '') {
         return null;
     }
-    $provider = (string) ($company['mail_provider'] ?? 'hostinger');
     $ends = mail_provider_endpoints($provider, [
         'smtp_host' => (string) ($company['smtp_host'] ?? ''),
         'smtp_port' => (int) ($company['smtp_port'] ?? 0),
@@ -327,6 +337,12 @@ function smtp_send(array $account, string $to, string $subject, string $html, st
         $provider = strtolower((string) ($account['provider'] ?? ''));
         if ($provider === 'gmail' || str_contains(strtolower($host), 'gmail')) {
             return ['ok' => false, 'error' => 'Gmail sign-in failed. Use a 16-character App Password (Google Account → Security → App passwords with 2-Step Verification on), not the normal Gmail password.'];
+        }
+        if ($provider === 'titan' || str_contains(strtolower($host), 'titan')) {
+            return ['ok' => false, 'error' => 'Titan sign-in failed. Use the exact mailbox password from the Titan / email panel for this address.'];
+        }
+        if ($provider === 'hostinger' || str_contains(strtolower($host), 'hostinger')) {
+            return ['ok' => false, 'error' => 'Hostinger sign-in failed. Use the exact mailbox password from hPanel for this address.'];
         }
         return ['ok' => false, 'error' => 'Sign-in to the mailbox failed. Check the email and password.'];
     }

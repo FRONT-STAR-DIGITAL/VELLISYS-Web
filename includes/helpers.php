@@ -3112,11 +3112,14 @@ function platform_create_company(?int $signupId = null): array
             'imap_host' => post('imap_host'),
             'imap_port' => (int) post('imap_port'),
         ]);
-        $passPlain = mail_normalize_secret(post('mail_password'));
+        $passPlain = mail_normalize_secret(post('mail_password'), $provider);
         if ($provider === 'gmail' && $passPlain !== '' && strlen($passPlain) !== 16) {
             return ['ok' => false, 'error' => 'Gmail needs a 16-character App Password (Google Account → Security → App passwords), not the normal Gmail sign-in password.'];
         }
-        $stored = $passPlain !== '' ? mail_encrypt_secret($passPlain) : null;
+        if (in_array($provider, ['hostinger', 'titan'], true) && $passPlain !== '' && strlen($passPlain) < 6) {
+            return ['ok' => false, 'error' => ucfirst($provider) . ' needs the full mailbox password from the email panel (at least 6 characters).'];
+        }
+        $stored = $passPlain !== '' ? mail_encrypt_secret($passPlain, $provider) : null;
         db_exec(
             'UPDATE companies SET mail_provider=?, mail_email=?, mail_password=?, mail_from_name=?, smtp_host=?, smtp_port=?, smtp_secure=?, pop_host=?, pop_port=?, imap_host=?, imap_port=? WHERE id=?',
             'sssssissisii',
