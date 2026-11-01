@@ -266,26 +266,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!isset(mail_provider_presets()[$provider])) {
             $provider = 'hostinger';
         }
-        $preset = mail_provider_presets()[$provider];
-        $email = strtolower(post('mail_email'));
+        $email = strtolower(trim(post('mail_email')));
         $fromName = post('mail_from_name') ?: $company['name'];
-        $host = post('smtp_host') ?: $preset['smtp_host'];
-        $port = (int) post('smtp_port') ?: (int) $preset['smtp_port'];
-        $secure = post('smtp_secure');
-        if (!in_array($secure, ['ssl', 'tls', 'none'], true)) {
-            $secure = $preset['smtp_secure'];
-        }
-        $popHost = post('pop_host') ?: $preset['pop_host'];
-        $popPort = (int) post('pop_port') ?: (int) $preset['pop_port'];
-        $imapHost = post('imap_host') ?: $preset['imap_host'];
-        $imapPort = (int) post('imap_port') ?: (int) $preset['imap_port'];
-        $passPlain = post('mail_password');
+        // Known providers always lock to their SMTP/IMAP hosts so Gmail cannot keep Hostinger endpoints.
+        $ends = mail_provider_endpoints($provider, [
+            'smtp_host' => post('smtp_host'),
+            'smtp_port' => (int) post('smtp_port'),
+            'smtp_secure' => post('smtp_secure'),
+            'pop_host' => post('pop_host'),
+            'pop_port' => (int) post('pop_port'),
+            'imap_host' => post('imap_host'),
+            'imap_port' => (int) post('imap_port'),
+        ]);
+        $host = $ends['smtp_host'];
+        $port = (int) $ends['smtp_port'];
+        $secure = $ends['smtp_secure'];
+        $popHost = $ends['pop_host'];
+        $popPort = (int) $ends['pop_port'];
+        $imapHost = $ends['imap_host'];
+        $imapPort = (int) $ends['imap_port'];
+        $passPlain = mail_normalize_secret(post('mail_password'));
         $stored = (string) ($company['mail_password'] ?? '');
         if ($passPlain !== '') {
             $stored = mail_encrypt_secret($passPlain);
         }
         if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $error = 'The sending mailbox must be a valid email.';
+        } elseif ($provider === 'gmail' && $passPlain !== '' && strlen($passPlain) !== 16) {
+            $error = 'Gmail needs a 16-character App Password (Google Account → Security → App passwords), not the normal Gmail sign-in password.';
         } else {
             db_exec(
                 'UPDATE companies SET mail_provider=?, mail_email=?, mail_password=?, mail_from_name=?, smtp_host=?, smtp_port=?, smtp_secure=?, pop_host=?, pop_port=?, imap_host=?, imap_port=? WHERE id=?',
@@ -1084,9 +1092,18 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
   <div style="padding:0 22px 22px">
     <p class="hint" style="margin:8px 0 8px" data-mail-help><?= h(mail_provider_hint((string) ($company['mail_provider'] ?? 'hostinger'))) ?></p>
     <p class="hint" style="margin:0 0 12px">
-      The company desk sends quotations, invoices, receipts, headed letters, debtor reminders, notes to creditors and custom mail from this address and cannot edit it.
-      Send test sends a sample in the company's colours, logo and contact details from the company mailbox to that mailbox (and to Your Gmail in super-admin Settings). It does not use the Vellisys letterhead and it is not sent to <?= h(product_email()) ?>.
-      <?= company_mail_account($company) ? 'Mailbox is ready to send.' : 'Add the email and password to start sending.' ?>
+      This is the only place to set the sending mailbox. Desk Settings show the address as locked - the company cannot change it.
+      Pick the mail type (Hostinger, Titan, Gmail or Custom), enter the mailbox and password, then Save mailbox. For Gmail you must use a 16-character App Password, not the normal login password.
+      After saving, use Send test. If the test arrives in that mailbox, the desk can email quotations, invoices, receipts and letters from it.
+      Send test uses the company's colours and logo. It is not sent to <?= h(product_email()) ?>.
+      <?php
+        $readyAcct = company_mail_account($company);
+        if ($readyAcct):
+      ?>
+        <strong>Ready:</strong> sending via <?= h((string) ($readyAcct['host'] ?? '')) ?>:<?= (int) ($readyAcct['port'] ?? 0) ?> as <?= h((string) ($readyAcct['from_email'] ?? '')) ?>.
+      <?php else: ?>
+        <strong>Not ready:</strong> add a mailbox email and password, then Save.
+      <?php endif; ?>
     </p>
     <div class="actions">
       <button class="btn" type="submit" name="action" value="mailbox"><?= icon('check') ?>Save mailbox</button>

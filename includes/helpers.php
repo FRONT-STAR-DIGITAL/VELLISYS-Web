@@ -3102,23 +3102,38 @@ function platform_create_company(?int $signupId = null): array
         if (!isset(mail_provider_presets()[$provider])) {
             $provider = 'hostinger';
         }
-        $preset = mail_provider_presets()[$provider];
         $fromName = post('mail_from_name') ?: $name;
-        $host = post('smtp_host') ?: $preset['smtp_host'];
-        $port = (int) post('smtp_port') ?: (int) $preset['smtp_port'];
-        $secure = post('smtp_secure');
-        if (!in_array($secure, ['ssl', 'tls', 'none'], true)) {
-            $secure = $preset['smtp_secure'];
+        $ends = mail_provider_endpoints($provider, [
+            'smtp_host' => post('smtp_host'),
+            'smtp_port' => (int) post('smtp_port'),
+            'smtp_secure' => post('smtp_secure'),
+            'pop_host' => post('pop_host'),
+            'pop_port' => (int) post('pop_port'),
+            'imap_host' => post('imap_host'),
+            'imap_port' => (int) post('imap_port'),
+        ]);
+        $passPlain = mail_normalize_secret(post('mail_password'));
+        if ($provider === 'gmail' && $passPlain !== '' && strlen($passPlain) !== 16) {
+            return ['ok' => false, 'error' => 'Gmail needs a 16-character App Password (Google Account → Security → App passwords), not the normal Gmail sign-in password.'];
         }
-        $popHost = post('pop_host') ?: $preset['pop_host'];
-        $popPort = (int) post('pop_port') ?: (int) $preset['pop_port'];
-        $imapHost = post('imap_host') ?: $preset['imap_host'];
-        $imapPort = (int) post('imap_port') ?: (int) $preset['imap_port'];
-        $stored = post('mail_password') !== '' ? mail_encrypt_secret(post('mail_password')) : null;
+        $stored = $passPlain !== '' ? mail_encrypt_secret($passPlain) : null;
         db_exec(
             'UPDATE companies SET mail_provider=?, mail_email=?, mail_password=?, mail_from_name=?, smtp_host=?, smtp_port=?, smtp_secure=?, pop_host=?, pop_port=?, imap_host=?, imap_port=? WHERE id=?',
             'sssssissisii',
-            [$provider, $mailEmail, $stored, $fromName, $host, $port, $secure, $popHost, $popPort, $imapHost, $imapPort, $cid]
+            [
+                $provider,
+                $mailEmail,
+                $stored,
+                $fromName,
+                $ends['smtp_host'],
+                (int) $ends['smtp_port'],
+                $ends['smtp_secure'],
+                $ends['pop_host'],
+                (int) $ends['pop_port'],
+                $ends['imap_host'],
+                (int) $ends['imap_port'],
+                $cid,
+            ]
         );
     }
 

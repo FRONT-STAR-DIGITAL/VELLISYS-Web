@@ -70,6 +70,52 @@ function mail_provider_hint(string $provider): string
     return (string) ($presets['hostinger']['hint'] ?? '');
 }
 
+/** Strip spaces so Gmail App Passwords pasted as "abcd efgh …" still sign in. */
+function mail_normalize_secret(string $plain): string
+{
+    return preg_replace('/\s+/', '', trim($plain)) ?? '';
+}
+
+/**
+ * SMTP/POP/IMAP values for a provider.
+ * Known providers always use the preset (so picking Gmail cannot keep Hostinger hosts).
+ * Custom keeps the posted/stored overrides.
+ *
+ * @return array{smtp_host:string,smtp_port:int,smtp_secure:string,pop_host:string,pop_port:int,imap_host:string,imap_port:int}
+ */
+function mail_provider_endpoints(string $provider, array $override = []): array
+{
+    $presets = mail_provider_presets();
+    if (!isset($presets[$provider])) {
+        $provider = 'hostinger';
+    }
+    $preset = $presets[$provider];
+    if ($provider === 'custom') {
+        $secure = (string) ($override['smtp_secure'] ?? $preset['smtp_secure']);
+        if (!in_array($secure, ['ssl', 'tls', 'none'], true)) {
+            $secure = (string) $preset['smtp_secure'];
+        }
+        return [
+            'smtp_host' => trim((string) ($override['smtp_host'] ?? $preset['smtp_host'])),
+            'smtp_port' => (int) ($override['smtp_port'] ?? $preset['smtp_port']) ?: (int) $preset['smtp_port'],
+            'smtp_secure' => $secure,
+            'pop_host' => trim((string) ($override['pop_host'] ?? $preset['pop_host'])),
+            'pop_port' => (int) ($override['pop_port'] ?? $preset['pop_port']) ?: (int) $preset['pop_port'],
+            'imap_host' => trim((string) ($override['imap_host'] ?? $preset['imap_host'])),
+            'imap_port' => (int) ($override['imap_port'] ?? $preset['imap_port']) ?: (int) $preset['imap_port'],
+        ];
+    }
+    return [
+        'smtp_host' => (string) $preset['smtp_host'],
+        'smtp_port' => (int) $preset['smtp_port'],
+        'smtp_secure' => (string) $preset['smtp_secure'],
+        'pop_host' => (string) $preset['pop_host'],
+        'pop_port' => (int) $preset['pop_port'],
+        'imap_host' => (string) $preset['imap_host'],
+        'imap_port' => (int) $preset['imap_port'],
+    ];
+}
+
 function render_password_toggle_field(string $id, string $name, string $placeholder = '', string $value = ''): void
 {
     ?>
@@ -85,6 +131,7 @@ function render_password_toggle_field(string $id, string $name, string $placehol
 
 function mail_encrypt_secret(string $plain): string
 {
+    $plain = mail_normalize_secret($plain);
     if ($plain === '') {
         return '';
     }
@@ -101,13 +148,17 @@ function mail_decrypt_secret(string $stored): string
     }
     $bin = base64_decode($stored, true);
     if ($bin === false || strlen($bin) < 17) {
-        return '';
+        // Legacy plaintext (should be rare); still strip App Password spaces.
+        return mail_normalize_secret($stored);
     }
     $key = hash('sha256', (string) (mail_config()['secret'] ?? 'vellisys'), true);
     $iv = substr($bin, 0, 16);
     $raw = substr($bin, 16);
     $plain = openssl_decrypt($raw, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
-    return $plain === false ? '' : $plain;
+    if ($plain === false) {
+        return '';
+    }
+    return mail_normalize_secret($plain);
 }
 
 function platform_mail_account(): array
@@ -135,20 +186,30 @@ function company_mail_account(array $company): ?array
     if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || $pass === '') {
         return null;
     }
-    $host = trim((string) ($company['smtp_host'] ?? ''));
+    $provider = (string) ($company['mail_provider'] ?? 'hostinger');
+    $ends = mail_provider_endpoints($provider, [
+        'smtp_host' => (string) ($company['smtp_host'] ?? ''),
+        'smtp_port' => (int) ($company['smtp_port'] ?? 0),
+        'smtp_secure' => (string) ($company['smtp_secure'] ?? ''),
+        'pop_host' => (string) ($company['pop_host'] ?? ''),
+        'pop_port' => (int) ($company['pop_port'] ?? 0),
+        'imap_host' => (string) ($company['imap_host'] ?? ''),
+        'imap_port' => (int) ($company['imap_port'] ?? 0),
+    ]);
+    $host = trim((string) $ends['smtp_host']);
     if ($host === '') {
-        $preset = mail_provider_presets()[$company['mail_provider'] ?? 'hostinger'] ?? mail_provider_presets()['hostinger'];
-        $host = $preset['smtp_host'];
+        return null;
     }
     $name = trim((string) ($company['mail_from_name'] ?? '')) ?: (string) ($company['name'] ?? 'Vellisys desk');
     return [
         'host' => $host,
-        'port' => (int) ($company['smtp_port'] ?: 465),
-        'secure' => in_array($company['smtp_secure'] ?? 'ssl', ['ssl', 'tls', 'none'], true) ? $company['smtp_secure'] : 'ssl',
+        'port' => (int) $ends['smtp_port'],
+        'secure' => (string) $ends['smtp_secure'],
         'username' => $email,
         'password' => $pass,
         'from_email' => $email,
         'from_name' => $name,
+        'provider' => $provider,
     ];
 }
 
@@ -263,6 +324,10 @@ function smtp_send(array $account, string $to, string $subject, string $html, st
     }
     $err = $expect($cmd(base64_encode($pass)), [235]);
     if ($err) {
+        $provider = strtolower((string) ($account['provider'] ?? ''));
+        if ($provider === 'gmail' || str_contains(strtolower($host), 'gmail')) {
+            return ['ok' => false, 'error' => 'Gmail sign-in failed. Use a 16-character App Password (Google Account → Security → App passwords with 2-Step Verification on), not the normal Gmail password.'];
+        }
         return ['ok' => false, 'error' => 'Sign-in to the mailbox failed. Check the email and password.'];
     }
 

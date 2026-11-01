@@ -405,9 +405,9 @@ layout_start('Settings', $user);
         <div>
           <strong>Sending mailbox</strong>
           <?php if ($sendAcct): ?>
-            <span><?= h($sendAcct['from_name']) ?> · <?= h($sendAcct['from_email']) ?> (locked)</span>
+            <span><?= h($sendAcct['from_name']) ?> · <?= h($sendAcct['from_email']) ?> (locked · via <?= h((string) ($sendAcct['host'] ?? '')) ?>)</span>
           <?php else: ?>
-            <span>Not assigned yet. Ask Vellisys to add the company Hostinger address. You can still print and share a link.</span>
+            <span>Not assigned yet. Ask Vellisys to set the company sending mailbox on the company page (Gmail App Password, Hostinger or Titan). You can still print and share a link.</span>
           <?php endif; ?>
         </div>
       </div>
