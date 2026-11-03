@@ -1874,12 +1874,16 @@ function stock_complete_sale(array $input): array
     } else {
         $noteBits[] = 'Paid in full';
     }
+    // Land cash on the open till day / posted sale date - not always calendar today.
+    $saleDate = function_exists('desk_money_date')
+        ? desk_money_date(isset($input['date']) ? (string) $input['date'] : null, true)
+        : today();
     // Till sales are receipts (paid + balance), never invoices.
     $receiptId = create_document([
         'kind' => 'receipt',
         'party_id' => $partyId,
-        'date' => today(),
-        'due_date' => $balance > 0.009 ? today() : null,
+        'date' => $saleDate,
+        'due_date' => $balance > 0.009 ? $saleDate : null,
         'vat_rate' => $vatRate,
         'notes' => implode('. ', $noteBits) . '.',
         'payment_method' => $method,

@@ -39,6 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'paid' => money_parse($paidRaw),
             'pay_all' => $paidRaw === '',
             'method' => post('method') ?: 'cash',
+            'date' => post('sale_date'),
             'lines' => $lines,
         ]);
         if (empty($done['ok'])) {
@@ -66,6 +67,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+$openDay = $tillDay ? stock_current_open_day() : null;
+$saleDateDefault = function_exists('desk_money_date')
+    ? desk_money_date(null, true)
+    : today();
+$canSaleBackdate = !$tillDay && function_exists('user_can_backdate_documents') && user_can_backdate_documents();
 $catalog = stock_catalog_payload();
 $custHome = function_exists('party_write_branch_id') ? party_write_branch_id() : 0;
 [$custSql, $custTypes, $custArgs] = function_exists('party_branch_where')
@@ -120,6 +126,23 @@ layout_start('Sale', $user);
         <label for="method">Payment method</label>
         <?php render_stock_payment_select('method', !$dayOpen, 'cash'); ?>
       </div>
+      <?php if ($tillDay && $openDay): ?>
+        <div>
+          <label for="sale_date">Sale date</label>
+          <input id="sale_date" name="sale_date" type="date" value="<?= h($saleDateDefault) ?>" readonly>
+          <p class="hint"><?= $saleDateDefault !== today()
+              ? 'Cash lands on this open till day, not today.'
+              : 'Matches the open till day.' ?></p>
+        </div>
+      <?php elseif ($canSaleBackdate): ?>
+        <div>
+          <label for="sale_date">Sale date</label>
+          <input id="sale_date" name="sale_date" type="date" value="<?= h($saleDateDefault) ?>" min="<?= h(date('Y-m-d', strtotime('-365 days'))) ?>" max="<?= h(today()) ?>" <?= $dayOpen ? '' : 'disabled' ?>>
+          <p class="hint">Backdate so this sale counts on the day money was taken.</p>
+        </div>
+      <?php else: ?>
+        <input type="hidden" name="sale_date" value="<?= h($saleDateDefault) ?>">
+      <?php endif; ?>
     </div>
     <div class="pos-find">
       <label for="pos-q">Find product</label>

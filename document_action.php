@@ -64,6 +64,10 @@ if ($receiveId && $_SERVER['REQUEST_METHOD'] !== 'POST') {
         <p class="lede"><?= h($doc['party_name']) ?> still owes <?= h(money($balance, doc_currency($doc))) ?> on <?= h($doc['number']) ?>. You can take less than the balance; the unpaid amount stays on Debtors until it is cleared.</p>
       </div>
     </div>
+    <?php
+        $canBackdateReceive = function_exists('user_can_backdate_documents') && user_can_backdate_documents();
+        $receiveDate = today();
+    ?>
     <form class="card form" method="post">
       <?= csrf_field() ?>
       <input type="hidden" name="action" value="receive">
@@ -71,6 +75,9 @@ if ($receiveId && $_SERVER['REQUEST_METHOD'] !== 'POST') {
       <label for="amount">Amount received (<?= h(doc_currency($doc)) ?>)</label>
       <input id="amount" name="amount" inputmode="decimal" required value="<?= h(money_input_value($balance, doc_currency($doc))) ?>" data-money-commas autocomplete="off">
       <p class="hint">Leave the full balance to clear this sale, or type a smaller figure for a part payment.</p>
+      <label for="receive_date">Receipt date</label>
+      <input id="receive_date" name="receive_date" type="date" value="<?= h($receiveDate) ?>" max="<?= h(today()) ?>" <?= $canBackdateReceive ? 'min="' . h(date('Y-m-d', strtotime('-365 days'))) . '"' : 'min="' . h(today()) . '"' ?>>
+      <p class="hint"><?= $canBackdateReceive ? 'Backdate so cash counts on the day it was received.' : 'New receipts use today.' ?></p>
       <label for="payment_method">Payment method</label>
       <select id="payment_method" name="payment_method">
         <?php foreach (payment_methods() as $k => $label): ?>
@@ -93,6 +100,8 @@ if ($receiveId && $_SERVER['REQUEST_METHOD'] !== 'POST') {
         redirect('documents.php?kind=invoice');
     }
     $balance = invoice_balance($doc);
+    $canBackdateReceive = function_exists('user_can_backdate_documents') && user_can_backdate_documents();
+    $receiveDate = today();
     layout_start('Receipt for ' . $doc['number'], $user, ['kind' => 'receipt']);
     ?>
     <div class="page-head">
@@ -108,6 +117,9 @@ if ($receiveId && $_SERVER['REQUEST_METHOD'] !== 'POST') {
       <label for="amount">Amount received (<?= h(doc_currency($doc)) ?>)</label>
       <input id="amount" name="amount" inputmode="decimal" required value="<?= h(money_input_value($balance, doc_currency($doc))) ?>" data-money-commas autocomplete="off">
       <p class="hint">Leave the full balance for a complete receipt, or type a smaller figure for a part payment.</p>
+      <label for="receive_date">Receipt date</label>
+      <input id="receive_date" name="receive_date" type="date" value="<?= h($receiveDate) ?>" max="<?= h(today()) ?>" <?= $canBackdateReceive ? 'min="' . h(date('Y-m-d', strtotime('-365 days'))) . '"' : 'min="' . h(today()) . '"' ?>>
+      <p class="hint"><?= $canBackdateReceive ? 'Backdate so cash counts on the day it was received.' : 'New receipts use today.' ?></p>
       <label for="payment_method">Payment method</label>
       <select id="payment_method" name="payment_method">
         <?php foreach (payment_methods() as $k => $label): ?>
@@ -165,10 +177,11 @@ try {
     }
     if ($action === 'receive') {
         $amount = money_parse(post('amount'));
+        $receiveDate = post('receive_date') ?: null;
         if (($doc['kind'] ?? '') === 'receipt') {
-            $newId = receive_on_receipt($id, $amount, post('payment_method') ?: 'bank-transfer', post('payment_ref'));
+            $newId = receive_on_receipt($id, $amount, post('payment_method') ?: 'bank-transfer', post('payment_ref'), $receiveDate);
         } else {
-            $newId = receive_on_invoice($id, $amount, post('payment_method') ?: 'bank-transfer', post('payment_ref'));
+            $newId = receive_on_invoice($id, $amount, post('payment_method') ?: 'bank-transfer', post('payment_ref'), $receiveDate);
         }
         flash('Receipt saved.');
         redirect('document_view.php?id=' . $newId);

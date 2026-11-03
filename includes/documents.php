@@ -6,6 +6,42 @@ function today(): string
     return desk_now()->format('Y-m-d');
 }
 
+/**
+ * Date money/sales should land on for dashboard and reports.
+ * Prefers an open backdated till day; otherwise honours a posted date when
+ * the login may backdate. Future dates clamp to today.
+ */
+function desk_money_date(?string $requested = null, bool $preferOpenTillDay = true): string
+{
+    if ($preferOpenTillDay && function_exists('desk_uses_till_day') && desk_uses_till_day()
+        && function_exists('stock_current_open_day')) {
+        $open = stock_current_open_day();
+        if ($open && !empty($open['day_date'])) {
+            $day = trim((string) $open['day_date']);
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $day)) {
+                return $day;
+            }
+        }
+    }
+    $requested = trim((string) $requested);
+    if ($requested === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $requested)) {
+        return today();
+    }
+    $ts = strtotime($requested . ' 12:00:00');
+    if (!$ts || date('Y-m-d', $ts) !== $requested) {
+        return today();
+    }
+    if ($requested > today()) {
+        return today();
+    }
+    if ($requested < today()) {
+        if (function_exists('user_can_backdate_documents') && !user_can_backdate_documents()) {
+            return today();
+        }
+    }
+    return $requested;
+}
+
 function line_amount(array $item): float
 {
     return round((float) ($item['qty'] ?? 0) * (float) ($item['rate'] ?? 0), 2);
@@ -3445,7 +3481,7 @@ function convert_quotation_to_invoice(int $quoteId): int
     ]);
 }
 
-function receive_on_invoice(int $invoiceId, float $amount, string $method, string $ref): int
+function receive_on_invoice(int $invoiceId, float $amount, string $method, string $ref, ?string $date = null): int
 {
     $doc = load_document($invoiceId);
     if (!$doc || $doc['kind'] !== 'invoice' || $doc['status'] === 'void') {
@@ -3461,10 +3497,13 @@ function receive_on_invoice(int $invoiceId, float $amount, string $method, strin
     $notes = $part
         ? 'Part payment against ' . $doc['number'] . '. Balance remaining on the invoice.'
         : 'Received with thanks against ' . $doc['number'] . '.';
+    $paidOn = function_exists('desk_money_date')
+        ? desk_money_date($date, false)
+        : today();
     return create_document([
         'kind' => 'receipt',
         'party_id' => $doc['party_id'],
-        'date' => today(),
+        'date' => $paidOn,
         'vat_rate' => 0,
         'currency' => doc_currency($doc),
         'doc_template' => doc_template_key($doc),
@@ -3484,7 +3523,7 @@ function receive_on_invoice(int $invoiceId, float $amount, string $method, strin
     ]);
 }
 
-function receive_on_receipt(int $receiptId, float $amount, string $method, string $ref): int
+function receive_on_receipt(int $receiptId, float $amount, string $method, string $ref, ?string $date = null): int
 {
     $doc = load_document($receiptId);
     if (!$doc || $doc['kind'] !== 'receipt' || $doc['status'] === 'void') {
@@ -3494,10 +3533,10 @@ function receive_on_receipt(int $receiptId, float $amount, string $method, strin
     if ($related > 0) {
         $rel = load_document($related);
         if ($rel && $rel['kind'] === 'invoice') {
-            return receive_on_invoice($related, $amount, $method, $ref);
+            return receive_on_invoice($related, $amount, $method, $ref, $date);
         }
         if ($rel && $rel['kind'] === 'receipt') {
-            return receive_on_receipt($related, $amount, $method, $ref);
+            return receive_on_receipt($related, $amount, $method, $ref, $date);
         }
         throw new RuntimeException('This receipt is not a sale that can take a further payment.');
     }
@@ -3511,10 +3550,13 @@ function receive_on_receipt(int $receiptId, float $amount, string $method, strin
     $notes = $part
         ? 'Part payment against ' . $doc['number'] . '. Balance remaining on Debtors.'
         : 'Received with thanks against ' . $doc['number'] . '.';
+    $paidOn = function_exists('desk_money_date')
+        ? desk_money_date($date, false)
+        : today();
     return create_document([
         'kind' => 'receipt',
         'party_id' => $doc['party_id'],
-        'date' => today(),
+        'date' => $paidOn,
         'vat_rate' => 0,
         'currency' => doc_currency($doc),
         'doc_template' => doc_template_key($doc),
