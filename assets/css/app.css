@@ -513,7 +513,14 @@ summary {
 .top-term-expired { background: #f8e4e1; border-color: #e3b4ad; }
 .top-term-expired .icon { color: #b42318; }
 .top-term-none { color: var(--muted); }
-.top-actions { display: flex; gap: 8px; margin-left: auto; flex-shrink: 0; align-items: center; }
+.top-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+  align-items: center;
+  overflow: visible;
+}
 .header-settings {
   display: inline-flex;
   align-items: center;
@@ -526,6 +533,7 @@ summary {
   color: var(--brand-ink);
   flex-shrink: 0;
   box-shadow: 0 4px 12px rgba(8, 20, 58, .04);
+  overflow: visible;
 }
 .header-settings:hover { background: var(--paper); text-decoration: none; color: var(--brand); }
 .header-settings.is-on { border-color: var(--brand); color: var(--brand); background: color-mix(in srgb, var(--brand) 10%, #fff); }
@@ -5362,10 +5370,15 @@ a.branch-activity-row:hover { text-decoration: none; }
 .prio-normal { color: var(--muted); }
 .prio-low { color: var(--muted); opacity: .85; }
 
-.top-bell { position: relative; }
+.top-bell {
+  position: relative;
+  overflow: visible;
+  flex-shrink: 0;
+}
 .top-bell > summary {
   list-style: none;
   cursor: pointer;
+  overflow: visible;
 }
 .top-bell > summary::-webkit-details-marker { display: none; }
 .top-bell-count {
@@ -5384,8 +5397,10 @@ a.branch-activity-row:hover { text-decoration: none; }
   align-items: center;
   justify-content: center;
   line-height: 1;
+  z-index: 2;
+  pointer-events: none;
 }
-.header-settings.has-badge { position: relative; }
+.header-settings.has-badge { position: relative; overflow: visible; }
 .top-bell-panel {
   position: absolute;
   right: 0;
@@ -5825,6 +5840,7 @@ a.branch-activity-row:hover { text-decoration: none; }
   .top-actions {
     gap: 4px;
     min-width: 0;
+    overflow: visible;
   }
   .admin-body .top-actions .btn {
     min-height: 40px;

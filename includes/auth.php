@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 function current_user(): ?array
 {
+    if (!empty($GLOBALS['folio_user_override']) && is_array($GLOBALS['folio_user_override'])) {
+        return $GLOBALS['folio_user_override'];
+    }
     if (empty($_SESSION['user_id'])) {
         return null;
     }

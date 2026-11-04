@@ -112,14 +112,19 @@ function vapid_public_key(): string
 function folio_html_root_attrs(): string
 {
     $attrs = ' data-sw="' . h(url('sw.js')) . '" data-pwa-login="' . h(url('login.php')) . '"';
-    if (current_user()) {
+    $user = function_exists('current_user') ? current_user() : null;
+    if ($user) {
         $pub = vapid_public_key();
         if ($pub !== '') {
             $attrs .= ' data-vapid="' . h($pub) . '" data-push="' . h(url('push_subscribe.php')) . '" data-csrf="' . h(csrf_token()) . '"';
         }
         $badge = 0;
-        if (function_exists('push_current_items_for_user')) {
-            $badge = count(push_current_items_for_user());
+        try {
+            if (function_exists('push_current_items_for_user')) {
+                $badge = count(push_current_items_for_user($user));
+            }
+        } catch (Throwable $e) {
+            $badge = 0;
         }
         $attrs .= ' data-badge="' . (int) $badge . '"';
     }
@@ -296,6 +301,7 @@ function push_send_to_subscription(array $sub, array $payload): bool
 
 function push_mark_sent(int $userId, string $key): void
 {
+    $key = substr(trim($key), 0, 80);
     if ($userId <= 0 || $key === '') {
         return;
     }
@@ -309,8 +315,10 @@ function push_mark_sent(int $userId, string $key): void
 
 function push_already_sent(int $userId, string $key): bool
 {
+    $key = substr(trim($key), 0, 80);
+    // Empty tag is not "already sent" - callers skip the check when the tag is blank.
     if ($userId <= 0 || $key === '') {
-        return true;
+        return false;
     }
     vapid_ensure_tables();
     $row = db_one('SELECT user_id FROM push_sent WHERE user_id = ? AND notif_key = ?', 'is', [$userId, $key]);
@@ -404,15 +412,23 @@ function push_current_items_for_user(?array $user = null): array
         return [];
     }
     $items = [];
-    $role = (string) ($user['role'] ?? '');
-    if ($role === 'platform' && empty($_SESSION['acting_company_id'])) {
-        $items = function_exists('platform_notifications') ? platform_notifications(40) : [];
-    } elseif ($role === 'sales_agent' && function_exists('sales_notifications_for_agent')) {
-        $items = sales_notifications_for_agent((int) ($user['id'] ?? 0));
-    } elseif (function_exists('desk_notifications')) {
-        $items = desk_notifications(40);
-    } elseif (function_exists('company_planner_enabled') && company_planner_enabled() && is_desk_admin($user)) {
-        $items = enrich_planner_notifications(planner_notifications(40));
+    try {
+        $role = (string) ($user['role'] ?? '');
+        $sessionUid = (int) ($_SESSION['user_id'] ?? 0);
+        $sameLogin = $sessionUid > 0 && $sessionUid === (int) ($user['id'] ?? 0);
+        if ($role === 'platform' && ($sameLogin ? empty($_SESSION['acting_company_id']) : true)) {
+            $items = function_exists('platform_notifications') ? platform_notifications(40) : [];
+        } elseif ($role === 'sales_agent' && function_exists('sales_notifications_for_agent')) {
+            $items = sales_notifications_for_agent((int) ($user['id'] ?? 0));
+        } elseif (function_exists('desk_notifications')) {
+            // Build against this login (and their company), not whoever is currently in session.
+            $items = desk_notifications(40, $user);
+        } elseif (function_exists('company_planner_enabled') && company_planner_enabled() && is_desk_admin($user)) {
+            $items = enrich_planner_notifications(planner_notifications(40, (int) ($user['id'] ?? 0)));
+        }
+    } catch (Throwable $e) {
+        error_log('Vellisys push_current_items_for_user: ' . $e->getMessage());
+        $items = [];
     }
     $out = [];
     foreach ($items as $n) {

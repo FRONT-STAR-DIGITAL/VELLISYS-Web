@@ -4192,7 +4192,8 @@ function sales_layout_start(string $title, array $user): void
     $openFollowN = sales_open_followups_count((int) $user['id']);
     $notes = sales_notifications_for_agent((int) $user['id']);
     $noteCount = count($notes);
-    if ($noteCount && function_exists('push_schedule_sync')) {
+    // Always re-sync push/app-icon badge while signed in (also clears when the bell is empty).
+    if (function_exists('push_schedule_sync')) {
         push_schedule_sync();
     }
     $avatar = sales_avatar_url($user);

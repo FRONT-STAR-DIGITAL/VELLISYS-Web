@@ -326,7 +326,8 @@ function layout_start(string $title, array $user, array $opts = []): void
     $showBell = function_exists('desk_notifications_enabled') && desk_notifications_enabled();
     $plannerOn = function_exists('company_planner_enabled') && company_planner_enabled() && is_desk_admin();
     $stockOn = function_exists('company_stock_enabled') && company_stock_enabled();
-    if ($noteCount && function_exists('push_schedule_sync')) {
+    // Always re-sync push/app-icon badge while signed in (also clears when the bell is empty).
+    if (function_exists('push_schedule_sync')) {
         push_schedule_sync();
     }
     ?>
@@ -591,7 +592,8 @@ function layout_admin_start(string $title, array $user): void
     $notes = platform_notifications(40);
     $noteCount = count($notes);
     $salesMsgUnread = function_exists('sales_admin_unread_count') ? sales_admin_unread_count((int) $user['id']) : 0;
-    if ($noteCount && function_exists('push_schedule_sync')) {
+    // Always re-sync push/app-icon badge while signed in (also clears when the bell is empty).
+    if (function_exists('push_schedule_sync')) {
         push_schedule_sync();
     }
     ?>

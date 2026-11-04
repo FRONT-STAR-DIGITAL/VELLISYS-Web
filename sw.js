@@ -1,5 +1,5 @@
 /* Vellisys service worker: cache shell assets, and a branded offline page for failed navigations. Never intercept form posts. */
-const CACHE = 'vellisys-shell-v9';
+const CACHE = 'vellisys-shell-v10';
 const OFFLINE_URL = new URL('offline.html', self.registration.scope).href;
 const SHELL = [
   OFFLINE_URL,

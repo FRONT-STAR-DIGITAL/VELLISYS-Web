@@ -1193,14 +1193,16 @@ function render_banking_subnav(string $view): void
 
 function notification_dismiss_key(array $n): string
 {
+    // Keep under notification_dismissals.dismiss_key VARCHAR(64) so store/lookup match.
     if (!empty($n['key'])) {
-        return (string) $n['key'];
+        return substr((string) $n['key'], 0, 64);
     }
-    return sha1(($n['type'] ?? '') . '|' . ($n['href'] ?? '') . '|' . ($n['title'] ?? ''));
+    return substr(sha1(($n['type'] ?? '') . '|' . ($n['href'] ?? '') . '|' . ($n['title'] ?? '')), 0, 64);
 }
 
 function notification_is_dismissed(string $key): bool
 {
+    $key = substr(trim($key), 0, 64);
     if ($key === '') {
         return false;
     }
@@ -1208,7 +1210,14 @@ function notification_is_dismissed(string $key): bool
     if (isset($bag[$key])) {
         return true;
     }
-    $uid = (int) ($_SESSION['user_id'] ?? 0);
+    // Prefer current_user() so folio_user_override (push builds) uses the target login.
+    $uid = 0;
+    if (function_exists('current_user')) {
+        $uid = (int) (current_user()['id'] ?? 0);
+    }
+    if ($uid <= 0) {
+        $uid = (int) ($_SESSION['user_id'] ?? 0);
+    }
     if ($uid <= 0) {
         return false;
     }
@@ -1233,7 +1242,7 @@ function notification_is_dismissed(string $key): bool
 
 function notification_dismiss(string $key): void
 {
-    $key = trim($key);
+    $key = substr(trim($key), 0, 64);
     if ($key === '') {
         return;
     }
@@ -1246,7 +1255,13 @@ function notification_dismiss(string $key): void
         asort($_SESSION['notif_dismissed']);
         $_SESSION['notif_dismissed'] = array_slice($_SESSION['notif_dismissed'], -60, null, true);
     }
-    $uid = (int) ($_SESSION['user_id'] ?? 0);
+    $uid = 0;
+    if (function_exists('current_user')) {
+        $uid = (int) (current_user()['id'] ?? 0);
+    }
+    if ($uid <= 0) {
+        $uid = (int) ($_SESSION['user_id'] ?? 0);
+    }
     if ($uid <= 0) {
         return;
     }
@@ -1254,7 +1269,7 @@ function notification_dismiss(string $key): void
         db_exec(
             'INSERT IGNORE INTO notification_dismissals (user_id, dismiss_key, created_at) VALUES (?,?,NOW())',
             'is',
-            [$uid, substr($key, 0, 64)]
+            [$uid, $key]
         );
     } catch (Throwable $e) {
         // Ignore if migration has not created the table yet.
@@ -1327,7 +1342,8 @@ function enrich_planner_notifications(array $items): array
                 ['label' => 'Open', 'href' => $n['href'], 'class' => 'btn ghost sm'],
             ];
         }
-        if (notification_is_dismissed((string) $n['key'])) {
+        $n['key'] = substr((string) ($n['key'] ?? ''), 0, 64);
+        if ($n['key'] === '' || notification_is_dismissed($n['key'])) {
             continue;
         }
         $out[] = $n;
@@ -1336,88 +1352,120 @@ function enrich_planner_notifications(array $items): array
 }
 
 /** Desk bell items: each login only gets their own planner items; admins also get invoices/stock. */
-function desk_notifications(int $limit = 40): array
+function desk_notifications(int $limit = 40, ?array $forUser = null): array
 {
+    $forUser = $forUser ?? (function_exists('current_user') ? current_user() : null);
     $cid = function_exists('current_company_id') ? (int) current_company_id() : 0;
-    $uid = (int) (current_user()['id'] ?? 0);
-    $cacheKey = 'desk_notifications:' . $cid . ':' . $uid . ':' . max(1, $limit);
-    $build = static function () use ($limit, $uid): array {
-        $items = [];
-        if (function_exists('company_planner_enabled') && company_planner_enabled() && function_exists('planner_notifications')) {
-            // Personal planner alerts for this account only.
-            if (is_desk_admin() || user_can_open('planner.php')) {
-                $items = array_merge($items, planner_notifications($limit, $uid > 0 ? $uid : null));
-            }
-        }
-        if (function_exists('company_stock_enabled') && company_stock_enabled() && is_desk_admin() && function_exists('stock_low_notifications')) {
-            $items = array_merge($items, stock_low_notifications(20));
-        }
-        if (function_exists('company_stock_enabled') && company_stock_enabled() && is_desk_admin() && function_exists('stock_staff_sale_notifications')) {
-            $items = array_merge($items, stock_staff_sale_notifications(20));
-        }
-        // Debtor / creditor due reminders (day before, due today, overdue).
-        $ledgerItems = [];
-        if (function_exists('ledger_due_reminder_notifications')) {
-            $ledgerItems = ledger_due_reminder_notifications(20);
-            $items = array_merge($items, $ledgerItems);
-        }
-        // Prefer ledger debtor_due rows over planner "invoice due" for the same document.
-        if ($ledgerItems) {
-            $debtorDocs = [];
-            foreach ($ledgerItems as $row) {
-                if (($row['type'] ?? '') === 'debtor_due') {
-                    $debtorDocs[(int) ($row['document_id'] ?? 0)] = true;
-                }
-            }
-            if ($debtorDocs) {
-                $items = array_values(array_filter(
-                    $items,
-                    static function (array $n) use ($debtorDocs): bool {
-                        if (($n['type'] ?? '') !== 'invoice') {
-                            return true;
-                        }
-                        $id = (int) ($n['document_id'] ?? 0);
-                        if ($id < 1 && preg_match('/[?&]id=(\d+)/', (string) ($n['href'] ?? ''), $m)) {
-                            $id = (int) $m[1];
-                        }
-                        return $id < 1 || empty($debtorDocs[$id]);
-                    }
-                ));
-            }
-        }
-        // Feedback replies addressed to this login only.
-        if ($uid > 0 && function_exists('desk_feedback_for_company')) {
-            try {
-                $replies = db_all(
-                    "SELECT id, reply_body, replied_at FROM desk_feedback
-                     WHERE user_id = ? AND status = 'replied' AND reply_body IS NOT NULL AND reply_body <> ''
-                       AND replied_at IS NOT NULL AND replied_at > DATE_SUB(NOW(), INTERVAL 14 DAY)
-                     ORDER BY replied_at DESC LIMIT 5",
-                    'i',
-                    [$uid]
-                );
-                foreach ($replies as $r) {
-                    $items[] = [
-                        'type' => 'feedback_reply',
-                        'tone' => 'info',
-                        'title' => 'Vellisys replied to your help request',
-                        'meta' => clip_text((string) ($r['reply_body'] ?? ''), 70),
-                        'href' => url('feedback.php'),
-                        'key' => 'feedback-reply:' . (int) $r['id'],
-                        'sort' => '0-fb-' . (int) $r['id'],
-                    ];
-                }
-            } catch (Throwable $e) {
-                // ignore
-            }
-        }
-        usort($items, static fn ($a, $b) => strcmp((string) ($a['sort'] ?? ''), (string) ($b['sort'] ?? '')));
-        return enrich_planner_notifications(array_slice($items, 0, $limit));
-    };
-    if (function_exists('folio_remember')) {
-        return folio_remember($cacheKey, $build, 90);
+    if ($forUser && (int) ($forUser['company_id'] ?? 0) > 0) {
+        $cid = (int) $forUser['company_id'];
     }
-    return $build();
+    $uid = (int) ($forUser['id'] ?? 0);
+    $cacheKey = 'desk_notifications:' . $cid . ':' . $uid . ':' . max(1, $limit);
+    $build = static function () use ($limit, $uid, $forUser, $cid): array {
+        $items = [];
+        try {
+            $admin = function_exists('is_desk_admin') && is_desk_admin($forUser);
+            if (function_exists('company_planner_enabled') && company_planner_enabled() && function_exists('planner_notifications')) {
+                // Personal planner alerts for this account only.
+                if ($admin || (function_exists('user_can_open') && user_can_open('planner.php'))) {
+                    $items = array_merge($items, planner_notifications($limit, $uid > 0 ? $uid : null));
+                }
+            }
+            if (function_exists('company_stock_enabled') && company_stock_enabled() && $admin && function_exists('stock_low_notifications')) {
+                $items = array_merge($items, stock_low_notifications(20));
+            }
+            if (function_exists('company_stock_enabled') && company_stock_enabled() && $admin && function_exists('stock_staff_sale_notifications')) {
+                $items = array_merge($items, stock_staff_sale_notifications(20));
+            }
+            // Debtor / creditor due reminders (day before, due today, overdue).
+            $ledgerItems = [];
+            $creditOn = !function_exists('company_has_module') || company_has_module('credit');
+            if ($creditOn && function_exists('ledger_due_reminder_notifications')) {
+                $ledgerItems = ledger_due_reminder_notifications(20);
+                $items = array_merge($items, $ledgerItems);
+            }
+            // Prefer ledger debtor_due rows over planner "invoice due" for the same document.
+            if ($ledgerItems) {
+                $debtorDocs = [];
+                foreach ($ledgerItems as $row) {
+                    if (($row['type'] ?? '') === 'debtor_due') {
+                        $debtorDocs[(int) ($row['document_id'] ?? 0)] = true;
+                    }
+                }
+                if ($debtorDocs) {
+                    $items = array_values(array_filter(
+                        $items,
+                        static function (array $n) use ($debtorDocs): bool {
+                            if (($n['type'] ?? '') !== 'invoice') {
+                                return true;
+                            }
+                            $id = (int) ($n['document_id'] ?? 0);
+                            if ($id < 1 && preg_match('/[?&]id=(\d+)/', (string) ($n['href'] ?? ''), $m)) {
+                                $id = (int) $m[1];
+                            }
+                            return $id < 1 || empty($debtorDocs[$id]);
+                        }
+                    ));
+                }
+            }
+            // Feedback replies addressed to this login only.
+            if ($uid > 0 && function_exists('desk_feedback_for_company')) {
+                try {
+                    $replies = db_all(
+                        "SELECT id, reply_body, replied_at FROM desk_feedback
+                         WHERE user_id = ? AND status = 'replied' AND reply_body IS NOT NULL AND reply_body <> ''
+                           AND replied_at IS NOT NULL AND replied_at > DATE_SUB(NOW(), INTERVAL 14 DAY)
+                         ORDER BY replied_at DESC LIMIT 5",
+                        'i',
+                        [$uid]
+                    );
+                    foreach ($replies as $r) {
+                        $items[] = [
+                            'type' => 'feedback_reply',
+                            'tone' => 'info',
+                            'title' => 'Vellisys replied to your help request',
+                            'meta' => clip_text((string) ($r['reply_body'] ?? ''), 70),
+                            'href' => url('feedback.php'),
+                            'key' => 'feedback-reply:' . (int) $r['id'],
+                            'sort' => '0-fb-' . (int) $r['id'],
+                        ];
+                    }
+                } catch (Throwable $e) {
+                    // ignore
+                }
+            }
+            usort($items, static fn ($a, $b) => strcmp((string) ($a['sort'] ?? ''), (string) ($b['sort'] ?? '')));
+            return enrich_planner_notifications(array_slice($items, 0, $limit));
+        } catch (Throwable $e) {
+            error_log('Vellisys desk_notifications: ' . $e->getMessage());
+            return [];
+        }
+    };
+    $prevCompany = $GLOBALS['folio_company_override'] ?? null;
+    $prevUser = $GLOBALS['folio_user_override'] ?? null;
+    if ($cid > 0) {
+        $GLOBALS['folio_company_override'] = $cid;
+    }
+    if ($forUser) {
+        $GLOBALS['folio_user_override'] = $forUser;
+    }
+    try {
+        if (function_exists('folio_remember')) {
+            return folio_remember($cacheKey, $build, 90);
+        }
+        return $build();
+    } finally {
+        if ($prevCompany === null) {
+            unset($GLOBALS['folio_company_override']);
+        } else {
+            $GLOBALS['folio_company_override'] = $prevCompany;
+        }
+        if ($prevUser === null) {
+            unset($GLOBALS['folio_user_override']);
+        } else {
+            $GLOBALS['folio_user_override'] = $prevUser;
+        }
+    }
 }
 
 function desk_notifications_enabled(): bool
