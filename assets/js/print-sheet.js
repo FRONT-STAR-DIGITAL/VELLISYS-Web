@@ -1,5 +1,6 @@
 (function () {
   var savedHref = '';
+  var thermalPdfBusy = false;
 
   function isIos() {
     var ua = navigator.userAgent || '';
@@ -86,6 +87,10 @@
     } catch (e) {}
     return 58;
   }
+  function useThermalPdfPrint() {
+    var tag = document.querySelector('script[data-thermal-pdf-print]');
+    return !!(tag && thermalWidthMm(document) === 58);
+  }
   /**
    * Chrome drops `@page { size: 80mm auto }` (invalid). Without a real height the
    * job falls back to A4/Letter and many roll printers refuse or shrink the slip.
@@ -112,7 +117,9 @@
     style.textContent =
       '@page { size: ' + widthMm + 'mm ' + mm + 'mm; margin: 0; }' +
       '@page ' + pageName + ' { size: ' + widthMm + 'mm ' + mm + 'mm; margin: 0; }' +
-      '.invoice-sheet.sheet-thermal { page: ' + pageName + '; }';
+      'html, body { width: ' + widthMm + 'mm !important; max-width: ' + widthMm + 'mm !important; margin: 0 !important; }' +
+      '.print-thermal, .print-thermal .sheet-wrap, .print-thermal .sheet-stage,' +
+      '.invoice-sheet.sheet-thermal { page: ' + pageName + '; width: ' + widthMm + 'mm !important; max-width: ' + widthMm + 'mm !important; margin: 0 !important; }';
   }
   function applyScreenFit() {
     if (typeof window.fitDocumentSheets === 'function') {
@@ -138,7 +145,148 @@
       img.addEventListener('error', done);
     });
   }
-  function openPrint() {
+  function loadHtml2Pdf() {
+    if (typeof window.html2pdf === 'function') {
+      return Promise.resolve(window.html2pdf);
+    }
+    var host = document.querySelector('script[data-html2pdf]');
+    var src = (host && host.getAttribute('data-html2pdf')) || '';
+    if (!src) return Promise.reject(new Error('missing'));
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = src;
+      s.async = true;
+      s.onload = function () {
+        if (typeof window.html2pdf === 'function') resolve(window.html2pdf);
+        else reject(new Error('load'));
+      };
+      s.onerror = function () { reject(new Error('load')); };
+      document.head.appendChild(s);
+    });
+  }
+  function nextFrame() {
+    return new Promise(function (resolve) {
+      requestAnimationFrame(function () {
+        requestAnimationFrame(resolve);
+      });
+    });
+  }
+  /**
+   * Pocket Bluetooth printers (MPT II etc.) often ignore HTML @page size and
+   * shrink a 58mm slip onto A4. Print a real 58×Nmm PDF instead — 80mm keeps
+   * the normal HTML window.print() path.
+   */
+  function printThermalPdf() {
+    if (thermalPdfBusy) return;
+    var sheet = document.querySelector('.invoice-sheet.sheet-thermal');
+    if (!sheet) {
+      openHtmlPrint();
+      return;
+    }
+    thermalPdfBusy = true;
+    var btn = document.querySelector('[data-print-pdf]');
+    if (btn) {
+      btn.disabled = true;
+      btn.setAttribute('aria-busy', 'true');
+    }
+    clearFit();
+    scrubLocation();
+    stripPrintUrls(document);
+    var widthMm = 58;
+    // Lock layout width before capture so height matches the PDF page.
+    sheet.style.width = widthMm + 'mm';
+    sheet.style.maxWidth = widthMm + 'mm';
+    sheet.style.margin = '0';
+    sheet.style.transform = 'none';
+    sheet.style.zoom = '1';
+
+    loadHtml2Pdf().then(function (html2pdf) {
+      return nextFrame().then(function () {
+        var w = Math.max(sheet.scrollWidth || 0, sheet.offsetWidth || 0, Math.round((widthMm * 96) / 25.4));
+        var h = Math.max(sheet.scrollHeight || 0, sheet.offsetHeight || 0, 1);
+        var heightMm = Math.ceil((h * 25.4) / 96) + 4;
+        if (!isFinite(heightMm) || heightMm < 40) heightMm = 120;
+        if (heightMm > 4000) heightMm = 4000;
+        return html2pdf().set({
+          margin: 0,
+          filename: (document.title || 'receipt').replace(/\s+/g, '-') + '.pdf',
+          image: { type: 'jpeg', quality: 0.96 },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#ffffff',
+            logging: false,
+            width: w,
+            height: h,
+            windowWidth: w,
+            windowHeight: h,
+            x: 0,
+            y: 0,
+            scrollX: 0,
+            scrollY: 0,
+          },
+          jsPDF: {
+            unit: 'mm',
+            format: [widthMm, heightMm],
+            orientation: 'portrait',
+          },
+          pagebreak: { mode: ['avoid-all'] },
+        }).from(sheet).toPdf().get('pdf').then(function (pdf) {
+          try {
+            var total = pdf.internal.getNumberOfPages();
+            while (total > 1) {
+              pdf.deletePage(total);
+              total--;
+            }
+          } catch (e) {}
+          return pdf.output('blob');
+        });
+      });
+    }).then(function (blob) {
+      if (!blob) throw new Error('blob');
+      var url = URL.createObjectURL(blob);
+      var iframe = document.createElement('iframe');
+      iframe.setAttribute('title', 'Print receipt');
+      iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none';
+      var cleaned = false;
+      function cleanup() {
+        if (cleaned) return;
+        cleaned = true;
+        try { URL.revokeObjectURL(url); } catch (e) {}
+        try { iframe.remove(); } catch (e2) {}
+        thermalPdfBusy = false;
+        if (btn) {
+          btn.disabled = false;
+          btn.removeAttribute('aria-busy');
+        }
+        restoreLocation();
+        applyScreenFit();
+      }
+      iframe.onload = function () {
+        try {
+          var win = iframe.contentWindow;
+          if (!win) throw new Error('frame');
+          win.focus();
+          win.print();
+        } catch (e) {
+          // Last resort: open the PDF tab so the user can print from there.
+          window.open(url, '_blank');
+        }
+        window.setTimeout(cleanup, 90000);
+      };
+      document.body.appendChild(iframe);
+      iframe.src = url;
+    }).catch(function () {
+      thermalPdfBusy = false;
+      if (btn) {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+      }
+      openHtmlPrint();
+    });
+  }
+  function openHtmlPrint() {
     clearFit();
     scrubLocation();
     stripPrintUrls(document);
@@ -147,7 +295,15 @@
     window.focus();
     window.print();
   }
+  function openPrint() {
+    if (useThermalPdfPrint()) {
+      printThermalPdf();
+      return;
+    }
+    openHtmlPrint();
+  }
   window.addEventListener('beforeprint', function () {
+    if (useThermalPdfPrint() && thermalPdfBusy) return;
     clearFit();
     scrubLocation();
     stripPrintUrls(document);
@@ -174,7 +330,7 @@
       openPrint();
     });
     // Thermal (often Bluetooth): always preview first so the user can pick the
-    // paired printer and set 80mm / 100% scale. Narrow phones: same for A4/A5.
+    // paired printer and set paper / 100% scale. Narrow phones: same for A4/A5.
     if (isThermalPrint() || isNarrow()) {
       document.documentElement.classList.add('print-preview');
       return;

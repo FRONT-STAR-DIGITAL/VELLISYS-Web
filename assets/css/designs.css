@@ -1188,6 +1188,27 @@
   print-color-adjust: exact;
   box-sizing: border-box;
 }
+/* 58mm pocket Bluetooth: denser type so the slip matches native POS receipts. */
+.invoice-sheet.sheet-thermal[data-thermal-mm="58"],
+body.print-thermal[data-thermal-mm="58"] .invoice-sheet.sheet-thermal {
+  padding: 3mm 2mm 5mm;
+  font-size: 13px;
+}
+.invoice-sheet.sheet-thermal[data-thermal-mm="58"] .thermal-head strong,
+body.print-thermal[data-thermal-mm="58"] .thermal-head strong {
+  font-size: 15px;
+}
+.invoice-sheet.sheet-thermal[data-thermal-mm="58"] .thermal-kind,
+body.print-thermal[data-thermal-mm="58"] .thermal-kind {
+  font-size: 14px;
+  padding: 6px 6px;
+}
+.invoice-sheet.sheet-thermal[data-thermal-mm="58"] .thermal-meta,
+.invoice-sheet.sheet-thermal[data-thermal-mm="58"] .thermal-head p,
+body.print-thermal[data-thermal-mm="58"] .thermal-meta,
+body.print-thermal[data-thermal-mm="58"] .thermal-head p {
+  font-size: 12px;
+}
 /* 80mm counter rolls get a touch more side padding. */
 .invoice-sheet.sheet-thermal[data-thermal-mm="80"],
 body.print-thermal[data-thermal-mm="80"] .invoice-sheet.sheet-thermal {

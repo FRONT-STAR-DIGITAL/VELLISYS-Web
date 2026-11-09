@@ -866,7 +866,7 @@ layout_start('Settings', $user);
           <input type="radio" name="thermal_width_mm" value="80" <?= $thermalMm === 80 ? 'checked' : '' ?>>
           80&nbsp;mm — counter / kitchen roll printers
         </label>
-        <p class="hint">If the receipt prints as a tiny strip in the middle of the paper, choose 58&nbsp;mm. Pair the Bluetooth printer in phone or computer settings, then print with that paper size, margins none, and scale 100% (not fit to page).</p>
+        <p class="hint">Pocket Bluetooth printers such as the MPT&nbsp;II use 58&nbsp;mm. Choose that here so Print sends a true 58&nbsp;mm slip (not a shrunk A4 page). Counter rolls stay on 80&nbsp;mm. In the print dialog: your Bluetooth printer, margins none, scale 100% — not fit to page.</p>
       </fieldset>
       <label for="thanks_message">Thank you on thermal roll</label>
       <input id="thanks_message" name="thanks_message" maxlength="120" value="<?= h(($b['thanks_message'] ?? '') !== '' ? (string) $b['thanks_message'] : 'Thank you') ?>">

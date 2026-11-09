@@ -891,8 +891,13 @@ function render_print_document_page(array $doc, bool $pdf = false): void
   <div class="print-bar" data-print-bar>
     <?php if ($thermal): ?>
       <p class="print-bar-tip" data-print-tip>
-        Bluetooth: pair the printer in phone or computer settings first, then tap Print and choose it.
-        Paper <?= (int) $thermalMm ?>&nbsp;mm, margins none, scale 100%&nbsp;/&nbsp;actual size. Do not fit to page.
+        <?php if ((int) $thermalMm === 58): ?>
+          Pocket Bluetooth (MPT&nbsp;II and similar): tap Print — we send a true 58&nbsp;mm slip.
+          Choose your Bluetooth printer, margins none, scale 100%. Do not fit to page.
+        <?php else: ?>
+          Bluetooth: pair the printer in phone or computer settings first, then tap Print and choose it.
+          Paper 80&nbsp;mm, margins none, scale 100%&nbsp;/&nbsp;actual size. Do not fit to page.
+        <?php endif; ?>
       </p>
     <?php endif; ?>
     <div class="print-bar-actions">
@@ -901,7 +906,11 @@ function render_print_document_page(array $doc, bool $pdf = false): void
     </div>
   </div>
   <script src="<?= h(asset('js/sheet-fit.js')) ?>"></script>
+  <?php if ($thermal && (int) $thermalMm === 58): ?>
+  <script src="<?= h(asset('js/print-sheet.js')) ?>" data-html2pdf="<?= h(asset('js/vendor/html2pdf.bundle.min.js')) ?>" data-thermal-pdf-print="1"></script>
+  <?php else: ?>
   <script src="<?= h(asset('js/print-sheet.js')) ?>"></script>
+  <?php endif; ?>
 </body>
 </html>
     <?php
