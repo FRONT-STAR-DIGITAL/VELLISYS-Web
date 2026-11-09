@@ -379,6 +379,7 @@ layout_start('Settings', $user);
 <div class="settings-layout">
   <aside class="settings-toc">
     <a href="#account"><?= icon('lock', 16) ?>Account</a>
+    <a href="#finances"><?= icon('wallet', 16) ?>Finances</a>
     <a href="#notifications"><?= icon('bell', 16) ?>Notifications</a>
     <a href="#people"><?= icon('user', 16) ?>People</a>
     <a href="#appearance"><?= icon('palette', 16) ?>Appearance</a>
@@ -419,6 +420,92 @@ layout_start('Settings', $user);
           <?php endif; ?>
         </div>
       </div>
+    </section>
+
+    <?php
+      $financeCo = $deskCompany ?: db_one('SELECT * FROM companies WHERE id = ?', 'i', [current_company_id()]);
+      $deskStatus = function_exists('company_desk_status_summary')
+          ? company_desk_status_summary($financeCo ?: [])
+          : ['key' => 'unknown', 'label' => 'Unknown', 'detail' => '', 'tone' => 'muted'];
+      $feeCur = $financeCo ? company_fee_currency($financeCo) : default_currency();
+      $feeAmount = $financeCo ? company_fee_amount($financeCo) : 0.0;
+      $feePaid = $financeCo ? company_fee_paid($financeCo) : 0.0;
+      $feeBalance = $financeCo ? company_fee_balance($financeCo) : 0.0;
+      $isTestingDesk = $financeCo && function_exists('company_is_testing') && company_is_testing($financeCo);
+      $termLabel = $financeCo ? company_term_label($financeCo) : 'Not set';
+      $expiresOn = $financeCo ? company_expires_on($financeCo) : null;
+      $timeLeft = $financeCo ? company_remaining_phrase($financeCo) : 'No paid term set';
+      $expiryWhen = $financeCo ? company_expiry_date_label($financeCo) : 'Expiry not set';
+      $expiryState = $financeCo ? company_expiry_state($financeCo) : 'none';
+      $paidFrom = trim((string) ($financeCo['paid_from'] ?? ''));
+      $testingLeft = ($isTestingDesk && function_exists('company_testing_remaining_label'))
+          ? company_testing_remaining_label($financeCo)
+          : '';
+      $testingExp = ($isTestingDesk && function_exists('company_testing_expires_at'))
+          ? company_testing_expires_at($financeCo)
+          : null;
+    ?>
+    <section class="card settings-card" id="finances">
+      <h2><?= icon('wallet') ?>Finances</h2>
+      <p class="lede">What this desk has paid Vellisys for the system, what is still owed, and when access ends. Status shows whether you are on testing or already onboarded.</p>
+
+      <div class="finance-status finance-status-<?= h((string) ($deskStatus['tone'] ?? 'muted')) ?>">
+        <span class="finance-status-pill"><?= h((string) ($deskStatus['label'] ?? 'Unknown')) ?></span>
+        <p class="finance-status-detail"><?= h((string) ($deskStatus['detail'] ?? '')) ?></p>
+      </div>
+
+      <?php if ($isTestingDesk): ?>
+        <div class="finance-metrics">
+          <div>
+            <span>Status</span>
+            <strong>On testing</strong>
+          </div>
+          <div>
+            <span>Time left on testing</span>
+            <strong><?= h($testingLeft !== '' ? $testingLeft : 'No end date') ?></strong>
+          </div>
+          <div>
+            <span>Testing ends</span>
+            <strong><?= h($testingExp ? format_date($testingExp->format('Y-m-d')) : 'Not set') ?></strong>
+          </div>
+          <div>
+            <span>System fee</span>
+            <strong>Waived while testing</strong>
+          </div>
+        </div>
+        <p class="hint">While you are on testing, Vellisys does not charge the paid term above. When you are onboarded, this page shows the fee, amount paid, balance and expiry.</p>
+      <?php else: ?>
+        <div class="finance-metrics">
+          <div>
+            <span>Amount paid</span>
+            <strong><?= h(money($feePaid, $feeCur)) ?></strong>
+          </div>
+          <div>
+            <span>Fee for this term</span>
+            <strong><?= h(money($feeAmount, $feeCur)) ?></strong>
+          </div>
+          <div>
+            <span>Balance</span>
+            <strong class="<?= $feeBalance > 0.009 ? 'finance-owe' : '' ?>"><?= h(money($feeBalance, $feeCur)) ?></strong>
+          </div>
+          <div>
+            <span>Paid term</span>
+            <strong><?= h($termLabel) ?></strong>
+          </div>
+          <div>
+            <span>Expires</span>
+            <strong class="finance-exp-<?= h($expiryState) ?>"><?= h($expiresOn ? format_date($expiresOn) : 'Not set') ?></strong>
+          </div>
+          <div>
+            <span>Time left</span>
+            <strong class="finance-exp-<?= h($expiryState) ?>"><?= h($timeLeft) ?></strong>
+          </div>
+        </div>
+        <p class="hint">
+          <?= h($expiryWhen) ?><?= $paidFrom !== '' ? ' · Term started ' . h(format_date($paidFrom)) : '' ?>.
+          Figures come from the Vellisys paid term on this company. Ask Vellisys if something looks wrong.
+        </p>
+      <?php endif; ?>
     </section>
 
     <?php render_push_settings_card(); ?>

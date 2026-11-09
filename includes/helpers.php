@@ -4917,6 +4917,77 @@ function company_fee_balance(array $company): float
     return max(0, round(company_fee_amount($company) - company_fee_paid($company), 2));
 }
 
+/**
+ * Desk lifecycle for company Settings → Finances.
+ * Testing desks stay “On testing” even if status is live.
+ *
+ * @return array{key:string,label:string,detail:string,tone:string}
+ */
+function company_desk_status_summary(?array $company = null): array
+{
+    $company = $company ?? (function_exists('current_company') ? current_company() : null);
+    if (!$company) {
+        return [
+            'key' => 'unknown',
+            'label' => 'Unknown',
+            'detail' => 'No company loaded.',
+            'tone' => 'muted',
+        ];
+    }
+    if (function_exists('company_is_testing') && company_is_testing($company)) {
+        $expired = function_exists('company_testing_expired') && company_testing_expired($company);
+        $left = function_exists('company_testing_remaining_label')
+            ? company_testing_remaining_label($company)
+            : '';
+        $exp = function_exists('company_testing_expires_at') ? company_testing_expires_at($company) : null;
+        $when = $exp && function_exists('format_date')
+            ? format_date($exp->format('Y-m-d'))
+            : '';
+        if ($expired) {
+            return [
+                'key' => 'testing_ended',
+                'label' => 'Testing ended',
+                'detail' => $when !== '' ? ('Ended ' . $when) : 'Testing period has ended.',
+                'tone' => 'danger',
+            ];
+        }
+        $detail = 'On testing';
+        if ($left !== '') {
+            $detail .= ' · ' . $left;
+        }
+        if ($when !== '') {
+            $detail .= ' · ends ' . $when;
+        }
+        return [
+            'key' => 'testing',
+            'label' => 'On testing',
+            'detail' => $detail,
+            'tone' => 'warn',
+        ];
+    }
+    $status = strtolower(trim((string) ($company['status'] ?? 'onboarding')));
+    return match ($status) {
+        'live' => [
+            'key' => 'onboarded',
+            'label' => 'Onboarded',
+            'detail' => 'Live desk on a paid Vellisys term.',
+            'tone' => 'ok',
+        ],
+        'suspended' => [
+            'key' => 'suspended',
+            'label' => 'Suspended',
+            'detail' => 'This desk is suspended. Contact Vellisys.',
+            'tone' => 'danger',
+        ],
+        default => [
+            'key' => 'onboarding',
+            'label' => 'Onboarding',
+            'detail' => 'Not yet marked live. Vellisys is still setting the desk up.',
+            'tone' => 'muted',
+        ],
+    };
+}
+
 function onboard_step_defs(): array
 {
     return [
