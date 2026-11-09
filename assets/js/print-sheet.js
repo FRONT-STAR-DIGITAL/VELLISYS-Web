@@ -16,9 +16,7 @@
     var sheet = (root || document).querySelector('.invoice-sheet');
     if (!sheet || sheet.classList.contains('sheet-thermal')) return;
     sheet.style.minHeight = '0';
-    // A4 is 297mm tall; Trade Document is A5 (210mm).
-    var pageMm = sheet.classList.contains('sheet-trade') ? 210 : 297;
-    var pagePx = (pageMm * 96) / 25.4;
+    var pagePx = (297 * 96) / 25.4;
     if (sheet.offsetHeight > pagePx + 8) {
       sheet.classList.add('is-multipage');
       (root || document).documentElement.classList.add('is-multipage');
@@ -69,6 +67,30 @@
       stage.style.overflow = 'visible';
     });
   }
+  /**
+   * Chrome drops `@page { size: 80mm auto }` (invalid). Without a real height the
+   * job falls back to A4/Letter and many 80mm roll printers refuse or feed blank.
+   * Measure the laid-out slip and declare an explicit 80mm × Nmm page.
+   */
+  function setThermalPageSize(doc) {
+    var sheet = (doc || document).querySelector('.invoice-sheet.sheet-thermal');
+    if (!sheet) return;
+    var rect = sheet.getBoundingClientRect();
+    var px = Math.max(rect.height || 0, sheet.scrollHeight || 0, sheet.offsetHeight || 0);
+    // CSS px → mm, plus a small buffer so the cutter does not clip the last line.
+    var mm = Math.ceil((px * 25.4) / 96) + 4;
+    if (!isFinite(mm) || mm < 40) mm = 120;
+    if (mm > 4000) mm = 4000;
+    var style = (doc || document).getElementById('thermal-page-size');
+    if (!style) {
+      style = (doc || document).createElement('style');
+      style.id = 'thermal-page-size';
+      (doc || document).head.appendChild(style);
+    }
+    style.textContent =
+      '@page { size: 80mm ' + mm + 'mm; margin: 0; }' +
+      '@page thermal-roll { size: 80mm ' + mm + 'mm; margin: 0; }';
+  }
   function applyScreenFit() {
     if (typeof window.fitDocumentSheets === 'function') {
       window.fitDocumentSheets();
@@ -98,6 +120,7 @@
     scrubLocation();
     stripPrintUrls(document);
     markPages(document);
+    setThermalPageSize(document);
     window.focus();
     window.print();
   }
@@ -105,6 +128,7 @@
     clearFit();
     scrubLocation();
     stripPrintUrls(document);
+    setThermalPageSize(document);
   });
   window.addEventListener('afterprint', function () {
     restoreLocation();

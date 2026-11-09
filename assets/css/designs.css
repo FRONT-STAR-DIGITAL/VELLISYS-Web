@@ -2290,6 +2290,11 @@
   size: A5;
   margin: 0;
 }
+/* Explicit height — Chrome ignores `size: 80mm auto` and falls back to A4. */
+@page thermal-roll {
+  size: 80mm 297mm;
+  margin: 0;
+}
 
 @media print {
   .desk-body::before { display: none !important; }
@@ -2413,6 +2418,7 @@
     max-width: 210mm !important;
   }
   .invoice-sheet.sheet-thermal {
+    page: thermal-roll;
     width: 80mm !important;
     max-width: 80mm !important;
     min-height: 0 !important;
@@ -2432,6 +2438,7 @@
     overflow: visible !important;
   }
   .print-thermal .invoice-sheet {
+    page: thermal-roll;
     margin: 0 !important;
     page-break-after: auto !important;
     break-after: auto !important;

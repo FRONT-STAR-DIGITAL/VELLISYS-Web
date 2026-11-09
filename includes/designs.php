@@ -847,7 +847,9 @@ function render_print_document_page(array $doc, bool $pdf = false): void
     $templateKey = doc_template_key($doc);
     $thermal = $templateKey === 'thermal' && ($doc['kind'] ?? '') !== 'custom' && ($doc['kind'] ?? '') !== 'expense';
     $trade = $templateKey === 'trade' && ($doc['kind'] ?? '') !== 'custom' && ($doc['kind'] ?? '') !== 'expense';
-    $pageSize = $thermal ? '80mm auto' : ($trade ? 'A5' : 'A4');
+    // Chrome ignores `80mm auto` (invalid). Use a real height; print-sheet.js
+    // rewrites this to the measured slip height right before window.print().
+    $pageSize = $thermal ? '80mm 297mm' : ($trade ? 'A5' : 'A4');
     ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -863,6 +865,13 @@ function render_print_document_page(array $doc, bool $pdf = false): void
   <style>
     :root { <?= brand_css_vars() ?> }
     @page { size: <?= $pageSize ?>; margin: 0; }
+    <?php if ($thermal): ?>
+    @page thermal-roll { size: 80mm 297mm; margin: 0; }
+    .invoice-sheet.sheet-thermal { page: thermal-roll; }
+    <?php elseif ($trade): ?>
+    @page trade-a5 { size: A5; margin: 0; }
+    .invoice-sheet.sheet-trade { page: trade-a5; }
+    <?php endif; ?>
   </style>
 </head>
 <body class="print-body<?= $thermal ? ' print-thermal' : '' ?><?= $trade ? ' print-trade' : '' ?>">

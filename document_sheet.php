@@ -27,7 +27,8 @@ $thermal = $templateKey === 'thermal'
 $trade = $templateKey === 'trade'
     && ($doc['kind'] ?? '') !== 'custom'
     && ($doc['kind'] ?? '') !== 'expense';
-$pageSize = $thermal ? '80mm auto' : ($trade ? 'A5' : 'A4');
+// Chrome ignores `80mm auto` (invalid) — use a real height for thermal rolls.
+$pageSize = $thermal ? '80mm 297mm' : ($trade ? 'A5' : 'A4');
 $filename = document_download_filename($doc);
 $auto = isset($_GET['autodownload']);
 ?>
@@ -44,6 +45,13 @@ $auto = isset($_GET['autodownload']);
   <style>
     :root { <?= brand_css_vars($brand) ?> }
     @page { size: <?= $pageSize ?>; margin: 0; }
+    <?php if ($thermal): ?>
+    @page thermal-roll { size: 80mm 297mm; margin: 0; }
+    .invoice-sheet.sheet-thermal { page: thermal-roll; }
+    <?php elseif ($trade): ?>
+    @page trade-a5 { size: A5; margin: 0; }
+    .invoice-sheet.sheet-trade { page: trade-a5; }
+    <?php endif; ?>
     html, body, body.print-body, .invoice-sheet, .invoice-sheet * {
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;

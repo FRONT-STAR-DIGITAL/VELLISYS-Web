@@ -2129,7 +2129,8 @@ function document_sheet_print_html(array $doc): string
     $trade = $templateKey === 'trade'
         && ($doc['kind'] ?? '') !== 'custom'
         && ($doc['kind'] ?? '') !== 'expense';
-    $pageSize = $thermal ? '80mm auto' : ($trade ? 'A5' : 'A4');
+    // Chrome ignores `80mm auto` (invalid) — use a real height for thermal rolls.
+    $pageSize = $thermal ? '80mm 297mm' : ($trade ? 'A5' : 'A4');
     $appCss = document_rewrite_css_urls((string) file_get_contents(ROOT_PATH . '/assets/css/app.css'), ROOT_PATH . '/assets/css');
     $designCss = document_rewrite_css_urls((string) file_get_contents(ROOT_PATH . '/assets/css/designs.css'), ROOT_PATH . '/assets/css');
     ob_start();
@@ -2145,6 +2146,13 @@ function document_sheet_print_html(array $doc): string
   <style>
     :root { <?= brand_css_vars($brand) ?> }
     @page { size: <?= $pageSize ?>; margin: 0; }
+    <?php if ($thermal): ?>
+    @page thermal-roll { size: 80mm 297mm; margin: 0; }
+    .invoice-sheet.sheet-thermal { page: thermal-roll; }
+    <?php elseif ($trade): ?>
+    @page trade-a5 { size: A5; margin: 0; }
+    .invoice-sheet.sheet-trade { page: trade-a5; }
+    <?php endif; ?>
     html, body, body.print-body, .invoice-sheet, .invoice-sheet * {
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;

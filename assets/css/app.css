@@ -4959,6 +4959,8 @@ body.tut-lightbox-open { overflow: hidden; }
 }
 @page { size: A4; margin: 0; }
 @page trade-a5 { size: A5; margin: 0; }
+/* Explicit height — Chrome ignores `size: 80mm auto` and falls back to A4. */
+@page thermal-roll { size: 80mm 297mm; margin: 0; }
 @media print {
   .desk-calc { display: none !important; }
   .app-tabbar { display: none !important; }
@@ -5000,6 +5002,7 @@ body.tut-lightbox-open { overflow: hidden; }
     break-after: avoid;
   }
   .invoice-sheet.sheet-thermal {
+    page: thermal-roll;
     width: 80mm !important;
     max-width: 80mm !important;
     min-height: 0 !important;
@@ -5016,6 +5019,9 @@ body.tut-lightbox-open { overflow: hidden; }
     width: 148mm !important;
     max-width: 148mm !important;
     padding: 2mm 2mm 2.5mm !important;
+  }
+  .print-thermal .invoice-sheet {
+    page: thermal-roll;
   }
   .print-trade,
   .print-trade .sheet-wrap,

@@ -66,7 +66,8 @@ $thermal = $templateKey === 'thermal'
 $trade = $templateKey === 'trade'
     && ($doc['kind'] ?? '') !== 'custom'
     && ($doc['kind'] ?? '') !== 'expense';
-$pageSize = $thermal ? '80mm auto' : ($trade ? 'A5' : 'A4');
+// Chrome ignores `80mm auto` (invalid) — use a real height for thermal rolls.
+$pageSize = $thermal ? '80mm 297mm' : ($trade ? 'A5' : 'A4');
 $fitOff = $asSheet || $auto;
 ?>
 <!DOCTYPE html>
@@ -84,6 +85,13 @@ $fitOff = $asSheet || $auto;
   <style>
     :root { <?= brand_css_vars($brand) ?> }
     @page { size: <?= $pageSize ?>; margin: 0; }
+    <?php if ($thermal): ?>
+    @page thermal-roll { size: 80mm 297mm; margin: 0; }
+    .invoice-sheet.sheet-thermal { page: thermal-roll; }
+    <?php elseif ($trade): ?>
+    @page trade-a5 { size: A5; margin: 0; }
+    .invoice-sheet.sheet-trade { page: trade-a5; }
+    <?php endif; ?>
     .share-toolbar {
       max-width: <?= $trade ? '148mm' : '210mm' ?>;
       margin: 16px auto;
