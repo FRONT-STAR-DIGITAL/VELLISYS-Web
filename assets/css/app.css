@@ -2995,6 +2995,7 @@ table.grid tfoot td {
   right: 0;
   bottom: 0;
   z-index: 40;
+  flex-direction: column;
   gap: 10px;
   padding: 12px max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
   background: rgba(255, 255, 255, .96);
@@ -3003,8 +3004,19 @@ table.grid tfoot td {
 }
 html.print-preview .print-bar {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: stretch;
+}
+.print-bar-tip {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.print-bar-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
 }
 html.print-preview .print-bar .btn {
   flex: 1;

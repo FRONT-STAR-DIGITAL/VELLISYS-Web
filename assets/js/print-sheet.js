@@ -138,6 +138,10 @@
     window.setTimeout(applyScreenFit, 50);
   });
 
+  function isThermalPrint() {
+    return !!(document.body && document.body.classList.contains('print-thermal'))
+      || !!document.querySelector('.invoice-sheet.sheet-thermal');
+  }
   function boot() {
     applyScreenFit();
     window.setTimeout(applyScreenFit, 80);
@@ -148,8 +152,9 @@
       e.preventDefault();
       openPrint();
     });
-    // Narrow phones: show a fitted preview; user taps Print. Wider screens auto-print.
-    if (isNarrow()) {
+    // Thermal (often Bluetooth): always preview first so the user can pick the
+    // paired printer and set 80mm / 100% scale. Narrow phones: same for A4/A5.
+    if (isThermalPrint() || isNarrow()) {
       document.documentElement.classList.add('print-preview');
       return;
     }

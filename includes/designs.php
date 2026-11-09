@@ -881,8 +881,16 @@ function render_print_document_page(array $doc, bool $pdf = false): void
     </div>
   </div>
   <div class="print-bar" data-print-bar>
-    <button type="button" class="btn" data-print-pdf><?= icon('printer', 16) ?>Print</button>
-    <a class="btn ghost" href="<?= h(url('document_view.php?id=' . (int) ($doc['id'] ?? 0))) ?>">Back</a>
+    <?php if ($thermal): ?>
+      <p class="print-bar-tip" data-print-tip>
+        Bluetooth: pair the printer in phone or computer settings first, then tap Print and choose it.
+        Paper 80&nbsp;mm, margins none, scale 100%&nbsp;/&nbsp;actual size. Do not fit to page.
+      </p>
+    <?php endif; ?>
+    <div class="print-bar-actions">
+      <button type="button" class="btn" data-print-pdf><?= icon('printer', 16) ?>Print</button>
+      <a class="btn ghost" href="<?= h(url('document_view.php?id=' . (int) ($doc['id'] ?? 0))) ?>">Back</a>
+    </div>
   </div>
   <script src="<?= h(asset('js/sheet-fit.js')) ?>"></script>
   <script src="<?= h(asset('js/print-sheet.js')) ?>"></script>
