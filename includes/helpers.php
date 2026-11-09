@@ -506,7 +506,7 @@ function doc_templates(): array
         ],
         'thermal' => [
             'name' => 'Thermal roll',
-            'blurb' => 'Narrow 80mm receipt for a thermal printer. Prints as a roll, not A4.',
+            'blurb' => 'Narrow receipt for a thermal printer (58mm pocket Bluetooth or 80mm counter). Prints as a roll, not A4.',
         ],
         'booklet' => [
             'name' => 'Counter booklet',
@@ -1181,6 +1181,7 @@ function folio_defaults(): array
         'invoice_comments' => '',
         'receipt_comments' => '',
         'thanks_message' => 'Thank you',
+        'thermal_width_mm' => 58,
         'letter_templates' => '',
         'doc_template' => 'folio',
         'doc_template_quotation' => '',
@@ -1290,6 +1291,21 @@ function brand_thanks_message(?array $brand = null): string
     return $msg !== '' ? mb_substr($msg, 0, 120) : 'Thank you';
 }
 
+/**
+ * Thermal roll paper width in millimetres: 58 (pocket Bluetooth) or 80 (counter).
+ * Wrong width makes the slip print as a tiny strip down the middle of the paper.
+ */
+function brand_thermal_width_mm(?array $brand = null): int
+{
+    $raw = null;
+    if (is_array($brand) && array_key_exists('thermal_width_mm', $brand)) {
+        $raw = $brand['thermal_width_mm'];
+    } elseif (function_exists('branding')) {
+        $raw = branding()['thermal_width_mm'] ?? null;
+    }
+    return ((int) $raw) === 80 ? 80 : 58;
+}
+
 function parse_hex_color(?string $raw, string $fallback = '#82B440'): string
 {
     $c = strtoupper(trim((string) $raw));
@@ -1381,6 +1397,7 @@ function brand_palette(?array $brand = null): array
 function brand_css_vars(?array $brand = null): string
 {
     $p = brand_palette($brand);
+    $thermalMm = function_exists('brand_thermal_width_mm') ? brand_thermal_width_mm($brand) : 58;
     return '--brand:' . $p['primary']
         . ';--brand-2:' . $p['accent']
         . ';--brand-3:' . $p['deep']
@@ -1391,7 +1408,8 @@ function brand_css_vars(?array $brand = null): string
         . ';--on-brand-2:' . $p['on_accent']
         . ';--on-brand-3:' . $p['on_deep']
         . ';--brand-ink:' . $p['deep']
-        . ';--nav:' . $p['deep'];
+        . ';--nav:' . $p['deep']
+        . ';--thermal-mm:' . (int) $thermalMm;
 }
 
 function brand_color(): string

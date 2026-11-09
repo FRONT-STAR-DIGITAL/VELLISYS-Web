@@ -1169,12 +1169,12 @@
   margin-bottom: 6px;
 }
 
-/* Thermal roll - 80mm receipt (heavy ink for thermal printers) */
+/* Thermal roll — width from --thermal-mm (58 pocket Bluetooth / 80 counter). */
 .invoice-sheet.sheet-thermal {
-  width: 80mm;
-  max-width: 80mm;
+  width: calc(var(--thermal-mm, 58) * 1mm);
+  max-width: calc(var(--thermal-mm, 58) * 1mm);
   min-height: 0;
-  padding: 5mm 4mm 7mm;
+  padding: 4mm 2.8mm 6mm;
   font-size: 12px;
   font-weight: 600;
   color: #000;
@@ -1186,6 +1186,12 @@
   text-shadow: 0.2px 0 0 #000, -0.2px 0 0 #000;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
+  box-sizing: border-box;
+}
+/* 80mm counter rolls get a touch more side padding. */
+.invoice-sheet.sheet-thermal[data-thermal-mm="80"],
+body.print-thermal[data-thermal-mm="80"] .invoice-sheet.sheet-thermal {
+  padding: 5mm 4mm 7mm;
 }
 .thermal-head { text-align: center; color: #000; }
 .thermal-head .d-logo,
@@ -2292,6 +2298,10 @@
 }
 /* Explicit height — Chrome ignores `size: 80mm auto` and falls back to A4. */
 @page thermal-roll {
+  size: 58mm 297mm;
+  margin: 0;
+}
+@page thermal-roll-80 {
   size: 80mm 297mm;
   margin: 0;
 }
@@ -2419,20 +2429,25 @@
   }
   .invoice-sheet.sheet-thermal {
     page: thermal-roll;
-    width: 80mm !important;
-    max-width: 80mm !important;
+    width: calc(var(--thermal-mm, 58) * 1mm) !important;
+    max-width: calc(var(--thermal-mm, 58) * 1mm) !important;
     min-height: 0 !important;
-    padding: 4mm 3.5mm 6mm !important;
+    padding: 3.5mm 2.5mm 5mm !important;
     page-break-after: auto !important;
     break-after: auto !important;
     page-break-inside: auto !important;
     break-inside: auto !important;
   }
+  body.print-thermal[data-thermal-mm="80"] .invoice-sheet.sheet-thermal,
+  .invoice-sheet.sheet-thermal[data-thermal-mm="80"] {
+    page: thermal-roll-80;
+    padding: 4mm 3.5mm 6mm !important;
+  }
   .print-thermal,
   .print-thermal .sheet-wrap,
   .print-thermal .sheet-stage {
-    width: 80mm !important;
-    max-width: 80mm !important;
+    width: calc(var(--thermal-mm, 58) * 1mm) !important;
+    max-width: calc(var(--thermal-mm, 58) * 1mm) !important;
     margin: 0 !important;
     padding: 0 !important;
     overflow: visible !important;
@@ -2442,6 +2457,9 @@
     margin: 0 !important;
     page-break-after: auto !important;
     break-after: auto !important;
+  }
+  body.print-thermal[data-thermal-mm="80"] .invoice-sheet {
+    page: thermal-roll-80;
   }
   .bond-head {
     flex-direction: row !important;
@@ -2819,15 +2837,20 @@
 }
 .invoice-sheet.sheet-thermal .doc-auth-qr,
 .print-thermal .doc-auth-qr {
+  width: 64px;
+  height: 64px;
+  flex: 0 0 auto;
+}
+body.print-thermal[data-thermal-mm="80"] .doc-auth-qr,
+.invoice-sheet.sheet-thermal[data-thermal-mm="80"] .doc-auth-qr {
   width: 78px;
   height: 78px;
-  flex: 0 0 auto;
 }
 .invoice-sheet.sheet-thermal .doc-auth-qr img,
 .print-thermal .doc-auth-qr img {
   display: block;
-  width: 78px;
-  height: 78px;
+  width: 100%;
+  height: 100%;
   /* Solid chunky modules - soft scaling / gray edges fail on thermal */
   image-rendering: pixelated;
   image-rendering: crisp-edges;

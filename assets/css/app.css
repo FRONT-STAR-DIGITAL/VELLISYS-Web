@@ -2482,11 +2482,12 @@ input:focus, select:focus, textarea:focus {
   min-height: 210mm;
 }
 .invoice-sheet.sheet-thermal {
-  width: 80mm;
-  max-width: 80mm;
+  width: calc(var(--thermal-mm, 58) * 1mm);
+  max-width: calc(var(--thermal-mm, 58) * 1mm);
   min-height: 0;
-  padding: 6mm 4.5mm 8mm;
+  padding: 4mm 2.8mm 6mm;
   font-size: 12px;
+  box-sizing: border-box;
 }
 table.grid tfoot td {
   font-weight: 700;
@@ -4972,7 +4973,8 @@ body.tut-lightbox-open { overflow: hidden; }
 @page { size: A4; margin: 0; }
 @page trade-a5 { size: A5; margin: 0; }
 /* Explicit height — Chrome ignores `size: 80mm auto` and falls back to A4. */
-@page thermal-roll { size: 80mm 297mm; margin: 0; }
+@page thermal-roll { size: 58mm 297mm; margin: 0; }
+@page thermal-roll-80 { size: 80mm 297mm; margin: 0; }
 @media print {
   .desk-calc { display: none !important; }
   .app-tabbar { display: none !important; }
@@ -5015,11 +5017,14 @@ body.tut-lightbox-open { overflow: hidden; }
   }
   .invoice-sheet.sheet-thermal {
     page: thermal-roll;
-    width: 80mm !important;
-    max-width: 80mm !important;
+    width: calc(var(--thermal-mm, 58) * 1mm) !important;
+    max-width: calc(var(--thermal-mm, 58) * 1mm) !important;
     min-height: 0 !important;
     page-break-after: auto !important;
     break-after: auto !important;
+  }
+  body.print-thermal[data-thermal-mm="80"] .invoice-sheet.sheet-thermal {
+    page: thermal-roll-80;
   }
   .invoice-sheet:not(.sheet-thermal):not(.sheet-twin):not(.sheet-trade) {
     width: 210mm !important;
@@ -5034,6 +5039,9 @@ body.tut-lightbox-open { overflow: hidden; }
   }
   .print-thermal .invoice-sheet {
     page: thermal-roll;
+  }
+  body.print-thermal[data-thermal-mm="80"] .invoice-sheet {
+    page: thermal-roll-80;
   }
   .print-trade,
   .print-trade .sheet-wrap,
@@ -7908,3 +7916,24 @@ body.has-upload-progress .app-tabbar {
   width: 100%;
   margin-top: 6px;
 }
+
+/* Settings: thermal paper width radios */
+.thermal-width-pick {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+.thermal-width-pick legend {
+  padding: 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.thermal-width-pick .check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 6px 0;
+}
+.thermal-width-pick .hint { margin: 8px 0 0; }

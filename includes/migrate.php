@@ -421,6 +421,22 @@ function folio_ensure_thanks_message(mysqli $db): void
     }
 }
 
+/** Pocket Bluetooth printers are usually 58mm; counter rolls are 80mm. */
+function folio_ensure_thermal_width_mm(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    if (!db_has_column($db, 'branding', 'thermal_width_mm')) {
+        // Default 58mm so handheld Bluetooth printers fill the roll (80mm layout
+        // was shrinking to a tiny strip on 58mm paper). Counter desks can pick 80.
+        @$db->query('ALTER TABLE branding ADD COLUMN thermal_width_mm TINYINT UNSIGNED NOT NULL DEFAULT 58');
+        db_has_column($db, 'branding', 'thermal_width_mm', true);
+    }
+}
+
 function folio_ensure_logo_bg(mysqli $db): void
 {
     static $ready = false;
@@ -1152,6 +1168,7 @@ function folio_migrate(mysqli $db): void
     folio_ensure_kind_doc_templates($db);
     folio_ensure_company_modules($db);
     folio_ensure_thanks_message($db);
+    folio_ensure_thermal_width_mm($db);
     folio_ensure_party_status($db);
     folio_ensure_branches($db);
     folio_ensure_trust_logos($db);

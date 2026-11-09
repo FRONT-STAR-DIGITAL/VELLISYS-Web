@@ -69,29 +69,50 @@
       stage.style.overflow = 'visible';
     });
   }
+  function thermalWidthMm(doc) {
+    var root = doc || document;
+    var body = root.body;
+    var sheet = root.querySelector('.invoice-sheet.sheet-thermal');
+    var raw = (body && body.getAttribute('data-thermal-mm'))
+      || (sheet && sheet.getAttribute('data-thermal-mm'))
+      || '';
+    var n = parseInt(raw, 10);
+    if (n === 80) return 80;
+    if (n === 58) return 58;
+    try {
+      var cssMm = getComputedStyle(root.documentElement).getPropertyValue('--thermal-mm');
+      n = parseInt(String(cssMm || '').trim(), 10);
+      if (n === 80) return 80;
+    } catch (e) {}
+    return 58;
+  }
   /**
    * Chrome drops `@page { size: 80mm auto }` (invalid). Without a real height the
-   * job falls back to A4/Letter and many 80mm roll printers refuse or feed blank.
-   * Measure the laid-out slip and declare an explicit 80mm × Nmm page.
+   * job falls back to A4/Letter and many roll printers refuse or shrink the slip.
+   * Measure the laid-out slip and declare an explicit Wmm × Nmm page (58 or 80).
    */
   function setThermalPageSize(doc) {
-    var sheet = (doc || document).querySelector('.invoice-sheet.sheet-thermal');
+    var root = doc || document;
+    var sheet = root.querySelector('.invoice-sheet.sheet-thermal');
     if (!sheet) return;
+    var widthMm = thermalWidthMm(root);
+    var pageName = widthMm === 80 ? 'thermal-roll-80' : 'thermal-roll';
     var rect = sheet.getBoundingClientRect();
     var px = Math.max(rect.height || 0, sheet.scrollHeight || 0, sheet.offsetHeight || 0);
     // CSS px → mm, plus a small buffer so the cutter does not clip the last line.
     var mm = Math.ceil((px * 25.4) / 96) + 4;
     if (!isFinite(mm) || mm < 40) mm = 120;
     if (mm > 4000) mm = 4000;
-    var style = (doc || document).getElementById('thermal-page-size');
+    var style = root.getElementById('thermal-page-size');
     if (!style) {
-      style = (doc || document).createElement('style');
+      style = root.createElement('style');
       style.id = 'thermal-page-size';
-      (doc || document).head.appendChild(style);
+      root.head.appendChild(style);
     }
     style.textContent =
-      '@page { size: 80mm ' + mm + 'mm; margin: 0; }' +
-      '@page thermal-roll { size: 80mm ' + mm + 'mm; margin: 0; }';
+      '@page { size: ' + widthMm + 'mm ' + mm + 'mm; margin: 0; }' +
+      '@page ' + pageName + ' { size: ' + widthMm + 'mm ' + mm + 'mm; margin: 0; }' +
+      '.invoice-sheet.sheet-thermal { page: ' + pageName + '; }';
   }
   function applyScreenFit() {
     if (typeof window.fitDocumentSheets === 'function') {

@@ -179,6 +179,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $thanksMsg = 'Thank you';
         }
         $thanksMsg = mb_substr($thanksMsg, 0, 120);
+        $thermalWidthMm = (int) post('thermal_width_mm') === 80 ? 80 : 58;
         // Cap to column widths so long phones / fields never fatal the whole settings save.
         $brandName = mb_substr(post('name'), 0, 160);
         $brandTagline = mb_substr(trim((string) post('tagline')), 0, 180);
@@ -300,6 +301,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if ($error === '') {
         $tpl = array_key_exists(post('doc_template'), doc_templates()) ? post('doc_template') : 'folio';
+        if (isset($thermalWidthMm) && function_exists('db_has_column') && db_has_column(db(), 'branding', 'thermal_width_mm')) {
+            db_exec(
+                'UPDATE branding SET thermal_width_mm = ? WHERE company_id = ?',
+                'ii',
+                [$thermalWidthMm, current_company_id()]
+            );
+        }
         // Do not rewrite every document's design - overall + per-kind defaults apply to new sheets.
         branding(true);
         if (function_exists('document_pdf_cache_clear_company')) {
@@ -844,7 +852,22 @@ layout_start('Settings', $user);
 
     <section class="card settings-card" id="templates">
       <h2><?= icon('palette') ?>Document designs</h2>
-      <p class="lede">Layouts on white paper with black type and your brand colours. The overall design below is the company default for every sheet. You can then set quotations, invoices and receipts to their own layouts - for example Folio bar on quotations and Thermal roll on receipts - without one choice rewriting the others. Existing documents keep the design already saved on them; new ones pick up these defaults. On small screens A4 pages are scaled to fit. Thermal roll is an 80mm receipt for a kitchen or shop printer. For a Bluetooth thermal printer, pair it in phone or computer settings first, then print and choose that printer with paper 80&nbsp;mm, margins none, and scale 100% (not fit to page).</p>
+      <p class="lede">Layouts on white paper with black type and your brand colours. The overall design below is the company default for every sheet. You can then set quotations, invoices and receipts to their own layouts - for example Folio bar on quotations and Thermal roll on receipts - without one choice rewriting the others. Existing documents keep the design already saved on them; new ones pick up these defaults. On small screens A4 pages are scaled to fit. Thermal roll is a narrow receipt for a kitchen or Bluetooth shop printer - pick 58&nbsp;mm or 80&nbsp;mm below so the slip fills the paper.</p>
+      <?php
+        $thermalMm = function_exists('brand_thermal_width_mm') ? brand_thermal_width_mm($b) : 58;
+      ?>
+      <fieldset class="thermal-width-pick">
+        <legend>Thermal paper width</legend>
+        <label class="check">
+          <input type="radio" name="thermal_width_mm" value="58" <?= $thermalMm === 58 ? 'checked' : '' ?>>
+          58&nbsp;mm — pocket Bluetooth printers (most handheld rolls)
+        </label>
+        <label class="check">
+          <input type="radio" name="thermal_width_mm" value="80" <?= $thermalMm === 80 ? 'checked' : '' ?>>
+          80&nbsp;mm — counter / kitchen roll printers
+        </label>
+        <p class="hint">If the receipt prints as a tiny strip in the middle of the paper, choose 58&nbsp;mm. Pair the Bluetooth printer in phone or computer settings, then print with that paper size, margins none, and scale 100% (not fit to page).</p>
+      </fieldset>
       <label for="thanks_message">Thank you on thermal roll</label>
       <input id="thanks_message" name="thanks_message" maxlength="120" value="<?= h(($b['thanks_message'] ?? '') !== '' ? (string) $b['thanks_message'] : 'Thank you') ?>">
       <p class="hint">The bold line above your email and QR on the thermal receipt. Change it to whatever your clients should see (for example Thank you, or Asante sana). Leave blank to use Thank you.</p>

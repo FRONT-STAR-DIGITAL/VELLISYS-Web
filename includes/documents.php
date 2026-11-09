@@ -1957,6 +1957,7 @@ function document_brand_fingerprint(array $doc): string
         (string) ($brand['invoice_comments'] ?? ''),
         (string) ($brand['receipt_comments'] ?? ''),
         (string) ($brand['thanks_message'] ?? ''),
+        (string) ($brand['thermal_width_mm'] ?? '58'),
         (string) ($brand['currency'] ?? ''),
         (string) ($brand['fx_ugx_per_usd'] ?? ''),
         (string) ($brand['doc_template'] ?? ''),
@@ -2129,8 +2130,12 @@ function document_sheet_print_html(array $doc): string
     $trade = $templateKey === 'trade'
         && ($doc['kind'] ?? '') !== 'custom'
         && ($doc['kind'] ?? '') !== 'expense';
+    $thermalMm = $thermal && function_exists('brand_thermal_width_mm')
+        ? brand_thermal_width_mm($brand)
+        : 58;
     // Chrome ignores `80mm auto` (invalid) — use a real height for thermal rolls.
-    $pageSize = $thermal ? '80mm 297mm' : ($trade ? 'A5' : 'A4');
+    $pageSize = $thermal ? ($thermalMm . 'mm 297mm') : ($trade ? 'A5' : 'A4');
+    $thermalPageName = $thermalMm === 80 ? 'thermal-roll-80' : 'thermal-roll';
     $appCss = document_rewrite_css_urls((string) file_get_contents(ROOT_PATH . '/assets/css/app.css'), ROOT_PATH . '/assets/css');
     $designCss = document_rewrite_css_urls((string) file_get_contents(ROOT_PATH . '/assets/css/designs.css'), ROOT_PATH . '/assets/css');
     ob_start();
@@ -2147,8 +2152,9 @@ function document_sheet_print_html(array $doc): string
     :root { <?= brand_css_vars($brand) ?> }
     @page { size: <?= $pageSize ?>; margin: 0; }
     <?php if ($thermal): ?>
-    @page thermal-roll { size: 80mm 297mm; margin: 0; }
-    .invoice-sheet.sheet-thermal { page: thermal-roll; }
+    @page thermal-roll { size: 58mm 297mm; margin: 0; }
+    @page thermal-roll-80 { size: 80mm 297mm; margin: 0; }
+    .invoice-sheet.sheet-thermal { page: <?= $thermalPageName ?>; width: <?= (int) $thermalMm ?>mm !important; max-width: <?= (int) $thermalMm ?>mm !important; }
     <?php elseif ($trade): ?>
     @page trade-a5 { size: A5; margin: 0; }
     .invoice-sheet.sheet-trade { page: trade-a5; }
@@ -2172,8 +2178,8 @@ function document_sheet_print_html(array $doc): string
       break-after: avoid !important;
     }
     .invoice-sheet.sheet-thermal {
-      width: 80mm !important;
-      max-width: 80mm !important;
+      width: <?= (int) $thermalMm ?>mm !important;
+      max-width: <?= (int) $thermalMm ?>mm !important;
       min-height: 0 !important;
     }
     .invoice-sheet:not(.sheet-thermal):not(.sheet-trade) {
@@ -2211,7 +2217,10 @@ function document_sheet_print_html(array $doc): string
     .doc-authenticity { margin-top: 14px !important; }
   </style>
 </head>
-<body class="print-body<?= $thermal ? ' print-thermal' : '' ?><?= $trade ? ' print-trade' : '' ?>">
+<body
+  class="print-body<?= $thermal ? ' print-thermal' : '' ?><?= $trade ? ' print-trade' : '' ?>"
+  <?php if ($thermal): ?>data-thermal-mm="<?= (int) $thermalMm ?>"<?php endif; ?>
+>
   <div class="sheet-wrap">
     <div class="sheet-stage">
       <?php render_sheet($brand, $doc); ?>

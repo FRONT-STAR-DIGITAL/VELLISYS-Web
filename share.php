@@ -66,8 +66,12 @@ $thermal = $templateKey === 'thermal'
 $trade = $templateKey === 'trade'
     && ($doc['kind'] ?? '') !== 'custom'
     && ($doc['kind'] ?? '') !== 'expense';
+$thermalMm = $thermal && function_exists('brand_thermal_width_mm')
+    ? brand_thermal_width_mm($brand)
+    : 58;
 // Chrome ignores `80mm auto` (invalid) — use a real height for thermal rolls.
-$pageSize = $thermal ? '80mm 297mm' : ($trade ? 'A5' : 'A4');
+$pageSize = $thermal ? ($thermalMm . 'mm 297mm') : ($trade ? 'A5' : 'A4');
+$thermalPageName = $thermalMm === 80 ? 'thermal-roll-80' : 'thermal-roll';
 $fitOff = $asSheet || $auto;
 ?>
 <!DOCTYPE html>
@@ -86,14 +90,15 @@ $fitOff = $asSheet || $auto;
     :root { <?= brand_css_vars($brand) ?> }
     @page { size: <?= $pageSize ?>; margin: 0; }
     <?php if ($thermal): ?>
-    @page thermal-roll { size: 80mm 297mm; margin: 0; }
-    .invoice-sheet.sheet-thermal { page: thermal-roll; }
+    @page thermal-roll { size: 58mm 297mm; margin: 0; }
+    @page thermal-roll-80 { size: 80mm 297mm; margin: 0; }
+    .invoice-sheet.sheet-thermal { page: <?= $thermalPageName ?>; }
     <?php elseif ($trade): ?>
     @page trade-a5 { size: A5; margin: 0; }
     .invoice-sheet.sheet-trade { page: trade-a5; }
     <?php endif; ?>
     .share-toolbar {
-      max-width: <?= $trade ? '148mm' : '210mm' ?>;
+      max-width: <?= $trade ? '148mm' : ($thermal ? ((int) $thermalMm . 'mm') : '210mm') ?>;
       margin: 16px auto;
       padding: 0 16px;
       display: flex;
@@ -117,7 +122,10 @@ $fitOff = $asSheet || $auto;
       height: auto !important;
       min-height: 0 !important;
     }
-    .invoice-sheet.sheet-thermal { width: 80mm !important; max-width: 80mm !important; }
+    .invoice-sheet.sheet-thermal {
+      width: <?= (int) $thermalMm ?>mm !important;
+      max-width: <?= (int) $thermalMm ?>mm !important;
+    }
     .invoice-sheet:not(.sheet-thermal):not(.sheet-trade) {
       width: 210mm !important;
       max-width: 210mm !important;
@@ -149,6 +157,7 @@ $fitOff = $asSheet || $auto;
 <body
   class="print-body<?= $thermal ? ' print-thermal' : '' ?><?= $trade ? ' print-trade' : '' ?>"
   data-pdf-name="<?= h($pdfName) ?>"
+  <?php if ($thermal): ?>data-thermal-mm="<?= (int) $thermalMm ?>"<?php endif; ?>
   <?= $auto ? ' data-autodownload="1" data-pdf-exact="1"' : '' ?>
 >
   <?php if (!$print && !$asSheet && !$auto): ?>

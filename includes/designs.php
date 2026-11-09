@@ -847,9 +847,13 @@ function render_print_document_page(array $doc, bool $pdf = false): void
     $templateKey = doc_template_key($doc);
     $thermal = $templateKey === 'thermal' && ($doc['kind'] ?? '') !== 'custom' && ($doc['kind'] ?? '') !== 'expense';
     $trade = $templateKey === 'trade' && ($doc['kind'] ?? '') !== 'custom' && ($doc['kind'] ?? '') !== 'expense';
+    $thermalMm = $thermal && function_exists('brand_thermal_width_mm')
+        ? brand_thermal_width_mm($brand)
+        : 58;
     // Chrome ignores `80mm auto` (invalid). Use a real height; print-sheet.js
     // rewrites this to the measured slip height right before window.print().
-    $pageSize = $thermal ? '80mm 297mm' : ($trade ? 'A5' : 'A4');
+    $pageSize = $thermal ? ($thermalMm . 'mm 297mm') : ($trade ? 'A5' : 'A4');
+    $thermalPageName = $thermalMm === 80 ? 'thermal-roll-80' : 'thermal-roll';
     ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -863,18 +867,22 @@ function render_print_document_page(array $doc, bool $pdf = false): void
   <?php folio_css_links(true, true); ?>
   <?php folio_font_links(); ?>
   <style>
-    :root { <?= brand_css_vars() ?> }
+    :root { <?= brand_css_vars($brand) ?> }
     @page { size: <?= $pageSize ?>; margin: 0; }
     <?php if ($thermal): ?>
-    @page thermal-roll { size: 80mm 297mm; margin: 0; }
-    .invoice-sheet.sheet-thermal { page: thermal-roll; }
+    @page thermal-roll { size: 58mm 297mm; margin: 0; }
+    @page thermal-roll-80 { size: 80mm 297mm; margin: 0; }
+    .invoice-sheet.sheet-thermal { page: <?= $thermalPageName ?>; }
     <?php elseif ($trade): ?>
     @page trade-a5 { size: A5; margin: 0; }
     .invoice-sheet.sheet-trade { page: trade-a5; }
     <?php endif; ?>
   </style>
 </head>
-<body class="print-body<?= $thermal ? ' print-thermal' : '' ?><?= $trade ? ' print-trade' : '' ?>">
+<body
+  class="print-body<?= $thermal ? ' print-thermal' : '' ?><?= $trade ? ' print-trade' : '' ?>"
+  <?php if ($thermal): ?>data-thermal-mm="<?= (int) $thermalMm ?>"<?php endif; ?>
+>
   <div class="sheet-wrap">
     <div class="sheet-stage">
       <?php render_sheet($brand, $doc); ?>
@@ -884,7 +892,7 @@ function render_print_document_page(array $doc, bool $pdf = false): void
     <?php if ($thermal): ?>
       <p class="print-bar-tip" data-print-tip>
         Bluetooth: pair the printer in phone or computer settings first, then tap Print and choose it.
-        Paper 80&nbsp;mm, margins none, scale 100%&nbsp;/&nbsp;actual size. Do not fit to page.
+        Paper <?= (int) $thermalMm ?>&nbsp;mm, margins none, scale 100%&nbsp;/&nbsp;actual size. Do not fit to page.
       </p>
     <?php endif; ?>
     <div class="print-bar-actions">
@@ -2033,7 +2041,12 @@ function render_sheet_thermal(array $d): void
         $comment = trim((string) ($brand['receipt_comments'] ?? ''));
     }
     ?>
-<article class="invoice-sheet sheet-thermal" style="<?= h($d['vars']) ?>">
+<?php
+  $thermalMmSheet = function_exists('brand_thermal_width_mm')
+      ? brand_thermal_width_mm($brand)
+      : 58;
+?>
+<article class="invoice-sheet sheet-thermal" data-thermal-mm="<?= (int) $thermalMmSheet ?>" style="<?= h($d['vars']) ?>">
   <header class="thermal-head">
     <?php render_sheet_logo($d, 'd-logo xs'); ?>
     <strong class="sheet-brand-strong"><?= h($brand['name']) ?></strong>

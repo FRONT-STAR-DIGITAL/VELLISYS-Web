@@ -47,6 +47,19 @@
     return document.querySelector('.invoice-sheet');
   }
 
+  function thermalWidthMm(sheet) {
+    var raw = (sheet && sheet.getAttribute('data-thermal-mm'))
+      || (document.body && document.body.getAttribute('data-thermal-mm'))
+      || '';
+    var n = parseInt(raw, 10);
+    if (n === 80 || n === 58) return n;
+    try {
+      var cssMm = getComputedStyle(document.documentElement).getPropertyValue('--thermal-mm');
+      n = parseInt(String(cssMm || '').trim(), 10);
+      if (n === 80 || n === 58) return n;
+    } catch (e) {}
+    return 58;
+  }
   function unfitLiveSheet(sheet) {
     var stage = sheet.closest('.sheet-stage');
     var trade = isTradeSheet(sheet);
@@ -69,8 +82,9 @@
     sheet.style.margin = '0';
     sheet.style.marginLeft = '0';
     if (thermal) {
-      sheet.style.width = '80mm';
-      sheet.style.maxWidth = '80mm';
+      var tMm = thermalWidthMm(sheet) + 'mm';
+      sheet.style.width = tMm;
+      sheet.style.maxWidth = tMm;
     } else if (trade) {
       sheet.style.width = '148mm';
       sheet.style.maxWidth = '148mm';
@@ -195,8 +209,9 @@
       n.style.setProperty('height', 'auto', 'important');
       n.style.setProperty('min-height', '0', 'important');
       if (thermalSheet) {
-        n.style.setProperty('width', '80mm', 'important');
-        n.style.setProperty('max-width', '80mm', 'important');
+        var cloneMm = thermalWidthMm(n) + 'mm';
+        n.style.setProperty('width', cloneMm, 'important');
+        n.style.setProperty('max-width', cloneMm, 'important');
       } else if (tradeSheet) {
         n.style.setProperty('width', '148mm', 'important');
         n.style.setProperty('max-width', '148mm', 'important');
@@ -435,7 +450,7 @@
           jsPDF: {
             unit: 'mm',
             format: thermal
-              ? [80, Math.max(120, Math.round(h * 0.2646))]
+              ? [thermalWidthMm(sheet), Math.max(120, Math.round(h * 0.2646))]
               : (trade ? 'a5' : 'a4'),
             orientation: 'portrait',
           },
