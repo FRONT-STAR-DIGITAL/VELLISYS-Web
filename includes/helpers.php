@@ -1645,7 +1645,7 @@ function render_party_delete_button(int $id, bool $labeled = false): void
 
 function expense_categories(): array
 {
-    return ['Farm inputs', 'Fuel', 'Rent', 'Salaries', 'Transport', 'Utilities', 'Professional fees', 'Other'];
+    return ['Assets', 'Farm inputs', 'Fuel', 'Rent', 'Salaries', 'Transport', 'Utilities', 'Professional fees', 'Other'];
 }
 
 /** Category marker for Creditors-page entries - personal ledger, not business spend. */
