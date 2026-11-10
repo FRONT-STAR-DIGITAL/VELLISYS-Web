@@ -902,8 +902,7 @@ function render_print_document_page(array $doc, bool $pdf = false): void
     <?php endif; ?>
     <div class="print-bar-actions">
       <button type="button" class="btn" data-print-pdf><?= icon('printer', 16) ?>Print</button>
-      <?php $printBackHref = url('document_view.php?id=' . (int) ($doc['id'] ?? 0)); ?>
-      <a class="btn ghost" data-print-back data-print-href="<?= h($printBackHref) ?>" href="<?= h($printBackHref) ?>">Back</a>
+      <button type="button" class="btn ghost" data-print-back data-href="<?= h(url('document_view.php?id=' . (int) ($doc['id'] ?? 0))) ?>">Back</button>
     </div>
   </div>
   <script src="<?= h(asset('js/sheet-fit.js')) ?>"></script>

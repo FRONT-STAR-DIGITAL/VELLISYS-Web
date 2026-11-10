@@ -1,6 +1,7 @@
 (function () {
   var savedHref = '';
   var thermalPdfBusy = false;
+  var strippedHrefs = [];
 
   function isIos() {
     var ua = navigator.userAgent || '';
@@ -41,23 +42,22 @@
     var nodes = doc.querySelectorAll('a[href]');
     for (var i = 0; i < nodes.length; i++) {
       var a = nodes[i];
-      // Keep Print preview chrome working after print (Back must stay clickable).
+      // Print chrome uses buttons now; still skip anything in the bar.
       if (a.closest && a.closest('[data-print-bar]')) continue;
-      if (!a.getAttribute('data-print-href')) {
-        a.setAttribute('data-print-href', a.getAttribute('href') || '');
-      }
+      var href = a.getAttribute('href');
+      if (href == null) continue;
+      strippedHrefs.push({ el: a, href: href });
       a.removeAttribute('href');
     }
   }
-  function restorePrintUrls(doc) {
-    var root = doc || document;
-    var nodes = root.querySelectorAll('a[data-print-href]');
-    for (var i = 0; i < nodes.length; i++) {
-      var a = nodes[i];
-      var href = a.getAttribute('data-print-href') || '';
-      if (href) a.setAttribute('href', href);
-      a.removeAttribute('data-print-href');
+  function restorePrintUrls() {
+    for (var i = 0; i < strippedHrefs.length; i++) {
+      var item = strippedHrefs[i];
+      if (item.el && item.href) {
+        item.el.setAttribute('href', item.href);
+      }
     }
+    strippedHrefs = [];
   }
   function scrubLocation() {
     if (savedHref) return;
@@ -75,8 +75,7 @@
       } catch (e) {}
       savedHref = '';
     }
-    // Always put link hrefs back — print chrome (Back) and sheet links.
-    restorePrintUrls(document);
+    restorePrintUrls();
   }
   function clearFit() {
     document.querySelectorAll('.invoice-sheet').forEach(function (sheet) {
@@ -338,6 +337,18 @@
     return !!(document.body && document.body.classList.contains('print-thermal'))
       || !!document.querySelector('.invoice-sheet.sheet-thermal');
   }
+  function goBack(btn) {
+    var href = (btn && (btn.getAttribute('data-href') || btn.getAttribute('data-print-href'))) || '';
+    if (href) {
+      window.location.assign(href);
+      return;
+    }
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    window.location.assign('/');
+  }
   function boot() {
     applyScreenFit();
     window.setTimeout(applyScreenFit, 80);
@@ -345,16 +356,8 @@
     document.addEventListener('click', function (e) {
       var back = e.target && e.target.closest ? e.target.closest('[data-print-back]') : null;
       if (back) {
-        var href = back.getAttribute('href') || back.getAttribute('data-print-href') || '';
-        if (href) {
-          e.preventDefault();
-          window.location.assign(href);
-          return;
-        }
-        if (window.history.length > 1) {
-          e.preventDefault();
-          window.history.back();
-        }
+        e.preventDefault();
+        goBack(back);
         return;
       }
       var t = e.target && e.target.closest ? e.target.closest('[data-print-pdf]') : null;
