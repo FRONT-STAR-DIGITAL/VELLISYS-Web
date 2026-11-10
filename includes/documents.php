@@ -789,6 +789,324 @@ function apply_efris_mark(int $id, string $number, string $date, $grand): void
     // EFRIS marks are no longer printed on documents.
 }
 
+/**
+ * Classify a staff document for admin bells/push (sale, payment, invoice, …).
+ *
+ * @return array{type:string,title_verb:string,key_prefix:string}|null
+ */
+function desk_staff_document_activity_meta(array $doc): ?array
+{
+    $kind = (string) ($doc['kind'] ?? '');
+    $status = (string) ($doc['status'] ?? '');
+    if ($status !== '' && $status !== 'issued') {
+        return null;
+    }
+    $related = (int) ($doc['related_id'] ?? 0);
+    $notes = trim((string) ($doc['notes'] ?? ''));
+    if ($kind === 'quotation') {
+        return ['type' => 'staff_quotation', 'title_verb' => 'made a quotation', 'key_prefix' => 'staff-quotation'];
+    }
+    if ($kind === 'invoice') {
+        return ['type' => 'staff_invoice', 'title_verb' => 'made an invoice', 'key_prefix' => 'staff-invoice'];
+    }
+    if ($kind === 'receipt') {
+        if ($related > 0) {
+            return ['type' => 'staff_payment', 'title_verb' => 'recorded a payment', 'key_prefix' => 'staff-payment'];
+        }
+        if ($notes !== '' && strncasecmp($notes, 'Sale', 4) === 0) {
+            return ['type' => 'staff_sale', 'title_verb' => 'made a sale', 'key_prefix' => 'staff-sale'];
+        }
+        return ['type' => 'staff_receipt', 'title_verb' => 'made a receipt', 'key_prefix' => 'staff-receipt'];
+    }
+    if ($kind === 'expense') {
+        return ['type' => 'staff_expense', 'title_verb' => 'recorded an expense', 'key_prefix' => 'staff-expense'];
+    }
+    if ($kind === 'refund') {
+        return ['type' => 'staff_refund', 'title_verb' => 'recorded a refund', 'key_prefix' => 'staff-refund'];
+    }
+    return null;
+}
+
+/**
+ * Push + bell cache: tell company admins when staff issues a major desk document.
+ */
+function desk_notify_admin_staff_document(int $documentId, array $extra = []): void
+{
+    if ($documentId < 1) {
+        return;
+    }
+    $user = function_exists('current_user') ? current_user() : null;
+    if (!$user) {
+        return;
+    }
+    $role = (string) ($user['role'] ?? '');
+    $access = (string) ($user['access'] ?? '');
+    if ($role === 'platform' || $role === 'admin' || $access === 'admin'
+        || (function_exists('is_desk_admin') && is_desk_admin($user))) {
+        return;
+    }
+    $cid = function_exists('current_company_id') ? (int) current_company_id() : 0;
+    if ($cid < 1) {
+        return;
+    }
+    $doc = null;
+    try {
+        $doc = db_one(
+            'SELECT id, kind, number, currency, vat_rate, notes, related_id, allocated_amount, party_id, status
+             FROM documents WHERE id = ? AND company_id = ?',
+            'ii',
+            [$documentId, $cid]
+        );
+    } catch (Throwable $e) {
+        $doc = null;
+    }
+    if (!$doc) {
+        return;
+    }
+    $activity = desk_staff_document_activity_meta($doc);
+    if ($activity === null) {
+        return;
+    }
+    $staff = trim((string) ($user['name'] ?? '')) ?: 'Staff';
+    $number = trim((string) ($doc['number'] ?? '')) ?: ('#' . $documentId);
+    $partyId = (int) ($extra['party_id'] ?? $doc['party_id'] ?? 0);
+    $customer = 'Walk-in';
+    if ($partyId > 0) {
+        try {
+            $party = db_one('SELECT name FROM parties WHERE id = ? AND company_id = ?', 'ii', [$partyId, $cid]);
+            if ($party && trim((string) ($party['name'] ?? '')) !== '') {
+                $customer = trim((string) $party['name']);
+            }
+        } catch (Throwable $e) {
+            // keep Walk-in
+        }
+    }
+    $total = isset($extra['total']) ? (float) $extra['total'] : 0.0;
+    if ($total <= 0.009) {
+        try {
+            $lineRows = db_all(
+                'SELECT qty, rate, taxed FROM document_items WHERE document_id = ?',
+                'i',
+                [$documentId]
+            );
+            $docLines = [];
+            foreach ($lineRows as $line) {
+                $docLines[] = [
+                    'qty' => (float) ($line['qty'] ?? 0),
+                    'rate' => (float) ($line['rate'] ?? 0),
+                    'taxed' => !empty($line['taxed']) ? 1 : 0,
+                ];
+            }
+            $rate = (float) ($doc['vat_rate'] ?? 0);
+            if (function_exists('doc_total')) {
+                $total = doc_total($docLines, $rate);
+            } elseif (function_exists('document_totals')) {
+                $total = (float) (document_totals(['items' => $docLines, 'vat_rate' => $rate])['total'] ?? 0);
+            }
+        } catch (Throwable $e) {
+            $total = 0.0;
+        }
+    }
+    $currency = (string) ($doc['currency'] ?? '');
+    $amount = function_exists('money')
+        ? money($total, $currency !== '' ? $currency : null)
+        : number_format($total, 2);
+    $meta = $number . ' · ' . $customer . ' · ' . $amount;
+    $paid = isset($extra['paid']) ? (float) $extra['paid'] : (float) ($doc['allocated_amount'] ?? 0);
+    $balance = isset($extra['balance']) ? (float) $extra['balance'] : -1.0;
+    if ($balance < 0 && ($activity['type'] === 'staff_sale' || $activity['type'] === 'staff_receipt')) {
+        $balance = max(0.0, round($total - $paid, 2));
+    }
+    if ($balance > 0.009 && function_exists('money')) {
+        $meta .= ' · balance ' . money($balance, $currency !== '' ? $currency : null);
+    } elseif ($paid > 0.009 && abs($paid - $total) > 0.009 && function_exists('money')
+        && ($activity['type'] === 'staff_sale' || $activity['type'] === 'staff_receipt')) {
+        $meta .= ' · paid ' . money($paid, $currency !== '' ? $currency : null);
+    }
+    if (function_exists('push_notify_item')) {
+        push_notify_item([
+            'title' => $staff . ' ' . $activity['title_verb'],
+            'meta' => $meta,
+            'href' => url('document_view.php?id=' . $documentId),
+            'key' => $activity['key_prefix'] . ':' . $documentId,
+        ], 'company', $cid);
+    }
+    if (function_exists('desk_notifications_cache_bust_company')) {
+        desk_notifications_cache_bust_company($cid);
+    }
+}
+
+/**
+ * Push when staff records a payment against an expense (no receipt document).
+ */
+function desk_notify_admin_staff_expense_payment(int $expenseId, float $amount, string $method = 'cash'): void
+{
+    if ($expenseId < 1 || $amount <= 0.009) {
+        return;
+    }
+    $user = function_exists('current_user') ? current_user() : null;
+    if (!$user) {
+        return;
+    }
+    $role = (string) ($user['role'] ?? '');
+    $access = (string) ($user['access'] ?? '');
+    if ($role === 'platform' || $role === 'admin' || $access === 'admin'
+        || (function_exists('is_desk_admin') && is_desk_admin($user))) {
+        return;
+    }
+    $cid = function_exists('current_company_id') ? (int) current_company_id() : 0;
+    if ($cid < 1) {
+        return;
+    }
+    $doc = null;
+    try {
+        $doc = db_one(
+            'SELECT number, currency, party_id FROM documents WHERE id = ? AND company_id = ? AND kind = \'expense\'',
+            'ii',
+            [$expenseId, $cid]
+        );
+    } catch (Throwable $e) {
+        $doc = null;
+    }
+    if (!$doc) {
+        return;
+    }
+    $staff = trim((string) ($user['name'] ?? '')) ?: 'Staff';
+    $number = trim((string) ($doc['number'] ?? '')) ?: ('#' . $expenseId);
+    $supplier = 'Supplier';
+    $partyId = (int) ($doc['party_id'] ?? 0);
+    if ($partyId > 0) {
+        try {
+            $party = db_one('SELECT name FROM parties WHERE id = ? AND company_id = ?', 'ii', [$partyId, $cid]);
+            if ($party && trim((string) ($party['name'] ?? '')) !== '') {
+                $supplier = trim((string) $party['name']);
+            }
+        } catch (Throwable $e) {
+            // keep Supplier
+        }
+    }
+    $currency = (string) ($doc['currency'] ?? '');
+    $amountLabel = function_exists('money')
+        ? money($amount, $currency !== '' ? $currency : null)
+        : number_format($amount, 2);
+    $method = trim($method) !== '' ? trim($method) : 'cash';
+    $meta = $number . ' · ' . $supplier . ' · ' . $amountLabel . ' · ' . $method;
+    $key = 'staff-pay-expense:' . $expenseId . ':' . substr(md5($amountLabel . '|' . $method . '|' . microtime(true)), 0, 8);
+    if (function_exists('push_notify_item')) {
+        push_notify_item([
+            'title' => $staff . ' recorded a payment',
+            'meta' => $meta,
+            'href' => url('document_view.php?id=' . $expenseId),
+            'key' => substr($key, 0, 64),
+        ], 'company', $cid);
+    }
+    if (function_exists('desk_notifications_cache_bust_company')) {
+        desk_notifications_cache_bust_company($cid);
+    }
+}
+
+/**
+ * Bell items for desk admins: recent quotations, invoices, receipts, payments by staff.
+ *
+ * @return list<array<string,mixed>>
+ */
+function desk_staff_document_notifications(int $limit = 20): array
+{
+    if (!function_exists('is_desk_admin') || !is_desk_admin()) {
+        return [];
+    }
+    $cid = function_exists('current_company_id') ? (int) current_company_id() : 0;
+    if ($cid < 1) {
+        return [];
+    }
+    $limit = max(1, min(40, $limit));
+    try {
+        $rows = db_all(
+            "SELECT d.id, d.kind, d.number, d.created_at, d.currency, d.vat_rate, d.notes,
+                    d.related_id, d.allocated_amount, d.status,
+                    u.name AS staff_name, p.name AS customer_name
+             FROM documents d
+             INNER JOIN users u ON u.id = d.created_by AND u.company_id = d.company_id
+             LEFT JOIN parties p ON p.id = d.party_id
+             WHERE d.company_id = ?
+               AND d.kind IN ('quotation','invoice','receipt','expense','refund')
+               AND d.status = 'issued'
+               AND d.created_by IS NOT NULL
+               AND d.created_by > 0
+               AND COALESCE(u.role, '') <> 'admin'
+               AND COALESCE(u.access, '') <> 'admin'
+               AND d.created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)
+             ORDER BY d.id DESC
+             LIMIT {$limit}",
+            'i',
+            [$cid]
+        );
+    } catch (Throwable $e) {
+        return [];
+    }
+    $items = [];
+    foreach ($rows as $row) {
+        $id = (int) ($row['id'] ?? 0);
+        if ($id < 1) {
+            continue;
+        }
+        $activity = desk_staff_document_activity_meta($row);
+        if ($activity === null) {
+            continue;
+        }
+        $staff = trim((string) ($row['staff_name'] ?? '')) ?: 'Staff';
+        $customer = trim((string) ($row['customer_name'] ?? '')) ?: 'Walk-in';
+        $number = trim((string) ($row['number'] ?? '')) ?: ('#' . $id);
+        $total = 0.0;
+        try {
+            $lineRows = db_all(
+                'SELECT qty, rate, taxed FROM document_items WHERE document_id = ?',
+                'i',
+                [$id]
+            );
+            $docLines = [];
+            foreach ($lineRows as $line) {
+                $docLines[] = [
+                    'qty' => (float) ($line['qty'] ?? 0),
+                    'rate' => (float) ($line['rate'] ?? 0),
+                    'taxed' => !empty($line['taxed']) ? 1 : 0,
+                ];
+            }
+            $rate = (float) ($row['vat_rate'] ?? 0);
+            if (function_exists('doc_total')) {
+                $total = doc_total($docLines, $rate);
+            } elseif (function_exists('document_totals')) {
+                $total = (float) (document_totals(['items' => $docLines, 'vat_rate' => $rate])['total'] ?? 0);
+            }
+        } catch (Throwable $e) {
+            $total = 0.0;
+        }
+        $currency = (string) ($row['currency'] ?? '');
+        $amount = function_exists('money')
+            ? money($total, $currency !== '' ? $currency : null)
+            : number_format($total, 2);
+        $when = '';
+        if (!empty($row['created_at']) && function_exists('format_date')) {
+            $when = format_date(substr((string) $row['created_at'], 0, 10));
+        }
+        $metaBits = [$number, $customer, $amount];
+        if ($when !== '') {
+            $metaBits[] = $when;
+        }
+        $items[] = [
+            'type' => $activity['type'],
+            'tone' => 'info',
+            'title' => $staff . ' ' . $activity['title_verb'],
+            'meta' => implode(' · ', $metaBits),
+            'href' => url('document_view.php?id=' . $id),
+            'key' => $activity['key_prefix'] . ':' . $id,
+            'sort' => '0-act-' . sprintf('%010d', 2_000_000_000 - $id),
+            'document_id' => $id,
+        ];
+    }
+    return $items;
+}
+
 function create_document(array $data): int
 {
     $kind = (string) $data['kind'];
@@ -933,6 +1251,15 @@ function create_document(array $data): int
             'href' => url('document_view.php?id=' . $id),
             'key' => 'invoice:' . $id,
         ], 'company', $cid);
+    }
+
+    // Staff → admin: sale, invoice, quotation, payment, receipt, and other major docs.
+    if (in_array($kind, ['quotation', 'invoice', 'receipt', 'expense', 'refund'], true)
+        && $status === 'issued'
+        && function_exists('desk_notify_admin_staff_document')) {
+        desk_notify_admin_staff_document((int) $id, [
+            'party_id' => (int) ($party ?? 0),
+        ]);
     }
 
     return $id;
@@ -3382,6 +3709,9 @@ function pay_creditor(int $expenseId, float $amount, string $method, string $ref
         today(),
         'Payment to supplier against ' . $doc['number'] . '.'
     );
+    if (function_exists('desk_notify_admin_staff_expense_payment')) {
+        desk_notify_admin_staff_expense_payment($expenseId, $amount, $method);
+    }
     // Return the expense id - no receipt is created and sales/cash-in are untouched.
     return $expenseId;
 }
