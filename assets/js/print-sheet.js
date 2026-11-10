@@ -40,7 +40,23 @@
     keepPdfTitle(doc);
     var nodes = doc.querySelectorAll('a[href]');
     for (var i = 0; i < nodes.length; i++) {
-      nodes[i].removeAttribute('href');
+      var a = nodes[i];
+      // Keep Print preview chrome working after print (Back must stay clickable).
+      if (a.closest && a.closest('[data-print-bar]')) continue;
+      if (!a.getAttribute('data-print-href')) {
+        a.setAttribute('data-print-href', a.getAttribute('href') || '');
+      }
+      a.removeAttribute('href');
+    }
+  }
+  function restorePrintUrls(doc) {
+    var root = doc || document;
+    var nodes = root.querySelectorAll('a[data-print-href]');
+    for (var i = 0; i < nodes.length; i++) {
+      var a = nodes[i];
+      var href = a.getAttribute('data-print-href') || '';
+      if (href) a.setAttribute('href', href);
+      a.removeAttribute('data-print-href');
     }
   }
   function scrubLocation() {
@@ -53,11 +69,14 @@
     keepPdfTitle(document);
   }
   function restoreLocation() {
-    if (!savedHref) return;
-    try {
-      history.replaceState(null, '', savedHref);
-    } catch (e) {}
-    savedHref = '';
+    if (savedHref) {
+      try {
+        history.replaceState(null, '', savedHref);
+      } catch (e) {}
+      savedHref = '';
+    }
+    // Always put link hrefs back — print chrome (Back) and sheet links.
+    restorePrintUrls(document);
   }
   function clearFit() {
     document.querySelectorAll('.invoice-sheet').forEach(function (sheet) {
@@ -324,6 +343,20 @@
     window.setTimeout(applyScreenFit, 80);
     window.setTimeout(applyScreenFit, 300);
     document.addEventListener('click', function (e) {
+      var back = e.target && e.target.closest ? e.target.closest('[data-print-back]') : null;
+      if (back) {
+        var href = back.getAttribute('href') || back.getAttribute('data-print-href') || '';
+        if (href) {
+          e.preventDefault();
+          window.location.assign(href);
+          return;
+        }
+        if (window.history.length > 1) {
+          e.preventDefault();
+          window.history.back();
+        }
+        return;
+      }
       var t = e.target && e.target.closest ? e.target.closest('[data-print-pdf]') : null;
       if (!t) return;
       e.preventDefault();
