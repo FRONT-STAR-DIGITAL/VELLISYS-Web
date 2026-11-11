@@ -53,7 +53,7 @@ function sheet_data(array $brand, array $doc): array
         'tax_label' => tax_rate_label((float) ($doc['vat_rate'] ?? 0), $brand),
         'settlement' => $settlement,
         'comments' => brand_document_comments($brand, (string) ($doc['kind'] ?? ''), $doc['notes'] ?? ''),
-        'logo' => logo_url($brand),
+        'logo' => function_exists('document_logo_url') ? document_logo_url($brand) : logo_url($brand),
         'cur' => doc_currency($doc),
         'home_cur' => default_currency(),
         'alt_cur' => other_currency(doc_currency($doc)),
@@ -65,12 +65,16 @@ function sheet_data(array $brand, array $doc): array
 
 function render_sheet_logo(array $d, string $class = 'd-logo'): void
 {
+    $brand = is_array($d['brand'] ?? null) ? $d['brand'] : [];
+    $doc = is_array($d['doc'] ?? null) ? $d['doc'] : [];
     $src = trim((string) ($d['logo'] ?? ''));
+    // Documents must always show a logo mark — fall back to initials plate when missing.
+    if ($src === '' && function_exists('document_logo_url')) {
+        $src = trim(document_logo_url($brand));
+    }
     if ($src === '') {
         return;
     }
-    $brand = is_array($d['brand'] ?? null) ? $d['brand'] : [];
-    $doc = is_array($d['doc'] ?? null) ? $d['doc'] : [];
     // Thermal: hard black-on-white ink stamp — CSS filters print as a solid black plate.
     if (
         function_exists('doc_template_key')
@@ -749,7 +753,11 @@ function format_letter_html(string $body): string
 
 function watermark_markup(array $d): string
 {
-    $src = (string) ($d['logo'] ?? '');
+    $src = trim((string) ($d['logo'] ?? ''));
+    if ($src === '' && function_exists('document_logo_url')) {
+        $brand = is_array($d['brand'] ?? null) ? $d['brand'] : [];
+        $src = trim(document_logo_url($brand));
+    }
     if ($src === '') {
         return '';
     }

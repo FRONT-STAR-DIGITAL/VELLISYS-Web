@@ -1620,7 +1620,7 @@ function document_full_payload(array $doc): array
             'lineTotal' => $lineTotal,
         ];
     }
-    $logo = document_absolute_media_url(logo_url($brand));
+    $logo = document_absolute_media_url(function_exists('document_logo_url') ? document_logo_url($brand) : logo_url($brand));
     $signature = document_absolute_media_url(company_signature_url($brand));
     $palette = brand_palette($brand);
     $status = strtolower(trim((string) ($doc['status'] ?? '')));

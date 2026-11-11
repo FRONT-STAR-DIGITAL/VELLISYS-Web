@@ -52,7 +52,9 @@ $statusTitle = !$validToken || !$doc
     ? 'This document is not valid'
     : ($voided ? 'This document is not valid' : ($valid ? 'This document is valid' : 'This document is not valid'));
 $statusClass = ($validToken && $doc && $valid) ? 'is-valid' : 'is-invalid';
-$logo = ($validToken && $doc) ? logo_url($brand) : '';
+$logo = ($validToken && $doc)
+    ? (function_exists('document_logo_url') ? document_logo_url($brand) : logo_url($brand))
+    : '';
 $site = product_site_url();
 $product = product_name();
 

@@ -1443,8 +1443,135 @@ function logo_url(?array $brand = null): string
     if ($cid > 0 && branding_asset_stored($cid, 'logo')) {
         return url('brand_asset.php?k=logo&c=' . $cid);
     }
-    // Empty = callers should show company initials, not a shared default logo.
+    // Empty = settings / nav can show initials; printed documents use document_logo_url().
     return '';
+}
+
+/**
+ * Logo for every printed / shared / PDF document.
+ * Always returns a mark: the company logo when set, otherwise a generated initials plate.
+ */
+function document_logo_url(?array $brand = null): string
+{
+    $brand = $brand ?? branding();
+    $url = logo_url($brand);
+    if ($url !== '') {
+        return $url;
+    }
+    return company_initials_logo_url($brand);
+}
+
+/** Cached square initials mark for companies that have not uploaded a logo yet. */
+function company_initials_logo_url(?array $brand = null): string
+{
+    $brand = $brand ?? branding();
+    $cid = (int) ($brand['company_id'] ?? (function_exists('current_company_id') ? current_company_id() : 0));
+    $initials = brand_initials($brand, 'C');
+    $palette = brand_palette($brand);
+    $primary = (string) ($palette['primary'] ?? '#1E4EFF');
+    $deep = (string) ($palette['deep'] ?? '#08143A');
+    $name = trim((string) ($brand['name'] ?? ''));
+    $stamp = substr(sha1($cid . '|' . $initials . '|' . $primary . '|' . $deep . '|' . $name), 0, 10);
+    $rel = 'uploads/logos/logo-' . max(0, $cid) . '-mark-' . $stamp . '.png';
+    $full = ROOT_PATH . '/' . $rel;
+    if (is_file($full) && filesize($full) >= 40) {
+        return url($rel) . '?v=' . filemtime($full);
+    }
+    $dir = dirname($full);
+    if (is_dir($dir)) {
+        foreach (glob($dir . '/logo-' . max(0, $cid) . '-mark-*.png') ?: [] as $old) {
+            if (is_file($old) && realpath($old) !== realpath($full)) {
+                @unlink($old);
+            }
+        }
+    }
+    $png = company_initials_logo_bin($initials, $primary, $deep);
+    if ($png === '' || strlen($png) < 40) {
+        return function_exists('product_logo_url') ? product_logo_url() : '';
+    }
+    if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
+        return function_exists('product_logo_url') ? product_logo_url() : '';
+    }
+    if (@file_put_contents($full, $png) === false) {
+        return function_exists('product_logo_url') ? product_logo_url() : '';
+    }
+    return url($rel) . '?v=' . filemtime($full);
+}
+
+/** Build a 512×512 PNG plate with company initials on the brand colour. */
+function company_initials_logo_bin(string $initials, string $primaryHex, string $deepHex = '#08143A'): string
+{
+    if (!function_exists('imagecreatetruecolor') || !function_exists('imagepng')) {
+        return '';
+    }
+    $initials = trim($initials);
+    if ($initials === '') {
+        $initials = 'C';
+    }
+    $initials = mb_strtoupper(mb_substr($initials, 0, 3));
+    $size = 512;
+    $im = imagecreatetruecolor($size, $size);
+    if ($im === false) {
+        return '';
+    }
+    imagealphablending($im, false);
+    imagesavealpha($im, true);
+    $clear = imagecolorallocatealpha($im, 0, 0, 0, 127);
+    imagefilledrectangle($im, 0, 0, $size, $size, $clear);
+    imagealphablending($im, true);
+
+    $primary = parse_hex_color($primaryHex, '#1E4EFF');
+    $deep = parse_hex_color($deepHex, '#08143A');
+    $pr = hexdec(substr($primary, 1, 2));
+    $pg = hexdec(substr($primary, 3, 2));
+    $pb = hexdec(substr($primary, 5, 2));
+    $fill = imagecolorallocate($im, $pr, $pg, $pb);
+    $pad = 28;
+    $radius = 96;
+    // Rounded square plate.
+    imagefilledellipse($im, $pad + $radius, $pad + $radius, $radius * 2, $radius * 2, $fill);
+    imagefilledellipse($im, $size - $pad - $radius, $pad + $radius, $radius * 2, $radius * 2, $fill);
+    imagefilledellipse($im, $pad + $radius, $size - $pad - $radius, $radius * 2, $radius * 2, $fill);
+    imagefilledellipse($im, $size - $pad - $radius, $size - $pad - $radius, $radius * 2, $radius * 2, $fill);
+    imagefilledrectangle($im, $pad + $radius, $pad, $size - $pad - $radius, $size - $pad, $fill);
+    imagefilledrectangle($im, $pad, $pad + $radius, $size - $pad, $size - $pad - $radius, $fill);
+
+    $inkHex = parse_hex_color(contrast_on($primary), '#FFFFFF');
+    $on = imagecolorallocate(
+        $im,
+        hexdec(substr($inkHex, 1, 2)),
+        hexdec(substr($inkHex, 3, 2)),
+        hexdec(substr($inkHex, 5, 2))
+    );
+
+    $font = ROOT_PATH . '/assets/fonts/Montserrat-Bold.ttf';
+    if (!is_file($font)) {
+        $font = ROOT_PATH . '/assets/fonts/Montserrat-Regular.ttf';
+    }
+    if (!is_file($font) && is_file('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf')) {
+        $font = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf';
+    }
+    if ($font !== '' && is_file($font) && function_exists('imagettftext') && function_exists('imagettfbbox')) {
+        $fontSize = mb_strlen($initials) >= 3 ? 150.0 : 190.0;
+        $box = imagettfbbox($fontSize, 0, $font, $initials);
+        if (is_array($box)) {
+            $tw = (float) $box[2] - (float) $box[0];
+            $th = (float) $box[1] - (float) $box[7];
+            $x = (int) round(($size - $tw) / 2 - (float) $box[0]);
+            $y = (int) round(($size + $th) / 2 - (float) $box[1]);
+            imagettftext($im, $fontSize, 0, $x, $y, $on, $font, $initials);
+        }
+    } else {
+        $cx = (int) (($size - imagefontwidth(5) * strlen($initials)) / 2);
+        $cy = (int) (($size - imagefontheight(5)) / 2);
+        imagestring($im, 5, max(0, $cx), max(0, $cy), $initials, $on);
+    }
+
+    ob_start();
+    imagepng($im, null, 6);
+    $png = (string) ob_get_clean();
+    imagedestroy($im);
+    return strlen($png) >= 40 ? $png : '';
 }
 
 function parties_branch_ready(): bool
@@ -3416,6 +3543,9 @@ function company_logo_ink_url(?array $brand = null): string
     }
     $cid = (int) ($brand['company_id'] ?? (function_exists('current_company_id') ? current_company_id() : 0));
     $srcFull = '';
+    $fallbackDoc = static function () use ($brand): string {
+        return function_exists('document_logo_url') ? document_logo_url($brand) : logo_url($brand);
+    };
     if ($srcRel !== '' && is_file(ROOT_PATH . '/' . $srcRel)) {
         $srcFull = ROOT_PATH . '/' . $srcRel;
     } elseif ($cid > 0 && function_exists('branding_asset_row')) {
@@ -3432,10 +3562,14 @@ function company_logo_ink_url(?array $brand = null): string
                 }
             }
         }
-        return logo_url($brand);
+        // No uploaded logo — ink the initials plate so thermal sheets still show a mark.
+        return company_initials_logo_ink_url($brand) ?: $fallbackDoc();
     }
-    if ($srcFull === '' || !function_exists('imagecreatefromstring') || !function_exists('imagepng')) {
-        return logo_url($brand);
+    if ($srcFull === '') {
+        return company_initials_logo_ink_url($brand) ?: $fallbackDoc();
+    }
+    if (!function_exists('imagecreatefromstring') || !function_exists('imagepng')) {
+        return $fallbackDoc();
     }
     $inkRel = 'uploads/logos/logo-' . max(0, $cid) . '-ink.png';
     $inkFull = ROOT_PATH . '/' . $inkRel;
@@ -3444,15 +3578,60 @@ function company_logo_ink_url(?array $brand = null): string
         $bin = (string) file_get_contents($srcFull);
         $ink = logo_thermal_ink_bin($bin);
         if ($ink === '' || strlen($ink) < 40) {
-            return logo_url($brand);
+            return $fallbackDoc();
         }
         $dir = dirname($inkFull);
         if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
-            return logo_url($brand);
+            return $fallbackDoc();
         }
         if (@file_put_contents($inkFull, $ink) === false) {
-            return logo_url($brand);
+            return $fallbackDoc();
         }
+    }
+    return url($inkRel) . '?v=' . filemtime($inkFull);
+}
+
+/** Black-on-white initials mark for thermal printers when no company logo is set. */
+function company_initials_logo_ink_url(?array $brand = null): string
+{
+    $brand = $brand ?? branding();
+    if (!function_exists('company_initials_logo_bin') || !function_exists('logo_thermal_ink_bin')) {
+        return '';
+    }
+    $cid = (int) ($brand['company_id'] ?? (function_exists('current_company_id') ? current_company_id() : 0));
+    $initials = brand_initials($brand, 'C');
+    $palette = brand_palette($brand);
+    $primary = (string) ($palette['primary'] ?? '#1E4EFF');
+    $deep = (string) ($palette['deep'] ?? '#08143A');
+    $name = trim((string) ($brand['name'] ?? ''));
+    $stamp = substr(sha1($cid . '|' . $initials . '|' . $primary . '|' . $deep . '|' . $name . '|ink'), 0, 10);
+    $inkRel = 'uploads/logos/logo-' . max(0, $cid) . '-mark-ink-' . $stamp . '.png';
+    $inkFull = ROOT_PATH . '/' . $inkRel;
+    if (is_file($inkFull) && filesize($inkFull) >= 40) {
+        return url($inkRel) . '?v=' . filemtime($inkFull);
+    }
+    $png = company_initials_logo_bin($initials, $primary, $deep);
+    if ($png === '') {
+        return '';
+    }
+    $ink = logo_thermal_ink_bin($png);
+    if ($ink === '' || strlen($ink) < 40) {
+        // Colour plate still prints better than a blank header.
+        return company_initials_logo_url($brand);
+    }
+    $dir = dirname($inkFull);
+    if (is_dir($dir)) {
+        foreach (glob($dir . '/logo-' . max(0, $cid) . '-mark-ink-*.png') ?: [] as $old) {
+            if (is_file($old) && realpath($old) !== realpath($inkFull)) {
+                @unlink($old);
+            }
+        }
+    }
+    if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
+        return company_initials_logo_url($brand);
+    }
+    if (@file_put_contents($inkFull, $ink) === false) {
+        return company_initials_logo_url($brand);
     }
     return url($inkRel) . '?v=' . filemtime($inkFull);
 }
@@ -3633,6 +3812,11 @@ function signature_thermal_ink_bin(string $bin): string
     if ($bin === '' || !function_exists('imagecreatefromstring') || !function_exists('imagepng')) {
         return '';
     }
+    // Bake phone EXIF orientation before thresholding — GD ignores the tag and would
+    // otherwise stamp an upside-down signature on thermal / portal PDFs.
+    if (function_exists('image_bin_bake_exif_orientation')) {
+        $bin = image_bin_bake_exif_orientation($bin);
+    }
     $src = @imagecreatefromstring($bin);
     if (!$src) {
         return '';
@@ -3795,7 +3979,127 @@ function store_company_signature_file(string $bin, string $ext): string
 }
 
 /**
+ * Read EXIF Orientation (1–8) from image binary. Returns 1 when absent / unsupported.
+ * Phone camera JPEGs often store pixels sideways/upside-down and rely on this tag.
+ */
+function image_bin_exif_orientation(string $bin): int
+{
+    if ($bin === '' || !function_exists('exif_read_data')) {
+        return 1;
+    }
+    // Fast path: only JPEG / TIFF carry standard EXIF Orientation.
+    $isJpeg = strlen($bin) >= 3 && $bin[0] === "\xFF" && $bin[1] === "\xD8";
+    $isTiff = str_starts_with($bin, "II*\x00") || str_starts_with($bin, "MM\x00*");
+    if (!$isJpeg && !$isTiff) {
+        return 1;
+    }
+    $exif = false;
+    $tmp = @tempnam(sys_get_temp_dir(), 'sigexif');
+    if (is_string($tmp) && $tmp !== '' && @file_put_contents($tmp, $bin) !== false) {
+        $exif = @exif_read_data($tmp, 'IFD0', false);
+        @unlink($tmp);
+    }
+    if ((!is_array($exif) || !isset($exif['Orientation'])) && $isJpeg) {
+        $uri = 'data://image/jpeg;base64,' . base64_encode($bin);
+        $exif = @exif_read_data($uri, 'IFD0', false);
+    }
+    if (!is_array($exif) || !isset($exif['Orientation'])) {
+        return 1;
+    }
+    $o = (int) $exif['Orientation'];
+    return ($o >= 1 && $o <= 8) ? $o : 1;
+}
+
+/**
+ * Bake EXIF Orientation into pixel data so every renderer shows the same upright mark.
+ * Returns a new GD image when rotation/flip creates one; destroys the previous handle.
+ *
+ * @param \GdImage|resource $img
+ * @return \GdImage|resource
+ */
+function gd_image_apply_exif_orientation($img, int $orientation)
+{
+    $valid = (is_object($img) && $img instanceof \GdImage) || (is_resource($img));
+    if ($orientation <= 1 || $orientation > 8 || !$valid) {
+        return $img;
+    }
+    $rotate = static function ($src, float $angle) {
+        if (!function_exists('imagerotate')) {
+            return $src;
+        }
+        $bg = imagecolorallocatealpha($src, 0, 0, 0, 127);
+        $rotated = imagerotate($src, $angle, $bg === false ? 0 : $bg);
+        if ($rotated === false) {
+            return $src;
+        }
+        imagedestroy($src);
+        imagealphablending($rotated, false);
+        imagesavealpha($rotated, true);
+        return $rotated;
+    };
+    switch ($orientation) {
+        case 2:
+            if (function_exists('imageflip')) {
+                imageflip($img, IMG_FLIP_HORIZONTAL);
+            }
+            return $img;
+        case 3:
+            return $rotate($img, 180);
+        case 4:
+            if (function_exists('imageflip')) {
+                imageflip($img, IMG_FLIP_VERTICAL);
+            }
+            return $img;
+        case 5:
+            if (function_exists('imageflip')) {
+                imageflip($img, IMG_FLIP_VERTICAL);
+            }
+            return $rotate($img, -90);
+        case 6:
+            // 90° CW → GD imagerotate uses counter-clockwise degrees.
+            return $rotate($img, -90);
+        case 7:
+            if (function_exists('imageflip')) {
+                imageflip($img, IMG_FLIP_VERTICAL);
+            }
+            return $rotate($img, 90);
+        case 8:
+            return $rotate($img, 90);
+        default:
+            return $img;
+    }
+}
+
+/**
+ * Apply EXIF Orientation to raw image bytes and re-encode as PNG (EXIF stripped).
+ * Returns original bytes when orientation is already upright or GD is unavailable.
+ */
+function image_bin_bake_exif_orientation(string $bin): string
+{
+    $orientation = image_bin_exif_orientation($bin);
+    if ($orientation <= 1) {
+        return $bin;
+    }
+    if (!function_exists('imagecreatefromstring') || !function_exists('imagepng')) {
+        return $bin;
+    }
+    $src = @imagecreatefromstring($bin);
+    if (!$src) {
+        return $bin;
+    }
+    $src = gd_image_apply_exif_orientation($src, $orientation);
+    imagealphablending($src, false);
+    imagesavealpha($src, true);
+    ob_start();
+    imagepng($src, null, 6);
+    $out = (string) ob_get_clean();
+    imagedestroy($src);
+    return strlen($out) >= 40 ? $out : $bin;
+}
+
+/**
  * Downscale / recompress a signature bitmap so phone photos are accepted.
+ * Always bakes EXIF orientation into pixels so portal / PDF / thermal never flip the mark.
  * Returns [binary, ext] where ext is png or jpg.
  *
  * @return array{0:string,1:string}
@@ -3821,13 +4125,19 @@ function normalize_signature_image_bin(string $bin): array
         throw new RuntimeException('Upload a PNG, JPG, GIF or WebP signature.');
     }
 
+    $orientation = image_bin_exif_orientation($bin);
     $w = (int) ($info[0] ?? 0);
     $h = (int) ($info[1] ?? 0);
+    // Orientations 5–8 swap width/height when baked.
+    if ($orientation >= 5 && $orientation <= 8) {
+        [$w, $h] = [$h, $w];
+    }
     $maxW = 1200;
     $maxH = 480;
     $maxBytes = 700_000;
     $needsResize = ($w > $maxW || $h > $maxH);
     $needsShrink = strlen($bin) > $maxBytes;
+    $needsOrient = ($orientation > 1);
     $ext = match ($mime) {
         'image/png' => 'png',
         'image/jpeg' => 'jpg',
@@ -3839,14 +4149,18 @@ function normalize_signature_image_bin(string $bin): array
         throw new RuntimeException('Upload a PNG, JPG, GIF or WebP signature.');
     }
 
-    // Small, already-valid files can be stored as-is.
-    if (!$needsResize && !$needsShrink) {
+    // Small, upright files can be stored as-is (no EXIF flip risk).
+    if (!$needsResize && !$needsShrink && !$needsOrient) {
         return [$bin, $ext];
     }
 
     if (!function_exists('imagecreatefromstring') || !function_exists('imagepng')) {
         if ($needsResize) {
             throw new RuntimeException('Signature image is too large. Use a small scan, under 1200×480 pixels.');
+        }
+        if ($needsOrient) {
+            // Without GD we cannot bake orientation — refuse rather than store a flip hazard.
+            throw new RuntimeException('Could not correct that signature photo orientation. Upload a PNG scan instead.');
         }
         throw new RuntimeException('Signature image must be under 700 KB.');
     }
@@ -3855,6 +4169,7 @@ function normalize_signature_image_bin(string $bin): array
     if (!$src) {
         throw new RuntimeException('Upload a PNG, JPG, GIF or WebP signature. If this is an iPhone photo, share it as JPG first.');
     }
+    $src = gd_image_apply_exif_orientation($src, $orientation);
     $sw = imagesx($src);
     $sh = imagesy($src);
     $scale = min(1.0, $maxW / max(1, $sw), $maxH / max(1, $sh));
@@ -3882,7 +4197,7 @@ function normalize_signature_image_bin(string $bin): array
         return [$png, 'png'];
     }
 
-    // Dense photos stay smaller as JPEG on a white ground.
+    // Dense photos stay smaller as JPEG on a white ground (EXIF already baked / stripped).
     $jpgCanvas = imagecreatetruecolor($nw, $nh);
     if ($jpgCanvas === false) {
         imagedestroy($dst);
