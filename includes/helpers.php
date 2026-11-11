@@ -1855,11 +1855,8 @@ function parse_enabled_kinds(mixed $raw): array
 function company_enabled_kinds(?array $company = null): array
 {
     $company = $company ?? current_company();
-    if ($company && function_exists('company_is_testing') && company_is_testing($company)) {
-        return array_keys(selectable_document_kinds());
-    }
     // When modules are stored, kinds follow modules while preserving letter-family
-    // choices already on the desk (letter / delivery / custom).
+    // choices already on the desk (letter / delivery / custom). Same for testing.
     if (
         $company
         && function_exists('company_modules_stored')

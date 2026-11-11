@@ -7,13 +7,11 @@ function company_branches_enabled(?array $company = null): bool
     if (!$company) {
         return false;
     }
-    if (function_exists('company_is_testing') && company_is_testing($company)) {
-        return true;
-    }
     if (!plan_includes_branches((string) ($company['plan'] ?? 'sme'))) {
         return false;
     }
     // Explicit modules list may detach Branches; legacy desks (no JSON) keep plan behaviour.
+    // Testing desks follow the same ticks - Branches is not forced on.
     if (function_exists('company_modules_stored') && company_modules_stored($company)) {
         return function_exists('company_has_module') && company_has_module('branches', $company);
     }

@@ -74,11 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $limit = clamp_user_limit((int) post('user_limit'), $plan);
         $modulesPosted = isset($_POST['company_modules_posted']);
         $mods = function_exists('posted_company_modules') ? posted_company_modules() : [];
-        // Testing desks keep every module; ignore thinning attempts here.
-        if (!empty($company['testing_mode']) && function_exists('company_modules_all')) {
-            $mods = company_modules_all();
-            $modulesPosted = true;
-        }
+        // Platform admin may add/remove modules on testing desks the same as live.
         if ($modulesPosted) {
             $docMods = array_intersect($mods, ['quotes', 'invoices', 'receipts', 'letters']);
             if ($docMods === []) {

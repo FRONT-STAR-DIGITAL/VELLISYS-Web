@@ -2005,8 +2005,6 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
 
   function syncTill() {
     if (!stock || !till) return;
-    // Testing desks lock every tick via disabled + hidden inputs.
-    if (stock.disabled) return;
     if (!stock.checked) {
       till.checked = false;
       till.disabled = true;

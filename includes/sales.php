@@ -1981,6 +1981,7 @@ function sales_create_testing_company(array $fields, int $actorId, bool $asPlatf
     }
 
     // Flip Pro add-ons on (columns may be added by migrate ensures).
+    // Open / close day stays off by default - admin can tick it on the company page.
     db_exec('UPDATE companies SET plan = ?, user_limit = ? WHERE id = ?', 'sii', [$plan, $limit, $cid]);
     foreach (['stock_enabled', 'planner_enabled', 'pnl_enabled'] as $addonCol) {
         try {
@@ -1988,6 +1989,15 @@ function sales_create_testing_company(array $fields, int $actorId, bool $asPlatf
         } catch (Throwable $e) {
             // ignore if column missing until migrate
         }
+    }
+    try {
+        db_exec('UPDATE companies SET till_day_enabled = 0 WHERE id = ?', 'i', [$cid]);
+    } catch (Throwable $e) {
+        // ignore if column missing until migrate
+    }
+    if (function_exists('company_modules_materialize_all')) {
+        $fresh = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$cid]);
+        company_modules_materialize_all($cid, $fresh ?: null, $plan);
     }
 
     if (function_exists('posted_client_fields')) {

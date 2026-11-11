@@ -7,7 +7,8 @@ declare(strict_types=1);
  * Safety rules:
  * - Live/onboarded companies with no company_modules JSON keep today’s behaviour
  *   (modules are inferred from enabled_kinds + stock/planner/pnl flags).
- * - Testing desks always get every module.
+ * - Testing desks use the same stored/inferred list - platform admins can add or
+ *   remove modules at any time (Open / close day stays off unless ticked).
  * - Saving modules writes both company_modules and the existing flag columns
  *   so older code paths stay accurate.
  */
@@ -81,10 +82,15 @@ function company_is_testing(?array $company = null): bool
     return $company ? !empty($company['testing_mode']) : false;
 }
 
-/** @return list<string> */
+/**
+ * Full desk defaults for testing / materialize.
+ * Open / close day (till_day) stays off unless an admin ticks it.
+ *
+ * @return list<string>
+ */
 function company_modules_all(): array
 {
-    return company_module_keys();
+    return array_values(array_diff(company_module_keys(), ['till_day']));
 }
 
 /**
@@ -162,7 +168,7 @@ function parse_company_modules(mixed $raw): array
 
 /**
  * Effective modules for a desk.
- * Testing → everything. Stored JSON → that list. Else infer (no change for live desks).
+ * Stored JSON → that list (testing and live). Else infer from flags.
  *
  * @return list<string>
  */
@@ -171,9 +177,6 @@ function company_modules(?array $company = null): array
     $company = $company ?? (function_exists('current_company') ? current_company() : null);
     if (!$company) {
         return company_modules_infer(null);
-    }
-    if (company_is_testing($company)) {
-        return company_modules_all();
     }
     $stored = parse_company_modules($company['company_modules'] ?? null);
     if ($stored !== []) {
@@ -300,8 +303,8 @@ function posted_company_modules(): array
 }
 
 /**
- * Persist every module + legacy flags so a desk that just left testing keeps
- * full access until an admin detaches modules deliberately.
+ * Persist the default full module set (without Open / close day) + legacy flags
+ * so a desk that just left testing keeps broad access until an admin detaches modules.
  */
 function company_modules_materialize_all(int $companyId, ?array $company = null, string $plan = ''): void
 {
@@ -366,7 +369,11 @@ function render_company_modules_fields(?array $company = null, string $name = 'c
 {
     $company = $company ?? [];
     $testing = company_is_testing($company);
-    $selected = company_modules($company);
+    // Prefer stored ticks so testing desks show what admin last saved (not a forced full set).
+    $selected = parse_company_modules($company['company_modules'] ?? null);
+    if ($selected === []) {
+        $selected = company_modules($company);
+    }
     $catalog = company_module_catalog();
     $groups = [
         'books' => 'Documents',
@@ -378,7 +385,7 @@ function render_company_modules_fields(?array $company = null, string $name = 'c
     <div class="company-modules" data-company-modules style="margin-top:16px">
       <h3 style="margin:0 0 6px;font-size:1rem">Desk modules</h3>
       <?php if ($testing): ?>
-        <p class="hint" style="margin:0 0 12px">This desk is in <strong>testing</strong> - every module is on so they can try the full product. After onboard, tick only what they will use.</p>
+        <p class="hint" style="margin:0 0 12px">This desk is in <strong>testing</strong>. Tick only the features they should try - you can add or remove modules anytime. Open / close day stays off unless you turn it on.</p>
       <?php else: ?>
         <p class="hint" style="margin:0 0 12px">Detach what this client will not use. Core desk (home, clients, expenses, email, reports, settings) always stays. Existing live desks keep their current setup until you change ticks here.</p>
       <?php endif; ?>
@@ -398,7 +405,6 @@ function render_company_modules_fields(?array $company = null, string $name = 'c
                 name="<?= h($name) ?>"
                 value="<?= h($key) ?>"
                 <?= $on ? 'checked' : '' ?>
-                <?= $testing ? 'disabled' : '' ?>
                 data-company-module="<?= h($key) ?>"
               >
               <span>
@@ -409,11 +415,6 @@ function render_company_modules_fields(?array $company = null, string $name = 'c
           <?php endforeach; ?>
         </div>
       <?php endforeach; ?>
-      <?php if ($testing): ?>
-        <?php foreach ($selected as $key): ?>
-          <input type="hidden" name="<?= h($name) ?>" value="<?= h($key) ?>">
-        <?php endforeach; ?>
-      <?php endif; ?>
     </div>
     <?php
 }
