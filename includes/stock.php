@@ -1741,6 +1741,10 @@ function stock_complete_sale(array $input): array
         ? desk_money_date(isset($input['date']) ? (string) $input['date'] : null, true)
         : today();
     // Till sales are receipts (paid + balance), never invoices.
+    // Use the Receipts design + thermal width from Settings (58mm / 80mm).
+    $saleTpl = function_exists('doc_template_default_for_kind')
+        ? doc_template_default_for_kind('receipt')
+        : '';
     $receiptId = create_document([
         'kind' => 'receipt',
         'party_id' => $partyId,
@@ -1754,6 +1758,7 @@ function stock_complete_sale(array $input): array
         'items' => $clean,
         'branch_id' => $branchId,
         'add_signature' => $stampSig ? 1 : 0,
+        'doc_template' => $saleTpl,
     ]);
     // Always reduce on-hand qty for till sales (create_document also tries; this is the guarantee).
     stock_apply_till_sale((int) $receiptId, $clean, $branchId);

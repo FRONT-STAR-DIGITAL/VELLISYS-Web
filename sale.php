@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $wantPrint = (string) ($_POST['do_print'] ?? '') === '1';
             if ($wantPrint && $printId > 0) {
                 flash($msg);
-                redirect('document_view.php?id=' . $printId . '&print=1');
+                redirect('document_view.php?id=' . $printId . '&print=1&from=sale');
             }
             flash($msg);
             redirect('sale.php');

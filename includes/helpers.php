@@ -1245,7 +1245,8 @@ function branding_for(int $companyId): array
         if ($row) {
             unset($row['logo_bin'], $row['signature_bin']);
             hydrate_branding_files($row);
-            return $row;
+            // Keep defaults for newer columns (e.g. thermal_width_mm) when absent.
+            return array_merge(folio_defaults(), $row);
         }
     }
     return folio_defaults();

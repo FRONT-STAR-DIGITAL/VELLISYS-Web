@@ -63,8 +63,11 @@
     if (savedHref) return;
     savedHref = location.href;
     try {
-      // Shorten what mobile browsers put in print headers/footers.
-      history.replaceState(null, '', '/');
+      // Drop query/hash so printers do not print a long URL - but stay on this
+      // path. Replacing with "/" made many phones show a blank page until Back.
+      var path = location.pathname || '';
+      if (path === '') path = savedHref;
+      history.replaceState(null, '', path);
     } catch (e) {}
     keepPdfTitle(document);
   }
@@ -345,9 +348,7 @@
     }
     if (window.history.length > 1) {
       window.history.back();
-      return;
     }
-    window.location.assign('/');
   }
   function boot() {
     applyScreenFit();
@@ -365,17 +366,9 @@
       e.preventDefault();
       openPrint();
     });
-    // Thermal (often Bluetooth): always preview first so the user can pick the
-    // paired printer and set paper / 100% scale. Narrow phones: same for A4/A5.
-    if (isThermalPrint() || isNarrow()) {
-      document.documentElement.classList.add('print-preview');
-      return;
-    }
-    waitImages(document, function () {
-      window.setTimeout(function () {
-        openPrint();
-      }, isIos() ? 350 : 50);
-    });
+    // Always show the on-screen preview first (all devices). Auto window.print()
+    // opened a blank dialog / blank page before the slip was ready.
+    document.documentElement.classList.add('print-preview');
   }
   if (document.readyState === 'complete') {
     boot();

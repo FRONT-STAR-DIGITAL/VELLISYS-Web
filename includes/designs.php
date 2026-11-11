@@ -913,7 +913,17 @@ function render_print_document_page(array $doc, bool $pdf = false): void
     <?php endif; ?>
     <div class="print-bar-actions">
       <button type="button" class="btn" data-print-pdf><?= icon('printer', 16) ?>Print</button>
-      <button type="button" class="btn ghost" data-print-back data-href="<?= h(url('document_view.php?id=' . (int) ($doc['id'] ?? 0))) ?>">Back</button>
+      <?php
+        $printBackHref = url('document_view.php?id=' . (int) ($doc['id'] ?? 0));
+        $fromPrint = strtolower(trim((string) ($_GET['from'] ?? '')));
+        $printNotes = trim((string) ($doc['notes'] ?? ''));
+        // Sale → print: Back returns to the till, not a blank intermediate page.
+        if ($fromPrint === 'sale'
+            || (($doc['kind'] ?? '') === 'receipt' && $printNotes !== '' && strncasecmp($printNotes, 'Sale', 4) === 0)) {
+            $printBackHref = url('sale.php');
+        }
+      ?>
+      <button type="button" class="btn ghost" data-print-back data-href="<?= h($printBackHref) ?>">Back</button>
     </div>
   </div>
   <script src="<?= h(asset('js/sheet-fit.js')) ?>"></script>

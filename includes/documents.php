@@ -3047,7 +3047,8 @@ function document_print_as_html(array $doc): bool
     $ios = str_contains($ua, 'iPhone') || str_contains($ua, 'iPad') || str_contains($ua, 'iPod');
     $android = str_contains($ua, 'Android');
     $mobile = $ios || $android || str_contains($ua, 'Mobile');
-    // Phones/tablets get the HTML slip so it can fit the screen; desktop can use PDF.
+    // Thermal must stay HTML so 58mm / 80mm from Settings is honoured (PDF is A4).
+    // Phones/tablets also get the HTML slip - Chrome inline PDF is often blank there.
     return $thermal || $mobile;
 }
 
