@@ -3824,10 +3824,17 @@ function clear_company_logo(): void
         return;
     }
     if (function_exists('clear_branding_asset')) {
-        clear_branding_asset($cid, 'logo');
+        try {
+            clear_branding_asset($cid, 'logo');
+        } catch (Throwable $e) {
+            error_log('Vellisys clear logo asset: ' . $e->getMessage());
+        }
     }
-    if ($old !== '' && str_contains($old, 'uploads/logos/') && is_file(ROOT_PATH . '/' . $old)) {
-        @unlink($old);
+    if ($old !== '' && str_contains($old, 'uploads/logos/')) {
+        $full = ROOT_PATH . '/' . $old;
+        if (is_file($full)) {
+            @unlink($full);
+        }
     }
     branding(true);
     if (function_exists('document_pdf_cache_clear_company')) {

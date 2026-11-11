@@ -30,8 +30,8 @@ $trade = $templateKey === 'trade'
 $thermalMm = $thermal && function_exists('brand_thermal_width_mm')
     ? brand_thermal_width_mm($brand)
     : 58;
-// Chrome ignores `80mm auto` (invalid) — use a real height for thermal rolls.
-$pageSize = $thermal ? ($thermalMm . 'mm 297mm') : ($trade ? 'A5' : 'A4');
+// Short fallback — print-sheet.js rewrites thermal to measured slip height.
+$pageSize = $thermal ? ($thermalMm . 'mm 120mm') : ($trade ? 'A5' : 'A4');
 $thermalPageName = $thermalMm === 80 ? 'thermal-roll-80' : 'thermal-roll';
 $filename = document_download_filename($doc);
 $auto = isset($_GET['autodownload']);
@@ -50,9 +50,14 @@ $auto = isset($_GET['autodownload']);
     :root { <?= brand_css_vars($brand) ?> }
     @page { size: <?= $pageSize ?>; margin: 0; }
     <?php if ($thermal): ?>
-    @page thermal-roll { size: 58mm 297mm; margin: 0; }
-    @page thermal-roll-80 { size: 80mm 297mm; margin: 0; }
-    .invoice-sheet.sheet-thermal { page: <?= $thermalPageName ?>; }
+    @page thermal-roll { size: 58mm 120mm; margin: 0; }
+    @page thermal-roll-80 { size: 80mm 120mm; margin: 0; }
+    .invoice-sheet.sheet-thermal {
+      page: <?= $thermalPageName ?>;
+      display: block !important;
+      height: auto !important;
+      min-height: 0 !important;
+    }
     <?php elseif ($trade): ?>
     @page trade-a5 { size: A5; margin: 0; }
     .invoice-sheet.sheet-trade { page: trade-a5; }

@@ -861,9 +861,9 @@ function render_print_document_page(array $doc, bool $pdf = false): void
     $thermalMm = $thermal && function_exists('brand_thermal_width_mm')
         ? brand_thermal_width_mm($brand)
         : 58;
-    // Chrome ignores `80mm auto` (invalid). Use a real height; print-sheet.js
-    // rewrites this to the measured slip height right before window.print().
-    $pageSize = $thermal ? ($thermalMm . 'mm 297mm') : ($trade ? 'A5' : 'A4');
+    // Short fallback height — print-sheet.js rewrites to measured slip height
+    // before print. A 297mm fallback made rolls feed a near-A4 blank band.
+    $pageSize = $thermal ? ($thermalMm . 'mm 120mm') : ($trade ? 'A5' : 'A4');
     $thermalPageName = $thermalMm === 80 ? 'thermal-roll-80' : 'thermal-roll';
     ?>
 <!DOCTYPE html>
@@ -881,9 +881,18 @@ function render_print_document_page(array $doc, bool $pdf = false): void
     :root { <?= brand_css_vars($brand) ?> }
     @page { size: <?= $pageSize ?>; margin: 0; }
     <?php if ($thermal): ?>
-    @page thermal-roll { size: 58mm 297mm; margin: 0; }
-    @page thermal-roll-80 { size: 80mm 297mm; margin: 0; }
-    .invoice-sheet.sheet-thermal { page: <?= $thermalPageName ?>; }
+    @page thermal-roll { size: 58mm 120mm; margin: 0; }
+    @page thermal-roll-80 { size: 80mm 120mm; margin: 0; }
+    .invoice-sheet.sheet-thermal {
+      page: <?= $thermalPageName ?>;
+      display: block !important;
+      height: auto !important;
+      min-height: 0 !important;
+    }
+    .invoice-sheet.sheet-thermal .doc-authenticity,
+    .invoice-sheet.sheet-thermal .thermal-thanks {
+      margin-top: 6px !important;
+    }
     <?php elseif ($trade): ?>
     @page trade-a5 { size: A5; margin: 0; }
     .invoice-sheet.sheet-trade { page: trade-a5; }

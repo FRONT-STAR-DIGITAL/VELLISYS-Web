@@ -123,11 +123,16 @@
     if (!sheet) return;
     var widthMm = thermalWidthMm(root);
     var pageName = widthMm === 80 ? 'thermal-roll-80' : 'thermal-roll';
+    // Collapse any A4 min-height before measuring so the roll is content-tall only.
+    sheet.style.display = 'block';
+    sheet.style.height = 'auto';
+    sheet.style.minHeight = '0';
+    sheet.style.maxHeight = 'none';
     var rect = sheet.getBoundingClientRect();
     var px = Math.max(rect.height || 0, sheet.scrollHeight || 0, sheet.offsetHeight || 0);
     // CSS px → mm, plus a small buffer so the cutter does not clip the last line.
     var mm = Math.ceil((px * 25.4) / 96) + 4;
-    if (!isFinite(mm) || mm < 40) mm = 120;
+    if (!isFinite(mm) || mm < 40) mm = 80;
     if (mm > 4000) mm = 4000;
     var style = root.getElementById('thermal-page-size');
     if (!style) {
@@ -138,9 +143,10 @@
     style.textContent =
       '@page { size: ' + widthMm + 'mm ' + mm + 'mm; margin: 0; }' +
       '@page ' + pageName + ' { size: ' + widthMm + 'mm ' + mm + 'mm; margin: 0; }' +
-      'html, body { width: ' + widthMm + 'mm !important; max-width: ' + widthMm + 'mm !important; margin: 0 !important; }' +
+      'html, body { width: ' + widthMm + 'mm !important; max-width: ' + widthMm + 'mm !important; margin: 0 !important; height: auto !important; }' +
       '.print-thermal, .print-thermal .sheet-wrap, .print-thermal .sheet-stage,' +
-      '.invoice-sheet.sheet-thermal { page: ' + pageName + '; width: ' + widthMm + 'mm !important; max-width: ' + widthMm + 'mm !important; margin: 0 !important; }';
+      '.invoice-sheet.sheet-thermal { page: ' + pageName + '; display: block !important; width: ' + widthMm + 'mm !important; max-width: ' + widthMm + 'mm !important; height: auto !important; min-height: 0 !important; margin: 0 !important; }' +
+      '.invoice-sheet.sheet-thermal .doc-authenticity, .invoice-sheet.sheet-thermal .thermal-thanks { margin-top: 6px !important; }';
   }
   function applyScreenFit() {
     if (typeof window.fitDocumentSheets === 'function') {
@@ -214,9 +220,13 @@
     scrubLocation();
     stripPrintUrls(document);
     var widthMm = 58;
-    // Lock layout width before capture so height matches the PDF page.
+    // Lock layout width and collapse A4 min-height before capture.
+    sheet.style.display = 'block';
     sheet.style.width = widthMm + 'mm';
     sheet.style.maxWidth = widthMm + 'mm';
+    sheet.style.height = 'auto';
+    sheet.style.minHeight = '0';
+    sheet.style.maxHeight = 'none';
     sheet.style.margin = '0';
     sheet.style.transform = 'none';
     sheet.style.zoom = '1';
@@ -226,7 +236,7 @@
         var w = Math.max(sheet.scrollWidth || 0, sheet.offsetWidth || 0, Math.round((widthMm * 96) / 25.4));
         var h = Math.max(sheet.scrollHeight || 0, sheet.offsetHeight || 0, 1);
         var heightMm = Math.ceil((h * 25.4) / 96) + 4;
-        if (!isFinite(heightMm) || heightMm < 40) heightMm = 120;
+        if (!isFinite(heightMm) || heightMm < 40) heightMm = 80;
         if (heightMm > 4000) heightMm = 4000;
         return html2pdf().set({
           margin: 0,

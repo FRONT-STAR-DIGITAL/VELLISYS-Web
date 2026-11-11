@@ -2482,8 +2482,10 @@ input:focus, select:focus, textarea:focus {
   min-height: 210mm;
 }
 .invoice-sheet.sheet-thermal {
+  display: block;
   width: calc(var(--thermal-mm, 58) * 1mm);
   max-width: calc(var(--thermal-mm, 58) * 1mm);
+  height: auto;
   min-height: 0;
   padding: 4mm 2.8mm 6mm;
   font-size: 12px;
@@ -4972,9 +4974,9 @@ body.tut-lightbox-open { overflow: hidden; }
 }
 @page { size: A4; margin: 0; }
 @page trade-a5 { size: A5; margin: 0; }
-/* Explicit height — Chrome ignores `size: 80mm auto` and falls back to A4. */
-@page thermal-roll { size: 58mm 297mm; margin: 0; }
-@page thermal-roll-80 { size: 80mm 297mm; margin: 0; }
+/* Short fallback height — print-sheet.js rewrites to measured slip height. */
+@page thermal-roll { size: 58mm 120mm; margin: 0; }
+@page thermal-roll-80 { size: 80mm 120mm; margin: 0; }
 @media print {
   .desk-calc { display: none !important; }
   .app-tabbar { display: none !important; }

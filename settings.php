@@ -368,6 +368,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $b = branding();
+$settingsLogo = logo_url($b);
 $settings_save = static function (): void {
     echo '<div class="actions settings-section-save"><button class="btn sm" type="submit" name="action" value="save_brand">' . icon('check', 14) . 'Save settings</button></div>';
 };
@@ -759,10 +760,10 @@ layout_start('Settings', $user);
         <div>
           <label for="logo">Logo</label>
           <input id="logo" name="logo" type="file" accept="image/*,.svg">
-          <?php $settingsLogo = logo_url($b); if ($settingsLogo !== ''): ?>
+          <?php if ($settingsLogo !== ''): ?>
             <div class="logo-preview"><img src="<?= h($settingsLogo) ?>" alt=""></div>
             <p class="hint" style="margin:6px 0 8px">Optional on thermal and other sheets. Remove it anytime - you do not need to replace it.</p>
-            <button class="btn ghost sm" type="submit" name="action" value="clear_logo"><?= icon('trash', 14) ?>Remove logo</button>
+            <button class="btn ghost sm" type="submit" form="clear-logo-form"><?= icon('trash', 14) ?>Remove logo</button>
           <?php else: ?>
             <p class="hint" style="margin:6px 0 0">No logo yet - initials <strong><?= h(brand_initials($b)) ?></strong> show on the desk until you upload one. You can leave sheets without a logo.</p>
           <?php endif; ?>
@@ -1066,6 +1067,12 @@ layout_start('Settings', $user);
       <button class="btn" type="submit" name="action" value="save_brand"><?= icon('check') ?>Save settings</button>
     </div>
     </form>
+    <?php if ($settingsLogo !== ''): ?>
+    <form id="clear-logo-form" method="post" action="<?= h(url('settings.php')) ?>" style="display:none" aria-hidden="true">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="clear_logo">
+    </form>
+    <?php endif; ?>
     <section class="card settings-card" id="import">
       <h2><?= icon('upload') ?>Bring in books</h2>
       <p class="lede">After onboarding, drop in clients, old invoices, receipts and sales from a spreadsheet. Vellisys <strong>adds</strong> them to this desk. It does not replace what you have already issued.</p>

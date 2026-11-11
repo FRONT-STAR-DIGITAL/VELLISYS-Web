@@ -1171,8 +1171,10 @@
 
 /* Thermal roll — width from --thermal-mm (58 pocket Bluetooth / 80 counter). */
 .invoice-sheet.sheet-thermal {
+  display: block;
   width: calc(var(--thermal-mm, 58) * 1mm);
   max-width: calc(var(--thermal-mm, 58) * 1mm);
+  height: auto;
   min-height: 0;
   padding: 2.5mm 2.4mm 3.5mm;
   font-size: 12px;
@@ -1218,17 +1220,19 @@ body.print-thermal[data-thermal-mm="80"] .invoice-sheet.sheet-thermal {
 .thermal-head .d-logo,
 .thermal-head .d-logo.xs {
   display: block;
-  margin: 0 auto 4px;
-  height: 40px;
-  max-width: 140px;
-  max-height: 40px;
+  margin: 0 auto 6px;
+  height: auto;
+  min-height: 28px;
+  max-width: 160px;
+  max-height: 48px;
   width: auto;
   object-fit: contain;
+  object-position: center;
   background: #fff;
   padding: 0;
   border-radius: 0;
-  /* Hard B&W stamp - colored / light logos otherwise dither to gray on thermal */
-  filter: grayscale(1) contrast(2.8) brightness(0.72);
+  /* Hard B&W stamp so colored logos still print solid on thermal */
+  filter: grayscale(1) contrast(3.2) brightness(0.55);
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
@@ -1438,7 +1442,7 @@ body.print-thermal[data-thermal-mm="80"] .invoice-sheet.sheet-thermal {
 .thermal-thanks {
   text-align: center;
   font-weight: 700;
-  margin: 8px 0 2px;
+  margin: 8px 0 2px !important;
   font-size: 12px;
   color: #000;
 }
@@ -2317,13 +2321,13 @@ body.print-thermal[data-thermal-mm="80"] .invoice-sheet.sheet-thermal {
   size: A5;
   margin: 0;
 }
-/* Explicit height — Chrome ignores `size: 80mm auto` and falls back to A4. */
+/* Short fallback height — print-sheet.js rewrites to measured slip height. */
 @page thermal-roll {
-  size: 58mm 297mm;
+  size: 58mm 120mm;
   margin: 0;
 }
 @page thermal-roll-80 {
-  size: 80mm 297mm;
+  size: 80mm 120mm;
   margin: 0;
 }
 
@@ -2844,7 +2848,8 @@ body.print-thermal[data-thermal-mm="80"] .invoice-sheet.sheet-thermal {
   justify-content: center;
   text-align: left;
   gap: 2px;
-  margin: 6px auto 0;
+  /* Never margin-top:auto — that pushed QR to the bottom of a 297mm page. */
+  margin: 6px auto 0 !important;
   /* Keep ~1/4 of the old inner padding so the border hugs the QR. */
   padding: 2px;
   width: fit-content;
