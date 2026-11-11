@@ -261,7 +261,7 @@ layout_admin_start('Companies', $user);
             <td class="row-actions">
               <div class="actions testing-row-actions">
                 <a class="btn sm" href="<?= h(url('admin_company.php?id=' . $cid)) ?>"><?= icon('eye', 14) ?>Open</a>
-                <a class="btn ghost sm" href="<?= h(url('sales_desk.php?id=' . $cid . '&go=1')) ?>"><?= icon('desk', 14) ?>Desk</a>
+                <a class="btn ghost sm" href="<?= h(url('admin_desk.php?id=' . $cid)) ?>"><?= icon('desk', 14) ?>Desk</a>
                 <form method="post" class="inline-form">
                   <?= csrf_field() ?>
                   <input type="hidden" name="action" value="testing_extend">
