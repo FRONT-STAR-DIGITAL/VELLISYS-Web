@@ -3403,6 +3403,191 @@ function company_signature_url(?array $brand = null): string
 }
 
 /**
+ * Pure-black ink stamp of the company logo for thermal printers.
+ * CSS filters on color logos often print as a solid black rectangle on rolls —
+ * this thresholds to black-on-white (inverting dark backgrounds first).
+ */
+function company_logo_ink_url(?array $brand = null): string
+{
+    $brand = $brand ?? branding();
+    $srcRel = ltrim((string) ($brand['logo_path'] ?? ''), '/');
+    if ($srcRel !== '' && brand_logo_path_is_ofagros_seed($srcRel) && !brand_is_ofagros_company($brand)) {
+        $srcRel = '';
+    }
+    $cid = (int) ($brand['company_id'] ?? (function_exists('current_company_id') ? current_company_id() : 0));
+    $srcFull = '';
+    if ($srcRel !== '' && is_file(ROOT_PATH . '/' . $srcRel)) {
+        $srcFull = ROOT_PATH . '/' . $srcRel;
+    } elseif ($cid > 0 && function_exists('branding_asset_row')) {
+        $asset = branding_asset_row($cid, 'logo');
+        $bin = is_string($asset['bin'] ?? null) ? (string) $asset['bin'] : '';
+        if ($bin !== '' && function_exists('logo_thermal_ink_bin')) {
+            $inkRel = 'uploads/logos/logo-' . $cid . '-ink.png';
+            $inkFull = ROOT_PATH . '/' . $inkRel;
+            $ink = logo_thermal_ink_bin($bin);
+            if ($ink !== '' && strlen($ink) >= 40) {
+                $dir = dirname($inkFull);
+                if ((is_dir($dir) || @mkdir($dir, 0775, true) || is_dir($dir)) && @file_put_contents($inkFull, $ink) !== false) {
+                    return url($inkRel) . '?v=' . filemtime($inkFull);
+                }
+            }
+        }
+        return logo_url($brand);
+    }
+    if ($srcFull === '' || !function_exists('imagecreatefromstring') || !function_exists('imagepng')) {
+        return logo_url($brand);
+    }
+    $inkRel = 'uploads/logos/logo-' . max(0, $cid) . '-ink.png';
+    $inkFull = ROOT_PATH . '/' . $inkRel;
+    $srcMtime = (int) filemtime($srcFull);
+    if (!is_file($inkFull) || filemtime($inkFull) < $srcMtime || filesize($inkFull) < 40) {
+        $bin = (string) file_get_contents($srcFull);
+        $ink = logo_thermal_ink_bin($bin);
+        if ($ink === '' || strlen($ink) < 40) {
+            return logo_url($brand);
+        }
+        $dir = dirname($inkFull);
+        if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
+            return logo_url($brand);
+        }
+        if (@file_put_contents($inkFull, $ink) === false) {
+            return logo_url($brand);
+        }
+    }
+    return url($inkRel) . '?v=' . filemtime($inkFull);
+}
+
+/**
+ * Threshold a logo to solid black on white for thermal heads.
+ * Dark-background logos (white wordmark on navy, etc.) are inverted first
+ * so they do not print as a filled black rectangle.
+ */
+function logo_thermal_ink_bin(string $bin): string
+{
+    if ($bin === '' || !function_exists('imagecreatefromstring') || !function_exists('imagepng')) {
+        return '';
+    }
+    $src = @imagecreatefromstring($bin);
+    if (!$src) {
+        return '';
+    }
+    $w = imagesx($src);
+    $h = imagesy($src);
+    if ($w < 2 || $h < 2) {
+        imagedestroy($src);
+        return '';
+    }
+
+    // Cap working size so huge uploads stay fast on print.
+    $maxSide = 640;
+    $scale = 1.0;
+    if ($w > $maxSide || $h > $maxSide) {
+        $scale = $maxSide / max($w, $h);
+    }
+    $nw = max(2, (int) round($w * $scale));
+    $nh = max(2, (int) round($h * $scale));
+    $work = imagecreatetruecolor($nw, $nh);
+    if ($work === false) {
+        imagedestroy($src);
+        return '';
+    }
+    $white = imagecolorallocate($work, 255, 255, 255);
+    imagefilledrectangle($work, 0, 0, $nw, $nh, $white);
+    imagealphablending($work, true);
+    imagesavealpha($work, false);
+    imagecopyresampled($work, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
+    imagedestroy($src);
+
+    // Sample border luma — dark borders usually mean a filled logo plate.
+    $borderSum = 0.0;
+    $borderN = 0;
+    for ($x = 0; $x < $nw; $x++) {
+        foreach ([0, $nh - 1] as $y) {
+            $rgba = imagecolorat($work, $x, $y);
+            $r = ($rgba >> 16) & 0xFF;
+            $g = ($rgba >> 8) & 0xFF;
+            $b = $rgba & 0xFF;
+            $borderSum += 0.2126 * $r + 0.7152 * $g + 0.0722 * $b;
+            $borderN++;
+        }
+    }
+    for ($y = 1; $y < $nh - 1; $y++) {
+        foreach ([0, $nw - 1] as $x) {
+            $rgba = imagecolorat($work, $x, $y);
+            $r = ($rgba >> 16) & 0xFF;
+            $g = ($rgba >> 8) & 0xFF;
+            $b = $rgba & 0xFF;
+            $borderSum += 0.2126 * $r + 0.7152 * $g + 0.0722 * $b;
+            $borderN++;
+        }
+    }
+    $borderAvg = $borderN > 0 ? ($borderSum / $borderN) : 255.0;
+    $invert = $borderAvg < 140.0;
+
+    $ink = [];
+    for ($y = 0; $y < $nh; $y++) {
+        $ink[$y] = [];
+        for ($x = 0; $x < $nw; $x++) {
+            $rgba = imagecolorat($work, $x, $y);
+            $r = ($rgba >> 16) & 0xFF;
+            $g = ($rgba >> 8) & 0xFF;
+            $b = $rgba & 0xFF;
+            $luma = 0.2126 * $r + 0.7152 * $g + 0.0722 * $b;
+            if ($invert) {
+                $luma = 255.0 - $luma;
+            }
+            // Keep logo marks; drop near-white background.
+            $ink[$y][$x] = $luma < 200 ? 1 : 0;
+        }
+    }
+    imagedestroy($work);
+
+    // One light dilate so thin logo strokes survive 203dpi thermal heads.
+    $next = $ink;
+    for ($y = 0; $y < $nh; $y++) {
+        for ($x = 0; $x < $nw; $x++) {
+            if ($ink[$y][$x]) {
+                continue;
+            }
+            for ($dy = -1; $dy <= 1; $dy++) {
+                for ($dx = -1; $dx <= 1; $dx++) {
+                    $yy = $y + $dy;
+                    $xx = $x + $dx;
+                    if ($yy < 0 || $xx < 0 || $yy >= $nh || $xx >= $nw) {
+                        continue;
+                    }
+                    if ($ink[$yy][$xx]) {
+                        $next[$y][$x] = 1;
+                        break 2;
+                    }
+                }
+            }
+        }
+    }
+    $ink = $next;
+
+    $out = imagecreatetruecolor($nw, $nh);
+    if ($out === false) {
+        return '';
+    }
+    $whiteOut = imagecolorallocate($out, 255, 255, 255);
+    $blackOut = imagecolorallocate($out, 0, 0, 0);
+    imagefilledrectangle($out, 0, 0, $nw, $nh, $whiteOut);
+    for ($y = 0; $y < $nh; $y++) {
+        for ($x = 0; $x < $nw; $x++) {
+            if ($ink[$y][$x]) {
+                imagesetpixel($out, $x, $y, $blackOut);
+            }
+        }
+    }
+    ob_start();
+    imagepng($out, null, 6);
+    $png = (string) ob_get_clean();
+    imagedestroy($out);
+    return strlen($png) >= 40 ? $png : '';
+}
+
+/**
  * Pure-black ink stamp of the company signature for thermal printers.
  * Gray / anti-aliased strokes dither into faint dots on 80mm rolls - this thresholds
  * and thickens the mark so it lays solid black.
@@ -3835,6 +4020,10 @@ function clear_company_logo(): void
         if (is_file($full)) {
             @unlink($full);
         }
+    }
+    $inkFull = ROOT_PATH . '/uploads/logos/logo-' . $cid . '-ink.png';
+    if (is_file($inkFull)) {
+        @unlink($inkFull);
     }
     branding(true);
     if (function_exists('document_pdf_cache_clear_company')) {

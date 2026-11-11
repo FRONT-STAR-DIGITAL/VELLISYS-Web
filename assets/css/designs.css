@@ -1176,7 +1176,8 @@
   max-width: calc(var(--thermal-mm, 58) * 1mm);
   height: auto;
   min-height: 0;
-  padding: 2.5mm 2.4mm 3.5mm;
+  /* Tiny top pad — large top padding showed as blank feed above the logo. */
+  padding: 0.8mm 2.4mm 3mm;
   font-size: 12px;
   font-weight: 600;
   color: #000;
@@ -1193,7 +1194,7 @@
 /* 58mm pocket Bluetooth: denser type so the slip matches native POS receipts. */
 .invoice-sheet.sheet-thermal[data-thermal-mm="58"],
 body.print-thermal[data-thermal-mm="58"] .invoice-sheet.sheet-thermal {
-  padding: 2mm 1.8mm 3mm;
+  padding: 0.6mm 1.8mm 2.5mm;
   font-size: 12px;
 }
 .invoice-sheet.sheet-thermal[data-thermal-mm="58"] .thermal-head strong,
@@ -1214,15 +1215,14 @@ body.print-thermal[data-thermal-mm="58"] .thermal-head p {
 /* 80mm counter: keep readable type without stretching the roll. */
 .invoice-sheet.sheet-thermal[data-thermal-mm="80"],
 body.print-thermal[data-thermal-mm="80"] .invoice-sheet.sheet-thermal {
-  padding: 3mm 3.2mm 4mm;
+  padding: 1mm 3.2mm 3.5mm;
 }
-.thermal-head { text-align: center; color: #000; }
+.thermal-head { text-align: center; color: #000; margin: 0; padding: 0; }
 .thermal-head .d-logo,
 .thermal-head .d-logo.xs {
   display: block;
-  margin: 0 auto 6px;
+  margin: 0 auto 4px;
   height: auto;
-  min-height: 28px;
   max-width: 160px;
   max-height: 48px;
   width: auto;
@@ -1231,10 +1231,17 @@ body.print-thermal[data-thermal-mm="80"] .invoice-sheet.sheet-thermal {
   background: #fff;
   padding: 0;
   border-radius: 0;
-  /* Hard B&W stamp so colored logos still print solid on thermal */
-  filter: grayscale(1) contrast(3.2) brightness(0.55);
+  /* Ink PNGs are already black-on-white — never CSS-filter (that printed a black plate). */
+  filter: none;
+  image-rendering: auto;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
+}
+.thermal-head .d-logo.thermal-logo-ink,
+.thermal-head .thermal-logo-ink {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
 }
 .thermal-head strong {
   display: block;
@@ -2454,10 +2461,12 @@ body.print-thermal[data-thermal-mm="80"] .invoice-sheet.sheet-thermal {
   }
   .invoice-sheet.sheet-thermal {
     page: thermal-roll;
+    display: block !important;
     width: calc(var(--thermal-mm, 58) * 1mm) !important;
     max-width: calc(var(--thermal-mm, 58) * 1mm) !important;
+    height: auto !important;
     min-height: 0 !important;
-    padding: 3.5mm 2.5mm 5mm !important;
+    padding: 0.6mm 2.2mm 3mm !important;
     page-break-after: auto !important;
     break-after: auto !important;
     page-break-inside: auto !important;
@@ -2466,7 +2475,7 @@ body.print-thermal[data-thermal-mm="80"] .invoice-sheet.sheet-thermal {
   body.print-thermal[data-thermal-mm="80"] .invoice-sheet.sheet-thermal,
   .invoice-sheet.sheet-thermal[data-thermal-mm="80"] {
     page: thermal-roll-80;
-    padding: 4mm 3.5mm 6mm !important;
+    padding: 0.8mm 3mm 3.5mm !important;
   }
   .print-thermal,
   .print-thermal .sheet-wrap,

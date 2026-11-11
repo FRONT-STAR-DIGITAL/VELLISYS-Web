@@ -2487,7 +2487,7 @@ input:focus, select:focus, textarea:focus {
   max-width: calc(var(--thermal-mm, 58) * 1mm);
   height: auto;
   min-height: 0;
-  padding: 4mm 2.8mm 6mm;
+  padding: 0.8mm 2.4mm 3mm;
   font-size: 12px;
   box-sizing: border-box;
 }

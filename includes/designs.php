@@ -69,7 +69,21 @@ function render_sheet_logo(array $d, string $class = 'd-logo'): void
     if ($src === '') {
         return;
     }
-    $alt = (string) ($d['brand']['name'] ?? '');
+    $brand = is_array($d['brand'] ?? null) ? $d['brand'] : [];
+    $doc = is_array($d['doc'] ?? null) ? $d['doc'] : [];
+    // Thermal: hard black-on-white ink stamp — CSS filters print as a solid black plate.
+    if (
+        function_exists('doc_template_key')
+        && doc_template_key($doc) === 'thermal'
+        && function_exists('company_logo_ink_url')
+    ) {
+        $ink = company_logo_ink_url($brand);
+        if ($ink !== '') {
+            $src = $ink;
+            $class = trim($class . ' thermal-logo-ink');
+        }
+    }
+    $alt = (string) ($brand['name'] ?? '');
     echo '<img src="' . h($src) . '" alt="' . h($alt) . '" class="' . h($class) . '">';
 }
 
