@@ -3811,6 +3811,32 @@ function clear_company_signature(): void
     }
 }
 
+/** Remove the company logo without requiring a replacement upload. */
+function clear_company_logo(): void
+{
+    $cid = current_company_id();
+    if ($cid < 1) {
+        return;
+    }
+    $old = ltrim((string) (branding()['logo_path'] ?? ''), '/');
+    try {
+        db_exec('UPDATE branding SET logo_path=? WHERE company_id=?', 'si', ['', $cid]);
+    } catch (Throwable $e) {
+        error_log('Vellisys clear logo: ' . $e->getMessage());
+        return;
+    }
+    if (function_exists('clear_branding_asset')) {
+        clear_branding_asset($cid, 'logo');
+    }
+    if ($old !== '' && str_contains($old, 'uploads/logos/') && is_file(ROOT_PATH . '/' . $old)) {
+        @unlink($old);
+    }
+    branding(true);
+    if (function_exists('document_pdf_cache_clear_company')) {
+        document_pdf_cache_clear_company($cid);
+    }
+}
+
 function period_range(): array
 {
     $preset = (string) ($_GET['range'] ?? '');

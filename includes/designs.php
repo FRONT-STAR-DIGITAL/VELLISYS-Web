@@ -437,6 +437,17 @@ function render_line_table(array $doc, string $color, string $tint, array $opts 
                             continue;
                         }
                         if ($key === 'description') {
+                            // Thermal rolls: product name only - long stock blurbs make sales slips too tall.
+                            if (!empty($opts['name_only'])) {
+                                $nameOnly = line_item_name($item);
+                                if ($nameOnly !== '') {
+                                    // Description-only column layouts still need the name on the slip.
+                                    if (!$colItem) {
+                                        $parts[] = '<span class="item">' . h($nameOnly) . '</span>';
+                                    }
+                                    continue;
+                                }
+                            }
                             $desc = line_item_description($item);
                             if ($desc !== '') {
                                 $parts[] = '<span class="twin-desc">' . nl2br(h($desc), false) . '</span>';
@@ -2046,7 +2057,8 @@ function render_sheet_thermal(array $d): void
         ? sheet_due_amount($d)
         : max(0, round((float) $d['total'] - $paid, 2));
     $comment = (string) ($d['comments'] ?? '');
-    if ($isTill && strcasecmp($notes, 'Sale') === 0) {
+    // Till status notes ("Sale. Paid in full.") already show via Received/Balance.
+    if ($isTill && $notes !== '' && strncasecmp($notes, 'Sale', 4) === 0) {
         $comment = trim((string) ($brand['receipt_comments'] ?? ''));
     }
     ?>
@@ -2076,16 +2088,24 @@ function render_sheet_thermal(array $d): void
   <?php else: ?>
     <?php
     // Pure black header + white rows: gray fills dither and read faint on thermal printers.
-    render_line_table($slip, '#000', '#fff', ['compact' => true, 'min' => 1, 'class' => 'thermal-lines']);
+    // Name only on the roll - long stock descriptions stretch sale slips.
+    render_line_table($slip, '#000', '#fff', [
+        'compact' => true,
+        'min' => 1,
+        'class' => 'thermal-lines',
+        'name_only' => true,
+    ]);
     ?>
     <?php if (kind_shows_money($slip['kind'] ?? $kind) && !$qtyOnly): ?>
     <div class="thermal-sums">
       <?php if (!empty($d['show_vat'])): ?>
         <div><span><?= h($d['tax_label']) ?></span><b><?= h(money($d['vat'], $d['cur'])) ?></b></div>
       <?php endif; ?>
-      <div><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
-      <div class="thermal-total"><span><?= $isTill ? 'Received' : 'Total' ?></span><b><?= h(money($isTill ? $paid : $d['total'], $d['cur'])) ?></b></div>
-      <?php if ($isTill): ?>
+      <?php if (!$isTill): ?>
+        <div class="thermal-total"><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
+      <?php else: ?>
+        <div><span>Total</span><b><?= h(money($d['total'], $d['cur'])) ?></b></div>
+        <div class="thermal-total"><span>Received</span><b><?= h(money($paid, $d['cur'])) ?></b></div>
         <div><span>Balance</span><b><?= h(money($due, $d['cur'])) ?></b></div>
         <?php
         $payHow = trim((string) (($d['methods'][$d['method']] ?? '') ?: $d['method']));
@@ -2109,9 +2129,12 @@ function render_sheet_thermal(array $d): void
   if ($thanks === '') {
       $thanks = 'Thank you';
   }
+  $thermalEmail = trim((string) ($brand['email'] ?? ''));
   ?>
   <p class="thermal-thanks"><?= h($thanks) ?></p>
-  <p class="thermal-foot"><?= h($brand['email']) ?></p>
+  <?php if ($thermalEmail !== ''): ?>
+  <p class="thermal-foot"><?= h($thermalEmail) ?></p>
+  <?php endif; ?>
 </article>
 <?php
 }

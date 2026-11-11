@@ -153,6 +153,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         flash('Signature cleared. Draw it again to approve.');
         redirect('settings.php#appearance');
+    } elseif ($action === 'clear_logo') {
+        if (function_exists('clear_company_logo')) {
+            clear_company_logo();
+        }
+        flash('Logo removed. Sheets use the company name until you upload another.');
+        redirect('settings.php#appearance');
     } elseif ($action === '' || $action === 'save_brand') {
     $color = parse_hex_color(post('brand_color'), '#82B440');
     $accent = parse_hex_color(post('brand_accent'), '#C6A15B');
@@ -755,8 +761,10 @@ layout_start('Settings', $user);
           <input id="logo" name="logo" type="file" accept="image/*,.svg">
           <?php $settingsLogo = logo_url($b); if ($settingsLogo !== ''): ?>
             <div class="logo-preview"><img src="<?= h($settingsLogo) ?>" alt=""></div>
+            <p class="hint" style="margin:6px 0 8px">Optional on thermal and other sheets. Remove it anytime - you do not need to replace it.</p>
+            <button class="btn ghost sm" type="submit" name="action" value="clear_logo"><?= icon('trash', 14) ?>Remove logo</button>
           <?php else: ?>
-            <p class="hint" style="margin:6px 0 0">No logo yet - initials <strong><?= h(brand_initials($b)) ?></strong> show on the desk until you upload one.</p>
+            <p class="hint" style="margin:6px 0 0">No logo yet - initials <strong><?= h(brand_initials($b)) ?></strong> show on the desk until you upload one. You can leave sheets without a logo.</p>
           <?php endif; ?>
         </div>
       </div>
