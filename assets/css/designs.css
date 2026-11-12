@@ -1221,10 +1221,11 @@ body.print-thermal[data-thermal-mm="80"] .invoice-sheet.sheet-thermal {
 .thermal-head .d-logo,
 .thermal-head .d-logo.xs {
   display: block;
-  margin: 0 auto 4px;
+  margin: 0 auto 5px;
   height: auto;
-  max-width: 160px;
-  max-height: 48px;
+  /* Larger brand mark on sales / till thermal rolls. */
+  max-width: 200px;
+  max-height: 72px;
   width: auto;
   object-fit: contain;
   object-position: center;
@@ -1236,6 +1237,20 @@ body.print-thermal[data-thermal-mm="80"] .invoice-sheet.sheet-thermal {
   image-rendering: auto;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
+}
+.invoice-sheet.sheet-thermal[data-thermal-mm="58"] .thermal-head .d-logo,
+.invoice-sheet.sheet-thermal[data-thermal-mm="58"] .thermal-head .d-logo.xs,
+body.print-thermal[data-thermal-mm="58"] .thermal-head .d-logo,
+body.print-thermal[data-thermal-mm="58"] .thermal-head .d-logo.xs {
+  max-width: 176px;
+  max-height: 64px;
+}
+.invoice-sheet.sheet-thermal[data-thermal-mm="80"] .thermal-head .d-logo,
+.invoice-sheet.sheet-thermal[data-thermal-mm="80"] .thermal-head .d-logo.xs,
+body.print-thermal[data-thermal-mm="80"] .thermal-head .d-logo,
+body.print-thermal[data-thermal-mm="80"] .thermal-head .d-logo.xs {
+  max-width: 248px;
+  max-height: 88px;
 }
 .thermal-head .d-logo.thermal-logo-ink,
 .thermal-head .thermal-logo-ink {
