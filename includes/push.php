@@ -236,7 +236,9 @@ function push_send_http(string $endpoint, string $body, string $audience): array
             'header' => implode("\r\n", $headers),
             'content' => $body,
             'ignore_errors' => true,
-            'timeout' => 12,
+            // Keep short: Apache mod_php has no fastcgi_finish_request, so a hung
+            // FCM/Mozilla endpoint would otherwise block the whole page for 12s.
+            'timeout' => 2,
         ],
     ]);
     $raw = @file_get_contents($endpoint, false, $ctx);
@@ -363,20 +365,20 @@ function push_audience_user_ids(string $scope, int $companyId = 0): array
     return array_map(static fn (array $r): int => (int) $r['id'], $rows);
 }
 
-function push_deliver(array $userIds, string $title, string $body, string $url, string $tag): void
+function push_deliver(array $userIds, string $title, string $body, string $url, string $tag, ?int $badge = null): void
 {
     foreach (array_unique(array_filter($userIds)) as $uid) {
         $uid = (int) $uid;
         if ($tag !== '' && push_already_sent($uid, $tag)) {
             continue;
         }
-        $owner = db_one('SELECT * FROM users WHERE id = ?', 'i', [$uid]);
+        // Never rebuild the full notification list per delivery — that was O(n²) on sync.
         $payload = [
             'title' => $title,
             'body' => $body,
             'url' => $url,
             'tag' => $tag !== '' ? $tag : 'vellisys',
-            'badge' => $owner ? count(push_current_items_for_user($owner)) : 1,
+            'badge' => $badge !== null ? max(0, $badge) : 1,
         ];
         $sent = false;
         foreach (push_subscriptions_for_user($uid) as $sub) {
@@ -454,18 +456,76 @@ function push_sync_outstanding(?array $user = null): void
     if ($uid < 1) {
         return;
     }
-    foreach (push_current_items_for_user($user) as $n) {
+    $items = push_current_items_for_user($user);
+    if (!$items) {
+        return;
+    }
+    $badge = count($items);
+    // One round-trip for already-sent tags instead of N SELECTs.
+    $sent = [];
+    try {
+        vapid_ensure_tables();
+        $keys = [];
+        foreach ($items as $n) {
+            $tag = substr(trim((string) ($n['key'] ?? '')), 0, 80);
+            if ($tag !== '') {
+                $keys[$tag] = true;
+            }
+        }
+        if ($keys) {
+            $list = array_keys($keys);
+            $ph = implode(',', array_fill(0, count($list), '?'));
+            foreach (db_all(
+                "SELECT notif_key FROM push_sent WHERE user_id = ? AND notif_key IN ($ph)",
+                'i' . str_repeat('s', count($list)),
+                array_merge([$uid], $list)
+            ) as $row) {
+                $sent[(string) ($row['notif_key'] ?? '')] = true;
+            }
+        }
+    } catch (Throwable $e) {
+        $sent = [];
+    }
+    $subs = push_subscriptions_for_user($uid);
+    if (!$subs) {
+        return;
+    }
+    foreach ($items as $n) {
+        $tag = substr(trim((string) ($n['key'] ?? '')), 0, 80);
+        if ($tag === '' || isset($sent[$tag])) {
+            continue;
+        }
         $title = trim((string) ($n['title'] ?? 'Vellisys'));
         $body = trim((string) ($n['body'] ?? ''));
         $href = (string) ($n['url'] ?? url('dashboard.php'));
         if (!str_starts_with($href, 'http')) {
             $href = function_exists('absolute_url') ? absolute_url(ltrim($href, '/')) : $href;
         }
-        $tag = (string) ($n['key'] ?? '');
-        push_deliver([$uid], $title, $body !== '' ? $body : $title, $href, $tag);
+        $payload = [
+            'title' => $title,
+            'body' => $body !== '' ? $body : $title,
+            'url' => $href,
+            'tag' => $tag,
+            'badge' => $badge,
+        ];
+        $ok = false;
+        foreach ($subs as $sub) {
+            if (push_send_to_subscription($sub, $payload)) {
+                $ok = true;
+            }
+        }
+        if ($ok) {
+            push_mark_sent($uid, $tag);
+            $sent[$tag] = true;
+        }
     }
 }
 
+/**
+ * Queue outstanding Web Push delivery after the response.
+ * On Apache mod_php (Dokploy image) fastcgi_finish_request is missing, so
+ * layout must not call this — ping.php / event hooks do instead.
+ */
 function push_schedule_sync(): void
 {
     static $queued = false;
@@ -476,6 +536,17 @@ function push_schedule_sync(): void
     register_shutdown_function(static function (): void {
         if (function_exists('fastcgi_finish_request')) {
             @fastcgi_finish_request();
+        } elseif (function_exists('litespeed_finish_request')) {
+            @litespeed_finish_request();
+        } else {
+            // mod_php: flush what we can, then keep work off the critical path when possible.
+            if (!headers_sent()) {
+                header('Connection: close');
+            }
+            while (ob_get_level() > 0) {
+                @ob_end_flush();
+            }
+            @flush();
         }
         try {
             push_sync_outstanding();

@@ -1044,6 +1044,34 @@ function desk_staff_document_notifications(int $limit = 20): array
     } catch (Throwable $e) {
         return [];
     }
+    // One totals query for all staff docs — avoid N+1 document_items hits on every bell build.
+    $totalsById = [];
+    $ids = [];
+    foreach ($rows as $row) {
+        $id = (int) ($row['id'] ?? 0);
+        if ($id > 0) {
+            $ids[] = $id;
+        }
+    }
+    if ($ids) {
+        try {
+            $ph = implode(',', array_fill(0, count($ids), '?'));
+            $sums = db_all(
+                "SELECT document_id,
+                        COALESCE(SUM(ROUND(qty * rate, 2)), 0) AS net,
+                        COALESCE(SUM(CASE WHEN taxed = 1 THEN ROUND(qty * rate, 2) ELSE 0 END), 0) AS taxed_net
+                 FROM document_items WHERE document_id IN ($ph)
+                 GROUP BY document_id",
+                str_repeat('i', count($ids)),
+                $ids
+            );
+            foreach ($sums as $sum) {
+                $totalsById[(int) ($sum['document_id'] ?? 0)] = $sum;
+            }
+        } catch (Throwable $e) {
+            $totalsById = [];
+        }
+    }
     $items = [];
     foreach ($rows as $row) {
         $id = (int) ($row['id'] ?? 0);
@@ -1057,30 +1085,10 @@ function desk_staff_document_notifications(int $limit = 20): array
         $staff = trim((string) ($row['staff_name'] ?? '')) ?: 'Staff';
         $customer = trim((string) ($row['customer_name'] ?? '')) ?: 'Walk-in';
         $number = trim((string) ($row['number'] ?? '')) ?: ('#' . $id);
-        $total = 0.0;
-        try {
-            $lineRows = db_all(
-                'SELECT qty, rate, taxed FROM document_items WHERE document_id = ?',
-                'i',
-                [$id]
-            );
-            $docLines = [];
-            foreach ($lineRows as $line) {
-                $docLines[] = [
-                    'qty' => (float) ($line['qty'] ?? 0),
-                    'rate' => (float) ($line['rate'] ?? 0),
-                    'taxed' => !empty($line['taxed']) ? 1 : 0,
-                ];
-            }
-            $rate = (float) ($row['vat_rate'] ?? 0);
-            if (function_exists('doc_total')) {
-                $total = doc_total($docLines, $rate);
-            } elseif (function_exists('document_totals')) {
-                $total = (float) (document_totals(['items' => $docLines, 'vat_rate' => $rate])['total'] ?? 0);
-            }
-        } catch (Throwable $e) {
-            $total = 0.0;
-        }
+        $agg = $totalsById[$id] ?? ['net' => 0, 'taxed_net' => 0];
+        $net = round((float) ($agg['net'] ?? 0), 2);
+        $vat = round((float) ($agg['taxed_net'] ?? 0) * (float) ($row['vat_rate'] ?? 0), 2);
+        $total = round($net + $vat, 2);
         $currency = (string) ($row['currency'] ?? '');
         $amount = function_exists('money')
             ? money($total, $currency !== '' ? $currency : null)

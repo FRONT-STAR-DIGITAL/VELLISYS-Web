@@ -326,10 +326,8 @@ function layout_start(string $title, array $user, array $opts = []): void
     $showBell = function_exists('desk_notifications_enabled') && desk_notifications_enabled();
     $plannerOn = function_exists('company_planner_enabled') && company_planner_enabled() && is_desk_admin();
     $stockOn = function_exists('company_stock_enabled') && company_stock_enabled();
-    // Always re-sync push/app-icon badge while signed in (also clears when the bell is empty).
-    if (function_exists('push_schedule_sync')) {
-        push_schedule_sync();
-    }
+    // Web Push sync runs from ping.php (not here). Apache mod_php cannot
+    // finish the request early, so remote FCM/Mozilla calls were blocking TTFB.
     ?>
 <!DOCTYPE html>
 <html lang="en"<?= function_exists('folio_html_root_attrs') ? folio_html_root_attrs() : '' ?>>
@@ -592,10 +590,7 @@ function layout_admin_start(string $title, array $user): void
     $notes = platform_notifications(40);
     $noteCount = count($notes);
     $salesMsgUnread = function_exists('sales_admin_unread_count') ? sales_admin_unread_count((int) $user['id']) : 0;
-    // Always re-sync push/app-icon badge while signed in (also clears when the bell is empty).
-    if (function_exists('push_schedule_sync')) {
-        push_schedule_sync();
-    }
+    // Web Push sync runs from ping.php — keep admin HTML off remote push latency.
     ?>
 <!DOCTYPE html>
 <html lang="en"<?= function_exists('folio_html_root_attrs') ? folio_html_root_attrs() : '' ?>>

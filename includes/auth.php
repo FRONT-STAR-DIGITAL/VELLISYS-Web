@@ -9,12 +9,22 @@ function current_user(): ?array
     if (empty($_SESSION['user_id'])) {
         return null;
     }
+    static $cachedId = 0;
+    static $cachedUser = false;
+    $id = (int) $_SESSION['user_id'];
+    if ($cachedUser !== false && $cachedId === $id) {
+        return $cachedUser;
+    }
     try {
-        $user = db_one('SELECT * FROM users WHERE id = ?', 'i', [(int) $_SESSION['user_id']]);
+        $user = db_one('SELECT * FROM users WHERE id = ?', 'i', [$id]);
     } catch (Throwable $e) {
+        $cachedId = $id;
+        $cachedUser = null;
         return null;
     }
     if (!$user) {
+        $cachedId = $id;
+        $cachedUser = null;
         return null;
     }
     $user['job_title'] = (string) ($user['job_title'] ?? '');
@@ -27,8 +37,12 @@ function current_user(): ?array
         if (function_exists('clear_remember_cookies')) {
             clear_remember_cookies();
         }
+        $cachedId = $id;
+        $cachedUser = null;
         return null;
     }
+    $cachedId = $id;
+    $cachedUser = $user;
     return $user;
 }
 

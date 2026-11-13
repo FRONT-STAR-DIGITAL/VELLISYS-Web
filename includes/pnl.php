@@ -1200,42 +1200,58 @@ function notification_dismiss_key(array $n): string
     return substr(sha1(($n['type'] ?? '') . '|' . ($n['href'] ?? '') . '|' . ($n['title'] ?? '')), 0, 64);
 }
 
+/** Prefetch this login's dismissals once per request (avoids N SELECTs in enrich). */
+function notification_prefetch_dismissals(?int $userId = null): void
+{
+    static $doneFor = 0;
+    $uid = $userId ?? 0;
+    if ($uid <= 0 && function_exists('current_user')) {
+        $uid = (int) (current_user()['id'] ?? 0);
+    }
+    if ($uid <= 0) {
+        $uid = (int) ($_SESSION['user_id'] ?? 0);
+    }
+    if ($uid <= 0 || $doneFor === $uid) {
+        return;
+    }
+    $doneFor = $uid;
+    if (!isset($_SESSION['notif_dismissed']) || !is_array($_SESSION['notif_dismissed'])) {
+        $_SESSION['notif_dismissed'] = [];
+    }
+    $loadedFor = (int) ($_SESSION['notif_dismissed_loaded_for'] ?? 0);
+    $loadedAt = (int) ($_SESSION['notif_dismissed_loaded_at'] ?? 0);
+    if ($loadedFor === $uid && $loadedAt > time() - 300) {
+        return;
+    }
+    try {
+        $rows = db_all(
+            'SELECT dismiss_key FROM notification_dismissals WHERE user_id = ? LIMIT 500',
+            'i',
+            [$uid]
+        );
+        foreach ($rows as $row) {
+            $k = substr(trim((string) ($row['dismiss_key'] ?? '')), 0, 64);
+            if ($k !== '') {
+                $_SESSION['notif_dismissed'][$k] = time();
+            }
+        }
+        $_SESSION['notif_dismissed_loaded_for'] = $uid;
+        $_SESSION['notif_dismissed_loaded_at'] = time();
+    } catch (Throwable $e) {
+        // Table may not exist yet on a brand-new install.
+    }
+}
+
 function notification_is_dismissed(string $key): bool
 {
     $key = substr(trim($key), 0, 64);
     if ($key === '') {
         return false;
     }
+    notification_prefetch_dismissals();
     $bag = $_SESSION['notif_dismissed'] ?? [];
     if (isset($bag[$key])) {
         return true;
-    }
-    // Prefer current_user() so folio_user_override (push builds) uses the target login.
-    $uid = 0;
-    if (function_exists('current_user')) {
-        $uid = (int) (current_user()['id'] ?? 0);
-    }
-    if ($uid <= 0) {
-        $uid = (int) ($_SESSION['user_id'] ?? 0);
-    }
-    if ($uid <= 0) {
-        return false;
-    }
-    try {
-        $row = db_one(
-            'SELECT 1 AS ok FROM notification_dismissals WHERE user_id = ? AND dismiss_key = ? LIMIT 1',
-            'is',
-            [$uid, $key]
-        );
-        if ($row) {
-            if (!isset($_SESSION['notif_dismissed']) || !is_array($_SESSION['notif_dismissed'])) {
-                $_SESSION['notif_dismissed'] = [];
-            }
-            $_SESSION['notif_dismissed'][$key] = time();
-            return true;
-        }
-    } catch (Throwable $e) {
-        // Table may not exist yet on a brand-new install.
     }
     return false;
 }
@@ -1278,6 +1294,7 @@ function notification_dismiss(string $key): void
 
 function enrich_planner_notifications(array $items): array
 {
+    notification_prefetch_dismissals();
     $out = [];
     foreach ($items as $n) {
         $type = (string) ($n['type'] ?? '');

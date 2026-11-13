@@ -4,12 +4,31 @@ declare(strict_types=1);
 function db_has_column(mysqli $db, string $table, string $column, bool $refresh = false): bool
 {
     static $cache = [];
+    static $diskLoaded = false;
     $key = $table . '.' . $column;
     if ($refresh) {
         unset($cache[$key]);
     }
     if (array_key_exists($key, $cache)) {
         return $cache[$key];
+    }
+    // Cross-request bag under storage/cache — avoids repeating SHOW COLUMNS after warm schema.
+    if (!$diskLoaded && !$refresh && function_exists('folio_cache_dir')) {
+        $diskLoaded = true;
+        $bagFile = folio_cache_dir() . '/columns-' . (function_exists('folio_schema_stamp') ? folio_schema_stamp() : '0') . '.json';
+        if (is_file($bagFile)) {
+            $decoded = json_decode((string) @file_get_contents($bagFile), true);
+            if (is_array($decoded)) {
+                foreach ($decoded as $k => $v) {
+                    if (is_string($k) && !array_key_exists($k, $cache)) {
+                        $cache[$k] = (bool) $v;
+                    }
+                }
+                if (array_key_exists($key, $cache)) {
+                    return $cache[$key];
+                }
+            }
+        }
     }
     $t = $db->real_escape_string($table);
     $c = $db->real_escape_string($column);
@@ -18,6 +37,18 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
         $cache[$key] = $row && $row->num_rows > 0;
     } catch (Throwable $e) {
         $cache[$key] = false;
+    }
+    if (function_exists('folio_cache_dir')) {
+        $bagFile = folio_cache_dir() . '/columns-' . (function_exists('folio_schema_stamp') ? folio_schema_stamp() : '0') . '.json';
+        $disk = [];
+        if (is_file($bagFile)) {
+            $decoded = json_decode((string) @file_get_contents($bagFile), true);
+            if (is_array($decoded)) {
+                $disk = $decoded;
+            }
+        }
+        $disk[$key] = $cache[$key];
+        @file_put_contents($bagFile, json_encode($disk), LOCK_EX);
     }
     return $cache[$key];
 }
@@ -1143,13 +1174,9 @@ function folio_migrate(mysqli $db): void
 
     // Fast path: after the first successful ensure pass, skip dozens of SHOW COLUMNS per request.
     // Stamp filename already includes the schema stamp, so a code change invalidates the file.
+    // Do not SHOW COLUMNS here — that was re-introducing a schema round-trip on every warm hit.
     $ready = folio_schema_ready_file();
     if (is_file($ready)) {
-        // Safety net: critical columns added after the warm-stamp pattern must still land
-        // even if an old early-return left schema_meta ahead of the real ALTER.
-        if (!db_has_column($db, 'companies', 'sales_agent_id')) {
-            folio_migrate_company_sales_agent($db);
-        }
         $done = true;
         return;
     }

@@ -8,33 +8,45 @@ function db(): mysqli
         return $mysqli;
     }
     $cfg = require ROOT_PATH . '/config/database.php';
-    $mysqli = mysqli_init();
-    if ($mysqli === false) {
-        http_response_code(500);
-        echo 'Cannot start MySQL.';
-        exit;
+    $reused = false;
+    // Session handler already opened a MySQL link before bootstrap finishes —
+    // reuse it so every page does not pay for a second TCP handshake.
+    if (function_exists('folio_session_mysqli')) {
+        $existing = folio_session_mysqli();
+        if ($existing instanceof mysqli) {
+            $mysqli = $existing;
+            $reused = true;
+        }
     }
-    $mysqli->options(MYSQLI_OPT_CONNECT_TIMEOUT, 2);
-    if (defined('MYSQLI_OPT_READ_TIMEOUT')) {
-        $mysqli->options(MYSQLI_OPT_READ_TIMEOUT, 5);
-    }
-    if (defined('MYSQLI_OPT_INT_AND_FLOAT_NATIVE')) {
-        $mysqli->options(MYSQLI_OPT_INT_AND_FLOAT_NATIVE, 1);
-    }
-    $ok = @$mysqli->real_connect($cfg['host'], $cfg['user'], $cfg['pass'], $cfg['name']);
-    if (!$ok) {
-        $ok = @$mysqli->real_connect($cfg['host'], $cfg['user'], $cfg['pass']);
-        if (!$ok) {
+    if (!$reused) {
+        $mysqli = mysqli_init();
+        if ($mysqli === false) {
             http_response_code(500);
-            echo 'Cannot connect to MySQL. Start MySQL in XAMPP and check config/database.php.';
+            echo 'Cannot start MySQL.';
             exit;
         }
-        if (!isset($_GET['installing'])) {
-            header('Location: ' . url('install.php'));
-            exit;
+        $mysqli->options(MYSQLI_OPT_CONNECT_TIMEOUT, 2);
+        if (defined('MYSQLI_OPT_READ_TIMEOUT')) {
+            $mysqli->options(MYSQLI_OPT_READ_TIMEOUT, 5);
         }
+        if (defined('MYSQLI_OPT_INT_AND_FLOAT_NATIVE')) {
+            $mysqli->options(MYSQLI_OPT_INT_AND_FLOAT_NATIVE, 1);
+        }
+        $ok = @$mysqli->real_connect($cfg['host'], $cfg['user'], $cfg['pass'], $cfg['name']);
+        if (!$ok) {
+            $ok = @$mysqli->real_connect($cfg['host'], $cfg['user'], $cfg['pass']);
+            if (!$ok) {
+                http_response_code(500);
+                echo 'Cannot connect to MySQL. Start MySQL in XAMPP and check config/database.php.';
+                exit;
+            }
+            if (!isset($_GET['installing'])) {
+                header('Location: ' . url('install.php'));
+                exit;
+            }
+        }
+        $mysqli->set_charset('utf8mb4');
     }
-    $mysqli->set_charset('utf8mb4');
     // Align MySQL NOW()/CURDATE() with PHP. Super Admin defaults to EAT (+03:00).
     $tzOffset = '+03:00';
     if (function_exists('desk_timezone_id') && function_exists('timezone_mysql_offset')) {
@@ -45,7 +57,8 @@ function db(): mysqli
         }
     }
     @$mysqli->query("SET time_zone = '" . $mysqli->real_escape_string($tzOffset) . "'");
-    if ($mysqli->select_db($cfg['name'] ?? '')) {
+    $dbName = (string) ($cfg['name'] ?? '');
+    if ($dbName !== '' && ($reused || $mysqli->select_db($dbName))) {
         require_once ROOT_PATH . '/includes/migrate.php';
         try {
             folio_migrate($mysqli);

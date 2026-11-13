@@ -15,6 +15,20 @@ touch_user_seen((int) $user['id']);
 if (function_exists('folio_housekeep_daily')) {
     folio_housekeep_daily();
 }
+// Outstanding Web Push (moved off layout so Apache mod_php page HTML is not blocked).
+// Throttle to once per minute per login — layout beat already hits ping on every load.
+if (function_exists('push_sync_outstanding')) {
+    $pushKey = 'push_sync_at';
+    $lastPush = (int) ($_SESSION[$pushKey] ?? 0);
+    if ($lastPush <= 0 || (time() - $lastPush) >= 60) {
+        $_SESSION[$pushKey] = time();
+        try {
+            push_sync_outstanding($user);
+        } catch (Throwable $e) {
+            // never break the presence beat
+        }
+    }
+}
 $action = (string) ($_GET['action'] ?? $_POST['action'] ?? '');
 
 if ($action === 'blob') {
