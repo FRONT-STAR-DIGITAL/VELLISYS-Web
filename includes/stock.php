@@ -543,6 +543,23 @@ function stock_notify_admin_staff_sale(int $receiptId, float $total, float $paid
     // Kept for call-site compatibility; till sales are notified in create_document.
 }
 
+/**
+ * SKU uniqueness is always per location when branch_id exists.
+ * Branch catalog clones reuse the same code across shops — a company-wide
+ * unique check wrongly blocked Add/Edit whenever Branches was off.
+ */
+function stock_sku_branch_scope(?array $row = null): array
+{
+    $home = stock_write_branch_id();
+    if ($row !== null && stock_items_branch_ready()) {
+        $home = (int) ($row['branch_id'] ?? $home);
+    }
+    return [
+        'branch_col' => stock_items_branch_ready(),
+        'home' => max(0, (int) $home),
+    ];
+}
+
 function stock_save_item(array $fields, ?int $id = null): array
 {
     $cid = current_company_id();
@@ -560,20 +577,19 @@ function stock_save_item(array $fields, ?int $id = null): array
     $taxed = empty($fields['taxed']) ? 0 : 1;
     $active = isset($fields['active']) && (int) $fields['active'] === 0 ? 0 : 1;
     $svc = $isService ? 1 : 0;
-    $home = stock_write_branch_id();
-    $branchOn = stock_items_branch_ready() && function_exists('company_branches_enabled') && company_branches_enabled();
     $row = null;
     if ($id) {
-        $row = stock_item($id);
-        if (!$row) {
+        // Allow edit even when the chip filter would hide another location's row.
+        $row = stock_item($id, true);
+        if (!$row || (int) ($row['company_id'] ?? 0) !== $cid) {
             return ['ok' => false, 'error' => 'That product is not on this desk.'];
         }
-        if ($branchOn) {
-            $home = (int) ($row['branch_id'] ?? 0);
-        }
     }
+    $scope = stock_sku_branch_scope($row);
+    $home = (int) $scope['home'];
+    $branchCol = !empty($scope['branch_col']);
     if ($sku !== '') {
-        if ($branchOn) {
+        if ($branchCol) {
             $dup = db_one(
                 'SELECT id FROM stock_items WHERE company_id = ? AND branch_id = ? AND sku = ? AND id <> ?',
                 'iisi',
@@ -583,38 +599,56 @@ function stock_save_item(array $fields, ?int $id = null): array
             $dup = db_one('SELECT id FROM stock_items WHERE company_id = ? AND sku = ? AND id <> ?', 'isi', [$cid, $sku, (int) ($id ?? 0)]);
         }
         if ($dup) {
-            return ['ok' => false, 'error' => 'That code is already on another product.'];
+            return ['ok' => false, 'error' => 'That code is already on another product at this location.'];
         }
     }
-    if ($id) {
-        if ($isService && !stock_item_is_service($row) && (float) ($row['qty_on_hand'] ?? 0) != 0.0) {
-            stock_move($id, 'adjust', -(float) $row['qty_on_hand'], 0, null, 'Converted to service');
+    try {
+        if ($id) {
+            if ($isService && !stock_item_is_service($row) && (float) ($row['qty_on_hand'] ?? 0) != 0.0) {
+                stock_move($id, 'adjust', -(float) $row['qty_on_hand'], 0, null, 'Converted to service');
+            }
+            db_exec(
+                'UPDATE stock_items SET sku=?, name=?, description=?, unit=?, buy_price=?, sell_price=?, reorder_level=?, taxed=?, active=?, is_service=? WHERE id=? AND company_id=?',
+                'ssssdddiiiii',
+                [$sku, $name, $desc, $unit, $buy, $sell, $reorder, $taxed, $active, $svc, $id, $cid]
+            );
+            try {
+                stock_catalog_cache_bust($home);
+            } catch (Throwable $e) {
+                // Item saved; till cache refreshes on TTL.
+            }
+            return ['ok' => true, 'id' => $id];
         }
-        db_exec(
-            'UPDATE stock_items SET sku=?, name=?, description=?, unit=?, buy_price=?, sell_price=?, reorder_level=?, taxed=?, active=?, is_service=? WHERE id=? AND company_id=?',
-            'ssssdddiiiii',
-            [$sku, $name, $desc, $unit, $buy, $sell, $reorder, $taxed, $active, $svc, $id, $cid]
-        );
-        return ['ok' => true, 'id' => $id];
+        $qty = $isService ? 0.0 : round((float) ($fields['qty_on_hand'] ?? 0), 2);
+        // Always stamp branch_id when the column exists so new rows land on this location.
+        if ($branchCol) {
+            $newId = db_exec(
+                'INSERT INTO stock_items (company_id, branch_id, sku, name, description, unit, buy_price, sell_price, reorder_level, qty_on_hand, taxed, active, is_service) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                'iissssddddiii',
+                [$cid, $home, $sku, $name, $desc, $unit, $buy, $sell, $reorder, 0, $taxed, $active, $svc]
+            );
+        } else {
+            $newId = db_exec(
+                'INSERT INTO stock_items (company_id, sku, name, description, unit, buy_price, sell_price, reorder_level, qty_on_hand, taxed, active, is_service) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+                'issssddddiii',
+                [$cid, $sku, $name, $desc, $unit, $buy, $sell, $reorder, 0, $taxed, $active, $svc]
+            );
+        }
+        if ((int) $newId < 1) {
+            return ['ok' => false, 'error' => 'Could not save that item. Try again.'];
+        }
+        if ($qty > 0) {
+            stock_move((int) $newId, 'in', $qty, $buy, null, 'Opening quantity');
+        }
+        try {
+            stock_catalog_cache_bust($home);
+        } catch (Throwable $e) {
+            // Item saved; till cache refreshes on TTL.
+        }
+        return ['ok' => true, 'id' => (int) $newId];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'Could not save that item. Check the code is unique at this location and try again.'];
     }
-    $qty = $isService ? 0.0 : round((float) ($fields['qty_on_hand'] ?? 0), 2);
-    if ($branchOn) {
-        $newId = db_exec(
-            'INSERT INTO stock_items (company_id, branch_id, sku, name, description, unit, buy_price, sell_price, reorder_level, qty_on_hand, taxed, active, is_service) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
-            'iissssddddiii',
-            [$cid, $home, $sku, $name, $desc, $unit, $buy, $sell, $reorder, 0, $taxed, $active, $svc]
-        );
-    } else {
-        $newId = db_exec(
-            'INSERT INTO stock_items (company_id, sku, name, description, unit, buy_price, sell_price, reorder_level, qty_on_hand, taxed, active, is_service) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
-            'issssddddiii',
-            [$cid, $sku, $name, $desc, $unit, $buy, $sell, $reorder, 0, $taxed, $active, $svc]
-        );
-    }
-    if ($qty > 0) {
-        stock_move((int) $newId, 'in', $qty, $buy, null, 'Opening quantity');
-    }
-    return ['ok' => true, 'id' => (int) $newId];
 }
 
 function stock_delete_item(int $id): array
@@ -1197,16 +1231,19 @@ function stock_catalog_cache_bust(?int $branchId = null): void
 {
     $cid = current_company_id();
     $branch = $branchId !== null ? max(0, $branchId) : stock_write_branch_id();
-    $key = 'stock_catalog:' . $cid . ':' . $branch;
-    if (function_exists('folio_remember_bag')) {
-        $mem = &folio_remember_bag();
-        unset($mem[$key]);
-    }
-    if (function_exists('folio_cache_dir')) {
-        @unlink(folio_cache_dir() . '/' . hash('sha256', $key) . '.ser');
-    }
-    if (function_exists('folio_redis_del')) {
-        folio_redis_del('cache:' . hash('sha256', $key));
+    // Bust both legacy and current till-catalog keys.
+    foreach (['stock_catalog:', 'stock_catalog:v2:'] as $prefix) {
+        $key = $prefix . $cid . ':' . $branch;
+        if (function_exists('folio_remember_bag')) {
+            $mem = &folio_remember_bag();
+            unset($mem[$key]);
+        }
+        if (function_exists('folio_cache_dir')) {
+            @unlink(folio_cache_dir() . '/' . hash('sha256', $key) . '.ser');
+        }
+        if (function_exists('folio_redis_del')) {
+            folio_redis_del('cache:' . hash('sha256', $key));
+        }
     }
 }
 
@@ -1374,14 +1411,15 @@ function stock_import_apply_item(array $fields): string
     unset($fields['apply_opening']);
     $existing = null;
     $cid = current_company_id();
-    $home = stock_write_branch_id();
-    $branchOn = stock_items_branch_ready() && function_exists('company_branches_enabled') && company_branches_enabled();
+    $scope = stock_sku_branch_scope(null);
+    $home = (int) $scope['home'];
+    $branchCol = !empty($scope['branch_col']);
     if ($sku !== '') {
-        $existing = $branchOn
+        $existing = $branchCol
             ? db_one('SELECT id FROM stock_items WHERE company_id = ? AND branch_id = ? AND sku = ?', 'iis', [$cid, $home, $sku])
             : db_one('SELECT id FROM stock_items WHERE company_id = ? AND sku = ?', 'is', [$cid, $sku]);
     } else {
-        $existing = $branchOn
+        $existing = $branchCol
             ? db_one('SELECT id FROM stock_items WHERE company_id = ? AND branch_id = ? AND name = ? AND (sku IS NULL OR sku = \'\')', 'iis', [$cid, $home, $name])
             : db_one('SELECT id FROM stock_items WHERE company_id = ? AND name = ? AND (sku IS NULL OR sku = \'\')', 'is', [$cid, $name]);
     }

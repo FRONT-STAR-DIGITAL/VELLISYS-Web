@@ -52,7 +52,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $kindLabel = post('item_kind') === 'service' ? 'Service' : 'Product';
             flash($id ? $kindLabel . ' updated.' : $kindLabel . ' added.');
-            redirect('stock.php?tab=items');
+            $back = array_merge(['tab' => 'items'], function_exists('desk_branch_keep') ? desk_branch_keep() : []);
+            redirect('stock.php?' . http_build_query($back));
         }
         $tab = 'items';
     } elseif ($action === 'delete_item') {
@@ -62,7 +63,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = (string) ($gone['error'] ?? 'Could not delete that product.');
         } else {
             flash('Deleted ' . $gone['name'] . '.');
-            redirect('stock.php?tab=items');
+            $back = array_merge(['tab' => 'items'], function_exists('desk_branch_keep') ? desk_branch_keep() : []);
+            redirect('stock.php?' . http_build_query($back));
         }
         $tab = 'items';
     } elseif ($action === 'import') {
@@ -83,7 +85,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $read = (int) ($res['read'] ?? 0);
                 $kept = (int) ($res['kept'] ?? ((int) $res['added'] + (int) $res['updated']));
                 flash('Imported ' . $kept . ' of ' . $read . ' rows: ' . $res['added'] . ' new, ' . $res['updated'] . ' updated, ' . $res['skipped'] . ' skipped. Blank prices and quantities saved as 0.');
-                redirect('stock.php?tab=items');
+                $back = array_merge(['tab' => 'items'], function_exists('desk_branch_keep') ? desk_branch_keep() : []);
+                redirect('stock.php?' . http_build_query($back));
             }
         }
     } elseif ($action === 'count') {
@@ -122,6 +125,16 @@ $showStockAdd = (bool) $edit || isset($_GET['add']) || ($error !== '' && $posted
 $showStockImport = isset($_GET['import']) || ($error !== '' && $postedAction === 'import');
 $stockScope = function_exists('desk_view_branch') ? desk_view_branch() : [];
 $showStockLocation = !empty($stockScope['enabled']) && !empty($stockScope['all']);
+$stockBranchQs = function_exists('desk_branch_keep') ? desk_branch_keep() : [];
+$stockItemsUrl = static function (array $extra = []) use ($stockBranchQs): string {
+    $qs = array_merge(['tab' => 'items'], $stockBranchQs, $extra);
+    $hash = '';
+    if (isset($qs['#'])) {
+        $hash = '#' . ltrim((string) $qs['#'], '#');
+        unset($qs['#']);
+    }
+    return url('stock.php?' . http_build_query($qs) . $hash);
+};
 
 layout_start('Stock', $user);
 ?>
@@ -133,13 +146,13 @@ layout_start('Stock', $user);
     <?php elseif ($tab === 'movements'): ?>
       Stock in and stock out for the period, with prices, quantities and profit on what left the shelf.
     <?php else: ?>
-      Products and services. Counts and stock value cover goods only. Restock on Purchases. Sales and invoices can pick either.
+      Products and services. Counts and stock value cover goods only. Restock on Purchases. Sales and invoices can pick either. There is no cap on how many items you can keep.
     <?php endif; ?><?= function_exists('desk_branch_lede') ? h(desk_branch_lede('stock')) : '' ?></p>
   </div>
   <div class="actions page-actions">
     <?php if ($tab === 'items'): ?>
-      <a class="btn" href="<?= h(url('stock.php?tab=items&add=1#stock-add')) ?>"><?= icon('plus', 16) ?>Add item</a>
-      <a class="btn ghost" href="<?= h(url('stock.php?tab=items&import=1#stock-import')) ?>"><?= icon('download', 16) ?>Import stock</a>
+      <a class="btn" href="<?= h($stockItemsUrl(['add' => '1', '#' => 'stock-add'])) ?>"><?= icon('plus', 16) ?>Add item</a>
+      <a class="btn ghost" href="<?= h($stockItemsUrl(['import' => '1', '#' => 'stock-import'])) ?>"><?= icon('download', 16) ?>Import stock</a>
     <?php endif; ?>
     <?php if ($tab !== 'reports'): ?>
       <a class="btn ghost" href="<?= h(url('stock.php?tab=reports')) ?>"><?= icon('reports', 16) ?>Reports</a>
@@ -173,11 +186,11 @@ layout_start('Stock', $user);
   <div class="card-head stock-items-head">
     <h2><?= icon('package', 16) ?>All items</h2>
     <div class="actions">
-      <a class="btn sm" href="<?= h(url('stock.php?tab=items&add=1#stock-add')) ?>"><?= icon('plus', 14) ?>Add item</a>
-      <a class="btn ghost sm" href="<?= h(url('stock.php?tab=items&import=1#stock-import')) ?>"><?= icon('download', 14) ?>Import stock</a>
+      <a class="btn sm" href="<?= h($stockItemsUrl(['add' => '1', '#' => 'stock-add'])) ?>"><?= icon('plus', 14) ?>Add item</a>
+      <a class="btn ghost sm" href="<?= h($stockItemsUrl(['import' => '1', '#' => 'stock-import'])) ?>"><?= icon('download', 14) ?>Import stock</a>
     </div>
   </div>
-  <div class="pad-form"><?php stock_search_bar('stock.php', array_merge(['tab' => 'items'], function_exists('desk_branch_keep') ? desk_branch_keep() : []), 'Search products and services'); ?></div>
+  <div class="pad-form"><?php stock_search_bar('stock.php', array_merge(['tab' => 'items'], $stockBranchQs), 'Search products and services'); ?></div>
   <?php if (!$page['rows']): ?>
     <p class="empty"><?= !$items
         ? 'No products on this location yet. Use Add item or Import stock. Other branches keep their own lists.'
@@ -206,7 +219,7 @@ layout_start('Stock', $user);
               <td class="right mono"><?= $svc ? '-' : h(stock_qty_label((float) $row['reorder_level'])) ?></td>
               <td><?= !empty($row['taxed']) ? 'Y' : 'N' ?></td>
               <td class="row-actions">
-                <a class="btn ghost sm" href="<?= h(url('stock.php?tab=items&edit=' . (int) $row['id'] . '#stock-add')) ?>"><?= icon('pencil', 14) ?>Edit</a>
+                <a class="btn ghost sm" href="<?= h($stockItemsUrl(['edit' => (string) (int) $row['id'], '#' => 'stock-add'])) ?>"><?= icon('pencil', 14) ?>Edit</a>
                 <?php stock_delete_button((int) $row['id']); ?>
                 <a class="btn ghost sm" href="<?= h(url('sale.php')) ?>"><?= icon('cart', 14) ?>Sell</a>
               </td>
@@ -247,7 +260,7 @@ layout_start('Stock', $user);
 <?php if ($showStockAdd): ?>
 <div class="card" style="margin-top:16px" id="stock-add">
   <div class="card-head"><h2><?= icon($edit ? 'pencil' : 'plus', 16) ?><?= $edit ? (stock_item_is_service($edit) ? 'Edit service' : 'Edit product') : 'Add item' ?></h2></div>
-  <form method="post" class="pad-form" data-stock-item-form>
+  <form method="post" class="pad-form" data-stock-item-form action="<?= h($stockItemsUrl($edit ? ['edit' => (string) (int) $edit['id'], '#' => 'stock-add'] : ['add' => '1', '#' => 'stock-add'])) ?>">
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="save_item">
     <input type="hidden" name="item_id" value="<?= $edit ? (int) $edit['id'] : 0 ?>">
@@ -301,7 +314,7 @@ layout_start('Stock', $user);
     <?php endif; ?>
     <div class="actions" style="margin-top:12px">
       <button class="btn" type="submit"><?= icon('check') ?>Save item</button>
-      <a class="btn ghost" href="<?= h(url('stock.php?tab=items')) ?>">Cancel</a>
+      <a class="btn ghost" href="<?= h($stockItemsUrl()) ?>">Cancel</a>
       <?php if ($edit && user_can_delete_stock()): ?>
         <button class="btn danger" type="submit" name="action" value="delete_item" formnovalidate onclick="return confirm('Delete this item? Sheets already issued keep the name. This cannot be undone.');"><?= icon('trash') ?>Delete</button>
       <?php endif; ?>
@@ -331,14 +344,14 @@ layout_start('Stock', $user);
   <div class="pad-form">
     <p class="lede">Download the sheet, fill products and services, upload it. Keep every column. Blank Type is a product. Empty buying price, selling price, reorder and opening qty become 0 - those rows still import. Every product on the sheet is kept, including 1,000 or more.</p>
     <p><a class="btn ghost" href="<?= h(url('stock.php?template=1')) ?>"><?= icon('download', 16) ?>Download Excel template</a></p>
-    <form method="post" enctype="multipart/form-data">
+    <form method="post" enctype="multipart/form-data" action="<?= h($stockItemsUrl(['import' => '1', '#' => 'stock-import'])) ?>">
       <?= csrf_field() ?>
       <input type="hidden" name="action" value="import">
       <label for="file">Upload filled sheet</label>
       <input id="file" name="file" type="file" accept=".xlsx,.csv,.txt" required>
       <div class="actions" style="margin-top:12px">
         <button class="btn" type="submit"><?= icon('plus') ?>Upload items</button>
-        <a class="btn ghost" href="<?= h(url('stock.php?tab=items')) ?>">Cancel</a>
+        <a class="btn ghost" href="<?= h($stockItemsUrl()) ?>">Cancel</a>
       </div>
     </form>
   </div>
