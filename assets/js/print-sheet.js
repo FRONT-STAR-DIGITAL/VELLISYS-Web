@@ -360,6 +360,33 @@
       window.history.back();
     }
   }
+  function whenPrintReady(fn) {
+    waitImages(document, function () {
+      var go = function () {
+        applyScreenFit();
+        markPages(document);
+        setThermalPageSize(document);
+        fn();
+      };
+      if (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === 'function') {
+        document.fonts.ready.then(go).catch(go);
+      } else {
+        go();
+      }
+    });
+  }
+  function autoOpenPrint() {
+    // Preview stays visible underneath; only fire once the slip has size + images.
+    var btn = document.querySelector('[data-print-pdf]');
+    if (btn && useThermalPdfPrint()) {
+      btn.disabled = true;
+      btn.setAttribute('aria-busy', 'true');
+    }
+    var delay = isIos() ? 400 : (useThermalPdfPrint() ? 160 : 60);
+    window.setTimeout(function () {
+      openPrint();
+    }, delay);
+  }
   function boot() {
     applyScreenFit();
     window.setTimeout(applyScreenFit, 80);
@@ -376,9 +403,11 @@
       e.preventDefault();
       openPrint();
     });
-    // Always show the on-screen preview first (all devices). Auto window.print()
-    // opened a blank dialog / blank page before the slip was ready.
+    // Show the on-screen preview, then open the system print dialog as soon as
+    // logos/QR are ready — so Sale "Save and print" does not need a second tap.
+    // (Earlier auto-print fired before layout and produced blank jobs.)
     document.documentElement.classList.add('print-preview');
+    whenPrintReady(autoOpenPrint);
   }
   if (document.readyState === 'complete') {
     boot();
