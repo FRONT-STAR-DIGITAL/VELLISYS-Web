@@ -140,7 +140,7 @@ $rowActions = static function (array $s): void {
             <?php foreach ($open as $s): ?>
               <tr>
                 <td class="mono"><?= h(substr((string) $s['created_at'], 0, 16)) ?></td>
-                <td><span class="pill<?= in_array(($s['source'] ?? ''), ['quote', 'checkout', 'demo'], true) ? ' warn' : '' ?>"><?= h(signup_source_label($s['source'] ?? null)) ?></span></td>
+                <td><span class="pill<?= in_array(($s['source'] ?? ''), ['quote', 'checkout', 'demo', 'self'], true) ? ' warn' : '' ?>"><?= h(signup_source_label($s['source'] ?? null)) ?></span></td>
                 <td><strong><?= h($s['name']) ?></strong></td>
                 <td>
                   <?= h($s['company']) ?>

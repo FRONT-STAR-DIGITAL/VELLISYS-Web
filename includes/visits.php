@@ -75,7 +75,7 @@ function visit_page_kind(string $script): string
         'index.php', '' => 'landing',
         'checkout.php', 'pesapal_callback.php' => 'checkout',
         'login.php', 'forgot.php' => 'login',
-        'register.php', 'onboard.php', 'demo.php' => 'onboard',
+        'register.php', 'onboard.php', 'demo.php', 'create_account.php' => 'onboard',
         'ask.php', 'quote.php', 'privacy.php', 'terms.php' => 'landing',
         default => str_starts_with($script, 'admin_') ? 'admin' : 'desk',
     };

@@ -106,5 +106,10 @@ layout_admin_start('Settings', $user);
   </div>
 </form>
 
+<section class="card settings-card" id="portal-notifications" style="margin-top:18px">
+  <h2><?= icon('bell') ?>Portal notifications</h2>
+  <p class="lede">New self-registrations, sign-ups, questions and renewals appear on the bell in the top bar with a count badge. Inbox items (Sign-ups, Questions, Feedback, Messages) also show number badges on the side-nav icons.</p>
+  <p class="hint" style="padding:0 22px 18px;margin:0">Allow device notifications below so this phone or computer also receives push alerts when you are away from the portal.</p>
+</section>
 <?php if (function_exists('render_push_settings_card')) { render_push_settings_card(); } ?>
 <?php layout_end(); ?>
