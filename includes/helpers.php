@@ -5166,9 +5166,9 @@ function public_header(string $page = 'home'): void
         </select>
       </label>
       <?php if ($page !== 'checkout'): ?>
-        <a class="lp-btn lp-btn-ghost" href="<?= h(url('demo.php')) ?>">Book a demo</a>
+        <a class="lp-btn lp-btn-ghost lp-nav-wide" href="<?= h(url('demo.php')) ?>">Book a demo</a>
       <?php endif; ?>
-      <a class="lp-btn lp-btn-solid" href="<?= h(url('login.php')) ?>">Sign in / Create Account</a>
+      <a class="lp-btn lp-btn-solid" href="<?= h(url('login.php')) ?>"><span class="lp-nav-wide">Sign in / Create Account</span><span class="lp-nav-narrow">Sign in</span></a>
     </nav>
   </div>
   </header>
@@ -6316,7 +6316,7 @@ function folio_critical_css(string $surface = 'landing'): void
         echo '<style>html,body{margin:0;background:#f5f7fc}html{background:#f5f7fc}body{font-family:Montserrat,"Segoe UI",sans-serif;color:#10182c}.desk-body{background:#f5f7fc}.app{display:flex;min-height:100vh}.nav{width:72px;flex-shrink:0;background:#fff}</style>';
         return;
     }
-    echo '<style>html{background:#f5f7fc;scroll-behavior:smooth;overflow-x:hidden;overflow-x:clip}body{margin:0;font-family:Montserrat,"Segoe UI",sans-serif;color:#10182c;background:#f5f7fc}body.gate{background:#08143a;color:#fff}.lp-chrome{position:sticky;top:0;z-index:40}.lp-ticker{background:#08143a;color:#fff;height:34px;overflow:hidden}.lp-nav{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 5vw;background:rgba(255,255,255,.92);border-bottom:1px solid rgba(8,20,58,.08)}.lp-logo{display:block;height:38px;width:auto;background:transparent}.lp-btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 18px;border-radius:12px;font-weight:700;text-decoration:none}.lp-btn-solid{background:#1e4eff;color:#fff}.lp-btn-ghost{background:#fff;color:#08143a;border:1px solid rgba(8,20,58,.12)}.lp-floats{position:fixed;right:16px;bottom:16px;z-index:80}.lp-wa-fab{width:48px;height:48px;border:0;border-radius:50%;background:#25d366;color:#fff}</style>';
+    echo '<style>html{background:#f5f7fc;scroll-behavior:smooth;overflow-x:hidden;overflow-x:clip}body{margin:0;font-family:Montserrat,"Segoe UI",sans-serif;color:#10182c;background:#f5f7fc}body.gate{background:#08143a;color:#fff}.lp-chrome{position:sticky;top:0;z-index:40}.lp-ticker{background:#08143a;color:#fff;height:34px;overflow:hidden}.lp-nav{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 5vw;background:rgba(255,255,255,.92);border-bottom:1px solid rgba(8,20,58,.08)}.lp-logo{display:block;height:38px;width:auto;background:transparent}.lp-btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 18px;border-radius:12px;font-weight:700;text-decoration:none}.lp-btn-solid{background:#1e4eff;color:#fff}.lp-btn-ghost{background:#fff;color:#08143a;border:1px solid rgba(8,20,58,.12)}.lp-nav-narrow{display:none}.lp-floats{position:fixed;right:16px;bottom:16px;z-index:80}.lp-wa-fab{width:48px;height:48px;border:0;border-radius:50%;background:#25d366;color:#fff}@media (max-width:980px){.lp-nav-wide{display:none!important}.lp-nav-narrow{display:inline}}</style>';
 }
 
 function folio_stylesheet(string $path, bool $preload = true): void
