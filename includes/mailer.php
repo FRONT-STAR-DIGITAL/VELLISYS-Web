@@ -1090,7 +1090,7 @@ function notify_self_register_complete(array $company, array $user, array $meta 
     if (filter_var($to, FILTER_VALIDATE_EMAIL)) {
         $html = vellisys_email_wrap(
             '<p style="margin:0 0 16px">Dear ' . h($who) . ',</p>'
-            . '<p style="margin:0 0 14px">Welcome to Vellisys — thank you for choosing us. Your <strong>Pro</strong> desk for <strong>' . h($name) . '</strong> is ready with a free one-month trial'
+            . '<p style="margin:0 0 14px">Welcome to Vellisys - thank you for choosing us. Your <strong>Pro</strong> desk for <strong>' . h($name) . '</strong> is ready with a free one-month trial'
             . ($expires !== '' ? ' (through ' . h($expires) . ')' : '') . '.</p>'
             . '<p style="margin:0 0 14px">Sign in any time at <a href="' . h($login) . '" style="color:#1E4EFF">' . h(absolute_url('login.php')) . '</a> with the email and password you set.</p>'
             . '<p style="margin:0 0 14px">Open Settings to add your logo and colours, then Tutorials for a quick tour of every tab.</p>'
@@ -1098,10 +1098,10 @@ function notify_self_register_complete(array $company, array $user, array $meta 
             . '<p style="margin:16px 0 0">Kind regards,<br><strong>Vellisys</strong></p>',
             'Welcome to Vellisys'
         );
-        $text = "Dear {$who},\n\nWelcome to Vellisys — thank you for choosing us. Your Pro desk for {$name} is ready with a free one-month trial"
+        $text = "Dear {$who},\n\nWelcome to Vellisys - thank you for choosing us. Your Pro desk for {$name} is ready with a free one-month trial"
             . ($expires !== '' ? " (through {$expires})" : '') . ".\n\nSign in: " . absolute_url('login.php')
             . "\nEmail: {$to}\n\nIf you need us, write to " . product_email() . " or call {$phones}.\n\nKind regards,\nVellisys";
-        send_platform_email($to, 'Welcome to Vellisys — thank you for choosing us', $html, $text, (int) ($user['id'] ?? 0), product_email());
+        send_platform_email($to, 'Welcome to Vellisys - thank you for choosing us', $html, $text, (int) ($user['id'] ?? 0), product_email());
     }
 
     $adminHtml = vellisys_email_wrap(

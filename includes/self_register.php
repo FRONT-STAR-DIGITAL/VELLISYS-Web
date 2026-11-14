@@ -165,6 +165,19 @@ function self_register_resume_session(): void
     }
 }
 
+/**
+ * True when the signup is already past email OTP (details/password).
+ * Late SMTP callbacks must not yank the user back to the code form.
+ */
+function self_register_past_otp(array $state): bool
+{
+    if (!empty($state['email_verified'])) {
+        return true;
+    }
+    $step = (string) ($state['step'] ?? '');
+    return in_array($step, ['details', 'password'], true);
+}
+
 /** Deliver a prepared OTP after the browser has been redirected. */
 function self_register_deliver_otp(string $email, string $code, int $otpId): void
 {
@@ -183,13 +196,20 @@ function self_register_deliver_otp(string $email, string $code, int $otpId): voi
             // ignore
         }
         self_register_resume_session();
-        flash($err !== '' ? $err : 'Could not send the verification email. Try again in a moment.', 'error');
-        self_register_save([
-            'step' => 'email',
-            'email' => $email,
-            'email_verified' => false,
-            'otp_mail_failed' => true,
-        ]);
+        $state = self_register_state();
+        // Stale failure from an older send must not wipe a newer OTP, another email,
+        // or an already-verified signup (including collected details).
+        if ((int) ($state['otp_id'] ?? 0) === $otpId && !self_register_past_otp($state)) {
+            flash($err !== '' ? $err : 'Could not send the verification email. Try again in a moment.', 'error');
+            self_register_save([
+                'step' => 'email',
+                'email' => $email,
+                'email_verified' => false,
+                'otp_id' => 0,
+                'otp_mail_pending' => false,
+                'otp_mail_failed' => true,
+            ]);
+        }
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_write_close();
         }
@@ -207,7 +227,19 @@ function self_register_deliver_otp(string $email, string $code, int $otpId): voi
     }
     self_register_resume_session();
     $state = self_register_state();
-    if ((int) ($state['otp_id'] ?? 0) === $otpId || self_register_normalize_email((string) ($state['email'] ?? '')) === $email) {
+    // Only the current otp_id may update the session. Never match on email alone -
+    // that pulled verified users off details when a resend delivered late.
+    if ((int) ($state['otp_id'] ?? 0) !== $otpId) {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+        return;
+    }
+    if (self_register_past_otp($state)) {
+        $state['otp_mail_pending'] = false;
+        $state['otp_mail_failed'] = false;
+        self_register_save($state);
+    } else {
         $state['otp_mail_pending'] = false;
         $state['otp_mail_failed'] = false;
         $state['step'] = 'otp';
@@ -290,6 +322,11 @@ function self_register_verify_otp(string $email, string $code): array
     $state['email'] = $email;
     $state['email_verified'] = true;
     $state['verified_at'] = time();
+    // Drop OTP mail flags so a late resend success cannot reopen the code step.
+    $state['otp_id'] = 0;
+    $state['otp_mail_pending'] = false;
+    $state['otp_mail_failed'] = false;
+    unset($state['otp_sent_at']);
     self_register_save($state);
     return ['ok' => true];
 }

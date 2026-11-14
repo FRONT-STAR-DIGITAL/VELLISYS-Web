@@ -121,11 +121,11 @@ layout_admin_start('Settings', $user);
       <label for="otp_gmail_email">Gmail that sends verification codes</label>
       <input id="otp_gmail_email" name="otp_gmail_email" type="email" value="<?= h($otpGmail) ?>" placeholder="you@gmail.com" autocomplete="off">
       <p class="hint">Create Account OTPs leave through Google SMTP (smtp.gmail.com), not info@vellisys.com. You can also set <code>FOLIO_GMAIL_USER</code> / <code>FOLIO_GMAIL_APP_PASSWORD</code> in Dokploy env.</p>
-      <p class="hint" style="margin-top:8px"><?= $otpReady ? 'Google OTP mail is ready.' : 'Google OTP mail is not ready yet — add the Gmail and App Password below (or via env).' ?></p>
+      <p class="hint" style="margin-top:8px"><?= $otpReady ? 'Google OTP mail is ready.' : 'Google OTP mail is not ready yet - add the Gmail and App Password below (or via env).' ?></p>
     </div>
     <div>
       <label for="otp_gmail_app_password">Google App Password</label>
-      <?php render_password_toggle_field('otp_gmail_app_password', 'otp_gmail_app_password', $otpPassStored ? 'Saved — paste a new one to replace' : 'xxxx xxxx xxxx xxxx'); ?>
+      <?php render_password_toggle_field('otp_gmail_app_password', 'otp_gmail_app_password', $otpPassStored ? 'Saved - paste a new one to replace' : 'xxxx xxxx xxxx xxxx'); ?>
       <p class="hint">Not your normal Gmail password. In Google Account → Security → 2-Step Verification → App passwords, create one for Mail, then paste the 16 characters here.</p>
     </div>
   </div>

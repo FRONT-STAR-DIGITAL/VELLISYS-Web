@@ -112,17 +112,37 @@ if ($flash && ($flash['type'] ?? '') === 'ok' && $error === '') {
 $popupKey = strtolower(trim((string) ($_GET['popup'] ?? '')));
 $state = self_register_state();
 $emailValue = $emailValue !== '' ? $emailValue : (string) ($state['email'] ?? '');
+$otpMailPending = false;
+$otpMailRefresh = false;
 if ($popupKey === 'otp') {
     $step = self_register_step();
-    if ($error !== '' || !empty($state['otp_mail_failed'])) {
+    $otpMailPending = !empty($state['otp_mail_pending']);
+    $otpMailFailed = !empty($state['otp_mail_failed']);
+    if ($error !== '' || $otpMailFailed) {
         $popup = [
             'title' => 'Could not send the code',
             'body' => $error !== '' ? $error : 'Google could not deliver the verification email. Try again in a moment, or ask the admin to check Settings → Google OTP.',
         ];
         $step = 'email';
-        if (!empty($state['otp_mail_failed'])) {
-            unset($state['otp_mail_failed']);
+        if ($otpMailFailed) {
+            unset($state['otp_mail_failed'], $state['otp_mail_pending']);
             self_register_save($state);
+        }
+    } elseif ($otpMailPending) {
+        // step is set to otp before SMTP finishes - do not claim the mail was sent yet.
+        $popup = [
+            'title' => 'Sending the code',
+            'body' => 'We are sending a 6-digit verification code to ' . ($emailValue !== '' ? $emailValue : 'your inbox') . '. This page updates when the email goes out.',
+        ];
+        $otpMailRefresh = true;
+        // Discard this request's session write so a concurrent deliver_otp result
+        // (success or failure) is not overwritten by last-write-wins php_sessions.
+        if ($_SERVER['REQUEST_METHOD'] === 'GET' && session_status() === PHP_SESSION_ACTIVE) {
+            if (function_exists('session_abort')) {
+                session_abort();
+            } else {
+                session_write_close();
+            }
         }
     } elseif ($step === 'otp') {
         $popup = [
@@ -151,6 +171,9 @@ $currencies = pricing_currencies();
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Create account · <?= h(product_name()) ?></title>
+  <?php if (!empty($otpMailRefresh)): ?>
+  <meta http-equiv="refresh" content="2">
+  <?php endif; ?>
   <?php product_icons(); ?>
   <?php folio_landing_head(); ?>
   <style>
@@ -243,7 +266,11 @@ $currencies = pricing_currencies();
           <li class="is-done"></li><li class="is-on"></li><li></li><li></li>
         </ul>
         <h2>Enter the code</h2>
+        <?php if (!empty($otpMailPending)): ?>
+        <p class="gate-lead">Sending a 6-digit code to <strong><?= h($emailValue) ?></strong>. This page updates when the email goes out.</p>
+        <?php else: ?>
         <p class="gate-lead">We sent a 6-digit code to <strong><?= h($emailValue) ?></strong>. It expires in 15 minutes.</p>
+        <?php endif; ?>
         <?php if ($info): ?><p class="gate-lead" style="color:#0f7a45"><?= h($info) ?></p><?php endif; ?>
         <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
         <label class="gate-field gate-otp" for="otp">Verification code
@@ -265,7 +292,7 @@ $currencies = pricing_currencies();
           <li class="is-done"></li><li class="is-done"></li><li class="is-on"></li><li></li>
         </ul>
         <h2>Business details</h2>
-        <p class="gate-lead">Verified as <?= h($emailValue) ?>. Add the desk details in order — then set your password.</p>
+        <p class="gate-lead">Verified as <?= h($emailValue) ?>. Add the desk details in order - then set your password.</p>
         <?php if ($info): ?><p class="gate-lead" style="color:#0f7a45"><?= h($info) ?></p><?php endif; ?>
         <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
         <label class="gate-field" for="contact_name">Your name
