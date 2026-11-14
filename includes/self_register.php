@@ -115,9 +115,11 @@ function self_register_start_otp(string $email): array
     $ip = visitor_ip_hash();
     $expires = (desk_now())->modify('+' . self_register_otp_ttl_seconds() . ' seconds')->format('Y-m-d H:i:s');
 
+    // Insert the new code first, but keep any previous live OTP until the email
+    // is known to have sent — otherwise a failed send would wipe the working code.
+    $otpId = 0;
     try {
-        db_exec('DELETE FROM self_register_otps WHERE email = ? AND verified_at IS NULL', 's', [$email]);
-        db_exec(
+        $otpId = (int) db_exec(
             'INSERT INTO self_register_otps (email, code_hash, attempts, sent_count, ip_hash, expires_at) VALUES (?,?,0,1,?,?)',
             'ssss',
             [$email, $hash, $ip, $expires]
@@ -126,14 +128,32 @@ function self_register_start_otp(string $email): array
         error_log('Vellisys self-register OTP save: ' . $e->getMessage());
         return ['ok' => false, 'error' => 'We could not start registration just now. Please try again shortly.'];
     }
-
-    form_rate_hit('self-otp-email:' . $email, 3600);
-    form_rate_hit('self-otp-ip', 3600);
+    if ($otpId < 1) {
+        return ['ok' => false, 'error' => 'We could not start registration just now. Please try again shortly.'];
+    }
 
     $sent = send_self_register_otp_email($email, $code);
     if (empty($sent['ok'])) {
+        try {
+            db_exec('DELETE FROM self_register_otps WHERE id = ?', 'i', [$otpId]);
+        } catch (Throwable $e) {
+            // ignore
+        }
         return ['ok' => false, 'error' => 'We could not email that code. Check the address and try again.'];
     }
+
+    try {
+        db_exec(
+            'DELETE FROM self_register_otps WHERE email = ? AND verified_at IS NULL AND id <> ?',
+            'si',
+            [$email, $otpId]
+        );
+    } catch (Throwable $e) {
+        // non-fatal; verify uses the newest row
+    }
+
+    form_rate_hit('self-otp-email:' . $email, 3600);
+    form_rate_hit('self-otp-ip', 3600);
 
     self_register_save([
         'step' => 'otp',
@@ -406,21 +426,50 @@ function self_register_complete(string $password, string $passwordAgain): array
         error_log('Vellisys self-register branding: ' . $e->getMessage());
     }
 
-    $made = create_desk_user($cid, [
-        'name' => $name,
-        'email' => $email,
-        'password' => $password,
-        'job_title' => 'Administrator',
-        'access' => 'admin',
-    ]);
-    if (empty($made['ok'])) {
+    $rollbackCompany = static function (int $companyId): void {
+        if ($companyId < 1) {
+            return;
+        }
         try {
-            db_exec('DELETE FROM branding WHERE company_id = ?', 'i', [$cid]);
-            db_exec('DELETE FROM companies WHERE id = ?', 'i', [$cid]);
+            db_exec('DELETE FROM branding WHERE company_id = ?', 'i', [$companyId]);
         } catch (Throwable $e) {
             // ignore
         }
+        try {
+            db_exec('DELETE FROM users WHERE company_id = ?', 'i', [$companyId]);
+        } catch (Throwable $e) {
+            // ignore
+        }
+        try {
+            db_exec('DELETE FROM companies WHERE id = ?', 'i', [$companyId]);
+        } catch (Throwable $e) {
+            // ignore
+        }
+    };
+
+    $made = ['ok' => false, 'error' => 'Could not create that login.'];
+    try {
+        $made = create_desk_user($cid, [
+            'name' => $name,
+            'email' => $email,
+            'password' => $password,
+            'job_title' => 'Administrator',
+            'access' => 'admin',
+        ]);
+    } catch (Throwable $e) {
+        error_log('Vellisys self-register user: ' . $e->getMessage());
+        $rollbackCompany($cid);
+        return ['ok' => false, 'error' => 'Could not create that login. Please try again.'];
+    }
+    if (empty($made['ok'])) {
+        $rollbackCompany($cid);
         return ['ok' => false, 'error' => (string) ($made['error'] ?? 'Could not create that login.')];
+    }
+
+    $userRow = db_one('SELECT * FROM users WHERE email = ? AND company_id = ?', 'si', [$email, $cid]);
+    if (!$userRow || (int) ($userRow['id'] ?? 0) < 1) {
+        $rollbackCompany($cid);
+        return ['ok' => false, 'error' => 'Could not create that login. Please try again.'];
     }
 
     $signupId = 0;
@@ -458,14 +507,7 @@ function self_register_complete(string $password, string $passwordAgain): array
     company_mark_onboard_step($cid, 'desk_login');
     company_mark_onboard_step($cid, 'welcome_email');
 
-    $userRow = db_one('SELECT * FROM users WHERE email = ?', 's', [$email]) ?: [
-        'id' => 0,
-        'name' => $name,
-        'email' => $email,
-        'company_id' => $cid,
-        'role' => 'admin',
-    ];
-    if (function_exists('db_has_column') && db_has_column(db(), 'users', 'first_login_at') && (int) ($userRow['id'] ?? 0) > 0) {
+    if (function_exists('db_has_column') && db_has_column(db(), 'users', 'first_login_at')) {
         db_exec('UPDATE users SET first_login_at = NOW() WHERE id = ?', 'i', [(int) $userRow['id']]);
         company_mark_onboard_step($cid, 'first_login');
     }

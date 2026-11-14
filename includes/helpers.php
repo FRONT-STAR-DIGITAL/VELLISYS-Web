@@ -6442,21 +6442,40 @@ function platform_notifications(int $limit = 12): array
     };
 
     try {
-        $signups = db_all(
-            "SELECT id, company, name, email, created_at, source, status, company_id FROM signups
-             WHERE status = 'new' OR (source = 'self' AND created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY))
-             ORDER BY id DESC LIMIT 16"
+        // Waiting leads first so self-registers cannot crowd them out of the bell.
+        $waiting = db_all(
+            "SELECT id, company, name, email, created_at, source, company_id FROM signups
+             WHERE status = 'new' ORDER BY id DESC LIMIT 12"
         );
-        foreach ($signups as $s) {
+        foreach ($waiting as $s) {
             $id = (int) $s['id'];
-            $isSelf = ((string) ($s['source'] ?? '')) === 'self';
-            $cid = (int) ($s['company_id'] ?? 0);
-            $href = ($isSelf && $cid > 0) ? url('admin_company.php?id=' . $cid) : url('admin_signups.php');
             if (!$push([
-                'type' => $isSelf ? 'self_register' : 'signup',
-                'key' => ($isSelf ? 'self-signup:' : 'signup:') . $id,
-                'title' => trim((string) ($s['company'] ?: $s['name'])) ?: ($isSelf ? 'New registration' : 'New sign-up'),
-                'meta' => ($isSelf ? 'Self-register · Pro trial · ' : 'Sign-up · ') . clip_text((string) ($s['email'] ?? ''), 40),
+                'type' => 'signup',
+                'key' => 'signup:' . $id,
+                'title' => trim((string) ($s['company'] ?: $s['name'])) ?: 'New sign-up',
+                'meta' => 'Sign-up · ' . clip_text((string) ($s['email'] ?? ''), 40),
+                'href' => url('admin_signups.php'),
+                'actions' => [
+                    ['label' => 'Open', 'href' => url('admin_signups.php'), 'class' => 'btn ghost sm'],
+                ],
+            ])) {
+                return $out;
+            }
+        }
+        $selfRegs = db_all(
+            "SELECT id, company, name, email, created_at, company_id FROM signups
+             WHERE source = 'self' AND created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)
+             ORDER BY id DESC LIMIT 8"
+        );
+        foreach ($selfRegs as $s) {
+            $id = (int) $s['id'];
+            $cid = (int) ($s['company_id'] ?? 0);
+            $href = $cid > 0 ? url('admin_company.php?id=' . $cid) : url('admin_signups.php');
+            if (!$push([
+                'type' => 'self_register',
+                'key' => 'self-signup:' . $id,
+                'title' => trim((string) ($s['company'] ?: $s['name'])) ?: 'New registration',
+                'meta' => 'Self-register · Pro trial · ' . clip_text((string) ($s['email'] ?? ''), 40),
                 'href' => $href,
                 'actions' => [
                     ['label' => 'Open', 'href' => $href, 'class' => 'btn ghost sm'],
