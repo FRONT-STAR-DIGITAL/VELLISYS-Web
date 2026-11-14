@@ -92,9 +92,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step !== 'closed') {
                 $pass = post('password', '', 256);
                 $again = post('password_confirm', '', 256);
                 $result = self_register_complete($pass, $again);
-                if (!empty($result['ok']) && !empty($result['user'])) {
+                $loginUser = is_array($result['user'] ?? null) ? $result['user'] : [];
+                if (!empty($result['ok']) && (int) ($loginUser['id'] ?? 0) > 0) {
                     form_rate_hit('create-account', 3600);
-                    self_register_login_user($result['user']);
+                    self_register_login_user($loginUser);
                     flash('Welcome to Vellisys. Your Pro trial is ready.');
                     redirect('dashboard.php');
                 }
