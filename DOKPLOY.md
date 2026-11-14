@@ -76,6 +76,17 @@ FOLIO_SMTP_FROM=info@vellisys.com
 FOLIO_SMTP_FROM_NAME=VELLISYS
 ```
 
+Required for Create Account verification codes (sent by Google, not info@):
+
+```env
+FOLIO_GMAIL_USER=you@gmail.com
+FOLIO_GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
+FOLIO_GMAIL_FROM_NAME=Vellisys
+```
+
+Create the App Password in Google Account → Security → 2-Step Verification → App passwords.  
+You can also paste the same Gmail + App Password under Super Admin → Settings → Google OTP.
+
 Optional (recommended on VPS - keeps logins stable across redeploys):
 
 ```env

@@ -333,7 +333,7 @@ $currencies = pricing_currencies();
           <li class="is-on"></li><li></li><li></li><li></li>
         </ul>
         <h2>Create account</h2>
-        <p class="gate-lead">Start with a valid email. We send a one-time code, then you add business details and a password for a free one-month Pro trial.</p>
+        <p class="gate-lead">Start with a valid email. Google sends a one-time code to that inbox, then you add business details and a password for a free one-month Pro trial.</p>
         <?php if ($info): ?><p class="gate-lead" style="color:#0f7a45"><?= h($info) ?></p><?php endif; ?>
         <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
         <label class="gate-field" for="email">Email</label>

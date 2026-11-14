@@ -10,6 +10,9 @@ $tempPass = default_desk_password();
 $signupsOpen = platform_setting('signups_open', '1') !== '0';
 $adminCcy = platform_currency();
 $alertEmail = platform_alert_email();
+$otpGmail = strtolower(trim(platform_setting('otp_gmail_email', '')));
+$otpPassStored = platform_setting('otp_gmail_app_password', '') !== '';
+$otpReady = function_exists('google_otp_mail_configured') && google_otp_mail_configured();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
@@ -19,12 +22,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $signupsOpen = !empty($_POST['signups_open']);
     $picked = posted_currency('admin_currency', $adminCcy);
     $alertEmail = strtolower(trim(post('alert_email')));
+    $otpGmail = strtolower(trim(post('otp_gmail_email')));
+    $otpPassPlain = trim(post('otp_gmail_app_password'));
     $allowed = array_keys(pricing_currencies());
     if (!in_array($picked, $allowed, true)) {
         $picked = 'USD';
     }
     if ($alertEmail !== '' && !filter_var($alertEmail, FILTER_VALIDATE_EMAIL)) {
         $error = 'Alert Gmail must be a valid email, or leave it blank.';
+    } elseif ($otpGmail !== '' && !filter_var($otpGmail, FILTER_VALIDATE_EMAIL)) {
+        $error = 'Google OTP Gmail must be a valid email, or leave it blank.';
+    } elseif ($otpPassPlain !== '' && strlen(mail_normalize_secret($otpPassPlain, 'gmail')) < 16) {
+        $error = 'Paste the 16-character Google App Password (spaces are fine).';
     } elseif (strlen($tempPass) < 8) {
         $error = 'The default desk password must be at least 8 characters.';
     } else {
@@ -34,6 +43,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         save_platform_setting('signups_open', $signupsOpen ? '1' : '0');
         save_platform_setting('admin_currency', $picked);
         save_platform_setting('alert_email', $alertEmail);
+        save_platform_setting('otp_gmail_email', $otpGmail);
+        if ($otpPassPlain !== '') {
+            save_platform_setting('otp_gmail_app_password', mail_encrypt_secret($otpPassPlain, 'gmail'));
+        } elseif ($otpGmail === '') {
+            save_platform_setting('otp_gmail_app_password', '');
+        }
         flash('Platform settings saved.');
         redirect('admin_settings.php');
     }
@@ -98,6 +113,20 @@ layout_admin_start('Settings', $user);
       <label for="alert_email">Your Gmail (password resets and mailbox tests)</label>
       <input id="alert_email" name="alert_email" type="email" value="<?= h($alertEmail) ?>" placeholder="you@gmail.com" autocomplete="off">
       <p class="hint">Vellisys letters still leave from <?= h(product_email()) ?> to clients. Hostinger files mail from info@ to info@ as Spam, and Spam is not forwarded to Gmail. Put the Gmail you actually open here for password-reset requests and copies of Vellisys letters. Company Send test goes to the company mailbox, not to info@.</p>
+    </div>
+  </div>
+  <div class="card-head"><h2><?= icon('mail', 16) ?>Google OTP for Create Account</h2></div>
+  <div class="form-grid" style="padding:0 22px">
+    <div>
+      <label for="otp_gmail_email">Gmail that sends verification codes</label>
+      <input id="otp_gmail_email" name="otp_gmail_email" type="email" value="<?= h($otpGmail) ?>" placeholder="you@gmail.com" autocomplete="off">
+      <p class="hint">Create Account OTPs leave through Google SMTP (smtp.gmail.com), not info@vellisys.com. You can also set <code>FOLIO_GMAIL_USER</code> / <code>FOLIO_GMAIL_APP_PASSWORD</code> in Dokploy env.</p>
+      <p class="hint" style="margin-top:8px"><?= $otpReady ? 'Google OTP mail is ready.' : 'Google OTP mail is not ready yet — add the Gmail and App Password below (or via env).' ?></p>
+    </div>
+    <div>
+      <label for="otp_gmail_app_password">Google App Password</label>
+      <?php render_password_toggle_field('otp_gmail_app_password', 'otp_gmail_app_password', $otpPassStored ? 'Saved — paste a new one to replace' : 'xxxx xxxx xxxx xxxx'); ?>
+      <p class="hint">Not your normal Gmail password. In Google Account → Security → 2-Step Verification → App passwords, create one for Mail, then paste the 16 characters here.</p>
     </div>
   </div>
   <div class="actions" style="padding:6px 22px 22px">

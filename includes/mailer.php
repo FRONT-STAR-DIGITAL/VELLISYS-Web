@@ -1043,6 +1043,14 @@ function send_self_register_otp_email(string $email, string $code): array
         return ['ok' => false, 'error' => 'Invalid email.'];
     }
     $code = preg_replace('/\D+/', '', $code) ?? '';
+    $account = function_exists('google_otp_mail_account') ? google_otp_mail_account() : null;
+    if (!$account) {
+        return [
+            'ok' => false,
+            'error' => 'Google mail for verification codes is not configured. Add a Gmail App Password in Super Admin → Settings.',
+            'from' => '',
+        ];
+    }
     $html = vellisys_email_wrap(
         '<p style="margin:0 0 14px">Use this one-time code to create your Vellisys account. It expires in 15 minutes.</p>'
         . '<p style="margin:0 0 18px;font-size:28px;letter-spacing:0.28em;font-weight:800;color:#08143A">' . h($code) . '</p>'
@@ -1050,7 +1058,19 @@ function send_self_register_otp_email(string $email, string $code): array
         'Your verification code'
     );
     $text = "Your Vellisys verification code is {$code}. It expires in 15 minutes. If you did not request this, ignore the message.";
-    return send_platform_email($to, 'Your Vellisys verification code', $html, $text, 0, product_email());
+    $subject = 'Your Vellisys verification code';
+    $from = (string) ($account['from_email'] ?? '');
+    $prev = $GLOBALS['folio_skip_platform_copy'] ?? null;
+    $GLOBALS['folio_skip_platform_copy'] = true;
+    $result = deliver_mail($account, $to, $subject, $html, $text, product_email());
+    if ($prev === null) {
+        unset($GLOBALS['folio_skip_platform_copy']);
+    } else {
+        $GLOBALS['folio_skip_platform_copy'] = $prev;
+    }
+    log_email(null, 0, $to, $subject, $text, !empty($result['ok']), (string) ($result['error'] ?? ''), $from);
+    $result['from'] = $from;
+    return $result;
 }
 
 function notify_self_register_complete(array $company, array $user, array $meta = []): void

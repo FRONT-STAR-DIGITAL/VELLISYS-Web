@@ -171,6 +171,49 @@ function mail_decrypt_secret(string $stored, ?string $provider = null): string
     return mail_normalize_secret($plain, $provider);
 }
 
+/**
+ * Gmail SMTP used only for Create Account verification codes.
+ * Prefer env FOLIO_GMAIL_USER + FOLIO_GMAIL_APP_PASSWORD; else platform settings.
+ *
+ * @return array{host:string,port:int,secure:string,username:string,password:string,from_email:string,from_name:string}|null
+ */
+function google_otp_mail_account(): ?array
+{
+    $ends = mail_provider_endpoints('gmail');
+    $envUser = strtolower(trim((string) (getenv('FOLIO_GMAIL_USER') ?: '')));
+    $envPass = mail_normalize_secret((string) (getenv('FOLIO_GMAIL_APP_PASSWORD') ?: ''), 'gmail');
+    $user = $envUser;
+    $pass = $envPass;
+    if ($user === '' || $pass === '') {
+        $user = strtolower(trim(platform_setting('otp_gmail_email', '')));
+        $stored = platform_setting('otp_gmail_app_password', '');
+        $pass = $stored !== '' ? mail_decrypt_secret($stored, 'gmail') : '';
+        $pass = mail_normalize_secret($pass, 'gmail');
+    }
+    if ($user === '' || !filter_var($user, FILTER_VALIDATE_EMAIL) || $pass === '') {
+        return null;
+    }
+    if (!str_ends_with($user, '@gmail.com') && !str_ends_with($user, '@googlemail.com')) {
+        // Still allow Google Workspace custom domains if they use smtp.gmail.com.
+    }
+    $fromName = trim((string) (getenv('FOLIO_GMAIL_FROM_NAME') ?: '')) ?: 'Vellisys';
+    return [
+        'host' => (string) $ends['smtp_host'],
+        'port' => (int) $ends['smtp_port'],
+        'secure' => (string) $ends['smtp_secure'],
+        'username' => $user,
+        'password' => $pass,
+        'from_email' => $user,
+        'from_name' => $fromName,
+        'provider' => 'gmail',
+    ];
+}
+
+function google_otp_mail_configured(): bool
+{
+    return google_otp_mail_account() !== null;
+}
+
 function platform_mail_account(): array
 {
     $c = mail_config();
