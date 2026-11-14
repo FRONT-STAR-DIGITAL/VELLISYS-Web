@@ -1089,8 +1089,8 @@ function notify_self_register_local(array $company, array $user, array $meta = [
     if (function_exists('platform_alert_add')) {
         platform_alert_add(
             'self_register',
-            'New registration · ' . ($name !== '' ? $name : $who),
-            'Pro trial · ' . $to,
+            'Self-onboarded · ' . ($name !== '' ? $name : $who),
+            'Testing · Pro trial · ' . $to,
             $href,
             $to,
             'normal'
@@ -1098,8 +1098,8 @@ function notify_self_register_local(array $company, array $user, array $meta = [
     }
     if (function_exists('push_notify_item')) {
         push_notify_item([
-            'title' => 'New registration · ' . ($name !== '' ? $name : $who),
-            'meta' => 'Pro trial · ' . $to,
+            'title' => 'Self-onboarded · ' . ($name !== '' ? $name : $who),
+            'meta' => 'Testing · Pro trial · ' . $to,
             'href' => $href,
             'key' => 'self-reg:' . (int) ($company['id'] ?? 0),
         ], 'platform');
@@ -1139,7 +1139,7 @@ function notify_self_register_mail(array $company, array $user, array $meta = []
     }
 
     $adminHtml = vellisys_email_wrap(
-        '<p style="margin:0 0 14px">A new self-registration opened a free Pro trial desk.</p>'
+        '<p style="margin:0 0 14px">A new <strong>self-onboarded</strong> client opened a free Pro trial desk in <strong>Testing mode</strong>.</p>'
         . '<p style="margin:0 0 8px"><strong>Company:</strong> ' . h($name) . '</p>'
         . '<p style="margin:0 0 8px"><strong>Contact:</strong> ' . h($who) . '</p>'
         . '<p style="margin:0 0 8px"><strong>Email:</strong> ' . h($to) . '</p>'
@@ -1147,11 +1147,11 @@ function notify_self_register_mail(array $company, array $user, array $meta = []
         . ($place !== '' ? '<p style="margin:0 0 8px"><strong>Location:</strong> ' . h($place) . '</p>' : '')
         . ($currency !== '' ? '<p style="margin:0 0 8px"><strong>Currency:</strong> ' . h($currency) . '</p>' : '')
         . ($expires !== '' ? '<p style="margin:0 0 14px"><strong>Trial ends:</strong> ' . h($expires) . '</p>' : '')
-        . '<p style="margin:0"><a href="' . h(absolute_url('admin_company.php?id=' . (int) ($company['id'] ?? 0))) . '" style="color:#1E4EFF">Open the company</a></p>'
+        . '<p style="margin:0"><a href="' . h(absolute_url('admin_company.php?id=' . (int) ($company['id'] ?? 0))) . '" style="color:#1E4EFF">Open in Testing</a></p>'
     );
-    $adminText = 'New self-registration Pro trial: ' . $name . ' / ' . $who . ' / ' . $to . ' / ' . $phone;
+    $adminText = 'Self-onboarded · Testing Pro trial: ' . $name . ' / ' . $who . ' / ' . $to . ' / ' . $phone;
     // Always deliver to info@vellisys.com (product_email) via notify_platform.
-    notify_platform('New self-registration: ' . $name, $adminHtml, $adminText, $to, (int) ($user['id'] ?? 0));
+    notify_platform('Self-onboarded (Testing): ' . $name, $adminHtml, $adminText, $to, (int) ($user['id'] ?? 0));
 }
 
 function notify_self_register_complete(array $company, array $user, array $meta = []): void

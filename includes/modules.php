@@ -82,6 +82,20 @@ function company_is_testing(?array $company = null): bool
     return $company ? !empty($company['testing_mode']) : false;
 }
 
+/** Public Create Account / self-register desks (support differentiation). */
+function company_is_self_onboarded(?array $company = null): bool
+{
+    $company = $company ?? (function_exists('current_company') ? current_company() : null);
+    if (!$company) {
+        return false;
+    }
+    $notes = (string) ($company['notes'] ?? '');
+    if ($notes !== '' && (stripos($notes, 'Self-onboarded') !== false || stripos($notes, 'Self-registered') !== false)) {
+        return true;
+    }
+    return false;
+}
+
 /**
  * Full desk defaults for testing / materialize.
  * Open / close day (till_day) stays off unless an admin ticks it.

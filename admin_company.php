@@ -610,6 +610,7 @@ if ($toList) {
 }
 
 $isTesting = company_is_testing($company);
+$selfOnboarded = function_exists('company_is_self_onboarded') && company_is_self_onboarded($company);
 $testingCreds = $isTesting ? sales_testing_credentials($id) : null;
 $salesAgents = function_exists('sales_agents') ? sales_agents(true) : [];
 $assignedAgentId = (int) ($company['sales_agent_id'] ?? 0);
@@ -619,7 +620,7 @@ layout_admin_start($company['name'], $user);
 <div class="page-head">
   <div>
     <h1><?= icon('building') ?><?= h($company['name']) ?></h1>
-    <p class="lede"><?php if ($isTesting): ?>Testing mode · <?= h(company_testing_remaining_label($company)) ?> · <?php endif; ?><?= h(ucfirst((string) $company['status'])) ?> · <?= h($brand['currency'] ?? 'UGX') ?> · <?= count($members) ?> / <?= (int) company_user_limit($company) ?> user<?= count($members) === 1 ? '' : 's' ?> · <?= h(company_term_label($company)) ?><?php if (company_expires_on($company)): ?> · <?= h(company_remaining_phrase($company)) ?> · <?= h(company_expiry_date_label($company)) ?><?php endif; ?><?php if ($assignedAgent): ?> · Sales agent <?= h((string) $assignedAgent['name']) ?><?php endif; ?><?php $nob = trim((string) ($company['nature_of_business'] ?? '')); if ($nob !== ''): ?> · <?= h($nob) ?><?php endif; ?></p>
+    <p class="lede"><?php if ($isTesting): ?>Testing mode · <?= h(company_testing_remaining_label($company)) ?> · <?php endif; ?><?php if ($selfOnboarded): ?>Self-onboarded · <?php endif; ?><?= h(ucfirst((string) $company['status'])) ?> · <?= h($brand['currency'] ?? 'UGX') ?> · <?= count($members) ?> / <?= (int) company_user_limit($company) ?> user<?= count($members) === 1 ? '' : 's' ?> · <?= h(company_term_label($company)) ?><?php if (company_expires_on($company)): ?> · <?= h(company_remaining_phrase($company)) ?> · <?= h(company_expiry_date_label($company)) ?><?php endif; ?><?php if ($assignedAgent): ?> · Sales agent <?= h((string) $assignedAgent['name']) ?><?php endif; ?><?php $nob = trim((string) ($company['nature_of_business'] ?? '')); if ($nob !== ''): ?> · <?= h($nob) ?><?php endif; ?></p>
   </div>
   <div class="actions">
     <?php if ($isTesting): ?>
@@ -642,8 +643,9 @@ layout_admin_start($company['name'], $user);
 
 <?php if ($isTesting): ?>
 <div class="card pad-form" style="margin-bottom:16px" id="testing-controls">
-  <h2 style="margin-top:0">Testing mode</h2>
+  <h2 style="margin-top:0">Testing mode<?php if ($selfOnboarded): ?> · Self-onboarded<?php endif; ?></h2>
   <p class="lede" style="margin-top:0">
+    <?php if ($selfOnboarded): ?>Opened via Create Account (self-register). <?php endif; ?>
     Ends <?= !empty($company['testing_expires_at']) ? h(format_date((string) $company['testing_expires_at'])) : '-' ?>
     · <?= h(company_testing_remaining_label($company)) ?>.
   </p>

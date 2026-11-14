@@ -302,6 +302,33 @@ function closestEl(e, sel) {
 function navScrim() {
   return document.querySelector('[data-nav-scrim]');
 }
+/** True when the soft keyboard has shrunk the visual viewport. */
+function appTabbarKeyboardOpen() {
+  var vv = window.visualViewport;
+  if (!vv) return false;
+  // Layout bottom minus visual bottom ≈ keyboard height (and browser chrome).
+  var gap = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
+  return gap > 100;
+}
+
+function appTabbarSyncKeyboard() {
+  var open = appTabbarKeyboardOpen();
+  document.documentElement.classList.toggle('keyboard-open', open);
+  if (document.body) document.body.classList.toggle('keyboard-open', open);
+  var host = document.getElementById('app-tabbar-host');
+  if (!host) return;
+  if (open) {
+    // Stay at layout bottom:0 so the keyboard covers the bar; hide hit targets.
+    host.style.setProperty('visibility', 'hidden', 'important');
+    host.style.setProperty('pointer-events', 'none', 'important');
+    host.setAttribute('aria-hidden', 'true');
+  } else {
+    host.style.setProperty('visibility', 'visible', 'important');
+    host.style.setProperty('pointer-events', 'none', 'important');
+    host.removeAttribute('aria-hidden');
+  }
+}
+
 /** Pin bottom tab bars to the screen bottom on every portal (admin, desk, sales). */
 function pinAppTabbar() {
   var bar = document.querySelector('nav.app-tabbar');
@@ -315,6 +342,8 @@ function pinAppTabbar() {
   }
   if (window.matchMedia && window.matchMedia('(min-width: 1025px)').matches) {
     host.style.display = 'none';
+    document.documentElement.classList.remove('keyboard-open');
+    document.body.classList.remove('keyboard-open');
     bar.style.removeProperty('position');
     bar.style.removeProperty('left');
     bar.style.removeProperty('right');
@@ -328,6 +357,8 @@ function pinAppTabbar() {
   }
   // Fixed host on <body> - bar stays at the real screen bottom even when a
   // sheet/preview ancestor uses transform (which breaks position:fixed).
+  // Never pin to visualViewport — that rides the bar above the keyboard and
+  // can leave it stuck mid-screen after dismiss.
   if (bar.parentElement !== host) host.appendChild(bar);
   if (host.parentElement !== document.body) document.body.appendChild(host);
   host.style.setProperty('display', 'block', 'important');
@@ -343,6 +374,7 @@ function pinAppTabbar() {
   host.style.setProperty('z-index', '99999', 'important');
   host.style.setProperty('transform', 'none', 'important');
   host.style.setProperty('webkit-transform', 'none', 'important');
+  host.style.setProperty('translate', 'none', 'important');
   host.style.setProperty('filter', 'none', 'important');
   host.style.setProperty('pointer-events', 'none', 'important');
   bar.style.setProperty('display', 'grid', 'important');
@@ -357,13 +389,44 @@ function pinAppTabbar() {
   bar.style.setProperty('transform', 'none', 'important');
   bar.style.setProperty('webkit-transform', 'none', 'important');
   bar.style.setProperty('pointer-events', 'auto', 'important');
+  appTabbarSyncKeyboard();
   if (!bar._tabbarPinned) {
     bar._tabbarPinned = true;
-    window.addEventListener('resize', pinAppTabbar);
-    window.addEventListener('orientationchange', pinAppTabbar);
-    window.addEventListener('scroll', pinAppTabbar, { passive: true });
+    var schedule = function () {
+      if (bar._tabbarPinRaf) cancelAnimationFrame(bar._tabbarPinRaf);
+      bar._tabbarPinRaf = requestAnimationFrame(function () {
+        bar._tabbarPinRaf = 0;
+        pinAppTabbar();
+      });
+    };
+    window.addEventListener('resize', schedule);
+    window.addEventListener('orientationchange', schedule);
+    // Do not re-pin on every scroll — that glitches fixed bars mid-viewport on iOS.
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', schedule);
+      window.visualViewport.addEventListener('scroll', function () {
+        appTabbarSyncKeyboard();
+      });
+    }
+    document.addEventListener('focusin', function (e) {
+      var t = e && e.target;
+      if (!t || !t.tagName) return;
+      var tag = String(t.tagName).toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || t.isContentEditable) {
+        setTimeout(appTabbarSyncKeyboard, 50);
+        setTimeout(appTabbarSyncKeyboard, 300);
+      }
+    }, true);
+    document.addEventListener('focusout', function () {
+      setTimeout(appTabbarSyncKeyboard, 50);
+      setTimeout(function () {
+        pinAppTabbar();
+      }, 300);
+    }, true);
   }
-  document.documentElement.style.setProperty('--app-tabbar-h', Math.max(48, bar.offsetHeight || 48) + 'px');
+  if (!document.documentElement.classList.contains('keyboard-open')) {
+    document.documentElement.style.setProperty('--app-tabbar-h', Math.max(48, bar.offsetHeight || 48) + 'px');
+  }
 }
 function setNavOpen(open) {
   if (typeof window.vellisysSetNav === 'function') {

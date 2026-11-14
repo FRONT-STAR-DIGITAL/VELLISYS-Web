@@ -6513,7 +6513,7 @@ function platform_notifications(int $limit = 12): array
                 'type' => 'self_register',
                 'key' => 'self-signup:' . $id,
                 'title' => trim((string) ($s['company'] ?: $s['name'])) ?: 'New registration',
-                'meta' => 'Self-register · Pro trial · ' . clip_text((string) ($s['email'] ?? ''), 40),
+                'meta' => 'Self-onboarded · Testing · ' . clip_text((string) ($s['email'] ?? ''), 40),
                 'href' => $href,
                 'actions' => [
                     ['label' => 'Open', 'href' => $href, 'class' => 'btn ghost sm'],

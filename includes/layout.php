@@ -68,9 +68,16 @@ function render_nav_boot_script(): void
     z-index: 99999 !important;
     transform: none !important;
     -webkit-transform: none !important;
+    translate: none !important;
     filter: none !important;
     pointer-events: none !important;
     background: transparent !important;
+  }
+  /* Soft keyboard overlays the bar; restore when the keyboard closes. */
+  html.keyboard-open #app-tabbar-host,
+  body.keyboard-open #app-tabbar-host {
+    visibility: hidden !important;
+    pointer-events: none !important;
   }
   #app-tabbar-host > nav.app-tabbar[data-app-tabbar],
   body > nav.app-tabbar[data-app-tabbar] {
@@ -128,6 +135,7 @@ function render_nav_boot_script(): void
       return;
     }
     if (bar.parentElement !== host) host.appendChild(bar);
+    if (host.parentElement !== document.body) document.body.appendChild(host);
     host.style.setProperty('display', 'block', 'important');
     host.style.setProperty('position', 'fixed', 'important');
     host.style.setProperty('left', '0px', 'important');
@@ -137,6 +145,7 @@ function render_nav_boot_script(): void
     host.style.setProperty('width', '100%', 'important');
     host.style.setProperty('z-index', '99999', 'important');
     host.style.setProperty('transform', 'none', 'important');
+    host.style.setProperty('translate', 'none', 'important');
     host.style.setProperty('pointer-events', 'none', 'important');
     bar.style.setProperty('display', 'grid', 'important');
     bar.style.setProperty('position', 'relative', 'important');
@@ -148,10 +157,10 @@ function render_nav_boot_script(): void
     bar.style.setProperty('margin', '0', 'important');
     bar.style.setProperty('transform', 'none', 'important');
     bar.style.setProperty('pointer-events', 'auto', 'important');
+    if (typeof pinAppTabbar === 'function') pinAppTabbar();
   }
   document.addEventListener('DOMContentLoaded', pinBar);
   window.addEventListener('load', pinBar);
-  window.addEventListener('scroll', pinBar, { passive: true });
   window.addEventListener('resize', pinBar);
   document.addEventListener('click', function (e) {
     var el = e.target;
@@ -334,7 +343,9 @@ function layout_start(string $title, array $user, array $opts = []): void
 <head>
   <meta charset="utf-8">
   <?php
-    $viewportContent = 'width=device-width, initial-scale=1, viewport-fit=cover';
+    // overlays-content: soft keyboard covers the bottom tab bar instead of
+    // shoving it up mid-screen / on top of the keys.
+    $viewportContent = 'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=overlays-content';
     if (basename($_SERVER['SCRIPT_NAME'] ?? '') === 'document_view.php') {
         $viewportContent .= ', maximum-scale=5';
     }
@@ -596,7 +607,7 @@ function layout_admin_start(string $title, array $user): void
 <html lang="en"<?= function_exists('folio_html_root_attrs') ? folio_html_root_attrs() : '' ?>>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=overlays-content">
   <title><?= h($title) ?> · <?= h(product_name()) ?> admin</title>
   <?php product_icons(); ?>
   <?php folio_css_links(); ?>

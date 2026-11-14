@@ -6166,9 +6166,15 @@ a.branch-activity-row:hover { text-decoration: none; }
     z-index: 99999 !important;
     transform: none !important;
     -webkit-transform: none !important;
+    translate: none !important;
     filter: none !important;
     pointer-events: none !important;
     background: transparent !important;
+  }
+  html.keyboard-open #app-tabbar-host,
+  body.keyboard-open #app-tabbar-host {
+    visibility: hidden !important;
+    pointer-events: none !important;
   }
   .app-tabbar,
   .app-tabbar.admin-tabbar,

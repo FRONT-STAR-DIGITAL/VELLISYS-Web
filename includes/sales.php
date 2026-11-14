@@ -4238,7 +4238,7 @@ function sales_layout_start(string $title, array $user): void
 <html lang="en"<?= function_exists('folio_html_root_attrs') ? folio_html_root_attrs() : '' ?>>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=overlays-content">
   <title><?= h($title) ?> · Sales · <?= h(product_name()) ?></title>
   <?php product_icons(); ?>
   <?php folio_css_links(); ?>

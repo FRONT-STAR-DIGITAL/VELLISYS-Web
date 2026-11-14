@@ -237,16 +237,19 @@ layout_admin_start('Companies', $user);
                 'status_key' => 'slow',
                 'status_label' => 'No sign-in yet',
             ];
+            $selfOnboarded = function_exists('company_is_self_onboarded') && company_is_self_onboarded($c);
             $searchBlob = strtolower(trim(
                 (string) $c['name'] . ' ' . (string) ($c['owner_name'] ?? '') . ' ' . (string) ($c['desk_email'] ?? '')
+                . ($selfOnboarded ? ' self-onboarded self-register' : '')
             ));
             ?>
           <tr data-search="<?= h($searchBlob) ?>">
             <td>
               <a href="<?= h(url('admin_company.php?id=' . $cid)) ?>"><strong><?= h((string) $c['name']) ?></strong></a>
               <?php if ($expired): ?><span class="pill bad">Expired</span><?php else: ?><span class="pill warn">Testing</span><?php endif; ?>
+              <?php if ($selfOnboarded): ?><span class="pill">Self-onboarded</span><?php endif; ?>
             </td>
-            <td><?= h((string) ($c['owner_name'] ?: '-')) ?></td>
+            <td><?php if ($selfOnboarded && trim((string) ($c['owner_name'] ?? '')) === ''): ?><span class="pill">Self-onboarded</span><?php else: ?><?= h((string) ($c['owner_name'] ?: '-')) ?><?php endif; ?></td>
             <td>
               <?php if (!empty($act['online'])): ?>
                 <span class="pill">Active now</span>

@@ -474,7 +474,10 @@ function self_register_complete(string $password, string $passwordAgain): array
     $seats = plan_user_limit_max($plan);
     $from = desk_now()->format('Y-m-d');
     $expires = compute_expiry_date($from, 1, 'months') ?: desk_now()->modify('+1 month')->format('Y-m-d');
-    $notes = 'Self-registered Pro trial · 1 month free · ' . $email . ' · ' . $phone;
+    $testingExpires = $expires . ' 23:59:59';
+    // Land in Testing mode (not Live) so Super Admin can support them easily.
+    $notes = 'Testing mode · Self-onboarded · Pro trial · 1 month free · ' . $email . ' · ' . $phone
+        . "\nOpened via Create Account. Promote to onboard when the client is ready.";
     $kinds = json_encode(default_enabled_kinds(), JSON_UNESCAPED_UNICODE);
     $customDoc = json_encode(default_custom_doc(), JSON_UNESCAPED_UNICODE);
     $plannerOn = planner_resolve_enabled($plan, plan_includes_planner($plan), null);
@@ -487,7 +490,7 @@ function self_register_complete(string $password, string $passwordAgain): array
             'ssssssiiidsssdds',
             [
                 $companyName,
-                'live',
+                'onboarding',
                 $plan,
                 $notes,
                 $kinds,
@@ -510,6 +513,16 @@ function self_register_complete(string $password, string $passwordAgain): array
     }
     if ($cid < 1) {
         return ['ok' => false, 'error' => 'We could not open that desk just now. Please try again.'];
+    }
+
+    try {
+        db_exec(
+            'UPDATE companies SET testing_mode = 1, testing_owner_id = NULL, testing_expires_at = ? WHERE id = ?',
+            'si',
+            [$testingExpires, $cid]
+        );
+    } catch (Throwable $e) {
+        error_log('Vellisys self-register testing_mode: ' . $e->getMessage());
     }
 
     try {
@@ -628,7 +641,7 @@ function self_register_complete(string $password, string $passwordAgain): array
                 $phone,
                 'onboarded',
                 'self',
-                'Self-registered Pro trial · ' . $currency . ' · ' . $city . ', ' . $country,
+                'Self-onboarded · Testing · ' . $currency . ' · ' . $city . ', ' . $country,
                 $cid,
             ]
         );
@@ -637,7 +650,7 @@ function self_register_complete(string $password, string $passwordAgain): array
             $signupId = (int) db_exec(
                 'INSERT INTO signups (name, company, email, phone, status, source, note) VALUES (?,?,?,?,?,?,?)',
                 'sssssss',
-                [$name, $companyName, $email, $phone, 'onboarded', 'self', 'Self-registered Pro trial']
+                [$name, $companyName, $email, $phone, 'onboarded', 'self', 'Self-onboarded · Testing']
             );
             if ($signupId > 0) {
                 db_exec('UPDATE signups SET company_id = ? WHERE id = ?', 'ii', [$cid, $signupId]);
