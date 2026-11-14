@@ -56,7 +56,7 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '79';
+    return '80';
 }
 
 /** Optional explicit desk modules JSON. Null/empty = infer from existing flags (no change for live desks). */
@@ -737,6 +737,225 @@ function folio_ensure_stock_branches(mysqli $db): void
          SELECT company_id, id, 0, qty_on_hand FROM stock_items WHERE COALESCE(is_service, 0) = 0'
     );
     folio_split_stock_item_catalogs($db);
+    folio_dedupe_stock_items($db);
+}
+
+/**
+ * Merge same-location stock rows that share an exact name or the same non-empty SKU.
+ * Remaps moves, document lines, counts and qty so nothing is lost, then enforces
+ * UNIQUE (company_id, branch_id, name) so duplicates cannot return.
+ */
+function folio_dedupe_stock_items(mysqli $db): void
+{
+    static $ran = false;
+    if ($ran) {
+        return;
+    }
+    $ran = true;
+    if (!db_has_column($db, 'stock_items', 'branch_id')) {
+        return;
+    }
+    @$db->query("CREATE TABLE IF NOT EXISTS schema_meta (
+      k VARCHAR(40) PRIMARY KEY,
+      v VARCHAR(40) NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $flag = @$db->query("SELECT v FROM schema_meta WHERE k = 'stock_dedupe_v1'");
+    $already = $flag && ($row = $flag->fetch_assoc()) && (string) ($row['v'] ?? '') === '1';
+    if (!$already) {
+        folio_merge_stock_duplicate_groups($db, 'sku');
+        folio_merge_stock_duplicate_groups($db, 'name');
+        @$db->query("REPLACE INTO schema_meta (k, v) VALUES ('stock_dedupe_v1', '1')");
+    }
+    folio_ensure_stock_name_unique($db);
+}
+
+function folio_ensure_stock_name_unique(mysqli $db): void
+{
+    if (!db_has_column($db, 'stock_items', 'branch_id')) {
+        return;
+    }
+    $idx = @$db->query("SHOW INDEX FROM stock_items WHERE Key_name = 'stock_items_branch_name'");
+    if ($idx && $idx->num_rows > 0) {
+        return;
+    }
+    // Last safety pass before the unique key — ignore failures on empty desks.
+    folio_merge_stock_duplicate_groups($db, 'name');
+    @$db->query('ALTER TABLE stock_items ADD UNIQUE KEY stock_items_branch_name (company_id, branch_id, name)');
+}
+
+/**
+ * @param 'sku'|'name' $by
+ */
+function folio_merge_stock_duplicate_groups(mysqli $db, string $by): void
+{
+    $hasBranch = db_has_column($db, 'stock_items', 'branch_id');
+    $branchSel = $hasBranch ? 'branch_id' : '0 AS branch_id';
+    $sql = "SELECT id, company_id, {$branchSel}, sku, name, qty_on_hand, active, buy_price, sell_price, description, unit
+            FROM stock_items ORDER BY company_id ASC, branch_id ASC, id ASC";
+    $res = @$db->query($sql);
+    if (!$res) {
+        return;
+    }
+    $groups = [];
+    while ($row = $res->fetch_assoc()) {
+        $cid = (int) ($row['company_id'] ?? 0);
+        $bid = (int) ($row['branch_id'] ?? 0);
+        if ($by === 'sku') {
+            $key = trim((string) ($row['sku'] ?? ''));
+            if ($key === '') {
+                continue;
+            }
+            $groupKey = $cid . "\0" . $bid . "\0sku\0" . mb_strtolower($key);
+        } else {
+            $key = trim((string) ($row['name'] ?? ''));
+            if ($key === '') {
+                continue;
+            }
+            // Case-insensitive group so UNIQUE (company_id, branch_id, name) can land cleanly.
+            $groupKey = $cid . "\0" . $bid . "\0name\0" . mb_strtolower($key);
+        }
+        $groups[$groupKey][] = $row;
+    }
+    foreach ($groups as $rows) {
+        if (count($rows) < 2) {
+            continue;
+        }
+        folio_merge_stock_row_group($db, $rows);
+    }
+}
+
+/** @param list<array<string,mixed>> $rows */
+function folio_merge_stock_row_group(mysqli $db, array $rows): void
+{
+    if (count($rows) < 2) {
+        return;
+    }
+    usort($rows, static function (array $a, array $b): int {
+        $aa = (int) ($a['active'] ?? 1);
+        $ba = (int) ($b['active'] ?? 1);
+        if ($aa !== $ba) {
+            return $ba <=> $aa;
+        }
+        $aq = (float) ($a['qty_on_hand'] ?? 0);
+        $bq = (float) ($b['qty_on_hand'] ?? 0);
+        if (abs($aq - $bq) > 0.0001) {
+            return $bq <=> $aq;
+        }
+        return (int) ($a['id'] ?? 0) <=> (int) ($b['id'] ?? 0);
+    });
+    $survivor = $rows[0];
+    $sid = (int) ($survivor['id'] ?? 0);
+    $cid = (int) ($survivor['company_id'] ?? 0);
+    if ($sid < 1 || $cid < 1) {
+        return;
+    }
+    $hasMoves = true;
+    $hasQty = db_has_column($db, 'stock_branch_qty', 'qty_on_hand');
+    $hasCounts = db_has_column($db, 'stock_count_lines', 'item_id');
+    $qtySum = (float) ($survivor['qty_on_hand'] ?? 0);
+    $bestSku = trim((string) ($survivor['sku'] ?? ''));
+    $bestBuy = (float) ($survivor['buy_price'] ?? 0);
+    $bestSell = (float) ($survivor['sell_price'] ?? 0);
+    $bestDesc = trim((string) ($survivor['description'] ?? ''));
+    $bestUnit = trim((string) ($survivor['unit'] ?? ''));
+    for ($i = 1, $n = count($rows); $i < $n; $i++) {
+        $loser = $rows[$i];
+        $lid = (int) ($loser['id'] ?? 0);
+        if ($lid < 1 || $lid === $sid) {
+            continue;
+        }
+        $qtySum += (float) ($loser['qty_on_hand'] ?? 0);
+        if ($bestSku === '') {
+            $bestSku = trim((string) ($loser['sku'] ?? ''));
+        }
+        if ($bestDesc === '') {
+            $bestDesc = trim((string) ($loser['description'] ?? ''));
+        }
+        if ($bestUnit === '') {
+            $bestUnit = trim((string) ($loser['unit'] ?? ''));
+        }
+        if ($bestBuy <= 0 && (float) ($loser['buy_price'] ?? 0) > 0) {
+            $bestBuy = (float) $loser['buy_price'];
+        }
+        if ($bestSell <= 0 && (float) ($loser['sell_price'] ?? 0) > 0) {
+            $bestSell = (float) $loser['sell_price'];
+        }
+        @$db->query("UPDATE stock_moves SET item_id = {$sid} WHERE item_id = {$lid} AND company_id = {$cid}");
+        @$db->query(
+            "UPDATE document_items i
+             INNER JOIN documents d ON d.id = i.document_id
+             SET i.stock_item_id = {$sid}
+             WHERE i.stock_item_id = {$lid} AND d.company_id = {$cid}"
+        );
+        if ($hasCounts) {
+            @$db->query(
+                "UPDATE stock_count_lines cl
+                 INNER JOIN stock_counts c ON c.id = cl.count_id
+                 SET cl.item_id = {$sid}
+                 WHERE cl.item_id = {$lid} AND c.company_id = {$cid}"
+            );
+        }
+        if ($hasQty) {
+            $qres = @$db->query("SELECT branch_id, qty_on_hand FROM stock_branch_qty WHERE item_id = {$lid} AND company_id = {$cid}");
+            if ($qres) {
+                while ($qrow = $qres->fetch_assoc()) {
+                    $bid = (int) ($qrow['branch_id'] ?? 0);
+                    $q = (float) ($qrow['qty_on_hand'] ?? 0);
+                    $exists = @$db->query(
+                        "SELECT qty_on_hand FROM stock_branch_qty WHERE item_id = {$sid} AND company_id = {$cid} AND branch_id = {$bid} LIMIT 1"
+                    );
+                    if ($exists && $exists->num_rows > 0) {
+                        @$db->query(
+                            "UPDATE stock_branch_qty SET qty_on_hand = qty_on_hand + ({$q})
+                             WHERE item_id = {$sid} AND company_id = {$cid} AND branch_id = {$bid}"
+                        );
+                    } else {
+                        $qSql = number_format($q, 2, '.', '');
+                        @$db->query(
+                            "INSERT INTO stock_branch_qty (company_id, item_id, branch_id, qty_on_hand)
+                             VALUES ({$cid}, {$sid}, {$bid}, {$qSql})"
+                        );
+                    }
+                }
+            }
+            @$db->query("DELETE FROM stock_branch_qty WHERE item_id = {$lid} AND company_id = {$cid}");
+        }
+        @$db->query("DELETE FROM stock_items WHERE id = {$lid} AND company_id = {$cid}");
+    }
+    $qtySql = number_format($qtySum, 2, '.', '');
+    $escSku = $db->real_escape_string($bestSku);
+    $escDesc = $db->real_escape_string(mb_substr($bestDesc, 0, 500));
+    $escUnit = $db->real_escape_string(mb_substr($bestUnit !== '' ? $bestUnit : 'pc', 0, 40));
+    $buySql = number_format($bestBuy, 2, '.', '');
+    $sellSql = number_format($bestSell, 2, '.', '');
+    @$db->query(
+        "UPDATE stock_items
+         SET qty_on_hand = {$qtySql},
+             sku = IF(sku IS NULL OR sku = '', '{$escSku}', sku),
+             description = IF(description IS NULL OR description = '', '{$escDesc}', description),
+             unit = IF(unit IS NULL OR unit = '', '{$escUnit}', unit),
+             buy_price = IF(buy_price <= 0, {$buySql}, buy_price),
+             sell_price = IF(sell_price <= 0, {$sellSql}, sell_price),
+             active = 1
+         WHERE id = {$sid} AND company_id = {$cid}"
+    );
+    if ($hasQty) {
+        $home = (int) ($survivor['branch_id'] ?? 0);
+        $exists = @$db->query(
+            "SELECT qty_on_hand FROM stock_branch_qty WHERE item_id = {$sid} AND company_id = {$cid} AND branch_id = {$home} LIMIT 1"
+        );
+        if ($exists && $exists->num_rows > 0) {
+            @$db->query(
+                "UPDATE stock_branch_qty SET qty_on_hand = {$qtySql}
+                 WHERE item_id = {$sid} AND company_id = {$cid} AND branch_id = {$home}"
+            );
+        } else {
+            @$db->query(
+                "INSERT INTO stock_branch_qty (company_id, item_id, branch_id, qty_on_hand)
+                 VALUES ({$cid}, {$sid}, {$home}, {$qtySql})"
+            );
+        }
+    }
 }
 
 /**
@@ -751,6 +970,14 @@ function folio_split_stock_item_catalogs(mysqli $db): void
     }
     $done = true;
     if (!db_has_column($db, 'stock_items', 'branch_id')) {
+        return;
+    }
+    @$db->query("CREATE TABLE IF NOT EXISTS schema_meta (
+      k VARCHAR(40) PRIMARY KEY,
+      v VARCHAR(40) NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $flag = @$db->query("SELECT v FROM schema_meta WHERE k = 'stock_split_catalogs_v2'");
+    if ($flag && ($row = $flag->fetch_assoc()) && (string) ($row['v'] ?? '') === '1') {
         return;
     }
     $hasMovesBranch = db_has_column($db, 'stock_moves', 'branch_id');
@@ -805,6 +1032,10 @@ function folio_split_stock_item_catalogs(mysqli $db): void
         sort($homes, SORT_NUMERIC);
         $keep = in_array(0, $homes, true) ? 0 : (int) $homes[0];
         @$db->query("UPDATE stock_items SET branch_id = {$keep} WHERE id = {$id} AND company_id = {$cid}");
+        $src = @$db->query("SELECT sku, name FROM stock_items WHERE id = {$id} AND company_id = {$cid} LIMIT 1");
+        $srcRow = $src ? $src->fetch_assoc() : null;
+        $srcName = trim((string) ($srcRow['name'] ?? ''));
+        $srcSku = trim((string) ($srcRow['sku'] ?? ''));
         foreach ($homes as $bid) {
             $bid = (int) $bid;
             if ($bid === $keep) {
@@ -818,20 +1049,52 @@ function folio_split_stock_item_catalogs(mysqli $db): void
                 }
             }
             $qtySql = number_format($qty, 2, '.', '');
-            $svcCol = $hasService ? 'is_service' : '0';
-            $ok = @$db->query(
-                "INSERT INTO stock_items (company_id, branch_id, sku, name, description, unit, buy_price, sell_price, reorder_level, qty_on_hand, taxed, active, is_service)
-                 SELECT company_id, {$bid}, sku, name, description, unit, buy_price, sell_price, reorder_level, {$qtySql}, taxed, active, {$svcCol}
-                 FROM stock_items WHERE id = {$id} AND company_id = {$cid}"
-            );
-            if ($ok === false) {
+            // Never clone again when this location already has the same name or SKU.
+            $newId = 0;
+            if ($srcName !== '') {
+                $escName = $db->real_escape_string($srcName);
+                $exist = @$db->query(
+                    "SELECT id FROM stock_items
+                     WHERE company_id = {$cid} AND branch_id = {$bid} AND name = '{$escName}'
+                     ORDER BY id ASC LIMIT 1"
+                );
+                if ($exist && ($er = $exist->fetch_assoc())) {
+                    $newId = (int) ($er['id'] ?? 0);
+                }
+            }
+            if ($newId < 1 && $srcSku !== '') {
+                $escSku = $db->real_escape_string($srcSku);
+                $exist = @$db->query(
+                    "SELECT id FROM stock_items
+                     WHERE company_id = {$cid} AND branch_id = {$bid} AND sku = '{$escSku}' AND sku <> ''
+                     ORDER BY id ASC LIMIT 1"
+                );
+                if ($exist && ($er = $exist->fetch_assoc())) {
+                    $newId = (int) ($er['id'] ?? 0);
+                }
+            }
+            if ($newId < 1) {
+                $svcCol = $hasService ? 'is_service' : '0';
                 $ok = @$db->query(
-                    "INSERT INTO stock_items (company_id, branch_id, sku, name, description, unit, buy_price, sell_price, reorder_level, qty_on_hand, taxed, active)
-                     SELECT company_id, {$bid}, sku, name, description, unit, buy_price, sell_price, reorder_level, {$qtySql}, taxed, active
+                    "INSERT INTO stock_items (company_id, branch_id, sku, name, description, unit, buy_price, sell_price, reorder_level, qty_on_hand, taxed, active, is_service)
+                     SELECT company_id, {$bid}, sku, name, description, unit, buy_price, sell_price, reorder_level, {$qtySql}, taxed, active, {$svcCol}
                      FROM stock_items WHERE id = {$id} AND company_id = {$cid}"
                 );
+                if ($ok === false) {
+                    @$db->query(
+                        "INSERT INTO stock_items (company_id, branch_id, sku, name, description, unit, buy_price, sell_price, reorder_level, qty_on_hand, taxed, active)
+                         SELECT company_id, {$bid}, sku, name, description, unit, buy_price, sell_price, reorder_level, {$qtySql}, taxed, active
+                         FROM stock_items WHERE id = {$id} AND company_id = {$cid}"
+                    );
+                }
+                $newId = (int) $db->insert_id;
+            } elseif ($hasQty && abs($qty) > 0.0001) {
+                // Existing twin: fold leftover branch qty onto it.
+                @$db->query(
+                    "UPDATE stock_items SET qty_on_hand = qty_on_hand + ({$qtySql})
+                     WHERE id = {$newId} AND company_id = {$cid}"
+                );
             }
-            $newId = (int) $db->insert_id;
             if ($newId < 1) {
                 continue;
             }
@@ -859,6 +1122,7 @@ function folio_split_stock_item_catalogs(mysqli $db): void
             }
         }
     }
+    @$db->query("REPLACE INTO schema_meta (k, v) VALUES ('stock_split_catalogs_v2', '1')");
 }
 
 function folio_ensure_access_addons(mysqli $db): void
@@ -1177,6 +1441,8 @@ function folio_migrate(mysqli $db): void
     // Do not SHOW COLUMNS here — that was re-introducing a schema round-trip on every warm hit.
     $ready = folio_schema_ready_file();
     if (is_file($ready)) {
+        // One-shot stock cleanup can still run after warm (flagged in schema_meta).
+        folio_dedupe_stock_items($db);
         $done = true;
         return;
     }

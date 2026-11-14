@@ -105,6 +105,8 @@
       if (!exact) {
         html += '<button type="button" class="pos-opt" data-new="' + esc(typed) + '"><strong>Add new: ' + esc(typed) + '</strong><span>Not in stock yet. We will add it on save.</span></button>';
       }
+    } else if (mode !== 'buy' && typed && !list.length) {
+      html += '<div class="pos-opt is-hint"><strong>No match on this location</strong><span>Add “' + esc(typed) + '” under Stock for this branch first. Exact names cannot be duplicated here.</span></div>';
     }
     if (!html) { box.hidden = true; box.innerHTML = ''; return; }
     box.innerHTML = html;
