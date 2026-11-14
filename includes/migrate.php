@@ -56,7 +56,7 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '81';
+    return '82';
 }
 
 /** Optional explicit desk modules JSON. Null/empty = infer from existing flags (no change for live desks). */
@@ -745,7 +745,8 @@ function folio_ensure_stock_branches(mysqli $db): void
  * Remaps moves, document lines, counts and qty so nothing is lost, then enforces
  * UNIQUE (company_id, branch_id, name) so duplicates cannot return.
  *
- * v2 re-runs even if v1 already stamped — live desks still had same-SKU twins.
+ * v3 keeps the lowest positive on-hand among twins (not the sum) and repairs
+ * desks that already received the summed v2 merge.
  */
 function folio_dedupe_stock_items(mysqli $db): void
 {
@@ -761,7 +762,7 @@ function folio_dedupe_stock_items(mysqli $db): void
       k VARCHAR(40) PRIMARY KEY,
       v VARCHAR(40) NOT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-    $flag = @$db->query("SELECT v FROM schema_meta WHERE k = 'stock_dedupe_v2'");
+    $flag = @$db->query("SELECT v FROM schema_meta WHERE k = 'stock_dedupe_v3'");
     $already = $flag && ($row = $flag->fetch_assoc()) && (string) ($row['v'] ?? '') === '1';
     if (!$already) {
         // Repeat until stable — one pass can leave name twins after SKU merges.
@@ -772,10 +773,148 @@ function folio_dedupe_stock_items(mysqli $db): void
                 break;
             }
         }
+        // v2 wrongly summed twin on-hands (e.g. 0+10+9+0 → 19). Moves were only
+        // remapped, not inflated — pull qty back down to the ledger when higher.
+        folio_fix_stock_qty_to_moves_ledger($db);
+        @$db->query("REPLACE INTO schema_meta (k, v) VALUES ('stock_dedupe_v3', '1')");
         @$db->query("REPLACE INTO schema_meta (k, v) VALUES ('stock_dedupe_v2', '1')");
         @$db->query("REPLACE INTO schema_meta (k, v) VALUES ('stock_dedupe_v1', '1')");
     }
     folio_ensure_stock_name_unique($db);
+}
+
+/**
+ * Repair overstated on-hand left by the v2 "sum twins" merge.
+ * Prefer the lowest positive signal among: moves ledger (when below on-hand)
+ * and any retired __merged_ ghost rows that still hold their last qty.
+ */
+function folio_fix_stock_qty_to_moves_ledger(mysqli $db): void
+{
+    $itemsOk = @$db->query("SHOW TABLES LIKE 'stock_items'");
+    $movesOk = @$db->query("SHOW TABLES LIKE 'stock_moves'");
+    if (!$itemsOk || $itemsOk->num_rows < 1 || !$movesOk || $movesOk->num_rows < 1) {
+        return;
+    }
+    $hasQty = db_has_column($db, 'stock_branch_qty', 'qty_on_hand');
+    $hasBranch = db_has_column($db, 'stock_items', 'branch_id');
+    $res = @$db->query(
+        "SELECT i.id, i.company_id, " . ($hasBranch ? 'i.branch_id' : '0 AS branch_id') . ", i.qty_on_hand, i.name,
+                COALESCE((SELECT SUM(m.qty) FROM stock_moves m
+                          WHERE m.item_id = i.id AND m.company_id = i.company_id), 0) AS ledger
+         FROM stock_items i
+         WHERE i.active = 1"
+    );
+    if (!$res) {
+        return;
+    }
+    while ($row = $res->fetch_assoc()) {
+        $sid = (int) ($row['id'] ?? 0);
+        $cid = (int) ($row['company_id'] ?? 0);
+        $home = (int) ($row['branch_id'] ?? 0);
+        $onHand = (float) ($row['qty_on_hand'] ?? 0);
+        $ledger = (float) ($row['ledger'] ?? 0);
+        $name = trim((string) ($row['name'] ?? ''));
+        if ($sid < 1 || $cid < 1) {
+            continue;
+        }
+        $candidates = [];
+        // Retired twins kept as "Name __merged_123" still carry their last qty.
+        if ($name !== '') {
+            $esc = $db->real_escape_string($name);
+            $ghosts = @$db->query(
+                "SELECT qty_on_hand FROM stock_items
+                 WHERE company_id = {$cid}
+                   AND active = 0
+                   AND name LIKE '{$esc} __merged_%'"
+                . ($hasBranch ? " AND branch_id = {$home}" : '')
+            );
+            if ($ghosts) {
+                while ($g = $ghosts->fetch_assoc()) {
+                    $gq = (float) ($g['qty_on_hand'] ?? 0);
+                    if ($gq > 0.0001) {
+                        $candidates[] = $gq;
+                    }
+                }
+            }
+        }
+        $anyMove = @$db->query(
+            "SELECT 1 FROM stock_moves WHERE item_id = {$sid} AND company_id = {$cid} LIMIT 1"
+        );
+        $hasMoves = $anyMove && $anyMove->num_rows > 0;
+        // Only use the ledger when on-hand was inflated above it (summed merge).
+        if ($hasMoves && $onHand > $ledger + 0.0001) {
+            $candidates[] = $ledger;
+        }
+        // Twin "Opening quantity" moves were remapped together — keep the largest
+        // opening and drop the extras so remaining matches one physical stock.
+        if ($hasMoves) {
+            $openRes = @$db->query(
+                "SELECT qty FROM stock_moves
+                 WHERE item_id = {$sid} AND company_id = {$cid}
+                   AND kind = 'in'
+                   AND note LIKE 'Opening%'"
+            );
+            $opens = [];
+            if ($openRes) {
+                while ($o = $openRes->fetch_assoc()) {
+                    $oq = (float) ($o['qty'] ?? 0);
+                    if ($oq > 0.0001) {
+                        $opens[] = $oq;
+                    }
+                }
+            }
+            if (count($opens) >= 2) {
+                $extra = array_sum($opens) - max($opens);
+                $adj = $ledger - $extra;
+                if ($onHand > $adj + 0.0001) {
+                    $candidates[] = $adj;
+                }
+            }
+        }
+        if (!$candidates) {
+            continue;
+        }
+        $qtyKeep = min($candidates);
+        // Never raise; only repair when we can lower to a recorded lower qty.
+        if ($qtyKeep > $onHand - 0.0001) {
+            continue;
+        }
+        if ($qtyKeep < 0) {
+            $qtyKeep = 0.0;
+        }
+        folio_stock_write_on_hand($db, $cid, $sid, $home, $qtyKeep, $hasQty);
+    }
+}
+
+function folio_stock_write_on_hand(
+    mysqli $db,
+    int $cid,
+    int $sid,
+    int $home,
+    float $qty,
+    bool $hasQty
+): void {
+    $qtySql = number_format($qty, 2, '.', '');
+    @$db->query(
+        "UPDATE stock_items SET qty_on_hand = {$qtySql} WHERE id = {$sid} AND company_id = {$cid}"
+    );
+    if (!$hasQty) {
+        return;
+    }
+    $exists = @$db->query(
+        "SELECT 1 FROM stock_branch_qty WHERE item_id = {$sid} AND company_id = {$cid} AND branch_id = {$home} LIMIT 1"
+    );
+    if ($exists && $exists->num_rows > 0) {
+        @$db->query(
+            "UPDATE stock_branch_qty SET qty_on_hand = {$qtySql}
+             WHERE item_id = {$sid} AND company_id = {$cid} AND branch_id = {$home}"
+        );
+    } else {
+        @$db->query(
+            "INSERT INTO stock_branch_qty (company_id, item_id, branch_id, qty_on_hand)
+             VALUES ({$cid}, {$sid}, {$home}, {$qtySql})"
+        );
+    }
 }
 
 function folio_stock_has_duplicate_groups(mysqli $db): bool
@@ -905,7 +1044,7 @@ function folio_merge_stock_row_group(mysqli $db, array $rows): void
     if (count($rows) < 2) {
         return;
     }
-    // Keep the newest row; fold older duplicates into it (sum qty, remap links, delete old).
+    // Keep the newest row; fold older duplicates into it (lowest positive qty, remap links, delete old).
     usort($rows, static function (array $a, array $b): int {
         $aa = (int) ($a['active'] ?? 1);
         $ba = (int) ($b['active'] ?? 1);
@@ -922,10 +1061,25 @@ function folio_merge_stock_row_group(mysqli $db, array $rows): void
     }
     $hasQty = db_has_column($db, 'stock_branch_qty', 'qty_on_hand');
     $hasCounts = db_has_column($db, 'stock_count_lines', 'item_id');
-    // Prefer on-hand from stock_branch_qty (what the list shows) when present.
-    $qtySum = 0.0;
+    // Do NOT add twin quantities. Keep the lowest positive on-hand among the
+    // copies (e.g. 0/10/9/0 → 9). Empty 0 twins are ignored; if none are
+    // positive, keep the lowest recorded value (0 or negative).
+    $qtys = [];
     foreach ($rows as $row) {
-        $qtySum += folio_stock_row_effective_qty($db, $row, $hasQty);
+        $qtys[] = folio_stock_row_effective_qty($db, $row, $hasQty);
+    }
+    $positive = [];
+    foreach ($qtys as $q) {
+        if ((float) $q > 0.0001) {
+            $positive[] = (float) $q;
+        }
+    }
+    if ($positive) {
+        $qtyKeep = min($positive);
+    } elseif ($qtys) {
+        $qtyKeep = min($qtys);
+    } else {
+        $qtyKeep = 0.0;
     }
     $bestSku = trim((string) ($survivor['sku'] ?? ''));
     $bestBuy = (float) ($survivor['buy_price'] ?? 0);
@@ -969,28 +1123,8 @@ function folio_merge_stock_row_group(mysqli $db, array $rows): void
             );
         }
         if ($hasQty) {
-            $qres = @$db->query("SELECT branch_id, qty_on_hand FROM stock_branch_qty WHERE item_id = {$lid} AND company_id = {$cid}");
-            if ($qres) {
-                while ($qrow = $qres->fetch_assoc()) {
-                    $bid = (int) ($qrow['branch_id'] ?? 0);
-                    $q = (float) ($qrow['qty_on_hand'] ?? 0);
-                    $exists = @$db->query(
-                        "SELECT qty_on_hand FROM stock_branch_qty WHERE item_id = {$sid} AND company_id = {$cid} AND branch_id = {$bid} LIMIT 1"
-                    );
-                    if ($exists && $exists->num_rows > 0) {
-                        @$db->query(
-                            "UPDATE stock_branch_qty SET qty_on_hand = qty_on_hand + ({$q})
-                             WHERE item_id = {$sid} AND company_id = {$cid} AND branch_id = {$bid}"
-                        );
-                    } else {
-                        $qSql = number_format($q, 2, '.', '');
-                        @$db->query(
-                            "INSERT INTO stock_branch_qty (company_id, item_id, branch_id, qty_on_hand)
-                             VALUES ({$cid}, {$sid}, {$bid}, {$qSql})"
-                        );
-                    }
-                }
-            }
+            // Drop loser's branch qty rows — survivor on-hand is set to qtyKeep below,
+            // not the sum of twins.
             @$db->query("DELETE FROM stock_branch_qty WHERE item_id = {$lid} AND company_id = {$cid}");
         }
         // Remove older duplicate. If a FK blocks delete, retire the row so it leaves the list.
@@ -1006,7 +1140,7 @@ function folio_merge_stock_row_group(mysqli $db, array $rows): void
             );
         }
     }
-    $qtySql = number_format($qtySum, 2, '.', '');
+    $qtySql = number_format($qtyKeep, 2, '.', '');
     $escSku = $db->real_escape_string($bestSku);
     $escDesc = $db->real_escape_string(mb_substr($bestDesc, 0, 500));
     $escUnit = $db->real_escape_string(mb_substr($bestUnit !== '' ? $bestUnit : 'pc', 0, 40));

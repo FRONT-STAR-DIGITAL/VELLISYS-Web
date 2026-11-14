@@ -1293,6 +1293,19 @@ function insert_document_items(int $id, array $items): void
         $itemRate = (float) ($item['rate'] ?? 0);
         $taxed = empty($item['taxed']) ? 0 : 1;
         $stockId = (int) ($item['stock_item_id'] ?? 0);
+        if ($stockId > 0 && function_exists('stock_resolve_local_item_id')) {
+            $stockId = stock_resolve_local_item_id($stockId);
+        }
+        $paymentLine = $name !== '' && preg_match('/^(payment|part payment|receipt)$/i', $name);
+        if ($stockId < 1 && !$paymentLine && function_exists('stock_find_at_write_branch')) {
+            // Link receipt/invoice lines to the local product so stock moves and
+            // voids hit the same row — never create a duplicate here.
+            $found = stock_find_at_write_branch(
+                trim((string) ($item['sku'] ?? '')),
+                $name
+            );
+            $stockId = $found ? (int) ($found['id'] ?? 0) : 0;
+        }
         if ($stockId < 1) {
             $stockId = 0;
         }

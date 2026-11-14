@@ -572,18 +572,17 @@ function stock_dedupe_current_company(): void
     }
     try {
         $db = db();
-        if (!function_exists('folio_stock_company_has_duplicates') || !folio_stock_company_has_duplicates($db, $cid)) {
-            return;
-        }
-        for ($pass = 0; $pass < 4; $pass++) {
-            folio_merge_stock_duplicate_groups($db, 'sku', $cid);
-            folio_merge_stock_duplicate_groups($db, 'name', $cid);
-            if (!folio_stock_company_has_duplicates($db, $cid)) {
-                break;
+        if (function_exists('folio_stock_company_has_duplicates') && folio_stock_company_has_duplicates($db, $cid)) {
+            for ($pass = 0; $pass < 4; $pass++) {
+                folio_merge_stock_duplicate_groups($db, 'sku', $cid);
+                folio_merge_stock_duplicate_groups($db, 'name', $cid);
+                if (!folio_stock_company_has_duplicates($db, $cid)) {
+                    break;
+                }
             }
-        }
-        if (function_exists('folio_ensure_stock_name_unique')) {
-            folio_ensure_stock_name_unique($db);
+            if (function_exists('folio_ensure_stock_name_unique')) {
+                folio_ensure_stock_name_unique($db);
+            }
         }
         try {
             stock_catalog_cache_bust();
@@ -868,8 +867,9 @@ function stock_apply_document(int $documentId, string $kind, array $items): void
     }
     if (!$hasStockId) {
         try {
+            // Pull names too — receipt lines may omit stock_item_id but still name a product.
             $items = db_all(
-                'SELECT stock_item_id, qty, rate FROM document_items WHERE document_id = ? AND stock_item_id IS NOT NULL AND stock_item_id > 0',
+                'SELECT stock_item_id, item_name, qty, rate FROM document_items WHERE document_id = ?',
                 'i',
                 [$documentId]
             ) ?: [];
@@ -879,6 +879,23 @@ function stock_apply_document(int $documentId, string $kind, array $items): void
     }
     foreach ($items as $item) {
         $sid = (int) ($item['stock_item_id'] ?? 0);
+        if ($sid > 0) {
+            $sid = stock_resolve_local_item_id($sid);
+        }
+        if ($sid < 1) {
+            // Match an existing local product by name/SKU — never create a twin here.
+            $name = trim((string) ($item['item_name'] ?? $item['name'] ?? ''));
+            $sku = trim((string) ($item['sku'] ?? ''));
+            if ($name === '' && $sku === '') {
+                continue;
+            }
+            // Skip pure payment lines on receipts.
+            if ($kind === 'receipt' && $name !== '' && preg_match('/^(payment|part payment|receipt)$/i', $name)) {
+                continue;
+            }
+            $found = stock_find_at_write_branch($sku, $name);
+            $sid = $found ? (int) ($found['id'] ?? 0) : 0;
+        }
         if ($sid < 1) {
             continue;
         }
@@ -916,6 +933,17 @@ function stock_apply_till_sale(int $receiptId, array $lines, ?int $branchId = nu
     $branchId = $branchId !== null ? max(0, $branchId) : stock_write_branch_id();
     foreach ($lines as $line) {
         $sid = (int) ($line['stock_item_id'] ?? 0);
+        if ($sid > 0) {
+            $sid = stock_resolve_local_item_id($sid);
+        }
+        if ($sid < 1) {
+            $name = trim((string) ($line['item_name'] ?? $line['name'] ?? ''));
+            $sku = trim((string) ($line['sku'] ?? ''));
+            if ($name !== '' || $sku !== '') {
+                $found = stock_find_at_write_branch($sku, $name);
+                $sid = $found ? (int) ($found['id'] ?? 0) : 0;
+            }
+        }
         $qty = round((float) ($line['qty'] ?? 0), 2);
         if ($sid < 1 || $qty <= 0) {
             continue;
@@ -2107,7 +2135,7 @@ function stock_ensure_item_id(array $line, float $price): int
             return $local;
         }
     }
-    $name = trim((string) ($line['name'] ?? ''));
+    $name = trim((string) ($line['name'] ?? $line['item_name'] ?? ''));
     $sku = trim((string) ($line['sku'] ?? ''));
     if ($name === '' && $sku === '') {
         return 0;
@@ -2116,6 +2144,8 @@ function stock_ensure_item_id(array $line, float $price): int
     if ($found) {
         return (int) ($found['id'] ?? 0);
     }
+    // Do not invent a second product when a same-name row exists under another
+    // letter-case / spacing — find_at_write_branch already covered this location.
     if ($name === '') {
         return 0;
     }
