@@ -113,7 +113,6 @@ $popupKey = strtolower(trim((string) ($_GET['popup'] ?? '')));
 $state = self_register_state();
 $emailValue = $emailValue !== '' ? $emailValue : (string) ($state['email'] ?? '');
 $otpMailPending = false;
-$otpMailRefresh = false;
 if ($popupKey === 'otp') {
     $step = self_register_step();
     $otpMailPending = !empty($state['otp_mail_pending']);
@@ -121,35 +120,38 @@ if ($popupKey === 'otp') {
     if ($error !== '' || $otpMailFailed) {
         $popup = [
             'title' => 'Could not send the code',
-            'body' => $error !== '' ? $error : 'Google could not deliver the verification email. Try again in a moment, or ask the admin to check Settings → Google OTP.',
+            'body' => $error !== '' ? $error : 'The verification email could not be delivered. Try again in a moment.',
         ];
         $step = 'email';
         if ($otpMailFailed) {
             unset($state['otp_mail_failed'], $state['otp_mail_pending']);
             self_register_save($state);
         }
-    } elseif ($otpMailPending) {
-        // step is set to otp before SMTP finishes - do not claim the mail was sent yet.
-        $popup = [
-            'title' => 'Sending the code',
-            'body' => 'We are sending a 6-digit verification code to ' . ($emailValue !== '' ? $emailValue : 'your inbox') . '. This page updates when the email goes out.',
-        ];
-        $otpMailRefresh = true;
-        // Discard this request's session write so a concurrent deliver_otp result
-        // (success or failure) is not overwritten by last-write-wins php_sessions.
-        if ($_SERVER['REQUEST_METHOD'] === 'GET' && session_status() === PHP_SESSION_ACTIVE) {
-            if (function_exists('session_abort')) {
-                session_abort();
-            } else {
-                session_write_close();
+    } elseif ($step === 'otp' || $otpMailPending) {
+        // Always open step 2 with the OTP field right away. Mail goes out in the
+        // background via the fast system SMTP path (not the Vellisys inbox).
+        $step = 'otp';
+        if ($otpMailPending) {
+            $popup = [
+                'title' => 'Enter your code',
+                'body' => 'We are sending a 6-digit code to ' . ($emailValue !== '' ? $emailValue : 'your inbox') . '. Enter it below when it arrives. It expires in 15 minutes.',
+            ];
+            // Discard this GET's session write while mail is still pending so a concurrent
+            // deliver_otp result is not overwritten by last-write-wins php_sessions.
+            if ($_SERVER['REQUEST_METHOD'] === 'GET' && session_status() === PHP_SESSION_ACTIVE) {
+                if (function_exists('session_abort')) {
+                    session_abort();
+                } else {
+                    session_write_close();
+                }
             }
+        } else {
+            $popup = [
+                'title' => 'Enter your code',
+                'body' => 'We sent a 6-digit verification code to ' . ($emailValue !== '' ? $emailValue : 'your inbox') . '. Enter it below. It expires in 15 minutes.',
+            ];
+            $info = $info !== '' ? $info : 'Verification code sent.';
         }
-    } elseif ($step === 'otp') {
-        $popup = [
-            'title' => 'Check your email',
-            'body' => 'We sent a 6-digit verification code to ' . ($emailValue !== '' ? $emailValue : 'your inbox') . '. Enter it below. It expires in 15 minutes.',
-        ];
-        $info = $info !== '' ? $info : 'Verification code sent.';
     }
 } elseif ($popupKey === 'verified') {
     $popup = [
@@ -171,9 +173,6 @@ $currencies = pricing_currencies();
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Create account · <?= h(product_name()) ?></title>
-  <?php if (!empty($otpMailRefresh)): ?>
-  <meta http-equiv="refresh" content="2">
-  <?php endif; ?>
   <?php product_icons(); ?>
   <?php folio_landing_head(); ?>
   <style>
@@ -266,15 +265,13 @@ $currencies = pricing_currencies();
           <li class="is-done"></li><li class="is-on"></li><li></li><li></li>
         </ul>
         <h2>Enter the code</h2>
-        <?php if (!empty($otpMailPending)): ?>
-        <p class="gate-lead">Sending a 6-digit code to <strong><?= h($emailValue) ?></strong>. This page updates when the email goes out.</p>
-        <?php else: ?>
-        <p class="gate-lead">We sent a 6-digit code to <strong><?= h($emailValue) ?></strong>. It expires in 15 minutes.</p>
-        <?php endif; ?>
+        <p class="gate-lead"><?= !empty($otpMailPending)
+            ? 'A 6-digit code is on its way to'
+            : 'We sent a 6-digit code to' ?> <strong><?= h($emailValue) ?></strong>. Enter it below. It expires in 15 minutes.</p>
         <?php if ($info): ?><p class="gate-lead" style="color:#0f7a45"><?= h($info) ?></p><?php endif; ?>
         <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
         <label class="gate-field gate-otp" for="otp">Verification code
-          <input id="otp" name="otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" minlength="6" required autocomplete="one-time-code" placeholder="••••••">
+          <input id="otp" name="otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" minlength="6" required autocomplete="one-time-code" placeholder="••••••" autofocus>
         </label>
         <button class="gate-submit" type="submit">Verify email <?= icon('arrow-right', 18) ?></button>
         <button class="gate-back" type="submit" name="action" value="resend_otp" formnovalidate>Resend code</button>
@@ -376,7 +373,7 @@ $currencies = pricing_currencies();
           <li class="is-on"></li><li></li><li></li><li></li>
         </ul>
         <h2>Create account</h2>
-        <p class="gate-lead">Start with a valid email. Google sends a one-time code to that inbox, then you add business details and a password for a free one-month Pro trial.</p>
+        <p class="gate-lead">Start with a valid email. We send a one-time code to that inbox, then you add business details and a password for a free one-month Pro trial.</p>
         <?php if ($info): ?><p class="gate-lead" style="color:#0f7a45"><?= h($info) ?></p><?php endif; ?>
         <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
         <label class="gate-field" for="email">Email</label>

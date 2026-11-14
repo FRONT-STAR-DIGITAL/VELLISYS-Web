@@ -50,7 +50,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
           <li>Reports</li>
         </ul>
         <div class="lp-cta">
-          <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('create_account.php')) ?>">Register</a>
+          <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('create_account.php')) ?>">Create Account</a>
           <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('demo.php')) ?>">Book a demo</a>
         </div>
         <p class="lp-note">Create an account for a free one-month Pro trial, or book a short walkthrough first. Built for East Africa, used across Africa and worldwide.</p>
@@ -203,7 +203,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
           <li><b>3</b><span>Client opens it</span></li>
         </ol>
         <div class="lp-cta">
-          <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('create_account.php')) ?>">Register and send one</a>
+          <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('create_account.php')) ?>">Create Account and send one</a>
           <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('demo.php')) ?>">Book a demo</a>
         </div>
       </div>
@@ -229,7 +229,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
     <section class="lp-band lp-path" id="get-a-desk" data-reveal>
       <p class="lp-kicker">Start here</p>
       <h2>Create an account or book a demo</h2>
-      <p class="lp-path-lead">Register for a free one-month Pro trial and start sending branded documents, or book a walkthrough if you want to see the desk first.</p>
+      <p class="lp-path-lead">Create an account for a free one-month Pro trial and start sending branded documents, or book a walkthrough if you want to see the desk first.</p>
       <ol class="lp-path-steps">
         <?php foreach ($steps as $i => $card): ?>
           <li>
@@ -245,7 +245,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
         <?php endforeach; ?>
       </ol>
       <div class="lp-cta lp-cta-band">
-        <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('create_account.php')) ?>">Register</a>
+        <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('create_account.php')) ?>">Create Account</a>
         <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('demo.php')) ?>">Book a demo</a>
       </div>
     </section>
@@ -312,7 +312,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
         </div>
       </div>
       <div class="lp-cta lp-cta-band">
-        <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('create_account.php')) ?>">Register</a>
+        <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('create_account.php')) ?>">Create Account</a>
         <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('demo.php')) ?>">Book a demo</a>
       </div>
     </section>

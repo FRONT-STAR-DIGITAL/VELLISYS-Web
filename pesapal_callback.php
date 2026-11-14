@@ -72,7 +72,7 @@ $retry = $order
         <?php endif; ?>
         <?php if ($order && in_array($status, ['failed', 'cancelled', 'pending', 'draft'], true)): ?>
           <a class="lp-btn lp-btn-solid" href="<?= h($retry) ?>">Return to checkout</a>
-          <a class="lp-btn lp-btn-ghost" href="<?= h(url('create_account.php')) ?>">Register</a>
+          <a class="lp-btn lp-btn-ghost" href="<?= h(url('create_account.php')) ?>">Create Account</a>
         <?php endif; ?>
         <a class="lp-btn lp-btn-ghost" href="<?= h($status === 'paid' ? url('login.php') : url()) ?>"><?= $status === 'paid' ? 'Sign in' : 'Back to Vellisys' ?></a>
       </div>

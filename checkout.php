@@ -322,7 +322,7 @@ $formAction = url(checkout_plan_url($pkg['key'], (string) ($existing['public_id'
           <input type="hidden" name="stock_addon" value="1">
           <p class="lp-checkout-note">Stock management is included in this package.</p>
           <button class="lp-btn lp-btn-solid lp-btn-lg" type="submit" data-pay-btn data-pay-prefix="Continue to pay " data-ugx="<?= (int) $totalUgx ?>">Continue to pay <?= h($payNow) ?></button>
-          <p class="lp-checkout-note">Prefer a free trial first? <a href="<?= h(url('create_account.php')) ?>">Register</a>. Or <a href="<?= h(url('demo.php')) ?>">book a demo</a>.</p>
+          <p class="lp-checkout-note">Prefer a free trial first? <a href="<?= h(url('create_account.php')) ?>">Create Account</a>. Or <a href="<?= h(url('demo.php')) ?>">book a demo</a>.</p>
         </form>
     <?php endif; ?>
   </main>

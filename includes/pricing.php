@@ -617,7 +617,7 @@ function render_landing_pricing(): void
         <p class="lp-pricing-register"><?= $register ?></p>
       <?php endif; ?>
       <div class="lp-cta lp-cta-band lp-join-cta">
-        <a class="lp-btn lp-btn-solid" href="<?= h(url('create_account.php')) ?>">Register</a>
+        <a class="lp-btn lp-btn-solid" href="<?= h(url('create_account.php')) ?>">Create Account</a>
         <a class="lp-btn lp-btn-ghost" href="<?= h(url('demo.php')) ?>">Book a demo</a>
       </div>
     </section>

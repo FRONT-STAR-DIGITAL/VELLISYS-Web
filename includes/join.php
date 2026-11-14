@@ -145,7 +145,7 @@ function join_render_page(array $intent, string $error, bool $ok): void
         <p class="lp-ask-ok-lead"><?= str_replace('{email}', h(product_email()), $intent['ok_body']) ?></p>
         <div class="lp-cta">
           <a class="lp-btn lp-btn-solid" href="<?= h(url()) ?>">Back to Vellisys</a>
-          <a class="lp-btn lp-btn-ghost" href="<?= h($source === 'demo' ? url('create_account.php') : url('demo.php')) ?>"><?= $source === 'demo' ? 'Register instead' : 'Book a demo' ?></a>
+          <a class="lp-btn lp-btn-ghost" href="<?= h($source === 'demo' ? url('create_account.php') : url('demo.php')) ?>"><?= $source === 'demo' ? 'Create Account instead' : 'Book a demo' ?></a>
         </div>
       </div>
       <?php if (!empty($_GET['popup']) && function_exists('render_public_notice_popup')) {
@@ -158,7 +158,7 @@ function join_render_page(array $intent, string $error, bool $ok): void
       <div class="lp-ask-form lp-join-form">
         <p class="lp-err"><?= h($error !== '' ? $error : 'New registrations are paused.') ?></p>
         <div class="lp-cta">
-          <a class="lp-btn lp-btn-solid" href="<?= h(url('login.php')) ?>">Sign in / Register</a>
+          <a class="lp-btn lp-btn-solid" href="<?= h(url('login.php')) ?>">Sign in / Create Account</a>
           <a class="lp-btn lp-btn-ghost" href="<?= h(url()) ?>">Back to Vellisys</a>
         </div>
       </div>
@@ -204,7 +204,7 @@ function join_render_page(array $intent, string $error, bool $ok): void
         </label>
         <button class="lp-btn lp-btn-solid" type="submit"><?= h($intent['submit']) ?></button>
         <p class="lp-checkout-note">
-          Ready to start now? <a href="<?= h(url('create_account.php')) ?>">Register for a free Pro trial</a>.
+          Ready to start now? <a href="<?= h(url('create_account.php')) ?>">Create Account for a free Pro trial</a>.
         </p>
       </form>
     <?php endif; ?>
