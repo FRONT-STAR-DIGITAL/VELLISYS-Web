@@ -556,6 +556,46 @@ function stock_notify_admin_staff_sale(int $receiptId, float $total, float $paid
 }
 
 /**
+ * Merge remaining same-location duplicates for this desk (qty summed, older rows deleted).
+ * Runs on Stock → Items so desks that missed the migrate pass still clean up.
+ */
+function stock_dedupe_current_company(): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    $cid = current_company_id();
+    if ($cid < 1 || !function_exists('folio_merge_stock_duplicate_groups')) {
+        return;
+    }
+    try {
+        $db = db();
+        if (!function_exists('folio_stock_company_has_duplicates') || !folio_stock_company_has_duplicates($db, $cid)) {
+            return;
+        }
+        for ($pass = 0; $pass < 4; $pass++) {
+            folio_merge_stock_duplicate_groups($db, 'sku', $cid);
+            folio_merge_stock_duplicate_groups($db, 'name', $cid);
+            if (!folio_stock_company_has_duplicates($db, $cid)) {
+                break;
+            }
+        }
+        if (function_exists('folio_ensure_stock_name_unique')) {
+            folio_ensure_stock_name_unique($db);
+        }
+        try {
+            stock_catalog_cache_bust();
+        } catch (Throwable $e) {
+            // List already cleaned; till cache refreshes on TTL.
+        }
+    } catch (Throwable $e) {
+        // Never block the stock page if cleanup fails.
+    }
+}
+
+/**
  * SKU uniqueness is always per location when branch_id exists.
  * Branch catalog clones reuse the same code across shops — a company-wide
  * unique check wrongly blocked Add/Edit whenever Branches was off.

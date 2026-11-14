@@ -56,7 +56,7 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '80';
+    return '81';
 }
 
 /** Optional explicit desk modules JSON. Null/empty = infer from existing flags (no change for live desks). */
@@ -741,9 +741,11 @@ function folio_ensure_stock_branches(mysqli $db): void
 }
 
 /**
- * Merge same-location stock rows that share an exact name or the same non-empty SKU.
+ * Merge same-location stock rows that share a name or the same non-empty SKU.
  * Remaps moves, document lines, counts and qty so nothing is lost, then enforces
  * UNIQUE (company_id, branch_id, name) so duplicates cannot return.
+ *
+ * v2 re-runs even if v1 already stamped — live desks still had same-SKU twins.
  */
 function folio_dedupe_stock_items(mysqli $db): void
 {
@@ -759,14 +761,41 @@ function folio_dedupe_stock_items(mysqli $db): void
       k VARCHAR(40) PRIMARY KEY,
       v VARCHAR(40) NOT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-    $flag = @$db->query("SELECT v FROM schema_meta WHERE k = 'stock_dedupe_v1'");
+    $flag = @$db->query("SELECT v FROM schema_meta WHERE k = 'stock_dedupe_v2'");
     $already = $flag && ($row = $flag->fetch_assoc()) && (string) ($row['v'] ?? '') === '1';
     if (!$already) {
-        folio_merge_stock_duplicate_groups($db, 'sku');
-        folio_merge_stock_duplicate_groups($db, 'name');
+        // Repeat until stable — one pass can leave name twins after SKU merges.
+        for ($pass = 0; $pass < 4; $pass++) {
+            folio_merge_stock_duplicate_groups($db, 'sku');
+            folio_merge_stock_duplicate_groups($db, 'name');
+            if (!folio_stock_has_duplicate_groups($db)) {
+                break;
+            }
+        }
+        @$db->query("REPLACE INTO schema_meta (k, v) VALUES ('stock_dedupe_v2', '1')");
         @$db->query("REPLACE INTO schema_meta (k, v) VALUES ('stock_dedupe_v1', '1')");
     }
     folio_ensure_stock_name_unique($db);
+}
+
+function folio_stock_has_duplicate_groups(mysqli $db): bool
+{
+    $skuDup = @$db->query(
+        "SELECT 1 FROM stock_items
+         WHERE sku IS NOT NULL AND TRIM(sku) <> ''
+         GROUP BY company_id, branch_id, LOWER(TRIM(sku))
+         HAVING COUNT(*) > 1 LIMIT 1"
+    );
+    if ($skuDup && $skuDup->num_rows > 0) {
+        return true;
+    }
+    $nameDup = @$db->query(
+        "SELECT 1 FROM stock_items
+         WHERE name IS NOT NULL AND TRIM(name) <> ''
+         GROUP BY company_id, branch_id, LOWER(TRIM(name))
+         HAVING COUNT(*) > 1 LIMIT 1"
+    );
+    return $nameDup && $nameDup->num_rows > 0;
 }
 
 function folio_ensure_stock_name_unique(mysqli $db): void
@@ -786,12 +815,16 @@ function folio_ensure_stock_name_unique(mysqli $db): void
 /**
  * @param 'sku'|'name' $by
  */
-function folio_merge_stock_duplicate_groups(mysqli $db, string $by): void
+function folio_merge_stock_duplicate_groups(mysqli $db, string $by, ?int $onlyCompanyId = null): void
 {
     $hasBranch = db_has_column($db, 'stock_items', 'branch_id');
     $branchSel = $hasBranch ? 'branch_id' : '0 AS branch_id';
     $sql = "SELECT id, company_id, {$branchSel}, sku, name, qty_on_hand, active, buy_price, sell_price, description, unit
-            FROM stock_items ORDER BY company_id ASC, branch_id ASC, id ASC";
+            FROM stock_items";
+    if ($onlyCompanyId !== null && $onlyCompanyId > 0) {
+        $sql .= ' WHERE company_id = ' . (int) $onlyCompanyId;
+    }
+    $sql .= ' ORDER BY company_id ASC, branch_id ASC, id ASC';
     $res = @$db->query($sql);
     if (!$res) {
         return;
@@ -801,11 +834,11 @@ function folio_merge_stock_duplicate_groups(mysqli $db, string $by): void
         $cid = (int) ($row['company_id'] ?? 0);
         $bid = (int) ($row['branch_id'] ?? 0);
         if ($by === 'sku') {
-            $key = trim((string) ($row['sku'] ?? ''));
+            $key = strtoupper(preg_replace('/\s+/', '', trim((string) ($row['sku'] ?? ''))) ?? '');
             if ($key === '') {
                 continue;
             }
-            $groupKey = $cid . "\0" . $bid . "\0sku\0" . mb_strtolower($key);
+            $groupKey = $cid . "\0" . $bid . "\0sku\0" . $key;
         } else {
             $key = trim((string) ($row['name'] ?? ''));
             if ($key === '') {
@@ -824,24 +857,62 @@ function folio_merge_stock_duplicate_groups(mysqli $db, string $by): void
     }
 }
 
+function folio_stock_company_has_duplicates(mysqli $db, int $companyId): bool
+{
+    $cid = (int) $companyId;
+    if ($cid < 1) {
+        return false;
+    }
+    $skuDup = @$db->query(
+        "SELECT 1 FROM stock_items
+         WHERE company_id = {$cid} AND sku IS NOT NULL AND TRIM(sku) <> ''
+         GROUP BY branch_id, UPPER(REPLACE(TRIM(sku), ' ', ''))
+         HAVING COUNT(*) > 1 LIMIT 1"
+    );
+    if ($skuDup && $skuDup->num_rows > 0) {
+        return true;
+    }
+    $nameDup = @$db->query(
+        "SELECT 1 FROM stock_items
+         WHERE company_id = {$cid} AND name IS NOT NULL AND TRIM(name) <> ''
+         GROUP BY branch_id, LOWER(TRIM(name))
+         HAVING COUNT(*) > 1 LIMIT 1"
+    );
+    return $nameDup && $nameDup->num_rows > 0;
+}
+
+/** Effective on-hand for merge: branch qty row when present, else stock_items.qty_on_hand. */
+function folio_stock_row_effective_qty(mysqli $db, array $row, bool $hasQty): float
+{
+    $id = (int) ($row['id'] ?? 0);
+    $cid = (int) ($row['company_id'] ?? 0);
+    $bid = (int) ($row['branch_id'] ?? 0);
+    if ($hasQty && $id > 0 && $cid > 0) {
+        $qr = @$db->query(
+            "SELECT qty_on_hand FROM stock_branch_qty
+             WHERE item_id = {$id} AND company_id = {$cid} AND branch_id = {$bid} LIMIT 1"
+        );
+        if ($qr && ($qrow = $qr->fetch_assoc())) {
+            return (float) ($qrow['qty_on_hand'] ?? 0);
+        }
+    }
+    return (float) ($row['qty_on_hand'] ?? 0);
+}
+
 /** @param list<array<string,mixed>> $rows */
 function folio_merge_stock_row_group(mysqli $db, array $rows): void
 {
     if (count($rows) < 2) {
         return;
     }
+    // Keep the newest row; fold older duplicates into it (sum qty, remap links, delete old).
     usort($rows, static function (array $a, array $b): int {
         $aa = (int) ($a['active'] ?? 1);
         $ba = (int) ($b['active'] ?? 1);
         if ($aa !== $ba) {
             return $ba <=> $aa;
         }
-        $aq = (float) ($a['qty_on_hand'] ?? 0);
-        $bq = (float) ($b['qty_on_hand'] ?? 0);
-        if (abs($aq - $bq) > 0.0001) {
-            return $bq <=> $aq;
-        }
-        return (int) ($a['id'] ?? 0) <=> (int) ($b['id'] ?? 0);
+        return (int) ($b['id'] ?? 0) <=> (int) ($a['id'] ?? 0);
     });
     $survivor = $rows[0];
     $sid = (int) ($survivor['id'] ?? 0);
@@ -849,10 +920,13 @@ function folio_merge_stock_row_group(mysqli $db, array $rows): void
     if ($sid < 1 || $cid < 1) {
         return;
     }
-    $hasMoves = true;
     $hasQty = db_has_column($db, 'stock_branch_qty', 'qty_on_hand');
     $hasCounts = db_has_column($db, 'stock_count_lines', 'item_id');
-    $qtySum = (float) ($survivor['qty_on_hand'] ?? 0);
+    // Prefer on-hand from stock_branch_qty (what the list shows) when present.
+    $qtySum = 0.0;
+    foreach ($rows as $row) {
+        $qtySum += folio_stock_row_effective_qty($db, $row, $hasQty);
+    }
     $bestSku = trim((string) ($survivor['sku'] ?? ''));
     $bestBuy = (float) ($survivor['buy_price'] ?? 0);
     $bestSell = (float) ($survivor['sell_price'] ?? 0);
@@ -864,7 +938,6 @@ function folio_merge_stock_row_group(mysqli $db, array $rows): void
         if ($lid < 1 || $lid === $sid) {
             continue;
         }
-        $qtySum += (float) ($loser['qty_on_hand'] ?? 0);
         if ($bestSku === '') {
             $bestSku = trim((string) ($loser['sku'] ?? ''));
         }
@@ -920,7 +993,18 @@ function folio_merge_stock_row_group(mysqli $db, array $rows): void
             }
             @$db->query("DELETE FROM stock_branch_qty WHERE item_id = {$lid} AND company_id = {$cid}");
         }
-        @$db->query("DELETE FROM stock_items WHERE id = {$lid} AND company_id = {$cid}");
+        // Remove older duplicate. If a FK blocks delete, retire the row so it leaves the list.
+        $del = @$db->query("DELETE FROM stock_items WHERE id = {$lid} AND company_id = {$cid}");
+        if ($del === false) {
+            $tag = $db->real_escape_string('__merged_' . $lid);
+            @$db->query(
+                "UPDATE stock_items
+                 SET active = 0,
+                     name = CONCAT(name, ' ', '{$tag}'),
+                     sku = IF(sku IS NULL OR sku = '', '{$tag}', CONCAT(sku, '-{$lid}'))
+                 WHERE id = {$lid} AND company_id = {$cid}"
+            );
+        }
     }
     $qtySql = number_format($qtySum, 2, '.', '');
     $escSku = $db->real_escape_string($bestSku);

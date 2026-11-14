@@ -114,6 +114,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// Fold existing same-SKU / same-name twins into one row before listing.
+if (($tab === 'items' || $tab === '') && function_exists('stock_dedupe_current_company')) {
+    stock_dedupe_current_company();
+}
 $items = stock_items(false);
 $stats = stock_stats();
 $low = stock_low_items();
