@@ -210,7 +210,9 @@ layout_start('Stock', $user);
         <tbody>
           <?php foreach ($page['rows'] as $row):
               $svc = stock_item_is_service($row);
-              $isLow = !$svc && (float) $row['reorder_level'] > 0 && (float) $row['qty_on_hand'] <= (float) $row['reorder_level']; ?>
+              $isLow = !$svc && function_exists('stock_qty_is_low')
+                ? stock_qty_is_low((float) $row['qty_on_hand'], (float) $row['reorder_level'])
+                : ((float) $row['qty_on_hand'] <= max(0.0, (float) $row['reorder_level'])); ?>
             <tr>
               <td><?= h($row['name']) ?><?= empty($row['active']) ? ' <span class="pill">Hidden</span>' : '' ?><?= $isLow ? ' <span class="pill">Low</span>' : '' ?></td>
               <?php if ($showStockLocation): ?><td><?= h(stock_item_location_label($row)) ?></td><?php endif; ?>

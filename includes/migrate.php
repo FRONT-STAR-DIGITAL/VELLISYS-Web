@@ -56,7 +56,7 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '82';
+    return '83';
 }
 
 /** Optional explicit desk modules JSON. Null/empty = infer from existing flags (no change for live desks). */
@@ -780,7 +780,40 @@ function folio_dedupe_stock_items(mysqli $db): void
         @$db->query("REPLACE INTO schema_meta (k, v) VALUES ('stock_dedupe_v2', '1')");
         @$db->query("REPLACE INTO schema_meta (k, v) VALUES ('stock_dedupe_v1', '1')");
     }
+    folio_clamp_negative_stock_qty($db);
     folio_ensure_stock_name_unique($db);
+}
+
+/**
+ * Last-unit sales that were applied twice left on-hand at -1. Floor those at 0
+ * and keep stock_branch_qty in sync with stock_items.
+ */
+function folio_clamp_negative_stock_qty(mysqli $db): void
+{
+    $flag = @$db->query("SELECT v FROM schema_meta WHERE k = 'stock_qty_floor_v1'");
+    $already = $flag && ($row = $flag->fetch_assoc()) && (string) ($row['v'] ?? '') === '1';
+    if ($already) {
+        return;
+    }
+    $itemsOk = @$db->query("SHOW TABLES LIKE 'stock_items'");
+    if (!$itemsOk || $itemsOk->num_rows < 1) {
+        return;
+    }
+    @$db->query('UPDATE stock_items SET qty_on_hand = 0 WHERE qty_on_hand < 0');
+    if (db_has_column($db, 'stock_branch_qty', 'qty_on_hand')) {
+        @$db->query('UPDATE stock_branch_qty SET qty_on_hand = 0 WHERE qty_on_hand < 0');
+        // Prefer stock_items as the synced value for the item home branch.
+        $hasBranch = db_has_column($db, 'stock_items', 'branch_id');
+        if ($hasBranch) {
+            @$db->query(
+                'UPDATE stock_branch_qty b
+                 INNER JOIN stock_items i ON i.id = b.item_id AND i.company_id = b.company_id
+                 SET b.qty_on_hand = i.qty_on_hand
+                 WHERE b.branch_id = i.branch_id'
+            );
+        }
+    }
+    @$db->query("REPLACE INTO schema_meta (k, v) VALUES ('stock_qty_floor_v1', '1')");
 }
 
 /**

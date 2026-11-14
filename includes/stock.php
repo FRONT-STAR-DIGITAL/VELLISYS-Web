@@ -298,6 +298,54 @@ function stock_set_branch_qty(int $itemId, int $branchId, float $delta): void
     );
 }
 
+/** Raw on-hand from stock_items (no branch overlay). */
+function stock_raw_on_hand(int $itemId): float
+{
+    $cid = current_company_id();
+    $row = db_one('SELECT qty_on_hand FROM stock_items WHERE id = ? AND company_id = ?', 'ii', [$itemId, $cid]);
+    return $row ? (float) ($row['qty_on_hand'] ?? 0) : 0.0;
+}
+
+/** Write the same on-hand to stock_items and the item's branch qty row. */
+function stock_write_on_hand(int $itemId, int $branchId, float $qty): void
+{
+    $cid = current_company_id();
+    $qty = round($qty, 2);
+    db_exec(
+        'UPDATE stock_items SET qty_on_hand = ? WHERE id = ? AND company_id = ?',
+        'dii',
+        [$qty, $itemId, $cid]
+    );
+    if (!stock_branch_qty_ready()) {
+        return;
+    }
+    $branchId = max(0, $branchId);
+    $exists = db_one(
+        'SELECT item_id FROM stock_branch_qty WHERE company_id = ? AND item_id = ? AND branch_id = ?',
+        'iii',
+        [$cid, $itemId, $branchId]
+    );
+    if ($exists) {
+        db_exec(
+            'UPDATE stock_branch_qty SET qty_on_hand = ? WHERE company_id = ? AND item_id = ? AND branch_id = ?',
+            'diii',
+            [$qty, $cid, $itemId, $branchId]
+        );
+        return;
+    }
+    db_exec(
+        'INSERT INTO stock_branch_qty (company_id, item_id, branch_id, qty_on_hand) VALUES (?,?,?,?)',
+        'iiid',
+        [$cid, $itemId, $branchId, $qty]
+    );
+}
+
+/** True when on-hand is at/below reorder, or at/below zero when no reorder is set. */
+function stock_qty_is_low(float $qty, float $reorder): bool
+{
+    return $qty <= max(0.0, $reorder);
+}
+
 function stock_goods_only(array $items): array
 {
     return array_values(array_filter($items, static fn ($row) => !stock_item_is_service($row)));
@@ -410,7 +458,7 @@ function stock_stats(): array
         $cost += $qty * (float) ($row['buy_price'] ?? 0);
         $sell += $qty * (float) ($row['sell_price'] ?? 0);
         $reorder = (float) ($row['reorder_level'] ?? 0);
-        if ($reorder > 0 && $qty <= $reorder) {
+        if (stock_qty_is_low($qty, $reorder)) {
             $low++;
         }
     }
@@ -427,41 +475,49 @@ function stock_low_items(): array
     $cid = current_company_id();
     [$extra, $bTypes, $bArgs] = stock_item_branch_where();
     try {
+        // Include zero/negative on-hand by default (reorder 0 ⇒ alert at 0).
         $rows = db_all(
             "SELECT * FROM stock_items
              WHERE company_id = ? AND COALESCE(active, 1) = 1 AND COALESCE(is_service, 0) = 0
-               AND COALESCE(reorder_level, 0) > 0 AND qty_on_hand <= reorder_level" . $extra . '
+               AND qty_on_hand <= GREATEST(COALESCE(reorder_level, 0), 0)" . $extra . '
              ORDER BY qty_on_hand ASC, name ASC
              LIMIT 100',
             'i' . $bTypes,
             array_merge([$cid], $bArgs)
         );
-        return stock_overlay_qty($rows ?: []);
+        $rows = stock_overlay_qty($rows ?: []);
     } catch (Throwable $e) {
-        $out = [];
+        $rows = [];
         foreach (stock_items(true) as $row) {
             if (stock_item_is_service($row)) {
                 continue;
             }
-            $reorder = (float) ($row['reorder_level'] ?? 0);
-            $qty = (float) ($row['qty_on_hand'] ?? 0);
-            if ($reorder > 0 && $qty <= $reorder) {
-                $out[] = $row;
-            }
+            $rows[] = $row;
         }
-        usort($out, static function (array $a, array $b): int {
-            $qa = (float) ($a['qty_on_hand'] ?? 0);
-            $qb = (float) ($b['qty_on_hand'] ?? 0);
-            if ($qa === $qb) {
-                return strcasecmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? ''));
-            }
-            return $qa <=> $qb;
-        });
-        return $out;
     }
+    $out = [];
+    foreach ($rows as $row) {
+        if (stock_item_is_service($row)) {
+            continue;
+        }
+        $reorder = (float) ($row['reorder_level'] ?? 0);
+        $qty = (float) ($row['qty_on_hand'] ?? 0);
+        if (stock_qty_is_low($qty, $reorder)) {
+            $out[] = $row;
+        }
+    }
+    usort($out, static function (array $a, array $b): int {
+        $qa = (float) ($a['qty_on_hand'] ?? 0);
+        $qb = (float) ($b['qty_on_hand'] ?? 0);
+        if ($qa === $qb) {
+            return strcasecmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? ''));
+        }
+        return $qa <=> $qb;
+    });
+    return array_slice($out, 0, 100);
 }
 
-/** Bell / push items for products at or below reorder level. */
+/** Bell / push items for products at or below reorder level (and at zero by default). */
 function stock_low_notifications(int $limit = 20): array
 {
     if (!function_exists('company_stock_enabled') || !company_stock_enabled()) {
@@ -478,11 +534,18 @@ function stock_low_notifications(int $limit = 20): array
         $name = trim((string) ($row['name'] ?? 'Product')) ?: 'Product';
         $qtyLabel = function_exists('stock_qty_label') ? stock_qty_label($qty) : (string) $qty;
         $reorderLabel = function_exists('stock_qty_label') ? stock_qty_label($reorder) : (string) $reorder;
+        if ($qty <= 0.0001) {
+            $meta = 'Out of stock · ' . $qtyLabel . ' on hand';
+        } elseif ($reorder > 0.0001) {
+            $meta = 'Low stock · ' . $qtyLabel . ' on hand (reorder at ' . $reorderLabel . ')';
+        } else {
+            $meta = 'Low stock · ' . $qtyLabel . ' on hand';
+        }
         $items[] = [
             'type' => 'stock_low',
             'tone' => 'warn',
             'title' => $name,
-            'meta' => 'Low stock · ' . $qtyLabel . ' on hand (reorder at ' . $reorderLabel . ')',
+            'meta' => $meta,
             'href' => url('purchases.php'),
             'key' => 'stock-low:' . $id . ':' . $qtyLabel,
             'sort' => '0-stock-' . sprintf('%010.3f', $qty) . '-' . $name,
@@ -788,6 +851,23 @@ function stock_move(int $itemId, string $kind, float $qty, float $unitCost = 0, 
     if (stock_items_branch_ready()) {
         $branchId = (int) ($item['branch_id'] ?? $branchId);
     }
+    // Single source of truth: read raw on-hand once, apply delta, write both tables
+    // to the same absolute value so branch/items never drift (1 sold → 0, not -1).
+    $current = stock_raw_on_hand($itemId);
+    if (in_array($kind, ['out', 'sale'], true) && $current + $delta < -0.0001) {
+        $delta = -max(0.0, $current);
+    }
+    if (abs($delta) < 0.0001) {
+        return;
+    }
+    $newQty = round($current + $delta, 2);
+    if (in_array($kind, ['out', 'sale'], true) && $newQty < 0) {
+        $newQty = 0.0;
+        $delta = round($newQty - $current, 2);
+        if (abs($delta) < 0.0001) {
+            return;
+        }
+    }
     $moveHasBranch = function_exists('db_has_column') && db_has_column(db(), 'stock_moves', 'branch_id');
     $noteVal = $note !== '' ? mb_substr($note, 0, 190) : null;
     $uid = (int) ($_SESSION['user_id'] ?? 0);
@@ -804,11 +884,7 @@ function stock_move(int $itemId, string $kind, float $qty, float $unitCost = 0, 
             [$cid, $itemId, $kind, $delta, $unitCost, $documentId, $noteVal, $uid]
         );
     }
-    // Always keep branch qty in sync when that table exists - the stock list reads from it.
-    if (stock_branch_qty_ready()) {
-        stock_set_branch_qty($itemId, $branchId, $delta);
-    }
-    db_exec('UPDATE stock_items SET qty_on_hand = qty_on_hand + ? WHERE id = ? AND company_id = ?', 'dii', [$delta, $itemId, $cid]);
+    stock_write_on_hand($itemId, $branchId, $newQty);
     try {
         stock_catalog_cache_bust($branchId);
     } catch (Throwable $e) {
@@ -825,14 +901,22 @@ function stock_apply_document(int $documentId, string $kind, array $items): void
     if (!company_stock_enabled() || $documentId < 1) {
         return;
     }
+    // One apply per document per request — create_document + till fallback must not
+    // both subtract (that turned last-unit sales from 1 into -1).
+    static $applied = [];
+    if (isset($applied[$documentId])) {
+        return;
+    }
     try {
         $existing = db_all('SELECT id FROM stock_moves WHERE document_id = ? AND company_id = ? LIMIT 1', 'ii', [$documentId, current_company_id()]);
     } catch (Throwable $e) {
         $existing = [];
     }
     if ($existing) {
+        $applied[$documentId] = true;
         return;
     }
+    $applied[$documentId] = true;
     $moveKind = match ($kind) {
         'invoice', 'receipt' => 'sale',
         'expense' => 'in',
@@ -920,40 +1004,9 @@ function stock_apply_till_sale(int $receiptId, array $lines, ?int $branchId = nu
     if (!company_stock_enabled() || $receiptId < 1 || !$lines) {
         return;
     }
+    // create_document already applies stock; this only fills in when that skipped.
+    // Do not subtract again with a second move loop — that turned 1 into -1.
     stock_apply_document($receiptId, 'receipt', $lines);
-    // If create_document skipped apply for any reason, move stock from the saved lines now.
-    try {
-        $existing = db_all('SELECT id FROM stock_moves WHERE document_id = ? AND company_id = ? LIMIT 1', 'ii', [$receiptId, current_company_id()]);
-    } catch (Throwable $e) {
-        $existing = [];
-    }
-    if ($existing) {
-        return;
-    }
-    $branchId = $branchId !== null ? max(0, $branchId) : stock_write_branch_id();
-    foreach ($lines as $line) {
-        $sid = (int) ($line['stock_item_id'] ?? 0);
-        if ($sid > 0) {
-            $sid = stock_resolve_local_item_id($sid);
-        }
-        if ($sid < 1) {
-            $name = trim((string) ($line['item_name'] ?? $line['name'] ?? ''));
-            $sku = trim((string) ($line['sku'] ?? ''));
-            if ($name !== '' || $sku !== '') {
-                $found = stock_find_at_write_branch($sku, $name);
-                $sid = $found ? (int) ($found['id'] ?? 0) : 0;
-            }
-        }
-        $qty = round((float) ($line['qty'] ?? 0), 2);
-        if ($sid < 1 || $qty <= 0) {
-            continue;
-        }
-        $item = stock_item($sid, true);
-        if (!$item || stock_item_is_service($item)) {
-            continue;
-        }
-        stock_move($sid, 'sale', $qty, (float) ($item['buy_price'] ?? 0), $receiptId, 'sale', $branchId);
-    }
 }
 
 function stock_reverse_document(int $documentId): void
@@ -964,10 +1017,15 @@ function stock_reverse_document(int $documentId): void
     $cid = current_company_id();
     $moves = db_all('SELECT * FROM stock_moves WHERE document_id = ? AND company_id = ?', 'ii', [$documentId, $cid]);
     foreach ($moves as $m) {
-        db_exec('UPDATE stock_items SET qty_on_hand = qty_on_hand - ? WHERE id = ? AND company_id = ?', 'dii', [(float) $m['qty'], (int) $m['item_id'], $cid]);
-        if (stock_branch_qty_ready()) {
-            stock_set_branch_qty((int) $m['item_id'], (int) ($m['branch_id'] ?? stock_write_branch_id()), -(float) $m['qty']);
+        $itemId = (int) ($m['item_id'] ?? 0);
+        if ($itemId < 1) {
+            continue;
         }
+        $branchId = (int) ($m['branch_id'] ?? stock_write_branch_id());
+        $current = stock_raw_on_hand($itemId);
+        // Move qty is already signed (sales are negative); subtracting restores stock.
+        $newQty = round($current - (float) ($m['qty'] ?? 0), 2);
+        stock_write_on_hand($itemId, $branchId, $newQty);
     }
     db_exec('DELETE FROM stock_moves WHERE document_id = ? AND company_id = ?', 'ii', [$documentId, $cid]);
 }
