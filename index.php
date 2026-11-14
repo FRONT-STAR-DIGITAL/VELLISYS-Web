@@ -50,10 +50,10 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
           <li>Reports</li>
         </ul>
         <div class="lp-cta">
-          <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url()) ?>#pricing">Choose a package</a>
+          <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('create_account.php')) ?>">Register</a>
           <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('demo.php')) ?>">Book a demo</a>
         </div>
-        <p class="lp-note">Pay online and open your desk the same day, leave your details if you want us to set it up, or book a short walkthrough first. Built for East Africa, used across Africa and worldwide.</p>
+        <p class="lp-note">Create an account for a free one-month Pro trial, or book a short walkthrough first. Built for East Africa, used across Africa and worldwide.</p>
       </div>
 
       <div class="lp-stage" data-reveal>
@@ -203,7 +203,8 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
           <li><b>3</b><span>Client opens it</span></li>
         </ol>
         <div class="lp-cta">
-          <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url()) ?>#pricing">Get a desk and send one</a>
+          <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('create_account.php')) ?>">Register and send one</a>
+          <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('demo.php')) ?>">Book a demo</a>
         </div>
       </div>
     </section>
@@ -226,9 +227,9 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
     </section>
 
     <section class="lp-band lp-path" id="get-a-desk" data-reveal>
-      <p class="lp-kicker">Get a desk</p>
-      <h2>You are three steps away</h2>
-      <p class="lp-path-lead">Choose a package, pay or leave your details, then sign in and start sending branded documents. A demo is there if you want to see the desk first.</p>
+      <p class="lp-kicker">Start here</p>
+      <h2>Create an account or book a demo</h2>
+      <p class="lp-path-lead">Register for a free one-month Pro trial and start sending branded documents, or book a walkthrough if you want to see the desk first.</p>
       <ol class="lp-path-steps">
         <?php foreach ($steps as $i => $card): ?>
           <li>
@@ -244,9 +245,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
         <?php endforeach; ?>
       </ol>
       <div class="lp-cta lp-cta-band">
-        <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('create_account.php')) ?>">Create Account</a>
-        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url()) ?>#pricing">Choose a package</a>
-        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('register.php')) ?>">Request a desk</a>
+        <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('create_account.php')) ?>">Register</a>
         <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('demo.php')) ?>">Book a demo</a>
       </div>
     </section>
@@ -282,7 +281,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
     <section class="lp-world lp-pay" id="pay" data-reveal>
       <p class="lp-kicker">Pay</p>
       <h2>Pick a package. Pay. Open your desk.</h2>
-      <p class="lp-world-lead">Choose <?= h(pricing_names_phrase()) ?>, enter the company, then continue to Pesapal in this tab. Mobile money, a card, a bank or a wallet - in the currency you selected. After payment you choose how you sign in. Prefer we set the desk up for you? Request one without paying. Want a walkthrough first? Book a demo.</p>
+      <p class="lp-world-lead">Choose <?= h(pricing_names_phrase()) ?>, enter the company, then continue to Pesapal in this tab. Mobile money, a card, a bank or a wallet - in the currency you selected. Or register for a free Pro trial, or book a demo first.</p>
       <ol class="lp-pay-flow">
         <li><b>1</b><span>Choose a package</span></li>
         <li><b>2</b><span>Enter company details</span></li>
@@ -313,8 +312,7 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
         </div>
       </div>
       <div class="lp-cta lp-cta-band">
-        <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url()) ?>#pricing">See packages</a>
-        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('register.php')) ?>">Request a desk</a>
+        <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('create_account.php')) ?>">Register</a>
         <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('demo.php')) ?>">Book a demo</a>
       </div>
     </section>
@@ -355,6 +353,12 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
               <a class="lp-btn lp-btn-ghost" href="tel:+<?= h(phone_digits(product_phones()[0])) ?>">Call us</a>
             </div>
           </div>
+          <?php if (!empty($_GET['popup']) && function_exists('render_public_notice_popup')) {
+              render_public_notice_popup(
+                  'We have your note',
+                  'Thank you. A short confirmation is on its way from ' . product_email() . '. We will reply by email.'
+              );
+          } ?>
         <?php else: ?>
           <form class="lp-ask-form" method="post" action="<?= h(url('ask.php')) ?>" autocomplete="off">
             <?= csrf_field() ?>

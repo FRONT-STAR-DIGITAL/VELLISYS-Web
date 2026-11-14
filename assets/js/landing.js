@@ -20,11 +20,25 @@
   document.addEventListener('click', function (e) {
     var el = e.target;
     if (el && el.nodeType === 3) el = el.parentElement;
+    var notice = el && el.closest ? el.closest('[data-lp-notice]') : null;
+    if (notice) {
+      var closeBtn = el.closest ? el.closest('[data-lp-notice-close]') : null;
+      if (closeBtn || el === notice) {
+        e.preventDefault();
+        notice.remove();
+        return;
+      }
+    }
     var btn = el && el.closest ? el.closest('[data-toggle-password]') : null;
     if (!btn) return;
     e.preventDefault();
     e.stopPropagation();
     togglePassword(btn);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    var notice = document.querySelector('[data-lp-notice]');
+    if (notice) notice.remove();
   });
   try {
     document.cookie = 'vellisys_tz=' + encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone || '') + ';path=/;max-age=31536000;samesite=lax';

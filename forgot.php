@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Please wait a bit before sending another request.';
         } else {
             form_rate_hit('forgot');
-            folio_redirect_then('forgot.php?ok=1', static function () use ($email): void {
+            folio_redirect_then('forgot.php?ok=1&popup=1', static function () use ($email): void {
                 notify_password_reset_request($email);
             });
         }
@@ -63,6 +63,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <a class="gate-submit" href="<?= h(url('login.php')) ?>">Back to Sign In <?= icon('arrow-right', 18) ?></a>
         <?php render_gate_legal(); ?>
       </div>
+      <?php if (!empty($_GET['popup']) && function_exists('render_public_notice_popup')) {
+          render_public_notice_popup(
+              'We have your request',
+              'Thank you. We will follow up at that email. ' . product_email() . ' has the request.'
+          );
+      } ?>
       <?php else: ?>
       <form class="gate-box" method="post" action="<?= h(url('forgot.php')) ?>" autocomplete="off">
         <?= csrf_field() ?>

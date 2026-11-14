@@ -56,7 +56,7 @@ $retry = $order
       <?php elseif ($status === 'cancelled'): ?>
         <p class="lp-kicker">Cancelled</p>
         <h1>Payment was cancelled</h1>
-        <p>We kept the company details. You can pay again, <a href="<?= h(url('register.php')) ?>">request a desk</a>, or <a href="<?= h(url('demo.php')) ?>">book a demo</a>.</p>
+        <p>We kept the company details. You can pay again, <a href="<?= h(url('create_account.php')) ?>">register for a free trial</a>, or <a href="<?= h(url('demo.php')) ?>">book a demo</a>.</p>
       <?php elseif ($status === 'failed'): ?>
         <p class="lp-kicker">Not paid</p>
         <h1>Payment did not go through</h1>
@@ -72,7 +72,7 @@ $retry = $order
         <?php endif; ?>
         <?php if ($order && in_array($status, ['failed', 'cancelled', 'pending', 'draft'], true)): ?>
           <a class="lp-btn lp-btn-solid" href="<?= h($retry) ?>">Return to checkout</a>
-          <a class="lp-btn lp-btn-ghost" href="<?= h(url('register.php')) ?>">Request a desk</a>
+          <a class="lp-btn lp-btn-ghost" href="<?= h(url('create_account.php')) ?>">Register</a>
         <?php endif; ?>
         <a class="lp-btn lp-btn-ghost" href="<?= h($status === 'paid' ? url('login.php') : url()) ?>"><?= $status === 'paid' ? 'Sign in' : 'Back to Vellisys' ?></a>
       </div>

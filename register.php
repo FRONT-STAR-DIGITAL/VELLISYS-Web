@@ -18,7 +18,8 @@ if ($order && ($order['status'] ?? '') !== 'paid') {
     $order = null;
 }
 if ($token === '' || !$order) {
-    join_boot('register');
+    // Free self-serve signup is Create Account (OTP). Paid desk setup still uses ?t=.
+    redirect('create_account.php');
 }
 if ($order) {
     $order = provision_paid_order($order);

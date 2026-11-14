@@ -89,9 +89,10 @@ function self_register_email_taken(string $email): bool
 }
 
 /**
- * Send a fresh OTP to a validated email. Returns ok/error for the UI.
+ * Prepare a fresh OTP (DB + session). Caller should email via folio_redirect_then
+ * so the browser is not blocked by SMTP.
  *
- * @return array{ok:bool,error?:string,silent?:bool}
+ * @return array{ok:bool,error?:string,silent?:bool,email?:string,code?:string,otp_id?:int}
  */
 function self_register_start_otp(string $email): array
 {
@@ -115,8 +116,7 @@ function self_register_start_otp(string $email): array
     $ip = visitor_ip_hash();
     $expires = (desk_now())->modify('+' . self_register_otp_ttl_seconds() . ' seconds')->format('Y-m-d H:i:s');
 
-    // Insert the new code first, but keep any previous live OTP until the email
-    // is known to have sent — otherwise a failed send would wipe the working code.
+    // Keep any previous live OTP until the new email is known to have sent.
     $otpId = 0;
     try {
         $otpId = (int) db_exec(
@@ -132,26 +132,6 @@ function self_register_start_otp(string $email): array
         return ['ok' => false, 'error' => 'We could not start registration just now. Please try again shortly.'];
     }
 
-    $sent = send_self_register_otp_email($email, $code);
-    if (empty($sent['ok'])) {
-        try {
-            db_exec('DELETE FROM self_register_otps WHERE id = ?', 'i', [$otpId]);
-        } catch (Throwable $e) {
-            // ignore
-        }
-        return ['ok' => false, 'error' => 'We could not email that code. Check the address and try again.'];
-    }
-
-    try {
-        db_exec(
-            'DELETE FROM self_register_otps WHERE email = ? AND verified_at IS NULL AND id <> ?',
-            'si',
-            [$email, $otpId]
-        );
-    } catch (Throwable $e) {
-        // non-fatal; verify uses the newest row
-    }
-
     form_rate_hit('self-otp-email:' . $email, 3600);
     form_rate_hit('self-otp-ip', 3600);
 
@@ -160,8 +140,38 @@ function self_register_start_otp(string $email): array
         'email' => $email,
         'email_verified' => false,
         'otp_sent_at' => time(),
+        'otp_id' => $otpId,
     ]);
-    return ['ok' => true];
+    return ['ok' => true, 'email' => $email, 'code' => $code, 'otp_id' => $otpId];
+}
+
+/** Deliver a prepared OTP after the browser has been redirected. */
+function self_register_deliver_otp(string $email, string $code, int $otpId): void
+{
+    $email = self_register_normalize_email($email);
+    $code = preg_replace('/\D+/', '', $code) ?? '';
+    if (!self_register_email_ok($email) || strlen($code) !== 6 || $otpId < 1) {
+        return;
+    }
+    $sent = send_self_register_otp_email($email, $code);
+    if (empty($sent['ok'])) {
+        error_log('Vellisys self-register OTP mail failed for ' . $email . ': ' . (string) ($sent['error'] ?? ''));
+        try {
+            db_exec('DELETE FROM self_register_otps WHERE id = ?', 'i', [$otpId]);
+        } catch (Throwable $e) {
+            // ignore
+        }
+        return;
+    }
+    try {
+        db_exec(
+            'DELETE FROM self_register_otps WHERE email = ? AND verified_at IS NULL AND id <> ?',
+            'si',
+            [$email, $otpId]
+        );
+    } catch (Throwable $e) {
+        // non-fatal
+    }
 }
 
 /**

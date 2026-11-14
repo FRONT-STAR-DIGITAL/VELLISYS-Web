@@ -97,7 +97,7 @@ function join_boot(string $intentKey): never
             redirect(($intent['source'] === 'demo' ? 'demo.php' : 'register.php') . '?ok=1');
         }
         if (!empty($result['ok']) && !empty($result['signup'])) {
-            $file = $intent['source'] === 'demo' ? 'demo.php?ok=1' : 'register.php?ok=1';
+            $file = ($intent['source'] === 'demo' ? 'demo.php' : 'register.php') . '?ok=1&popup=1';
             folio_redirect_then($file, static function () use ($result): void {
                 notify_admin_signup($result['signup']);
             });
@@ -145,14 +145,20 @@ function join_render_page(array $intent, string $error, bool $ok): void
         <p class="lp-ask-ok-lead"><?= str_replace('{email}', h(product_email()), $intent['ok_body']) ?></p>
         <div class="lp-cta">
           <a class="lp-btn lp-btn-solid" href="<?= h(url()) ?>">Back to Vellisys</a>
-          <a class="lp-btn lp-btn-ghost" href="<?= h($source === 'demo' ? url('register.php') : url('demo.php')) ?>"><?= $source === 'demo' ? 'Register instead' : 'Book a demo' ?></a>
+          <a class="lp-btn lp-btn-ghost" href="<?= h($source === 'demo' ? url('create_account.php') : url('demo.php')) ?>"><?= $source === 'demo' ? 'Register instead' : 'Book a demo' ?></a>
         </div>
       </div>
+      <?php if (!empty($_GET['popup']) && function_exists('render_public_notice_popup')) {
+          render_public_notice_popup(
+              (string) $intent['ok_title'],
+              str_replace('{email}', product_email(), (string) $intent['ok_body'])
+          );
+      } ?>
     <?php elseif (!platform_signups_open()): ?>
       <div class="lp-ask-form lp-join-form">
         <p class="lp-err"><?= h($error !== '' ? $error : 'New registrations are paused.') ?></p>
         <div class="lp-cta">
-          <a class="lp-btn lp-btn-solid" href="<?= h(url('login.php')) ?>">Sign in</a>
+          <a class="lp-btn lp-btn-solid" href="<?= h(url('login.php')) ?>">Sign in / Register</a>
           <a class="lp-btn lp-btn-ghost" href="<?= h(url()) ?>">Back to Vellisys</a>
         </div>
       </div>
@@ -198,11 +204,7 @@ function join_render_page(array $intent, string $error, bool $ok): void
         </label>
         <button class="lp-btn lp-btn-solid" type="submit"><?= h($intent['submit']) ?></button>
         <p class="lp-checkout-note">
-          <?php if ($source === 'demo'): ?>
-            Ready to start now? <a href="<?= h(url('register.php')) ?>">Request a desk</a> or <a href="<?= h(url()) ?>#pricing">pay for a package</a>.
-          <?php else: ?>
-            Want a walkthrough first? <a href="<?= h(url('demo.php')) ?>">Book a demo</a>. Or <a href="<?= h(url()) ?>#pricing">pay for a package</a>.
-          <?php endif; ?>
+          Ready to start now? <a href="<?= h(url('create_account.php')) ?>">Register for a free Pro trial</a>.
         </p>
       </form>
     <?php endif; ?>

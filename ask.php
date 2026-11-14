@@ -7,7 +7,7 @@ function ask_done(bool $ok, string $message = ''): never
     unset($_SESSION['ask_form_at']);
     if ($ok) {
         unset($_SESSION['ask_draft']);
-        redirect('?asked=1#ask');
+        redirect('?asked=1&popup=1#ask');
     }
     if ($message !== '') {
         flash($message, 'err');
@@ -86,6 +86,6 @@ $question = [
     'topic' => $topic,
     'message' => $message,
 ];
-folio_redirect_then('?asked=1#ask', static function () use ($question): void {
+folio_redirect_then('?asked=1&popup=1#ask', static function () use ($question): void {
     notify_admin_question($question);
 });

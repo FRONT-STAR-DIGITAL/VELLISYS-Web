@@ -3206,3 +3206,57 @@ body.is-paying .lp-floats { display: none; }
   .lp-check-steps li { padding: 6px 10px 6px 6px; font-size: 12px; }
   .lp-btn-lg { min-width: 0; width: 100%; }
 }
+
+/* Public form confirmation popup */
+.lp-notice {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(8, 20, 58, .48);
+  backdrop-filter: blur(2px);
+}
+.lp-notice-card {
+  width: min(420px, 100%);
+  background: #fff;
+  color: #10182c;
+  border-radius: 18px;
+  padding: 24px 22px 20px;
+  box-shadow: 0 24px 60px rgba(8, 20, 58, .28);
+  text-align: center;
+}
+.lp-notice-kicker {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #1e4eff;
+}
+.lp-notice-card h2 {
+  margin: 0 0 10px;
+  font-size: 1.35rem;
+  color: #08143a;
+  line-height: 1.25;
+}
+.lp-notice-body {
+  margin: 0 0 18px;
+  color: #5c6780;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+.lp-notice-card .lp-btn {
+  width: 100%;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+@media (max-width: 980px) {
+  .lp-nav .lp-btn-solid {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+}

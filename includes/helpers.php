@@ -5166,16 +5166,37 @@ function public_header(string $page = 'home'): void
         </select>
       </label>
       <?php if ($page !== 'checkout'): ?>
-        <a class="lp-btn lp-btn-ghost lp-nav-wide" href="<?= h(url('demo.php')) ?>">Book a demo</a>
+        <a class="lp-btn lp-btn-ghost" href="<?= h(url('demo.php')) ?>">Book a demo</a>
       <?php endif; ?>
-      <a class="lp-btn lp-btn-ghost" href="<?= h(url('login.php')) ?>">Sign in</a>
-      <?php if ($page !== 'checkout'): ?>
-        <a class="lp-btn lp-btn-ghost lp-nav-wide" href="<?= h(url('create_account.php')) ?>">Create Account</a>
-        <a class="lp-btn lp-btn-solid" href="<?= h($page === 'home' ? '#pricing' : (rtrim(url(), '/') . '/#pricing')) ?>">Get a desk</a>
-      <?php endif; ?>
+      <a class="lp-btn lp-btn-solid" href="<?= h(url('login.php')) ?>">Sign in / Register</a>
     </nav>
   </div>
   </header>
+    <?php
+}
+
+/** Modal confirmation after a public form submit (register OTP, demo, ask, etc.). */
+function render_public_notice_popup(string $title, string $body, string $button = 'OK'): void
+{
+    $title = trim($title);
+    $body = trim($body);
+    if ($title === '' && $body === '') {
+        return;
+    }
+    if ($button === '') {
+        $button = 'OK';
+    }
+    ?>
+  <div class="lp-notice" data-lp-notice role="dialog" aria-modal="true" aria-labelledby="lp-notice-title">
+    <div class="lp-notice-card">
+      <p class="lp-notice-kicker">Vellisys</p>
+      <h2 id="lp-notice-title"><?= h($title !== '' ? $title : 'Thank you') ?></h2>
+      <?php if ($body !== ''): ?>
+        <p class="lp-notice-body"><?= h($body) ?></p>
+      <?php endif; ?>
+      <button class="lp-btn lp-btn-solid" type="button" data-lp-notice-close><?= h($button) ?></button>
+    </div>
+  </div>
     <?php
 }
 

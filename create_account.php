@@ -22,10 +22,12 @@ if (!platform_signups_open()) {
 
 form_mark_open('create-account');
 
+$popup = null;
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step !== 'closed') {
     if (!csrf_valid()) {
         $error = 'Your session expired. Please submit the form again.';
-    } elseif (form_is_spam('create-account', 2)) {
+    } elseif (form_is_spam('create-account', 1)) {
         // Silent success for bots.
         redirect('create_account.php');
     } else {
@@ -35,44 +37,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step !== 'closed') {
             redirect('create_account.php');
         }
 
-        if ($action === 'send_otp') {
-            $result = self_register_start_otp(post_plain('email', 190));
+        if ($action === 'send_otp' || $action === 'resend_otp') {
+            $emailForOtp = $action === 'resend_otp'
+                ? self_register_normalize_email((string) ($state['email'] ?? ''))
+                : post_plain('email', 190);
+            $result = self_register_start_otp($emailForOtp);
             if (!empty($result['silent'])) {
                 redirect('create_account.php');
             }
-            if (!empty($result['ok'])) {
-                flash('We sent a 6-digit code to your email.');
-                redirect('create_account.php');
+            if (!empty($result['ok']) && !empty($result['code']) && !empty($result['email'])) {
+                $mailEmail = (string) $result['email'];
+                $mailCode = (string) $result['code'];
+                $mailOtpId = (int) ($result['otp_id'] ?? 0);
+                folio_redirect_then('create_account.php?popup=otp', static function () use ($mailEmail, $mailCode, $mailOtpId): void {
+                    self_register_deliver_otp($mailEmail, $mailCode, $mailOtpId);
+                });
             }
             $error = (string) ($result['error'] ?? 'Could not send that code.');
-            $emailValue = self_register_normalize_email(post_plain('email', 190));
-            $step = 'email';
+            $emailValue = self_register_normalize_email($emailForOtp);
+            $step = $action === 'resend_otp' ? 'otp' : 'email';
         } elseif ($action === 'verify_otp') {
             $emailValue = self_register_normalize_email((string) ($state['email'] ?? post_plain('email', 190)));
             $result = self_register_verify_otp($emailValue, post_plain('otp', 12));
             if (!empty($result['ok'])) {
-                flash('Email verified. Tell us about the business.');
-                redirect('create_account.php');
+                redirect('create_account.php?popup=verified');
             }
             $error = (string) ($result['error'] ?? 'Could not verify that code.');
-            $step = 'otp';
-        } elseif ($action === 'resend_otp') {
-            $emailValue = self_register_normalize_email((string) ($state['email'] ?? ''));
-            $result = self_register_start_otp($emailValue);
-            if (!empty($result['silent'])) {
-                redirect('create_account.php');
-            }
-            if (!empty($result['ok'])) {
-                flash('A new code is on its way.');
-                redirect('create_account.php');
-            }
-            $error = (string) ($result['error'] ?? 'Could not resend that code.');
             $step = 'otp';
         } elseif ($action === 'save_details') {
             $result = self_register_collect_details($_POST);
             if (!empty($result['ok'])) {
-                flash('Almost done — choose a password.');
-                redirect('create_account.php');
+                redirect('create_account.php?popup=details');
             }
             $error = (string) ($result['error'] ?? 'Please check the details.');
             $details = [
@@ -111,6 +106,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step !== 'closed') {
 $flash = flash();
 if ($flash && ($flash['type'] ?? '') === 'ok' && $error === '') {
     $info = (string) ($flash['text'] ?? '');
+}
+$popupKey = strtolower(trim((string) ($_GET['popup'] ?? '')));
+if ($popupKey === 'otp') {
+    $popup = [
+        'title' => 'Check your email',
+        'body' => 'We sent a 6-digit verification code to ' . ($emailValue !== '' ? $emailValue : 'your inbox') . '. Enter it below. It expires in 15 minutes.',
+    ];
+    $info = $info !== '' ? $info : 'Verification code sent.';
+    $step = self_register_step();
+} elseif ($popupKey === 'verified') {
+    $popup = [
+        'title' => 'Email verified',
+        'body' => 'Thanks. Next, add your business details to open a free one-month Pro trial.',
+    ];
+} elseif ($popupKey === 'details') {
+    $popup = [
+        'title' => 'Almost done',
+        'body' => 'Choose a password to finish creating your account.',
+    ];
 }
 $countries = platform_countries();
 $currencies = pricing_currencies();
@@ -337,6 +351,9 @@ $currencies = pricing_currencies();
   </main>
 </div>
 <?php public_float_widgets(); ?>
+<?php if (is_array($popup) && function_exists('render_public_notice_popup')) {
+    render_public_notice_popup((string) ($popup['title'] ?? 'Thank you'), (string) ($popup['body'] ?? ''));
+} ?>
 <script src="<?= h(asset('js/landing.js')) ?>" defer></script>
 <script src="<?= h(asset('js/pwa.js')) ?>" defer></script>
 <script src="<?= h(asset('js/push.js')) ?>" defer></script>

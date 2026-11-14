@@ -104,8 +104,8 @@ function pricing_section_defaults(): array
         'lead' => 'Billed per year, shown in {currency}. Change currency in the header. Pay online, choose how you will sign in, then add your logo and colours.',
         'clock_label' => 'Discount ends in',
         'term_label' => 'per year',
-        'register_copy' => 'Want us to open the desk for you? {register}. You can also {demo}.',
-        'register_label' => 'register without paying',
+        'register_copy' => 'Ready to start? {register}. Or {demo}.',
+        'register_label' => 'create a free Pro trial account',
         'countdown_days' => 3,
         'countdown_hours' => 12,
         'rates' => pricing_ugx_rate_defaults(),
@@ -547,7 +547,7 @@ function render_landing_pricing(): void
     );
     $registerLabel = trim((string) $section['register_label']);
     $registerLink = $registerLabel !== ''
-        ? '<a href="' . h(url('register.php')) . '">' . h($registerLabel) . '</a>'
+        ? '<a href="' . h(url('create_account.php')) . '">' . h($registerLabel) . '</a>'
         : '';
     $demoLink = '<a href="' . h(url('demo.php')) . '">book a demo</a>';
     $register = str_replace(
@@ -617,7 +617,7 @@ function render_landing_pricing(): void
         <p class="lp-pricing-register"><?= $register ?></p>
       <?php endif; ?>
       <div class="lp-cta lp-cta-band lp-join-cta">
-        <a class="lp-btn lp-btn-ghost" href="<?= h(url('register.php')) ?>">Request a desk</a>
+        <a class="lp-btn lp-btn-solid" href="<?= h(url('create_account.php')) ?>">Register</a>
         <a class="lp-btn lp-btn-ghost" href="<?= h(url('demo.php')) ?>">Book a demo</a>
       </div>
     </section>
