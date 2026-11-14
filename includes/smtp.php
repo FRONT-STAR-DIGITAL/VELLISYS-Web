@@ -172,46 +172,63 @@ function mail_decrypt_secret(string $stored, ?string $provider = null): string
 }
 
 /**
- * Gmail SMTP used only for Create Account verification codes.
- * Prefer env FOLIO_GMAIL_USER + FOLIO_GMAIL_APP_PASSWORD; else platform settings.
+ * System SMTP for Create Account OTPs.
+ * Uses FOLIO_OTP_SMTP_* when set, otherwise the app system mailbox in
+ * config/mail.php (FOLIO_SMTP_*). Delivers with deliver_mail only - not the
+ * Vellisys letter queue, and not Google Gmail OTP.
  *
- * @return array{host:string,port:int,secure:string,username:string,password:string,from_email:string,from_name:string}|null
+ * @return array{host:string,port:int,secure:string,username:string,password:string,from_email:string,from_name:string,provider?:string}|null
  */
-function google_otp_mail_account(): ?array
+function system_otp_mail_account(): ?array
 {
-    $ends = mail_provider_endpoints('gmail');
-    $envUser = strtolower(trim((string) (getenv('FOLIO_GMAIL_USER') ?: '')));
-    $envPass = mail_normalize_secret((string) (getenv('FOLIO_GMAIL_APP_PASSWORD') ?: ''), 'gmail');
-    $user = $envUser;
-    $pass = $envPass;
-    if ($user === '' || $pass === '') {
-        $user = strtolower(trim(platform_setting('otp_gmail_email', '')));
-        $stored = platform_setting('otp_gmail_app_password', '');
-        $pass = $stored !== '' ? mail_decrypt_secret($stored, 'gmail') : '';
-        $pass = mail_normalize_secret($pass, 'gmail');
+    $otpUser = strtolower(trim((string) (getenv('FOLIO_OTP_SMTP_USER') ?: '')));
+    $otpPass = (string) (getenv('FOLIO_OTP_SMTP_PASS') ?: '');
+    if ($otpUser !== '' && $otpPass !== '' && filter_var($otpUser, FILTER_VALIDATE_EMAIL)) {
+        $c = mail_config();
+        $host = trim((string) (getenv('FOLIO_OTP_SMTP_HOST') ?: ''));
+        $port = (int) (getenv('FOLIO_OTP_SMTP_PORT') ?: 0);
+        $secure = strtolower(trim((string) (getenv('FOLIO_OTP_SMTP_SECURE') ?: '')));
+        $from = strtolower(trim((string) (getenv('FOLIO_OTP_SMTP_FROM') ?: '')));
+        $fromName = trim((string) (getenv('FOLIO_OTP_SMTP_FROM_NAME') ?: '')) ?: 'Vellisys';
+        return [
+            'host' => $host !== '' ? $host : (string) ($c['host'] ?? 'smtp.hostinger.com'),
+            'port' => $port > 0 ? $port : (int) ($c['port'] ?? 465),
+            'secure' => $secure !== '' ? $secure : (string) ($c['secure'] ?? 'ssl'),
+            'username' => $otpUser,
+            'password' => $otpPass,
+            'from_email' => ($from !== '' && filter_var($from, FILTER_VALIDATE_EMAIL)) ? $from : $otpUser,
+            'from_name' => $fromName,
+            'provider' => 'system',
+        ];
     }
-    if ($user === '' || !filter_var($user, FILTER_VALIDATE_EMAIL) || $pass === '') {
+
+    $account = platform_mail_account();
+    $user = strtolower(trim((string) ($account['username'] ?? '')));
+    $pass = trim((string) ($account['password'] ?? ''));
+    $host = trim((string) ($account['host'] ?? ''));
+    if ($user === '' || $pass === '' || $host === '' || !filter_var($user, FILTER_VALIDATE_EMAIL)) {
         return null;
     }
-    if (!str_ends_with($user, '@gmail.com') && !str_ends_with($user, '@googlemail.com')) {
-        // Still allow Google Workspace custom domains if they use smtp.gmail.com.
-    }
-    $fromName = trim((string) (getenv('FOLIO_GMAIL_FROM_NAME') ?: '')) ?: 'Vellisys';
-    return [
-        'host' => (string) $ends['smtp_host'],
-        'port' => (int) $ends['smtp_port'],
-        'secure' => (string) $ends['smtp_secure'],
-        'username' => $user,
-        'password' => $pass,
-        'from_email' => $user,
-        'from_name' => $fromName,
-        'provider' => 'gmail',
-    ];
+    $account['from_name'] = trim((string) ($account['from_name'] ?? '')) ?: 'Vellisys';
+    $account['provider'] = 'system';
+    return $account;
 }
 
+function system_otp_mail_configured(): bool
+{
+    return system_otp_mail_account() !== null;
+}
+
+/** @deprecated Use system_otp_mail_account() - OTP no longer uses Google. */
+function google_otp_mail_account(): ?array
+{
+    return system_otp_mail_account();
+}
+
+/** @deprecated Use system_otp_mail_configured(). */
 function google_otp_mail_configured(): bool
 {
-    return google_otp_mail_account() !== null;
+    return system_otp_mail_configured();
 }
 
 function platform_mail_account(): array

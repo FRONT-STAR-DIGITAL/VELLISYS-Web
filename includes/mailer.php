@@ -1043,11 +1043,11 @@ function send_self_register_otp_email(string $email, string $code): array
         return ['ok' => false, 'error' => 'Invalid email.'];
     }
     $code = preg_replace('/\D+/', '', $code) ?? '';
-    $account = function_exists('google_otp_mail_account') ? google_otp_mail_account() : null;
+    $account = function_exists('system_otp_mail_account') ? system_otp_mail_account() : null;
     if (!$account) {
         return [
             'ok' => false,
-            'error' => 'Google mail for verification codes is not configured. Add a Gmail App Password in Super Admin → Settings.',
+            'error' => 'System mail for verification codes is not configured. Check FOLIO_SMTP_* (or FOLIO_OTP_SMTP_*) on the host.',
             'from' => '',
         ];
     }

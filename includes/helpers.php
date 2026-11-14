@@ -5168,7 +5168,7 @@ function public_header(string $page = 'home'): void
       <?php if ($page !== 'checkout'): ?>
         <a class="lp-btn lp-btn-ghost lp-nav-wide" href="<?= h(url('demo.php')) ?>">Book a demo</a>
       <?php endif; ?>
-      <a class="lp-btn lp-btn-solid" href="<?= h(url('login.php')) ?>"><span class="lp-nav-wide">Sign in / Create Account</span><span class="lp-nav-narrow">Sign in</span></a>
+      <a class="lp-btn lp-btn-solid" href="<?= h(url('login.php')) ?>"><span class="lp-nav-wide">Sign in / Create Account</span><span class="lp-nav-narrow">Sign in / Register</span></a>
     </nav>
   </div>
   </header>

@@ -110,10 +110,10 @@ function self_register_start_otp(string $email): array
         return ['ok' => false, 'error' => 'Please wait before requesting another code.'];
     }
 
-    if (!function_exists('google_otp_mail_configured') || !google_otp_mail_configured()) {
+    if (!function_exists('system_otp_mail_configured') || !system_otp_mail_configured()) {
         return [
             'ok' => false,
-            'error' => 'Verification email is not ready yet. Ask the site admin to add a Google App Password under Settings → Google OTP.',
+            'error' => 'Verification email is not ready yet. Ask the site admin to check system mail (FOLIO_SMTP_* or FOLIO_OTP_SMTP_*).',
         ];
     }
 

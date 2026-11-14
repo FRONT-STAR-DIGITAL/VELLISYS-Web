@@ -76,16 +76,17 @@ FOLIO_SMTP_FROM=info@vellisys.com
 FOLIO_SMTP_FROM_NAME=VELLISYS
 ```
 
-Required for Create Account verification codes (sent by Google, not info@):
+Create Account verification codes use the **system** SMTP path (direct send), not Google and not the Vellisys letter queue. The `FOLIO_SMTP_*` values above are enough. Optional dedicated OTP mailbox:
 
 ```env
-FOLIO_GMAIL_USER=you@gmail.com
-FOLIO_GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
-FOLIO_GMAIL_FROM_NAME=Vellisys
+FOLIO_OTP_SMTP_HOST=smtp.hostinger.com
+FOLIO_OTP_SMTP_PORT=465
+FOLIO_OTP_SMTP_SECURE=ssl
+FOLIO_OTP_SMTP_USER=noreply@yourdomain.com
+FOLIO_OTP_SMTP_PASS=your-mailbox-password
+FOLIO_OTP_SMTP_FROM=noreply@yourdomain.com
+FOLIO_OTP_SMTP_FROM_NAME=Vellisys
 ```
-
-Create the App Password in Google Account → Security → 2-Step Verification → App passwords.  
-You can also paste the same Gmail + App Password under Super Admin → Settings → Google OTP.
 
 Optional (recommended on VPS - keeps logins stable across redeploys):
 
