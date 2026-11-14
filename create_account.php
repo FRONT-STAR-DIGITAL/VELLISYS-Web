@@ -92,7 +92,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step !== 'closed') {
                     form_rate_hit('create-account', 3600);
                     self_register_login_user($loginUser);
                     flash('Welcome to Vellisys. Your Pro trial is ready.');
-                    redirect('dashboard.php');
+                    $mailCompany = is_array($result['company'] ?? null) ? $result['company'] : [];
+                    $mailMeta = is_array($result['meta'] ?? null) ? $result['meta'] : [];
+                    // Redirect into the desk first; welcome + info@ mail after the response.
+                    folio_redirect_then('dashboard.php', static function () use ($mailCompany, $loginUser, $mailMeta): void {
+                        if (function_exists('notify_self_register_mail')) {
+                            try {
+                                notify_self_register_mail($mailCompany, $loginUser, $mailMeta);
+                            } catch (Throwable $e) {
+                                error_log('Vellisys self-register mail: ' . $e->getMessage());
+                            }
+                        }
+                    });
                 }
                 $error = (string) ($result['error'] ?? 'Could not create that account.');
                 $step = self_register_step();
@@ -271,7 +282,7 @@ $currencies = pricing_currencies();
         <?php if ($info): ?><p class="gate-lead" style="color:#0f7a45"><?= h($info) ?></p><?php endif; ?>
         <?php if ($error): ?><p class="lp-err"><?= h($error) ?></p><?php endif; ?>
         <label class="gate-field gate-otp" for="otp">Verification code
-          <input id="otp" name="otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" minlength="6" required autocomplete="one-time-code" placeholder="••••••" autofocus>
+          <input id="otp" name="otp" inputmode="numeric" pattern="[0-9\s]{6,12}" maxlength="12" minlength="6" required autocomplete="one-time-code" placeholder="••••••" autofocus>
         </label>
         <button class="gate-submit" type="submit">Verify email <?= icon('arrow-right', 18) ?></button>
         <button class="gate-back" type="submit" name="action" value="resend_otp" formnovalidate>Resend code</button>

@@ -41,6 +41,38 @@ function self_register_otp_code(): string
     return str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 }
 
+/** Digits only; maps common Unicode numerals so pasted codes still match. */
+function self_register_normalize_otp(string $code): string
+{
+    $map = [
+        '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4', '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
+        '۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4', '۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9',
+        '０' => '0', '１' => '1', '２' => '2', '３' => '3', '４' => '4', '５' => '5', '６' => '6', '７' => '7', '８' => '8', '９' => '9',
+    ];
+    $code = strtr($code, $map);
+    return preg_replace('/\D+/', '', $code) ?? '';
+}
+
+function self_register_otp_hash(string $code): string
+{
+    return hash('sha256', 'vellisys-otp|' . $code);
+}
+
+function self_register_otp_matches(string $code, string $stored): bool
+{
+    if ($stored === '') {
+        return false;
+    }
+    if (hash_equals($stored, self_register_otp_hash($code))) {
+        return true;
+    }
+    // Legacy rows used password_hash().
+    if (str_starts_with($stored, '$2') || str_starts_with($stored, '$argon')) {
+        return password_verify($code, $stored);
+    }
+    return false;
+}
+
 function self_register_normalize_email(string $email): string
 {
     return strtolower(sanitize_public_text($email, 190));
@@ -119,11 +151,12 @@ function self_register_start_otp(string $email): array
 
     self_register_purge_old_otps();
     $code = self_register_otp_code();
-    $hash = password_hash($code, PASSWORD_DEFAULT);
+    $hash = self_register_otp_hash($code);
     $ip = visitor_ip_hash();
     $expires = (desk_now())->modify('+' . self_register_otp_ttl_seconds() . ' seconds')->format('Y-m-d H:i:s');
 
-    // Keep any previous live OTP until the new email is known to have sent.
+    // Keep any previous live OTP until verify succeeds — a late resend must not
+    // invalidate the code the user already has open in their inbox.
     $otpId = 0;
     try {
         $otpId = (int) db_exec(
@@ -182,7 +215,7 @@ function self_register_past_otp(array $state): bool
 function self_register_deliver_otp(string $email, string $code, int $otpId): void
 {
     $email = self_register_normalize_email($email);
-    $code = preg_replace('/\D+/', '', $code) ?? '';
+    $code = self_register_normalize_otp($code);
     if (!self_register_email_ok($email) || strlen($code) !== 6 || $otpId < 1) {
         return;
     }
@@ -215,16 +248,8 @@ function self_register_deliver_otp(string $email, string $code, int $otpId): voi
         }
         return;
     }
-    try {
-        // Only drop older rows so a concurrent newer send is not wiped by a late success.
-        db_exec(
-            'DELETE FROM self_register_otps WHERE email = ? AND verified_at IS NULL AND id < ?',
-            'si',
-            [$email, $otpId]
-        );
-    } catch (Throwable $e) {
-        // non-fatal
-    }
+    // Do not delete older live OTPs here. The first email can arrive after a resend;
+    // both codes stay valid until one verifies or they expire.
     self_register_resume_session();
     $state = self_register_state();
     // Only the current otp_id may update the session. Never match on email alone -
@@ -257,7 +282,7 @@ function self_register_deliver_otp(string $email, string $code, int $otpId): voi
 function self_register_verify_otp(string $email, string $code): array
 {
     $email = self_register_normalize_email($email);
-    $code = preg_replace('/\D+/', '', $code) ?? '';
+    $code = self_register_normalize_otp($code);
     if (!self_register_email_ok($email) || strlen($code) !== 6) {
         return ['ok' => false, 'error' => 'Enter the 6-digit code from your email.'];
     }
@@ -267,6 +292,7 @@ function self_register_verify_otp(string $email, string $code): array
     form_rate_hit('self-otp-check:' . $email, 3600);
     form_rate_hit('self-otp-check-ip', 3600);
 
+    $preferId = (int) (self_register_state()['otp_id'] ?? 0);
     $rows = [];
     try {
         $rows = db_all(
@@ -281,6 +307,18 @@ function self_register_verify_otp(string $email, string $code): array
         return ['ok' => false, 'error' => 'That code has expired. Request a new one.'];
     }
 
+    // Prefer the session otp_id first (the code we most recently tried to send).
+    if ($preferId > 0) {
+        usort($rows, static function (array $a, array $b) use ($preferId): int {
+            $aHit = ((int) ($a['id'] ?? 0) === $preferId) ? 0 : 1;
+            $bHit = ((int) ($b['id'] ?? 0) === $preferId) ? 0 : 1;
+            if ($aHit !== $bHit) {
+                return $aHit <=> $bHit;
+            }
+            return ((int) ($b['id'] ?? 0)) <=> ((int) ($a['id'] ?? 0));
+        });
+    }
+
     $matched = null;
     $latest = $rows[0];
     foreach ($rows as $candidate) {
@@ -288,7 +326,7 @@ function self_register_verify_otp(string $email, string $code): array
         if ($attempts >= 5) {
             continue;
         }
-        if (password_verify($code, (string) ($candidate['code_hash'] ?? ''))) {
+        if (self_register_otp_matches($code, (string) ($candidate['code_hash'] ?? ''))) {
             $matched = $candidate;
             break;
         }
@@ -625,17 +663,32 @@ function self_register_complete(string $password, string $passwordAgain): array
         'plan' => $plan,
     ];
 
-    notify_self_register_complete($company, $userRow, [
+    $meta = [
         'phone' => $phone,
         'city' => $city,
         'country' => $country,
         'currency' => $currency,
         'signup_id' => $signupId,
         'expires_at' => $expires,
-    ]);
+    ];
+
+    // Bell/push immediately so Super Admin sees the registration before mail runs.
+    if (function_exists('notify_self_register_local')) {
+        try {
+            notify_self_register_local($company, $userRow, $meta);
+        } catch (Throwable $e) {
+            error_log('Vellisys self-register local notify: ' . $e->getMessage());
+        }
+    }
 
     self_register_clear();
-    return ['ok' => true, 'user' => $userRow, 'company' => $company, 'password' => $password];
+    return [
+        'ok' => true,
+        'user' => $userRow,
+        'company' => $company,
+        'meta' => $meta,
+        'password' => $password,
+    ];
 }
 
 function self_register_login_user(array $user): void

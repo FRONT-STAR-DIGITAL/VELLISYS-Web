@@ -6206,6 +6206,21 @@ function product_email_logo_file(): string
     return '';
 }
 
+/** Public HTTPS URL for the email logo when CID embedding is unavailable. */
+function product_email_logo_url(): string
+{
+    $file = product_email_logo_file();
+    if ($file !== '') {
+        $rel = ltrim(str_replace(ROOT_PATH . '/', '', $file), '/');
+        if (str_starts_with($rel, 'assets/')) {
+            $rel = substr($rel, strlen('assets/'));
+        }
+        $path = function_exists('asset') ? asset($rel) : ('assets/' . $rel);
+        return function_exists('absolute_url') ? absolute_url(ltrim((string) $path, '/')) : (string) $path;
+    }
+    return function_exists('absolute_url') ? absolute_url('assets/img/vellisys-email-logo.png') : '';
+}
+
 function product_logo_url(): string
 {
     $file = product_logo_file();
@@ -6463,7 +6478,50 @@ function platform_notifications(int $limit = 12): array
     };
 
     try {
-        // Waiting leads first so self-registers cannot crowd them out of the bell.
+        // Fresh self-registers and platform alerts first so Super Admin sees them
+        // before older sign-ups / expiry noise fill the bell.
+        if (function_exists('platform_alerts_unread')) {
+            foreach (platform_alerts_unread(12) as $a) {
+                $id = (int) ($a['id'] ?? 0);
+                $urgent = ((string) ($a['urgency'] ?? '')) === 'urgent';
+                $kind = (string) ($a['kind'] ?? 'alert');
+                if (!$push([
+                    'type' => $kind,
+                    'key' => 'alert:' . $id,
+                    'title' => ($urgent ? 'Urgent · ' : '') . (string) ($a['title'] ?? 'Alert'),
+                    'meta' => (string) ($a['meta'] ?? ''),
+                    'href' => (string) (($a['href'] ?? '') !== '' ? $a['href'] : url('admin_passwords.php')),
+                    'tone' => $urgent ? 'urgent' : 'info',
+                    'actions' => [
+                        ['label' => 'Open', 'href' => (string) (($a['href'] ?? '') !== '' ? $a['href'] : url('admin_passwords.php')), 'class' => 'btn ghost sm'],
+                    ],
+                ])) {
+                    return $out;
+                }
+            }
+        }
+        $selfRegs = db_all(
+            "SELECT id, company, name, email, created_at, company_id FROM signups
+             WHERE source = 'self' AND created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)
+             ORDER BY id DESC LIMIT 12"
+        );
+        foreach ($selfRegs as $s) {
+            $id = (int) $s['id'];
+            $cid = (int) ($s['company_id'] ?? 0);
+            $href = $cid > 0 ? url('admin_company.php?id=' . $cid) : url('admin_signups.php');
+            if (!$push([
+                'type' => 'self_register',
+                'key' => 'self-signup:' . $id,
+                'title' => trim((string) ($s['company'] ?: $s['name'])) ?: 'New registration',
+                'meta' => 'Self-register · Pro trial · ' . clip_text((string) ($s['email'] ?? ''), 40),
+                'href' => $href,
+                'actions' => [
+                    ['label' => 'Open', 'href' => $href, 'class' => 'btn ghost sm'],
+                ],
+            ])) {
+                return $out;
+            }
+        }
         $waiting = db_all(
             "SELECT id, company, name, email, created_at, source, company_id FROM signups
              WHERE status = 'new' ORDER BY id DESC LIMIT 12"
@@ -6478,28 +6536,6 @@ function platform_notifications(int $limit = 12): array
                 'href' => url('admin_signups.php'),
                 'actions' => [
                     ['label' => 'Open', 'href' => url('admin_signups.php'), 'class' => 'btn ghost sm'],
-                ],
-            ])) {
-                return $out;
-            }
-        }
-        $selfRegs = db_all(
-            "SELECT id, company, name, email, created_at, company_id FROM signups
-             WHERE source = 'self' AND created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)
-             ORDER BY id DESC LIMIT 8"
-        );
-        foreach ($selfRegs as $s) {
-            $id = (int) $s['id'];
-            $cid = (int) ($s['company_id'] ?? 0);
-            $href = $cid > 0 ? url('admin_company.php?id=' . $cid) : url('admin_signups.php');
-            if (!$push([
-                'type' => 'self_register',
-                'key' => 'self-signup:' . $id,
-                'title' => trim((string) ($s['company'] ?: $s['name'])) ?: 'New registration',
-                'meta' => 'Self-register · Pro trial · ' . clip_text((string) ($s['email'] ?? ''), 40),
-                'href' => $href,
-                'actions' => [
-                    ['label' => 'Open', 'href' => $href, 'class' => 'btn ghost sm'],
                 ],
             ])) {
                 return $out;
@@ -6584,30 +6620,6 @@ function platform_notifications(int $limit = 12): array
                 ],
             ])) {
                 return $out;
-            }
-        }
-    } catch (Throwable $e) {
-        // ignore
-    }
-
-    try {
-        if (function_exists('platform_alerts_unread')) {
-            foreach (platform_alerts_unread(20) as $a) {
-                $id = (int) ($a['id'] ?? 0);
-                $urgent = ((string) ($a['urgency'] ?? '')) === 'urgent';
-                if (!$push([
-                    'type' => (string) ($a['kind'] ?? 'alert'),
-                    'key' => 'alert:' . $id,
-                    'title' => ($urgent ? 'Urgent · ' : '') . (string) ($a['title'] ?? 'Alert'),
-                    'meta' => (string) ($a['meta'] ?? ''),
-                    'href' => (string) (($a['href'] ?? '') !== '' ? $a['href'] : url('admin_passwords.php')),
-                    'tone' => $urgent ? 'urgent' : 'info',
-                    'actions' => [
-                        ['label' => 'Open', 'href' => (string) (($a['href'] ?? '') !== '' ? $a['href'] : url('admin_passwords.php')), 'class' => 'btn ghost sm'],
-                    ],
-                ])) {
-                    return $out;
-                }
             }
         }
     } catch (Throwable $e) {

@@ -12,11 +12,17 @@ function vellisys_email_wrap(string $innerHtml, string $kicker = 'Vellisys'): st
     $maker = product_maker_name();
     $box = product_po_box();
     $site = product_maker_url();
-    // Embed logo as data-URI so info@ mail shows the mark in-body (not as a download attachment).
+    // Prefer CID so SMTP attaches the PNG (Gmail/Outlook often block data:image URIs).
+    // Fall back to a public HTTPS URL when the file is missing on disk.
     $logoSrc = 'cid:vellisys-logo';
     $logoFile = function_exists('product_email_logo_file') ? product_email_logo_file() : '';
-    if ($logoFile !== '' && is_file($logoFile)) {
-        $logoSrc = 'data:image/png;base64,' . base64_encode((string) file_get_contents($logoFile));
+    if ($logoFile === '' || !is_file($logoFile)) {
+        if (function_exists('product_email_logo_url')) {
+            $abs = product_email_logo_url();
+            if ($abs !== '') {
+                $logoSrc = $abs;
+            }
+        }
     }
 
     return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vellisys</title></head>'
@@ -27,7 +33,7 @@ function vellisys_email_wrap(string $innerHtml, string $kicker = 'Vellisys'): st
         . '<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background:' . $white . ';border:1px solid ' . $navy . ';">'
         . '<tr><td style="height:8px;line-height:8px;font-size:0;background:' . $blue . ';">&nbsp;</td></tr>'
         . '<tr><td align="center" style="padding:24px 32px 18px;background:' . $white . ';text-align:center;">'
-        . '<img src="' . $logoSrc . '" alt="Vellisys" width="176" style="display:inline-block;margin:0 auto;border:0;outline:none;text-decoration:none;height:auto;max-width:176px;background:' . $white . ';">'
+        . '<img src="' . h($logoSrc) . '" alt="Vellisys" width="176" style="display:inline-block;margin:0 auto;border:0;outline:none;text-decoration:none;height:auto;max-width:176px;background:' . $white . ';">'
         . '</td></tr>'
         . '<tr><td align="center" style="background:' . $navy . ';padding:13px 32px;text-align:center;">'
         . '<p style="margin:0;font-family:Montserrat,Segoe UI,Arial,sans-serif;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:' . $white . ';font-weight:700;text-align:center;">' . h($kicker) . '</p>'
@@ -1073,7 +1079,35 @@ function send_self_register_otp_email(string $email, string $code): array
     return $result;
 }
 
-function notify_self_register_complete(array $company, array $user, array $meta = []): void
+/** Bell + push for Super Admin as soon as the desk exists (before mail). */
+function notify_self_register_local(array $company, array $user, array $meta = []): void
+{
+    $to = strtolower(trim((string) ($user['email'] ?? '')));
+    $who = trim((string) ($user['name'] ?? '')) ?: 'there';
+    $name = trim((string) ($company['name'] ?? 'your company'));
+    $href = url('admin_company.php?id=' . (int) ($company['id'] ?? 0));
+    if (function_exists('platform_alert_add')) {
+        platform_alert_add(
+            'self_register',
+            'New registration · ' . ($name !== '' ? $name : $who),
+            'Pro trial · ' . $to,
+            $href,
+            $to,
+            'normal'
+        );
+    }
+    if (function_exists('push_notify_item')) {
+        push_notify_item([
+            'title' => 'New registration · ' . ($name !== '' ? $name : $who),
+            'meta' => 'Pro trial · ' . $to,
+            'href' => $href,
+            'key' => 'self-reg:' . (int) ($company['id'] ?? 0),
+        ], 'platform');
+    }
+}
+
+/** Welcome + info@ letters (safe to run after the browser has redirected). */
+function notify_self_register_mail(array $company, array $user, array $meta = []): void
 {
     $to = strtolower(trim((string) ($user['email'] ?? '')));
     $who = trim((string) ($user['name'] ?? '')) ?: 'there';
@@ -1116,27 +1150,14 @@ function notify_self_register_complete(array $company, array $user, array $meta 
         . '<p style="margin:0"><a href="' . h(absolute_url('admin_company.php?id=' . (int) ($company['id'] ?? 0))) . '" style="color:#1E4EFF">Open the company</a></p>'
     );
     $adminText = 'New self-registration Pro trial: ' . $name . ' / ' . $who . ' / ' . $to . ' / ' . $phone;
+    // Always deliver to info@vellisys.com (product_email) via notify_platform.
     notify_platform('New self-registration: ' . $name, $adminHtml, $adminText, $to, (int) ($user['id'] ?? 0));
+}
 
-    $href = url('admin_company.php?id=' . (int) ($company['id'] ?? 0));
-    if (function_exists('platform_alert_add')) {
-        platform_alert_add(
-            'self_register',
-            'New registration · ' . ($name !== '' ? $name : $who),
-            'Pro trial · ' . $to,
-            $href,
-            $to,
-            'normal'
-        );
-    }
-    if (function_exists('push_notify_item')) {
-        push_notify_item([
-            'title' => 'New registration · ' . ($name !== '' ? $name : $who),
-            'meta' => 'Pro trial · ' . $to,
-            'href' => $href,
-            'key' => 'self-reg:' . (int) ($company['id'] ?? 0),
-        ], 'platform');
-    }
+function notify_self_register_complete(array $company, array $user, array $meta = []): void
+{
+    notify_self_register_local($company, $user, $meta);
+    notify_self_register_mail($company, $user, $meta);
 }
 
 function welcome_desk_copy(array $company, array $member, string $password = ''): array
