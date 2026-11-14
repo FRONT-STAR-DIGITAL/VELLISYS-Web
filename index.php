@@ -244,7 +244,8 @@ $askDraft = $_SESSION['ask_draft'] ?? [];
         <?php endforeach; ?>
       </ol>
       <div class="lp-cta lp-cta-band">
-        <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url()) ?>#pricing">Choose a package</a>
+        <a class="lp-btn lp-btn-solid lp-btn-lg" href="<?= h(url('create_account.php')) ?>">Create Account</a>
+        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url()) ?>#pricing">Choose a package</a>
         <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('register.php')) ?>">Request a desk</a>
         <a class="lp-btn lp-btn-ghost lp-btn-lg" href="<?= h(url('demo.php')) ?>">Book a demo</a>
       </div>

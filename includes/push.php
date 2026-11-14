@@ -560,8 +560,8 @@ function render_push_settings_card(): void
 {
     ?>
     <section class="card settings-card" id="notifications">
-      <h2><?= icon('bell') ?>Notifications</h2>
-      <p class="lede">Allow alerts on this phone or computer. Notices already in the bell appear on the installed app, and new ones pop up like a WhatsApp message. On the installed app, the home-screen icon also shows how many are waiting, the way Gmail does. Use the installed app for the most reliable alerts.</p>
+      <h2><?= icon('bell') ?>Allow notifications</h2>
+      <p class="lede">Turn on alerts for this phone or computer. New registrations, sign-ups and questions already show a number on the bell and on inbox icons in the side nav. With notifications allowed, the same alerts also pop up here like a WhatsApp message, and the installed app icon shows how many are waiting.</p>
       <div class="push-settings" data-push-panel>
         <p class="muted" data-push-status>Checking this device…</p>
         <div class="settings-account-actions">

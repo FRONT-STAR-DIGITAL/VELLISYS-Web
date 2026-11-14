@@ -56,7 +56,7 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '83';
+    return '84';
 }
 
 /** Optional explicit desk modules JSON. Null/empty = infer from existing flags (no change for live desks). */
@@ -571,6 +571,29 @@ function folio_ensure_notification_dismissals(mysqli $db): void
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       UNIQUE KEY user_dismiss (user_id, dismiss_key),
       KEY user_id (user_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+/** OTP codes for public Create Account (self-register) flow. */
+function folio_ensure_self_register_otps(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    @$db->query("CREATE TABLE IF NOT EXISTS self_register_otps (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      email VARCHAR(190) NOT NULL,
+      code_hash VARCHAR(255) NOT NULL,
+      attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+      sent_count TINYINT UNSIGNED NOT NULL DEFAULT 1,
+      ip_hash CHAR(64) NOT NULL DEFAULT '',
+      expires_at DATETIME NOT NULL,
+      verified_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY email_exp (email, expires_at),
+      KEY created_at (created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
@@ -1723,6 +1746,9 @@ function folio_migrate(mysqli $db): void
     folio_ensure_company_tax($db);
     folio_ensure_company_admins($db);
     folio_ensure_notification_dismissals($db);
+    if (function_exists('folio_ensure_self_register_otps')) {
+        folio_ensure_self_register_otps($db);
+    }
     if (function_exists('vapid_ensure_tables')) {
         vapid_ensure_tables();
     }

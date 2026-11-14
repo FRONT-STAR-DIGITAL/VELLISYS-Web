@@ -5170,6 +5170,7 @@ function public_header(string $page = 'home'): void
       <?php endif; ?>
       <a class="lp-btn lp-btn-ghost" href="<?= h(url('login.php')) ?>">Sign in</a>
       <?php if ($page !== 'checkout'): ?>
+        <a class="lp-btn lp-btn-ghost lp-nav-wide" href="<?= h(url('create_account.php')) ?>">Create Account</a>
         <a class="lp-btn lp-btn-solid" href="<?= h($page === 'home' ? '#pricing' : (rtrim(url(), '/') . '/#pricing')) ?>">Get a desk</a>
       <?php endif; ?>
     </nav>
@@ -5915,7 +5916,7 @@ function render_desk_welcome_pop(array $user): void
         </li>
         <li>
           <strong>Keep the login private</strong>
-          <span>Change the temporary password under Account when you have a moment.</span>
+          <span>Only share desk logins with people who should see the books. You can change your password under Account any time.</span>
         </li>
       </ol>
       <p class="welcome-help">Need an agent? Call <?= h($phones) ?> or write <?= h(product_email()) ?>.</p>
@@ -6405,6 +6406,7 @@ function signup_source_label(?string $source): string
         'checkout' => 'Checkout',
         'demo' => 'Demo',
         'register' => 'Register',
+        'self' => 'Self-register',
         default => 'Sign-up',
     };
 }
@@ -6441,18 +6443,23 @@ function platform_notifications(int $limit = 12): array
 
     try {
         $signups = db_all(
-            "SELECT id, company, name, email, created_at FROM signups WHERE status = 'new' ORDER BY id DESC LIMIT 12"
+            "SELECT id, company, name, email, created_at, source, status, company_id FROM signups
+             WHERE status = 'new' OR (source = 'self' AND created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY))
+             ORDER BY id DESC LIMIT 16"
         );
         foreach ($signups as $s) {
             $id = (int) $s['id'];
+            $isSelf = ((string) ($s['source'] ?? '')) === 'self';
+            $cid = (int) ($s['company_id'] ?? 0);
+            $href = ($isSelf && $cid > 0) ? url('admin_company.php?id=' . $cid) : url('admin_signups.php');
             if (!$push([
-                'type' => 'signup',
-                'key' => 'signup:' . $id,
-                'title' => trim((string) ($s['company'] ?: $s['name'])) ?: 'New sign-up',
-                'meta' => 'Sign-up · ' . clip_text((string) ($s['email'] ?? ''), 40),
-                'href' => url('admin_signups.php'),
+                'type' => $isSelf ? 'self_register' : 'signup',
+                'key' => ($isSelf ? 'self-signup:' : 'signup:') . $id,
+                'title' => trim((string) ($s['company'] ?: $s['name'])) ?: ($isSelf ? 'New registration' : 'New sign-up'),
+                'meta' => ($isSelf ? 'Self-register · Pro trial · ' : 'Sign-up · ') . clip_text((string) ($s['email'] ?? ''), 40),
+                'href' => $href,
                 'actions' => [
-                    ['label' => 'Open', 'href' => url('admin_signups.php'), 'class' => 'btn ghost sm'],
+                    ['label' => 'Open', 'href' => $href, 'class' => 'btn ghost sm'],
                 ],
             ])) {
                 return $out;

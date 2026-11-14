@@ -1036,6 +1036,89 @@ function notify_visitor_signup(array $signup): void
     send_platform_email($to, $subject, $html, $text, 0, product_email());
 }
 
+function send_self_register_otp_email(string $email, string $code): array
+{
+    $to = strtolower(trim($email));
+    if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+        return ['ok' => false, 'error' => 'Invalid email.'];
+    }
+    $code = preg_replace('/\D+/', '', $code) ?? '';
+    $html = vellisys_email_wrap(
+        '<p style="margin:0 0 14px">Use this one-time code to create your Vellisys account. It expires in 15 minutes.</p>'
+        . '<p style="margin:0 0 18px;font-size:28px;letter-spacing:0.28em;font-weight:800;color:#08143A">' . h($code) . '</p>'
+        . '<p style="margin:0;color:#5c6780;font-size:13px">If you did not request this, ignore the message. Do not share the code.</p>',
+        'Your verification code'
+    );
+    $text = "Your Vellisys verification code is {$code}. It expires in 15 minutes. If you did not request this, ignore the message.";
+    return send_platform_email($to, 'Your Vellisys verification code', $html, $text, 0, product_email());
+}
+
+function notify_self_register_complete(array $company, array $user, array $meta = []): void
+{
+    $to = strtolower(trim((string) ($user['email'] ?? '')));
+    $who = trim((string) ($user['name'] ?? '')) ?: 'there';
+    $name = trim((string) ($company['name'] ?? 'your company'));
+    $expires = format_date((string) ($meta['expires_at'] ?? $company['expires_at'] ?? ''));
+    $login = absolute_url('login.php?email=' . rawurlencode($to));
+    $phones = implode(' or ', product_phones());
+    $city = trim((string) ($meta['city'] ?? ''));
+    $country = trim((string) ($meta['country'] ?? ''));
+    $currency = strtoupper(trim((string) ($meta['currency'] ?? '')));
+    $phone = trim((string) ($meta['phone'] ?? ''));
+    $place = trim($city . ($city !== '' && $country !== '' ? ', ' : '') . $country);
+
+    if (filter_var($to, FILTER_VALIDATE_EMAIL)) {
+        $html = vellisys_email_wrap(
+            '<p style="margin:0 0 16px">Dear ' . h($who) . ',</p>'
+            . '<p style="margin:0 0 14px">Welcome to Vellisys — thank you for choosing us. Your <strong>Pro</strong> desk for <strong>' . h($name) . '</strong> is ready with a free one-month trial'
+            . ($expires !== '' ? ' (through ' . h($expires) . ')' : '') . '.</p>'
+            . '<p style="margin:0 0 14px">Sign in any time at <a href="' . h($login) . '" style="color:#1E4EFF">' . h(absolute_url('login.php')) . '</a> with the email and password you set.</p>'
+            . '<p style="margin:0 0 14px">Open Settings to add your logo and colours, then Tutorials for a quick tour of every tab.</p>'
+            . '<p style="margin:0">If you need us, write to <a href="mailto:' . h(product_email()) . '" style="color:#1E4EFF">' . h(product_email()) . '</a> or call ' . h($phones) . '.</p>'
+            . '<p style="margin:16px 0 0">Kind regards,<br><strong>Vellisys</strong></p>',
+            'Welcome to Vellisys'
+        );
+        $text = "Dear {$who},\n\nWelcome to Vellisys — thank you for choosing us. Your Pro desk for {$name} is ready with a free one-month trial"
+            . ($expires !== '' ? " (through {$expires})" : '') . ".\n\nSign in: " . absolute_url('login.php')
+            . "\nEmail: {$to}\n\nIf you need us, write to " . product_email() . " or call {$phones}.\n\nKind regards,\nVellisys";
+        send_platform_email($to, 'Welcome to Vellisys — thank you for choosing us', $html, $text, (int) ($user['id'] ?? 0), product_email());
+    }
+
+    $adminHtml = vellisys_email_wrap(
+        '<p style="margin:0 0 14px">A new self-registration opened a free Pro trial desk.</p>'
+        . '<p style="margin:0 0 8px"><strong>Company:</strong> ' . h($name) . '</p>'
+        . '<p style="margin:0 0 8px"><strong>Contact:</strong> ' . h($who) . '</p>'
+        . '<p style="margin:0 0 8px"><strong>Email:</strong> ' . h($to) . '</p>'
+        . '<p style="margin:0 0 8px"><strong>Phone:</strong> ' . h($phone) . '</p>'
+        . ($place !== '' ? '<p style="margin:0 0 8px"><strong>Location:</strong> ' . h($place) . '</p>' : '')
+        . ($currency !== '' ? '<p style="margin:0 0 8px"><strong>Currency:</strong> ' . h($currency) . '</p>' : '')
+        . ($expires !== '' ? '<p style="margin:0 0 14px"><strong>Trial ends:</strong> ' . h($expires) . '</p>' : '')
+        . '<p style="margin:0"><a href="' . h(absolute_url('admin_company.php?id=' . (int) ($company['id'] ?? 0))) . '" style="color:#1E4EFF">Open the company</a></p>'
+    );
+    $adminText = 'New self-registration Pro trial: ' . $name . ' / ' . $who . ' / ' . $to . ' / ' . $phone;
+    notify_platform('New self-registration: ' . $name, $adminHtml, $adminText, $to, (int) ($user['id'] ?? 0));
+
+    $href = url('admin_company.php?id=' . (int) ($company['id'] ?? 0));
+    if (function_exists('platform_alert_add')) {
+        platform_alert_add(
+            'self_register',
+            'New registration · ' . ($name !== '' ? $name : $who),
+            'Pro trial · ' . $to,
+            $href,
+            $to,
+            'normal'
+        );
+    }
+    if (function_exists('push_notify_item')) {
+        push_notify_item([
+            'title' => 'New registration · ' . ($name !== '' ? $name : $who),
+            'meta' => 'Pro trial · ' . $to,
+            'href' => $href,
+            'key' => 'self-reg:' . (int) ($company['id'] ?? 0),
+        ], 'platform');
+    }
+}
+
 function welcome_desk_copy(array $company, array $member, string $password = ''): array
 {
     $who = $member['name'] ?: 'the team';
