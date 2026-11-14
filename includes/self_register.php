@@ -110,6 +110,13 @@ function self_register_start_otp(string $email): array
         return ['ok' => false, 'error' => 'Please wait before requesting another code.'];
     }
 
+    if (!function_exists('google_otp_mail_configured') || !google_otp_mail_configured()) {
+        return [
+            'ok' => false,
+            'error' => 'Verification email is not ready yet. Ask the site admin to add a Google App Password under Settings → Google OTP.',
+        ];
+    }
+
     self_register_purge_old_otps();
     $code = self_register_otp_code();
     $hash = password_hash($code, PASSWORD_DEFAULT);
@@ -141,8 +148,21 @@ function self_register_start_otp(string $email): array
         'email_verified' => false,
         'otp_sent_at' => time(),
         'otp_id' => $otpId,
+        'otp_mail_pending' => true,
+        'otp_mail_failed' => false,
     ]);
     return ['ok' => true, 'email' => $email, 'code' => $code, 'otp_id' => $otpId];
+}
+
+/** Re-open the session after folio_redirect_then closed it. */
+function self_register_resume_session(): void
+{
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        return;
+    }
+    if (session_status() === PHP_SESSION_NONE) {
+        @session_start();
+    }
 }
 
 /** Deliver a prepared OTP after the browser has been redirected. */
@@ -155,22 +175,47 @@ function self_register_deliver_otp(string $email, string $code, int $otpId): voi
     }
     $sent = send_self_register_otp_email($email, $code);
     if (empty($sent['ok'])) {
-        error_log('Vellisys self-register OTP mail failed for ' . $email . ': ' . (string) ($sent['error'] ?? ''));
+        $err = (string) ($sent['error'] ?? 'Could not send the verification email.');
+        error_log('Vellisys self-register OTP mail failed for ' . $email . ': ' . $err);
         try {
             db_exec('DELETE FROM self_register_otps WHERE id = ?', 'i', [$otpId]);
         } catch (Throwable $e) {
             // ignore
         }
+        self_register_resume_session();
+        flash($err !== '' ? $err : 'Could not send the verification email. Try again in a moment.', 'error');
+        self_register_save([
+            'step' => 'email',
+            'email' => $email,
+            'email_verified' => false,
+            'otp_mail_failed' => true,
+        ]);
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
         return;
     }
     try {
+        // Only drop older rows so a concurrent newer send is not wiped by a late success.
         db_exec(
-            'DELETE FROM self_register_otps WHERE email = ? AND verified_at IS NULL AND id <> ?',
+            'DELETE FROM self_register_otps WHERE email = ? AND verified_at IS NULL AND id < ?',
             'si',
             [$email, $otpId]
         );
     } catch (Throwable $e) {
         // non-fatal
+    }
+    self_register_resume_session();
+    $state = self_register_state();
+    if ((int) ($state['otp_id'] ?? 0) === $otpId || self_register_normalize_email((string) ($state['email'] ?? '')) === $email) {
+        $state['otp_mail_pending'] = false;
+        $state['otp_mail_failed'] = false;
+        $state['step'] = 'otp';
+        $state['email'] = $email;
+        self_register_save($state);
+    }
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
     }
 }
 
@@ -190,30 +235,39 @@ function self_register_verify_otp(string $email, string $code): array
     form_rate_hit('self-otp-check:' . $email, 3600);
     form_rate_hit('self-otp-check-ip', 3600);
 
-    $row = null;
+    $rows = [];
     try {
-        $row = db_one(
-            'SELECT * FROM self_register_otps WHERE email = ? AND verified_at IS NULL ORDER BY id DESC LIMIT 1',
+        $rows = db_all(
+            'SELECT * FROM self_register_otps WHERE email = ? AND verified_at IS NULL AND expires_at >= NOW() ORDER BY id DESC',
             's',
             [$email]
         );
     } catch (Throwable $e) {
         return ['ok' => false, 'error' => 'We could not check that code just now.'];
     }
-    if (!$row) {
+    if (!$rows) {
         return ['ok' => false, 'error' => 'That code has expired. Request a new one.'];
     }
-    $expires = strtotime((string) ($row['expires_at'] ?? ''));
-    if ($expires !== false && $expires < time()) {
-        return ['ok' => false, 'error' => 'That code has expired. Request a new one.'];
+
+    $matched = null;
+    $latest = $rows[0];
+    foreach ($rows as $candidate) {
+        $attempts = (int) ($candidate['attempts'] ?? 0);
+        if ($attempts >= 5) {
+            continue;
+        }
+        if (password_verify($code, (string) ($candidate['code_hash'] ?? ''))) {
+            $matched = $candidate;
+            break;
+        }
     }
-    $attempts = (int) ($row['attempts'] ?? 0);
-    if ($attempts >= 5) {
-        return ['ok' => false, 'error' => 'Too many wrong codes. Request a new one.'];
-    }
-    if (!password_verify($code, (string) ($row['code_hash'] ?? ''))) {
+    if (!$matched) {
+        $latestAttempts = (int) ($latest['attempts'] ?? 0);
+        if ($latestAttempts >= 5) {
+            return ['ok' => false, 'error' => 'Too many wrong codes. Request a new one.'];
+        }
         try {
-            db_exec('UPDATE self_register_otps SET attempts = attempts + 1 WHERE id = ?', 'i', [(int) $row['id']]);
+            db_exec('UPDATE self_register_otps SET attempts = attempts + 1 WHERE id = ?', 'i', [(int) $latest['id']]);
         } catch (Throwable $e) {
             // ignore
         }
@@ -221,7 +275,12 @@ function self_register_verify_otp(string $email, string $code): array
     }
 
     try {
-        db_exec('UPDATE self_register_otps SET verified_at = NOW() WHERE id = ?', 'i', [(int) $row['id']]);
+        db_exec('UPDATE self_register_otps SET verified_at = NOW() WHERE id = ?', 'i', [(int) $matched['id']]);
+        db_exec(
+            'DELETE FROM self_register_otps WHERE email = ? AND verified_at IS NULL AND id <> ?',
+            'si',
+            [$email, (int) $matched['id']]
+        );
     } catch (Throwable $e) {
         // continue
     }

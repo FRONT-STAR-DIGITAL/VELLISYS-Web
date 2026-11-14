@@ -106,15 +106,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step !== 'closed') {
 $flash = flash();
 if ($flash && ($flash['type'] ?? '') === 'ok' && $error === '') {
     $info = (string) ($flash['text'] ?? '');
+} elseif ($flash && ($flash['type'] ?? '') === 'error' && $error === '') {
+    $error = (string) ($flash['text'] ?? '');
 }
 $popupKey = strtolower(trim((string) ($_GET['popup'] ?? '')));
+$state = self_register_state();
+$emailValue = $emailValue !== '' ? $emailValue : (string) ($state['email'] ?? '');
 if ($popupKey === 'otp') {
-    $popup = [
-        'title' => 'Check your email',
-        'body' => 'We sent a 6-digit verification code to ' . ($emailValue !== '' ? $emailValue : 'your inbox') . '. Enter it below. It expires in 15 minutes.',
-    ];
-    $info = $info !== '' ? $info : 'Verification code sent.';
     $step = self_register_step();
+    if ($error !== '' || !empty($state['otp_mail_failed'])) {
+        $popup = [
+            'title' => 'Could not send the code',
+            'body' => $error !== '' ? $error : 'Google could not deliver the verification email. Try again in a moment, or ask the admin to check Settings → Google OTP.',
+        ];
+        $step = 'email';
+        if (!empty($state['otp_mail_failed'])) {
+            unset($state['otp_mail_failed']);
+            self_register_save($state);
+        }
+    } elseif ($step === 'otp') {
+        $popup = [
+            'title' => 'Check your email',
+            'body' => 'We sent a 6-digit verification code to ' . ($emailValue !== '' ? $emailValue : 'your inbox') . '. Enter it below. It expires in 15 minutes.',
+        ];
+        $info = $info !== '' ? $info : 'Verification code sent.';
+    }
 } elseif ($popupKey === 'verified') {
     $popup = [
         'title' => 'Email verified',
