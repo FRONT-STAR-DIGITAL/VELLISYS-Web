@@ -59,8 +59,10 @@ function render_nav_boot_script(): void
     position: fixed !important;
     left: 0 !important;
     right: 0 !important;
-    bottom: 0 !important;
-    top: auto !important;
+    /* top/bottom are owned by pinAppTabbar (visualViewport) so the bar
+       cannot drift mid-screen on iOS after chrome show/hide. */
+    bottom: 0;
+    top: auto;
     width: 100% !important;
     max-width: 100vw !important;
     margin: 0 !important;
@@ -136,6 +138,10 @@ function render_nav_boot_script(): void
     }
     if (bar.parentElement !== host) host.appendChild(bar);
     if (host.parentElement !== document.body) document.body.appendChild(host);
+    if (typeof pinAppTabbar === 'function') {
+      pinAppTabbar();
+      return;
+    }
     host.style.setProperty('display', 'block', 'important');
     host.style.setProperty('position', 'fixed', 'important');
     host.style.setProperty('left', '0px', 'important');
@@ -149,15 +155,7 @@ function render_nav_boot_script(): void
     host.style.setProperty('pointer-events', 'none', 'important');
     bar.style.setProperty('display', 'grid', 'important');
     bar.style.setProperty('position', 'relative', 'important');
-    bar.style.setProperty('left', 'auto', 'important');
-    bar.style.setProperty('right', 'auto', 'important');
-    bar.style.setProperty('bottom', 'auto', 'important');
-    bar.style.setProperty('top', 'auto', 'important');
-    bar.style.setProperty('width', '100%', 'important');
-    bar.style.setProperty('margin', '0', 'important');
-    bar.style.setProperty('transform', 'none', 'important');
     bar.style.setProperty('pointer-events', 'auto', 'important');
-    if (typeof pinAppTabbar === 'function') pinAppTabbar();
   }
   document.addEventListener('DOMContentLoaded', pinBar);
   window.addEventListener('load', pinBar);
