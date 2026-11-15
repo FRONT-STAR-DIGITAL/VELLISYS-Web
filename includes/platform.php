@@ -81,6 +81,40 @@ function platform_companies_fee_totals(?array $companies = null): array
     return $out;
 }
 
+/** True when the company's paid term overlaps [from, to] (inclusive). */
+function company_term_overlaps_period(array $company, string $from, string $to): bool
+{
+    $start = substr((string) ($company['paid_from'] ?? ''), 0, 10);
+    $end = substr((string) ($company['expires_at'] ?? ''), 0, 10);
+    if ($start !== '' && $start > $to) {
+        return false;
+    }
+    if ($end !== '' && $end < $from) {
+        return false;
+    }
+    return true;
+}
+
+/**
+ * Outstanding fee balances for onboarded companies whose term is active in the range.
+ */
+function platform_fee_balance_for_period(array $companies, string $from, string $to): float
+{
+    $ccy = platform_currency();
+    $total = 0.0;
+    foreach ($companies as $c) {
+        $bal = company_fee_balance($c);
+        if ($bal <= 0.00001) {
+            continue;
+        }
+        if (!company_term_overlaps_period($c, $from, $to)) {
+            continue;
+        }
+        $total += platform_convert($bal, company_fee_currency($c), $ccy);
+    }
+    return round_money($total, $ccy);
+}
+
 /**
  * All-time taken in from company Amount paid fields (source of truth for settings).
  */

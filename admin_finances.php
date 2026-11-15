@@ -213,10 +213,18 @@ foreach ($companies as $c) {
 $feeTotals = function_exists('platform_companies_fee_totals')
     ? platform_companies_fee_totals($onboardedCompanies)
     : ['paid' => $allTaken, 'balance' => 0.0];
-// Keep Taken in / Still due on onboarded clients (same math as Reports Fees).
+// All-time Taken in / Still due from onboarded clients (Reports Fees source of truth).
 $allTaken = (float) ($feeTotals['paid'] ?? $allTaken);
 $feeBalance = round_money((float) ($feeTotals['balance'] ?? 0), $ccy);
 $allProfit = round_money($allTaken - $allExpenses, $ccy);
+
+$preset = (string) ($period['preset'] ?? 'all');
+$periodFeeBalance = function_exists('platform_fee_balance_for_period')
+    ? platform_fee_balance_for_period($onboardedCompanies, $from, $to)
+    : $feeBalance;
+// Overview cards follow the selected period (All keeps the all-time totals).
+$takenShow = $preset === 'all' ? $allTaken : $periodTaken;
+$dueShow = $preset === 'all' ? $feeBalance : $periodFeeBalance;
 
 $renderFeeCompanies = static function (array $rows, string $emptyMsg) use ($filterQs): void {
     if (!$rows) {
@@ -382,11 +390,15 @@ render_filters('admin_finances.php', $filterKeep, ['live' => true, 'today_first'
 <?php if ($error): ?><p class="flash flash-err"><?= h($error) ?></p><?php endif; ?>
 
 <div class="stats">
-  <div class="card stat"><?= icon('invoice', 20) ?><span>Taken in</span><strong><?= h(money($allTaken, $ccy)) ?></strong><em>All time · period <?= h(money($periodTaken, $ccy)) ?></em></div>
+  <div class="card stat"><?= icon('invoice', 20) ?><span>Taken in</span><strong><?= h(money($takenShow, $ccy)) ?></strong><em><?= $preset === 'all'
+      ? 'All time'
+      : ('This period · all time ' . money($allTaken, $ccy)) ?></em></div>
   <div class="card stat"><?= icon('expense', 20) ?><span>Expenses</span><strong><?= h(money($periodExpenses, $ccy)) ?></strong><em>This period</em></div>
   <div class="card stat"><?= icon('reports', 20) ?><span>Profit</span><strong class="<?= $periodProfit < 0 ? 'neg' : 'pos' ?>"><?= h(money($periodProfit, $ccy)) ?></strong><em>Period taken in − expenses</em></div>
   <div class="card stat"><?= icon('wallet', 20) ?><span>Bank balance</span><strong class="<?= $bankBalance < 0 ? 'neg' : '' ?>"><?= h(money($bankBalance, $ccy)) ?></strong><em>Savings - withdrawals</em></div>
-  <div class="card stat"><?= icon('receipt', 20) ?><span>Still due</span><strong><?= h(money($feeBalance, $ccy)) ?></strong><em>On company terms</em></div>
+  <div class="card stat"><?= icon('receipt', 20) ?><span>Still due</span><strong><?= h(money($dueShow, $ccy)) ?></strong><em><?= $preset === 'all'
+      ? 'On company terms'
+      : ('This period · all ' . money($feeBalance, $ccy)) ?></em></div>
 </div>
 
 <?php if ($tab === 'overview'): ?>
