@@ -6649,7 +6649,7 @@ a.card.stat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--lin
     position: fixed !important;
     left: 0 !important;
     right: 0 !important;
-    bottom: 0 !important;
+    /* top/bottom set by pinAppTabbar (visualViewport). */
     z-index: 99999 !important;
   }
   .sales-demo-desk .app-tabbar {
