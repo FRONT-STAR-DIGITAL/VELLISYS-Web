@@ -816,7 +816,13 @@ function platform_bank_series(string $kind, string $fromDate, string $toDate, st
 
 function record_platform_perf(int $ms, string $path = ''): void
 {
-    if ($ms < 8 || $ms > 30000) {
+    // Ignore noise and tab-sleep outliers.
+    if ($ms < 20 || $ms > 60000) {
+        return;
+    }
+    $path = trim($path);
+    // Ping RTT / sensor probes are not page reloads.
+    if ($path === 'manual-reload' || str_contains($path, 'ping.php')) {
         return;
     }
     $path = mb_substr($path !== '' ? $path : (string) ($_SERVER['SCRIPT_NAME'] ?? ''), 0, 120);
@@ -834,10 +840,23 @@ function record_platform_perf(int $ms, string $path = ''): void
     }
 }
 
+/** SQL fragment: real page navigations only (exclude old ping RTT pollution). */
+function platform_perf_reload_where(): string
+{
+    return "path <> 'manual-reload' AND path NOT LIKE '%ping.php%' AND ms BETWEEN 20 AND 60000";
+}
+
 function platform_avg_reload_ms(int $limit = 20): ?float
 {
     try {
-        $row = db_one('SELECT AVG(ms) AS avg_ms FROM (SELECT ms FROM platform_perf_samples ORDER BY id DESC LIMIT ' . (int) $limit . ') t');
+        $where = platform_perf_reload_where();
+        $row = db_one(
+            'SELECT AVG(ms) AS avg_ms FROM (
+                SELECT ms FROM platform_perf_samples
+                WHERE ' . $where . '
+                ORDER BY id DESC LIMIT ' . (int) $limit . '
+             ) t'
+        );
         if ($row && $row['avg_ms'] !== null) {
             return (float) $row['avg_ms'];
         }
@@ -881,14 +900,22 @@ function platform_reload_stats(int $limit = 20): array
     $ms = platform_avg_reload_ms($limit);
     $health = platform_health_from_ms($ms);
     $spark = [];
+    $latest = null;
     try {
-        $samples = db_all('SELECT ms FROM platform_perf_samples ORDER BY id DESC LIMIT 24');
+        $where = platform_perf_reload_where();
+        $samples = db_all(
+            'SELECT ms FROM platform_perf_samples WHERE ' . $where . ' ORDER BY id DESC LIMIT 24'
+        );
         $spark = array_map(static fn ($r) => (float) ($r['ms'] ?? 0), array_reverse($samples));
+        if ($samples) {
+            $latest = (float) ($samples[0]['ms'] ?? 0);
+        }
     } catch (Throwable $e) {
         $spark = [];
     }
     return [
         'ms' => $ms,
+        'latest' => $latest,
         'label' => $ms === null ? '-' : ((int) round($ms) . ' ms'),
         'health' => $health,
         'spark' => $spark,

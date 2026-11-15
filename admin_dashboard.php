@@ -70,7 +70,8 @@ try {
 $reloadSpark = [];
 $reloadPrev = null;
 try {
-    $samples = db_all('SELECT ms FROM platform_perf_samples ORDER BY id DESC LIMIT 24');
+    $where = function_exists('platform_perf_reload_where') ? platform_perf_reload_where() : '1=1';
+    $samples = db_all('SELECT ms FROM platform_perf_samples WHERE ' . $where . ' ORDER BY id DESC LIMIT 24');
     $vals = array_map(static fn ($r) => (float) ($r['ms'] ?? 0), array_reverse($samples));
     $reloadSpark = $vals;
     if (count($vals) >= 8) {
@@ -620,6 +621,25 @@ layout_end(
     }
     return \'<svg class="admin-spark" viewBox="0 0 \' + w + \' \' + h + \'" width="\' + w + \'" height="\' + h + \'" aria-hidden="true"><polyline fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" points="\' + pts.join(" ") + \'"/></svg>\';
   }
+  function healthFromReloadMs(ms){
+    if(!(ms > 0)) return {key:"healthy", label:"Healthy"};
+    if(ms < 250) return {key:"fast", label:"Fast"};
+    if(ms < 1000) return {key:"healthy", label:"Healthy"};
+    return {key:"slow", label:"Slow"};
+  }
+  function resourceEntryFor(url, afterMs){
+    try {
+      var list = performance.getEntriesByType("resource") || [];
+      for(var i = list.length - 1; i >= 0; i--){
+        var e = list[i];
+        if(!e || !e.name) continue;
+        if(e.name.indexOf(url) === -1 && e.name.split("?")[0] !== String(url).split("?")[0]) continue;
+        if(afterMs && e.startTime + (e.duration || 0) < afterMs - 5) continue;
+        return e;
+      }
+    } catch (err) {}
+    return null;
+  }
   async function refreshReload(){
     setBusy(reloadBtn, true);
     var msEl = document.querySelector("[data-reload-ms]");
@@ -627,19 +647,35 @@ layout_end(
     var trendEl = document.querySelector("[data-reload-trend]");
     var sparkEl = document.querySelector("[data-reload-spark]");
     try {
+      // Measure a real dashboard document fetch (not a tiny ping RTT).
+      var pageUrl = location.pathname + location.search;
+      var sep = pageUrl.indexOf("?") >= 0 ? "&" : "?";
+      var probe = pageUrl + sep + "_speed=" + Date.now();
+      var mark = performance.now();
       var t0 = performance.now();
-      await fetch(ping + "?action=echo&_=" + Date.now(), {credentials:"same-origin", cache:"no-store"});
-      var sample = Math.round(performance.now() - t0);
-      if(sample > 0){
-        await fetch(ping + "?ms=" + encodeURIComponent(sample) + "&path=" + encodeURIComponent("manual-reload"), {credentials:"same-origin", cache:"no-store"});
+      var pageRes = await fetch(probe, {credentials:"same-origin", cache:"no-store", headers:{"Accept":"text/html"}});
+      await pageRes.text();
+      var wall = Math.max(1, performance.now() - t0);
+      var entry = resourceEntryFor(probe, mark);
+      var sample = wall;
+      if(entry && entry.duration > 0){
+        sample = Math.round(entry.duration);
+      } else {
+        sample = Math.round(wall);
+      }
+      var path = (location.pathname || "").split("/").pop() || "admin_dashboard.php";
+      if(sample >= 20 && sample <= 60000){
+        await fetch(ping + "?ms=" + encodeURIComponent(sample) + "&path=" + encodeURIComponent(path), {credentials:"same-origin", cache:"no-store"});
       }
       var res = await fetch(ping + "?action=stats&_=" + Date.now(), {credentials:"same-origin", cache:"no-store"});
       var data = await res.json();
       var reload = (data && data.reload) || {};
-      if(msEl) msEl.textContent = reload.label || (sample ? sample + " ms" : "-");
-      if(chipEl && reload.health){
-        chipEl.textContent = reload.health.label || "Healthy";
-        chipEl.className = chipClass(reload.health.key);
+      var avgLabel = reload.label || (sample ? sample + " ms" : "-");
+      if(msEl) msEl.textContent = avgLabel;
+      if(chipEl){
+        var health = reload.health || healthFromReloadMs(reload.ms || sample);
+        chipEl.textContent = health.label || "Healthy";
+        chipEl.className = chipClass(health.key);
       }
       if(trendEl){
         trendEl.textContent = sample ? ("Just now · " + sample + " ms sample") : "Updated";
@@ -657,6 +693,31 @@ layout_end(
       setBusy(reloadBtn, false);
     }
   }
+  async function measureDownloadMbps(bytes){
+    var url = ping + "?action=blob&bytes=" + bytes + "&_=" + Date.now() + Math.random().toString(16).slice(2);
+    var mark = performance.now();
+    var t0 = performance.now();
+    var res = await fetch(url, {credentials:"same-origin", cache:"no-store"});
+    var buf = await res.arrayBuffer();
+    var wall = Math.max(1, performance.now() - t0);
+    var entry = resourceEntryFor(url, mark);
+    var downloadMs = wall;
+    var rttMs = null;
+    var size = buf.byteLength || bytes;
+    if(entry){
+      if(entry.transferSize > 0) size = entry.transferSize;
+      if(entry.responseStart > 0 && entry.responseEnd > entry.responseStart){
+        downloadMs = Math.max(1, entry.responseEnd - entry.responseStart);
+      } else if(entry.duration > 0){
+        downloadMs = Math.max(1, entry.duration);
+      }
+      if(entry.requestStart > 0 && entry.responseStart >= entry.requestStart){
+        rttMs = Math.max(0, entry.responseStart - entry.requestStart);
+      }
+    }
+    var mbps = (size * 8) / (downloadMs / 1000) / 1e6;
+    return {mbps: mbps, downloadMs: downloadMs, rttMs: rttMs, wallMs: wall, size: size};
+  }
   async function refreshInternet(){
     setBusy(netBtn, true);
     var mbpsEl = document.querySelector("[data-net-mbps]");
@@ -667,13 +728,17 @@ layout_end(
       trendEl.className = "admin-trend is-flat";
     }
     try {
-      var bytes = 262144;
-      var url = ping + "?action=blob&bytes=" + bytes + "&_=" + Date.now();
-      var t0 = performance.now();
-      var res = await fetch(url, {credentials:"same-origin", cache:"no-store"});
-      var buf = await res.arrayBuffer();
-      var ms = Math.max(1, performance.now() - t0);
-      var mbps = (buf.byteLength * 8) / (ms / 1000) / 1e6;
+      // Warm the connection (ignored), then measure a 1 MB download using
+      // responseStart→responseEnd so latency is not counted as throughput.
+      try { await fetch(ping + "?action=echo&_=" + Date.now(), {credentials:"same-origin", cache:"no-store"}); } catch (w) {}
+      try { await measureDownloadMbps(128 * 1024); } catch (w2) {}
+      var best = await measureDownloadMbps(1024 * 1024);
+      // Second pass — TCP is warm; keep the higher (more accurate) reading.
+      try {
+        var again = await measureDownloadMbps(1024 * 1024);
+        if(again.mbps > best.mbps) best = again;
+      } catch (w3) {}
+      var mbps = best.mbps;
       var health = healthFromMbps(mbps);
       if(mbpsEl) mbpsEl.textContent = fmtMbps(mbps);
       if(chipEl){
@@ -681,7 +746,10 @@ layout_end(
         chipEl.className = chipClass(health.key);
       }
       if(trendEl){
-        trendEl.textContent = "Round trip " + Math.round(ms) + " ms";
+        var bits = [];
+        if(best.rttMs != null) bits.push("Latency " + Math.round(best.rttMs) + " ms");
+        bits.push("Download " + Math.round(best.downloadMs) + " ms");
+        trendEl.textContent = bits.join(" · ");
         trendEl.className = "admin-trend is-" + (health.key === "slow" ? "down" : (health.key === "fast" ? "up" : "flat"));
       }
     } catch (e) {
