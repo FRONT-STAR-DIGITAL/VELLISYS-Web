@@ -335,77 +335,100 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $imapPort = (int) $ends['imap_port'];
         $passPlain = mail_normalize_secret(post('mail_password'), $provider);
         $stored = (string) ($company['mail_password'] ?? '');
+        $hadStored = $stored !== '';
         if ($passPlain !== '') {
             $stored = mail_encrypt_secret($passPlain, $provider);
         }
+        $prevProvider = strtolower(trim((string) ($company['mail_provider'] ?? '')));
+        $providerChanged = $prevProvider !== '' && $prevProvider !== $provider;
         if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $error = 'The sending mailbox must be a valid email.';
+        } elseif ($email !== '' && $passPlain === '' && (!$hadStored || $providerChanged)) {
+            $error = $providerChanged
+                ? 'Enter the ' . ucfirst($provider) . ' mailbox password again after changing mail type.'
+                : 'Enter the mailbox password from the email panel to save.';
         } elseif ($provider === 'gmail' && $passPlain !== '' && !mail_app_password_ok($passPlain, 'gmail')) {
             $error = 'Gmail needs a 16-character App Password from Google Account → Security → 2-Step Verification → App passwords (not the normal Gmail sign-in password). Paste it with or without spaces.';
         } elseif ($provider === 'yahoo' && $passPlain !== '' && !mail_app_password_ok($passPlain, 'yahoo')) {
             $error = 'Yahoo needs a 16-character App Password from Yahoo Account Security → Generate app password (not the normal Yahoo sign-in password). Paste it with or without spaces.';
         } elseif (in_array($provider, ['hostinger', 'titan'], true) && $passPlain !== '' && strlen($passPlain) < 6) {
             $error = ucfirst($provider) . ' needs the full mailbox password from the email panel (at least 6 characters).';
+        } elseif ($email !== '' && $stored === '') {
+            $error = 'Could not store the mailbox password. Try pasting it again.';
         } else {
-            db_exec(
-                'UPDATE companies SET mail_provider=?, mail_email=?, mail_password=?, mail_from_name=?, smtp_host=?, smtp_port=?, smtp_secure=?, pop_host=?, pop_port=?, imap_host=?, imap_port=? WHERE id=?',
-                'sssssissisii',
-                [$provider, $email, $stored, $fromName, $host, $port, $secure, $popHost, $popPort, $imapHost, $imapPort, $id]
-            );
-            $company = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$id]);
-            if ($email !== '') {
-                company_mark_onboard_step($id, 'mailbox');
+            try {
+                db_exec(
+                    'UPDATE companies SET mail_provider=?, mail_email=?, mail_password=?, mail_from_name=?, smtp_host=?, smtp_port=?, smtp_secure=?, pop_host=?, pop_port=?, imap_host=?, imap_port=? WHERE id=?',
+                    'sssssissisii',
+                    [$provider, $email, $stored, $fromName, $host, $port, $secure, $popHost, $popPort, $imapHost, $imapPort, $id]
+                );
+            } catch (Throwable $e) {
+                $error = 'Could not save the sending mailbox. Check the mail type, address and password, then try again.';
             }
-            if ($action === 'mailbox_test') {
-                $acct = company_mail_account($company);
-                if (!$acct) {
-                    $error = 'Save a mailbox email and password before testing.';
-                } else {
-                    $coBrand = branding_for($id);
-                    $from = (string) $acct['from_email'];
-                    $html = branded_company_wrap($coBrand, '<p style="margin:0 0 14px;color:#000000">This is a test from <strong>' . h($company['name']) . '</strong>.</p><p style="margin:0 0 14px;color:#000000">Reminders, custom letters, quotations, invoices and receipts leave from <strong>' . h($from) . '</strong> in these colours, with this logo and these contact details.</p><p style="margin:0;color:#000000">If you can read this, the company mailbox is sending.</p>', 'Mailbox test');
-                    $text = 'Mailbox test from ' . $company['name'] . ' (' . $from . ").\n\nSent from Vellisys system";
-                    $inlines = company_logo_inlines($coBrand);
-                    $targets = [$from];
-                    $alert = platform_alert_email();
-                    if ($alert !== '' && !emails_same($alert, $from)) {
-                        $targets[] = $alert;
-                    }
-                    $okTo = [];
-                    $err = '';
-                    $prevCopy = $GLOBALS['folio_skip_platform_copy'] ?? null;
-                    $GLOBALS['folio_skip_platform_copy'] = true;
-                    foreach ($targets as $toAddr) {
-                        $test = deliver_mail($acct, $toAddr, 'Mailbox test: ' . $company['name'], $html, $text, $from, $inlines);
-                        log_email(null, (int) $user['id'], $toAddr, 'Mailbox test: ' . $company['name'], $text, !empty($test['ok']), (string) ($test['error'] ?? ''), $from);
-                        if (!empty($test['ok'])) {
-                            $okTo[] = $toAddr;
-                        } else {
-                            $err = (string) ($test['error'] ?? 'SMTP did not accept the message.');
+            if ($error === '') {
+                $company = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$id]);
+                if ($email !== '') {
+                    company_mark_onboard_step($id, 'mailbox');
+                }
+                if ($action === 'mailbox_test') {
+                    $acct = company_mail_account($company);
+                    if (!$acct) {
+                        $error = 'Save a mailbox email and password before testing.';
+                    } else {
+                        $coBrand = branding_for($id);
+                        $from = (string) $acct['from_email'];
+                        $html = branded_company_wrap($coBrand, '<p style="margin:0 0 14px;color:#000000">This is a test from <strong>' . h($company['name']) . '</strong>.</p><p style="margin:0 0 14px;color:#000000">Reminders, custom letters, quotations, invoices and receipts leave from <strong>' . h($from) . '</strong> in these colours, with this logo and these contact details.</p><p style="margin:0;color:#000000">If you can read this in <strong>' . h(product_email()) . '</strong>, the company mailbox is sending.</p>', 'Mailbox test');
+                        $text = 'Mailbox test from ' . $company['name'] . ' (' . $from . ").\n\nCheck " . product_email() . ".\nSent from Vellisys system";
+                        $inlines = company_logo_inlines($coBrand);
+                        // Always deliver the test to the Vellisys inbox.
+                        $targets = [];
+                        $watch = strtolower(trim(product_email()));
+                        if ($watch !== '' && filter_var($watch, FILTER_VALIDATE_EMAIL)) {
+                            $targets[] = $watch;
                         }
+                        $alert = platform_alert_email();
+                        if ($alert !== '' && !emails_same($alert, $watch)) {
+                            $targets[] = $alert;
+                        }
+                        if (!$targets) {
+                            $targets[] = $from;
+                        }
+                        $okTo = [];
+                        $err = '';
+                        $prevCopy = $GLOBALS['folio_skip_platform_copy'] ?? null;
+                        $GLOBALS['folio_skip_platform_copy'] = true;
+                        foreach ($targets as $toAddr) {
+                            $test = deliver_mail($acct, $toAddr, 'Mailbox test: ' . $company['name'], $html, $text, $from, $inlines);
+                            log_email(null, (int) $user['id'], $toAddr, 'Mailbox test: ' . $company['name'], $text, !empty($test['ok']), (string) ($test['error'] ?? ''), $from);
+                            if (!empty($test['ok'])) {
+                                $okTo[] = $toAddr;
+                            } else {
+                                $err = (string) ($test['error'] ?? 'SMTP did not accept the message.');
+                            }
+                        }
+                        if ($prevCopy === null) {
+                            unset($GLOBALS['folio_skip_platform_copy']);
+                        } else {
+                            $GLOBALS['folio_skip_platform_copy'] = $prevCopy;
+                        }
+                        if ($okTo) {
+                            flash('Company test sent from ' . $from . ' (their logo and colours) to ' . implode(' and ', $okTo) . '. Open ' . product_email() . '.');
+                        } else {
+                            $provHint = match ((string) ($company['mail_provider'] ?? '')) {
+                                'gmail' => ' For Gmail: Google Account → Security → 2-Step Verification → App passwords (16 characters). Workspace must allow App Passwords.',
+                                'yahoo' => ' For Yahoo: Account Security → Generate app password (16 characters), not the normal Yahoo login.',
+                                'titan' => ' For Titan use the mailbox password from the Titan panel.',
+                                'hostinger' => ' For Hostinger use the mailbox password from hPanel.',
+                                default => ' Check the mail type, mailbox and password.',
+                            };
+                            flash('Company test was not sent from ' . $from . ': ' . ($err !== '' ? $err : 'SMTP did not accept the message.') . $provHint, 'err');
+                        }
+                        redirect('admin_company.php?id=' . $id);
                     }
-                    if ($prevCopy === null) {
-                        unset($GLOBALS['folio_skip_platform_copy']);
-                    } else {
-                        $GLOBALS['folio_skip_platform_copy'] = $prevCopy;
-                    }
-                    if ($okTo) {
-                        flash('Company test sent from ' . $from . ' (their logo and colours) to ' . implode(' and ', $okTo) . '. Open that inbox — not ' . product_email() . '.');
-                    } else {
-                        $provHint = match ((string) ($company['mail_provider'] ?? '')) {
-                            'gmail' => ' For Gmail: Google Account → Security → 2-Step Verification → App passwords (16 characters). Workspace must allow App Passwords.',
-                            'yahoo' => ' For Yahoo: Account Security → Generate app password (16 characters), not the normal Yahoo login.',
-                            'titan' => ' For Titan use the mailbox password from the Titan panel.',
-                            'hostinger' => ' For Hostinger use the mailbox password from hPanel.',
-                            default => ' Check the mail type, mailbox and password.',
-                        };
-                        flash('Company test was not sent from ' . $from . ': ' . ($err !== '' ? $err : 'SMTP did not accept the message.') . $provHint, 'err');
-                    }
+                } else {
+                    flash('Sending mailbox saved for ' . $company['name'] . '. The company desk cannot edit it.');
                     redirect('admin_company.php?id=' . $id);
                 }
-            } else {
-                flash('Sending mailbox saved for ' . $company['name'] . '. The company desk cannot edit it.');
-                redirect('admin_company.php?id=' . $id);
             }
         }
     }
@@ -1145,7 +1168,7 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
       <li>Open <a href="https://myaccount.google.com/security" target="_blank" rel="noopener">Google Account → Security</a> and turn on <strong>2-Step Verification</strong>.</li>
       <li>Open <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">App passwords</a>, create one for “Mail”, copy the 16 characters.</li>
       <li>Paste that App Password below (spaces are fine). Do <strong>not</strong> use the normal Gmail login password.</li>
-      <li>Click <strong>Save mailbox</strong>, then <strong>Send test</strong>. The test arrives in this Gmail inbox.</li>
+      <li>Click <strong>Save mailbox</strong>, then <strong>Send test</strong>. The test arrives in <?= h(product_email()) ?>.</li>
     </ol>
     <p class="hint" style="margin:8px 0 0">Google Workspace: your admin must allow App Passwords. If App Passwords are blocked, Gmail SMTP cannot connect from Vellisys.</p>
   </div>
@@ -1155,7 +1178,7 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
       <li>Open <a href="https://login.yahoo.com/account/security" target="_blank" rel="noopener">Yahoo Account Security</a> and turn on <strong>2-Step Verification</strong> if it is not already on.</li>
       <li>Choose <strong>Generate app password</strong> (or App passwords), create one for Mail, copy the 16 characters.</li>
       <li>Paste that App Password below (spaces are fine). Do <strong>not</strong> use the normal Yahoo login password.</li>
-      <li>Click <strong>Save mailbox</strong>, then <strong>Send test</strong>. The test arrives in this Yahoo inbox.</li>
+      <li>Click <strong>Save mailbox</strong>, then <strong>Send test</strong>. The test arrives in <?= h(product_email()) ?>.</li>
     </ol>
   </div>
 
@@ -1212,7 +1235,7 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
   <div style="padding:12px 22px 22px">
     <p class="hint" style="margin:0 0 12px">
       Desk Settings show this address as locked — only Super Admin can change it. Passwords are encrypted at rest.
-      Send test uses the company logo and colours, goes to this mailbox<?= platform_alert_email() !== '' ? ' and your alert email' : '' ?>, and is not sent to <?= h(product_email()) ?>.
+      Send test uses the company logo and colours and is delivered to <?= h(product_email()) ?><?= platform_alert_email() !== '' ? ' (and your alert email)' : '' ?>.
       <?php if ($readyAcct): ?>
         <strong>Ready:</strong> sending via <?= h((string) ($readyAcct['host'] ?? '')) ?>:<?= (int) ($readyAcct['port'] ?? 0) ?> as <?= h((string) ($readyAcct['from_email'] ?? '')) ?>.
       <?php else: ?>

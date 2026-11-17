@@ -83,8 +83,9 @@ function mail_provider_hint(string $provider): string
 
 /**
  * Normalize a mailbox secret for storage/sign-in.
- * Gmail / Yahoo App Passwords are often pasted with spaces - strip those.
- * Hostinger and Titan keep the password exactly as set in their panel.
+ * Gmail / Yahoo App Passwords are often pasted with spaces - strip those only
+ * for those providers. Hostinger and Titan keep the password exactly as set
+ * in their panel (never strip spaces/hyphens from a Hostinger secret).
  */
 function mail_normalize_secret(string $plain, ?string $provider = null): string
 {
@@ -93,8 +94,7 @@ function mail_normalize_secret(string $plain, ?string $provider = null): string
     $plain = preg_replace('/[\x{00A0}\x{2000}-\x{200D}\x{202F}\x{205F}\x{3000}\x{FEFF}]/u', '', $plain) ?? $plain;
     $plain = trim($plain);
     $provider = strtolower(trim((string) $provider));
-    $looksLikeAppPass = (bool) preg_match('/^[a-z0-9]{4}(?:[\s\-]+[a-z0-9]{4}){3}$/i', $plain);
-    if (in_array($provider, ['gmail', 'yahoo'], true) || $looksLikeAppPass) {
+    if (in_array($provider, ['gmail', 'yahoo'], true)) {
         return preg_replace('/[\s\-]+/', '', $plain) ?? '';
     }
     return $plain;

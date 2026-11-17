@@ -3279,16 +3279,22 @@ function platform_create_company(?int $signupId = null): array
             'imap_port' => (int) post('imap_port'),
         ]);
         $passPlain = mail_normalize_secret(post('mail_password'), $provider);
-        if ($provider === 'gmail' && $passPlain !== '' && !mail_app_password_ok($passPlain, 'gmail')) {
+        if ($passPlain === '') {
+            return ['ok' => false, 'error' => 'Enter the mailbox password from the email panel to save the sending mailbox.'];
+        }
+        if ($provider === 'gmail' && !mail_app_password_ok($passPlain, 'gmail')) {
             return ['ok' => false, 'error' => 'Gmail needs a 16-character App Password from Google Account → Security → App passwords (not the normal Gmail sign-in password).'];
         }
-        if ($provider === 'yahoo' && $passPlain !== '' && !mail_app_password_ok($passPlain, 'yahoo')) {
+        if ($provider === 'yahoo' && !mail_app_password_ok($passPlain, 'yahoo')) {
             return ['ok' => false, 'error' => 'Yahoo needs a 16-character App Password from Yahoo Account Security → Generate app password (not the normal Yahoo sign-in password).'];
         }
-        if (in_array($provider, ['hostinger', 'titan'], true) && $passPlain !== '' && strlen($passPlain) < 6) {
+        if (in_array($provider, ['hostinger', 'titan'], true) && strlen($passPlain) < 6) {
             return ['ok' => false, 'error' => ucfirst($provider) . ' needs the full mailbox password from the email panel (at least 6 characters).'];
         }
-        $stored = $passPlain !== '' ? mail_encrypt_secret($passPlain, $provider) : null;
+        $stored = mail_encrypt_secret($passPlain, $provider);
+        if ($stored === '') {
+            return ['ok' => false, 'error' => 'Could not store the mailbox password. Try pasting it again.'];
+        }
         db_exec(
             'UPDATE companies SET mail_provider=?, mail_email=?, mail_password=?, mail_from_name=?, smtp_host=?, smtp_port=?, smtp_secure=?, pop_host=?, pop_port=?, imap_host=?, imap_port=? WHERE id=?',
             'sssssissisii',
