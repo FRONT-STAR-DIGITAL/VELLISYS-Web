@@ -334,63 +334,76 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
 
   <div class="card-head" style="margin-top:8px"><h2><?= icon('send', 16) ?>Sending mailbox</h2></div>
   <p class="lede" style="padding:0 22px">Optional. Hostinger, Titan or Gmail address this desk will send from. The company cannot edit the password.</p>
-  <div class="form-grid" style="padding:0 22px" data-mail-box>
-    <div>
-      <label for="mail_provider">Mail type</label>
-      <select id="mail_provider" name="mail_provider" data-mail-provider>
-        <?php foreach (mail_provider_presets() as $key => $preset): ?>
-          <option value="<?= h($key) ?>" <?= (post('mail_provider') ?: 'hostinger') === $key ? 'selected' : '' ?>><?= h($preset['label']) ?></option>
-        <?php endforeach; ?>
-      </select>
+  <div style="padding:0 22px" data-mail-box>
+    <div class="form-grid">
+      <div>
+        <label for="mail_provider">Mail type</label>
+        <select id="mail_provider" name="mail_provider" data-mail-provider>
+          <?php foreach (mail_provider_presets() as $key => $preset): ?>
+            <option value="<?= h($key) ?>" <?= (post('mail_provider') ?: 'hostinger') === $key ? 'selected' : '' ?>><?= h($preset['label']) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+      <div>
+        <label for="mail_email">Mailbox email</label>
+        <input id="mail_email" name="mail_email" type="email" value="<?= h(post('mail_email')) ?>" placeholder="you@gmail.com" autocomplete="off">
+      </div>
+      <div>
+        <label for="mail_password" data-mail-pass-label>Password</label>
+        <?php render_password_toggle_field('mail_password', 'mail_password', 'App Password or mailbox password', post('mail_password')); ?>
+        <p class="hint" style="margin:6px 0 0" data-mail-pass-hint hidden></p>
+      </div>
+      <div>
+        <label for="mail_from_name">From name</label>
+        <input id="mail_from_name" name="mail_from_name" value="<?= h(post('mail_from_name')) ?>" placeholder="Company name if blank">
+      </div>
     </div>
-    <div>
-      <label for="mail_email">Mailbox</label>
-      <input id="mail_email" name="mail_email" type="email" value="<?= h(post('mail_email')) ?>" placeholder="accounts@company.com">
+    <div class="mail-gmail-steps" data-mail-gmail-steps<?= (post('mail_provider') ?: '') === 'gmail' ? '' : ' hidden' ?> style="margin-top:8px">
+      <ol class="hint" style="margin:0;padding-left:18px;line-height:1.55">
+        <li>Turn on <strong>2-Step Verification</strong> in Google Account → Security.</li>
+        <li>Create an <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">App password</a> for Mail and paste the 16 characters here.</li>
+      </ol>
     </div>
-    <div>
-      <label for="mail_password">Mailbox password</label>
-      <?php render_password_toggle_field('mail_password', 'mail_password', 'Mailbox or Gmail App Password', post('mail_password')); ?>
-    </div>
-    <div>
-      <label for="mail_from_name">From name</label>
-      <input id="mail_from_name" name="mail_from_name" value="<?= h(post('mail_from_name')) ?>" placeholder="Company name if blank">
-    </div>
-    <div>
-      <label for="smtp_host">SMTP host</label>
-      <input id="smtp_host" name="smtp_host" data-mail-field="smtp_host" value="<?= h(post('smtp_host') ?: $mailPreset['smtp_host']) ?>">
-    </div>
-    <div>
-      <label for="smtp_port">SMTP port</label>
-      <input id="smtp_port" name="smtp_port" type="number" data-mail-field="smtp_port" value="<?= h(post('smtp_port') !== '' ? post('smtp_port') : (string) $mailPreset['smtp_port']) ?>">
-    </div>
-    <div>
-      <label for="smtp_secure">SMTP security</label>
-      <select id="smtp_secure" name="smtp_secure" data-mail-field="smtp_secure">
-        <?php $sec = post('smtp_secure') ?: $mailPreset['smtp_secure']; ?>
-        <?php foreach (['ssl' => 'SSL (465)', 'tls' => 'STARTTLS (587)', 'none' => 'None'] as $k => $label): ?>
-          <option value="<?= h($k) ?>" <?= $sec === $k ? 'selected' : '' ?>><?= h($label) ?></option>
-        <?php endforeach; ?>
-      </select>
-    </div>
-    <div>
-      <label for="pop_host">POP host</label>
-      <input id="pop_host" name="pop_host" data-mail-field="pop_host" value="<?= h(post('pop_host') ?: $mailPreset['pop_host']) ?>">
-    </div>
-    <div>
-      <label for="pop_port">POP port</label>
-      <input id="pop_port" name="pop_port" type="number" data-mail-field="pop_port" value="<?= h(post('pop_port') !== '' ? post('pop_port') : (string) $mailPreset['pop_port']) ?>">
-    </div>
-    <div>
-      <label for="imap_host">IMAP host</label>
-      <input id="imap_host" name="imap_host" data-mail-field="imap_host" value="<?= h(post('imap_host') ?: $mailPreset['imap_host']) ?>">
-    </div>
-    <div>
-      <label for="imap_port">IMAP port</label>
-      <input id="imap_port" name="imap_port" type="number" data-mail-field="imap_port" value="<?= h(post('imap_port') !== '' ? post('imap_port') : (string) $mailPreset['imap_port']) ?>">
-    </div>
-    <div style="grid-column:1 / -1">
-      <p class="hint" data-mail-help style="margin:0"><?= h(mail_provider_hint(post('mail_provider') ?: 'hostinger')) ?></p>
-    </div>
+    <p class="hint" data-mail-help style="margin:10px 0 8px"><?= h(mail_provider_hint(post('mail_provider') ?: 'hostinger')) ?></p>
+    <p class="hint" style="margin:0 0 8px" data-mail-endpoint-summary></p>
+    <details class="mail-advanced" data-mail-advanced<?= (post('mail_provider') ?: 'hostinger') === 'custom' ? ' open' : '' ?>>
+      <summary style="cursor:pointer;font-weight:700">Advanced SMTP / POP / IMAP</summary>
+      <div class="form-grid" style="padding-top:12px">
+        <div>
+          <label for="smtp_host">SMTP host</label>
+          <input id="smtp_host" name="smtp_host" data-mail-field="smtp_host" value="<?= h(post('smtp_host') ?: $mailPreset['smtp_host']) ?>">
+        </div>
+        <div>
+          <label for="smtp_port">SMTP port</label>
+          <input id="smtp_port" name="smtp_port" type="number" data-mail-field="smtp_port" value="<?= h(post('smtp_port') !== '' ? post('smtp_port') : (string) $mailPreset['smtp_port']) ?>">
+        </div>
+        <div>
+          <label for="smtp_secure">SMTP security</label>
+          <select id="smtp_secure" name="smtp_secure" data-mail-field="smtp_secure">
+            <?php $sec = post('smtp_secure') ?: $mailPreset['smtp_secure']; ?>
+            <?php foreach (['ssl' => 'SSL (465)', 'tls' => 'STARTTLS (587)', 'none' => 'None'] as $k => $label): ?>
+              <option value="<?= h($k) ?>" <?= $sec === $k ? 'selected' : '' ?>><?= h($label) ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div>
+          <label for="pop_host">POP host</label>
+          <input id="pop_host" name="pop_host" data-mail-field="pop_host" value="<?= h(post('pop_host') ?: $mailPreset['pop_host']) ?>">
+        </div>
+        <div>
+          <label for="pop_port">POP port</label>
+          <input id="pop_port" name="pop_port" type="number" data-mail-field="pop_port" value="<?= h(post('pop_port') !== '' ? post('pop_port') : (string) $mailPreset['pop_port']) ?>">
+        </div>
+        <div>
+          <label for="imap_host">IMAP host</label>
+          <input id="imap_host" name="imap_host" data-mail-field="imap_host" value="<?= h(post('imap_host') ?: $mailPreset['imap_host']) ?>">
+        </div>
+        <div>
+          <label for="imap_port">IMAP port</label>
+          <input id="imap_port" name="imap_port" type="number" data-mail-field="imap_port" value="<?= h(post('imap_port') !== '' ? post('imap_port') : (string) $mailPreset['imap_port']) ?>">
+        </div>
+      </div>
+    </details>
     <script type="application/json" data-mail-presets><?= json_encode(mail_provider_presets(), JSON_UNESCAPED_SLASHES) ?></script>
   </div>
 

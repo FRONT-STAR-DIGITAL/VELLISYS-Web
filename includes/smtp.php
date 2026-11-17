@@ -44,7 +44,7 @@ function mail_provider_presets(): array
             'pop_port' => 995,
             'imap_host' => 'imap.gmail.com',
             'imap_port' => 993,
-            'hint' => 'Gmail is supported and sends over STARTTLS (smtp.gmail.com:587). Turn on 2-Step Verification, create a 16-character App Password (not the normal Gmail login), Save mailbox, then Send test. Passwords are encrypted at rest on Vellisys.',
+            'hint' => 'Gmail sends via smtp.gmail.com (587 STARTTLS, with automatic SSL 465 fallback). Use a 16-character App Password from Google Account → Security → App passwords — not your normal Gmail password. Passwords are encrypted at rest.',
         ],
         'custom' => [
             'label' => 'Custom',
@@ -78,12 +78,22 @@ function mail_provider_hint(string $provider): string
 function mail_normalize_secret(string $plain, ?string $provider = null): string
 {
     $plain = trim($plain);
+    // Zero-width / non-breaking spaces from mobile paste break Gmail auth.
+    $plain = preg_replace('/[\x{00A0}\x{2000}-\x{200D}\x{202F}\x{205F}\x{3000}\x{FEFF}]/u', '', $plain) ?? $plain;
+    $plain = trim($plain);
     $provider = strtolower(trim((string) $provider));
-    $looksLikeGmailApp = (bool) preg_match('/^[a-z0-9]{4}(?:\s+[a-z0-9]{4}){3}$/i', $plain);
+    $looksLikeGmailApp = (bool) preg_match('/^[a-z0-9]{4}(?:[\s\-]+[a-z0-9]{4}){3}$/i', $plain);
     if ($provider === 'gmail' || $looksLikeGmailApp) {
-        return preg_replace('/\s+/', '', $plain) ?? '';
+        return preg_replace('/[\s\-]+/', '', $plain) ?? '';
     }
     return $plain;
+}
+
+/** True when the secret looks like a Google App Password (16 letters/digits). */
+function mail_gmail_app_password_ok(string $plain): bool
+{
+    $n = mail_normalize_secret($plain, 'gmail');
+    return (bool) preg_match('/^[a-z0-9]{16}$/i', $n);
 }
 
 /**
@@ -283,19 +293,44 @@ function company_mail_account(array $company): ?array
     ];
 }
 
+function smtp_tls_crypto_method(): int
+{
+    $method = STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT;
+    if (defined('STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT')) {
+        $method |= STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT;
+    }
+    return $method;
+}
+
+function smtp_is_gmail_account(array $account): bool
+{
+    $provider = strtolower((string) ($account['provider'] ?? ''));
+    $host = strtolower(trim((string) ($account['host'] ?? '')));
+    $user = strtolower(trim((string) ($account['username'] ?? $account['from_email'] ?? '')));
+    return $provider === 'gmail'
+        || str_contains($host, 'gmail')
+        || str_ends_with($user, '@gmail.com')
+        || str_ends_with($user, '@googlemail.com');
+}
+
+/** Transport errors that often mean port 587 is blocked — try Gmail SSL 465. */
+function smtp_error_looks_like_transport(string $error): bool
+{
+    $e = strtolower($error);
+    return str_contains($e, 'could not reach')
+        || str_contains($e, 'starttls failed')
+        || str_contains($e, 'connection')
+        || str_contains($e, 'timed out')
+        || str_contains($e, 'ssl')
+        || str_contains($e, 'tls');
+}
+
+/**
+ * Send via SMTP. Gmail retries on smtp.gmail.com:465 SSL when STARTTLS/587 fails
+ * (common on locked-down hosts).
+ */
 function smtp_send(array $account, string $to, string $subject, string $html, string $text, string $replyTo = '', array $inlines = []): array
 {
-    $host = trim((string) ($account['host'] ?? ''));
-    $port = (int) ($account['port'] ?? 465);
-    $secure = (string) ($account['secure'] ?? 'ssl');
-    $user = (string) ($account['username'] ?? '');
-    $pass = (string) ($account['password'] ?? '');
-    $from = (string) ($account['from_email'] ?? $user);
-    $fromName = (string) ($account['from_name'] ?? product_from_name());
-    if ($host === '' || $user === '' || $pass === '' || !filter_var($to, FILTER_VALIDATE_EMAIL) || !filter_var($from, FILTER_VALIDATE_EMAIL)) {
-        return ['ok' => false, 'error' => 'Mailbox is not fully configured.'];
-    }
-
     if (session_status() === PHP_SESSION_ACTIVE) {
         session_write_close();
     }
@@ -308,7 +343,60 @@ function smtp_send(array $account, string $to, string $subject, string $html, st
         return ['ok' => false, 'error' => 'Mail deferred so the site stays fast.'];
     }
     $sent++;
-    $timeout = 12;
+
+    $result = smtp_send_once($account, $to, $subject, $html, $text, $replyTo, $inlines);
+    if (!empty($result['ok'])) {
+        return $result;
+    }
+    if (!smtp_is_gmail_account($account)) {
+        return $result;
+    }
+    $port = (int) ($account['port'] ?? 587);
+    $secure = strtolower((string) ($account['secure'] ?? 'tls'));
+    $err = (string) ($result['error'] ?? '');
+    // Already on 465, or auth failed (password problem) — do not retry.
+    if ($port === 465 && $secure === 'ssl') {
+        return $result;
+    }
+    if (str_contains(strtolower($err), 'sign-in') || str_contains(strtolower($err), 'app password')) {
+        return $result;
+    }
+    if (!smtp_error_looks_like_transport($err) && $err !== '') {
+        // Still try 465 once for opaque transport failures on 587.
+        if (!str_contains(strtolower($err), 'could not') && !str_contains(strtolower($err), 'starttls')) {
+            // Auth and RCPT errors should not flip ports.
+            if (preg_match('/\b(550|551|552|553|554|535|534)\b/', $err)) {
+                return $result;
+            }
+        }
+    }
+    $fallback = $account;
+    $fallback['host'] = 'smtp.gmail.com';
+    $fallback['port'] = 465;
+    $fallback['secure'] = 'ssl';
+    $retry = smtp_send_once($fallback, $to, $subject, $html, $text, $replyTo, $inlines);
+    if (!empty($retry['ok'])) {
+        $retry['via'] = 'smtp.gmail.com:465';
+        return $retry;
+    }
+    // Prefer the more specific auth error if the fallback also failed auth.
+    return $retry;
+}
+
+function smtp_send_once(array $account, string $to, string $subject, string $html, string $text, string $replyTo = '', array $inlines = []): array
+{
+    $host = trim((string) ($account['host'] ?? ''));
+    $port = (int) ($account['port'] ?? 465);
+    $secure = (string) ($account['secure'] ?? 'ssl');
+    $user = (string) ($account['username'] ?? '');
+    $pass = (string) ($account['password'] ?? '');
+    $from = (string) ($account['from_email'] ?? $user);
+    $fromName = (string) ($account['from_name'] ?? product_from_name());
+    if ($host === '' || $user === '' || $pass === '' || !filter_var($to, FILTER_VALIDATE_EMAIL) || !filter_var($from, FILTER_VALIDATE_EMAIL)) {
+        return ['ok' => false, 'error' => 'Mailbox is not fully configured.'];
+    }
+
+    $timeout = 18;
     $remote = ($secure === 'ssl' ? 'ssl://' : 'tcp://') . $host . ':' . $port;
     $ctx = stream_context_create([
         'ssl' => [
@@ -317,6 +405,7 @@ function smtp_send(array $account, string $to, string $subject, string $html, st
             'allow_self_signed' => false,
             'SNI_enabled' => true,
             'peer_name' => $host,
+            'crypto_method' => smtp_tls_crypto_method(),
         ],
     ]);
     $fp = @stream_socket_client($remote, $errno, $errstr, $timeout, STREAM_CLIENT_CONNECT, $ctx);
@@ -373,7 +462,7 @@ function smtp_send(array $account, string $to, string $subject, string $html, st
         if ($err) {
             return ['ok' => false, 'error' => $err];
         }
-        $crypto = stream_socket_enable_crypto($fp, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
+        $crypto = stream_socket_enable_crypto($fp, true, smtp_tls_crypto_method());
         if ($crypto !== true) {
             fclose($fp);
             return ['ok' => false, 'error' => 'STARTTLS failed on ' . $host . '.'];
@@ -395,8 +484,8 @@ function smtp_send(array $account, string $to, string $subject, string $html, st
     $err = $expect($cmd(base64_encode($pass)), [235]);
     if ($err) {
         $provider = strtolower((string) ($account['provider'] ?? ''));
-        if ($provider === 'gmail' || str_contains(strtolower($host), 'gmail')) {
-            return ['ok' => false, 'error' => 'Gmail sign-in failed. Use a 16-character App Password (Google Account → Security → App passwords with 2-Step Verification on), not the normal Gmail password.'];
+        if ($provider === 'gmail' || str_contains(strtolower($host), 'gmail') || smtp_is_gmail_account($account)) {
+            return ['ok' => false, 'error' => 'Gmail sign-in failed. Use a 16-character App Password (Google Account → Security → 2-Step Verification → App passwords), not the normal Gmail password. Workspace admins must allow App Passwords.'];
         }
         if ($provider === 'titan' || str_contains(strtolower($host), 'titan')) {
             return ['ok' => false, 'error' => 'Titan sign-in failed. Use the exact mailbox password from the Titan / email panel for this address.'];

@@ -98,9 +98,9 @@ layout_admin_start('Settings', $user);
   <div class="card-head"><h2><?= icon('send', 16) ?>Where alerts arrive</h2></div>
   <div class="form-grid" style="padding:0 22px">
     <div>
-      <label for="alert_email">Your Gmail (password resets and mailbox tests)</label>
+      <label for="alert_email">Alert email (where you want copies)</label>
       <input id="alert_email" name="alert_email" type="email" value="<?= h($alertEmail) ?>" placeholder="you@gmail.com" autocomplete="off">
-      <p class="hint">Vellisys letters still leave from <?= h(product_email()) ?> to clients. Hostinger files mail from info@ to info@ as Spam, and Spam is not forwarded to Gmail. Put the Gmail you actually open here for password-reset requests and copies of Vellisys letters. Company Send test goes to the company mailbox, not to info@.</p>
+      <p class="hint">This is only a delivery address for password-reset alerts and copies of Vellisys letters — it does not connect Gmail for sending. To let a company send from Gmail, open that company → Sending mailbox → Mail type Gmail → paste an App Password → Save → Send test. Platform letters still leave from <?= h(product_email()) ?>.</p>
     </div>
   </div>
   <div class="card-head"><h2><?= icon('mail', 16) ?>System OTP for Create Account</h2></div>

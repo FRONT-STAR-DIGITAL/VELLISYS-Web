@@ -340,8 +340,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $error = 'The sending mailbox must be a valid email.';
-        } elseif ($provider === 'gmail' && $passPlain !== '' && strlen($passPlain) !== 16) {
-            $error = 'Gmail needs a 16-character App Password (Google Account → Security → App passwords), not the normal Gmail sign-in password.';
+        } elseif ($provider === 'gmail' && $passPlain !== '' && !mail_gmail_app_password_ok($passPlain)) {
+            $error = 'Gmail needs a 16-character App Password from Google Account → Security → 2-Step Verification → App passwords (not the normal Gmail sign-in password). Paste it with or without spaces.';
         } elseif (in_array($provider, ['hostinger', 'titan'], true) && $passPlain !== '' && strlen($passPlain) < 6) {
             $error = ucfirst($provider) . ' needs the full mailbox password from the email panel (at least 6 characters).';
         } else {
@@ -388,10 +388,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $GLOBALS['folio_skip_platform_copy'] = $prevCopy;
                     }
                     if ($okTo) {
-                        flash('Company test sent from ' . $from . ' (their logo and colours) to ' . implode(' and ', $okTo) . '. Open that inbox - not info@vellisys.com.');
+                        flash('Company test sent from ' . $from . ' (their logo and colours) to ' . implode(' and ', $okTo) . '. Open that inbox — not ' . product_email() . '.');
                     } else {
                         $provHint = match ((string) ($company['mail_provider'] ?? '')) {
-                            'gmail' => ' For Gmail use a 16-character App Password.',
+                            'gmail' => ' For Gmail: Google Account → Security → 2-Step Verification → App passwords (16 characters). Workspace must allow App Passwords.',
                             'titan' => ' For Titan use the mailbox password from the Titan panel.',
                             'hostinger' => ' For Hostinger use the mailbox password from hPanel.',
                             default => ' Check the mail type, mailbox and password.',
@@ -1089,7 +1089,23 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
   </div>
 </form>
 
-<form class="card form-wide" method="post" style="margin-top:16px" data-mail-box>
+<?php
+  $mailProvider = (string) ($company['mail_provider'] ?? 'hostinger');
+  if (!isset(mail_provider_presets()[$mailProvider])) {
+      $mailProvider = 'hostinger';
+  }
+  $mailEnds = mail_provider_endpoints($mailProvider, [
+      'smtp_host' => (string) ($company['smtp_host'] ?? ''),
+      'smtp_port' => (int) ($company['smtp_port'] ?? 0),
+      'smtp_secure' => (string) ($company['smtp_secure'] ?? ''),
+      'pop_host' => (string) ($company['pop_host'] ?? ''),
+      'pop_port' => (int) ($company['pop_port'] ?? 0),
+      'imap_host' => (string) ($company['imap_host'] ?? ''),
+      'imap_port' => (int) ($company['imap_port'] ?? 0),
+  ]);
+  $readyAcct = company_mail_account($company);
+?>
+<form class="card form-wide" method="post" style="margin-top:16px" data-mail-box data-mail-provider-current="<?= h($mailProvider) ?>">
   <?= csrf_field() ?>
   <input type="hidden" name="id" value="<?= $id ?>">
   <div class="card-head"><h2><?= icon('send', 16) ?>Sending mailbox</h2></div>
@@ -1098,70 +1114,97 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
       <label for="mail_provider">Mail type</label>
       <select id="mail_provider" name="mail_provider" data-mail-provider>
         <?php foreach (mail_provider_presets() as $key => $preset): ?>
-          <option value="<?= h($key) ?>" <?= ($company['mail_provider'] ?? 'hostinger') === $key ? 'selected' : '' ?>><?= h($preset['label']) ?></option>
+          <option value="<?= h($key) ?>" <?= $mailProvider === $key ? 'selected' : '' ?>><?= h($preset['label']) ?></option>
         <?php endforeach; ?>
       </select>
     </div>
     <div>
-      <label for="mail_email">Mailbox</label>
-      <input id="mail_email" name="mail_email" type="email" value="<?= h((string) ($company['mail_email'] ?? '')) ?>" placeholder="accounts@company.com">
+      <label for="mail_email">Mailbox email</label>
+      <input id="mail_email" name="mail_email" type="email" value="<?= h((string) ($company['mail_email'] ?? '')) ?>" placeholder="you@gmail.com" autocomplete="off">
     </div>
     <div>
-      <label for="mail_password">Password</label>
-      <?php render_password_toggle_field('mail_password', 'mail_password', !empty($company['mail_password']) ? 'Saved · leave blank to keep' : 'Hostinger / Titan password, or Gmail App Password'); ?>
+      <label for="mail_password" data-mail-pass-label>Password</label>
+      <?php render_password_toggle_field(
+          'mail_password',
+          'mail_password',
+          !empty($company['mail_password']) ? 'Saved · leave blank to keep' : 'App Password or mailbox password'
+      ); ?>
+      <p class="hint" style="margin:6px 0 0" data-mail-pass-hint hidden></p>
     </div>
     <div>
       <label for="mail_from_name">From name</label>
       <input id="mail_from_name" name="mail_from_name" value="<?= h((string) (($company['mail_from_name'] ?? '') !== '' ? $company['mail_from_name'] : $company['name'])) ?>">
     </div>
-    <div>
-      <label for="smtp_host">SMTP host</label>
-      <input id="smtp_host" name="smtp_host" data-mail-field="smtp_host" value="<?= h((string) ($company['smtp_host'] ?? 'smtp.hostinger.com')) ?>">
-    </div>
-    <div>
-      <label for="smtp_port">SMTP port</label>
-      <input id="smtp_port" name="smtp_port" type="number" data-mail-field="smtp_port" value="<?= (int) ($company['smtp_port'] ?? 465) ?>">
-    </div>
-    <div>
-      <label for="smtp_secure">SMTP security</label>
-      <select id="smtp_secure" name="smtp_secure" data-mail-field="smtp_secure">
-        <?php foreach (['ssl' => 'SSL (465)', 'tls' => 'STARTTLS (587)', 'none' => 'None'] as $k => $label): ?>
-          <option value="<?= h($k) ?>" <?= ($company['smtp_secure'] ?? 'ssl') === $k ? 'selected' : '' ?>><?= h($label) ?></option>
-        <?php endforeach; ?>
-      </select>
-    </div>
-    <div>
-      <label for="pop_host">POP host</label>
-      <input id="pop_host" name="pop_host" data-mail-field="pop_host" value="<?= h((string) ($company['pop_host'] ?? 'pop.hostinger.com')) ?>">
-    </div>
-    <div>
-      <label for="pop_port">POP port</label>
-      <input id="pop_port" name="pop_port" type="number" data-mail-field="pop_port" value="<?= (int) ($company['pop_port'] ?? 995) ?>">
-    </div>
-    <div>
-      <label for="imap_host">IMAP host</label>
-      <input id="imap_host" name="imap_host" data-mail-field="imap_host" value="<?= h((string) ($company['imap_host'] ?? 'imap.hostinger.com')) ?>">
-    </div>
-    <div>
-      <label for="imap_port">IMAP port</label>
-      <input id="imap_port" name="imap_port" type="number" data-mail-field="imap_port" value="<?= (int) ($company['imap_port'] ?? 993) ?>">
-    </div>
   </div>
-  <div style="padding:0 22px 22px">
-    <p class="hint" style="margin:8px 0 8px" data-mail-help><?= h(mail_provider_hint((string) ($company['mail_provider'] ?? 'hostinger'))) ?></p>
+
+  <div class="mail-gmail-steps" data-mail-gmail-steps<?= $mailProvider === 'gmail' ? '' : ' hidden' ?> style="padding:4px 22px 0">
+    <ol class="hint" style="margin:0;padding-left:18px;line-height:1.55">
+      <li>Open <a href="https://myaccount.google.com/security" target="_blank" rel="noopener">Google Account → Security</a> and turn on <strong>2-Step Verification</strong>.</li>
+      <li>Open <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">App passwords</a>, create one for “Mail”, copy the 16 characters.</li>
+      <li>Paste that App Password below (spaces are fine). Do <strong>not</strong> use the normal Gmail login password.</li>
+      <li>Click <strong>Save mailbox</strong>, then <strong>Send test</strong>. The test arrives in this Gmail inbox.</li>
+    </ol>
+    <p class="hint" style="margin:8px 0 0">Google Workspace: your admin must allow App Passwords. If App Passwords are blocked, Gmail SMTP cannot connect from Vellisys.</p>
+  </div>
+
+  <div style="padding:12px 22px 0">
+    <p class="hint" style="margin:0 0 8px" data-mail-help><?= h(mail_provider_hint($mailProvider)) ?></p>
+    <p class="hint" style="margin:0" data-mail-endpoint-summary>
+      Sends via <strong><?= h((string) $mailEnds['smtp_host']) ?>:<?= (int) $mailEnds['smtp_port'] ?></strong>
+      (<?= h(strtoupper((string) $mailEnds['smtp_secure'])) ?>).
+      Hosts are locked for Hostinger, Titan and Gmail — only Custom edits them.
+    </p>
+  </div>
+
+  <details class="mail-advanced" data-mail-advanced<?= $mailProvider === 'custom' ? ' open' : '' ?> style="padding:8px 22px 0">
+    <summary style="cursor:pointer;font-weight:700;color:var(--brand-ink,#08143A)">Advanced SMTP / POP / IMAP</summary>
+    <div class="form-grid" style="padding:12px 0 0">
+      <div>
+        <label for="smtp_host">SMTP host</label>
+        <input id="smtp_host" name="smtp_host" data-mail-field="smtp_host" value="<?= h((string) $mailEnds['smtp_host']) ?>"<?= $mailProvider === 'custom' ? '' : ' readonly' ?>>
+      </div>
+      <div>
+        <label for="smtp_port">SMTP port</label>
+        <input id="smtp_port" name="smtp_port" type="number" data-mail-field="smtp_port" value="<?= (int) $mailEnds['smtp_port'] ?>"<?= $mailProvider === 'custom' ? '' : ' readonly' ?>>
+      </div>
+      <div>
+        <label for="smtp_secure">SMTP security</label>
+        <select id="smtp_secure" name="smtp_secure" data-mail-field="smtp_secure"<?= $mailProvider === 'custom' ? '' : ' disabled' ?>>
+          <?php foreach (['ssl' => 'SSL (465)', 'tls' => 'STARTTLS (587)', 'none' => 'None'] as $k => $label): ?>
+            <option value="<?= h($k) ?>" <?= (string) $mailEnds['smtp_secure'] === $k ? 'selected' : '' ?>><?= h($label) ?></option>
+          <?php endforeach; ?>
+        </select>
+        <?php if ($mailProvider !== 'custom'): ?>
+          <input type="hidden" name="smtp_secure" value="<?= h((string) $mailEnds['smtp_secure']) ?>" data-mail-secure-fallback>
+        <?php endif; ?>
+      </div>
+      <div>
+        <label for="pop_host">POP host</label>
+        <input id="pop_host" name="pop_host" data-mail-field="pop_host" value="<?= h((string) $mailEnds['pop_host']) ?>"<?= $mailProvider === 'custom' ? '' : ' readonly' ?>>
+      </div>
+      <div>
+        <label for="pop_port">POP port</label>
+        <input id="pop_port" name="pop_port" type="number" data-mail-field="pop_port" value="<?= (int) $mailEnds['pop_port'] ?>"<?= $mailProvider === 'custom' ? '' : ' readonly' ?>>
+      </div>
+      <div>
+        <label for="imap_host">IMAP host</label>
+        <input id="imap_host" name="imap_host" data-mail-field="imap_host" value="<?= h((string) $mailEnds['imap_host']) ?>"<?= $mailProvider === 'custom' ? '' : ' readonly' ?>>
+      </div>
+      <div>
+        <label for="imap_port">IMAP port</label>
+        <input id="imap_port" name="imap_port" type="number" data-mail-field="imap_port" value="<?= (int) $mailEnds['imap_port'] ?>"<?= $mailProvider === 'custom' ? '' : ' readonly' ?>>
+      </div>
+    </div>
+  </details>
+
+  <div style="padding:12px 22px 22px">
     <p class="hint" style="margin:0 0 12px">
-      This is the only place to set the sending mailbox. Desk Settings show the address as locked - the company cannot change it.
-      Hostinger, Titan and Gmail are all supported and send over encrypted SMTP. Passwords are encrypted at rest. Pick the mail type, enter the mailbox and that provider's password, Save mailbox, then Send test.
-      Hostinger / Titan: use the mailbox password from hPanel or Titan. Gmail: use a 16-character App Password (not the normal login).
-      If the test arrives in that mailbox, the desk can email quotations, invoices, receipts and letters from it.
-      Send test uses the company's colours and logo. It is not sent to <?= h(product_email()) ?>.
-      <?php
-        $readyAcct = company_mail_account($company);
-        if ($readyAcct):
-      ?>
+      Desk Settings show this address as locked — only Super Admin can change it. Passwords are encrypted at rest.
+      Send test uses the company logo and colours, goes to this mailbox<?= platform_alert_email() !== '' ? ' and your alert email' : '' ?>, and is not sent to <?= h(product_email()) ?>.
+      <?php if ($readyAcct): ?>
         <strong>Ready:</strong> sending via <?= h((string) ($readyAcct['host'] ?? '')) ?>:<?= (int) ($readyAcct['port'] ?? 0) ?> as <?= h((string) ($readyAcct['from_email'] ?? '')) ?>.
       <?php else: ?>
-        <strong>Not ready:</strong> add a mailbox email and password, then Save.
+        <strong>Not ready:</strong> pick the mail type, enter the mailbox and password, then Save.
       <?php endif; ?>
     </p>
     <div class="actions">

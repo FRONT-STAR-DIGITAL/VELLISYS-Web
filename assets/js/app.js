@@ -2044,17 +2044,77 @@ document.querySelectorAll('[data-add-template]').forEach(function (btn) {
   } catch (e) {
     return;
   }
-  sel.addEventListener('change', function () {
-    var p = presets[sel.value];
+  var passHints = {
+    gmail: 'Paste the 16-character Google App Password (spaces OK). Not your normal Gmail login.',
+    hostinger: 'Use the mailbox password from Hostinger hPanel for this address.',
+    titan: 'Use the mailbox password from the Titan / email panel for this address.',
+    custom: 'Use the SMTP password your provider gave you.'
+  };
+  var passLabels = {
+    gmail: 'Gmail App Password',
+    hostinger: 'Mailbox password',
+    titan: 'Mailbox password',
+    custom: 'SMTP password'
+  };
+  function applyProvider(key) {
+    var p = presets[key];
     if (!p) return;
-    Object.keys(p).forEach(function (key) {
-      if (key === 'label' || key === 'hint') return;
-      var el = box.querySelector('[data-mail-field="' + key + '"]');
-      if (el) el.value = p[key];
+    Object.keys(p).forEach(function (field) {
+      if (field === 'label' || field === 'hint') return;
+      var el = box.querySelector('[data-mail-field="' + field + '"]');
+      if (el) el.value = p[field];
     });
     var help = box.querySelector('[data-mail-help]');
     if (help && p.hint) help.textContent = p.hint;
+    var steps = box.querySelector('[data-mail-gmail-steps]');
+    if (steps) steps.hidden = key !== 'gmail';
+    var passLabel = box.querySelector('[data-mail-pass-label]');
+    if (passLabel) passLabel.textContent = passLabels[key] || 'Password';
+    var passHint = box.querySelector('[data-mail-pass-hint]');
+    if (passHint) {
+      passHint.textContent = passHints[key] || '';
+      passHint.hidden = !passHints[key];
+    }
+    var summary = box.querySelector('[data-mail-endpoint-summary]');
+    if (summary && p.smtp_host) {
+      summary.innerHTML = 'Sends via <strong>' + String(p.smtp_host) + ':' + String(p.smtp_port) + '</strong> (' + String(p.smtp_secure || '').toUpperCase() + '). Hosts are locked for Hostinger, Titan and Gmail — only Custom edits them.';
+    }
+    var advanced = box.querySelector('[data-mail-advanced]');
+    var isCustom = key === 'custom';
+    if (advanced) {
+      if (isCustom) advanced.setAttribute('open', '');
+      else advanced.removeAttribute('open');
+    }
+    box.querySelectorAll('[data-mail-field]').forEach(function (el) {
+      if (el.tagName === 'SELECT') {
+        el.disabled = !isCustom;
+      } else {
+        el.readOnly = !isCustom;
+      }
+    });
+    var secureSel = box.querySelector('[data-mail-field="smtp_secure"]');
+    var fallback = box.querySelector('[data-mail-secure-fallback]');
+    if (!isCustom) {
+      if (secureSel && !fallback) {
+        var hidden = document.createElement('input');
+        hidden.type = 'hidden';
+        hidden.name = 'smtp_secure';
+        hidden.value = secureSel.value;
+        hidden.setAttribute('data-mail-secure-fallback', '');
+        secureSel.insertAdjacentElement('afterend', hidden);
+      } else if (secureSel && fallback) {
+        fallback.value = secureSel.value;
+      }
+    } else if (fallback) {
+      fallback.parentNode.removeChild(fallback);
+    }
+    var email = box.querySelector('#mail_email');
+    if (email && key === 'gmail' && !email.value) email.placeholder = 'you@gmail.com';
+  }
+  sel.addEventListener('change', function () {
+    applyProvider(sel.value);
   });
+  applyProvider(sel.value);
 })();
 
 (function () {

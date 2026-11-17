@@ -3279,8 +3279,8 @@ function platform_create_company(?int $signupId = null): array
             'imap_port' => (int) post('imap_port'),
         ]);
         $passPlain = mail_normalize_secret(post('mail_password'), $provider);
-        if ($provider === 'gmail' && $passPlain !== '' && strlen($passPlain) !== 16) {
-            return ['ok' => false, 'error' => 'Gmail needs a 16-character App Password (Google Account → Security → App passwords), not the normal Gmail sign-in password.'];
+        if ($provider === 'gmail' && $passPlain !== '' && !mail_gmail_app_password_ok($passPlain)) {
+            return ['ok' => false, 'error' => 'Gmail needs a 16-character App Password from Google Account → Security → App passwords (not the normal Gmail sign-in password).'];
         }
         if (in_array($provider, ['hostinger', 'titan'], true) && $passPlain !== '' && strlen($passPlain) < 6) {
             return ['ok' => false, 'error' => ucfirst($provider) . ' needs the full mailbox password from the email panel (at least 6 characters).'];
