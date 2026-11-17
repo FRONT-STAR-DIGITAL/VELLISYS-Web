@@ -423,7 +423,7 @@ layout_start('Settings', $user);
           <?php if ($sendAcct): ?>
             <span><?= h($sendAcct['from_name']) ?> · <?= h($sendAcct['from_email']) ?> (locked · via <?= h((string) ($sendAcct['host'] ?? '')) ?>)</span>
           <?php else: ?>
-            <span>Not assigned yet. Ask Vellisys to set Hostinger, Titan or Gmail on the company Sending mailbox. You can still print and share a link.</span>
+            <span>Not assigned yet. Ask Vellisys to set Hostinger, Titan, Gmail or Yahoo on the company Sending mailbox. You can still print and share a link.</span>
           <?php endif; ?>
         </div>
       </div>

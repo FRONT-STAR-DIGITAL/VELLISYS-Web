@@ -2046,12 +2046,14 @@ document.querySelectorAll('[data-add-template]').forEach(function (btn) {
   }
   var passHints = {
     gmail: 'Paste the 16-character Google App Password (spaces OK). Not your normal Gmail login.',
+    yahoo: 'Paste the 16-character Yahoo App Password (spaces OK). Not your normal Yahoo login.',
     hostinger: 'Use the mailbox password from Hostinger hPanel for this address.',
     titan: 'Use the mailbox password from the Titan / email panel for this address.',
     custom: 'Use the SMTP password your provider gave you.'
   };
   var passLabels = {
     gmail: 'Gmail App Password',
+    yahoo: 'Yahoo App Password',
     hostinger: 'Mailbox password',
     titan: 'Mailbox password',
     custom: 'SMTP password'
@@ -2066,8 +2068,10 @@ document.querySelectorAll('[data-add-template]').forEach(function (btn) {
     });
     var help = box.querySelector('[data-mail-help]');
     if (help && p.hint) help.textContent = p.hint;
-    var steps = box.querySelector('[data-mail-gmail-steps]');
-    if (steps) steps.hidden = key !== 'gmail';
+    var gmailSteps = box.querySelector('[data-mail-gmail-steps]');
+    if (gmailSteps) gmailSteps.hidden = key !== 'gmail';
+    var yahooSteps = box.querySelector('[data-mail-yahoo-steps]');
+    if (yahooSteps) yahooSteps.hidden = key !== 'yahoo';
     var passLabel = box.querySelector('[data-mail-pass-label]');
     if (passLabel) passLabel.textContent = passLabels[key] || 'Password';
     var passHint = box.querySelector('[data-mail-pass-hint]');
@@ -2077,7 +2081,7 @@ document.querySelectorAll('[data-add-template]').forEach(function (btn) {
     }
     var summary = box.querySelector('[data-mail-endpoint-summary]');
     if (summary && p.smtp_host) {
-      summary.innerHTML = 'Sends via <strong>' + String(p.smtp_host) + ':' + String(p.smtp_port) + '</strong> (' + String(p.smtp_secure || '').toUpperCase() + '). Hosts are locked for Hostinger, Titan and Gmail — only Custom edits them.';
+      summary.innerHTML = 'Sends via <strong>' + String(p.smtp_host) + ':' + String(p.smtp_port) + '</strong> (' + String(p.smtp_secure || '').toUpperCase() + '). Hosts are locked for Hostinger, Titan, Gmail and Yahoo — only Custom edits them.';
     }
     var advanced = box.querySelector('[data-mail-advanced]');
     var isCustom = key === 'custom';
@@ -2109,7 +2113,10 @@ document.querySelectorAll('[data-add-template]').forEach(function (btn) {
       fallback.parentNode.removeChild(fallback);
     }
     var email = box.querySelector('#mail_email');
-    if (email && key === 'gmail' && !email.value) email.placeholder = 'you@gmail.com';
+    if (email && !email.value) {
+      if (key === 'gmail') email.placeholder = 'you@gmail.com';
+      else if (key === 'yahoo') email.placeholder = 'you@yahoo.com';
+    }
   }
   sel.addEventListener('change', function () {
     applyProvider(sel.value);

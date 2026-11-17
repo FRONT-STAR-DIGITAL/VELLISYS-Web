@@ -333,7 +333,7 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
   </div>
 
   <div class="card-head" style="margin-top:8px"><h2><?= icon('send', 16) ?>Sending mailbox</h2></div>
-  <p class="lede" style="padding:0 22px">Optional. Hostinger, Titan or Gmail address this desk will send from. The company cannot edit the password.</p>
+  <p class="lede" style="padding:0 22px">Optional. Hostinger, Titan, Gmail or Yahoo address this desk will send from. The company cannot edit the password.</p>
   <div style="padding:0 22px" data-mail-box>
     <div class="form-grid">
       <div>
@@ -362,6 +362,12 @@ $mailPreset = mail_provider_presets()[post('mail_provider') ?: 'hostinger'] ?? m
       <ol class="hint" style="margin:0;padding-left:18px;line-height:1.55">
         <li>Turn on <strong>2-Step Verification</strong> in Google Account → Security.</li>
         <li>Create an <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">App password</a> for Mail and paste the 16 characters here.</li>
+      </ol>
+    </div>
+    <div class="mail-yahoo-steps" data-mail-yahoo-steps<?= (post('mail_provider') ?: '') === 'yahoo' ? '' : ' hidden' ?> style="margin-top:8px">
+      <ol class="hint" style="margin:0;padding-left:18px;line-height:1.55">
+        <li>Turn on <strong>2-Step Verification</strong> in <a href="https://login.yahoo.com/account/security" target="_blank" rel="noopener">Yahoo Account Security</a>.</li>
+        <li>Generate an app password for Mail and paste the 16 characters here.</li>
       </ol>
     </div>
     <p class="hint" data-mail-help style="margin:10px 0 8px"><?= h(mail_provider_hint(post('mail_provider') ?: 'hostinger')) ?></p>

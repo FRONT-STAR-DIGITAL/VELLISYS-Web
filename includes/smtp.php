@@ -46,6 +46,17 @@ function mail_provider_presets(): array
             'imap_port' => 993,
             'hint' => 'Gmail sends via smtp.gmail.com (587 STARTTLS, with automatic SSL 465 fallback). Use a 16-character App Password from Google Account → Security → App passwords — not your normal Gmail password. Passwords are encrypted at rest.',
         ],
+        'yahoo' => [
+            'label' => 'Yahoo',
+            'smtp_host' => 'smtp.mail.yahoo.com',
+            'smtp_port' => 465,
+            'smtp_secure' => 'ssl',
+            'pop_host' => 'pop.mail.yahoo.com',
+            'pop_port' => 995,
+            'imap_host' => 'imap.mail.yahoo.com',
+            'imap_port' => 993,
+            'hint' => 'Yahoo sends via smtp.mail.yahoo.com:465 SSL. Use a 16-character App Password from Yahoo Account Security → Generate app password — not your normal Yahoo login. Passwords are encrypted at rest on Vellisys.',
+        ],
         'custom' => [
             'label' => 'Custom',
             'smtp_host' => '',
@@ -72,28 +83,34 @@ function mail_provider_hint(string $provider): string
 
 /**
  * Normalize a mailbox secret for storage/sign-in.
- * Gmail App Passwords are often pasted with spaces - strip those only for Gmail.
+ * Gmail / Yahoo App Passwords are often pasted with spaces - strip those.
  * Hostinger and Titan keep the password exactly as set in their panel.
  */
 function mail_normalize_secret(string $plain, ?string $provider = null): string
 {
     $plain = trim($plain);
-    // Zero-width / non-breaking spaces from mobile paste break Gmail auth.
+    // Zero-width / non-breaking spaces from mobile paste break App Password auth.
     $plain = preg_replace('/[\x{00A0}\x{2000}-\x{200D}\x{202F}\x{205F}\x{3000}\x{FEFF}]/u', '', $plain) ?? $plain;
     $plain = trim($plain);
     $provider = strtolower(trim((string) $provider));
-    $looksLikeGmailApp = (bool) preg_match('/^[a-z0-9]{4}(?:[\s\-]+[a-z0-9]{4}){3}$/i', $plain);
-    if ($provider === 'gmail' || $looksLikeGmailApp) {
+    $looksLikeAppPass = (bool) preg_match('/^[a-z0-9]{4}(?:[\s\-]+[a-z0-9]{4}){3}$/i', $plain);
+    if (in_array($provider, ['gmail', 'yahoo'], true) || $looksLikeAppPass) {
         return preg_replace('/[\s\-]+/', '', $plain) ?? '';
     }
     return $plain;
 }
 
-/** True when the secret looks like a Google App Password (16 letters/digits). */
+/** True when the secret looks like a 16-character App Password (Gmail / Yahoo). */
+function mail_app_password_ok(string $plain, string $provider = 'gmail'): bool
+{
+    $n = mail_normalize_secret($plain, $provider);
+    return (bool) preg_match('/^[a-z0-9]{16}$/i', $n);
+}
+
+/** @deprecated Prefer mail_app_password_ok() */
 function mail_gmail_app_password_ok(string $plain): bool
 {
-    $n = mail_normalize_secret($plain, 'gmail');
-    return (bool) preg_match('/^[a-z0-9]{16}$/i', $n);
+    return mail_app_password_ok($plain, 'gmail');
 }
 
 /**
@@ -486,6 +503,9 @@ function smtp_send_once(array $account, string $to, string $subject, string $htm
         $provider = strtolower((string) ($account['provider'] ?? ''));
         if ($provider === 'gmail' || str_contains(strtolower($host), 'gmail') || smtp_is_gmail_account($account)) {
             return ['ok' => false, 'error' => 'Gmail sign-in failed. Use a 16-character App Password (Google Account → Security → 2-Step Verification → App passwords), not the normal Gmail password. Workspace admins must allow App Passwords.'];
+        }
+        if ($provider === 'yahoo' || str_contains(strtolower($host), 'yahoo') || str_ends_with(strtolower($user), '@yahoo.com') || str_ends_with(strtolower($user), '@ymail.com') || str_ends_with(strtolower($user), '@yahoo.co.uk')) {
+            return ['ok' => false, 'error' => 'Yahoo sign-in failed. Use a 16-character App Password from Yahoo Account Security → Generate app password, not the normal Yahoo login password.'];
         }
         if ($provider === 'titan' || str_contains(strtolower($host), 'titan')) {
             return ['ok' => false, 'error' => 'Titan sign-in failed. Use the exact mailbox password from the Titan / email panel for this address.'];

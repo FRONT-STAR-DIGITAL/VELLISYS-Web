@@ -3279,8 +3279,11 @@ function platform_create_company(?int $signupId = null): array
             'imap_port' => (int) post('imap_port'),
         ]);
         $passPlain = mail_normalize_secret(post('mail_password'), $provider);
-        if ($provider === 'gmail' && $passPlain !== '' && !mail_gmail_app_password_ok($passPlain)) {
+        if ($provider === 'gmail' && $passPlain !== '' && !mail_app_password_ok($passPlain, 'gmail')) {
             return ['ok' => false, 'error' => 'Gmail needs a 16-character App Password from Google Account → Security → App passwords (not the normal Gmail sign-in password).'];
+        }
+        if ($provider === 'yahoo' && $passPlain !== '' && !mail_app_password_ok($passPlain, 'yahoo')) {
+            return ['ok' => false, 'error' => 'Yahoo needs a 16-character App Password from Yahoo Account Security → Generate app password (not the normal Yahoo sign-in password).'];
         }
         if (in_array($provider, ['hostinger', 'titan'], true) && $passPlain !== '' && strlen($passPlain) < 6) {
             return ['ok' => false, 'error' => ucfirst($provider) . ' needs the full mailbox password from the email panel (at least 6 characters).'];

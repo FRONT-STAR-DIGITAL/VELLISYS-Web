@@ -340,8 +340,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $error = 'The sending mailbox must be a valid email.';
-        } elseif ($provider === 'gmail' && $passPlain !== '' && !mail_gmail_app_password_ok($passPlain)) {
+        } elseif ($provider === 'gmail' && $passPlain !== '' && !mail_app_password_ok($passPlain, 'gmail')) {
             $error = 'Gmail needs a 16-character App Password from Google Account → Security → 2-Step Verification → App passwords (not the normal Gmail sign-in password). Paste it with or without spaces.';
+        } elseif ($provider === 'yahoo' && $passPlain !== '' && !mail_app_password_ok($passPlain, 'yahoo')) {
+            $error = 'Yahoo needs a 16-character App Password from Yahoo Account Security → Generate app password (not the normal Yahoo sign-in password). Paste it with or without spaces.';
         } elseif (in_array($provider, ['hostinger', 'titan'], true) && $passPlain !== '' && strlen($passPlain) < 6) {
             $error = ucfirst($provider) . ' needs the full mailbox password from the email panel (at least 6 characters).';
         } else {
@@ -392,6 +394,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     } else {
                         $provHint = match ((string) ($company['mail_provider'] ?? '')) {
                             'gmail' => ' For Gmail: Google Account → Security → 2-Step Verification → App passwords (16 characters). Workspace must allow App Passwords.',
+                            'yahoo' => ' For Yahoo: Account Security → Generate app password (16 characters), not the normal Yahoo login.',
                             'titan' => ' For Titan use the mailbox password from the Titan panel.',
                             'hostinger' => ' For Hostinger use the mailbox password from hPanel.',
                             default => ' Check the mail type, mailbox and password.',
@@ -1147,12 +1150,21 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
     <p class="hint" style="margin:8px 0 0">Google Workspace: your admin must allow App Passwords. If App Passwords are blocked, Gmail SMTP cannot connect from Vellisys.</p>
   </div>
 
+  <div class="mail-yahoo-steps" data-mail-yahoo-steps<?= $mailProvider === 'yahoo' ? '' : ' hidden' ?> style="padding:4px 22px 0">
+    <ol class="hint" style="margin:0;padding-left:18px;line-height:1.55">
+      <li>Open <a href="https://login.yahoo.com/account/security" target="_blank" rel="noopener">Yahoo Account Security</a> and turn on <strong>2-Step Verification</strong> if it is not already on.</li>
+      <li>Choose <strong>Generate app password</strong> (or App passwords), create one for Mail, copy the 16 characters.</li>
+      <li>Paste that App Password below (spaces are fine). Do <strong>not</strong> use the normal Yahoo login password.</li>
+      <li>Click <strong>Save mailbox</strong>, then <strong>Send test</strong>. The test arrives in this Yahoo inbox.</li>
+    </ol>
+  </div>
+
   <div style="padding:12px 22px 0">
     <p class="hint" style="margin:0 0 8px" data-mail-help><?= h(mail_provider_hint($mailProvider)) ?></p>
     <p class="hint" style="margin:0" data-mail-endpoint-summary>
       Sends via <strong><?= h((string) $mailEnds['smtp_host']) ?>:<?= (int) $mailEnds['smtp_port'] ?></strong>
       (<?= h(strtoupper((string) $mailEnds['smtp_secure'])) ?>).
-      Hosts are locked for Hostinger, Titan and Gmail — only Custom edits them.
+      Hosts are locked for Hostinger, Titan, Gmail and Yahoo — only Custom edits them.
     </p>
   </div>
 
