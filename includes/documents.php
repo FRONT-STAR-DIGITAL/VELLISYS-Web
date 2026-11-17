@@ -3824,24 +3824,46 @@ function purge_document(int $id): void
     }
 }
 
+/**
+ * Copy line items from a source document (quote → invoice, invoice → receipt).
+ * Keeps names, descriptions, qty/rate, tax flags, stock links, and custom extras.
+ */
+function document_clone_line_items(array $doc): array
+{
+    $items = [];
+    foreach ((array) ($doc['items'] ?? []) as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $name = trim((string) ($item['item_name'] ?? ''));
+        $desc = trim((string) ($item['description'] ?? ''));
+        $extra = line_item_extra_map($item);
+        $extra = array_filter($extra, static fn ($v) => trim((string) $v) !== '');
+        if ($name === '' && $desc === '' && !$extra) {
+            continue;
+        }
+        $items[] = [
+            'item_name' => $name,
+            'description' => $desc,
+            'qty' => $item['qty'] ?? 1,
+            'unit' => $item['unit'] ?? 'pcs',
+            'rate' => $item['rate'] ?? 0,
+            'taxed' => $item['taxed'] ?? 0,
+            'stock_item_id' => (int) ($item['stock_item_id'] ?? 0),
+            'sku' => (string) ($item['sku'] ?? ''),
+            'extra' => $extra,
+        ];
+    }
+    return $items;
+}
+
 function convert_quotation_to_invoice(int $quoteId): int
 {
     $doc = load_document($quoteId);
     if (!$doc || $doc['kind'] !== 'quotation' || $doc['status'] === 'void') {
         throw new RuntimeException('This quotation cannot be converted.');
     }
-    $items = [];
-    foreach ($doc['items'] as $item) {
-        $items[] = [
-            'item_name' => $item['item_name'] ?? '',
-            'description' => $item['description'],
-            'qty' => $item['qty'],
-            'unit' => $item['unit'],
-            'rate' => $item['rate'],
-            'taxed' => $item['taxed'],
-            'stock_item_id' => (int) ($item['stock_item_id'] ?? 0),
-        ];
-    }
+    $items = document_clone_line_items($doc);
     return create_document([
         'kind' => 'invoice',
         'party_id' => $doc['party_id'],
@@ -3868,18 +3890,29 @@ function receive_on_invoice(int $invoiceId, float $amount, string $method, strin
         throw new RuntimeException('Nothing remains on this invoice.');
     }
     $part = ($balance - $amount) > 0.009;
-    $label = ($part ? 'Part payment on ' : 'Payment on ') . $doc['number'];
     $notes = $part
         ? 'Part payment against ' . $doc['number'] . '. Balance remaining on the invoice.'
         : 'Received with thanks against ' . $doc['number'] . '.';
     $paidOn = function_exists('desk_money_date')
         ? desk_money_date($date, false)
         : today();
+    // Keep the exact invoice lines on the receipt (not a single "Payment on INV…" row).
+    $items = document_clone_line_items($doc);
+    if (!$items) {
+        $items = [[
+            'item_name' => $part ? 'Part payment' : 'Payment',
+            'description' => ($part ? 'Part payment on ' : 'Payment on ') . $doc['number'],
+            'qty' => 1,
+            'unit' => 'lot',
+            'rate' => $amount,
+            'taxed' => 0,
+        ]];
+    }
     return create_document([
         'kind' => 'receipt',
         'party_id' => $doc['party_id'],
         'date' => $paidOn,
-        'vat_rate' => 0,
+        'vat_rate' => (float) ($doc['vat_rate'] ?? 0),
         'currency' => doc_currency($doc),
         'doc_template' => doc_template_key($doc),
         'notes' => $notes,
@@ -3887,14 +3920,7 @@ function receive_on_invoice(int $invoiceId, float $amount, string $method, strin
         'payment_method' => $method,
         'payment_ref' => $ref ?: null,
         'allocated_amount' => $amount,
-        'items' => [[
-            'item_name' => $part ? 'Part payment' : 'Payment',
-            'description' => $label,
-            'qty' => 1,
-            'unit' => 'lot',
-            'rate' => $amount,
-            'taxed' => 0,
-        ]],
+        'items' => $items,
     ]);
 }
 
@@ -3921,18 +3947,29 @@ function receive_on_receipt(int $receiptId, float $amount, string $method, strin
         throw new RuntimeException('Nothing remains on this receipt.');
     }
     $part = ($balance - $amount) > 0.009;
-    $label = ($part ? 'Part payment on ' : 'Payment on ') . $doc['number'];
     $notes = $part
         ? 'Part payment against ' . $doc['number'] . '. Balance remaining on Debtors.'
         : 'Received with thanks against ' . $doc['number'] . '.';
     $paidOn = function_exists('desk_money_date')
         ? desk_money_date($date, false)
         : today();
+    // Follow-up payment on a till sale: keep the original sale lines.
+    $items = document_clone_line_items($doc);
+    if (!$items) {
+        $items = [[
+            'item_name' => $part ? 'Part payment' : 'Payment',
+            'description' => ($part ? 'Part payment on ' : 'Payment on ') . $doc['number'],
+            'qty' => 1,
+            'unit' => 'lot',
+            'rate' => $amount,
+            'taxed' => 0,
+        ]];
+    }
     return create_document([
         'kind' => 'receipt',
         'party_id' => $doc['party_id'],
         'date' => $paidOn,
-        'vat_rate' => 0,
+        'vat_rate' => (float) ($doc['vat_rate'] ?? 0),
         'currency' => doc_currency($doc),
         'doc_template' => doc_template_key($doc),
         'notes' => $notes,
@@ -3940,14 +3977,7 @@ function receive_on_receipt(int $receiptId, float $amount, string $method, strin
         'payment_method' => $method,
         'payment_ref' => $ref ?: null,
         'allocated_amount' => $amount,
-        'items' => [[
-            'item_name' => $part ? 'Part payment' : 'Payment',
-            'description' => $label,
-            'qty' => 1,
-            'unit' => 'lot',
-            'rate' => $amount,
-            'taxed' => 0,
-        ]],
+        'items' => $items,
     ]);
 }
 

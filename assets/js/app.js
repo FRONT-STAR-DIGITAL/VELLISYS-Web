@@ -2577,7 +2577,8 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
     inp.value = p.name;
     var hid = row.querySelector('input[name^="item_stock_id"]');
     if (hid) hid.value = p.id;
-    var desc = row.querySelector('textarea[name^="item_desc"]');
+    // Visible textarea or hidden input when Description column is off.
+    var desc = row.querySelector('textarea[name^="item_desc"], input[name^="item_desc"]');
     if (desc) desc.value = p.description || '';
     var rate = row.querySelector('[data-line-rate]');
     if (rate) {
@@ -2601,6 +2602,14 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
     if (rate) rate.dispatchEvent(new Event('input', { bubbles: true }));
     else if (typeof refreshLinesPreview === 'function') refreshLinesPreview();
     else if (typeof updateDocRunningTotals === 'function') updateDocRunningTotals();
+  }
+  function matchExact(name) {
+    var s = String(name || '').trim().toLowerCase();
+    if (!s) return null;
+    for (var i = 0; i < cat.length; i++) {
+      if (String(cat[i].name || '').toLowerCase() === s) return cat[i];
+    }
+    return null;
   }
   function showFor(inp) {
     currentInp = inp;
@@ -2630,6 +2639,29 @@ document.querySelectorAll('[data-kinds-form]').forEach(function (form) {
   });
   table.addEventListener('focusin', function (e) {
     if (e.target.matches('input[name^="item_name"]') && e.target.value.trim()) showFor(e.target);
+  });
+  // Exact catalog name on blur / Enter → pull saved description without a click.
+  table.addEventListener('focusout', function (e) {
+    if (!e.target.matches('input[name^="item_name"]')) return;
+    var inp = e.target;
+    setTimeout(function () {
+      if (!box.hidden && currentInp === inp) return;
+      var p = matchExact(inp.value);
+      if (!p) return;
+      var row = inp.closest('tr');
+      var desc = row && row.querySelector('textarea[name^="item_desc"], input[name^="item_desc"]');
+      var hid = row && row.querySelector('input[name^="item_stock_id"]');
+      var needDesc = desc && !String(desc.value || '').trim() && String(p.description || '').trim();
+      var needId = hid && !String(hid.value || '').trim();
+      if (needDesc || needId) fill(inp, p);
+    }, 180);
+  });
+  table.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' || !e.target.matches('input[name^="item_name"]')) return;
+    var p = matchExact(e.target.value);
+    if (!p) return;
+    e.preventDefault();
+    fill(e.target, p);
   });
   box.addEventListener('mousedown', function (e) {
     e.preventDefault();
