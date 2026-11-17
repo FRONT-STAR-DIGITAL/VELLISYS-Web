@@ -9,7 +9,7 @@ function db(): mysqli
     }
     $cfg = require ROOT_PATH . '/config/database.php';
     $reused = false;
-    // Session handler already opened a MySQL link before bootstrap finishes —
+    // Session handler already opened a MySQL link before bootstrap finishes -
     // reuse it so every page does not pay for a second TCP handshake.
     if (function_exists('folio_session_mysqli')) {
         $existing = folio_session_mysqli();
@@ -84,7 +84,13 @@ function db_prepare(string $sql, string $types = '', array $params = []): mysqli
         throw new RuntimeException(db()->error);
     }
     if ($types !== '') {
-        $stmt->bind_param($types, ...$params);
+        // bind_param needs real references; unpacking temporaries can bind the
+        // wrong values and silently wipe columns like mail_email on save.
+        $refs = [];
+        foreach ($params as $i => $_) {
+            $refs[$i] = &$params[$i];
+        }
+        $stmt->bind_param($types, ...$refs);
     }
     return $stmt;
 }

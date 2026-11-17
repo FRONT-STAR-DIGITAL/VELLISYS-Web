@@ -44,7 +44,7 @@ function mail_provider_presets(): array
             'pop_port' => 995,
             'imap_host' => 'imap.gmail.com',
             'imap_port' => 993,
-            'hint' => 'Gmail sends via smtp.gmail.com (587 STARTTLS, with automatic SSL 465 fallback). Use a 16-character App Password from Google Account → Security → App passwords — not your normal Gmail password. Passwords are encrypted at rest.',
+            'hint' => 'Gmail sends via smtp.gmail.com (587 STARTTLS, with automatic SSL 465 fallback). Use a 16-character App Password from Google Account - Security - App passwords - not your normal Gmail password. Passwords are encrypted at rest.',
         ],
         'yahoo' => [
             'label' => 'Yahoo',
@@ -55,7 +55,7 @@ function mail_provider_presets(): array
             'pop_port' => 995,
             'imap_host' => 'imap.mail.yahoo.com',
             'imap_port' => 993,
-            'hint' => 'Yahoo sends via smtp.mail.yahoo.com:465 SSL. Use a 16-character App Password from Yahoo Account Security → Generate app password — not your normal Yahoo login. Passwords are encrypted at rest on Vellisys.',
+            'hint' => 'Yahoo sends via smtp.mail.yahoo.com:465 SSL. Use a 16-character App Password from Yahoo Account Security - Generate app password - not your normal Yahoo login. Passwords are encrypted at rest on Vellisys.',
         ],
         'custom' => [
             'label' => 'Custom',
@@ -330,7 +330,7 @@ function smtp_is_gmail_account(array $account): bool
         || str_ends_with($user, '@googlemail.com');
 }
 
-/** Transport errors that often mean port 587 is blocked — try Gmail SSL 465. */
+/** Transport errors that often mean port 587 is blocked - try Gmail SSL 465. */
 function smtp_error_looks_like_transport(string $error): bool
 {
     $e = strtolower($error);
@@ -371,7 +371,7 @@ function smtp_send(array $account, string $to, string $subject, string $html, st
     $port = (int) ($account['port'] ?? 587);
     $secure = strtolower((string) ($account['secure'] ?? 'tls'));
     $err = (string) ($result['error'] ?? '');
-    // Already on 465, or auth failed (password problem) — do not retry.
+    // Already on 465, or auth failed (password problem) - do not retry.
     if ($port === 465 && $secure === 'ssl') {
         return $result;
     }

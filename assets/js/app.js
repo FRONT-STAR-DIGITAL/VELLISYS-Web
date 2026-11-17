@@ -314,7 +314,7 @@ function appTabbarKeyboardOpen() {
 /**
  * Place the host at the bottom of the VISUAL viewport.
  * iOS often leaves position:fixed;bottom:0 stuck mid-screen after chrome
- * show/hide or rubber-band scroll — syncing top to visualViewport fixes that.
+ * show/hide or rubber-band scroll - syncing top to visualViewport fixes that.
  * When the keyboard is open, park at layout bottom:0 and hide so keys cover it.
  */
 function appTabbarPlaceHost(host, bar) {
@@ -440,7 +440,7 @@ function pinAppTabbar() {
     };
     window.addEventListener('resize', schedule);
     window.addEventListener('orientationchange', schedule);
-    // Re-sync on scroll — required to correct iOS mid-screen drift.
+    // Re-sync on scroll - required to correct iOS mid-screen drift.
     window.addEventListener('scroll', schedule, { passive: true });
     document.addEventListener('scroll', schedule, { passive: true, capture: true });
     if (window.visualViewport) {
@@ -2036,7 +2036,7 @@ document.querySelectorAll('[data-add-template]').forEach(function (btn) {
   var box = document.querySelector('[data-mail-box]');
   if (!box) return;
   var sel = box.querySelector('[data-mail-provider]');
-  var json = box.querySelector('[data-mail-presets]');
+  var json = box.querySelector('[data-mail-presets]') || document.querySelector('[data-mail-presets]');
   if (!sel || !json) return;
   var presets = {};
   try {
@@ -2081,7 +2081,7 @@ document.querySelectorAll('[data-add-template]').forEach(function (btn) {
     }
     var summary = box.querySelector('[data-mail-endpoint-summary]');
     if (summary && p.smtp_host) {
-      summary.innerHTML = 'Sends via <strong>' + String(p.smtp_host) + ':' + String(p.smtp_port) + '</strong> (' + String(p.smtp_secure || '').toUpperCase() + '). Hosts are locked for Hostinger, Titan, Gmail and Yahoo — only Custom edits them.';
+      summary.innerHTML = 'Sends via <strong>' + String(p.smtp_host) + ':' + String(p.smtp_port) + '</strong> (' + String(p.smtp_secure || '').toUpperCase() + '). Hosts are locked for Hostinger, Titan, Gmail and Yahoo - only Custom edits them.';
     }
     var advanced = box.querySelector('[data-mail-advanced]');
     var isCustom = key === 'custom';
