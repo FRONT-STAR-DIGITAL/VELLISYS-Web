@@ -920,6 +920,7 @@ function stock_apply_document(int $documentId, string $kind, array $items): void
     $moveKind = match ($kind) {
         'invoice', 'receipt' => 'sale',
         'expense' => 'in',
+        'return_note' => 'return', // resolved below from disposition + direction
         default => '',
     };
     if ($moveKind === '') {
@@ -927,20 +928,53 @@ function stock_apply_document(int $documentId, string $kind, array $items): void
     }
     $docBranch = stock_write_branch_id();
     $relatedId = 0;
+    $returnDir = 'out';
+    $returnDisp = 'dispose';
     try {
-        $doc = db_one('SELECT branch_id, related_id FROM documents WHERE id = ? AND company_id = ?', 'ii', [$documentId, current_company_id()]);
+        $doc = db_one(
+            'SELECT branch_id, related_id, expense_category, custom_values FROM documents WHERE id = ? AND company_id = ?',
+            'ii',
+            [$documentId, current_company_id()]
+        );
         if ($doc) {
             if (array_key_exists('branch_id', $doc) && $doc['branch_id'] !== null && $doc['branch_id'] !== '') {
                 $docBranch = (int) $doc['branch_id'];
             }
             $relatedId = (int) ($doc['related_id'] ?? 0);
+            if ($kind === 'return_note') {
+                $returnDir = strtolower(trim((string) ($doc['expense_category'] ?? 'out')));
+                $cvRaw = $doc['custom_values'] ?? '';
+                $cv = is_array($cvRaw) ? $cvRaw : (json_decode((string) $cvRaw, true) ?: []);
+                $returnDisp = strtolower(trim((string) ($cv['stock_disposition'] ?? 'dispose')));
+            }
         }
     } catch (Throwable $e) {
         // Older schemas may lack a column; still apply stock for sale docs.
+        if ($kind === 'return_note') {
+            try {
+                $doc = db_one('SELECT branch_id, related_id, expense_category FROM documents WHERE id = ? AND company_id = ?', 'ii', [$documentId, current_company_id()]);
+                if ($doc) {
+                    if (array_key_exists('branch_id', $doc) && $doc['branch_id'] !== null && $doc['branch_id'] !== '') {
+                        $docBranch = (int) $doc['branch_id'];
+                    }
+                    $returnDir = strtolower(trim((string) ($doc['expense_category'] ?? 'out')));
+                }
+            } catch (Throwable $e2) {
+                // leave defaults
+            }
+        }
     }
     // Allocation / follow-up receipts never move stock - only till sale receipts (no parent).
     if ($kind === 'receipt' && $relatedId > 0) {
         return;
+    }
+    if ($kind === 'return_note') {
+        // Dispose: no inventory move. Restock: customer return → in; supplier return → out.
+        if ($returnDisp !== 'restock') {
+            return;
+        }
+        $toSupplier = in_array($returnDir, ['in', 'supplier', 'supplier_return'], true);
+        $moveKind = $toSupplier ? 'out' : 'in';
     }
     $hasStockId = false;
     foreach ($items as $item) {

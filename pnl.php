@@ -12,12 +12,10 @@ layout_start('Profit & Loss', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('reports') ?>Profit &amp; Loss</h1>
-    <p class="lede">Income, expenses, refunds and returns for the dates you pick, with net profit on one desk.<?= h(pnl_branch_lede()) ?></p>
+    <p class="lede">Income and expenses for the dates you pick, with net profit on one desk. Refunds and returns are under Books.<?= h(pnl_branch_lede()) ?></p>
   </div>
   <div class="actions page-actions">
     <a class="btn ghost" href="<?= h(pnl_href('pnl_entries.php')) ?>"><?= icon('bank', 16) ?>Ledger</a>
-    <a class="btn ghost" href="<?= h(url('document_new.php?kind=refund')) ?>"><?= icon('wallet', 16) ?>Refund</a>
-    <a class="btn ghost" href="<?= h(url('document_new.php?kind=return_note')) ?>"><?= icon('truck', 16) ?>Return</a>
     <a class="btn" href="<?= h(pnl_href('pnl_entries.php', ['new' => '1'])) ?>"><?= icon('plus', 16) ?>Entry</a>
   </div>
 </div>
@@ -192,58 +190,6 @@ layout_start('Profit & Loss', $user);
   </div>
 </div>
 
-<div class="pnl-split" style="margin-top:16px">
-  <div class="card pnl-card">
-    <div class="card-head">
-      <h2><?= icon('wallet', 16) ?>Recent refunds</h2>
-      <a class="btn ghost sm" href="<?= h(url('documents.php?kind=refund')) ?>">All</a>
-    </div>
-    <?php if (!$summary['refunds']): ?>
-      <p class="empty">No refunds in this period. <a href="<?= h(url('document_new.php?kind=refund')) ?>">Record a refund</a>.</p>
-    <?php else: ?>
-      <div class="pnl-sheet-wrap">
-        <table class="pnl-sheet pnl-ledger">
-          <thead><tr><th>Date</th><th>Party</th><th>Direction</th><th class="right">Amount</th></tr></thead>
-          <tbody>
-          <?php foreach (array_slice($summary['refunds'], 0, 8) as $d): ?>
-            <tr>
-              <td data-label="Date" class="mono"><?= h(format_date($d['date'])) ?></td>
-              <td data-label="Party"><a href="<?= h(url('document_view.php?id=' . (int) $d['id'])) ?>"><?= h($d['party_name']) ?> · <?= h($d['number']) ?></a></td>
-              <td data-label="Direction"><?= pnl_refund_direction($d) === 'in' ? 'In' : 'Out' ?></td>
-              <td data-label="Amount" class="right mono"><?= h(money(pnl_doc_amount($d), $ccy)) ?></td>
-            </tr>
-          <?php endforeach; ?>
-          </tbody>
-        </table>
-      </div>
-    <?php endif; ?>
-  </div>
-  <div class="card pnl-card">
-    <div class="card-head">
-      <h2><?= icon('truck', 16) ?>Return notes</h2>
-      <a class="btn ghost sm" href="<?= h(url('documents.php?kind=return_note')) ?>">All</a>
-    </div>
-    <?php if (!$summary['returns']): ?>
-      <p class="empty">No return notes in this period. <a href="<?= h(url('document_new.php?kind=return_note')) ?>">Add a return note</a>.</p>
-    <?php else: ?>
-      <div class="pnl-sheet-wrap">
-        <table class="pnl-sheet pnl-ledger">
-          <thead><tr><th>Date</th><th>Party</th><th>Direction</th><th class="right">No.</th></tr></thead>
-          <tbody>
-          <?php foreach (array_slice($summary['returns'], 0, 8) as $d): ?>
-            <tr>
-              <td data-label="Date" class="mono"><?= h(format_date($d['date'])) ?></td>
-              <td data-label="Party"><a href="<?= h(url('document_view.php?id=' . (int) $d['id'])) ?>"><?= h($d['party_name']) ?></a></td>
-              <td data-label="Direction"><?= pnl_return_direction($d) === 'in' ? 'To supplier' : 'From customer' ?></td>
-              <td data-label="No." class="right mono"><?= h($d['number']) ?></td>
-            </tr>
-          <?php endforeach; ?>
-          </tbody>
-        </table>
-      </div>
-    <?php endif; ?>
-  </div>
-</div>
 <?php
 $script = '<script src="' . h(asset('js/chart.umd.min.js')) . '" defer></script><script>
 document.addEventListener("DOMContentLoaded", function () {

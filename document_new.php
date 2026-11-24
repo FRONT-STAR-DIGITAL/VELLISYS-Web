@@ -129,6 +129,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (is_array($existing['custom_values'] ?? null)) {
         $customValues = $existing['custom_values'];
     }
+    if ($kind === 'return_note') {
+        $reasonKey = trim((string) post('return_reason'));
+        $dispKey = trim((string) post('stock_disposition'));
+        $reasonOpts = function_exists('return_reason_options') ? return_reason_options() : [];
+        $dispOpts = function_exists('return_stock_disposition_options') ? return_stock_disposition_options() : [];
+        if ($reasonKey === '' || !isset($reasonOpts[$reasonKey])) {
+            flash('Choose a reason for the return.', 'err');
+            redirect($editId ? 'document_new.php?id=' . $editId : 'document_new.php?kind=return_note' . ($prefillParty ? '&party=' . $prefillParty : ''));
+        }
+        if ($dispKey === '' || !isset($dispOpts[$dispKey])) {
+            flash('Choose whether goods go back to stock or are disposed of.', 'err');
+            redirect($editId ? 'document_new.php?id=' . $editId : 'document_new.php?kind=return_note' . ($prefillParty ? '&party=' . $prefillParty : ''));
+        }
+        $customValues['return_reason'] = $reasonKey;
+        $customValues['stock_disposition'] = $dispKey;
+    }
     $tplForSave = trim((string) post('doc_template'));
     if ($tplForSave === '' || !array_key_exists($tplForSave, doc_templates())) {
         $tplForSave = $existing
@@ -310,7 +326,7 @@ layout_start($heading, $user, ['kind' => $kind]);
       } elseif ($kind === 'refund') {
           echo 'Record money refunded to a customer or received back from a supplier. Link an invoice or expense when you can.';
       } elseif ($kind === 'return_note') {
-          echo 'List goods returned by a customer or sent back to a supplier. Quantities only. Pair with a refund when money moves.';
+          echo 'List goods returned by a customer or sent back to a supplier. Add the reason and whether stock is put back or disposed of. Pair with a refund when money moves.';
       } else {
           echo 'Client, item, description, amount' . ($kind === 'invoice' ? ', due date' : '') . '. Numbering and branding are applied for you.';
       }
@@ -479,6 +495,11 @@ layout_start($heading, $user, ['kind' => $kind]);
       </div>
     <?php endif; ?>
     <?php if ($kind === 'return_note'): ?>
+      <?php
+        $savedReturn = is_array($existing['custom_values'] ?? null) ? $existing['custom_values'] : [];
+        $reasonSel = (string) ($savedReturn['return_reason'] ?? '');
+        $dispSel = (string) ($savedReturn['stock_disposition'] ?? 'restock');
+      ?>
       <div>
         <label for="expense_category">Direction</label>
         <select id="expense_category" name="expense_category">
@@ -486,6 +507,24 @@ layout_start($heading, $user, ['kind' => $kind]);
           <option value="out" <?= in_array($dir, ['out', 'customer', 'customer_return', ''], true) ? 'selected' : '' ?>>From customer</option>
           <option value="in" <?= in_array($dir, ['in', 'supplier', 'supplier_return'], true) ? 'selected' : '' ?>>To supplier</option>
         </select>
+      </div>
+      <div>
+        <label for="return_reason">Reason for return</label>
+        <select id="return_reason" name="return_reason" required>
+          <option value="">Select reason…</option>
+          <?php foreach (return_reason_options() as $rk => $rl): ?>
+            <option value="<?= h($rk) ?>" <?= $reasonSel === $rk ? 'selected' : '' ?>><?= h($rl) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+      <div>
+        <label for="stock_disposition">Stock</label>
+        <select id="stock_disposition" name="stock_disposition" required>
+          <?php foreach (return_stock_disposition_options() as $dk => $dl): ?>
+            <option value="<?= h($dk) ?>" <?= $dispSel === $dk ? 'selected' : '' ?>><?= h($dl) ?></option>
+          <?php endforeach; ?>
+        </select>
+        <p class="hint">Put back increases stock for customer returns (or decreases when sending to a supplier). Dispose leaves stock unchanged.</p>
       </div>
     <?php endif; ?>
     <?php if (in_array($kind, ['receipt', 'expense', 'refund'], true)): ?>

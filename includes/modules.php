@@ -59,7 +59,7 @@ function company_module_catalog(): array
         ],
         'pnl' => [
             'label' => 'Profit & Loss',
-            'blurb' => 'P&L bookkeeping, refunds and return notes.',
+            'blurb' => 'P&L bookkeeping for income, costs and net profit.',
             'group' => 'insights',
         ],
         'branches' => [

@@ -96,9 +96,6 @@ if ($supportsVoidTab) {
 
 layout_start($meta['title'], $user, ['kind' => $kind]);
 ?>
-<?php if (in_array($kind, ['refund', 'return_note'], true) && function_exists('render_pnl_subnav')): ?>
-  <?php render_pnl_subnav($kind); ?>
-<?php endif; ?>
 <div class="page-head">
   <div>
     <h1><?= icon(document_kind_icon($kind)) ?><?= h($meta['title']) ?></h1>
@@ -113,6 +110,10 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
         <?= h($meta['singular']) ?> using the fields set when this company was onboarded.<?= function_exists('desk_branch_lede') ? h(desk_branch_lede(strtolower($meta['title']))) : '' ?>
       <?php elseif ($kind === 'delivery'): ?>
         Goods out: item, description and quantity. No prices.<?= function_exists('desk_branch_lede') ? h(desk_branch_lede('delivery notes')) : '' ?>
+      <?php elseif ($kind === 'refund'): ?>
+        Money refunded to a customer or received back from a supplier. Still counted on P&amp;L.<?= function_exists('desk_branch_lede') ? h(desk_branch_lede('refunds')) : '' ?>
+      <?php elseif ($kind === 'return_note'): ?>
+        Goods returned - with reason and whether stock is put back or disposed of. Pair with a refund when money moves.<?= function_exists('desk_branch_lede') ? h(desk_branch_lede('returns')) : '' ?>
       <?php elseif ($kind === 'receipt'): ?>
         Cleared receipts are paid in full. Partially cleared receipts still have an amount due on Debtors.<?= function_exists('desk_branch_lede') ? h(desk_branch_lede('receipts')) : '' ?>
       <?php else: ?>
@@ -177,6 +178,9 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
             <th class="right">Amount</th>
             <th class="right">Paid</th>
             <th class="right">Balance</th>
+          <?php elseif ($kind === 'return_note'): ?>
+            <th>Reason</th>
+            <th>Stock</th>
           <?php elseif ($kind === 'invoice'): ?>
             <th class="right">Amount</th>
             <th class="right">Balance</th>
@@ -207,6 +211,15 @@ layout_start($meta['title'], $user, ['kind' => $kind]);
               <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>
               <td class="right mono"><?= h(money($doc['paid'], doc_currency($doc))) ?></td>
               <td class="right mono"><?= h(money($doc['balance'], doc_currency($doc))) ?></td>
+            <?php elseif ($kind === 'return_note'): ?>
+              <?php
+                $cv = $doc['custom_values'] ?? [];
+                if (!is_array($cv)) {
+                    $cv = json_decode((string) $cv, true) ?: [];
+                }
+              ?>
+              <td><?= h(return_reason_label((string) ($cv['return_reason'] ?? '')) ?: '-') ?></td>
+              <td><?= h(return_stock_disposition_label((string) ($cv['stock_disposition'] ?? '')) ?: '-') ?></td>
             <?php elseif ($kind === 'invoice'): ?>
               <td class="right mono"><?= h(money($doc['totals']['total'], doc_currency($doc))) ?></td>
               <td class="right mono"><?= h(money($doc['balance'], doc_currency($doc))) ?></td>

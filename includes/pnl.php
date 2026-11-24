@@ -1144,20 +1144,12 @@ function render_pnl_subnav(string $active): void
         ['pnl_entries.php', 'Ledger', 'bank'],
         ['pnl_savings.php', 'Savings', 'wallet'],
         ['pnl_banking.php', 'Banking', 'bank'],
-        ['documents.php?kind=refund', 'Refunds', 'wallet'],
-        ['documents.php?kind=return_note', 'Returns', 'truck'],
     ];
     ?>
   <nav class="planner-tabs pnl-tabs" aria-label="Profit and loss sections">
     <?php foreach ($tabs as [$href, $label, $iconName]):
         $file = (string) strtok($href, '?');
         $on = $active === $href || $active === $file;
-        if ($active === 'refund' && str_contains($href, 'kind=refund')) {
-            $on = true;
-        }
-        if ($active === 'return_note' && str_contains($href, 'kind=return_note')) {
-            $on = true;
-        }
         ?>
       <a class="planner-tab<?= $on ? ' is-on' : '' ?>" href="<?= h(pnl_href($href)) ?>"><?= icon($iconName, 16) ?><span><?= h($label) ?></span></a>
     <?php endforeach; ?>

@@ -87,7 +87,7 @@ function pricing_package_defaults(): array
             'points' => [
                 'Everything in Vellisys Business',
                 'Custom documents and all letter layouts',
-                'Profit & Loss bookkeeping with refunds and returns',
+                'Profit & Loss bookkeeping, plus refunds and returns in Books',
                 'Up to 3 branches (Head office plus named shops). Several users can share a branch',
                 'Priority onboarding from Vellisys',
             ],

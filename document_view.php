@@ -32,6 +32,16 @@ if ($doc['kind'] === 'invoice') {
 } elseif ($doc['kind'] === 'receipt') {
     $s = $doc['settlement'] ?? [];
     $ledeExtra = ' · RECEIVED ' . money($s['received'] ?? $doc['paid'], doc_currency($doc)) . ' · DUE ' . money((float) (($s['invoice_balance'] ?? 0) > 0.009 ? $s['invoice_balance'] : ($s['balance'] ?? 0)), doc_currency($doc));
+} elseif ($doc['kind'] === 'return_note') {
+    $cv = is_array($doc['custom_values'] ?? null) ? $doc['custom_values'] : [];
+    $reason = function_exists('return_reason_label') ? return_reason_label((string) ($cv['return_reason'] ?? '')) : (string) ($cv['return_reason'] ?? '');
+    $disp = function_exists('return_stock_disposition_label') ? return_stock_disposition_label((string) ($cv['stock_disposition'] ?? '')) : (string) ($cv['stock_disposition'] ?? '');
+    if ($reason !== '') {
+        $ledeExtra .= ' · Reason: ' . $reason;
+    }
+    if ($disp !== '') {
+        $ledeExtra .= ' · ' . $disp;
+    }
 }
 $pdfName = document_download_filename($doc);
 ?>

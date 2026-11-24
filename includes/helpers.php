@@ -1776,6 +1776,39 @@ function expense_categories(): array
     return ['Assets', 'Farm inputs', 'Fuel', 'Rent', 'Salaries', 'Transport', 'Utilities', 'Professional fees', 'Other'];
 }
 
+/** @return array<string, string> */
+function return_reason_options(): array
+{
+    return [
+        'damaged' => 'Damaged or defective',
+        'wrong_item' => 'Wrong item',
+        'changed_mind' => 'Customer changed mind',
+        'excess' => 'Excess / not needed',
+        'other' => 'Other',
+    ];
+}
+
+/** @return array<string, string> */
+function return_stock_disposition_options(): array
+{
+    return [
+        'restock' => 'Put back to stock',
+        'dispose' => 'Dispose of',
+    ];
+}
+
+function return_reason_label(string $key): string
+{
+    $opts = return_reason_options();
+    return $opts[$key] ?? ($key !== '' ? $key : '');
+}
+
+function return_stock_disposition_label(string $key): string
+{
+    $opts = return_stock_disposition_options();
+    return $opts[$key] ?? ($key !== '' ? $key : '');
+}
+
 /** Category marker for Creditors-page entries - personal ledger, not business spend. */
 function personal_creditor_category(): string
 {
@@ -2264,12 +2297,16 @@ function require_desk_kind(string $kind): void
 function desk_kind_nav_items(): array
 {
     $enabled = company_enabled_kinds();
-    // Refunds and returns stay inside P&L - not on the main desk nav.
-    $order = ['quotation', 'invoice', 'receipt', 'delivery', 'expense', 'letter', 'custom'];
+    // Refunds and returns are Books menu items (not under P&L).
+    $order = ['quotation', 'invoice', 'receipt', 'delivery', 'expense', 'refund', 'return_note', 'letter', 'custom'];
     $out = [];
     foreach ($order as $kind) {
         if ($kind === 'expense') {
             // always available
+        } elseif (in_array($kind, ['refund', 'return_note'], true)) {
+            if (!company_allows_kind($kind)) {
+                continue;
+            }
         } elseif (!in_array($kind, $enabled, true)) {
             continue;
         }
@@ -6064,7 +6101,7 @@ function desk_manage_items(): array
         ['icon' => 'receipt', 'title' => 'Receipts', 'body' => 'Record what came in. RECEIVED and DUE print on the sheet, in your currency.'],
         ['icon' => 'expense', 'title' => 'Expenses', 'body' => 'Log what the company spent - fuel, rent, suppliers - with your tax and currency on the same desk as the sales books.'],
         ['icon' => 'calendar', 'title' => 'Planner', 'body' => 'Notes, budget targets and a calendar for programmes, appointments and deadlines, with priority when it matters.'],
-        ['icon' => 'reports', 'title' => 'Profit & Loss', 'body' => 'See net profit for any date range. Record other income and costs, refunds and return notes beside invoices and expenses.'],
+        ['icon' => 'reports', 'title' => 'Profit & Loss', 'body' => 'See net profit for any date range. Record other income and costs beside invoices and expenses.'],
         ['icon' => 'truck', 'title' => 'Delivery notes', 'body' => 'List what left the store, with quantities. No prices - goods out, not a bill.'],
         ['icon' => 'file', 'title' => 'Custom documents', 'body' => 'A form you set up once - fields, a body, or both - on the same branded paper as the rest of the books.'],
         ['icon' => 'clients', 'title' => 'Debtors', 'body' => 'See who still owes you. Send a reminder from the row, from the company mailbox.'],

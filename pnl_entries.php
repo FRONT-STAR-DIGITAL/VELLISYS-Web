@@ -41,7 +41,7 @@ layout_start('P&L ledger', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('bank') ?>P&amp;L ledger</h1>
-    <p class="lede">Other income and costs that sit beside invoices, expenses, receipts, refunds and returns.<?= h(pnl_branch_lede()) ?></p>
+    <p class="lede">Other income and costs that sit beside invoices, expenses and receipts.<?= h(pnl_branch_lede()) ?></p>
   </div>
   <div class="actions page-actions">
     <a class="btn ghost" href="<?= h(pnl_href('pnl.php')) ?>"><?= icon('reports', 16) ?>Overview</a>

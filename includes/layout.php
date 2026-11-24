@@ -408,10 +408,6 @@ function layout_start(string $title, array $user, array $opts = []): void
               if (in_array($here, ['stock.php', 'sale.php', 'purchases.php'], true)) {
                   $active = $file === $here;
               }
-              // Refunds and returns live under P&L, not the main kind nav.
-              if (in_array($kind, ['refund', 'return_note'], true) && in_array($here, ['documents.php', 'document_view.php', 'document_new.php', 'document_email.php', 'document_action.php'], true)) {
-                  $active = $file === 'pnl.php';
-              }
               if ($here === 'branding.php') {
                   $active = $file === 'settings.php';
               }
@@ -772,8 +768,7 @@ function render_app_tabbar(): void
     $reportsHref = function_exists('user_can_open') && user_can_open('reports.php') ? 'reports.php' : 'debtors.php';
     $homeOn = $here === 'dashboard.php';
     $clientsOn = in_array($here, ['clients.php', 'client_view.php', 'client_edit.php'], true);
-    $repOn = in_array($here, ['reports.php', 'pnl.php', 'pnl_entries.php', 'pnl_savings.php', 'pnl_banking.php'], true)
-        || in_array($kind, ['refund', 'return_note'], true);
+    $repOn = in_array($here, ['reports.php', 'pnl.php', 'pnl_entries.php', 'pnl_savings.php', 'pnl_banking.php'], true);
     ?>
 <nav class="app-tabbar" aria-label="App" data-app-tabbar>
   <a class="app-tab<?= $homeOn ? ' is-on' : '' ?>" href="<?= h(url('dashboard.php')) ?>">
