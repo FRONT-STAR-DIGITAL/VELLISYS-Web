@@ -45,17 +45,27 @@ function company_backup_send(string $file, ?int $cid = null): void
 
 function company_backup_read_file(string $tmp): ?array
 {
-    return null;
+    return function_exists('restore_read_json_file') ? restore_read_json_file($tmp) : null;
 }
 
 function backup_insert_row(string $table, array $row, array $skip = ['id']): int
 {
+    if (function_exists('restore_insert_row')) {
+        return restore_insert_row($table, $row, $skip);
+    }
     return 0;
 }
 
 function company_backup_restore_payload(array $data, ?int $cid = null, array $opts = []): array
 {
-    return ['ok' => false, 'error' => 'In-app backup restore is no longer available.'];
+    if (!function_exists('restore_apply_to_company')) {
+        return ['ok' => false, 'error' => 'Restore is not available.'];
+    }
+    $scopes = $opts['scopes'] ?? ['clients', 'documents', 'stock'];
+    if (!empty($opts['branding'])) {
+        $scopes[] = 'branding';
+    }
+    return restore_apply_to_company($data, (int) ($cid ?? 0), (array) $scopes, $opts);
 }
 
 /** Scopes a super admin can clear after a training run (keeps logins / branding / term). */

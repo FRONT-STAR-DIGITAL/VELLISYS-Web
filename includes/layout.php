@@ -575,6 +575,7 @@ function layout_admin_start(string $title, array $user): void
         ]],
         ['label' => 'Companies', 'items' => [
             ['admin_companies.php', 'Companies', 'building'],
+            ['admin_restore.php', 'Restore', 'file'],
             ['admin_locations.php?range=today', 'Locations', 'pin'],
         ]],
         ['label' => 'Sales', 'items' => [
@@ -633,6 +634,7 @@ function layout_admin_start(string $title, array $user): void
               $file = strtok($href, '?');
               $active = $file === $here
                   || (in_array($here, ['admin_company.php', 'admin_company_new.php'], true) && $file === 'admin_companies.php')
+                  || ($here === 'admin_restore.php' && $file === 'admin_restore.php')
                   || ($here === 'admin_question.php' && $file === 'admin_questions.php')
                   || ($here === 'admin_feedback.php' && $file === 'admin_feedback.php')
                   || (str_starts_with($here, 'admin_sales') && $file === 'admin_sales.php' && !str_contains($href, 'tab=messages') && (string) ($_GET['tab'] ?? '') !== 'messages')

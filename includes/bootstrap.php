@@ -85,6 +85,7 @@ require_once ROOT_PATH . '/includes/desk_day.php';
 require_once ROOT_PATH . '/includes/sales.php';
 require_once ROOT_PATH . '/includes/feedback.php';
 require_once ROOT_PATH . '/includes/backup.php';
+require_once ROOT_PATH . '/includes/restore.php';
 require_once ROOT_PATH . '/includes/import.php';
 require_once ROOT_PATH . '/includes/planner.php';
 require_once ROOT_PATH . '/includes/branches.php';
