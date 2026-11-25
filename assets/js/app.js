@@ -3080,3 +3080,154 @@ document.addEventListener('click', function (e) {
   });
 })();
 
+/** Make data-table rows open their item when tapped (actions stay normal). */
+(function () {
+  function skipTable(table) {
+    if (!table || !table.classList || !table.classList.contains('grid')) return true;
+    if (table.classList.contains('lines') || table.classList.contains('lines-preview-table') || table.classList.contains('no-row-open')) {
+      return true;
+    }
+    if (table.closest('.document-form, .sheet, .sheet-wrap, .expense-card, [data-pos-root], [data-lines-panel]')) {
+      return true;
+    }
+    return false;
+  }
+
+  function linkLabel(a) {
+    return String((a.getAttribute('aria-label') || '') + ' ' + (a.getAttribute('title') || '') + ' ' + (a.textContent || ''))
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+  }
+
+  function hrefOk(href) {
+    if (!href) return false;
+    var h = String(href).trim();
+    if (!h || h === '#' || h.indexOf('javascript:') === 0) return false;
+    if (/^(mailto:|tel:|sms:)/i.test(h)) return false;
+    return true;
+  }
+
+  function isSecondaryAction(a) {
+    var label = linkLabel(a);
+    var href = String(a.getAttribute('href') || '').toLowerCase();
+    if (/\b(view|open)\b/.test(label)) return false;
+    if (/\b(delete|void|trash|print|email|message|share|whatsapp|csv|word|export|sell|invoice|receipt|payment|remind|convert|onboard|desk)\b/.test(label)) {
+      return true;
+    }
+    if (href.indexOf('print=1') !== -1) return true;
+    if (/document_email\.php|letter_docx\.php|export\.php|desk_mail\.php|whatsapp|wa\.me/.test(href)) return true;
+    if (/document_action\.php\?(receive|pay)=/.test(href)) return true;
+    if (/action=void|action=delete|action=convert/.test(href)) return true;
+    return false;
+  }
+
+  function preferScore(a) {
+    var label = linkLabel(a);
+    var inActions = !!a.closest('td.row-actions, .row-actions');
+    if (/\bview\b/.test(label) || label === 'open' || /(^|\s)open(\s|$)/.test(label)) return inActions ? 90 : 100;
+    if (!inActions) return 80;
+    if (/\bedit\b/.test(label) || /\blead\b/.test(label)) return 60;
+    if (!isSecondaryAction(a)) return 40;
+    return 0;
+  }
+
+  function resolveRowHref(tr) {
+    if (!tr) return '';
+    var preset = (tr.getAttribute('data-row-href') || '').trim();
+    if (hrefOk(preset)) return preset;
+
+    var best = null;
+    var bestScore = 0;
+    var links = tr.querySelectorAll('a[href]');
+    for (var i = 0; i < links.length; i++) {
+      var a = links[i];
+      var href = a.getAttribute('href');
+      if (!hrefOk(href)) continue;
+      if (a.closest('form')) continue;
+      var score = preferScore(a);
+      if (score <= 0) continue;
+      if (score > bestScore) {
+        bestScore = score;
+        best = href;
+      }
+    }
+    return best || '';
+  }
+
+  function markRows(root) {
+    var scope = root && root.querySelectorAll ? root : document;
+    scope.querySelectorAll('table.grid tbody tr').forEach(function (tr) {
+      var table = tr.closest('table');
+      if (skipTable(table)) {
+        tr.removeAttribute('data-row-href');
+        tr.removeAttribute('tabindex');
+        tr.removeAttribute('role');
+        return;
+      }
+      var href = resolveRowHref(tr);
+      if (!href) {
+        tr.removeAttribute('data-row-href');
+        tr.removeAttribute('tabindex');
+        if (tr.getAttribute('role') === 'link') tr.removeAttribute('role');
+        return;
+      }
+      tr.setAttribute('data-row-href', href);
+      if (!tr.hasAttribute('tabindex')) tr.setAttribute('tabindex', '0');
+      if (!tr.getAttribute('role')) tr.setAttribute('role', 'link');
+    });
+  }
+
+  function interactiveTarget(el) {
+    return !!(el && el.closest && el.closest('a, button, input, select, textarea, label, summary, form, details, .row-actions, td.row-actions'));
+  }
+
+  function go(href, newTab) {
+    if (!hrefOk(href)) return;
+    if (newTab) {
+      window.open(href, '_blank', 'noopener');
+      return;
+    }
+    window.location.href = href;
+  }
+
+  function onActivate(e, tr) {
+    if (!tr || interactiveTarget(e.target)) return;
+    var href = tr.getAttribute('data-row-href') || resolveRowHref(tr);
+    if (!hrefOk(href)) return;
+    e.preventDefault();
+    go(href, !!(e.metaKey || e.ctrlKey || e.shiftKey));
+  }
+
+  document.addEventListener('click', function (e) {
+    if (e.defaultPrevented || e.button !== 0) return;
+    var tr = e.target && e.target.closest ? e.target.closest('table.grid tbody tr[data-row-href]') : null;
+    if (!tr || skipTable(tr.closest('table'))) return;
+    onActivate(e, tr);
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var tr = e.target;
+    if (!tr || !tr.matches || !tr.matches('table.grid tbody tr[data-row-href]')) return;
+    if (skipTable(tr.closest('table'))) return;
+    e.preventDefault();
+    go(tr.getAttribute('data-row-href'), !!(e.metaKey || e.ctrlKey || e.shiftKey));
+  });
+
+  function boot() {
+    markRows(document);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+  // Re-mark after filter/search scripts hide/show rows or rewrite markup.
+  document.addEventListener('input', function (e) {
+    if (e.target && e.target.matches && e.target.matches('[data-table-filter]')) {
+      setTimeout(boot, 0);
+    }
+  });
+})();
+
