@@ -27,7 +27,7 @@ sales_layout_start('Companies', $user);
 <div class="page-head">
   <div>
     <h1><?= icon('building') ?>Companies</h1>
-    <p class="lede">Your onboarded clients - companies assigned to you as sales. When admin updates amount paid, fee, paid and balance update here.</p>
+    <p class="lede">Your clients - companies assigned to you as sales. See fee, amount paid, activated time and when access ends.</p>
   </div>
   <div class="actions page-actions">
     <a class="btn ghost" href="<?= h(url('sales_testing.php')) ?>"><?= icon('desk', 14) ?>On Testing</a>
@@ -35,18 +35,26 @@ sales_layout_start('Companies', $user);
   </div>
 </div>
 
+<?php
+$expiringMine = 0;
+foreach ($companies as $c) {
+    if (in_array(company_expiry_state($c), ['soon', 'expired'], true)) {
+        $expiringMine++;
+    }
+}
+?>
 <?php if ($companies): ?>
 <div class="stats" style="margin-bottom:16px">
-  <div class="card stat"><?= icon('flag', 20) ?><span>Onboarded clients</span><strong><?= count($companies) ?></strong></div>
+  <div class="card stat"><?= icon('flag', 20) ?><span>Your clients</span><strong><?= count($companies) ?></strong></div>
   <div class="card stat"><?= icon('bank', 20) ?><span>Amount paid</span><strong><?= h($paidLabel) ?></strong></div>
   <div class="card stat"><?= icon('reports', 20) ?><span>Balance left</span><strong><?= h($balanceLabel) ?></strong><?php if ($withBalance): ?><em class="muted"><?= (int) $withBalance ?> with balance</em><?php endif; ?></div>
-  <div class="card stat"><?= icon('clients', 20) ?><span>Fee total</span><strong><?= h($feeLabel) ?></strong></div>
+  <div class="card stat"><?= icon('alert', 20) ?><span>Renewing / expired</span><strong><?= (int) $expiringMine ?></strong></div>
 </div>
 <?php endif; ?>
 
 <div class="card">
   <?php if (!$companies): ?>
-    <p class="empty">No onboarded clients yet. When admin assigns a company to you - or a lead of yours is onboarded - it shows here with fee, amount paid and balance.</p>
+    <p class="empty">No clients yet. When admin assigns a company to you - or a lead of yours is onboarded - it shows here with fee, amount paid, activated time and expiry.</p>
   <?php else: ?>
     <div class="table-scroll">
       <table class="grid">
@@ -54,7 +62,9 @@ sales_layout_start('Companies', $user);
           <tr>
             <th>Client</th>
             <th>Contact</th>
-            <th>Period</th>
+            <th>Activated</th>
+            <th>Expires</th>
+            <th>Time left</th>
             <th class="right">Fee</th>
             <th class="right">Amount paid</th>
             <th class="right">Balance left</th>
@@ -69,9 +79,8 @@ sales_layout_start('Companies', $user);
               $paid = company_fee_paid($c);
               $balance = company_fee_balance($c);
               $feeCcy = company_fee_currency($c);
-              $period = function_exists('payment_receipt_period_label')
-                  ? payment_receipt_period_label($c)
-                  : '-';
+              $state = company_expiry_state($c);
+              $expClass = $state === 'expired' ? 'expiry-expired' : ($state === 'soon' ? 'expiry-soon' : '');
               ?>
             <tr>
               <td>
@@ -87,7 +96,9 @@ sales_layout_start('Companies', $user);
                   <span class="muted">-</span>
                 <?php endif; ?>
               </td>
-              <td><?= h($period !== '' ? $period : '-') ?></td>
+              <td><?= h(company_activated_term_label($c)) ?></td>
+              <td class="<?= h($expClass) ?>"><?= company_expires_on($c) ? h(format_date((string) $c['expires_at'])) : '-' ?></td>
+              <td class="<?= h($expClass) ?>"><?= h(company_remaining_phrase($c)) ?></td>
               <td class="right mono"><?= h(money(company_fee_amount($c), $feeCcy)) ?></td>
               <td class="right mono"><?= h(money($paid, $feeCcy)) ?></td>
               <td class="right mono<?= $balance > 0.009 ? ' neg' : ' pos' ?>">
@@ -103,7 +114,7 @@ sales_layout_start('Companies', $user);
         </tbody>
       </table>
     </div>
-    <p class="hint">Balances come from company Amount paid on admin. Installment updates show here as soon as admin saves them.</p>
+    <p class="hint">Activated time is the share of the quoted term covered by amount paid (shown as months and days). Balances update when admin records a payment.</p>
   <?php endif; ?>
 </div>
 <?php sales_layout_end(); ?>

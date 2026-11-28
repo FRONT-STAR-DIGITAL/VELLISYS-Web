@@ -473,6 +473,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ];
         }
     }
+    if ($action === 'extend_days') {
+        $days = (int) post('extend_days');
+        if ($days === 0) {
+            $days = 7;
+        }
+        $done = function_exists('company_extend_expiry_days')
+            ? company_extend_expiry_days($id, $days)
+            : ['ok' => false, 'error' => 'Extend helper missing.'];
+        if (empty($done['ok'])) {
+            flash((string) ($done['error'] ?? 'Could not extend.'), 'err');
+        } else {
+            $sign = $days >= 0 ? '+' : '';
+            flash(
+                $company['name'] . ' access ' . $sign . $days . ' day' . (abs($days) === 1 ? '' : 's')
+                . ' · now until ' . format_date((string) ($done['expires_at'] ?? '')) . '.'
+            );
+        }
+        redirect('admin_company.php?id=' . $id . '#term');
+    }
     if ($action === 'term') {
         $term = parse_paid_term(post('paid_term'));
         $unit = normalize_paid_unit(post('paid_unit'));
@@ -1150,9 +1169,9 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
         Current expiry <?= h(format_date($company['expires_at'])) ?> · <?= h(company_remaining_phrase($company)) ?>.
         Activated <?= h(company_activated_term_label($company)) ?>.
         Balance <?= h(money(company_fee_balance($company), company_fee_currency($company))) ?>.
-        Saving activates time in proportion to amount paid ÷ fee (for example 60,000 of 200,000 on 1 year → 3.6 months) and keeps Finances Taken in in sync. Set number to 0 to clear the term (fees already collected stay on Finances).
+        Saving activates time in proportion to amount paid / fee (for example 60,000 of 200,000 on 1 year → about 3 months, 18 days) and keeps Finances Taken in in sync. Set number to 0 to clear the term (fees already collected stay on Finances).
       <?php else: ?>
-        Set the quoted term (weeks, months or years) and fee. Amount paid activates only that share of the term — for example 60,000 of 200,000 on 1 year activates 3.6 months. Reports list desks one month from expiry so you can chase renewals.
+        Set the quoted term (weeks, months or years) and fee. Amount paid activates only that share of the term - for example 60,000 of 200,000 on 1 year activates about 3 months, 18 days. Reports list desks one month from expiry so you can chase renewals.
       <?php endif; ?>
     </p>
     <div class="actions admin-term-actions">
@@ -1174,6 +1193,25 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
         </div>
       </details>
     <?php endif; ?>
+  </div>
+</form>
+<form class="card form-wide" method="post" style="margin-top:12px" id="extend-days">
+  <?= csrf_field() ?>
+  <input type="hidden" name="id" value="<?= $id ?>">
+  <input type="hidden" name="action" value="extend_days">
+  <div class="card-head"><h2><?= icon('calendar', 16) ?>Add days</h2></div>
+  <div class="form-grid" style="padding:0 22px 8px">
+    <div>
+      <label for="extend_days">Days to add</label>
+      <input id="extend_days" name="extend_days" type="number" min="-366" max="366" step="1" value="7">
+      <p class="hint">Grace time without changing amount paid. Use 7 for a week. Negative days pull the end date earlier. If already expired, days count from today.</p>
+    </div>
+  </div>
+  <div class="actions" style="padding:0 22px 22px">
+    <button class="btn" type="submit"><?= icon('plus', 16) ?>Add days</button>
+    <button class="btn ghost" type="submit" name="extend_days" value="7">+7 days</button>
+    <button class="btn ghost" type="submit" name="extend_days" value="14">+14 days</button>
+    <button class="btn ghost" type="submit" name="extend_days" value="30">+30 days</button>
   </div>
 </form>
 

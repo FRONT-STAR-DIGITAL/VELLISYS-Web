@@ -3579,7 +3579,7 @@ function company_signature_url(?array $brand = null): string
 
 /**
  * Pure-black ink stamp of the company logo for thermal printers.
- * CSS filters on color logos often print as a solid black rectangle on rolls —
+ * CSS filters on color logos often print as a solid black rectangle on rolls -
  * this thresholds to black-on-white (inverting dark backgrounds first).
  */
 function company_logo_ink_url(?array $brand = null): string
@@ -3610,7 +3610,7 @@ function company_logo_ink_url(?array $brand = null): string
                 }
             }
         }
-        // No uploaded logo — ink the initials plate so thermal sheets still show a mark.
+        // No uploaded logo - ink the initials plate so thermal sheets still show a mark.
         return company_initials_logo_ink_url($brand) ?: $fallbackDoc();
     }
     if ($srcFull === '') {
@@ -3725,7 +3725,7 @@ function logo_thermal_ink_bin(string $bin): string
     imagecopyresampled($work, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
     imagedestroy($src);
 
-    // Sample border luma — dark borders usually mean a filled logo plate.
+    // Sample border luma - dark borders usually mean a filled logo plate.
     $borderSum = 0.0;
     $borderN = 0;
     for ($x = 0; $x < $nw; $x++) {
@@ -3860,7 +3860,7 @@ function signature_thermal_ink_bin(string $bin): string
     if ($bin === '' || !function_exists('imagecreatefromstring') || !function_exists('imagepng')) {
         return '';
     }
-    // Bake phone EXIF orientation before thresholding — GD ignores the tag and would
+    // Bake phone EXIF orientation before thresholding - GD ignores the tag and would
     // otherwise stamp an upside-down signature on thermal / portal PDFs.
     if (function_exists('image_bin_bake_exif_orientation')) {
         $bin = image_bin_bake_exif_orientation($bin);
@@ -4027,7 +4027,7 @@ function store_company_signature_file(string $bin, string $ext): string
 }
 
 /**
- * Read EXIF Orientation (1–8) from image binary. Returns 1 when absent / unsupported.
+ * Read EXIF Orientation (1-8) from image binary. Returns 1 when absent / unsupported.
  * Phone camera JPEGs often store pixels sideways/upside-down and rely on this tag.
  */
 function image_bin_exif_orientation(string $bin): int
@@ -4176,7 +4176,7 @@ function normalize_signature_image_bin(string $bin): array
     $orientation = image_bin_exif_orientation($bin);
     $w = (int) ($info[0] ?? 0);
     $h = (int) ($info[1] ?? 0);
-    // Orientations 5–8 swap width/height when baked.
+    // Orientations 5-8 swap width/height when baked.
     if ($orientation >= 5 && $orientation <= 8) {
         [$w, $h] = [$h, $w];
     }
@@ -4207,7 +4207,7 @@ function normalize_signature_image_bin(string $bin): array
             throw new RuntimeException('Signature image is too large. Use a small scan, under 1200×480 pixels.');
         }
         if ($needsOrient) {
-            // Without GD we cannot bake orientation — refuse rather than store a flip hazard.
+            // Without GD we cannot bake orientation - refuse rather than store a flip hazard.
             throw new RuntimeException('Could not correct that signature photo orientation. Upload a PNG scan instead.');
         }
         throw new RuntimeException('Signature image must be under 700 KB.');
@@ -5499,7 +5499,9 @@ function company_remaining_phrase(array $company): string
     if ($diff->d > 0 || !$parts) {
         $parts[] = $diff->d === 1 ? '1 day' : $diff->d . ' days';
     }
-    $span = implode(' ', $parts);
+    $span = count($parts) <= 1
+        ? ($parts[0] ?? '0 days')
+        : (count($parts) === 2 ? ($parts[0] . ', ' . $parts[1]) : ($parts[0] . ', ' . $parts[1] . ', ' . $parts[2]));
     return $diff->invert ? ('Expired ' . $span . ' ago') : ($span . ' left');
 }
 
@@ -5964,6 +5966,49 @@ function company_activated_term(array $company): float
     );
 }
 
+/**
+ * Human span between two dates: "2 months, 10 days" (no decimals like 2.3 months).
+ */
+function format_date_span_parts(?string $from, ?string $to): string
+{
+    $from = $from !== null ? substr(trim($from), 0, 10) : '';
+    $to = $to !== null ? substr(trim($to), 0, 10) : '';
+    if ($from === '' || $to === '') {
+        return '';
+    }
+    $a = DateTime::createFromFormat('Y-m-d', $from);
+    $b = DateTime::createFromFormat('Y-m-d', $to);
+    if (!$a || !$b) {
+        return '';
+    }
+    $a->setTime(0, 0, 0);
+    $b->setTime(0, 0, 0);
+    if ($b < $a) {
+        [$a, $b] = [$b, $a];
+    }
+    if ($a == $b) {
+        return '0 days';
+    }
+    $diff = $a->diff($b);
+    $parts = [];
+    if ($diff->y > 0) {
+        $parts[] = $diff->y . ($diff->y === 1 ? ' year' : ' years');
+    }
+    if ($diff->m > 0) {
+        $parts[] = $diff->m . ($diff->m === 1 ? ' month' : ' months');
+    }
+    if ($diff->d > 0 || !$parts) {
+        $parts[] = $diff->d === 1 ? '1 day' : $diff->d . ' days';
+    }
+    if (count($parts) === 1) {
+        return $parts[0];
+    }
+    if (count($parts) === 2) {
+        return $parts[0] . ', ' . $parts[1];
+    }
+    return $parts[0] . ', ' . $parts[1] . ', ' . $parts[2];
+}
+
 function company_activated_term_label(array $company): string
 {
     $full = (float) ($company['paid_term'] ?? 0);
@@ -5972,12 +6017,24 @@ function company_activated_term_label(array $company): string
     if ($full <= 0 || $activated <= 0) {
         return 'Not activated';
     }
-    $actShown = format_paid_term_number($activated);
-    $word = match ($unit) {
-        'weeks' => (abs($activated - 1) < 0.001 ? 'week' : 'weeks'),
-        'years' => (abs($activated - 1) < 0.001 ? 'year' : 'years'),
-        default => (abs($activated - 1) < 0.001 ? 'month' : 'months'),
-    };
+    $from = trim((string) ($company['paid_from'] ?? ''));
+    if ($from === '' || !DateTime::createFromFormat('Y-m-d', substr($from, 0, 10))) {
+        $from = date('Y-m-d');
+    }
+    $end = company_expires_on($company);
+    if (!$end) {
+        $end = compute_fee_expiry_date(
+            $from,
+            $full,
+            $unit,
+            company_fee_amount($company),
+            company_fee_paid($company)
+        );
+    }
+    $span = format_date_span_parts($from, $end);
+    if ($span === '') {
+        return 'Not activated';
+    }
     $fee = company_fee_amount($company);
     $paid = company_fee_paid($company);
     if ($fee > 0.009 && $paid + 0.009 < $fee) {
@@ -5987,9 +6044,53 @@ function company_activated_term_label(array $company): string
             'years' => (abs($full - 1) < 0.001 ? 'year' : 'years'),
             default => (abs($full - 1) < 0.001 ? 'month' : 'months'),
         };
-        return $actShown . ' ' . $word . ' of ' . $fullShown . ' ' . $fullWord;
+        return $span . ' of ' . $fullShown . ' ' . $fullWord;
     }
-    return $actShown . ' ' . $word;
+    return $span;
+}
+
+/**
+ * Extend a company's paid expiry by whole days (grace / chase). Does not change fee paid.
+ *
+ * @return array{ok:bool,error?:string,expires_at?:string,days?:int}
+ */
+function company_extend_expiry_days(int $companyId, int $days): array
+{
+    if ($companyId < 1) {
+        return ['ok' => false, 'error' => 'Company not found.'];
+    }
+    $days = (int) $days;
+    if ($days === 0) {
+        return ['ok' => false, 'error' => 'Enter how many days to add (or remove with a negative number).'];
+    }
+    if ($days > 366 || $days < -366) {
+        return ['ok' => false, 'error' => 'Use between -366 and 366 days.'];
+    }
+    $co = db_one('SELECT id, name, expires_at, paid_from FROM companies WHERE id = ?', 'i', [$companyId]);
+    if (!$co) {
+        return ['ok' => false, 'error' => 'Company not found.'];
+    }
+    $base = company_expires_on($co);
+    $today = date('Y-m-d');
+    if (!$base || $base < $today) {
+        // Expired or unset: count from today so +7 grants a week of access now.
+        $base = $today;
+    }
+    $dt = DateTime::createFromFormat('Y-m-d', $base);
+    if (!$dt) {
+        return ['ok' => false, 'error' => 'Could not read the current expiry date.'];
+    }
+    $dt->modify(($days >= 0 ? '+' : '') . $days . ' days');
+    $next = $dt->format('Y-m-d');
+    $remindClear = function_exists('db_has_column') && db_has_column(db(), 'companies', 'fee_remind_sent')
+        ? ', fee_remind_sent=NULL'
+        : '';
+    db_exec(
+        'UPDATE companies SET expires_at=?, renewal_notice_sent_at=NULL' . $remindClear . ' WHERE id=?',
+        'si',
+        [$next, $companyId]
+    );
+    return ['ok' => true, 'expires_at' => $next, 'days' => $days];
 }
 
 /** Paid term ended (non-testing desks with an expiry date). */
@@ -6143,7 +6244,7 @@ function desk_fee_expiry_notifications(?array $company = null, int $limit = 4): 
     $expires = company_expires_on($company);
     $title = $milestone === 2
         ? ($days === 0 ? 'Desk access ends today' : ($days === 1 ? '1 day left on your desk' : $milestone . ' days left on your desk'))
-        : ($milestone . ' days left — renew to keep access');
+        : ($milestone . ' days left - renew to keep access');
     $meta = 'Pay the balance to extend. Expires ' . ($expires ? format_date($expires) : 'soon');
     $balance = company_fee_balance($company);
     if ($balance > 0.009) {

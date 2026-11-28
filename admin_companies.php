@@ -69,6 +69,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $gone = platform_delete_company($tid);
         flash(empty($gone['ok']) ? ($gone['error'] ?? 'Could not delete.') : ($co['name'] . ' deleted.'), empty($gone['ok']) ? 'err' : 'ok');
         redirect('admin_companies.php#testing');
+    } elseif ($action === 'extend_days') {
+        $days = (int) post('extend_days');
+        if ($days === 0) {
+            $days = 7;
+        }
+        $co = $tid > 0 ? db_one('SELECT id, name FROM companies WHERE id = ?', 'i', [$tid]) : null;
+        if (!$co) {
+            flash('Company not found.', 'err');
+        } else {
+            $done = function_exists('company_extend_expiry_days')
+                ? company_extend_expiry_days($tid, $days)
+                : ['ok' => false, 'error' => 'Extend helper missing.'];
+            if (empty($done['ok'])) {
+                flash((string) ($done['error'] ?? 'Could not extend.'), 'err');
+            } else {
+                $sign = $days >= 0 ? '+' : '';
+                flash(
+                    $co['name'] . ' access ' . $sign . $days . ' day' . (abs($days) === 1 ? '' : 's')
+                    . ' · until ' . format_date((string) ($done['expires_at'] ?? '')) . '.'
+                );
+            }
+        }
+        redirect('admin_companies.php#expiring');
     }
 }
 
@@ -139,7 +162,7 @@ layout_admin_start('Companies', $user);
   <div class="company-table-head">
     <div>
       <h2 style="margin:0"><?= icon('alert', 18) ?>Renewing within a month</h2>
-      <p class="lede" style="margin:6px 0 0">Accounts with less than 31 days left — chase balance or renew before access ends.</p>
+      <p class="lede" style="margin:6px 0 0">Accounts with less than 31 days left - chase balance or renew before access ends.</p>
     </div>
   </div>
   <?php if ($expiringSoon): ?>
@@ -167,8 +190,15 @@ layout_admin_start('Companies', $user);
             <td class="expiry-soon"><?= h(company_remaining_phrase($c)) ?></td>
             <td class="row-actions">
               <div class="actions">
-                <a class="btn sm" href="<?= h(url('admin_company.php?id=' . (int) $c['id'])) ?>"><?= icon('eye', 14) ?>Open</a>
+                <a class="btn sm" href="<?= h(url('admin_company.php?id=' . (int) $c['id'] . '#term')) ?>"><?= icon('eye', 14) ?>Open</a>
                 <a class="btn ghost sm" href="<?= h(url('admin_finances.php?pay=' . (int) $c['id'])) ?>"><?= icon('wallet', 14) ?>Payment</a>
+                <form method="post" class="inline-form">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="action" value="extend_days">
+                  <input type="hidden" name="company_id" value="<?= (int) $c['id'] ?>">
+                  <input type="hidden" name="extend_days" value="7">
+                  <button class="btn ghost sm" type="submit">+7 days</button>
+                </form>
               </div>
             </td>
           </tr>
@@ -180,18 +210,42 @@ layout_admin_start('Companies', $user);
     <p class="empty">No live desks renewing within a month right now.</p>
   <?php endif; ?>
   <?php if ($expiredPaid): ?>
-    <p class="hint" style="margin-top:14px"><strong><?= count($expiredPaid) ?></strong> expired<?= count($expiredPaid) === 1 ? '' : 's' ?> still on the books —
-      <?php
-        $bits = [];
-        foreach (array_slice($expiredPaid, 0, 6) as $c) {
-            $bits[] = '<a href="' . h(url('admin_company.php?id=' . (int) $c['id'])) . '">' . h((string) $c['name']) . '</a>';
-        }
-        echo implode(', ', $bits);
-        if (count($expiredPaid) > 6) {
-            echo ' and ' . (count($expiredPaid) - 6) . ' more';
-        }
-      ?>.
-    </p>
+    <h3 style="margin:18px 0 8px">Expired - still on the books</h3>
+    <div class="table-scroll">
+    <table class="grid">
+      <thead>
+        <tr>
+          <th>Company</th>
+          <th>Activated</th>
+          <th>Balance</th>
+          <th>Ended</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach (array_slice($expiredPaid, 0, 20) as $c): ?>
+          <tr>
+            <td><a href="<?= h(url('admin_company.php?id=' . (int) $c['id'] . '#term')) ?>"><strong><?= h((string) $c['name']) ?></strong></a></td>
+            <td><?= h(company_activated_term_label($c)) ?></td>
+            <td class="mono<?= company_fee_balance($c) > 0.009 ? ' neg' : '' ?>"><?= h(platform_money_company_fee($c, 'balance')) ?></td>
+            <td class="expiry-expired"><?= h(company_remaining_phrase($c)) ?></td>
+            <td class="row-actions">
+              <div class="actions">
+                <a class="btn ghost sm" href="<?= h(url('admin_finances.php?pay=' . (int) $c['id'])) ?>"><?= icon('wallet', 14) ?>Payment</a>
+                <form method="post" class="inline-form">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="action" value="extend_days">
+                  <input type="hidden" name="company_id" value="<?= (int) $c['id'] ?>">
+                  <input type="hidden" name="extend_days" value="7">
+                  <button class="btn ghost sm" type="submit">+7 days</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+    </div>
   <?php endif; ?>
 </div>
 <?php endif; ?>

@@ -30,7 +30,7 @@ $trade = $templateKey === 'trade'
 $thermalMm = $thermal && function_exists('brand_thermal_width_mm')
     ? brand_thermal_width_mm($brand)
     : 58;
-// Short fallback — print-sheet.js rewrites thermal to measured slip height.
+// Short fallback - print-sheet.js rewrites thermal to measured slip height.
 $pageSize = $thermal ? ($thermalMm . 'mm 120mm') : ($trade ? 'A5' : 'A4');
 $thermalPageName = $thermalMm === 80 ? 'thermal-roll-80' : 'thermal-roll';
 $filename = document_download_filename($doc);

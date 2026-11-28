@@ -596,7 +596,7 @@ function layout_admin_start(string $title, array $user): void
     $notes = platform_notifications(40);
     $noteCount = count($notes);
     $salesMsgUnread = function_exists('sales_admin_unread_count') ? sales_admin_unread_count((int) $user['id']) : 0;
-    // Web Push sync runs from ping.php — keep admin HTML off remote push latency.
+    // Web Push sync runs from ping.php - keep admin HTML off remote push latency.
     ?>
 <!DOCTYPE html>
 <html lang="en"<?= function_exists('folio_html_root_attrs') ? folio_html_root_attrs() : '' ?>>

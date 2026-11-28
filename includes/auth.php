@@ -94,14 +94,14 @@ function require_member(): array
         if ($co && function_exists('company_fee_expired') && company_fee_expired($co)) {
             if (function_exists('sales_demo_active') && sales_demo_active() && function_exists('sales_demo_leave')) {
                 sales_demo_leave();
-                flash('That company paid term has ended.', 'err');
+                flash('Account expired. Please pay some money to login.', 'err');
                 redirect(function_exists('sales_home') ? sales_home() : 'sales_home.php');
             }
             unset($_SESSION['user_id'], $_SESSION['company_id'], $_SESSION['role'], $_SESSION['acting_company_id']);
             if (function_exists('clear_remember_cookies')) {
                 clear_remember_cookies();
             }
-            flash('Your paid term has ended. Pay the balance or contact Vellisys to renew.', 'err');
+            flash('Account expired. Please pay some money to login.', 'err');
             redirect('login.php');
         }
     }
@@ -462,7 +462,7 @@ function attempt_login(string $email, string $password): bool
             return false;
         }
         if ($co && function_exists('company_fee_expired') && company_fee_expired($co)) {
-            login_fail_reason('This company paid term has ended. Pay the balance or ask Vellisys to renew.');
+            login_fail_reason('Account expired. Please pay some money to login.');
             return false;
         }
     }

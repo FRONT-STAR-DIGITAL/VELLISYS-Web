@@ -200,7 +200,7 @@
   }
   /**
    * Pocket Bluetooth printers (MPT II etc.) often ignore HTML @page size and
-   * shrink a 58mm slip onto A4. Print a real 58×Nmm PDF instead — 80mm keeps
+   * shrink a 58mm slip onto A4. Print a real 58×Nmm PDF instead - 80mm keeps
    * the normal HTML window.print() path.
    */
   function printThermalPdf() {
@@ -404,7 +404,7 @@
       openPrint();
     });
     // Show the on-screen preview, then open the system print dialog as soon as
-    // logos/QR are ready — so Sale "Save and print" does not need a second tap.
+    // logos/QR are ready - so Sale "Save and print" does not need a second tap.
     // (Earlier auto-print fired before layout and produced blank jobs.)
     document.documentElement.classList.add('print-preview');
     whenPrintReady(autoOpenPrint);

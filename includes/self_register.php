@@ -155,7 +155,7 @@ function self_register_start_otp(string $email): array
     $ip = visitor_ip_hash();
     $expires = (desk_now())->modify('+' . self_register_otp_ttl_seconds() . ' seconds')->format('Y-m-d H:i:s');
 
-    // Keep any previous live OTP until verify succeeds — a late resend must not
+    // Keep any previous live OTP until verify succeeds - a late resend must not
     // invalidate the code the user already has open in their inbox.
     $otpId = 0;
     try {

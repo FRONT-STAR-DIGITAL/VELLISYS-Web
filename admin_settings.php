@@ -100,7 +100,7 @@ layout_admin_start('Settings', $user);
     <div>
       <label for="alert_email">Alert email (where you want copies)</label>
       <input id="alert_email" name="alert_email" type="email" value="<?= h($alertEmail) ?>" placeholder="you@gmail.com" autocomplete="off">
-      <p class="hint">This is only a delivery address for password-reset alerts and copies of Vellisys letters — it does not connect Gmail or Yahoo for sending. To let a company send from Gmail or Yahoo, open that company → Sending mailbox → Mail type → paste an App Password → Save → Send test. Platform letters still leave from <?= h(product_email()) ?>.</p>
+      <p class="hint">This is only a delivery address for password-reset alerts and copies of Vellisys letters - it does not connect Gmail or Yahoo for sending. To let a company send from Gmail or Yahoo, open that company → Sending mailbox → Mail type → paste an App Password → Save → Send test. Platform letters still leave from <?= h(product_email()) ?>.</p>
     </div>
   </div>
   <div class="card-head"><h2><?= icon('mail', 16) ?>System OTP for Create Account</h2></div>

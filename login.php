@@ -22,6 +22,10 @@ if ($prefillEmail !== '' && !filter_var($prefillEmail, FILTER_VALIDATE_EMAIL)) {
 $error = '';
 $remember = true;
 form_mark_open('login');
+$pendingFlash = function_exists('flash') ? flash() : null;
+if (is_array($pendingFlash) && trim((string) ($pendingFlash['text'] ?? '')) !== '') {
+    $error = (string) $pendingFlash['text'];
+}
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $remember = post('remember') === '1';
     if (!csrf_valid()) {

@@ -15,7 +15,7 @@ $action = (string) ($_GET['action'] ?? $_POST['action'] ?? '');
 
 /*
  * Speed sensors must not pay for housekeep / Web Push. Those ran before blob/echo
- * and turned a 50ms probe into a 1–2s "Slow" reading.
+ * and turned a 50ms probe into a 1-2s "Slow" reading.
  */
 if ($action === 'blob') {
     // Fixed payload for client-side download speed tests (max 1 MB).

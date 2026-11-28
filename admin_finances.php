@@ -416,7 +416,7 @@ render_filters('admin_finances.php', $filterKeep, ['live' => true, 'today_first'
       ? 'All time'
       : ('This period · all time ' . money($allTaken, $ccy)) ?></em></div>
   <div class="card stat"><?= icon('expense', 20) ?><span>Expenses</span><strong><?= h(money($periodExpenses, $ccy)) ?></strong><em>This period</em></div>
-  <div class="card stat"><?= icon('reports', 20) ?><span>Profit</span><strong class="<?= $periodProfit < 0 ? 'neg' : 'pos' ?>"><?= h(money($periodProfit, $ccy)) ?></strong><em>Period taken in − expenses</em></div>
+  <div class="card stat"><?= icon('reports', 20) ?><span>Profit</span><strong class="<?= $periodProfit < 0 ? 'neg' : 'pos' ?>"><?= h(money($periodProfit, $ccy)) ?></strong><em>Period taken in - expenses</em></div>
   <div class="card stat"><?= icon('wallet', 20) ?><span>Bank balance</span><strong class="<?= $bankBalance < 0 ? 'neg' : '' ?>"><?= h(money($bankBalance, $ccy)) ?></strong><em>Savings - withdrawals</em></div>
   <div class="card stat"><?= icon('receipt', 20) ?><span>Still due</span><strong><?= h(money($dueShow, $ccy)) ?></strong><em><?= $preset === 'all'
       ? 'On company terms'
@@ -466,7 +466,7 @@ render_filters('admin_finances.php', $filterKeep, ['live' => true, 'today_first'
       Already paid <?= h(platform_money_company_fee($payCompany, 'paid')) ?>
       · Balance <?= h(platform_money_company_fee($payCompany, 'balance')) ?>
       · Activated <?= h(company_activated_term_label($payCompany)) ?>.
-      This payment activates time in proportion to amount paid ÷ fee (for example 60,000 of 200,000 on 1 year → 3.6 months). The desk is notified when payment is recorded.
+      This payment activates time in proportion to amount paid / fee (for example 60,000 of 200,000 on 1 year → about 3 months, 18 days). The desk is notified when payment is recorded.
     </p>
     <div class="actions">
       <button class="btn" type="submit"><?= icon('check', 16) ?>Record payment</button>

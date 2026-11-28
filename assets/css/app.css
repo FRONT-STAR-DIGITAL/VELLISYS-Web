@@ -4986,7 +4986,7 @@ body.tut-lightbox-open { overflow: hidden; }
 }
 @page { size: A4; margin: 0; }
 @page trade-a5 { size: A5; margin: 0; }
-/* Short fallback height — print-sheet.js rewrites to measured slip height. */
+/* Short fallback height - print-sheet.js rewrites to measured slip height. */
 @page thermal-roll { size: 58mm 120mm; margin: 0; }
 @page thermal-roll-80 { size: 80mm 120mm; margin: 0; }
 @media print {
@@ -7899,7 +7899,7 @@ body.has-upload-progress .app-tabbar {
     margin-bottom: 8px;
   }
   /*
-   * In a column flex, flex-basis:200px is height — that left a ~200px hole
+   * In a column flex, flex-basis:200px is height - that left a ~200px hole
    * under the search input above the companies tables. Keep width full, height auto.
    */
   .company-table-search {

@@ -12,7 +12,7 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
     if (array_key_exists($key, $cache)) {
         return $cache[$key];
     }
-    // Cross-request bag under storage/cache — avoids repeating SHOW COLUMNS after warm schema.
+    // Cross-request bag under storage/cache - avoids repeating SHOW COLUMNS after warm schema.
     if (!$diskLoaded && !$refresh && function_exists('folio_cache_dir')) {
         $diskLoaded = true;
         $bagFile = folio_cache_dir() . '/columns-' . (function_exists('folio_schema_stamp') ? folio_schema_stamp() : '0') . '.json';
@@ -852,7 +852,7 @@ function folio_dedupe_stock_items(mysqli $db): void
     $flag = @$db->query("SELECT v FROM schema_meta WHERE k = 'stock_dedupe_v3'");
     $already = $flag && ($row = $flag->fetch_assoc()) && (string) ($row['v'] ?? '') === '1';
     if (!$already) {
-        // Repeat until stable — one pass can leave name twins after SKU merges.
+        // Repeat until stable - one pass can leave name twins after SKU merges.
         for ($pass = 0; $pass < 4; $pass++) {
             folio_merge_stock_duplicate_groups($db, 'sku');
             folio_merge_stock_duplicate_groups($db, 'name');
@@ -861,7 +861,7 @@ function folio_dedupe_stock_items(mysqli $db): void
             }
         }
         // v2 wrongly summed twin on-hands (e.g. 0+10+9+0 → 19). Moves were only
-        // remapped, not inflated — pull qty back down to the ledger when higher.
+        // remapped, not inflated - pull qty back down to the ledger when higher.
         folio_fix_stock_qty_to_moves_ledger($db);
         @$db->query("REPLACE INTO schema_meta (k, v) VALUES ('stock_dedupe_v3', '1')");
         @$db->query("REPLACE INTO schema_meta (k, v) VALUES ('stock_dedupe_v2', '1')");
@@ -965,7 +965,7 @@ function folio_fix_stock_qty_to_moves_ledger(mysqli $db): void
         if ($hasMoves && $onHand > $ledger + 0.0001) {
             $candidates[] = $ledger;
         }
-        // Twin "Opening quantity" moves were remapped together — keep the largest
+        // Twin "Opening quantity" moves were remapped together - keep the largest
         // opening and drop the extras so remaining matches one physical stock.
         if ($hasMoves) {
             $openRes = @$db->query(
@@ -1066,7 +1066,7 @@ function folio_ensure_stock_name_unique(mysqli $db): void
     if ($idx && $idx->num_rows > 0) {
         return;
     }
-    // Last safety pass before the unique key — ignore failures on empty desks.
+    // Last safety pass before the unique key - ignore failures on empty desks.
     folio_merge_stock_duplicate_groups($db, 'name');
     @$db->query('ALTER TABLE stock_items ADD UNIQUE KEY stock_items_branch_name (company_id, branch_id, name)');
 }
@@ -1243,7 +1243,7 @@ function folio_merge_stock_row_group(mysqli $db, array $rows): void
             );
         }
         if ($hasQty) {
-            // Drop loser's branch qty rows — survivor on-hand is set to qtyKeep below,
+            // Drop loser's branch qty rows - survivor on-hand is set to qtyKeep below,
             // not the sum of twins.
             @$db->query("DELETE FROM stock_branch_qty WHERE item_id = {$lid} AND company_id = {$cid}");
         }
@@ -1776,7 +1776,7 @@ function folio_migrate(mysqli $db): void
 
     // Fast path: after the first successful ensure pass, skip dozens of SHOW COLUMNS per request.
     // Stamp filename already includes the schema stamp, so a code change invalidates the file.
-    // Do not SHOW COLUMNS here — that was re-introducing a schema round-trip on every warm hit.
+    // Do not SHOW COLUMNS here - that was re-introducing a schema round-trip on every warm hit.
     $ready = folio_schema_ready_file();
     if (is_file($ready)) {
         // One-shot stock cleanup can still run after warm (flagged in schema_meta).

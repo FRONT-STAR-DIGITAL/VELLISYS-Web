@@ -68,14 +68,14 @@ function render_sheet_logo(array $d, string $class = 'd-logo'): void
     $brand = is_array($d['brand'] ?? null) ? $d['brand'] : [];
     $doc = is_array($d['doc'] ?? null) ? $d['doc'] : [];
     $src = trim((string) ($d['logo'] ?? ''));
-    // Documents must always show a logo mark — fall back to initials plate when missing.
+    // Documents must always show a logo mark - fall back to initials plate when missing.
     if ($src === '' && function_exists('document_logo_url')) {
         $src = trim(document_logo_url($brand));
     }
     if ($src === '') {
         return;
     }
-    // Thermal: hard black-on-white ink stamp — CSS filters print as a solid black plate.
+    // Thermal: hard black-on-white ink stamp - CSS filters print as a solid black plate.
     if (
         function_exists('doc_template_key')
         && doc_template_key($doc) === 'thermal'
@@ -883,7 +883,7 @@ function render_print_document_page(array $doc, bool $pdf = false): void
     $thermalMm = $thermal && function_exists('brand_thermal_width_mm')
         ? brand_thermal_width_mm($brand)
         : 58;
-    // Short fallback height — print-sheet.js rewrites to measured slip height
+    // Short fallback height - print-sheet.js rewrites to measured slip height
     // before print. A 297mm fallback made rolls feed a near-A4 blank band.
     $pageSize = $thermal ? ($thermalMm . 'mm 120mm') : ($trade ? 'A5' : 'A4');
     $thermalPageName = $thermalMm === 80 ? 'thermal-roll-80' : 'thermal-roll';
@@ -934,7 +934,7 @@ function render_print_document_page(array $doc, bool $pdf = false): void
     <?php if ($thermal): ?>
       <p class="print-bar-tip" data-print-tip>
         <?php if ((int) $thermalMm === 58): ?>
-          Pocket Bluetooth (MPT&nbsp;II and similar): tap Print — we send a true 58&nbsp;mm slip.
+          Pocket Bluetooth (MPT&nbsp;II and similar): tap Print - we send a true 58&nbsp;mm slip.
           Choose your Bluetooth printer, margins none, scale 100%. Do not fit to page.
         <?php else: ?>
           Bluetooth: pair the printer in phone or computer settings first, then tap Print and choose it.

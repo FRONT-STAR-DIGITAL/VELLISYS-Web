@@ -659,7 +659,7 @@ function stock_dedupe_current_company(): void
 
 /**
  * SKU uniqueness is always per location when branch_id exists.
- * Branch catalog clones reuse the same code across shops — a company-wide
+ * Branch catalog clones reuse the same code across shops - a company-wide
  * unique check wrongly blocked Add/Edit whenever Branches was off.
  */
 function stock_sku_branch_scope(?array $row = null): array
@@ -901,7 +901,7 @@ function stock_apply_document(int $documentId, string $kind, array $items): void
     if (!company_stock_enabled() || $documentId < 1) {
         return;
     }
-    // One apply per document per request — create_document + till fallback must not
+    // One apply per document per request - create_document + till fallback must not
     // both subtract (that turned last-unit sales from 1 into -1).
     static $applied = [];
     if (isset($applied[$documentId])) {
@@ -985,7 +985,7 @@ function stock_apply_document(int $documentId, string $kind, array $items): void
     }
     if (!$hasStockId) {
         try {
-            // Pull names too — receipt lines may omit stock_item_id but still name a product.
+            // Pull names too - receipt lines may omit stock_item_id but still name a product.
             $items = db_all(
                 'SELECT stock_item_id, item_name, qty, rate FROM document_items WHERE document_id = ?',
                 'i',
@@ -1001,7 +1001,7 @@ function stock_apply_document(int $documentId, string $kind, array $items): void
             $sid = stock_resolve_local_item_id($sid);
         }
         if ($sid < 1) {
-            // Match an existing local product by name/SKU — never create a twin here.
+            // Match an existing local product by name/SKU - never create a twin here.
             $name = trim((string) ($item['item_name'] ?? $item['name'] ?? ''));
             $sku = trim((string) ($item['sku'] ?? ''));
             if ($name === '' && $sku === '') {
@@ -1039,7 +1039,7 @@ function stock_apply_till_sale(int $receiptId, array $lines, ?int $branchId = nu
         return;
     }
     // create_document already applies stock; this only fills in when that skipped.
-    // Do not subtract again with a second move loop — that turned 1 into -1.
+    // Do not subtract again with a second move loop - that turned 1 into -1.
     stock_apply_document($receiptId, 'receipt', $lines);
 }
 
@@ -2237,7 +2237,7 @@ function stock_ensure_item_id(array $line, float $price): int
         return (int) ($found['id'] ?? 0);
     }
     // Do not invent a second product when a same-name row exists under another
-    // letter-case / spacing — find_at_write_branch already covered this location.
+    // letter-case / spacing - find_at_write_branch already covered this location.
     if ($name === '') {
         return 0;
     }
@@ -2873,7 +2873,7 @@ function render_stock_sold_table(array $rows): void
 
 /**
  * Stock in / stock out for a date range, aggregated per item.
- * Out rows include sell price, quantity, and profit (sold − cost).
+ * Out rows include sell price, quantity, and profit (sold - cost).
  *
  * @return array{in: list<array<string, mixed>>, out: list<array<string, mixed>>, show_profit: bool}
  */

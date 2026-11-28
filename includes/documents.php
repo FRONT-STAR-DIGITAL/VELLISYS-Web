@@ -1044,7 +1044,7 @@ function desk_staff_document_notifications(int $limit = 20): array
     } catch (Throwable $e) {
         return [];
     }
-    // One totals query for all staff docs — avoid N+1 document_items hits on every bell build.
+    // One totals query for all staff docs - avoid N+1 document_items hits on every bell build.
     $totalsById = [];
     $ids = [];
     foreach ($rows as $row) {
@@ -1299,7 +1299,7 @@ function insert_document_items(int $id, array $items): void
         $paymentLine = $name !== '' && preg_match('/^(payment|part payment|receipt)$/i', $name);
         if ($stockId < 1 && !$paymentLine && function_exists('stock_find_at_write_branch')) {
             // Link receipt/invoice lines to the local product so stock moves and
-            // voids hit the same row — never create a duplicate here.
+            // voids hit the same row - never create a duplicate here.
             $found = stock_find_at_write_branch(
                 trim((string) ($item['sku'] ?? '')),
                 $name
@@ -2481,7 +2481,7 @@ function document_sheet_print_html(array $doc): string
     $thermalMm = $thermal && function_exists('brand_thermal_width_mm')
         ? brand_thermal_width_mm($brand)
         : 58;
-    // Short fallback — never seed thermal with 297mm (fed a blank A4-length band).
+    // Short fallback - never seed thermal with 297mm (fed a blank A4-length band).
     $pageSize = $thermal ? ($thermalMm . 'mm 120mm') : ($trade ? 'A5' : 'A4');
     $thermalPageName = $thermalMm === 80 ? 'thermal-roll-80' : 'thermal-roll';
     $appCss = document_rewrite_css_urls((string) file_get_contents(ROOT_PATH . '/assets/css/app.css'), ROOT_PATH . '/assets/css');
@@ -3387,7 +3387,7 @@ function receipt_due_amount(array $doc): float
 /**
  * Due shown on receipt table rows and status pills.
  * Same rules as the printed sheet: parent invoice remain, else this receipt's
- * Total − Amount received (so part pay 600k on an 830k line shows 230k due).
+ * Total - Amount received (so part pay 600k on an 830k line shows 230k due).
  */
 function receipt_list_due(array $doc): float
 {
@@ -4145,7 +4145,7 @@ function attach_document_totals(array $rows): array
                     $remain = max(0, round($parentCharge - $parentCash - ($relPaid[$rid] ?? 0), 2));
                 }
                 $remainDoc = convert_money($remain, $relCur[$rid] ?? doc_currency($row), doc_currency($row));
-                // Keep Total − Received when parent remain is 0 but this receipt
+                // Keep Total - Received when parent remain is 0 but this receipt
                 // is still a part payment (lines 830k / received 600k → due 230k).
                 $dueDoc = max($remainDoc, $saleDue);
                 $row['invoice_balance'] = $dueDoc;

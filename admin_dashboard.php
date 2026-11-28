@@ -733,7 +733,7 @@ layout_end(
       try { await fetch(ping + "?action=echo&_=" + Date.now(), {credentials:"same-origin", cache:"no-store"}); } catch (w) {}
       try { await measureDownloadMbps(128 * 1024); } catch (w2) {}
       var best = await measureDownloadMbps(1024 * 1024);
-      // Second pass — TCP is warm; keep the higher (more accurate) reading.
+      // Second pass - TCP is warm; keep the higher (more accurate) reading.
       try {
         var again = await measureDownloadMbps(1024 * 1024);
         if(again.mbps > best.mbps) best = again;

@@ -372,7 +372,7 @@ function push_deliver(array $userIds, string $title, string $body, string $url, 
         if ($tag !== '' && push_already_sent($uid, $tag)) {
             continue;
         }
-        // Never rebuild the full notification list per delivery — that was O(n²) on sync.
+        // Never rebuild the full notification list per delivery - that was O(n²) on sync.
         $payload = [
             'title' => $title,
             'body' => $body,
@@ -524,7 +524,7 @@ function push_sync_outstanding(?array $user = null): void
 /**
  * Queue outstanding Web Push delivery after the response.
  * On Apache mod_php (Dokploy image) fastcgi_finish_request is missing, so
- * layout must not call this — ping.php / event hooks do instead.
+ * layout must not call this - ping.php / event hooks do instead.
  */
 function push_schedule_sync(): void
 {
