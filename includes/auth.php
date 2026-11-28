@@ -71,9 +71,13 @@ function require_member(): array
         }
     }
     $cid = (int) ($_SESSION['company_id'] ?? ($user['company_id'] ?? 0));
-    if (($user['role'] ?? '') !== 'platform' && $cid > 0 && function_exists('company_testing_expired')) {
-        $co = db_one('SELECT testing_mode, testing_expires_at, status FROM companies WHERE id = ?', 'i', [$cid]);
-        if ($co && company_testing_expired($co)) {
+    if (($user['role'] ?? '') !== 'platform' && $cid > 0) {
+        $co = db_one(
+            'SELECT testing_mode, testing_expires_at, status, expires_at, paid_from, fee_amount, fee_paid FROM companies WHERE id = ?',
+            'i',
+            [$cid]
+        );
+        if ($co && function_exists('company_testing_expired') && company_testing_expired($co)) {
             // Keep sales-demo return path if an agent was walking the desk.
             if (function_exists('sales_demo_active') && sales_demo_active() && function_exists('sales_demo_leave')) {
                 sales_demo_leave();
@@ -85,6 +89,19 @@ function require_member(): array
                 clear_remember_cookies();
             }
             flash('This testing desk has ended. Contact your sales agent or Vellisys.', 'err');
+            redirect('login.php');
+        }
+        if ($co && function_exists('company_fee_expired') && company_fee_expired($co)) {
+            if (function_exists('sales_demo_active') && sales_demo_active() && function_exists('sales_demo_leave')) {
+                sales_demo_leave();
+                flash('That company paid term has ended.', 'err');
+                redirect(function_exists('sales_home') ? sales_home() : 'sales_home.php');
+            }
+            unset($_SESSION['user_id'], $_SESSION['company_id'], $_SESSION['role'], $_SESSION['acting_company_id']);
+            if (function_exists('clear_remember_cookies')) {
+                clear_remember_cookies();
+            }
+            flash('Your paid term has ended. Pay the balance or contact Vellisys to renew.', 'err');
             redirect('login.php');
         }
     }
@@ -431,13 +448,21 @@ function attempt_login(string $email, string $password): bool
     }
     $cid = (int) ($user['company_id'] ?? 0);
     if (($user['role'] ?? '') !== 'platform' && $cid > 0) {
-        $co = db_one('SELECT status, testing_mode, testing_expires_at FROM companies WHERE id = ?', 'i', [$cid]);
+        $co = db_one(
+            'SELECT status, testing_mode, testing_expires_at, expires_at, paid_from, fee_amount, fee_paid FROM companies WHERE id = ?',
+            'i',
+            [$cid]
+        );
         if ($co && (($co['status'] ?? '') === 'suspended')) {
             login_fail_reason('This company desk is suspended. Contact Vellisys.');
             return false;
         }
         if ($co && function_exists('company_testing_expired') && company_testing_expired($co)) {
             login_fail_reason('This testing desk has ended. Ask your sales contact or Vellisys to extend or onboard.');
+            return false;
+        }
+        if ($co && function_exists('company_fee_expired') && company_fee_expired($co)) {
+            login_fail_reason('This company paid term has ended. Pay the balance or ask Vellisys to renew.');
             return false;
         }
     }

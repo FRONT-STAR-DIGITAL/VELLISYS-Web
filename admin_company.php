@@ -495,16 +495,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($from === '' || !DateTime::createFromFormat('Y-m-d', $from)) {
             $from = date('Y-m-d');
         }
-        $expires = compute_expiry_date($from, $term, $unit);
         $feeAmount = money_parse(post('fee_amount'));
         $paidRaw = str_replace([',', ' '], '', post('fee_paid'));
         $feePaid = $paidRaw === '' ? $feeAmount : money_parse($paidRaw);
         $feeCurrency = posted_currency('fee_currency', 'USD');
+        $expires = function_exists('compute_fee_expiry_date')
+            ? compute_fee_expiry_date($from, $term, $unit, $feeAmount, $feePaid)
+            : compute_expiry_date($from, $term, $unit);
         if (!$expires) {
-            $error = 'Could not calculate the expiry date. Check the start date and term.';
+            $error = 'Could not calculate the expiry date. Check the start date, term and amount paid.';
         } else {
+            $prevPaid = company_fee_paid($company);
+            $remindClear = function_exists('db_has_column') && db_has_column(db(), 'companies', 'fee_remind_sent')
+                ? ', fee_remind_sent=NULL'
+                : '';
             db_exec(
-                'UPDATE companies SET paid_term=?, paid_unit=?, paid_from=?, expires_at=?, renewal_notice_sent_at=NULL, fee_amount=?, fee_paid=?, fee_currency=? WHERE id=?',
+                'UPDATE companies SET paid_term=?, paid_unit=?, paid_from=?, expires_at=?, renewal_notice_sent_at=NULL'
+                . $remindClear . ', fee_amount=?, fee_paid=?, fee_currency=? WHERE id=?',
                 'dsssddsi',
                 [$term, $unit, $from, $expires, $feeAmount, $feePaid, $feeCurrency, $id]
             );
@@ -514,7 +521,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (function_exists('sync_company_fee_ledger')) {
                 sync_company_fee_ledger($id, $feePaid, $feeCurrency, 'Paid term for ' . $company['name']);
             }
-            $note = $company['name'] . ' is paid for ' . format_paid_term_number($term) . ' ' . $unit . ', until ' . format_date($expires) . '.';
+            $activated = function_exists('company_activated_term_label') && $fresh
+                ? company_activated_term_label($fresh)
+                : (format_paid_term_number($term) . ' ' . $unit);
+            $note = $company['name'] . ' activated for ' . $activated . ' (quoted '
+                . format_paid_term_number($term) . ' ' . $unit . '), until ' . format_date($expires) . '.';
+            $payDelta = round($feePaid - $prevPaid, 2);
+            if ($payDelta > 0.009 && function_exists('desk_notify_fee_payment') && $fresh) {
+                desk_notify_fee_payment($id, $payDelta, $feeCurrency, $fresh);
+            }
             if ($sendReceipt) {
                 $sent = send_payment_receipt($fresh ?: $company, $user);
                 if (!empty($sent['ok'])) {
@@ -1133,10 +1148,11 @@ $locUgRegion = in_array($locRegion, uganda_regions(), true) ? $locRegion : '';
     <p class="hint" style="margin:8px 0 12px">
       <?php if (company_expires_on($company)): ?>
         Current expiry <?= h(format_date($company['expires_at'])) ?> · <?= h(company_remaining_phrase($company)) ?>.
+        Activated <?= h(company_activated_term_label($company)) ?>.
         Balance <?= h(money(company_fee_balance($company), company_fee_currency($company))) ?>.
-        Saving recalculates the end date and keeps Finances Taken in in sync with Amount paid. Set number to 0 to clear the term (fees already collected stay on Finances).
+        Saving activates time in proportion to amount paid ÷ fee (for example 60,000 of 200,000 on 1 year → 3.6 months) and keeps Finances Taken in in sync. Set number to 0 to clear the term (fees already collected stay on Finances).
       <?php else: ?>
-        Set how many weeks, months or years this client has paid for (decimals such as 1.5 are allowed), and the fee you collected. Expiry is the start date plus that term. Reports list desks one month from that date so you can send a renewal letter.
+        Set the quoted term (weeks, months or years) and fee. Amount paid activates only that share of the term — for example 60,000 of 200,000 on 1 year activates 3.6 months. Reports list desks one month from expiry so you can chase renewals.
       <?php endif; ?>
     </p>
     <div class="actions admin-term-actions">

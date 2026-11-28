@@ -1445,6 +1445,23 @@ function desk_notifications(int $limit = 40, ?array $forUser = null): array
                     // ignore
                 }
             }
+            // Vellisys fee payments and renewal reminders (desk admins).
+            if ($admin && $cid > 0) {
+                if (function_exists('desk_fee_payment_notifications')) {
+                    $items = array_merge($items, desk_fee_payment_notifications($cid, 5));
+                }
+                if (function_exists('desk_fee_expiry_notifications')) {
+                    $co = null;
+                    try {
+                        $co = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$cid]);
+                    } catch (Throwable $e) {
+                        $co = null;
+                    }
+                    if ($co) {
+                        $items = array_merge($items, desk_fee_expiry_notifications($co, 4));
+                    }
+                }
+            }
             usort($items, static fn ($a, $b) => strcmp((string) ($a['sort'] ?? ''), (string) ($b['sort'] ?? '')));
             return enrich_planner_notifications(array_slice($items, 0, $limit));
         } catch (Throwable $e) {

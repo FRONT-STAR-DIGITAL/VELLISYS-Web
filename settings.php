@@ -439,7 +439,6 @@ layout_start('Settings', $user);
       $feePaid = $financeCo ? company_fee_paid($financeCo) : 0.0;
       $feeBalance = $financeCo ? company_fee_balance($financeCo) : 0.0;
       $isTestingDesk = $financeCo && function_exists('company_is_testing') && company_is_testing($financeCo);
-      $termLabel = $financeCo ? company_term_label($financeCo) : 'Not set';
       $expiresOn = $financeCo ? company_expires_on($financeCo) : null;
       $timeLeft = $financeCo ? company_remaining_phrase($financeCo) : 'No paid term set';
       $expiryWhen = $financeCo ? company_expiry_date_label($financeCo) : 'Expiry not set';
@@ -496,8 +495,25 @@ layout_start('Settings', $user);
             <strong class="<?= $feeBalance > 0.009 ? 'finance-owe' : '' ?>"><?= h(money($feeBalance, $feeCur)) ?></strong>
           </div>
           <div>
-            <span>Paid term</span>
-            <strong><?= h($termLabel) ?></strong>
+            <span>Quoted term</span>
+            <strong><?php
+              $quoted = (float) ($financeCo['paid_term'] ?? 0);
+              $qUnit = normalize_paid_unit((string) ($financeCo['paid_unit'] ?? 'months'));
+              if ($quoted > 0) {
+                  $qWord = match ($qUnit) {
+                      'weeks' => abs($quoted - 1) < 0.001 ? 'week' : 'weeks',
+                      'years' => abs($quoted - 1) < 0.001 ? 'year' : 'years',
+                      default => abs($quoted - 1) < 0.001 ? 'month' : 'months',
+                  };
+                  echo h(format_paid_term_number($quoted) . ' ' . $qWord);
+              } else {
+                  echo 'Not set';
+              }
+            ?></strong>
+          </div>
+          <div>
+            <span>Activated time</span>
+            <strong><?= h($financeCo ? company_activated_term_label($financeCo) : 'Not activated') ?></strong>
           </div>
           <div>
             <span>Expires</span>

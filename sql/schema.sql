@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS companies (
   paid_from DATE NULL,
   expires_at DATE NULL,
   renewal_notice_sent_at DATETIME NULL,
+  fee_remind_sent VARCHAR(40) NULL,
   user_limit TINYINT UNSIGNED NOT NULL DEFAULT 3,
   fee_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
   fee_paid DECIMAL(14,2) NOT NULL DEFAULT 0,

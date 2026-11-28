@@ -105,18 +105,96 @@ $presence = [];
 foreach (platform_company_presence() as $row) {
     $presence[(int) $row['id']] = $row;
 }
+$expiringSoon = [];
+$expiredPaid = [];
+foreach ($companies as $c) {
+    $state = company_expiry_state($c);
+    if ($state === 'soon') {
+        $expiringSoon[] = $c;
+    } elseif ($state === 'expired') {
+        $expiredPaid[] = $c;
+    }
+}
+usort($expiringSoon, static function ($a, $b) {
+    return strcmp((string) ($a['expires_at'] ?? ''), (string) ($b['expires_at'] ?? ''));
+});
+usort($expiredPaid, static function ($a, $b) {
+    return strcmp((string) ($b['expires_at'] ?? ''), (string) ($a['expires_at'] ?? ''));
+});
 
 layout_admin_start('Companies', $user);
 ?>
 <div class="page-head">
   <div>
     <h1><?= icon('building') ?>Companies</h1>
-    <p class="lede">Who is online, who signed in last, how heavily they use the desk, and when their term renews.</p>
+    <p class="lede">Who is online, who signed in last, how heavily they use the desk, and when their term renews. Amount paid activates time in proportion to the fee.</p>
   </div>
   <a class="btn" href="<?= h(url('admin_company_new.php')) ?>"><?= icon('plus') ?>New company</a>
 </div>
 
 <?php if ($error): ?><p class="flash flash-err"><?= icon('alert', 16) ?><?= h($error) ?></p><?php endif; ?>
+
+<?php if ($expiringSoon || $expiredPaid): ?>
+<div class="card" id="expiring" style="margin-bottom:20px">
+  <div class="company-table-head">
+    <div>
+      <h2 style="margin:0"><?= icon('alert', 18) ?>Renewing within a month</h2>
+      <p class="lede" style="margin:6px 0 0">Accounts with less than 31 days left — chase balance or renew before access ends.</p>
+    </div>
+  </div>
+  <?php if ($expiringSoon): ?>
+    <div class="table-scroll">
+    <table class="grid">
+      <thead>
+        <tr>
+          <th>Company</th>
+          <th>Activated</th>
+          <th>Amount paid</th>
+          <th>Balance</th>
+          <th>Renews</th>
+          <th>Time left</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($expiringSoon as $c): ?>
+          <tr>
+            <td><a href="<?= h(url('admin_company.php?id=' . (int) $c['id'])) ?>"><strong><?= h((string) $c['name']) ?></strong></a></td>
+            <td><?= h(company_activated_term_label($c)) ?></td>
+            <td class="mono"><?= h(platform_money_company_fee($c, 'paid')) ?></td>
+            <td class="mono<?= company_fee_balance($c) > 0.009 ? ' neg' : '' ?>"><?= h(platform_money_company_fee($c, 'balance')) ?></td>
+            <td class="expiry-soon mono"><?= h(format_date((string) $c['expires_at'])) ?></td>
+            <td class="expiry-soon"><?= h(company_remaining_phrase($c)) ?></td>
+            <td class="row-actions">
+              <div class="actions">
+                <a class="btn sm" href="<?= h(url('admin_company.php?id=' . (int) $c['id'])) ?>"><?= icon('eye', 14) ?>Open</a>
+                <a class="btn ghost sm" href="<?= h(url('admin_finances.php?pay=' . (int) $c['id'])) ?>"><?= icon('wallet', 14) ?>Payment</a>
+              </div>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+    </div>
+  <?php else: ?>
+    <p class="empty">No live desks renewing within a month right now.</p>
+  <?php endif; ?>
+  <?php if ($expiredPaid): ?>
+    <p class="hint" style="margin-top:14px"><strong><?= count($expiredPaid) ?></strong> expired<?= count($expiredPaid) === 1 ? '' : 's' ?> still on the books —
+      <?php
+        $bits = [];
+        foreach (array_slice($expiredPaid, 0, 6) as $c) {
+            $bits[] = '<a href="' . h(url('admin_company.php?id=' . (int) $c['id'])) . '">' . h((string) $c['name']) . '</a>';
+        }
+        echo implode(', ', $bits);
+        if (count($expiredPaid) > 6) {
+            echo ' and ' . (count($expiredPaid) - 6) . ' more';
+        }
+      ?>.
+    </p>
+  <?php endif; ?>
+</div>
+<?php endif; ?>
 
 <div class="card" id="live">
   <div class="company-table-head">

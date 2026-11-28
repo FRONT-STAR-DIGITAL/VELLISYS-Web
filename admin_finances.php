@@ -123,18 +123,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $payId = $cid;
                 $tab = 'overview';
             } else {
-                $expires = compute_expiry_date($paidFrom, $term, $unit);
+                $newPaid = round(company_fee_paid($co) + $payAmount, 2);
+                if ($feeAmount < $newPaid) {
+                    $feeAmount = $newPaid;
+                }
+                $expires = function_exists('compute_fee_expiry_date')
+                    ? compute_fee_expiry_date($paidFrom, $term, $unit, $feeAmount, $newPaid)
+                    : compute_expiry_date($paidFrom, $term, $unit);
                 if (!$expires) {
-                    $error = 'Could not calculate the expiry date. Check the start date and term.';
+                    $error = 'Could not calculate the expiry date. Check the start date, term and amount paid.';
                     $payId = $cid;
                     $tab = 'overview';
                 } else {
-                    $newPaid = round(company_fee_paid($co) + $payAmount, 2);
-                    if ($feeAmount < $newPaid) {
-                        $feeAmount = $newPaid;
-                    }
+                    $remindClear = function_exists('db_has_column') && db_has_column(db(), 'companies', 'fee_remind_sent')
+                        ? ', fee_remind_sent=NULL'
+                        : '';
                     db_exec(
-                        'UPDATE companies SET paid_term=?, paid_unit=?, paid_from=?, expires_at=?, renewal_notice_sent_at=NULL, fee_amount=?, fee_paid=?, fee_currency=? WHERE id=?',
+                        'UPDATE companies SET paid_term=?, paid_unit=?, paid_from=?, expires_at=?, renewal_notice_sent_at=NULL'
+                        . $remindClear . ', fee_amount=?, fee_paid=?, fee_currency=? WHERE id=?',
                         'dsssddsi',
                         [$term, $unit, $paidFrom, $expires, $feeAmount, $newPaid, $feeCurrency, $cid]
                     );
@@ -145,10 +151,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     company_mark_onboard_step($cid, 'paid_term');
                     company_mark_onboard_step($cid, 'package_paid');
+                    $fresh = db_one('SELECT * FROM companies WHERE id = ?', 'i', [$cid]) ?: array_merge($co, [
+                        'paid_term' => $term,
+                        'paid_unit' => $unit,
+                        'paid_from' => $paidFrom,
+                        'expires_at' => $expires,
+                        'fee_amount' => $feeAmount,
+                        'fee_paid' => $newPaid,
+                        'fee_currency' => $feeCurrency,
+                    ]);
+                    if (function_exists('desk_notify_fee_payment')) {
+                        desk_notify_fee_payment($cid, $payAmount, $feeCurrency, $fresh);
+                    }
+                    $activated = function_exists('company_activated_term_label')
+                        ? company_activated_term_label($fresh)
+                        : format_paid_term_number($term) . ' ' . $unit;
                     flash(
                         'Recorded ' . money($payAmount, $feeCurrency) . ' for ' . $co['name']
                         . '. Paid ' . money($newPaid, $feeCurrency)
-                        . ', balance ' . money(max(0, $feeAmount - $newPaid), $feeCurrency) . '.'
+                        . ', balance ' . money(max(0, $feeAmount - $newPaid), $feeCurrency)
+                        . '. Activated ' . $activated . ' (until ' . format_date($expires) . ').'
                     );
                     redirect('admin_payment_receipt.php?id=' . $cid . '&paid=' . rawurlencode((string) $payAmount));
                 }
@@ -442,7 +464,9 @@ render_filters('admin_finances.php', $filterKeep, ['live' => true, 'today_first'
     </div>
     <p class="hint">
       Already paid <?= h(platform_money_company_fee($payCompany, 'paid')) ?>
-      · Balance <?= h(platform_money_company_fee($payCompany, 'balance')) ?>.
+      · Balance <?= h(platform_money_company_fee($payCompany, 'balance')) ?>
+      · Activated <?= h(company_activated_term_label($payCompany)) ?>.
+      This payment activates time in proportion to amount paid ÷ fee (for example 60,000 of 200,000 on 1 year → 3.6 months). The desk is notified when payment is recorded.
     </p>
     <div class="actions">
       <button class="btn" type="submit"><?= icon('check', 16) ?>Record payment</button>

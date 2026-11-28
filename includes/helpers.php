@@ -3282,11 +3282,13 @@ function platform_create_company(?int $signupId = null): array
         if ($from === '' || !DateTime::createFromFormat('Y-m-d', $from)) {
             $from = date('Y-m-d');
         }
-        $expires = compute_expiry_date($from, $term, $unit);
         $feeAmount = money_parse(post('fee_amount'));
         $paidRaw = str_replace([',', ' '], '', post('fee_paid'));
         $feePaid = $paidRaw === '' ? $feeAmount : money_parse($paidRaw);
         $feeCurrency = posted_currency('fee_currency', $currency);
+        $expires = function_exists('compute_fee_expiry_date')
+            ? compute_fee_expiry_date($from, $term, $unit, $feeAmount, $feePaid)
+            : compute_expiry_date($from, $term, $unit);
         if ($expires) {
             db_exec(
                 'UPDATE companies SET paid_term=?, paid_unit=?, paid_from=?, expires_at=?, fee_amount=?, fee_paid=?, fee_currency=? WHERE id=?',
@@ -5416,8 +5418,17 @@ function company_days_left(?string $expires): ?int
 function company_term_label(array $company): string
 {
     $n = (float) ($company['paid_term'] ?? 0);
-    if ($n <= 0 || !company_expires_on($company)) {
+    if ($n <= 0) {
         return 'Not set';
+    }
+    // Prefer activated time when only part of the fee is paid.
+    if (company_fee_amount($company) > 0.009
+        && company_fee_paid($company) + 0.009 < company_fee_amount($company)
+        && company_activated_term($company) > 0) {
+        return company_activated_term_label($company);
+    }
+    if (!company_expires_on($company) && company_activated_term($company) <= 0) {
+        return 'Not activated';
     }
     $shown = format_paid_term_number($n);
     $unit = normalize_paid_unit((string) ($company['paid_unit'] ?? 'months'));
@@ -5909,6 +5920,300 @@ function compute_expiry_date(string $from, float $term, string $unit): ?string
         return null;
     }
     return $dt->format('Y-m-d');
+}
+
+/**
+ * How much of the quoted term is activated by amount paid / fee.
+ * Example: fee 200000, paid 60000, term 1 year → 0.3 years (3.6 months).
+ */
+function compute_activated_term(float $feeAmount, float $feePaid, float $fullTerm): float
+{
+    $fullTerm = max(0.0, $fullTerm);
+    if ($fullTerm <= 0.0001) {
+        return 0.0;
+    }
+    $feePaid = max(0.0, $feePaid);
+    if ($feePaid <= 0.009) {
+        return 0.0;
+    }
+    $feeAmount = max(0.0, $feeAmount);
+    if ($feeAmount <= 0.009) {
+        // No fee quoted: any payment activates the full term.
+        return $fullTerm;
+    }
+    $ratio = min(1.0, $feePaid / $feeAmount);
+    return round($fullTerm * $ratio, 4);
+}
+
+/** Expiry from start date using only the share of term covered by amount paid. */
+function compute_fee_expiry_date(string $from, float $fullTerm, string $unit, float $feeAmount, float $feePaid): ?string
+{
+    $activated = compute_activated_term($feeAmount, $feePaid, $fullTerm);
+    if ($activated <= 0.0001) {
+        return null;
+    }
+    return compute_expiry_date($from, $activated, $unit);
+}
+
+function company_activated_term(array $company): float
+{
+    return compute_activated_term(
+        company_fee_amount($company),
+        company_fee_paid($company),
+        (float) ($company['paid_term'] ?? 0)
+    );
+}
+
+function company_activated_term_label(array $company): string
+{
+    $full = (float) ($company['paid_term'] ?? 0);
+    $unit = normalize_paid_unit((string) ($company['paid_unit'] ?? 'months'));
+    $activated = company_activated_term($company);
+    if ($full <= 0 || $activated <= 0) {
+        return 'Not activated';
+    }
+    $actShown = format_paid_term_number($activated);
+    $word = match ($unit) {
+        'weeks' => (abs($activated - 1) < 0.001 ? 'week' : 'weeks'),
+        'years' => (abs($activated - 1) < 0.001 ? 'year' : 'years'),
+        default => (abs($activated - 1) < 0.001 ? 'month' : 'months'),
+    };
+    $fee = company_fee_amount($company);
+    $paid = company_fee_paid($company);
+    if ($fee > 0.009 && $paid + 0.009 < $fee) {
+        $fullShown = format_paid_term_number($full);
+        $fullWord = match ($unit) {
+            'weeks' => (abs($full - 1) < 0.001 ? 'week' : 'weeks'),
+            'years' => (abs($full - 1) < 0.001 ? 'year' : 'years'),
+            default => (abs($full - 1) < 0.001 ? 'month' : 'months'),
+        };
+        return $actShown . ' ' . $word . ' of ' . $fullShown . ' ' . $fullWord;
+    }
+    return $actShown . ' ' . $word;
+}
+
+/** Paid term ended (non-testing desks with an expiry date). */
+function company_fee_expired(?array $company): bool
+{
+    if (!$company) {
+        return false;
+    }
+    if (function_exists('company_is_testing') && company_is_testing($company)) {
+        return false;
+    }
+    $days = company_days_left(company_expires_on($company));
+    return $days !== null && $days < 0;
+}
+
+/**
+ * Reminder milestones before fee expiry (days left).
+ *
+ * @return list<int>
+ */
+function company_expiry_remind_days(): array
+{
+    return [15, 10, 5, 2];
+}
+
+/**
+ * Which reminder bucket applies for a days-left value (null if none).
+ */
+function company_expiry_remind_milestone(?int $daysLeft): ?int
+{
+    if ($daysLeft === null || $daysLeft < 0) {
+        return null;
+    }
+    foreach (company_expiry_remind_days() as $m) {
+        // Inclusive upper bound for each step until the next tighter milestone.
+        if ($m === 15 && $daysLeft <= 15 && $daysLeft > 10) {
+            return 15;
+        }
+        if ($m === 10 && $daysLeft <= 10 && $daysLeft > 5) {
+            return 10;
+        }
+        if ($m === 5 && $daysLeft <= 5 && $daysLeft > 2) {
+            return 5;
+        }
+        if ($m === 2 && $daysLeft <= 2) {
+            return 2;
+        }
+    }
+    return null;
+}
+
+/** @return list<int> */
+function company_fee_remind_sent_list(array $company): array
+{
+    $raw = trim((string) ($company['fee_remind_sent'] ?? ''));
+    if ($raw === '') {
+        return [];
+    }
+    $out = [];
+    foreach (explode(',', $raw) as $bit) {
+        $n = (int) trim($bit);
+        if (in_array($n, company_expiry_remind_days(), true)) {
+            $out[] = $n;
+        }
+    }
+    return array_values(array_unique($out));
+}
+
+function company_fee_remind_mark_sent(int $companyId, int $daysBefore): void
+{
+    if ($companyId < 1 || !in_array($daysBefore, company_expiry_remind_days(), true)) {
+        return;
+    }
+    if (!function_exists('db_has_column') || !db_has_column(db(), 'companies', 'fee_remind_sent')) {
+        return;
+    }
+    try {
+        $co = db_one('SELECT fee_remind_sent FROM companies WHERE id = ?', 'i', [$companyId]);
+        $have = $co ? company_fee_remind_sent_list($co) : [];
+        if (in_array($daysBefore, $have, true)) {
+            return;
+        }
+        $have[] = $daysBefore;
+        sort($have);
+        db_exec(
+            'UPDATE companies SET fee_remind_sent=? WHERE id=?',
+            'si',
+            [implode(',', $have), $companyId]
+        );
+    } catch (Throwable $e) {
+        // Column may be missing on very old installs mid-migrate.
+    }
+}
+
+/**
+ * Notify desk users that a Vellisys fee payment was received.
+ */
+function desk_notify_fee_payment(int $companyId, float $payAmount, string $currency, ?array $company = null): void
+{
+    if ($companyId < 1 || $payAmount <= 0.009) {
+        return;
+    }
+    $company = $company ?: db_one('SELECT * FROM companies WHERE id = ?', 'i', [$companyId]);
+    if (!$company) {
+        return;
+    }
+    $currency = normalize_currency($currency, company_fee_currency($company));
+    $amountLabel = function_exists('money') ? money($payAmount, $currency) : (string) $payAmount;
+    $activated = company_activated_term_label(array_merge($company, [
+        'fee_paid' => company_fee_paid($company),
+        'fee_amount' => company_fee_amount($company),
+    ]));
+    $expires = company_expires_on($company);
+    $meta = $amountLabel . ' received · activated ' . $activated;
+    if ($expires) {
+        $meta .= ' · until ' . format_date($expires);
+    }
+    $balance = company_fee_balance($company);
+    if ($balance > 0.009) {
+        $meta .= ' · balance ' . money($balance, $currency);
+    }
+    $href = url('settings.php#finances');
+    $key = 'fee-pay:' . $companyId . ':' . substr(sha1($amountLabel . '|' . ($expires ?: '') . '|' . (string) company_fee_paid($company)), 0, 10);
+    if (function_exists('push_notify_item')) {
+        push_notify_item([
+            'title' => 'Payment received',
+            'meta' => $meta,
+            'href' => $href,
+            'key' => $key,
+        ], 'company', $companyId);
+    }
+}
+
+/**
+ * In-app + push reminders at 15 / 10 / 5 / 2 days before fee expiry.
+ *
+ * @return list<array<string,mixed>>
+ */
+function desk_fee_expiry_notifications(?array $company = null, int $limit = 4): array
+{
+    $company = $company ?: (function_exists('current_company') ? current_company() : null);
+    if (!$company || (function_exists('company_is_testing') && company_is_testing($company))) {
+        return [];
+    }
+    $days = company_days_left(company_expires_on($company));
+    $milestone = company_expiry_remind_milestone($days);
+    if ($milestone === null) {
+        return [];
+    }
+    $cid = (int) ($company['id'] ?? 0);
+    $expires = company_expires_on($company);
+    $title = $milestone === 2
+        ? ($days === 0 ? 'Desk access ends today' : ($days === 1 ? '1 day left on your desk' : $milestone . ' days left on your desk'))
+        : ($milestone . ' days left — renew to keep access');
+    $meta = 'Pay the balance to extend. Expires ' . ($expires ? format_date($expires) : 'soon');
+    $balance = company_fee_balance($company);
+    if ($balance > 0.009) {
+        $meta .= ' · balance ' . money($balance, company_fee_currency($company));
+    }
+    $key = 'fee-remind:' . $milestone . ':' . $cid;
+    // Push once per milestone for this term.
+    $sent = company_fee_remind_sent_list($company);
+    if ($cid > 0 && !in_array($milestone, $sent, true) && function_exists('push_notify_item')) {
+        push_notify_item([
+            'title' => $title,
+            'meta' => $meta,
+            'href' => url('settings.php#finances'),
+            'key' => $key,
+        ], 'company', $cid);
+        company_fee_remind_mark_sent($cid, $milestone);
+    }
+    return [[
+        'type' => 'fee_remind',
+        'tone' => $milestone <= 5 ? 'urgent' : 'warn',
+        'title' => $title,
+        'meta' => $meta,
+        'href' => url('settings.php#finances'),
+        'key' => $key,
+        'sort' => '0-fee-remind-' . sprintf('%02d', $milestone),
+    ]];
+}
+
+/**
+ * Recent fee payments for the desk bell (from platform ledger).
+ *
+ * @return list<array<string,mixed>>
+ */
+function desk_fee_payment_notifications(int $companyId, int $limit = 5): array
+{
+    if ($companyId < 1) {
+        return [];
+    }
+    try {
+        $rows = db_all(
+            "SELECT id, amount, currency, occurred_at, note
+             FROM platform_fee_ledger
+             WHERE company_id = ? AND amount > 0.009
+               AND occurred_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+             ORDER BY id DESC LIMIT " . max(1, min(20, $limit)),
+            'i',
+            [$companyId]
+        );
+    } catch (Throwable $e) {
+        return [];
+    }
+    $out = [];
+    foreach ($rows as $r) {
+        $id = (int) ($r['id'] ?? 0);
+        $amt = (float) ($r['amount'] ?? 0);
+        $ccy = (string) ($r['currency'] ?? 'USD');
+        $when = function_exists('format_when')
+            ? format_when($r['occurred_at'] ?? null)
+            : trim((string) ($r['occurred_at'] ?? ''));
+        $out[] = [
+            'type' => 'fee_payment',
+            'tone' => 'info',
+            'title' => 'Payment received',
+            'meta' => money($amt, $ccy) . ($when !== '' ? ' · ' . $when : ''),
+            'href' => url('settings.php#finances'),
+            'key' => 'fee-pay-ledger:' . $id,
+            'sort' => '0-fee-pay-' . sprintf('%010d', 1000000000 - $id),
+        ];
+    }
+    return $out;
 }
 
 function desk_welcome_pending(?array $user): bool

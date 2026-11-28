@@ -56,7 +56,71 @@ function db_has_column(mysqli $db, string $table, string $column, bool $refresh 
 /** Bump when folio_ensure_* / migrate paths change so one request re-runs schema ensures after deploy. */
 function folio_schema_stamp(): string
 {
-    return '84';
+    return '85';
+}
+
+/**
+ * Fee payments activate time in proportion to amount paid / fee.
+ * Adds remind tracking and rewrites expires_at for existing companies.
+ */
+function folio_ensure_fee_proportional_expiry(mysqli $db): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    if (!db_has_column($db, 'companies', 'fee_remind_sent')) {
+        @$db->query('ALTER TABLE companies ADD COLUMN fee_remind_sent VARCHAR(40) NULL');
+        db_has_column($db, 'companies', 'fee_remind_sent', true);
+    }
+    @$db->query("CREATE TABLE IF NOT EXISTS schema_meta (
+      k VARCHAR(40) PRIMARY KEY,
+      v VARCHAR(40) NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $flag = @$db->query("SELECT v FROM schema_meta WHERE k='fee_prop_expiry_v1'");
+    if ($flag && ($flag->fetch_assoc())) {
+        return;
+    }
+    if (!function_exists('compute_fee_expiry_date')) {
+        return;
+    }
+    $rows = @$db->query(
+        "SELECT id, paid_term, paid_unit, paid_from, expires_at, fee_amount, fee_paid
+         FROM companies
+         WHERE COALESCE(testing_mode, 0) = 0
+           AND paid_term IS NOT NULL AND paid_term > 0
+           AND paid_from IS NOT NULL AND paid_from <> ''
+           AND fee_amount IS NOT NULL AND fee_amount > 0"
+    );
+    if ($rows) {
+        while ($c = $rows->fetch_assoc()) {
+            $id = (int) ($c['id'] ?? 0);
+            if ($id < 1) {
+                continue;
+            }
+            $term = (float) ($c['paid_term'] ?? 0);
+            $unit = normalize_paid_unit((string) ($c['paid_unit'] ?? 'months'));
+            $from = substr((string) ($c['paid_from'] ?? ''), 0, 10);
+            $feeAmount = (float) ($c['fee_amount'] ?? 0);
+            $feePaid = (float) ($c['fee_paid'] ?? 0);
+            $next = compute_fee_expiry_date($from, $term, $unit, $feeAmount, $feePaid);
+            $prev = trim((string) ($c['expires_at'] ?? ''));
+            if ($next === null) {
+                if ($prev !== '') {
+                    @$db->query('UPDATE companies SET expires_at=NULL, fee_remind_sent=NULL WHERE id=' . $id);
+                }
+                continue;
+            }
+            if ($prev === $next) {
+                continue;
+            }
+            $esc = $db->real_escape_string($next);
+            @$db->query("UPDATE companies SET expires_at='{$esc}', fee_remind_sent=NULL WHERE id={$id}");
+        }
+    }
+    @$db->query("INSERT INTO schema_meta (k, v) VALUES ('fee_prop_expiry_v1', '1')
+        ON DUPLICATE KEY UPDATE v=VALUES(v)");
 }
 
 /** Optional explicit desk modules JSON. Null/empty = infer from existing flags (no change for live desks). */
@@ -1767,6 +1831,7 @@ function folio_migrate(mysqli $db): void
     folio_migrate_sales_field($db);
     folio_ensure_purge_ofagros_fees($db);
     folio_ensure_company_sales_agent($db);
+    folio_ensure_fee_proportional_expiry($db);
 
     $tables = $db->query("SHOW TABLES LIKE 'users'");
     if (!$tables || $tables->num_rows === 0) {
